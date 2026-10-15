@@ -89,7 +89,6 @@ use schema_validation::*;
 
 pub(crate) fn check_public_function_boundary(
     function: &Function,
-    module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -136,7 +135,6 @@ pub(crate) fn check_public_function_boundary(
 
     diagnostics.extend(check_public_variant_refinement_visibility(
         function,
-        module,
         environment,
     ));
 

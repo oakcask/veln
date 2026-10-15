@@ -9,7 +9,7 @@ use crate::semantic_model::Type;
 use crate::source_less_names::InvalidStandardSymbolCase;
 
 use super::aliases::{descriptor_for_alias_target, type_alias_descriptors};
-use super::{AdtRegistry, VariantDeclarationOrder, descriptor_identity};
+use super::{AdtRegistry, DescriptorKey, VariantDeclarationOrder, descriptor_identity};
 use crate::adt::descriptors::AdtDescriptor;
 use crate::adt::lookup_validation::{
     companion_access_targets, source_descriptor, validate_adt_lookup_descriptors,
@@ -20,6 +20,7 @@ struct RegistryIndexes {
     descriptors_by_type_name: HashMap<String, Vec<usize>>,
     descriptors_by_identity: HashMap<String, Vec<usize>>,
     variants_by_name: HashMap<String, Vec<(usize, usize)>>,
+    variants_by_descriptor: HashMap<DescriptorKey, HashMap<String, usize>>,
 }
 
 impl RegistryIndexes {
@@ -29,6 +30,7 @@ impl RegistryIndexes {
             descriptors_by_type_name: HashMap::new(),
             descriptors_by_identity: HashMap::new(),
             variants_by_name: HashMap::new(),
+            variants_by_descriptor: HashMap::new(),
         };
         for (descriptor_index, descriptor) in descriptors.iter().enumerate() {
             indexes.index_descriptor(descriptor_index, descriptor);
@@ -51,6 +53,10 @@ impl RegistryIndexes {
                 .entry(variant.name.clone())
                 .or_default()
                 .push((descriptor_index, variant_index));
+            self.variants_by_descriptor
+                .entry(DescriptorKey::new(descriptor))
+                .or_default()
+                .insert(variant.name.clone(), variant_index);
         }
     }
 
@@ -125,6 +131,7 @@ impl AdtRegistry {
             descriptors_by_type_name,
             descriptors_by_identity,
             variants_by_name,
+            variants_by_descriptor,
         } = RegistryIndexes::from_descriptors(&descriptors);
         let local_descriptor_start = descriptors.len();
         Self {
@@ -133,11 +140,13 @@ impl AdtRegistry {
             descriptors_by_type_name,
             descriptors_by_identity,
             variants_by_name,
+            variants_by_descriptor,
             companion_access_targets,
             annotation_types,
             type_alias_identities: BTreeSet::new(),
             resolved_type_alias_declarations: BTreeSet::new(),
             declaration_spans: HashMap::new(),
+            variant_declaration_spans: HashMap::new(),
             local_descriptor_start,
         }
     }
@@ -196,6 +205,10 @@ impl AdtRegistry {
         registry
             .declaration_spans
             .extend(source_declaration_spans(module));
+        registry.variant_declaration_spans = base.variant_declaration_spans.clone();
+        registry
+            .variant_declaration_spans
+            .extend(source_variant_declaration_spans(module));
         registry.local_descriptor_start = local_descriptor_start;
         registry.canonicalize_source_payload_types(module, source_descriptor_start);
         registry
@@ -284,6 +297,7 @@ impl AdtRegistry {
             .cloned()
             .collect();
         registry.declaration_spans = retained_declaration_spans(self, &registry);
+        registry.variant_declaration_spans = retained_variant_declaration_spans(self, &registry);
         registry
     }
 }
@@ -308,6 +322,28 @@ fn source_declaration_spans(module: &SurfaceModule) -> HashMap<String, SourceSpa
         .collect()
 }
 
+fn source_variant_declaration_spans(
+    module: &SurfaceModule,
+) -> HashMap<String, HashMap<String, SourceSpan>> {
+    let mut spans = HashMap::<String, HashMap<String, SourceSpan>>::new();
+    for declaration in &module.types {
+        let Some(name) = declaration.name.as_ref() else {
+            continue;
+        };
+        let identity = match declaration.module_name.as_deref() {
+            None | Some("std::prelude") => name.clone(),
+            Some(module) => format!("{module}::{name}"),
+        };
+        let variants = spans.entry(identity).or_default();
+        for variant in &declaration.variants {
+            if let Some(name) = &variant.name {
+                variants.insert(name.clone(), variant.span.clone());
+            }
+        }
+    }
+    spans
+}
+
 fn retained_declaration_spans(
     source: &AdtRegistry,
     subset: &AdtRegistry,
@@ -321,6 +357,22 @@ fn retained_declaration_spans(
                 .contains_key(identity.as_str())
         })
         .map(|(identity, span)| (identity.clone(), span.clone()))
+        .collect()
+}
+
+fn retained_variant_declaration_spans(
+    source: &AdtRegistry,
+    subset: &AdtRegistry,
+) -> HashMap<String, HashMap<String, SourceSpan>> {
+    source
+        .variant_declaration_spans
+        .iter()
+        .filter(|(identity, _)| {
+            subset
+                .descriptors_by_identity
+                .contains_key(identity.as_str())
+        })
+        .map(|(identity, spans)| (identity.clone(), spans.clone()))
         .collect()
 }
 

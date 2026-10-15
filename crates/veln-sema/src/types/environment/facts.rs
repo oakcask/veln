@@ -120,6 +120,9 @@ fn finish_environment(
     let mut environment = TypeEnvironment {
         functions: callables.functions,
         functions_by_name: HashMap::new(),
+        unpublished_functions: base
+            .map(|base| base.unpublished_functions.clone())
+            .unwrap_or_default(),
         function_recovery_signatures: Vec::new(),
         function_recoveries: BTreeMap::new(),
         constructor_recoveries: BTreeMap::new(),
@@ -137,6 +140,18 @@ fn finish_environment(
         companion_effect_access_targets: declarations.companion_effect_access_targets,
     };
     quarantine_invalid_variant_refinement_signatures(module, &mut environment);
+    let unpublished = module
+        .functions
+        .iter()
+        .filter(|function| {
+            crate::analysis::function_has_private_variant_refinement_exposure(
+                function,
+                &environment,
+            )
+        })
+        .map(source_function_publication_key)
+        .collect::<Vec<_>>();
+    environment.unpublished_functions.extend(unpublished);
     let aliases = function_alias_signatures(module, &environment.functions);
     environment.functions.extend(aliases);
     environment.functions_by_name = function_name_index(&environment.functions);
@@ -389,7 +404,9 @@ fn declared_callable_facts(
         &declarations.adts,
         &declarations.companion_effect_access_targets,
     );
-    extend_with_base_facts(&mut functions, base.map(|base| &base.functions));
+    if let Some(base) = base {
+        functions.extend(base.published_functions().cloned());
+    }
     CallableFacts {
         functions,
         handlers,

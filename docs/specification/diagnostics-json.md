@@ -147,7 +147,12 @@ contain exactly `written_type`, `base_type`, `variant`, `boundary`, and
 Related entries identify the `private_type_declaration` or
 `private_variant_declaration` and the `public_parameter_boundary` or
 `public_result_boundary`. A union reports distinct inaccessible alternatives
-in written order and removes duplicate base-and-variant paths. The checked
+in written order and removes duplicate base-and-variant paths. The declaration
+entry remains present when the ADT comes from a reusable or base environment.
+If the base has invalid generic arity but its ADT and final constructor
+identities are unique, the existing arity diagnostic precedes the independent
+privacy diagnostic. Union comparison and assignability diagnostics that
+require an instantiated base remain suppressed. The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-public-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-public-visibility-json/)

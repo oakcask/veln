@@ -689,10 +689,14 @@ eligibility and diagnostic provenance. When the written base is a public type
 alias or a finite alias chain, `not_adt` eligibility and declaration provenance
 come from the canonical target declaration; the diagnostic still preserves the
 outer written alias as `written_type`. A base with invalid generic arity
-retains the existing `type.invalid_annotation` failure instead. Exact and
-uniquely casing-recovered source-backed or source-less type paths use the same
-arity rule. A failed refinement does not suppress an independently provable
-arity failure in a sibling record field or other structural type position. The
+retains the existing `type.invalid_annotation` failure. For a direct
+public-function root refinement, a uniquely resolved base and final constructor
+also retain an independently provable private-base or private-variant failure.
+Union comparison and assignability remain suppressed because they require a
+valid instantiation. Exact and uniquely casing-recovered source-backed or
+source-less type paths use the same arity rule. A failed refinement does not
+suppress an independently provable arity failure in a sibling record field or
+other structural type position. The
 same eligibility rule applies recursively to parameters, results, locals, ADT
 payloads, effect and handler annotations, schema fields, and explicit call type
 arguments. A uniquely recovered invalid-cased base retains its identity and is
@@ -769,14 +773,26 @@ private functions.
 This visibility check applies only when the refinement is the root annotation
 and its written base directly names the ADT. It does not resolve through a type
 alias or traverse a record, named type argument, function type, ADT payload, or
-another structural position. A visibility failure quarantines every parameter
-and the result of the public function. It also prevents checked core or IR
-output. The checked
+another structural position. A visibility failure leaves an all-`unknown`
+signature only as internal same-module recovery state. The failed function is
+absent from the callable facts inherited by another module; that environment
+lookup is the compiler's concrete package-signature publication boundary
+because the repository has no independent package-signature artifact. The
+failure also prevents creation of the checked declaration collection in core
+and prevents IR output. The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-public-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-public-visibility-json/)
 cases verify source order, primary spans, related declarations and public
 boundaries, and structured details.
+
+Visibility resolution uses registry-owned indexes for ADT identities, selected
+variants, and declaration provenance. The provenance is retained when a
+declaration comes from a reusable or dependency environment. Deterministic work
+checks compare adjacent widths for both one wide refinement union and many
+public declarations; each workload grows linearly in the number of direct
+alternatives or declarations. Elapsed time is recorded during maintenance but
+does not define this bound.
 
 For `N` independent invalid bases, annotation collection, casing collection,
 enclosing-context processing, and diagnostic ordering each use linear
@@ -941,7 +957,8 @@ Variant-refinement semantic-token classifications are specified in
 [editor-support.md](editor-support.md#token-classes), and its navigation and
 rename behavior is specified by
 [editor support](editor-support.md#lsp-navigation-formatting-and-rename) and
-[MCP](mcp.md#saved-workspace-navigation). Public/private exposure paths,
+[MCP](mcp.md#saved-workspace-navigation). Transitive alias and structural
+public/private exposure paths,
 qualified-value control-flow refinement, schema boundaries,
 package-documentation catalog signatures, remaining LSP diagnostics and
 recovery, and remaining MCP invalid-refinement recovery, package-signature,

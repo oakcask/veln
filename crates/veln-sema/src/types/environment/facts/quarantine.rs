@@ -112,16 +112,12 @@ pub(super) fn function_has_base_failure(
 }
 
 pub(super) fn function_has_invalid_variant_refinement(
-    module: &SurfaceModule,
+    _module: &SurfaceModule,
     function: &Function,
     environment: &TypeEnvironment,
 ) -> bool {
     function_has_base_failure(function, environment)
-        || crate::analysis::function_has_private_variant_refinement_exposure(
-            function,
-            module,
-            environment,
-        )
+        || crate::analysis::function_has_private_variant_refinement_exposure(function, environment)
 }
 
 fn quarantine_invalid_variant_refinement_effect_types(

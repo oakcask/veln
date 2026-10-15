@@ -306,6 +306,73 @@ fn declaration_quarantine_work_is_linear_across_consumers() {
 }
 
 #[test]
+fn public_visibility_work_is_linear_for_wide_unions() {
+    let work = [16, 32, 64].map(|count| {
+        let mut source = String::from("pub type State\n");
+        for index in 0..count {
+            source.push_str(&format!("  Hidden{index}\n"));
+        }
+        source.push_str("end\npub fn expose(value: ");
+        for index in 0..count {
+            if index > 0 {
+                source.push_str(" | ");
+            }
+            source.push_str(&format!("State::Hidden{index}"));
+        }
+        source.push_str(") -> ()\n  ()\nend\n");
+
+        crate::analysis::reset_visibility_work();
+        let diagnostics = diagnostics_for(&source);
+        let work = crate::analysis::take_visibility_work();
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+                .count(),
+            count,
+            "count={count} diagnostics={diagnostics:#?}"
+        );
+        eprintln!("variant refinement visibility union: alternatives={count} work={work}");
+        work
+    });
+
+    let first_growth = work[1] - work[0];
+    let second_growth = work[2] - work[1];
+    assert_eq!(second_growth, first_growth * 2, "work={work:?}");
+}
+
+#[test]
+fn public_visibility_work_is_linear_for_many_declarations() {
+    let work = [16, 32, 64].map(|count| {
+        let mut source = String::new();
+        for index in 0..count {
+            source.push_str(&format!(
+                "pub type State{index}\n  Hidden\nend\n\
+                 pub fn expose_{index}(value: State{index}::Hidden) -> ()\n  ()\nend\n"
+            ));
+        }
+
+        crate::analysis::reset_visibility_work();
+        let diagnostics = diagnostics_for(&source);
+        let work = crate::analysis::take_visibility_work();
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+                .count(),
+            count,
+            "count={count} diagnostics={diagnostics:#?}"
+        );
+        eprintln!("variant refinement visibility declarations: declarations={count} work={work}");
+        work
+    });
+
+    let first_growth = work[1] - work[0];
+    let second_growth = work[2] - work[1];
+    assert_eq!(second_growth, first_growth * 2, "work={work:?}");
+}
+
+#[test]
 fn nested_refinement_canonicalization_handles_increasing_depths() {
     fn canonicalization_work(depth: usize) -> usize {
         let mut annotation = "Int".to_string();

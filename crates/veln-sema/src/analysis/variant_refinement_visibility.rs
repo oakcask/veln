@@ -1,6 +1,6 @@
-use std::collections::BTreeSet;
+use std::collections::HashSet;
 
-use veln_ast::{Function, Param, SurfaceModule, VariantRefinementType, Visibility};
+use veln_ast::{Function, Param, VariantRefinementType, Visibility};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
@@ -12,7 +12,6 @@ use crate::types::TypeEnvironment;
 
 pub(crate) fn check_public_variant_refinement_visibility(
     function: &Function,
-    module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -22,7 +21,6 @@ pub(crate) fn check_public_variant_refinement_visibility(
             &param.ty_refinements,
             PublicBoundary::Parameter(param),
             function,
-            module,
             environment,
             &mut diagnostics,
         );
@@ -32,7 +30,6 @@ pub(crate) fn check_public_variant_refinement_visibility(
         &function.return_type_refinements,
         PublicBoundary::Result(function.return_type_span.as_ref()),
         function,
-        module,
         environment,
         &mut diagnostics,
     );
@@ -41,7 +38,6 @@ pub(crate) fn check_public_variant_refinement_visibility(
 
 pub(crate) fn function_has_private_variant_refinement_exposure(
     function: &Function,
-    module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> bool {
     function.visibility == Visibility::Public
@@ -49,7 +45,6 @@ pub(crate) fn function_has_private_variant_refinement_exposure(
             root_exposures(
                 param.ty.as_deref(),
                 &param.ty_refinements,
-                module,
                 function.module_name.as_deref(),
                 environment,
             )
@@ -58,7 +53,6 @@ pub(crate) fn function_has_private_variant_refinement_exposure(
         }) || root_exposures(
             function.return_type.as_deref(),
             &function.return_type_refinements,
-            module,
             function.module_name.as_deref(),
             environment,
         )
@@ -71,7 +65,6 @@ fn collect_root_exposures(
     refinements: &[VariantRefinementType],
     boundary: PublicBoundary<'_>,
     function: &Function,
-    module: &SurfaceModule,
     environment: &TypeEnvironment,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
@@ -81,7 +74,6 @@ fn collect_root_exposures(
     for exposure in root_exposures(
         annotation,
         refinements,
-        module,
         function.module_name.as_deref(),
         environment,
     ) {
@@ -92,7 +84,6 @@ fn collect_root_exposures(
 fn root_exposures<'a>(
     annotation: Option<&str>,
     refinements: &'a [VariantRefinementType],
-    module: &'a SurfaceModule,
     current_module: Option<&'a str>,
     environment: &'a TypeEnvironment,
 ) -> impl Iterator<Item = PrivateExposure<'a>> {
@@ -117,14 +108,15 @@ fn root_exposures<'a>(
         .flatten()
         .into_iter();
     refinements.flat_map(move |refinement| {
-        let mut seen = BTreeSet::new();
+        let mut seen = HashSet::new();
         refinement
             .alternatives
             .iter()
             .filter_map(move |alternative| {
-                private_exposure(alternative, module, current_module, environment)
+                private_exposure(alternative, current_module, environment)
             })
             .filter(move |exposure| {
+                record_visibility_work(1);
                 seen.insert((
                     exposure.descriptor.identity(),
                     exposure.variant.name.clone(),
@@ -135,55 +127,83 @@ fn root_exposures<'a>(
 
 fn private_exposure<'a>(
     alternative: &'a veln_ast::VariantRefinementAlternative,
-    module: &'a SurfaceModule,
     current_module: Option<&'a str>,
     environment: &'a TypeEnvironment,
 ) -> Option<PrivateExposure<'a>> {
     let written_base = alternative.base.segments.join("::");
-    let descriptor = environment.adts.descriptor_for_type_path(
-        &written_base,
-        alternative.type_arguments.len(),
-        current_module,
-        &environment.uses,
-    )?;
+    record_visibility_work(1);
+    let descriptor = environment
+        .adts
+        .descriptor_for_type_path(
+            &written_base,
+            alternative.type_arguments.len(),
+            current_module,
+            &environment.uses,
+        )
+        .or_else(|| {
+            environment.adts.unique_descriptor_for_type_path_any_arity(
+                &written_base,
+                current_module,
+                &environment.uses,
+            )
+        })?;
     if environment.adts.descriptor_is_type_alias(descriptor) {
         return None;
     }
-    let variant = descriptor
-        .variants
-        .iter()
-        .find(|variant| variant.name == alternative.variant)?;
+    record_visibility_work(1);
+    let variant = environment
+        .adts
+        .variant_for_descriptor(descriptor, &alternative.variant)?;
     let private_base = descriptor.visibility == Visibility::Private;
     if !private_base && variant.visibility == Visibility::Public {
         return None;
     }
+    record_visibility_work(1);
     Some(PrivateExposure {
         alternative,
         descriptor,
         variant,
-        declaration_span: private_declaration_span(module, descriptor, variant, private_base),
+        declaration_span: private_declaration_span(environment, descriptor, variant, private_base),
         private_base,
     })
 }
 
 fn private_declaration_span(
-    module: &SurfaceModule,
+    environment: &TypeEnvironment,
     descriptor: &AdtDescriptor,
     variant: &AdtVariantDescriptor,
     private_base: bool,
 ) -> Option<SourceSpan> {
-    let declaration = module.types.iter().find(|declaration| {
-        declaration.name.as_deref() == Some(descriptor.type_name.as_str())
-            && declaration.module_name == descriptor.module_name
-    })?;
     if private_base {
-        return Some(declaration.span.clone());
+        return environment.adts.declaration_span(descriptor).cloned();
     }
-    declaration
-        .variants
-        .iter()
-        .find(|declaration| declaration.name.as_deref() == Some(variant.name.as_str()))
-        .map(|declaration| declaration.span.clone())
+    environment
+        .adts
+        .variant_declaration_span(descriptor, variant)
+        .cloned()
+}
+
+#[cfg(test)]
+thread_local! {
+    static VISIBILITY_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_visibility_work(amount: usize) {
+    VISIBILITY_WORK.with(|work| work.set(work.get() + amount));
+}
+
+#[cfg(not(test))]
+fn record_visibility_work(_amount: usize) {}
+
+#[cfg(test)]
+pub(crate) fn reset_visibility_work() {
+    VISIBILITY_WORK.with(|work| work.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_visibility_work() -> usize {
+    VISIBILITY_WORK.with(|work| work.replace(0))
 }
 
 struct PrivateExposure<'a> {

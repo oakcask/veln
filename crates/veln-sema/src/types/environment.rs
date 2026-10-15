@@ -4,6 +4,28 @@ use veln_ast::NameOccurrence;
 
 use crate::adt::registry::AdtRegistry;
 
+type FunctionPublicationKey = (Option<String>, String, SourcePath, usize, usize);
+
+fn function_publication_key(function: &FunctionSignature) -> FunctionPublicationKey {
+    (
+        function.module_name.clone(),
+        function.name.clone(),
+        function.span.file.clone(),
+        function.span.start.offset,
+        function.span.end.offset,
+    )
+}
+
+fn source_function_publication_key(function: &Function) -> FunctionPublicationKey {
+    (
+        function.module_name.clone(),
+        function.name.clone().unwrap_or_default(),
+        function.span.file.clone(),
+        function.span.start.offset,
+        function.span.end.offset,
+    )
+}
+
 pub(crate) struct TypeParameterIdentityContext<'a> {
     positions: HashMap<&'a str, usize>,
     lookups: Option<std::cell::Cell<usize>>,
@@ -54,6 +76,7 @@ mod standard_subset;
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
     functions_by_name: HashMap<String, Vec<usize>>,
+    unpublished_functions: HashSet<FunctionPublicationKey>,
     function_recovery_signatures: Vec<FunctionSignature>,
     function_recoveries: BTreeMap<FunctionRecoveryKey, usize>,
     constructor_recoveries: BTreeMap<ConstructorRecoveryKey, usize>,
@@ -207,6 +230,23 @@ impl TypeEnvironment {
 
     pub(crate) fn function(&self, name: &str) -> Option<&FunctionSignature> {
         self.functions_named(name).next()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn function_is_published_for_test(&self, name: &str) -> bool {
+        self.functions_named(name).any(|function| {
+            !self
+                .unpublished_functions
+                .contains(&function_publication_key(function))
+        })
+    }
+
+    pub(in crate::types) fn published_functions(&self) -> impl Iterator<Item = &FunctionSignature> {
+        self.functions.iter().filter(|function| {
+            !self
+                .unpublished_functions
+                .contains(&function_publication_key(function))
+        })
     }
 
     pub(crate) fn local_function_value_recovery(

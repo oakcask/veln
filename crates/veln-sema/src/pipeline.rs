@@ -170,7 +170,6 @@ fn analyze_surface_module_with_environment(
             continue;
         }
         diagnostics.extend(check_function_declaration_and_body(
-            module,
             function,
             environment,
             &mut variant_diagnostics,
@@ -515,7 +514,6 @@ fn check_module_declarations(
 }
 
 fn check_function_declaration_and_body(
-    module: &SurfaceModule,
     function: &veln_ast::Function,
     environment: &TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
@@ -523,12 +521,14 @@ fn check_function_declaration_and_body(
     let mut diagnostics = Vec::new();
 
     diagnostics.extend(check_declared_effect_labels(function, environment));
+    let mut visibility_diagnostics = Vec::new();
     if function.visibility == Visibility::Public {
-        diagnostics.extend(check_public_function_boundary(
-            function,
-            module,
-            environment,
-        ));
+        let (visibility, boundary): (Vec<_>, Vec<_>) =
+            check_public_function_boundary(function, environment)
+                .into_iter()
+                .partition(|diagnostic| diagnostic.id == "type.variant_refinement_private");
+        diagnostics.extend(boundary);
+        visibility_diagnostics = visibility;
     }
     if function.kind == FunctionKind::Test {
         diagnostics.extend(check_test_declaration_boundary(function));
@@ -538,6 +538,7 @@ fn check_function_declaration_and_body(
         environment,
         variant_diagnostics,
     ));
+    diagnostics.extend(visibility_diagnostics);
 
     diagnostics
 }

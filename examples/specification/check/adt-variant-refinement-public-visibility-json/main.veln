@@ -9,6 +9,14 @@ pub type State
 	Closed
 end
 
+type GenericSecret<A>
+	pub Hidden(A)
+end
+
+pub type GenericState<A>
+	Hidden(A)
+end
+
 pub fn private_base_parameter(value: Secret::One) -> ()
 	()
 end
@@ -26,5 +34,13 @@ pub fn private_variant_result() -> State::Closed
 end
 
 pub fn private_union(value: State::Closed | State::Hidden | State::Closed) -> ()
+	()
+end
+
+pub fn invalid_arity_private_base(value: GenericSecret::Hidden) -> ()
+	()
+end
+
+pub fn invalid_arity_private_variant(value: GenericState::Hidden) -> ()
 	()
 end

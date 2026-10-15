@@ -88,6 +88,8 @@ pub(crate) use variant_refinement_bases::{
 pub(crate) use variant_refinement_visibility::{
     check_public_variant_refinement_visibility, function_has_private_variant_refinement_exposure,
 };
+#[cfg(test)]
+pub(crate) use variant_refinement_visibility::{reset_visibility_work, take_visibility_work};
 
 fn private_companion_effect_target_diagnostic(
     node_id: String,

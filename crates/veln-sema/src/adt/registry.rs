@@ -23,11 +23,13 @@ pub(crate) struct AdtRegistry {
     descriptors_by_type_name: HashMap<String, Vec<usize>>,
     descriptors_by_identity: HashMap<String, Vec<usize>>,
     variants_by_name: HashMap<String, Vec<(usize, usize)>>,
+    variants_by_descriptor: HashMap<DescriptorKey, HashMap<String, usize>>,
     companion_access_targets: BTreeMap<String, String>,
     annotation_types: BTreeMap<(Option<String>, String), Type>,
     type_alias_identities: BTreeSet<(Option<String>, String)>,
     resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     declaration_spans: HashMap<String, SourceSpan>,
+    variant_declaration_spans: HashMap<String, HashMap<String, SourceSpan>>,
     local_descriptor_start: usize,
 }
 
@@ -37,6 +39,25 @@ struct TypeAliasDeclarationIdentity {
     file: SourcePath,
     start: usize,
     end: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct DescriptorKey {
+    module_name: Option<String>,
+    type_name: String,
+    nominal_identity: Option<String>,
+    arity: usize,
+}
+
+impl DescriptorKey {
+    fn new(descriptor: &AdtDescriptor) -> Self {
+        Self {
+            module_name: descriptor.module_name.clone(),
+            type_name: descriptor.type_name.clone(),
+            nominal_identity: descriptor.nominal_identity.clone(),
+            arity: descriptor.type_parameters.len(),
+        }
+    }
 }
 
 impl TypeAliasDeclarationIdentity {
@@ -191,6 +212,28 @@ impl AdtRegistry {
 
     pub(crate) fn declaration_span(&self, descriptor: &AdtDescriptor) -> Option<&SourceSpan> {
         self.declaration_spans.get(&descriptor.identity())
+    }
+
+    pub(crate) fn variant_for_descriptor<'a>(
+        &'a self,
+        descriptor: &'a AdtDescriptor,
+        name: &str,
+    ) -> Option<&'a AdtVariantDescriptor> {
+        let variant_index = self
+            .variants_by_descriptor
+            .get(&DescriptorKey::new(descriptor))?
+            .get(name)?;
+        descriptor.variants.get(*variant_index)
+    }
+
+    pub(crate) fn variant_declaration_span(
+        &self,
+        descriptor: &AdtDescriptor,
+        variant: &AdtVariantDescriptor,
+    ) -> Option<&SourceSpan> {
+        self.variant_declaration_spans
+            .get(&descriptor.identity())?
+            .get(&variant.name)
     }
 
     pub(crate) fn variant_declaration_order_for_type(
