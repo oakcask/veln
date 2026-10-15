@@ -656,7 +656,9 @@ so qualified and unqualified spellings of the same ADT can form one union.
 Duplicate alternatives with the same resolved ADT, canonical generic
 arguments, and variant are removed. Alternatives whose generic arguments
 differ remain distinct even when they select the same variant. Display follows
-ADT declaration order.
+ADT declaration order. Canonical generic arguments recursively use resolved
+type identities, so an alias argument and its resolved target identify the
+same alternative.
 `Option<T>`, `Result<T, E>`, `List<T>`, and source-defined ADTs use this same
 representation. A public type-alias chain whose resolved target is an ADT can
 qualify a singleton or union alternative. Alias-qualified and target-qualified
@@ -774,9 +776,10 @@ qualifiers. For example, `main::Secret::One` selects `Secret`, not
 `main::Secret`. A public base with a private selected variant fails at the
 final variant segment. A same-ADT union reports each distinct inaccessible
 base-and-variant path in written order and does not repeat a diagnostic for a
-duplicate alternative. Public refinements remain valid when the base and
-selected variants are public. The same private refinements remain valid on
-private functions.
+duplicate alternative. Duplicate detection uses the resolved base, canonical
+generic arguments, and variant, and keeps the first written occurrence. Public
+refinements remain valid when the base and selected variants are public. The
+same private refinements remain valid on private functions.
 
 The direct check uses identities selected by unique exact lookup or
 initial-only casing recovery. Final-constructor lookup must select exactly one
@@ -791,6 +794,13 @@ final constructor keeps its written spelling in diagnostic details. Its
 `name.invalid_case` diagnostic precedes the independently provable visibility
 failure. Ambiguous or unresolved casing recovery does not manufacture a
 visibility identity or a privacy diagnostic.
+When recovery retains a root union containing both invalid-cased and exact
+alternatives, the direct check visits every uniquely resolved alternative in
+written order. An earlier recovered alternative neither replaces nor hides a
+later exact alternative. The check treats the alternatives as direct roots
+only when they occupy the complete annotation and are separated only by `|`;
+paths nested inside another type shape do not become direct roots through this
+recovery.
 Exact qualified lookup binds the base to the written module or import identity
 before it checks arity and uniqueness. An imported `State` therefore remains
 the base of `imported::State<Int>::Hidden` when the current module also declares

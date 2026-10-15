@@ -150,12 +150,19 @@ Related entries identify the `private_type_declaration` or
 `private_variant_declaration` and the `public_parameter_boundary` or
 `public_result_boundary`. A union reports distinct inaccessible alternatives
 in written order. It removes paths with the same resolved base, canonical
-generic arguments, and variant. The declaration
+generic arguments, and variant, and retains the first written path. Canonical
+generic arguments recursively use resolved type identities, so an alias and
+its resolved target do not create separate privacy diagnostics. The declaration
 entry remains present when the ADT comes from a reusable or base environment.
 If initial-only casing recovery uniquely selects the base ADT and final
 constructor, `name.invalid_case` precedes the independent privacy diagnostic,
 whose `written_type` retains the source spelling. An ambiguous or unresolved
 base or final-constructor recovery does not produce a privacy diagnostic.
+When one root union contains both invalid-cased and exact alternatives,
+recovery preserves every uniquely resolved direct alternative for this
+diagnostic in written order. This rule applies only when those alternatives
+occupy the complete annotation and are separated only by `|`; it does not
+promote a refinement nested in another type shape to a direct root.
 An exact final name shared by multiple variant declarations in the selected
 ADT is also ambiguous for this privacy check. That alternative produces no
 privacy diagnostic and does not by itself quarantine the public function; the
