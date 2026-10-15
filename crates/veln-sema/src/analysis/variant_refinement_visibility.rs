@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use veln_ast::{Function, Param, VariantRefinementType, Visibility};
+use veln_ast::{Function, Param, TypePathSegments, VariantRefinementType, Visibility};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
@@ -17,6 +17,7 @@ pub(crate) fn check_public_variant_refinement_visibility(
         collect_root_exposures(
             param.ty_span.as_ref(),
             &param.ty_refinements,
+            &param.ty_paths,
             PublicBoundary::Parameter(param),
             function,
             environment,
@@ -26,6 +27,7 @@ pub(crate) fn check_public_variant_refinement_visibility(
     collect_root_exposures(
         function.return_type_span.as_ref(),
         &function.return_type_refinements,
+        &function.return_type_paths,
         PublicBoundary::Result(function.return_type_span.as_ref()),
         function,
         environment,
@@ -43,6 +45,7 @@ pub(crate) fn function_has_private_variant_refinement_exposure(
             root_exposures(
                 param.ty_span.as_ref(),
                 &param.ty_refinements,
+                &param.ty_paths,
                 function.module_name.as_deref(),
                 environment,
             )
@@ -51,6 +54,7 @@ pub(crate) fn function_has_private_variant_refinement_exposure(
         }) || root_exposures(
             function.return_type_span.as_ref(),
             &function.return_type_refinements,
+            &function.return_type_paths,
             function.module_name.as_deref(),
             environment,
         )
@@ -61,6 +65,7 @@ pub(crate) fn function_has_private_variant_refinement_exposure(
 fn collect_root_exposures(
     annotation_span: Option<&SourceSpan>,
     refinements: &[VariantRefinementType],
+    paths: &[TypePathSegments],
     boundary: PublicBoundary<'_>,
     function: &Function,
     environment: &TypeEnvironment,
@@ -72,6 +77,7 @@ fn collect_root_exposures(
     for exposure in root_exposures(
         annotation_span,
         refinements,
+        paths,
         function.module_name.as_deref(),
         environment,
     ) {
@@ -82,70 +88,93 @@ fn collect_root_exposures(
 fn root_exposures<'a>(
     annotation_span: Option<&SourceSpan>,
     refinements: &'a [VariantRefinementType],
+    paths: &'a [TypePathSegments],
     current_module: Option<&'a str>,
     environment: &'a TypeEnvironment,
-) -> impl Iterator<Item = PrivateExposure<'a>> {
-    let refinements = annotation_span
-        .and_then(|annotation_span| {
-            refinements
-                .iter()
-                .find(|refinement| refinement.span == *annotation_span)
-        })
-        .into_iter();
-    refinements.flat_map(move |refinement| {
-        let mut seen = HashSet::new();
-        refinement
-            .alternatives
-            .iter()
-            .filter_map(move |alternative| {
-                private_exposure(alternative, current_module, environment)
-            })
-            .filter(move |exposure| {
-                record_visibility_work(1);
-                seen.insert((
-                    exposure.descriptor.identity(),
-                    exposure.variant.name.clone(),
-                ))
-            })
-    })
+) -> std::vec::IntoIter<PrivateExposure<'a>> {
+    let Some(annotation_span) = annotation_span else {
+        return Vec::new().into_iter();
+    };
+    let mut exposures = Vec::new();
+    if let Some(refinement) = refinements
+        .iter()
+        .find(|refinement| refinement.span == *annotation_span)
+    {
+        exposures.extend(refinement.alternatives.iter().filter_map(|alternative| {
+            private_exposure(
+                &alternative.base.segments.join("::"),
+                alternative.type_arguments.len(),
+                &alternative.variant,
+                format!("{}::{}", alternative.base.written, alternative.variant),
+                alternative
+                    .base
+                    .segment_spans
+                    .last()
+                    .expect("type path has a segment")
+                    .clone(),
+                alternative.variant_span.clone(),
+                current_module,
+                environment,
+            )
+        }));
+    } else if let Some(path) = paths
+        .iter()
+        .find(|path| path.application_span == *annotation_span && path.segments.len() >= 2)
+    {
+        let variant_index = path.segments.len() - 1;
+        exposures.extend(private_exposure(
+            &path.segments[..variant_index].join("::"),
+            path.type_argument_count,
+            &path.segments[variant_index],
+            path.written.clone(),
+            path.segment_spans[variant_index - 1].clone(),
+            path.segment_spans[variant_index].clone(),
+            current_module,
+            environment,
+        ));
+    }
+
+    let mut seen = HashSet::new();
+    exposures.retain(|exposure| {
+        record_visibility_work(1);
+        seen.insert((
+            exposure.descriptor.identity(),
+            exposure.variant.name.clone(),
+        ))
+    });
+    exposures.into_iter()
 }
 
 fn private_exposure<'a>(
-    alternative: &'a veln_ast::VariantRefinementAlternative,
+    written_base: &str,
+    type_argument_count: usize,
+    written_variant: &str,
+    written_type: String,
+    base_span: SourceSpan,
+    variant_span: SourceSpan,
     current_module: Option<&'a str>,
     environment: &'a TypeEnvironment,
 ) -> Option<PrivateExposure<'a>> {
-    let written_base = alternative.base.segments.join("::");
     record_visibility_work(1);
-    let descriptor = environment
-        .adts
-        .descriptor_for_type_path(
-            &written_base,
-            alternative.type_arguments.len(),
-            current_module,
-            &environment.uses,
-        )
-        .or_else(|| {
-            environment.adts.unique_descriptor_for_type_path_any_arity(
-                &written_base,
-                current_module,
-                &environment.uses,
-            )
-        })?;
+    let descriptor = environment.variant_refinement_descriptor_identity(
+        written_base,
+        type_argument_count,
+        current_module,
+    )?;
     if environment.adts.descriptor_is_type_alias(descriptor) {
         return None;
     }
     record_visibility_work(1);
-    let variant = environment
-        .adts
-        .variant_for_descriptor(descriptor, &alternative.variant)?;
+    let variant = environment.variant_refinement_variant_identity(descriptor, written_variant)?;
     let private_base = descriptor.visibility == Visibility::Private;
     if !private_base && variant.visibility == Visibility::Public {
         return None;
     }
     record_visibility_work(1);
     Some(PrivateExposure {
-        alternative,
+        written_type,
+        base_span,
+        variant_span,
         descriptor,
         variant,
         declaration_span: private_declaration_span(environment, descriptor, variant, private_base),
@@ -192,7 +221,9 @@ pub(crate) fn take_visibility_work() -> usize {
 }
 
 struct PrivateExposure<'a> {
-    alternative: &'a veln_ast::VariantRefinementAlternative,
+    written_type: String,
+    base_span: SourceSpan,
+    variant_span: SourceSpan,
     descriptor: &'a AdtDescriptor,
     variant: &'a AdtVariantDescriptor,
     declaration_span: Option<SourceSpan>,
@@ -202,10 +233,6 @@ struct PrivateExposure<'a> {
 impl PrivateExposure<'_> {
     fn diagnostic(&self, boundary: PublicBoundary<'_>, function: &Function) -> Diagnostic {
         let base_type = self.descriptor.identity();
-        let written_type = format!(
-            "{}::{}",
-            self.alternative.base.written, self.alternative.variant
-        );
         let (span, message, declaration_kind, declaration_message) = self.primary_context();
         let mut diagnostic = Diagnostic::new(
             "type.variant_refinement_private",
@@ -214,7 +241,7 @@ impl PrivateExposure<'_> {
             message,
             Some(span),
             JsonValue::object([
-                ("written_type", JsonValue::string(written_type)),
+                ("written_type", JsonValue::string(self.written_type.clone())),
                 ("base_type", JsonValue::string(base_type)),
                 ("variant", JsonValue::string(self.variant.name.clone())),
                 ("boundary", JsonValue::string(boundary.name())),
@@ -243,19 +270,14 @@ impl PrivateExposure<'_> {
         let base_type = self.descriptor.identity();
         if self.private_base {
             (
-                self.alternative
-                    .base
-                    .segment_spans
-                    .last()
-                    .expect("type path has a segment")
-                    .clone(),
+                self.base_span.clone(),
                 format!("public refinement exposes private type `{base_type}`"),
                 "private_type_declaration",
                 format!("Private type `{base_type}` is declared here."),
             )
         } else {
             (
-                self.alternative.variant_span.clone(),
+                self.variant_span.clone(),
                 format!(
                     "public refinement exposes private variant `{}::{}`",
                     base_type, self.variant.name

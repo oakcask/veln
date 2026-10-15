@@ -58,6 +58,168 @@ fn public_parameters_and_results_reject_private_refinement_declarations() {
 }
 
 #[test]
+fn unique_casing_recovery_retains_direct_visibility_identity() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Secret\n",
+        "  pub Hidden\n",
+        "end\n",
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub fn private_base_parameter(value: secret::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub fn private_base_result() -> secret::Hidden\n",
+        "  Secret::Hidden\n",
+        "end\n",
+        "pub fn private_variant_parameter(value: state::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub fn private_variant_result() -> state::Hidden\n",
+        "  State::Hidden\n",
+        "end\n",
+    ));
+
+    let relevant = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "name.invalid_case" | "type.variant_refinement_private"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(relevant.len(), 8, "{diagnostics:#?}");
+    assert_eq!(
+        relevant
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "name.invalid_case",
+            "name.invalid_case",
+            "name.invalid_case",
+            "name.invalid_case",
+            "type.variant_refinement_private",
+            "type.variant_refinement_private",
+            "type.variant_refinement_private",
+            "type.variant_refinement_private",
+        ],
+        "{diagnostics:#?}"
+    );
+
+    let visibility = relevant
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    assert!(visibility[0].contains(
+        "\"written_type\":\"secret::Hidden\",\"base_type\":\"Secret\",\"variant\":\"Hidden\",\"boundary\":\"public_parameter\""
+    ));
+    assert!(visibility[1].contains(
+        "\"written_type\":\"secret::Hidden\",\"base_type\":\"Secret\",\"variant\":\"Hidden\",\"boundary\":\"public_result\""
+    ));
+    assert!(visibility[2].contains(
+        "\"written_type\":\"state::Hidden\",\"base_type\":\"State\",\"variant\":\"Hidden\",\"boundary\":\"public_parameter\""
+    ));
+    assert!(visibility[3].contains(
+        "\"written_type\":\"state::Hidden\",\"base_type\":\"State\",\"variant\":\"Hidden\",\"boundary\":\"public_result\""
+    ));
+}
+
+#[test]
+fn recovered_final_variant_retains_visibility_identity() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type State\n",
+            "  Hidden\n",
+            "end\n",
+            "pub fn expose(value: State::hidden) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(
+        parsed
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
+        "{:#?}",
+        parsed.diagnostics
+    );
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+    let relevant = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "name.invalid_case" | "type.variant_refinement_private"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        relevant
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case", "type.variant_refinement_private"],
+        "{diagnostics:#?}"
+    );
+    let visibility = veln_diagnostics::diagnostic_to_json(relevant[1]).to_json();
+    assert!(visibility.contains(
+        "\"written_type\":\"State::hidden\",\"base_type\":\"State\",\"variant\":\"Hidden\""
+    ));
+}
+
+#[test]
+fn non_unique_final_variant_recovery_suppresses_visibility_identity() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type State\n",
+            "  Hidden\n",
+            "  Hidden\n",
+            "end\n",
+            "pub fn expose(value: State::hidden) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.variant_refinement_private"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn non_unique_casing_recovery_does_not_manufacture_visibility_identity() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Hidden\n",
+        "end\n",
+        "type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub fn expose(value: state::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.variant_refinement_private"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn qualified_private_base_selects_only_the_final_base_segment() {
     let diagnostics = visibility_diagnostics(concat!(
         "mod sample\n",
@@ -409,6 +571,66 @@ fn visibility_failure_quarantines_the_signature_and_blocks_lowering() {
     assert_eq!(signature.params, [Type::Unknown, Type::Unknown]);
     assert_eq!(signature.return_type, Type::Unknown);
     assert!(!environment.function_is_published_for_test("exposed"));
+
+    let lowered = lower_checked_surface_module(&module);
+    assert!(
+        lowered.core.is_none(),
+        "invalid declaration must not be checked"
+    );
+    assert!(
+        lowered.ir.is_none(),
+        "invalid declaration must not produce IR"
+    );
+}
+
+#[test]
+fn recovered_visibility_failure_quarantines_aliases_and_checked_output() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\n",
+            "pub type State\n",
+            "  Hidden\n",
+            "end\n",
+            "pub fn exposed(value: state::Hidden) -> state::Hidden\n",
+            "  Hidden\n",
+            "end\n",
+            "pub fn exposed_alias = exposed\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    let signature = environment.function("exposed").expect("recovery signature");
+    assert_eq!(signature.params, [Type::Unknown]);
+    assert_eq!(signature.return_type, Type::Unknown);
+    assert!(!environment.function_is_published_for_test("exposed"));
+    assert!(environment.function("exposed_alias").is_none());
+
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "consumer.veln",
+            "mod consumer\nuse main\n",
+        ))
+        .tree,
+    );
+    let consumer_environment =
+        TypeEnvironment::from_module_with_base_for_test(&consumer, &environment);
+    for name in ["exposed", "exposed_alias"] {
+        assert!(
+            consumer_environment
+                .function_path(&["main".to_string(), name.to_string()], Some("consumer"))
+                .is_none(),
+            "{name} must not be inherited"
+        );
+        assert!(
+            consumer_environment
+                .unqualified_function_import_candidates(name, Some("consumer"))
+                .is_empty(),
+            "{name} must not be an import candidate"
+        );
+    }
 
     let lowered = lower_checked_surface_module(&module);
     assert!(

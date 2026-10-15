@@ -61,3 +61,19 @@ end
 pub fn mixed_private_result() -> RecoveryState<Option>::Ready | RecoveryState<Int>::Hidden
 	RecoveryState::Hidden(1)
 end
+
+pub fn recovered_private_base_parameter(value: secret::One) -> ()
+	()
+end
+
+pub fn recovered_private_base_result() -> secret::Two
+	Secret::Two
+end
+
+pub fn recovered_private_variant_parameter(value: state::Hidden) -> ()
+	()
+end
+
+pub fn recovered_private_variant_result() -> state::Closed
+	State::Closed
+end

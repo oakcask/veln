@@ -310,6 +310,34 @@ impl AdtRegistry {
         self.descriptor_for_type_path_with_arity(name, Some(args_len), current_module, uses)
     }
 
+    pub(crate) fn unique_descriptor_for_type_path(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        let descriptor = self.descriptor_for_type_path(name, args_len, current_module, uses)?;
+        let selected_index = self
+            .descriptors
+            .iter()
+            .position(|candidate| std::ptr::eq(candidate, descriptor))?;
+        let selected_is_local = selected_index >= self.local_descriptor_start;
+        let mut matches = self
+            .descriptors
+            .iter()
+            .enumerate()
+            .filter(|(index, candidate)| {
+                (*index >= self.local_descriptor_start) == selected_is_local
+                    && candidate.type_name == descriptor.type_name
+                    && candidate.module_name == descriptor.module_name
+                    && candidate.type_parameters.len() == args_len
+            })
+            .map(|(_, candidate)| candidate);
+        let unique = matches.next()?;
+        matches.next().is_none().then_some(unique)
+    }
+
     pub(crate) fn descriptor_is_type_alias(&self, descriptor: &AdtDescriptor) -> bool {
         self.type_alias_identities
             .contains(&(descriptor.module_name.clone(), descriptor.type_name.clone()))

@@ -32,29 +32,9 @@ impl TypeEnvironment {
         args_len: usize,
         current_module: Option<&str>,
     ) -> Option<VariantRefinementBaseFailure> {
-        let recovered_base = recover_type_case(base);
-        let lookup_base = self
-            .adts
-            .unique_descriptor_for_type_path_any_arity(base, current_module, &self.uses)
-            .is_some()
-            .then_some(base)
-            .or_else(|| {
-                recovered_base.as_deref().filter(|candidate| {
-                    self.adts
-                        .unique_descriptor_for_type_path_any_arity(
-                            candidate,
-                            current_module,
-                            &self.uses,
-                        )
-                        .is_some()
-                })
-            })
-            .unwrap_or(base);
-        if let Some(descriptor) = self.adts.unique_descriptor_for_type_path_any_arity(
-            lookup_base,
-            current_module,
-            &self.uses,
-        ) {
+        if let Some(descriptor) =
+            self.variant_refinement_descriptor_identity(base, args_len, current_module)
+        {
             if descriptor.type_parameters.len() != args_len {
                 return None;
             }
@@ -64,7 +44,7 @@ impl TypeEnvironment {
         let resolved = self
             .resolved_source_less_non_adt_base(base, args_len, current_module)
             .or_else(|| {
-                recovered_base.as_deref().and_then(|candidate| {
+                recover_type_case(base).as_deref().and_then(|candidate| {
                     self.resolved_source_less_non_adt_base(candidate, args_len, current_module)
                 })
             })?;
@@ -81,6 +61,60 @@ impl TypeEnvironment {
                 "Type `{name}` resolves through the `type_syntax` provider without finite ADT variants."
             ),
         })
+    }
+
+    pub(crate) fn variant_refinement_descriptor_identity(
+        &self,
+        base: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+    ) -> Option<&crate::adt::descriptors::AdtDescriptor> {
+        if let Some(descriptor) =
+            self.adts
+                .unique_descriptor_for_type_path(base, args_len, current_module, &self.uses)
+        {
+            return Some(descriptor);
+        }
+        if self
+            .adts
+            .descriptor_for_type_path(base, args_len, current_module, &self.uses)
+            .is_some()
+        {
+            return None;
+        }
+        if self
+            .adts
+            .descriptor_for_type_path_any_arity(base, current_module, &self.uses)
+            .is_some()
+        {
+            return self.adts.unique_descriptor_for_type_path_any_arity(
+                base,
+                current_module,
+                &self.uses,
+            );
+        }
+
+        let recovered = recover_type_case(base)?;
+        self.adts
+            .unique_descriptor_for_type_path_any_arity(&recovered, current_module, &self.uses)
+    }
+
+    pub(crate) fn variant_refinement_variant_identity<'a>(
+        &'a self,
+        descriptor: &'a crate::adt::descriptors::AdtDescriptor,
+        variant: &str,
+    ) -> Option<&'a crate::adt::descriptors::AdtVariantDescriptor> {
+        self.adts
+            .variant_for_descriptor(descriptor, variant)
+            .or_else(|| {
+                let recovered = recover_type_case(variant)?;
+                let mut variants = descriptor
+                    .variants
+                    .iter()
+                    .filter(|candidate| candidate.name == recovered);
+                let variant = variants.next()?;
+                variants.next().is_none().then_some(variant)
+            })
     }
 
     fn variant_refinement_descriptor_failure(
@@ -331,6 +365,31 @@ impl TypeEnvironment {
             return false;
         };
         self.variant_refinement_base_name_resolves(&recovered, current_module)
+    }
+
+    pub(crate) fn recovered_variant_refinement_path_resolves(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> bool {
+        if segments.len() < 2 {
+            return false;
+        }
+        if matches!(
+            self.adts.constructor(segments, current_module, &self.uses),
+            crate::adt::registry::ConstructorLookup::Found(_)
+        ) {
+            return false;
+        }
+        let variant_index = segments.len() - 1;
+        let base = segments[..variant_index].join("::");
+        let Some(descriptor) =
+            self.variant_refinement_descriptor_identity(&base, 0, current_module)
+        else {
+            return false;
+        };
+        self.variant_refinement_variant_identity(descriptor, &segments[variant_index])
+            .is_some()
     }
 
     pub(crate) fn recovered_variant_refinement_base_resolves(

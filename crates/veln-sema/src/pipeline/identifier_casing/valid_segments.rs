@@ -209,7 +209,10 @@ fn collect_type_path_segments(
         if path.segments.len() < 2 {
             continue;
         }
-        if environment.recovered_variant_refinement_candidate(&path.segments, current_module) {
+        if environment.recovered_variant_refinement_candidate(&path.segments, current_module)
+            || environment
+                .recovered_variant_refinement_path_resolves(&path.segments, current_module)
+        {
             let base_index = path.segments.len() - 2;
             for (index, (segment, span)) in
                 path.segments.iter().zip(&path.segment_spans).enumerate()
