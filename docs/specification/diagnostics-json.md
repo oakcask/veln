@@ -154,7 +154,11 @@ entry remains present when the ADT comes from a reusable or base environment.
 If the base has invalid generic arity but its ADT and final constructor
 identities are unique, the existing arity diagnostic precedes the independent
 privacy diagnostic. Union comparison and assignability diagnostics that
-require an instantiated base remain suppressed. The checked
+require an instantiated base remain suppressed.
+An invalid annotation in a nested type argument or sibling alternative of the
+same root union also precedes but does not suppress an independently provable
+privacy diagnostic. This recovery does not extend visibility checking into
+aliases or structural type positions. The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-public-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-public-visibility-json/)

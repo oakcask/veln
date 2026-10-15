@@ -181,6 +181,109 @@ fn invalid_generic_arity_retains_independent_visibility_failures() {
 }
 
 #[test]
+fn mixed_annotation_errors_retain_independent_root_visibility_failures() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Secret<A>\n",
+        "  pub Hidden(A)\n",
+        "end\n",
+        "pub type State<A>\n",
+        "  Hidden(A)\n",
+        "  pub Ready(A)\n",
+        "end\n",
+        "pub type Public<A>\n",
+        "  pub Open(A)\n",
+        "end\n",
+        "pub fn private_base_same(value: Secret<Option>::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub fn private_variant_same(value: State<Option>::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub fn private_variant_sibling(value: State<Int>::Hidden | State<Option>::Ready) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub fn private_variant_result() -> State<Option>::Ready | State<Int>::Hidden\n",
+        "  State::Hidden(1)\n",
+        "end\n",
+        "pub fn public_only(value: Public<Option>::Open | Public<Int>::Open) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let observed = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "type.invalid_annotation"
+                || diagnostic.id == "type.variant_refinement_private"
+        })
+        .map(|diagnostic| {
+            (
+                diagnostic.id.as_str(),
+                veln_diagnostics::diagnostic_to_json(diagnostic).to_json(),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        observed.iter().map(|(id, _)| *id).collect::<Vec<_>>(),
+        [
+            "type.invalid_annotation",
+            "type.variant_refinement_private",
+            "type.invalid_annotation",
+            "type.variant_refinement_private",
+            "type.invalid_annotation",
+            "type.variant_refinement_private",
+            "type.invalid_annotation",
+            "type.variant_refinement_private",
+            "type.invalid_annotation",
+        ],
+        "{diagnostics:#?}"
+    );
+    assert!(observed[1].1.contains("\"base_type\":\"Secret\""));
+    assert!(observed[3].1.contains("\"variant\":\"Hidden\""));
+    assert!(observed[3].1.contains("\"boundary\":\"public_parameter\""));
+    assert!(observed[5].1.contains("\"variant\":\"Hidden\""));
+    assert!(observed[5].1.contains("\"boundary\":\"public_parameter\""));
+    assert!(observed[7].1.contains("\"variant\":\"Hidden\""));
+    assert!(observed[7].1.contains("\"boundary\":\"public_result\""));
+}
+
+#[test]
+fn malformed_nested_annotations_do_not_expand_direct_root_visibility() {
+    let diagnostics = diagnostics_for(concat!(
+        "pub type State<A>\n",
+        "  Hidden(A)\n",
+        "  pub Ready(A)\n",
+        "end\n",
+        "pub type Box<A>\n",
+        "  pub Boxed(A)\n",
+        "end\n",
+        "pub type Alias = State\n",
+        "pub fn record(value: {state: State<Option>::Hidden}) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub fn generic(value: Box<State<Option>::Hidden>) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub fn alias(value: Alias<Int>::Hidden | State<Option>::Ready) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.invalid_annotation"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.variant_refinement_private"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn inherited_private_declaration_provenance_is_retained() {
     let dependency = lower_surface_ast(
         &parse(&SourceFile::new(
@@ -306,6 +409,67 @@ fn visibility_failure_quarantines_the_signature_and_blocks_lowering() {
     assert_eq!(signature.params, [Type::Unknown, Type::Unknown]);
     assert_eq!(signature.return_type, Type::Unknown);
     assert!(!environment.function_is_published_for_test("exposed"));
+
+    let lowered = lower_checked_surface_module(&module);
+    assert!(
+        lowered.core.is_none(),
+        "invalid declaration must not be checked"
+    );
+    assert!(
+        lowered.ir.is_none(),
+        "invalid declaration must not produce IR"
+    );
+}
+
+#[test]
+fn mixed_visibility_failure_quarantines_callable_facts_aliases_and_lowering() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\n",
+            "pub type State<A>\n",
+            "  Hidden(A)\n",
+            "  pub Ready(A)\n",
+            "end\n",
+            "pub fn exposed(value: State<Int>::Hidden | State<Option>::Ready, sibling: Int) -> State<Option>::Ready | State<Int>::Hidden\n",
+            "  value\n",
+            "end\n",
+            "pub fn exposed_alias = exposed\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    let signature = environment.function("exposed").expect("recovery signature");
+    assert_eq!(signature.params, [Type::Unknown, Type::Unknown]);
+    assert_eq!(signature.return_type, Type::Unknown);
+    assert!(!environment.function_is_published_for_test("exposed"));
+    assert!(environment.function("exposed_alias").is_none());
+
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "consumer.veln",
+            "mod consumer\nuse main\n",
+        ))
+        .tree,
+    );
+    let consumer_environment =
+        TypeEnvironment::from_module_with_base_for_test(&consumer, &environment);
+    for name in ["exposed", "exposed_alias"] {
+        assert!(
+            consumer_environment
+                .function_path(&["main".to_string(), name.to_string()], Some("consumer"))
+                .is_none(),
+            "{name} must not be inherited"
+        );
+        assert!(
+            consumer_environment
+                .unqualified_function_import_candidates(name, Some("consumer"))
+                .is_empty(),
+            "{name} must not be an import candidate"
+        );
+    }
 
     let lowered = lower_checked_surface_module(&module);
     assert!(

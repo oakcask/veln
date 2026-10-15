@@ -48,3 +48,16 @@ end
 pub fn invalid_arity_private_variant(value: GenericState::Hidden) -> ()
 	()
 end
+
+pub type RecoveryState<A>
+	Hidden(A)
+	pub Ready(A)
+end
+
+pub fn mixed_private_parameter(value: RecoveryState<Int>::Hidden | RecoveryState<Option>::Ready) -> ()
+	()
+end
+
+pub fn mixed_private_result() -> RecoveryState<Option>::Ready | RecoveryState<Int>::Hidden
+	RecoveryState::Hidden(1)
+end

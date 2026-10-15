@@ -6,8 +6,6 @@ use veln_source::SourceSpan;
 
 use crate::adt::descriptors::{AdtDescriptor, AdtVariantDescriptor};
 use crate::diagnostics::span_json;
-use crate::semantic_model::Type;
-use crate::type_syntax::parse_type_annotation;
 use crate::types::TypeEnvironment;
 
 pub(crate) fn check_public_variant_refinement_visibility(
@@ -17,7 +15,7 @@ pub(crate) fn check_public_variant_refinement_visibility(
     let mut diagnostics = Vec::new();
     for param in &function.params {
         collect_root_exposures(
-            param.ty.as_deref(),
+            param.ty_span.as_ref(),
             &param.ty_refinements,
             PublicBoundary::Parameter(param),
             function,
@@ -26,7 +24,7 @@ pub(crate) fn check_public_variant_refinement_visibility(
         );
     }
     collect_root_exposures(
-        function.return_type.as_deref(),
+        function.return_type_span.as_ref(),
         &function.return_type_refinements,
         PublicBoundary::Result(function.return_type_span.as_ref()),
         function,
@@ -43,7 +41,7 @@ pub(crate) fn function_has_private_variant_refinement_exposure(
     function.visibility == Visibility::Public
         && (function.params.iter().any(|param| {
             root_exposures(
-                param.ty.as_deref(),
+                param.ty_span.as_ref(),
                 &param.ty_refinements,
                 function.module_name.as_deref(),
                 environment,
@@ -51,7 +49,7 @@ pub(crate) fn function_has_private_variant_refinement_exposure(
             .next()
             .is_some()
         }) || root_exposures(
-            function.return_type.as_deref(),
+            function.return_type_span.as_ref(),
             &function.return_type_refinements,
             function.module_name.as_deref(),
             environment,
@@ -61,7 +59,7 @@ pub(crate) fn function_has_private_variant_refinement_exposure(
 }
 
 fn collect_root_exposures(
-    annotation: Option<&str>,
+    annotation_span: Option<&SourceSpan>,
     refinements: &[VariantRefinementType],
     boundary: PublicBoundary<'_>,
     function: &Function,
@@ -72,7 +70,7 @@ fn collect_root_exposures(
         return;
     }
     for exposure in root_exposures(
-        annotation,
+        annotation_span,
         refinements,
         function.module_name.as_deref(),
         environment,
@@ -82,30 +80,17 @@ fn collect_root_exposures(
 }
 
 fn root_exposures<'a>(
-    annotation: Option<&str>,
+    annotation_span: Option<&SourceSpan>,
     refinements: &'a [VariantRefinementType],
     current_module: Option<&'a str>,
     environment: &'a TypeEnvironment,
 ) -> impl Iterator<Item = PrivateExposure<'a>> {
-    let is_root_refinement = annotation
-        .and_then(|text| parse_type_annotation(text).ok())
-        .is_some_and(|ty| match ty {
-            Type::VariantRefinement { .. } => true,
-            Type::Named { name, .. } => refinements
-                .first()
-                .and_then(|refinement| refinement.alternatives.first())
-                .is_some_and(|alternative| {
-                    name == format!(
-                        "{}::{}",
-                        alternative.base.segments.join("::"),
-                        alternative.variant
-                    )
-                }),
-            _ => false,
-        });
-    let refinements = is_root_refinement
-        .then_some(refinements.first())
-        .flatten()
+    let refinements = annotation_span
+        .and_then(|annotation_span| {
+            refinements
+                .iter()
+                .find(|refinement| refinement.span == *annotation_span)
+        })
         .into_iter();
     refinements.flat_map(move |refinement| {
         let mut seen = HashSet::new();

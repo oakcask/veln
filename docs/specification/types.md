@@ -692,6 +692,9 @@ outer written alias as `written_type`. A base with invalid generic arity
 retains the existing `type.invalid_annotation` failure. For a direct
 public-function root refinement, a uniquely resolved base and final constructor
 also retain an independently provable private-base or private-variant failure.
+An invalid nested type argument or sibling union alternative does not suppress
+that direct-root visibility failure. Visibility checking does not use this
+recovery to traverse an alias or a structural type position.
 Union comparison and assignability remain suppressed because they require a
 valid instantiation. Exact and uniquely casing-recovered source-backed or
 source-less type paths use the same arity rule. A failed refinement does not
