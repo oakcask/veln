@@ -786,13 +786,12 @@ and
 cases verify source order, primary spans, related declarations and public
 boundaries, and structured details.
 
-Visibility resolution uses registry-owned indexes for ADT identities, selected
-variants, and declaration provenance. The provenance is retained when a
-declaration comes from a reusable or dependency environment. Deterministic work
-checks compare adjacent widths for both one wide refinement union and many
-public declarations; each workload grows linearly in the number of direct
-alternatives or declarations. Elapsed time is recorded during maintenance but
-does not define this bound.
+Visibility diagnostics retain the private declaration span when the ADT comes
+from a reusable or dependency environment. Deterministic work counters compare
+adjacent widths for both one wide refinement union and many public declarations;
+each workload grows linearly in the number of direct alternatives or
+declarations. The counters, rather than elapsed time, define these regression
+checks.
 
 For `N` independent invalid bases, annotation collection, casing collection,
 enclosing-context processing, and diagnostic ordering each use linear
