@@ -33,6 +33,8 @@ pub(crate) struct AdtRegistry {
     declaration_spans: HashMap<String, SourceSpan>,
     variant_declaration_spans: HashMap<String, HashMap<String, SourceSpan>>,
     qualified_import_modules: HashMap<(Option<String>, String), QualifiedImportModules>,
+    qualified_import_recovery_modules:
+        HashMap<(Option<String>, String), Vec<QualifiedRecoveryModules>>,
     imported_descriptors_by_type: HashMap<(Option<String>, String), Option<usize>>,
     imported_descriptors_by_type_arity: HashMap<(Option<String>, String, usize), Option<usize>>,
     source_import_indexes_ready: bool,
@@ -50,6 +52,12 @@ enum QualifiedSourceIdentity {
 struct QualifiedImportModules {
     exact: BTreeSet<String>,
     implicit: BTreeSet<String>,
+}
+
+#[derive(Clone, Debug)]
+struct QualifiedRecoveryModules {
+    module_path: String,
+    modules: QualifiedImportModules,
 }
 
 #[derive(Debug, Default)]

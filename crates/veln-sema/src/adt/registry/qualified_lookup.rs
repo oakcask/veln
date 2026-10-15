@@ -128,6 +128,7 @@ impl AdtRegistry {
         uses: &[UseDecl],
     ) -> Option<QualifiedSourceIdentity> {
         let module_path = segments[..segments.len().saturating_sub(1)].join("::");
+        crate::adt::lookup_validation::record_qualified_path_work(module_path.len());
         if current_module == Some(module_path.as_str())
             && self.source_identity_exists(current_module, type_name)
         {
@@ -207,31 +208,84 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<QualifiedSourceIdentity> {
-        let mut recovered = segments.to_vec();
+        let qualifiers = &segments[..segments.len().saturating_sub(1)];
+        let normalized = normalized_qualified_segments(qualifiers);
+        crate::adt::lookup_validation::record_qualified_path_work(normalized.len());
         let mut selected = None;
-        for index in 0..segments.len().saturating_sub(1) {
-            let Some(first) = segments[index].as_bytes().first().copied() else {
-                continue;
-            };
-            if !first.is_ascii_uppercase() {
-                continue;
-            }
-            recovered[index].replace_range(..1, &(first as char).to_ascii_lowercase().to_string());
-            if let Some(identity) =
-                self.exact_qualified_source_identity(type_name, &recovered, current_module, uses)
-            {
-                if identity == QualifiedSourceIdentity::Ambiguous
-                    || selected
-                        .as_ref()
-                        .is_some_and(|selected| selected != &identity)
+        if let Some(module_path) = current_module.filter(|module_path| {
+            crate::adt::lookup_validation::record_qualified_path_work(module_path.len());
+            normalized_qualified_path(module_path) == normalized
+                && is_single_initial_recovery(qualifiers, module_path)
+        }) && self.source_identity_exists(Some(module_path), type_name)
+        {
+            selected = Some(QualifiedSourceIdentity::Source((
+                Some(module_path.to_string()),
+                type_name.to_string(),
+            )));
+        }
+
+        if self.qualified_import_recovery_modules.is_empty() {
+            let fallback = fallback_recovery_modules(qualifiers, current_module, uses);
+            for (module_path, modules) in fallback {
+                if current_module == Some(module_path.as_str())
+                    && self.source_identity_exists(current_module, type_name)
                 {
+                    continue;
+                }
+                let identity = self.source_identity_from_import_modules(type_name, &modules);
+                if merge_recovered_identity(&mut selected, identity) {
                     return Some(QualifiedSourceIdentity::Ambiguous);
                 }
-                selected = Some(identity);
             }
-            recovered[index] = segments[index].clone();
+            return selected;
+        }
+
+        let key = (current_module.map(str::to_string), normalized);
+        for candidate in self
+            .qualified_import_recovery_modules
+            .get(&key)
+            .into_iter()
+            .flatten()
+        {
+            crate::adt::lookup_validation::record_qualified_path_work(candidate.module_path.len());
+            if !is_single_initial_recovery(qualifiers, &candidate.module_path) {
+                continue;
+            }
+            if current_module == Some(candidate.module_path.as_str())
+                && self.source_identity_exists(current_module, type_name)
+            {
+                continue;
+            }
+            let identity = self.source_identity_from_import_modules(type_name, &candidate.modules);
+            if merge_recovered_identity(&mut selected, identity) {
+                return Some(QualifiedSourceIdentity::Ambiguous);
+            }
         }
         selected
+    }
+
+    fn source_identity_from_import_modules(
+        &self,
+        type_name: &str,
+        modules: &QualifiedImportModules,
+    ) -> Option<QualifiedSourceIdentity> {
+        let candidates = if modules.exact.is_empty() {
+            &modules.implicit
+        } else {
+            &modules.exact
+        };
+        let mut candidates = candidates.iter();
+        let module = candidates.next()?;
+        if candidates.next().is_some() {
+            return Some(QualifiedSourceIdentity::Ambiguous);
+        }
+        if !self.source_identity_exists(Some(module), type_name) {
+            return None;
+        }
+        Some(QualifiedSourceIdentity::Source((
+            Some(module.clone()),
+            type_name.to_string(),
+        )))
     }
 
     pub(super) fn unique_qualified_descriptor_for_identity(
@@ -468,4 +522,112 @@ impl AdtRegistry {
                 && use_decl.name == target_module
         })
     }
+}
+
+fn normalized_qualified_segments(segments: &[String]) -> String {
+    let byte_len =
+        segments.iter().map(String::len).sum::<usize>() + segments.len().saturating_sub(1) * 2;
+    let mut normalized = String::with_capacity(byte_len);
+    for (index, segment) in segments.iter().enumerate() {
+        if index > 0 {
+            normalized.push_str("::");
+        }
+        if let Some(first) = segment.as_bytes().first().copied() {
+            if first.is_ascii() {
+                normalized.push((first as char).to_ascii_lowercase());
+                normalized.push_str(&segment[1..]);
+            } else {
+                normalized.push_str(segment);
+            }
+        }
+    }
+    normalized
+}
+
+fn normalized_qualified_path(path: &str) -> String {
+    normalized_qualified_segments(&path.split("::").map(str::to_string).collect::<Vec<_>>())
+}
+
+fn is_single_initial_recovery(written: &[String], actual: &str) -> bool {
+    let mut actual = actual.split("::");
+    let mut recoveries = 0;
+    for written in written {
+        let Some(actual) = actual.next() else {
+            return false;
+        };
+        if written == actual {
+            continue;
+        }
+        let Some(written_first) = written.as_bytes().first().copied() else {
+            return false;
+        };
+        let Some(actual_first) = actual.as_bytes().first().copied() else {
+            return false;
+        };
+        if !written_first.is_ascii_uppercase()
+            || actual_first != written_first.to_ascii_lowercase()
+            || written.get(1..) != actual.get(1..)
+        {
+            return false;
+        }
+        recoveries += 1;
+    }
+    actual.next().is_none() && recoveries == 1
+}
+
+fn fallback_recovery_modules(
+    qualifiers: &[String],
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> BTreeMap<String, QualifiedImportModules> {
+    let mut candidates = BTreeMap::<String, QualifiedImportModules>::new();
+    for use_decl in uses {
+        let mut exact_paths = vec![use_decl.name.as_str()];
+        if let Some(relative) = use_decl.name.strip_prefix("std::") {
+            exact_paths.push(relative);
+        }
+        for path in exact_paths {
+            crate::adt::lookup_validation::record_qualified_path_work(path.len());
+            if is_single_initial_recovery(qualifiers, path) {
+                candidates
+                    .entry(path.to_string())
+                    .or_default()
+                    .exact
+                    .insert(use_decl.name.clone());
+            }
+        }
+        crate::adt::lookup_validation::record_qualified_path_work(use_decl.alias.len());
+        if is_single_initial_recovery(qualifiers, &use_decl.alias)
+            && crate::name_recovery::use_decl_matches_implicit_import_alias(
+                use_decl,
+                &use_decl.alias,
+                current_module,
+            )
+        {
+            candidates
+                .entry(use_decl.alias.clone())
+                .or_default()
+                .implicit
+                .insert(use_decl.name.clone());
+        }
+    }
+    candidates
+}
+
+fn merge_recovered_identity(
+    selected: &mut Option<QualifiedSourceIdentity>,
+    identity: Option<QualifiedSourceIdentity>,
+) -> bool {
+    let Some(identity) = identity else {
+        return false;
+    };
+    if identity == QualifiedSourceIdentity::Ambiguous
+        || selected
+            .as_ref()
+            .is_some_and(|selected| selected != &identity)
+    {
+        return true;
+    }
+    *selected = Some(identity);
+    false
 }

@@ -11,7 +11,8 @@ use crate::source_less_names::InvalidStandardSymbolCase;
 use super::aliases::{descriptor_for_alias_target, type_alias_descriptors};
 use super::{
     AdtRegistry, DescriptorKey, ImportedDescriptorCandidates, QualifiedImportModules,
-    TypeAliasDeclarationIdentity, VariantDeclarationOrder, descriptor_identity,
+    QualifiedRecoveryModules, TypeAliasDeclarationIdentity, VariantDeclarationOrder,
+    descriptor_identity,
 };
 use crate::adt::descriptors::AdtDescriptor;
 use crate::adt::lookup_validation::{
@@ -161,6 +162,7 @@ impl AdtRegistry {
             declaration_spans: HashMap::new(),
             variant_declaration_spans: HashMap::new(),
             qualified_import_modules: HashMap::new(),
+            qualified_import_recovery_modules: HashMap::new(),
             imported_descriptors_by_type: HashMap::new(),
             imported_descriptors_by_type_arity: HashMap::new(),
             source_import_indexes_ready: false,
@@ -246,6 +248,8 @@ impl AdtRegistry {
             .extend(source_variant_declaration_spans(module));
         let uses = normal_use_decls(module);
         self.qualified_import_modules = qualified_import_modules(&uses);
+        self.qualified_import_recovery_modules =
+            qualified_import_recovery_modules(&self.qualified_import_modules);
         let imported_descriptors = imported_descriptor_candidates(&self.descriptors, &uses);
         self.imported_descriptors_by_type = imported_descriptors.any_arity;
         self.imported_descriptors_by_type_arity = imported_descriptors.exact_arity;
@@ -550,6 +554,40 @@ fn qualified_import_modules(
         }
     }
     modules
+}
+
+fn qualified_import_recovery_modules(
+    exact: &HashMap<(Option<String>, String), QualifiedImportModules>,
+) -> HashMap<(Option<String>, String), Vec<QualifiedRecoveryModules>> {
+    let mut recovered = HashMap::<_, Vec<_>>::new();
+    for ((owner, module_path), modules) in exact {
+        recovered
+            .entry((owner.clone(), normalized_qualified_path(module_path)))
+            .or_default()
+            .push(QualifiedRecoveryModules {
+                module_path: module_path.clone(),
+                modules: modules.clone(),
+            });
+    }
+    recovered
+}
+
+fn normalized_qualified_path(path: &str) -> String {
+    let mut normalized = String::with_capacity(path.len());
+    for (index, segment) in path.split("::").enumerate() {
+        if index > 0 {
+            normalized.push_str("::");
+        }
+        if let Some(first) = segment.as_bytes().first().copied() {
+            if first.is_ascii() {
+                normalized.push((first as char).to_ascii_lowercase());
+                normalized.push_str(&segment[1..]);
+            } else {
+                normalized.push_str(segment);
+            }
+        }
+    }
+    normalized
 }
 
 fn imported_descriptor_candidates(

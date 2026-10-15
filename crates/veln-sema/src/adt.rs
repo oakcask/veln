@@ -7,8 +7,8 @@ pub(crate) mod builtin_descriptors;
 mod lookup_validation;
 #[cfg(test)]
 pub(crate) use lookup_validation::{
-    import_path_comparisons, reset_import_path_comparisons, reset_type_parameter_lookups,
-    take_type_parameter_lookups,
+    import_path_comparisons, qualified_path_work, reset_import_path_comparisons,
+    reset_qualified_path_work, reset_type_parameter_lookups, take_type_parameter_lookups,
 };
 mod runtime_base_variants;
 mod runtime_connection_variants;

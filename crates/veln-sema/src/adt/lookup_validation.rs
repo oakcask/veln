@@ -24,6 +24,7 @@ use super::descriptors::{
 thread_local! {
     static TYPE_PARAMETER_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static IMPORT_PATH_COMPARISONS: Cell<usize> = const { Cell::new(0) };
+    static QUALIFIED_PATH_WORK: Cell<usize> = const { Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -45,6 +46,24 @@ pub(crate) fn reset_import_path_comparisons() {
 pub(crate) fn import_path_comparisons() -> usize {
     IMPORT_PATH_COMPARISONS.get()
 }
+
+#[cfg(test)]
+pub(crate) fn reset_qualified_path_work() {
+    QUALIFIED_PATH_WORK.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn qualified_path_work() -> usize {
+    QUALIFIED_PATH_WORK.get()
+}
+
+#[cfg(test)]
+pub(super) fn record_qualified_path_work(work: usize) {
+    QUALIFIED_PATH_WORK.set(QUALIFIED_PATH_WORK.get() + work);
+}
+
+#[cfg(not(test))]
+pub(super) fn record_qualified_path_work(_work: usize) {}
 
 #[cfg(test)]
 pub(super) fn record_import_path_comparison() {

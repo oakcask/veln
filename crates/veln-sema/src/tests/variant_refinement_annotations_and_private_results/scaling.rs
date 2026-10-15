@@ -696,6 +696,85 @@ fn public_visibility_work_is_linear_for_same_leaf_qualified_imports() {
     assert_eq!(second_growth, first_growth * 2, "work={work:?}");
 }
 
+#[derive(Clone, Copy, Debug)]
+struct QualifiedPathDepthWork {
+    publication: usize,
+    diagnostics: usize,
+    checked_lowering: usize,
+}
+
+fn recovered_qualified_path_depth_work(depth: usize) -> QualifiedPathDepthWork {
+    let written_segments = std::iter::repeat_n("Q", depth).collect::<Vec<_>>();
+    let mut module_segments = written_segments.clone();
+    module_segments[depth / 2] = "q";
+    let qualifiers = written_segments.join("::");
+    let module_name = module_segments.join("::");
+    let source = SourceFile::new(
+        "consumer.veln",
+        format!(
+            "pub type State\n  Hidden\nend\n\
+             pub fn expose(value: {qualifiers}::State::Hidden) -> ()\n  ()\nend\n"
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = veln_ast::lower_surface_ast_with_module_identity(
+        &parsed.tree,
+        module_name,
+        source.span(veln_source::TextRange::new(0, 0)),
+    );
+
+    crate::adt::reset_qualified_path_work();
+    let environment = TypeEnvironment::from_module(&module);
+    let publication = crate::adt::qualified_path_work();
+    assert!(
+        !environment.function_is_published_for_test("expose"),
+        "depth={depth}"
+    );
+
+    crate::adt::reset_qualified_path_work();
+    let diagnostics = analyze_surface_module(&module);
+    let diagnostic_work = crate::adt::qualified_path_work();
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.variant_refinement_private"),
+        "depth={depth} diagnostics={diagnostics:#?}"
+    );
+
+    crate::adt::reset_qualified_path_work();
+    let lowered = lower_checked_surface_module(&module);
+    let checked_lowering = crate::adt::qualified_path_work();
+    assert!(lowered.core.is_none(), "depth={depth}");
+    assert!(lowered.ir.is_none(), "depth={depth}");
+
+    let work = QualifiedPathDepthWork {
+        publication,
+        diagnostics: diagnostic_work,
+        checked_lowering,
+    };
+    eprintln!("recovered qualified refinement: depth={depth} work={work:?}");
+    work
+}
+
+#[test]
+fn qualified_path_recovery_work_is_linear_across_visibility_consumers() {
+    let measurements = [64, 128, 256].map(recovered_qualified_path_depth_work);
+    for stage in [
+        |work: QualifiedPathDepthWork| work.publication,
+        |work: QualifiedPathDepthWork| work.diagnostics,
+        |work: QualifiedPathDepthWork| work.checked_lowering,
+    ] {
+        let first_growth = stage(measurements[1]) - stage(measurements[0]);
+        let second_growth = stage(measurements[2]) - stage(measurements[1]);
+        assert_eq!(
+            second_growth,
+            first_growth * 2,
+            "qualified path work must have exact affine growth: {measurements:?}"
+        );
+    }
+}
+
 fn same_leaf_unqualified_import_project(count: usize) -> veln_ast::SurfaceModule {
     let mut sources = same_leaf_unqualified_import_sources(count);
     let consumer = same_leaf_unqualified_import_consumer(count);
