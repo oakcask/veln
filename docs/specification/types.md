@@ -806,8 +806,10 @@ Visibility diagnostics retain the private declaration span when the ADT comes
 from a reusable or dependency environment. Deterministic work counters compare
 adjacent widths for both one wide refinement union and many public declarations;
 each workload grows linearly in the number of direct alternatives or
-declarations. The counters, rather than elapsed time, define these regression
-checks.
+declarations. The measured work combines visibility-checker steps with every
+ADT descriptor candidate visited while resolving the refinement identity, so
+unrelated declarations cannot be hidden outside the checked bound. The
+counters, rather than elapsed time, define these regression checks.
 
 For `N` independent invalid bases, annotation collection, casing collection,
 enclosing-context processing, and diagnostic ordering each use linear
