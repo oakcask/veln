@@ -414,17 +414,8 @@ impl AdtRegistry {
     ) -> Option<&AdtDescriptor> {
         let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
         let type_name = segments.last()?;
-        let qualified_source_identity = self
-            .descriptors_named(type_name)
-            .find(|descriptor| {
-                self.descriptor_matches_qualified_source_identity(
-                    descriptor,
-                    &segments,
-                    current_module,
-                    uses,
-                )
-            })
-            .map(descriptor_identity);
+        let qualified_source_identity =
+            self.qualified_source_identity(type_name, &segments, current_module, uses);
         let candidates = self.descriptors_named(type_name).filter(|descriptor| {
             qualified_source_identity.as_ref().map_or_else(
                 || descriptor.module_name.is_none(),
@@ -432,6 +423,25 @@ impl AdtRegistry {
             ) && self.descriptor_visible(descriptor, &segments, current_module, uses, true)
         });
         Self::unique_candidate(candidates).flatten()
+    }
+
+    fn qualified_source_identity(
+        &self,
+        type_name: &str,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<(Option<String>, String)> {
+        self.descriptors_named(type_name)
+            .find(|descriptor| {
+                self.descriptor_matches_qualified_source_identity(
+                    descriptor,
+                    segments,
+                    current_module,
+                    uses,
+                )
+            })
+            .map(descriptor_identity)
     }
 
     fn descriptor_matches_qualified_source_identity(
@@ -489,8 +499,13 @@ impl AdtRegistry {
         }
         let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
         let type_name = segments.last()?;
+        let qualified_source_identity =
+            self.qualified_source_identity(type_name, &segments, current_module, uses);
         self.descriptors_named(type_name).rev().find(|descriptor| {
-            Self::descriptor_matches_arity(descriptor, args_len)
+            qualified_source_identity.as_ref().map_or_else(
+                || descriptor.module_name.is_none(),
+                |identity| descriptor_identity(descriptor) == *identity,
+            ) && Self::descriptor_matches_arity(descriptor, args_len)
                 && self.descriptor_visible(descriptor, &segments, current_module, uses, true)
         })
     }

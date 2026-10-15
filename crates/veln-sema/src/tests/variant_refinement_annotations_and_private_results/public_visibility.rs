@@ -329,6 +329,149 @@ fn local_refinement_descriptor_shadows_imported_namesake() {
 }
 
 #[test]
+fn qualified_imported_refinement_uses_written_identity_across_local_collisions() {
+    for imported_first in [true, false] {
+        let project = colliding_qualified_refinement_project(imported_first);
+        let environment = TypeEnvironment::from_module(&project);
+
+        for name in ["exact", "invalid_arity", "recovered_case"] {
+            let signature = environment
+                .function(name)
+                .unwrap_or_else(|| panic!("{name} recovery signature"));
+            assert_eq!(signature.params, [Type::Unknown], "{name}");
+            assert_eq!(signature.return_type, Type::Unknown, "{name}");
+            assert!(
+                !environment.function_is_published_for_test(name),
+                "{name} must not be published"
+            );
+        }
+        assert!(environment.function_is_published_for_test("local_control"));
+
+        let (diagnostics, lowered) = check_project_surface_module(&project);
+        let visibility = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+            .collect::<Vec<_>>();
+        assert_eq!(visibility.len(), 3, "{diagnostics:#?}");
+        for (observed, written_type) in visibility.iter().zip([
+            "imported::State<Int>::Hidden",
+            "imported::State::Hidden",
+            "imported::state<Int>::Hidden",
+        ]) {
+            assert!(
+                observed.contains(&format!("\"written_type\":\"{written_type}\"")),
+                "{observed}"
+            );
+            assert!(
+                observed.contains("\"base_type\":\"imported::State\""),
+                "{observed}"
+            );
+            assert!(
+                observed.contains("\"variant\":\"Hidden\"")
+                    && observed.contains("\"boundary\":\"public_parameter\""),
+                "{observed}"
+            );
+            assert!(
+                observed.contains("\"kind\":\"private_variant_declaration\"")
+                    && observed.contains("\"file\":\"imported.veln\""),
+                "{observed}"
+            );
+            assert!(
+                observed.contains("\"kind\":\"public_parameter_boundary\"")
+                    && observed.contains("\"file\":\"consumer.veln\""),
+                "{observed}"
+            );
+        }
+        assert!(
+            diagnostics.iter().all(|diagnostic| {
+                diagnostic.id != "type.variant_refinement_private"
+                    || !veln_diagnostics::diagnostic_to_json(diagnostic)
+                        .to_json()
+                        .contains("local_control")
+            }),
+            "the unqualified spelling must keep selecting the local ADT: {diagnostics:#?}"
+        );
+        assert!(
+            lowered.core.is_none(),
+            "invalid project must not produce core"
+        );
+        assert!(lowered.ir.is_none(), "invalid project must not produce IR");
+
+        let downstream = lower_surface_ast(
+            &parse(&SourceFile::new(
+                "downstream.veln",
+                "mod downstream\nuse consumer\n",
+            ))
+            .tree,
+        );
+        let downstream_environment =
+            TypeEnvironment::from_module_with_base_for_test(&downstream, &environment);
+        for name in ["exact", "invalid_arity", "recovered_case"] {
+            assert!(
+                downstream_environment
+                    .function_path(
+                        &["consumer".to_string(), name.to_string()],
+                        Some("downstream"),
+                    )
+                    .is_none(),
+                "{name} must not enter the package environment"
+            );
+        }
+        assert!(
+            downstream_environment
+                .function_path(
+                    &["consumer".to_string(), "local_control".to_string()],
+                    Some("downstream"),
+                )
+                .is_some(),
+            "the valid unqualified local control must remain published"
+        );
+    }
+}
+
+fn colliding_qualified_refinement_project(imported_first: bool) -> SurfaceModule {
+    let imported = SourceFile::new(
+        "imported.veln",
+        concat!("pub type State<A>\n", "  Hidden(A)\n", "end\n",),
+    );
+    let consumer = SourceFile::new(
+        "consumer.veln",
+        concat!(
+            "use imported\n",
+            "pub type State<A>\n",
+            "  pub Hidden(A)\n",
+            "end\n",
+            "pub fn exact(value: imported::State<Int>::Hidden) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "pub fn invalid_arity(value: imported::State::Hidden) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "pub fn recovered_case(value: imported::state<Int>::Hidden) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "pub fn local_control(value: State<Int>::Hidden) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let consumer_identity = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&consumer).tree,
+        "consumer".to_string(),
+        consumer.span(veln_source::TextRange::new(0, 0)),
+    );
+    let sources = if imported_first {
+        vec![("imported", imported), ("consumer", consumer)]
+    } else {
+        vec![("consumer", consumer), ("imported", imported)]
+    };
+    let mut project = merged_modules_with_identities(sources);
+    project.module = consumer_identity.module;
+    project
+}
+
+#[test]
 fn union_visibility_reports_distinct_paths_in_written_order() {
     let diagnostics = visibility_diagnostics(concat!(
         "pub type State\n",
