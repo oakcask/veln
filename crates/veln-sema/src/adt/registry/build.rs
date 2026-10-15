@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 
-use veln_ast::{PublicAliasKind, SurfaceModule};
+use veln_ast::{PublicAliasKind, SurfaceModule, UseDecl, Visibility};
 use veln_source::SourceSpan;
 
 use crate::name_recovery::normal_use_decls;
@@ -10,8 +10,8 @@ use crate::source_less_names::InvalidStandardSymbolCase;
 
 use super::aliases::{descriptor_for_alias_target, type_alias_descriptors};
 use super::{
-    AdtRegistry, DescriptorKey, TypeAliasDeclarationIdentity, VariantDeclarationOrder,
-    descriptor_identity,
+    AdtRegistry, DescriptorKey, ImportedDescriptorCandidates, QualifiedImportModules,
+    TypeAliasDeclarationIdentity, VariantDeclarationOrder, descriptor_identity,
 };
 use crate::adt::descriptors::AdtDescriptor;
 use crate::adt::lookup_validation::{
@@ -161,6 +161,9 @@ impl AdtRegistry {
             declaration_spans: HashMap::new(),
             variant_declaration_spans: HashMap::new(),
             qualified_import_modules: HashMap::new(),
+            imported_descriptors_by_type: HashMap::new(),
+            imported_descriptors_by_type_arity: HashMap::new(),
+            source_import_indexes_ready: false,
             local_descriptor_start,
         }
     }
@@ -241,7 +244,12 @@ impl AdtRegistry {
         self.variant_declaration_spans = base.variant_declaration_spans.clone();
         self.variant_declaration_spans
             .extend(source_variant_declaration_spans(module));
-        self.qualified_import_modules = qualified_import_modules(module);
+        let uses = normal_use_decls(module);
+        self.qualified_import_modules = qualified_import_modules(&uses);
+        let imported_descriptors = imported_descriptor_candidates(&self.descriptors, &uses);
+        self.imported_descriptors_by_type = imported_descriptors.any_arity;
+        self.imported_descriptors_by_type_arity = imported_descriptors.exact_arity;
+        self.source_import_indexes_ready = true;
         self.local_descriptor_start = local_descriptor_start;
         self.canonicalize_source_payload_types(module, source_descriptor_start);
     }
@@ -510,33 +518,102 @@ fn extend_alias_annotation_types(
 }
 
 fn qualified_import_modules(
-    module: &SurfaceModule,
-) -> HashMap<(Option<String>, String), Vec<String>> {
-    let uses = normal_use_decls(module);
-    let mut modules = HashMap::<(Option<String>, String), Vec<String>>::new();
-    for use_decl in &uses {
-        let mut paths = vec![use_decl.name.clone(), use_decl.alias.clone()];
+    uses: &[UseDecl],
+) -> HashMap<(Option<String>, String), QualifiedImportModules> {
+    let mut modules = HashMap::<(Option<String>, String), QualifiedImportModules>::new();
+    for use_decl in uses {
+        let mut exact_paths = vec![use_decl.name.clone()];
         if let Some(relative) = use_decl.name.strip_prefix("std::") {
-            paths.push(relative.to_string());
+            exact_paths.push(relative.to_string());
         }
-        paths.sort();
-        paths.dedup();
-        for path in paths {
+        exact_paths.sort();
+        exact_paths.dedup();
+        for path in exact_paths {
             crate::adt::lookup_validation::record_import_path_comparison();
-            if !crate::name_recovery::use_decl_matches_import_path(
-                use_decl,
-                &path,
-                use_decl.module_name.as_deref(),
-            ) {
-                continue;
-            }
-            let candidates = modules
+            modules
                 .entry((use_decl.module_name.clone(), path))
-                .or_default();
-            if !candidates.contains(&use_decl.name) {
-                candidates.push(use_decl.name.clone());
-            }
+                .or_default()
+                .exact
+                .insert(use_decl.name.clone());
+        }
+        if crate::name_recovery::use_decl_matches_implicit_import_alias(
+            use_decl,
+            &use_decl.alias,
+            use_decl.module_name.as_deref(),
+        ) {
+            crate::adt::lookup_validation::record_import_path_comparison();
+            modules
+                .entry((use_decl.module_name.clone(), use_decl.alias.clone()))
+                .or_default()
+                .implicit
+                .insert(use_decl.name.clone());
         }
     }
     modules
+}
+
+fn imported_descriptor_candidates(
+    descriptors: &[AdtDescriptor],
+    uses: &[UseDecl],
+) -> ImportedDescriptorCandidates {
+    let mut owners_by_imported_module = HashMap::<String, BTreeSet<Option<String>>>::new();
+    for use_decl in uses {
+        crate::adt::lookup_validation::record_import_path_comparison();
+        owners_by_imported_module
+            .entry(use_decl.name.clone())
+            .or_default()
+            .insert(use_decl.module_name.clone());
+    }
+
+    let mut any_arity = HashMap::new();
+    let mut exact_arity = HashMap::new();
+    for (index, descriptor) in descriptors.iter().enumerate() {
+        let Some(module_name) = descriptor.module_name.as_ref() else {
+            continue;
+        };
+        if descriptor.visibility != Visibility::Public {
+            continue;
+        }
+        crate::adt::lookup_validation::record_import_path_comparison();
+        let Some(owners) = owners_by_imported_module.get(module_name) else {
+            continue;
+        };
+        for owner in owners {
+            crate::adt::lookup_validation::record_import_path_comparison();
+            record_imported_candidate(
+                &mut any_arity,
+                (owner.clone(), descriptor.type_name.clone()),
+                index,
+            );
+            record_imported_candidate(
+                &mut exact_arity,
+                (
+                    owner.clone(),
+                    descriptor.type_name.clone(),
+                    descriptor.type_parameters.len(),
+                ),
+                index,
+            );
+        }
+    }
+    ImportedDescriptorCandidates {
+        any_arity,
+        exact_arity,
+    }
+}
+
+fn record_imported_candidate<K: std::hash::Hash + Eq>(
+    candidates: &mut HashMap<K, Option<usize>>,
+    key: K,
+    index: usize,
+) {
+    crate::adt::lookup_validation::record_import_path_comparison();
+    match candidates.entry(key) {
+        std::collections::hash_map::Entry::Vacant(entry) => {
+            entry.insert(Some(index));
+        }
+        std::collections::hash_map::Entry::Occupied(mut entry) => {
+            entry.insert(None);
+        }
+    }
 }

@@ -1,0 +1,7 @@
+pub type State<A>
+	Hidden(A)
+end
+
+pub fn expose(value: State<Int>::Hidden | State<String>::Hidden | State<Int>::Hidden) -> ()
+	()
+end

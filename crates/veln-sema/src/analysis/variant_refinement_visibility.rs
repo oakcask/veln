@@ -6,6 +6,8 @@ use veln_source::SourceSpan;
 
 use crate::adt::descriptors::{AdtDescriptor, AdtVariantDescriptor};
 use crate::diagnostics::span_json;
+use crate::semantic_model::Type;
+use crate::type_syntax::parse_type_annotation;
 use crate::types::TypeEnvironment;
 
 pub(crate) fn check_public_variant_refinement_visibility(
@@ -105,6 +107,7 @@ fn root_exposures<'a>(
         seen.insert((
             exposure.descriptor.identity(),
             exposure.variant.name.clone(),
+            exposure.alternative_identity.clone(),
         ))
     });
     exposures.into_iter()
@@ -185,6 +188,7 @@ fn private_exposure<'a>(
         return None;
     }
     record_visibility_work(1);
+    let alternative_identity = refinement_alternative_identity(&candidate.written_type);
     Some(PrivateExposure {
         written_type: candidate.written_type,
         base_span: candidate.base_span,
@@ -193,7 +197,28 @@ fn private_exposure<'a>(
         variant,
         declaration_span: private_declaration_span(environment, descriptor, variant, private_base),
         private_base,
+        alternative_identity,
     })
+}
+
+fn refinement_alternative_identity(written_type: &str) -> RefinementAlternativeIdentity {
+    if let Ok(Type::VariantRefinement { args, variants, .. }) = parse_type_annotation(written_type)
+    {
+        return RefinementAlternativeIdentity::Resolved {
+            args,
+            variants: variants.to_vec(),
+        };
+    }
+    RefinementAlternativeIdentity::Written(written_type.to_string())
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+enum RefinementAlternativeIdentity {
+    Resolved {
+        args: Vec<Type>,
+        variants: Vec<String>,
+    },
+    Written(String),
 }
 
 fn private_declaration_span(
@@ -242,6 +267,7 @@ struct PrivateExposure<'a> {
     variant: &'a AdtVariantDescriptor,
     declaration_span: Option<SourceSpan>,
     private_base: bool,
+    alternative_identity: RefinementAlternativeIdentity,
 }
 
 impl PrivateExposure<'_> {

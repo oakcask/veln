@@ -332,6 +332,7 @@ fn collect_independent_refinement_errors(
                 environment,
                 errors,
                 visited_paths,
+                true,
             ) else {
                 annotation_is_invalid = true;
                 continue;
@@ -361,8 +362,11 @@ fn collect_refinement_alternative_type(
     environment: &TypeEnvironment,
     errors: &mut Vec<(String, String, SourceSpan)>,
     visited_paths: &mut HashMap<PathOccurrence, bool>,
+    record_work: bool,
 ) -> Option<(String, Type)> {
-    crate::pipeline::record_variant_refinement_recovery_work(1);
+    if record_work {
+        crate::pipeline::record_variant_refinement_recovery_work(1);
+    }
     let base = alternative.base.segments.join("::");
     let own_base_failure = environment
         .variant_refinement_base_failure(&base, alternative.type_arguments.len(), current_module)
@@ -474,6 +478,7 @@ fn collect_annotation(
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     crate::pipeline::record_variant_refinement_annotation_work(refinements.len() + paths.len() + 1);
+    collect_union_base_diagnostics(refinements, current_module, environment, diagnostics);
     collect_refinements(refinements, current_module, environment, diagnostics);
     for path in paths {
         if let Some(failure) =
@@ -490,6 +495,93 @@ fn collect_annotation(
                 failure,
             ));
         }
+    }
+}
+
+fn collect_union_base_diagnostics(
+    refinements: &[veln_ast::VariantRefinementType],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
+) {
+    for refinement in refinements {
+        if refinement.alternatives.len() < 2 {
+            continue;
+        }
+        let mut expected = None;
+        let mut ignored_errors = Vec::new();
+        let mut visited_paths = HashMap::new();
+        for alternative in &refinement.alternatives {
+            let Some((_, canonical)) = collect_refinement_alternative_type(
+                alternative,
+                current_module,
+                environment,
+                &mut ignored_errors,
+                &mut visited_paths,
+                false,
+            ) else {
+                continue;
+            };
+            let Some(actual_base) = refinement_base_display(&canonical) else {
+                continue;
+            };
+            let Some((expected_type, expected_base, expected_span)) = &expected else {
+                expected = Some((canonical, actual_base, alternative_span(alternative)));
+                continue;
+            };
+            if same_variant_refinement_base(expected_type, &canonical) {
+                continue;
+            }
+            let span = alternative_span(alternative);
+            let mut diagnostic = Diagnostic::new(
+                "type.variant_union_base",
+                Severity::Error,
+                DiagnosticKind::Type,
+                format!(
+                    "variant refinement alternative has base `{actual_base}`, expected `{expected_base}`"
+                ),
+                Some(span.clone()),
+                JsonValue::object([
+                    (
+                        "expected_base_type",
+                        JsonValue::string(expected_base.clone()),
+                    ),
+                    ("actual_base_type", JsonValue::string(actual_base)),
+                ]),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("expected_variant_union_base")),
+                (
+                    "message",
+                    JsonValue::string(format!(
+                        "The first resolved alternative established base `{expected_base}`."
+                    )),
+                ),
+                ("span", span_json(expected_span)),
+            ]));
+            diagnostics.push(VariantRefinementBaseDiagnostic {
+                diagnostic,
+                ordering_scope: refinement.span.clone(),
+                union_scope: Some(refinement.span.clone()),
+            });
+        }
+    }
+}
+
+fn refinement_base_display(ty: &Type) -> Option<String> {
+    match ty {
+        Type::Named {
+            name,
+            identity,
+            args,
+        }
+        | Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            ..
+        } => Some(Type::resolved_named(name.clone(), identity.clone(), args.clone()).render()),
+        _ => None,
     }
 }
 

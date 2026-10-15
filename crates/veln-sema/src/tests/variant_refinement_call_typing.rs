@@ -558,7 +558,7 @@ fn variant_unions_reject_mixed_resolved_adts() {
     assert!(
         diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.id == "type.invalid_annotation"),
+            .any(|diagnostic| diagnostic.id == "type.variant_union_base"),
         "{diagnostics:#?}"
     );
 }

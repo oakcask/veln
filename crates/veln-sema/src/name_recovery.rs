@@ -139,7 +139,7 @@ pub(crate) fn use_decl_matches_import_path(
             && simple_import_alias_matches(use_decl, module_path))
 }
 
-fn use_decl_matches_exact_import_path(
+pub(crate) fn use_decl_matches_exact_import_path(
     use_decl: &UseDecl,
     module_path: &str,
     current_module: Option<&str>,
@@ -174,4 +174,13 @@ fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str) -> bool {
         && (use_decl.package.is_some()
             || !use_decl.name.contains("::")
             || use_decl.origin == veln_ast::UseOrigin::ImplicitStandardPrelude)
+}
+
+pub(crate) fn use_decl_matches_implicit_import_alias(
+    use_decl: &UseDecl,
+    module_path: &str,
+    current_module: Option<&str>,
+) -> bool {
+    use_decl.module_name.as_deref() == current_module
+        && simple_import_alias_matches(use_decl, module_path)
 }

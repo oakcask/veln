@@ -20,30 +20,50 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
-        let indices = self
-            .descriptors_by_type_name
-            .get(name)
+        let local_indices = self
+            .descriptors_by_source_identity
+            .get(&(current_module.map(str::to_string), name.to_string()))
             .map(Vec::as_slice)
             .unwrap_or_default();
-        let descriptors = |local| {
-            indices
-                .iter()
-                .copied()
-                .filter(move |index| (*index >= self.local_descriptor_start) == local)
-                .map(|index| self.descriptor_lookup_candidate(index))
-        };
-        let local = descriptors(true)
-            .filter(|descriptor| descriptor.module_name.as_deref() == current_module);
-        let builtin = descriptors(false).filter(|descriptor| descriptor.module_name.is_none());
-        let imported = indices
+        let local = local_indices
             .iter()
+            .copied()
+            .filter(|index| *index >= self.local_descriptor_start)
+            .map(|index| self.descriptor_lookup_candidate(index));
+        let builtin_indices = self
+            .descriptors_by_source_identity
+            .get(&(None, name.to_string()))
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        let builtin = builtin_indices
+            .iter()
+            .copied()
+            .filter(|index| *index < self.local_descriptor_start)
+            .map(|index| self.descriptor_lookup_candidate(index));
+        let indexed_imported = self.source_import_indexes_ready.then(|| {
+            crate::adt::lookup_validation::record_import_path_comparison();
+            self.imported_descriptors_by_type
+                .get(&(current_module.map(str::to_string), name.to_string()))
+                .copied()
+                .flatten()
+        });
+        let imported = self
+            .descriptors_by_type_name
+            .get(name)
+            .into_iter()
+            .flatten()
             .map(|index| self.descriptor_lookup_candidate(*index))
             .filter(|descriptor| {
-                Self::descriptor_is_unqualified_import(descriptor, current_module, uses)
+                !self.source_import_indexes_ready
+                    && Self::descriptor_is_unqualified_import(descriptor, current_module, uses)
             });
         Self::unique_candidate(local)
             .or_else(|| Self::unique_candidate(builtin))
-            .or_else(|| Self::unique_candidate(imported))
+            .or_else(|| {
+                indexed_imported
+                    .map(|candidate| candidate.map(|index| self.descriptor_lookup_candidate(index)))
+                    .or_else(|| Self::unique_candidate(imported))
+            })
             .flatten()
     }
 
@@ -110,34 +130,45 @@ impl AdtRegistry {
         let indexed = self
             .qualified_import_modules
             .get(&(current_module.map(str::to_string), module_path.to_string()));
-        let fallback;
+        let mut fallback;
         let modules = if let Some(indexed) = indexed {
             indexed
         } else if self.qualified_import_modules.is_empty() {
-            fallback = uses
-                .iter()
-                .filter_map(|use_decl| {
-                    crate::adt::lookup_validation::record_import_path_comparison();
-                    (crate::name_recovery::use_decl_matches_import_path(
-                        use_decl,
-                        module_path,
-                        current_module,
-                    ) && use_decl.module_name.as_deref() == current_module)
-                        .then(|| use_decl.name.clone())
-                })
-                .collect::<BTreeSet<_>>()
-                .into_iter()
-                .collect::<Vec<_>>();
+            fallback = QualifiedImportModules::default();
+            for use_decl in uses {
+                crate::adt::lookup_validation::record_import_path_comparison();
+                if crate::name_recovery::use_decl_matches_exact_import_path(
+                    use_decl,
+                    module_path,
+                    current_module,
+                ) {
+                    fallback.exact.insert(use_decl.name.clone());
+                }
+                crate::adt::lookup_validation::record_import_path_comparison();
+                if crate::name_recovery::use_decl_matches_implicit_import_alias(
+                    use_decl,
+                    module_path,
+                    current_module,
+                ) {
+                    fallback.implicit.insert(use_decl.name.clone());
+                }
+            }
             &fallback
         } else {
             return None;
         };
-        let mut candidates = modules
-            .iter()
-            .filter(|module| self.source_identity_exists(Some(module), type_name));
+        let candidates = if modules.exact.is_empty() {
+            &modules.implicit
+        } else {
+            &modules.exact
+        };
+        let mut candidates = candidates.iter();
         let module = candidates.next()?;
         if candidates.next().is_some() {
             return Some(QualifiedSourceIdentity::Ambiguous);
+        }
+        if !self.source_identity_exists(Some(module), type_name) {
+            return None;
         }
         Some(QualifiedSourceIdentity::Source((
             Some(module.clone()),

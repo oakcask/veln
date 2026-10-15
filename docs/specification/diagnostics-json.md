@@ -149,7 +149,8 @@ variant of a public base. The closed details contain exactly `written_type`,
 Related entries identify the `private_type_declaration` or
 `private_variant_declaration` and the `public_parameter_boundary` or
 `public_result_boundary`. A union reports distinct inaccessible alternatives
-in written order and removes duplicate base-and-variant paths. The declaration
+in written order. It removes paths with the same resolved base, canonical
+generic arguments, and variant. The declaration
 entry remains present when the ADT comes from a reusable or base environment.
 If initial-only casing recovery uniquely selects the base ADT and final
 constructor, `name.invalid_case` precedes the independent privacy diagnostic,
@@ -174,6 +175,12 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-public-visibility-json/)
 cases fix the human messages, half-open spans, details, related context, and
 ordering.
+The generic-union visibility
+[`human`](../../examples/specification/check/adt-variant-refinement-generic-union-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-generic-union-visibility-json/)
+cases verify complete alternative identity, exact duplicate removal, and the
+independent union-base diagnostic.
 
 A failed base retains its resolved identity as semantic analysis state for
 suppression and later analysis. This diagnostic recovery does not make the
@@ -196,9 +203,12 @@ Within one refinement union, a failed alternative does not establish or clear
 the expected base. The earliest successfully instantiated alternative
 establishes that base. Each later successfully instantiated alternative is
 compared with it in written order. A different ADT identity or different
-canonical generic arguments report the existing `type.invalid_annotation` at
-the later alternative, even when a failed alternative occurs before or between
-the successful alternatives.
+canonical generic arguments report `type.variant_union_base` at the later
+alternative, even when a failed alternative occurs before or between the
+successful alternatives. Its closed details contain `expected_base_type` and
+`actual_base_type`. A related `expected_variant_union_base` entry identifies
+the first successfully instantiated alternative. The rejected union does not
+also report `type.invalid_annotation` for the same mismatch.
 When a nested type argument is invalid, the checker still reports an enclosing
 base-eligibility failure that can be proved from the enclosing base identity
 alone. It suppresses an enclosing annotation or final-segment failure that

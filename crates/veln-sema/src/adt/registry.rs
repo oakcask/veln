@@ -32,7 +32,10 @@ pub(crate) struct AdtRegistry {
     resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     declaration_spans: HashMap<String, SourceSpan>,
     variant_declaration_spans: HashMap<String, HashMap<String, SourceSpan>>,
-    qualified_import_modules: HashMap<(Option<String>, String), Vec<String>>,
+    qualified_import_modules: HashMap<(Option<String>, String), QualifiedImportModules>,
+    imported_descriptors_by_type: HashMap<(Option<String>, String), Option<usize>>,
+    imported_descriptors_by_type_arity: HashMap<(Option<String>, String, usize), Option<usize>>,
+    source_import_indexes_ready: bool,
     local_descriptor_start: usize,
 }
 
@@ -41,6 +44,18 @@ enum QualifiedSourceIdentity {
     Source((Option<String>, String)),
     Ambiguous,
     CompilerKnown(String),
+}
+
+#[derive(Clone, Debug, Default)]
+struct QualifiedImportModules {
+    exact: BTreeSet<String>,
+    implicit: BTreeSet<String>,
+}
+
+#[derive(Debug, Default)]
+struct ImportedDescriptorCandidates {
+    any_arity: HashMap<(Option<String>, String), Option<usize>>,
+    exact_arity: HashMap<(Option<String>, String, usize), Option<usize>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -367,7 +382,9 @@ impl AdtRegistry {
             );
         }
         let descriptor = self.descriptor_for_type_path(name, args_len, current_module, uses)?;
-        let indices = self.descriptors_by_type_name.get(&descriptor.type_name)?;
+        let indices = self
+            .descriptors_by_source_identity
+            .get(&(descriptor.module_name.clone(), descriptor.type_name.clone()))?;
         let selected_index = indices
             .iter()
             .copied()

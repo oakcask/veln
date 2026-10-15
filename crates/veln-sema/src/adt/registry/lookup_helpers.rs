@@ -55,6 +55,22 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
+        if self.source_import_indexes_ready {
+            crate::adt::lookup_validation::record_import_path_comparison();
+            let index = if let Some(args_len) = args_len {
+                self.imported_descriptors_by_type_arity.get(&(
+                    current_module.map(str::to_string),
+                    name.to_string(),
+                    args_len,
+                ))
+            } else {
+                self.imported_descriptors_by_type
+                    .get(&(current_module.map(str::to_string), name.to_string()))
+            }
+            .copied()
+            .flatten()?;
+            return Some(self.descriptor_lookup_candidate(index));
+        }
         let mut imported = self.descriptors_named(name).filter(|descriptor| {
             Self::descriptor_matches_arity(descriptor, args_len)
                 && Self::descriptor_is_unqualified_import(descriptor, current_module, uses)
@@ -71,6 +87,7 @@ impl AdtRegistry {
         descriptor.visibility == Visibility::Public
             && descriptor.module_name.as_ref().is_some_and(|module| {
                 uses.iter().any(|use_decl| {
+                    crate::adt::lookup_validation::record_import_path_comparison();
                     use_decl.module_name.as_deref() == current_module && &use_decl.name == module
                 })
             })

@@ -593,6 +593,111 @@ fn qualified_imported_refinement_uses_written_identity_across_local_collisions()
     }
 }
 
+#[test]
+fn colliding_implicit_import_qualifiers_do_not_select_by_type_leaf() {
+    for first_with_state_first in [true, false] {
+        let first = SourceFile::new("first-shared.veln", "pub type State\n  Hidden\nend\n");
+        let second = SourceFile::new("second-shared.veln", "pub type Other\n  pub Ready\nend\n");
+        let consumer = SourceFile::new(
+            "consumer.veln",
+            concat!(
+                "use first::shared from \"first\"\n",
+                "use second::shared from \"second\"\n",
+                "pub fn expose(value: shared::State::Hidden) -> ()\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+        let consumer_identity = veln_ast::lower_surface_ast_with_module_identity(
+            &parse(&consumer).tree,
+            "consumer".to_string(),
+            consumer.span(veln_source::TextRange::new(0, 0)),
+        );
+        let sources = if first_with_state_first {
+            vec![
+                ("first::shared", first),
+                ("second::shared", second),
+                ("consumer", consumer),
+            ]
+        } else {
+            vec![
+                ("second::shared", second),
+                ("first::shared", first),
+                ("consumer", consumer),
+            ]
+        };
+        let mut project = merged_modules_with_identities(sources);
+        project.module = consumer_identity.module;
+        let environment = TypeEnvironment::from_module(&project);
+        let diagnostics = analyze_surface_module(&project);
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "type.variant_refinement_private"),
+            "order={first_with_state_first} diagnostics={diagnostics:#?}"
+        );
+        let signature = environment.function("expose").expect("recovery signature");
+        assert_eq!(signature.params, [Type::Unknown]);
+        assert_eq!(signature.return_type, Type::unit());
+        assert!(environment.function_is_published_for_test("expose"));
+        let (_, lowered) = check_project_surface_module(&project);
+        assert!(lowered.core.is_none());
+        assert!(lowered.ir.is_none());
+    }
+}
+
+#[test]
+fn exact_import_path_precedes_a_colliding_implicit_qualifier() {
+    for exact_module_first in [true, false] {
+        let exact = SourceFile::new("shared.veln", "pub type State\n  Hidden\nend\n");
+        let implicit = SourceFile::new("nested-shared.veln", "pub type State\n  pub Hidden\nend\n");
+        let consumer = SourceFile::new(
+            "consumer.veln",
+            concat!(
+                "use shared\n",
+                "use nested::shared from \"dependency\"\n",
+                "pub fn expose(value: shared::State::Hidden) -> ()\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+        let consumer_identity = veln_ast::lower_surface_ast_with_module_identity(
+            &parse(&consumer).tree,
+            "consumer".to_string(),
+            consumer.span(veln_source::TextRange::new(0, 0)),
+        );
+        let sources = if exact_module_first {
+            vec![
+                ("shared", exact),
+                ("nested::shared", implicit),
+                ("consumer", consumer),
+            ]
+        } else {
+            vec![
+                ("nested::shared", implicit),
+                ("shared", exact),
+                ("consumer", consumer),
+            ]
+        };
+        let mut project = merged_modules_with_identities(sources);
+        project.module = consumer_identity.module;
+        let environment = TypeEnvironment::from_module(&project);
+        let diagnostics = analyze_surface_module(&project);
+        let visibility = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .collect::<Vec<_>>();
+        assert_eq!(visibility.len(), 1, "{diagnostics:#?}");
+        let json = veln_diagnostics::diagnostic_to_json(visibility[0]).to_json();
+        assert!(json.contains("\"written_type\":\"shared::State::Hidden\""));
+        assert!(json.contains("\"file\":\"shared.veln\""));
+        assert!(!environment.function_is_published_for_test("expose"));
+        let (_, lowered) = check_project_surface_module(&project);
+        assert!(lowered.core.is_none());
+        assert!(lowered.ir.is_none());
+    }
+}
+
 fn assert_colliding_recovery_signatures(environment: &TypeEnvironment) {
     for name in ["exact", "invalid_arity", "recovered_case"] {
         let signature = environment
@@ -730,6 +835,85 @@ fn union_visibility_reports_distinct_paths_in_written_order() {
         })
         .collect::<Vec<_>>();
     assert_eq!(variants, ["Second", "First"]);
+}
+
+#[test]
+fn union_visibility_keeps_distinct_generic_arguments_and_removes_exact_repeats() {
+    let source = concat!(
+        "pub type State<A>\n",
+        "  Hidden(A)\n",
+        "end\n",
+        "pub fn expose(value: State<Int>::Hidden | State<String>::Hidden | State<Int>::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+    );
+    let diagnostics = diagnostics_for(source);
+    let visibility = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+    assert_eq!(visibility.len(), 2, "{diagnostics:#?}");
+    let hidden_starts = source
+        .match_indices("Hidden")
+        .map(|(offset, _)| offset)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        visibility
+            .iter()
+            .map(|diagnostic| diagnostic
+                .span
+                .as_ref()
+                .expect("visibility span")
+                .start
+                .offset)
+            .collect::<Vec<_>>(),
+        hidden_starts[1..3],
+        "{diagnostics:#?}"
+    );
+    for (diagnostic, written_type) in visibility
+        .iter()
+        .zip(["State<Int>::Hidden", "State<String>::Hidden"])
+    {
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(
+            json.contains(&format!("\"written_type\":\"{written_type}\"")),
+            "{json}"
+        );
+        assert!(json.contains("\"base_type\":\"State\""), "{json}");
+        assert!(json.contains("\"variant\":\"Hidden\""), "{json}");
+    }
+
+    let union_base = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
+        .collect::<Vec<_>>();
+    assert_eq!(union_base.len(), 1, "{diagnostics:#?}");
+    let union_json = veln_diagnostics::diagnostic_to_json(union_base[0]).to_json();
+    assert!(
+        union_json.contains("\"expected_base_type\":\"State<Int>\""),
+        "{union_json}"
+    );
+    assert!(
+        union_json.contains("\"actual_base_type\":\"State<String>\""),
+        "{union_json}"
+    );
+    assert_eq!(
+        union_base[0]
+            .span
+            .as_ref()
+            .expect("union base span")
+            .start
+            .offset,
+        source
+            .find("State<String>::Hidden")
+            .expect("second alternative")
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.invalid_annotation"),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

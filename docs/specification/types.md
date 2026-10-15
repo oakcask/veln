@@ -653,7 +653,10 @@ singleton variant type for `V` of the finite ADT `A<T>`. A union of alternatives
 for the same ADT identity and generic arguments denotes their finite variant
 set. The alternatives are resolved before their base identities are compared,
 so qualified and unqualified spellings of the same ADT can form one union.
-Duplicate alternatives are removed and display follows ADT declaration order.
+Duplicate alternatives with the same resolved ADT, canonical generic
+arguments, and variant are removed. Alternatives whose generic arguments
+differ remain distinct even when they select the same variant. Display follows
+ADT declaration order.
 `Option<T>`, `Result<T, E>`, `List<T>`, and source-defined ADTs use this same
 representation. A public type-alias chain whose resolved target is an ADT can
 qualify a singleton or union alternative. Alias-qualified and target-qualified
@@ -818,6 +821,12 @@ boundaries, and structured details. The focused semantic tests in
 `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/public_visibility.rs`
 verify duplicate exact names, declaration-order independence, and continued
 checking of another union alternative.
+The generic-union visibility
+[`human`](../../examples/specification/check/adt-variant-refinement-generic-union-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-generic-union-visibility-json/)
+cases verify complete alternative identity, exact duplicate removal, and the
+independent union-base mismatch.
 
 Visibility diagnostics retain the private declaration span when the ADT comes
 from a reusable or dependency environment. Deterministic work counters compare
@@ -827,11 +836,13 @@ boundaries, and many same-leaf ADTs selected through distinct qualified
 imports. Each workload grows linearly in the number of direct alternatives,
 declarations, declared variants, recovered boundaries, or qualified imports.
 The measured work combines visibility-checker steps with every indexed
-final-variant lookup, qualified import/path comparison, and ADT descriptor
-candidate visited while resolving the refinement identity. This keeps casing
-recovery, same-named imported ADTs, and unrelated declarations inside the
-checked bound. The counters, rather than elapsed time, define these regression
-checks.
+final-variant lookup, import-index construction and membership lookup, qualified
+import/path comparison, and ADT descriptor candidate visited while resolving
+the refinement identity. The unqualified workload grows unrelated imports,
+same-leaf descriptors, and exact- and any-arity direct boundaries together.
+This keeps casing recovery, same-named imported ADTs, and unrelated declarations
+inside the checked bound. The counters, rather than elapsed time, define these
+regression checks.
 
 For `N` independent invalid bases, annotation collection, casing collection,
 enclosing-context processing, and diagnostic ordering each use linear
