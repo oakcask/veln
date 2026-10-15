@@ -4,10 +4,13 @@ main.veln:16:1: error[type.private_inference_incomplete]: private function has n
   note: main.veln:16:1: Add a return type annotation.
 main.veln:28:25: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
   note: main.veln:1:1: Type `Empty` is declared here without finite ADT variants.
-main.veln:28:57: error[type.invalid_annotation]: invalid type annotation `Other::Go`: variant refinement alternatives must resolve to declared variants of one ADT
+main.veln:28:57: error[type.variant_union_base]: variant refinement alternative has base `Other`, expected `State`
+  note: main.veln:28:42: The first resolved alternative established base `State`.
 main.veln:32:41: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
   note: main.veln:1:1: Type `Empty` is declared here without finite ADT variants.
-main.veln:32:58: error[type.invalid_annotation]: invalid type annotation `Other::Go`: variant refinement alternatives must resolve to declared variants of one ADT
-main.veln:36:39: error[type.invalid_annotation]: invalid type annotation `Other::Go`: variant refinement alternatives must resolve to declared variants of one ADT
+main.veln:32:58: error[type.variant_union_base]: variant refinement alternative has base `Other`, expected `State`
+  note: main.veln:32:26: The first resolved alternative established base `State`.
+main.veln:36:39: error[type.variant_union_base]: variant refinement alternative has base `Other`, expected `State`
+  note: main.veln:36:24: The first resolved alternative established base `State`.
 main.veln:36:51: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
   note: main.veln:1:1: Type `Empty` is declared here without finite ADT variants.
