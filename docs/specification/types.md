@@ -685,7 +685,10 @@ without variants or a source-less non-ADT type published by the type-syntax
 provider. The reason is `opaque` for a compiler-known type that intentionally
 hides its variants. A qualified source type takes precedence over a
 same-spelled compiler-known type, so the source declaration determines
-eligibility and diagnostic provenance. A base with invalid generic arity
+eligibility and diagnostic provenance. When the written base is a public type
+alias or a finite alias chain, `not_adt` eligibility and declaration provenance
+come from the canonical target declaration; the diagnostic still preserves the
+outer written alias as `written_type`. A base with invalid generic arity
 retains the existing `type.invalid_annotation` failure instead. Exact and
 uniquely casing-recovered source-backed or source-less type paths use the same
 arity rule. A failed refinement does not suppress an independently provable

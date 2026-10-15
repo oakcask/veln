@@ -129,7 +129,7 @@ record, and function positions.
 
 | `reason` | Failed fact | Related context |
 | --- | --- | --- |
-| `not_adt` | The resolved named type has no finite ADT variants. | A source-backed type uses `base_type_declaration` with `resolved_identity` and its declaration span. A source-less type published by the type-syntax provider uses spanless `base_type_origin` with `resolved_identity` and `provider: "type_syntax"`. |
+| `not_adt` | The resolved named type has no finite ADT variants. | A source-backed type uses `base_type_declaration` with the canonical target's `resolved_identity` and declaration span, including when the written base is a public alias or alias chain. A source-less type published by the type-syntax provider uses spanless `base_type_origin` with `resolved_identity` and `provider: "type_syntax"`. |
 | `opaque` | The resolved compiler-known type intentionally hides its variants. | A spanless `base_type_origin` contains `resolved_identity` and `provider: "adt"`. |
 
 A failed base retains its resolved identity as semantic analysis state for
