@@ -26,13 +26,22 @@ that dependency.
 
 ## Outcomes And Boundaries
 
-The remaining proposal has two intended outcomes:
+The remaining proposal has these intended outcomes:
 
+- Public signatures reject private refinement bases or variants reached
+  transitively through aliases and structural type positions, and public
+  package signatures preserve the accepted written annotations.
 - Qualified immutable values gain the implemented stable-value match
   refinement only after a separate source-surface and name-resolution contract
   provides module-addressable immutable data values.
+- Schema encode and decode boundaries preserve the base ADT wire format while
+  enforcing the annotated variant set.
+- Production inputs with a known ADT identity but no public finite variant
+  descriptor report the defined provider-dependent diagnostic after that
+  provider contract exists.
 - Package-documentation catalog, LSP, and MCP views agree on the identity and
-  visibility of a refined variant.
+  visibility of a refined variant, and language-service failures preserve the
+  previous observable state.
 
 The feature is useful for protocol phases, compiler passes, security-sensitive
 state gates, and other finite state machines. It does not prove that every
@@ -404,8 +413,9 @@ current behavior:
 | MCP | Invalid-refinement recovery, package signatures, and failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
 
 The remaining state-machine examples must include match-based recovery of a
-refined value, a private-variant boundary, and an unchanged saved result after
-a failed language-service request.
+refined value, an indirect private-variant boundary reached through an alias or
+structural public-signature position, and an unchanged saved result after a
+failed language-service request.
 
 ## Non-Goals
 
