@@ -134,12 +134,13 @@ record, and function positions.
 
 A root variant refinement whose written base directly names an ADT in a public
 function parameter or result reports `type.variant_refinement_private` when
-that ADT is private or a selected variant is private. Alias-qualified roots and
-refinements in structural positions remain outside this check. The primary span
-selects the final identifier of the written base type for a private base and
-excludes preceding module qualifiers. For example, `main::Secret::One` selects
-`Secret`, not `main::Secret`. It selects the final variant segment for a private
-variant of a public base. The closed details contain exactly `written_type`,
+that ADT is private or a selected variant is private. Type-alias-qualified
+roots and refinements in structural positions remain outside this check. The
+primary span selects the final identifier of the written base type for a private
+base and excludes preceding module qualifiers. For example,
+`main::Secret::One` selects `Secret`, not `main::Secret`. For a private variant
+of a public base, the primary span selects the final variant segment. The closed
+details contain exactly `written_type`,
 `base_type`, `variant`, `boundary`, and `exposure_path`. `boundary` is
 `public_parameter` or `public_result`.
 `exposure_path` is an array with one object. A parameter path contains
