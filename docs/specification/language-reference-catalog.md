@@ -47,9 +47,10 @@ The `declarations-aliases` topic projects `TypeDecl` with zero or more
 with no constructors.
 The `types-inference-constructors` topic includes the executable productions
 for variant-refinement type text. A non-generic alternative requires an
-uppercase base leaf. An alternative with type arguments retains any `TypePath`
-before those arguments so semantic analysis can diagnose and recover an
-invalid-cased generic base. Its descriptor publishes the current
+uppercase base leaf and final segment. An alternative with type arguments
+retains any `TypePath` before those arguments and accepts any identifier as its
+final segment, so semantic analysis can diagnose and recover an invalid-cased
+generic base or final constructor. Its descriptor publishes the current
 singleton and finite-set identity, subset assignability and direct widening,
 aggregate and control-flow joins, stable match-path narrowing, runtime erasure,
 transitive alias-qualified identity and presentation, complete-domain alias

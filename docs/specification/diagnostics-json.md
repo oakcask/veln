@@ -171,8 +171,9 @@ recovery preserves every uniquely resolved direct alternative for this
 diagnostic in written order. This rule applies only when those alternatives
 occupy the complete annotation and are separated by `|`. Spaces and line
 breaks around the separator do not change the diagnostic set, order, spans, or
-declaration quarantine. The rule does not promote a refinement nested in
-another type shape to a direct root.
+declaration quarantine. A type path nested in a root alternative's generic
+arguments or in another structural type shape does not become an additional
+direct root.
 An exact final name shared by multiple variant declarations in the selected
 ADT is also ambiguous for this privacy check. That alternative produces no
 privacy diagnostic and does not by itself quarantine the public function; the
@@ -202,9 +203,9 @@ The recovered-generic visibility
 [`human`](../../examples/specification/check/adt-variant-refinement-recovered-generic-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-recovered-generic-visibility-json/)
-cases verify casing-before-privacy ordering, unqualified parameters,
-qualified results, complete detail fields, and related declaration and
-boundary locations.
+cases verify casing-before-privacy ordering, a later exact alternative with a
+qualified generic argument, unqualified parameters, qualified results,
+complete detail fields, and related declaration and boundary locations.
 
 A failed base retains its resolved identity as semantic analysis state for
 suppression and later analysis. This diagnostic recovery does not make the
