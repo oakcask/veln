@@ -4,7 +4,7 @@ use veln_ast::{BodyLine, BodyLineKind, Expr, ExprKind, SurfaceModule, TypePathSe
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
-use crate::diagnostics::span_json;
+use crate::diagnostics::{span_json, type_details};
 use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_annotation;
 use crate::types::{TypeEnvironment, VariantRefinementBaseFailure};
@@ -23,11 +23,17 @@ pub(crate) fn check_variant_refinement_bases(
     for decl in &module.types {
         for variant in &decl.variants {
             for field in &variant.fields {
-                collect_annotation(
+                collect_declaration_annotation(
                     &field.ty_refinements,
                     &field.ty_paths,
                     decl.module_name.as_deref(),
                     environment,
+                    field.node_id.display("field"),
+                    [
+                        decl.node_id.display("type"),
+                        variant.node_id.display("variant"),
+                        field.node_id.display("field"),
+                    ],
                     &mut diagnostics,
                 );
             }
@@ -36,30 +42,46 @@ pub(crate) fn check_variant_refinement_bases(
     for effect in &module.effects {
         for operation in &effect.operations {
             for param in &operation.params {
-                collect_annotation(
+                collect_declaration_annotation(
                     &param.ty_refinements,
                     &param.ty_paths,
                     effect.module_name.as_deref(),
                     environment,
+                    param.node_id.display("param"),
+                    [
+                        effect.node_id.display("effect"),
+                        operation.node_id.display("operation"),
+                        param.node_id.display("param"),
+                    ],
                     &mut diagnostics,
                 );
             }
-            collect_annotation(
+            collect_declaration_annotation(
                 &operation.return_type_refinements,
                 &operation.return_type_paths,
                 effect.module_name.as_deref(),
                 environment,
+                operation.node_id.display("operation"),
+                [
+                    effect.node_id.display("effect"),
+                    operation.node_id.display("operation"),
+                ],
                 &mut diagnostics,
             );
         }
     }
     for schema in &module.schemas {
         for field in &schema.fields {
-            collect_annotation(
+            collect_declaration_annotation(
                 &field.ty_refinements,
                 &field.ty_paths,
                 schema.module_name.as_deref(),
                 environment,
+                field.node_id.display("schema-field"),
+                [
+                    schema.node_id.display("schema"),
+                    field.node_id.display("schema-field"),
+                ],
                 &mut diagnostics,
             );
         }
@@ -95,21 +117,32 @@ pub(crate) fn check_variant_refinement_bases(
     }
     for handler in &module.handlers {
         for param in &handler.params {
-            collect_annotation(
+            collect_declaration_annotation(
                 &param.ty_refinements,
                 &param.ty_paths,
                 handler.module_name.as_deref(),
                 environment,
+                param.node_id.display("param"),
+                [
+                    handler.node_id.display("handler"),
+                    param.node_id.display("param"),
+                ],
                 &mut diagnostics,
             );
         }
         for clause in &handler.operation_clauses {
             for param in &clause.params {
-                collect_annotation(
+                collect_declaration_annotation(
                     &param.ty_refinements,
                     &param.ty_paths,
                     handler.module_name.as_deref(),
                     environment,
+                    param.node_id.display("param"),
+                    [
+                        handler.node_id.display("handler"),
+                        clause.node_id.display("clause"),
+                        param.node_id.display("param"),
+                    ],
                     &mut diagnostics,
                 );
             }
@@ -384,6 +417,45 @@ fn collect_annotation(
     }
 }
 
+fn collect_declaration_annotation(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    node_id: String,
+    origin_node_ids: impl IntoIterator<Item = String> + Clone,
+    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
+) {
+    collect_annotation(refinements, paths, current_module, environment, diagnostics);
+    if !annotation_has_base_failure(refinements, paths, current_module, environment) {
+        return;
+    }
+    for (annotation, error, span) in
+        independent_annotation_errors(refinements, paths, current_module, environment)
+    {
+        let diagnostic = Diagnostic::new(
+            "type.invalid_annotation",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!("invalid type annotation `{annotation}`: {error}"),
+            Some(span.clone()),
+            type_details(
+                node_id.clone(),
+                "valid_type",
+                annotation,
+                "source",
+                "source",
+                "assignable",
+                origin_node_ids.clone(),
+            ),
+        );
+        diagnostics.push(VariantRefinementBaseDiagnostic {
+            diagnostic,
+            ordering_scope: span,
+        });
+    }
+}
+
 fn collect_refinements(
     refinements: &[veln_ast::VariantRefinementType],
     current_module: Option<&str>,
@@ -464,7 +536,15 @@ fn collect_expr(
     } = &expr.kind
     {
         for (refinements, paths) in type_arg_refinements.iter().zip(type_arg_paths) {
-            collect_annotation(refinements, paths, current_module, environment, diagnostics);
+            collect_declaration_annotation(
+                refinements,
+                paths,
+                current_module,
+                environment,
+                expr.node_id.display("expr"),
+                [expr.node_id.display("expr")],
+                diagnostics,
+            );
         }
     }
     if let ExprKind::Begin { body, .. } = &expr.kind {

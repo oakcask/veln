@@ -189,6 +189,76 @@ fn invalid_constructor_quarantines_every_payload_type() {
 }
 
 #[test]
+fn declaration_carriers_preserve_independent_union_recovery_errors() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Empty\n",
+        "end\n",
+        "type State\n",
+        "  Ready\n",
+        "end\n",
+        "type Holder\n",
+        "  Built(value: Empty::Missing | State::Missing)\n",
+        "end\n",
+        "effect Broken\n",
+        "  apply(value: Empty::Missing | State::Missing) -> ()\n",
+        "end\n",
+        "schema Packet\n",
+        "  value: Empty::Missing | State::Missing\n",
+        "end\n",
+        "effect Ask\n",
+        "  value() -> Int\n",
+        "end\n",
+        "handler broken(input: Empty::Missing | State::Missing) for Ask\n",
+        "  value() => 0\n",
+        "end\n",
+    ));
+
+    let relevant = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "type.variant_refinement_base" | "type.invalid_annotation"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        relevant
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "type.variant_refinement_base",
+            "type.invalid_annotation",
+            "type.variant_refinement_base",
+            "type.invalid_annotation",
+            "type.variant_refinement_base",
+            "type.invalid_annotation",
+            "type.variant_refinement_base",
+            "type.invalid_annotation",
+        ],
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        relevant
+            .iter()
+            .map(|diagnostic| diagnostic.span.as_ref().unwrap().start.line)
+            .collect::<Vec<_>>(),
+        [7, 7, 10, 10, 13, 13, 18, 18],
+        "{diagnostics:#?}"
+    );
+    assert!(
+        relevant
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
+            .all(|diagnostic| diagnostic.message.contains("`State::Missing`")
+                && diagnostic
+                    .message
+                    .contains("alternatives must resolve to declared variants of one ADT"))
+    );
+}
+
+#[test]
 fn invalid_constructor_quarantine_reaches_alias_descriptor_views() {
     let diagnostics = diagnostics_for(concat!(
         "type Empty\n",
