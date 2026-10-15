@@ -258,7 +258,12 @@ impl PrivateExposure<'_> {
         let base_type = self.descriptor.identity();
         if self.private_base {
             (
-                joined_span(&self.alternative.base.segment_spans),
+                self.alternative
+                    .base
+                    .segment_spans
+                    .last()
+                    .expect("type path has a segment")
+                    .clone(),
                 format!("public refinement exposes private type `{base_type}`"),
                 "private_type_declaration",
                 format!("Private type `{base_type}` is declared here."),
@@ -336,10 +341,4 @@ impl PublicBoundary<'_> {
             Self::Result(None) => &function.span,
         }
     }
-}
-
-fn joined_span(spans: &[SourceSpan]) -> SourceSpan {
-    let mut span = spans.first().expect("type path has a segment").clone();
-    span.end = spans.last().expect("type path has a segment").end;
-    span
 }

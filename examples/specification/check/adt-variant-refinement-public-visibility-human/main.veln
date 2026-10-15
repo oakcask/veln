@@ -25,6 +25,10 @@ pub fn private_base_result() -> Secret::Two
 	Two
 end
 
+pub fn qualified_private_base_parameter(value: main::Secret::One) -> ()
+	()
+end
+
 pub fn private_variant_parameter(value: State::Hidden) -> ()
 	()
 end

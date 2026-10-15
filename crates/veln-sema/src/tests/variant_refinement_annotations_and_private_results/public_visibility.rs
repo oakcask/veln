@@ -58,6 +58,32 @@ fn public_parameters_and_results_reject_private_refinement_declarations() {
 }
 
 #[test]
+fn qualified_private_base_selects_only_the_final_base_segment() {
+    let diagnostics = visibility_diagnostics(concat!(
+        "mod sample\n",
+        "type Secret\n",
+        "  pub Hidden\n",
+        "end\n",
+        "pub fn expose(value: sample::Secret::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let diagnostic = &diagnostics[0];
+    let span = diagnostic.span.as_ref().expect("visibility span");
+    assert_eq!((span.start.line, span.start.column), (5, 30));
+    assert_eq!((span.end.line, span.end.column), (5, 36));
+
+    let observed = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+    assert!(observed.contains(
+        "\"details\":{\"written_type\":\"sample::Secret::Hidden\",\"base_type\":\"sample::Secret\",\"variant\":\"Hidden\",\"boundary\":\"public_parameter\",\"exposure_path\":[{\"kind\":\"parameter\",\"name\":\"value\"}]}"
+    ));
+    assert!(observed.contains("\"kind\":\"private_type_declaration\""));
+    assert!(observed.contains("\"kind\":\"public_parameter_boundary\""));
+}
+
+#[test]
 fn union_visibility_reports_distinct_paths_in_written_order() {
     let diagnostics = visibility_diagnostics(concat!(
         "pub type State\n",
