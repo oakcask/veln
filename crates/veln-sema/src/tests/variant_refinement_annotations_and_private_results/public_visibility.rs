@@ -354,59 +354,8 @@ fn visibility_failure_is_not_republished_through_function_aliases() {
         .tree,
     );
     let dependency_environment = TypeEnvironment::from_module(&dependency);
-    let exposed = dependency_environment
-        .function("exposed")
-        .expect("same-module recovery signature");
-    assert_eq!(exposed.params, [Type::Unknown]);
-    assert_eq!(exposed.return_type, Type::Unknown);
-    assert!(!dependency_environment.function_is_published_for_test("exposed"));
-    assert!(dependency_environment.function("first_alias").is_none());
-    assert!(dependency_environment.function("second_alias").is_none());
-    assert!(dependency_environment.function_is_published_for_test("accepted_alias"));
-
-    let invalid_consumer = lower_surface_ast(
-        &parse(&SourceFile::new(
-            "invalid_consumer.veln",
-            concat!(
-                "mod invalid_consumer\n",
-                "use dep\n",
-                "fn consume(value: Int) -> Int\n",
-                "  dep::first_alias(value)\n",
-                "end\n",
-            ),
-        ))
-        .tree,
-    );
-    let (invalid_diagnostics, invalid_lowered) =
-        check_project_surface_module_with_base_for_test(&invalid_consumer, &dependency_environment);
-    assert!(!invalid_diagnostics.is_empty());
-    assert!(
-        invalid_lowered.core.is_none(),
-        "an unpublished alias must not recover checked core"
-    );
-    assert!(
-        invalid_lowered.ir.is_none(),
-        "an unpublished alias must not recover IR"
-    );
-
-    let valid_consumer = lower_surface_ast(
-        &parse(&SourceFile::new(
-            "valid_consumer.veln",
-            concat!(
-                "mod valid_consumer\n",
-                "use dep\n",
-                "fn consume(value: State::Ready) -> State::Ready\n",
-                "  dep::accepted_alias(value)\n",
-                "end\n",
-            ),
-        ))
-        .tree,
-    );
-    let (valid_diagnostics, valid_lowered) =
-        check_project_surface_module_with_base_for_test(&valid_consumer, &dependency_environment);
-    assert!(valid_diagnostics.is_empty(), "{valid_diagnostics:#?}");
-    assert!(valid_lowered.core.is_some());
-    assert!(valid_lowered.ir.is_some());
+    assert_visibility_alias_dependency(&dependency_environment);
+    assert_visibility_alias_consumer_outcomes(&dependency_environment);
 
     let bridge = lower_surface_ast(
         &parse(&SourceFile::new(
@@ -435,6 +384,64 @@ fn visibility_failure_is_not_republished_through_function_aliases() {
     let consumer_environment =
         TypeEnvironment::from_module_with_base_for_test(&consumer, &bridge_environment);
     assert_visibility_alias_publication_boundary(&consumer_environment);
+}
+
+fn assert_visibility_alias_consumer_outcomes(dependency_environment: &TypeEnvironment) {
+    let invalid_consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "invalid_consumer.veln",
+            concat!(
+                "mod invalid_consumer\n",
+                "use dep\n",
+                "fn consume(value: Int) -> Int\n",
+                "  dep::first_alias(value)\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+    let (invalid_diagnostics, invalid_lowered) =
+        check_project_surface_module_with_base_for_test(&invalid_consumer, dependency_environment);
+    assert!(!invalid_diagnostics.is_empty());
+    assert!(
+        invalid_lowered.core.is_none(),
+        "an unpublished alias must not recover checked core"
+    );
+    assert!(
+        invalid_lowered.ir.is_none(),
+        "an unpublished alias must not recover IR"
+    );
+
+    let valid_consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "valid_consumer.veln",
+            concat!(
+                "mod valid_consumer\n",
+                "use dep\n",
+                "fn consume(value: State::Ready) -> State::Ready\n",
+                "  dep::accepted_alias(value)\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+    let (valid_diagnostics, valid_lowered) =
+        check_project_surface_module_with_base_for_test(&valid_consumer, dependency_environment);
+    assert!(valid_diagnostics.is_empty(), "{valid_diagnostics:#?}");
+    assert!(valid_lowered.core.is_some());
+    assert!(valid_lowered.ir.is_some());
+}
+
+fn assert_visibility_alias_dependency(dependency_environment: &TypeEnvironment) {
+    let exposed = dependency_environment
+        .function("exposed")
+        .expect("same-module recovery signature");
+    assert_eq!(exposed.params, [Type::Unknown]);
+    assert_eq!(exposed.return_type, Type::Unknown);
+    assert!(!dependency_environment.function_is_published_for_test("exposed"));
+    assert!(dependency_environment.function("first_alias").is_none());
+    assert!(dependency_environment.function("second_alias").is_none());
+    assert!(dependency_environment.function_is_published_for_test("accepted_alias"));
 }
 
 fn assert_visibility_alias_publication_boundary(consumer_environment: &TypeEnvironment) {
