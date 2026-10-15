@@ -23,6 +23,7 @@ use super::descriptors::{
 #[cfg(test)]
 thread_local! {
     static TYPE_PARAMETER_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static IMPORT_PATH_COMPARISONS: Cell<usize> = const { Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -34,6 +35,24 @@ pub(crate) fn reset_type_parameter_lookups() {
 pub(crate) fn take_type_parameter_lookups() -> usize {
     TYPE_PARAMETER_LOOKUPS.with(|lookups| lookups.replace(0))
 }
+
+#[cfg(test)]
+pub(crate) fn reset_import_path_comparisons() {
+    IMPORT_PATH_COMPARISONS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn import_path_comparisons() -> usize {
+    IMPORT_PATH_COMPARISONS.get()
+}
+
+#[cfg(test)]
+pub(super) fn record_import_path_comparison() {
+    IMPORT_PATH_COMPARISONS.set(IMPORT_PATH_COMPARISONS.get() + 1);
+}
+
+#[cfg(not(test))]
+pub(super) fn record_import_path_comparison() {}
 
 fn type_parameter_index(indices: &HashMap<&str, usize>, name: &str) -> Option<usize> {
     #[cfg(test)]
@@ -387,7 +406,7 @@ pub(super) fn imported_module_path_matches(
     };
     let module_path = module_segments.join("::");
     uses.iter().any(|use_decl| {
-        super::registry::record_import_path_comparison();
+        record_import_path_comparison();
         use_decl_matches_import_path(use_decl, &module_path, current_module)
             && use_decl.name == module_name
     })

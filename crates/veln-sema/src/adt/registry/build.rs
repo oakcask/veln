@@ -520,7 +520,7 @@ fn qualified_import_modules(
         paths.sort();
         paths.dedup();
         for path in paths {
-            super::record_import_path_comparison();
+            crate::adt::lookup_validation::record_import_path_comparison();
             if !crate::name_recovery::use_decl_matches_import_path(
                 use_decl,
                 &path,

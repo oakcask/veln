@@ -384,65 +384,71 @@ fn public_visibility_work_is_linear_for_many_declarations() {
     assert_eq!(second_growth, first_growth * 2, "work={work:?}");
 }
 
+fn same_leaf_qualified_import_project(count: usize) -> veln_ast::SurfaceModule {
+    let mut modules = Vec::new();
+    let mut consumer_source = String::new();
+    for index in 0..count {
+        let module_name = format!("dependency{index}");
+        modules.push((
+            module_name.clone(),
+            SourceFile::new(
+                format!("{module_name}.veln"),
+                "pub type State\n  Hidden\nend\n",
+            ),
+        ));
+        consumer_source.push_str(&format!("use {module_name}\n"));
+    }
+    for index in 0..count {
+        consumer_source.push_str(&format!(
+            "pub fn expose_{index}(value: dependency{index}::State::Hidden) -> ()\n  ()\nend\n"
+        ));
+    }
+    let consumer = SourceFile::new("consumer.veln", consumer_source);
+    let consumer_identity = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&consumer).tree,
+        "consumer".to_string(),
+        consumer.span(veln_source::TextRange::new(0, 0)),
+    );
+    modules.push(("consumer".to_string(), consumer));
+    let sources = modules
+        .iter()
+        .map(|(name, source)| (name.as_str(), source.clone()))
+        .collect();
+    let mut project = merged_modules_with_identities(sources);
+    project.module = consumer_identity.module;
+    project
+}
+
+fn same_leaf_qualified_import_work(count: usize) -> usize {
+    let project = same_leaf_qualified_import_project(count);
+    crate::analysis::reset_visibility_work();
+    crate::adt::registry::descriptor_lookup_counters::reset();
+    crate::adt::reset_import_path_comparisons();
+    let diagnostics = analyze_surface_module(&project);
+    let visibility_work = crate::analysis::take_visibility_work();
+    let descriptor_work = crate::adt::registry::descriptor_lookup_counters::candidate_scans();
+    let import_path_work = crate::adt::import_path_comparisons();
+    let work = visibility_work + descriptor_work + import_path_work;
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .count(),
+        count,
+        "count={count} diagnostics={diagnostics:#?}"
+    );
+    assert!(import_path_work > 0, "the metric must observe import paths");
+    eprintln!(
+        "qualified same-leaf refinement visibility: declarations={count} \
+         visibility_work={visibility_work} descriptor_work={descriptor_work} \
+         import_path_work={import_path_work} work={work}"
+    );
+    work
+}
+
 #[test]
 fn public_visibility_work_is_linear_for_same_leaf_qualified_imports() {
-    let work = [16, 32, 64].map(|count| {
-        let mut modules = Vec::new();
-        let mut consumer_source = String::new();
-        for index in 0..count {
-            let module_name = format!("dependency{index}");
-            modules.push((
-                module_name.clone(),
-                SourceFile::new(
-                    format!("{module_name}.veln"),
-                    "pub type State\n  Hidden\nend\n",
-                ),
-            ));
-            consumer_source.push_str(&format!("use {module_name}\n"));
-        }
-        for index in 0..count {
-            consumer_source.push_str(&format!(
-                "pub fn expose_{index}(value: dependency{index}::State::Hidden) -> ()\n  ()\nend\n"
-            ));
-        }
-        let consumer = SourceFile::new("consumer.veln", consumer_source);
-        let consumer_identity = veln_ast::lower_surface_ast_with_module_identity(
-            &parse(&consumer).tree,
-            "consumer".to_string(),
-            consumer.span(veln_source::TextRange::new(0, 0)),
-        );
-        modules.push(("consumer".to_string(), consumer));
-        let sources = modules
-            .iter()
-            .map(|(name, source)| (name.as_str(), source.clone()))
-            .collect();
-        let mut project = merged_modules_with_identities(sources);
-        project.module = consumer_identity.module;
-
-        crate::analysis::reset_visibility_work();
-        crate::adt::registry::descriptor_lookup_counters::reset();
-        let diagnostics = analyze_surface_module(&project);
-        let visibility_work = crate::analysis::take_visibility_work();
-        let descriptor_work = crate::adt::registry::descriptor_lookup_counters::candidate_scans();
-        let import_path_work =
-            crate::adt::registry::descriptor_lookup_counters::import_path_comparisons();
-        let work = visibility_work + descriptor_work + import_path_work;
-        assert_eq!(
-            diagnostics
-                .iter()
-                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
-                .count(),
-            count,
-            "count={count} diagnostics={diagnostics:#?}"
-        );
-        assert!(import_path_work > 0, "the metric must observe import paths");
-        eprintln!(
-            "qualified same-leaf refinement visibility: declarations={count} \
-             visibility_work={visibility_work} descriptor_work={descriptor_work} \
-             import_path_work={import_path_work} work={work}"
-        );
-        work
-    });
+    let work = [16, 32, 64].map(same_leaf_qualified_import_work);
 
     let first_growth = work[1] - work[0];
     let second_growth = work[2] - work[1];

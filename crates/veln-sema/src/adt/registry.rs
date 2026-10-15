@@ -479,9 +479,19 @@ impl AdtRegistry {
                 type_name.to_string(),
             )));
         }
+        self.exact_imported_source_identity(type_name, &module_path, current_module, uses)
+    }
+
+    fn exact_imported_source_identity(
+        &self,
+        type_name: &str,
+        module_path: &str,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<QualifiedSourceIdentity> {
         let indexed = self
             .qualified_import_modules
-            .get(&(current_module.map(str::to_string), module_path.clone()));
+            .get(&(current_module.map(str::to_string), module_path.to_string()));
         let fallback;
         let modules = if let Some(indexed) = indexed {
             indexed
@@ -489,7 +499,7 @@ impl AdtRegistry {
             fallback = uses
                 .iter()
                 .filter_map(|use_decl| {
-                    record_import_path_comparison();
+                    super::lookup_validation::record_import_path_comparison();
                     (crate::name_recovery::use_decl_matches_import_path(
                         use_decl,
                         &module_path,
@@ -857,12 +867,10 @@ pub(crate) mod descriptor_lookup_counters {
 
     thread_local! {
         static CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
-        static IMPORT_PATH_COMPARISONS: Cell<usize> = const { Cell::new(0) };
     }
 
     pub(crate) fn reset() {
         CANDIDATE_SCANS.set(0);
-        IMPORT_PATH_COMPARISONS.set(0);
     }
 
     pub(super) fn record_candidate_scan() {
@@ -872,20 +880,4 @@ pub(crate) mod descriptor_lookup_counters {
     pub(crate) fn candidate_scans() -> usize {
         CANDIDATE_SCANS.get()
     }
-
-    pub(super) fn record_import_path_comparison() {
-        IMPORT_PATH_COMPARISONS.set(IMPORT_PATH_COMPARISONS.get() + 1);
-    }
-
-    pub(crate) fn import_path_comparisons() -> usize {
-        IMPORT_PATH_COMPARISONS.get()
-    }
 }
-
-#[cfg(test)]
-pub(super) fn record_import_path_comparison() {
-    descriptor_lookup_counters::record_import_path_comparison();
-}
-
-#[cfg(not(test))]
-pub(super) fn record_import_path_comparison() {}
