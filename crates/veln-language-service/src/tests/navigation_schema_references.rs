@@ -807,6 +807,72 @@ mod navigation_schema_references_tests {
     }
 
     #[test]
+    fn workspace_schema_and_alias_collectors_keep_same_named_targets_separate() {
+        let sources = vec![
+            source(
+                "core.veln",
+                concat!(
+                    "pub schema Packet\n",
+                    "  value: Int\n",
+                    "end\n\n",
+                    "schema CoreFrame\n",
+                    "  field: Packet\n",
+                    "end\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode Packet from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "aliases.veln",
+                concat!(
+                    "use core\n\n",
+                    "pub schema Packet = core::Packet\n\n",
+                    "schema AliasFrame\n",
+                    "  field: Packet\n",
+                    "end\n\n",
+                    "fn write(packet: {value: Int}) -> ()\n",
+                    "  encode Packet from packet\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "main.veln",
+                concat!(
+                    "use core\n",
+                    "use aliases\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode core::Packet from view at byte_offset(0)?\n",
+                    "end\n\n",
+                    "fn write(packet: {value: Int}) -> ()\n",
+                    "  encode aliases::Packet from packet\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let schema = query(sources.clone(), "core.veln", 1, 12).unwrap();
+        assert_eq!(
+            locations(&schema.references),
+            [
+                ("core.veln", 6, 10),
+                ("core.veln", 10, 10),
+                ("main.veln", 5, 16),
+            ]
+        );
+
+        let alias = query(sources, "aliases.veln", 3, 12).unwrap();
+        assert_eq!(
+            locations(&alias.references),
+            [
+                ("aliases.veln", 6, 10),
+                ("aliases.veln", 10, 10),
+                ("main.veln", 9, 19),
+            ]
+        );
+    }
+
+    #[test]
     fn workspace_schema_alias_references_reject_alias_chains() {
         let sources = vec![source(
             "main.veln",
