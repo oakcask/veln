@@ -1,0 +1,6 @@
+main.veln:12:20: error[type.variant_refinement_base]: variant-refinement base `GenericEmpty<Int>` is not a finite ADT
+  note: main.veln:1:1: Type `GenericEmpty` is declared here without finite ADT variants.
+main.veln:12:68: error[name.invalid_case]: type name `state` must start with an ASCII uppercase letter
+main.veln:8:1: error[type.public_signature_missing]: public function has no return type annotation
+main.veln:12:49: error[type.variant_refinement_base]: variant-refinement base `GenericEmpty<main::state>` is not a finite ADT
+  note: main.veln:1:1: Type `GenericEmpty` is declared here without finite ADT variants.

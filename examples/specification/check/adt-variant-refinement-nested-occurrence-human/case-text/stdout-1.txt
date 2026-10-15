@@ -1,0 +1,12 @@
+main.veln:8:21: error[name.invalid_case]: type name `state` must start with an ASCII uppercase letter
+main.veln:8:15: error[type.variant_refinement_base]: variant-refinement base `Empty<state::Missing>` is not a finite ADT
+  note: main.veln:1:1: Type `Empty` is declared here without finite ADT variants.
+main.veln:12:21: error[name.invalid_case]: type name `state` must start with an ASCII uppercase letter
+main.veln:12:61: error[name.invalid_case]: type name `state` must start with an ASCII uppercase letter
+main.veln:8:21: error[type.invalid_annotation]: invalid type annotation `state::Missing`: variant refinement alternatives must resolve to declared variants of one ADT
+main.veln:12:15: error[type.variant_refinement_base]: variant-refinement base `Empty<state::Missing>` is not a finite ADT
+  note: main.veln:1:1: Type `Empty` is declared here without finite ADT variants.
+main.veln:12:21: error[type.invalid_annotation]: invalid type annotation `state::Missing`: variant refinement alternatives must resolve to declared variants of one ADT
+main.veln:12:55: error[type.variant_refinement_base]: variant-refinement base `Empty<state::Missing>` is not a finite ADT
+  note: main.veln:1:1: Type `Empty` is declared here without finite ADT variants.
+main.veln:12:61: error[type.invalid_annotation]: invalid type annotation `state::Missing`: variant refinement alternatives must resolve to declared variants of one ADT

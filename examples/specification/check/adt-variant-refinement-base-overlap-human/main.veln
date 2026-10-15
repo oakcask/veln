@@ -1,0 +1,38 @@
+type Empty
+end
+
+type State
+	Ready
+end
+
+type Other
+	Go
+end
+
+fn broken(invalid: WallTime::Missing, sibling: String) -> Int
+	0
+end
+
+fn inferred()
+	broken(1, "x")
+end
+
+fn needs_string(value: String) -> ()
+	()
+end
+
+fn user() -> ()
+	needs_string(inferred())
+end
+
+fn failed_before(value: Empty::Missing | State::Ready | Other::Go) -> ()
+	()
+end
+
+fn failed_between(value: State::Ready | Empty::Missing | Other::Go) -> ()
+	()
+end
+
+fn failed_after(value: State::Ready | Other::Go | Empty::Missing) -> ()
+	()
+end

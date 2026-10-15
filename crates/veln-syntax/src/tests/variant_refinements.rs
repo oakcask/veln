@@ -27,8 +27,10 @@ fn parses_variant_refinements_across_nested_type_forms() {
     assert_eq!(ok.base.segments, ["protocol", "Result"]);
     assert_eq!(ok.type_arguments.len(), 2);
     assert_eq!(ok.type_arguments[0].ty_fragments, ["List<domain::Item>"]);
+    assert_eq!(ok.type_arguments[0].ty_paths[0].segments, ["List"]);
+    assert_eq!(ok.type_arguments[0].ty_paths[0].type_argument_count, 1);
     assert_eq!(
-        ok.type_arguments[0].ty_paths[0].segments,
+        ok.type_arguments[0].ty_paths[1].segments,
         ["domain", "Item"]
     );
     assert_eq!(ok.type_arguments[1].ty_fragments, ["Wrapper<", ">"]);
@@ -187,7 +189,14 @@ fn preserves_nested_effectful_function_types_in_return_refinements() {
         result.type_arguments[0].ty_fragments,
         ["fn(Int) -> Int effects [io::Read]"]
     );
-    assert!(result.type_arguments[0].ty_paths.is_empty());
+    assert_eq!(
+        result.type_arguments[0]
+            .ty_paths
+            .iter()
+            .map(|path| path.segments.as_slice())
+            .collect::<Vec<_>>(),
+        [&["Int"][..], &["Int"][..]]
+    );
 
     let formatted = format_tree(&output.tree);
     assert!(formatted.contains(
@@ -627,6 +636,28 @@ fn rejects_lowercase_final_variants_after_generic_adt_bases() {
 }
 
 #[test]
+fn preserves_generic_refinements_with_lowercase_base_leaves_for_semantic_recovery() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn invalid(value: genericEmpty<Int>::Missing) -> ()\n  ()\nend\n",
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+
+    let refinement = &first_function(&output).params[0].ty_refinements[0];
+    let alternative = &refinement.alternatives[0];
+    assert_eq!(alternative.base.segments, ["genericEmpty"]);
+    assert_eq!(alternative.type_arguments.len(), 1);
+    assert_eq!(alternative.type_arguments[0].ty_fragments, ["Int"]);
+    assert_eq!(alternative.variant, "Missing");
+    assert_eq!(
+        &source.text()[alternative.base.segment_spans[0].start.offset
+            ..alternative.base.segment_spans[0].end.offset],
+        "genericEmpty"
+    );
+}
+
+#[test]
 fn rejects_refinement_nesting_beyond_the_lowering_and_wire_limit() {
     let mut annotation = "Leaf::Value".to_string();
     for _ in 0..4_096 {
@@ -766,6 +797,7 @@ fn parses_variant_refinements_in_explicit_call_type_arguments() {
         panic!("expected call");
     };
     let ExprKind::TypeApply {
+        type_arg_paths,
         type_arg_refinements,
         ..
     } = &callee.kind
@@ -773,6 +805,15 @@ fn parses_variant_refinements_in_explicit_call_type_arguments() {
         panic!("expected explicit type application");
     };
     assert_eq!(type_arg_refinements.len(), 2);
+    assert_eq!(type_arg_paths.len(), 2);
+    assert_eq!(type_arg_paths[0][0].segments, ["State", "Ready"]);
+    assert_eq!(
+        type_arg_paths[1]
+            .iter()
+            .map(|path| path.segments.as_slice())
+            .collect::<Vec<_>>(),
+        [&["Int"][..], &["Error"][..]]
+    );
     assert_eq!(type_arg_refinements[0][0].alternatives.len(), 2);
     assert_eq!(type_arg_refinements[1][0].alternatives[0].variant, "Ok");
     assert!(

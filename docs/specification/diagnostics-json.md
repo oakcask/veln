@@ -119,6 +119,156 @@ recovery retains the surrounding declaration and lossless source tree. This
 diagnostic does not assert that a structurally valid base or final name resolves
 semantically.
 
+A structurally valid refinement whose base resolves uniquely but cannot expose
+a finite ADT variant set reports `type.variant_refinement_base`. The primary
+span is the written base path and excludes its type arguments, `::`, and final
+variant segment. Its closed details contain only `written_type` and `reason`.
+`written_type` preserves the source spelling of the base and recursively
+reconstructs its type arguments, including refinements nested in generic,
+record, and function positions.
+
+| `reason` | Failed fact | Related context |
+| --- | --- | --- |
+| `not_adt` | The resolved named type has no finite ADT variants. | A source-backed type uses `base_type_declaration` with the canonical target's `resolved_identity` and declaration span, including when the written base is a public alias or alias chain. A source-less type published by the type-syntax provider uses spanless `base_type_origin` with `resolved_identity` and `provider: "type_syntax"`. |
+| `opaque` | The resolved compiler-known type intentionally hides its variants. | A spanless `base_type_origin` contains `resolved_identity` and `provider: "adt"`. |
+
+A failed base retains its resolved identity as semantic analysis state for
+suppression and later analysis. This diagnostic recovery does not make the
+invalid refinement selectable by language-service protocols. A source-less
+failed base likewise retains semantic identity without a manufactured source
+target. The failed occurrence does not emit variant, union,
+visibility, or assignability diagnostics that require a refinable base.
+When a qualified source type and a compiler-known type have the same leaf
+name, the source module identity selects the source declaration. The base
+diagnostic then uses that source identity and its declaration-related context;
+the compiler-known descriptor does not make the qualified source path opaque
+or ambiguous.
+The checker continues with sibling alternatives and nested type positions. It
+retains a name, constructor, or generic-arity diagnostic when that fact is
+provable without treating the failed base as refinable. A failed refinement in
+one record field or other structural child does not stop that traversal: an
+exact or uniquely casing-recovered type application in a separate sibling
+position still reports its independently provable generic-arity failure.
+Within one refinement union, a failed alternative does not establish or clear
+the expected base. The earliest successfully instantiated alternative
+establishes that base. Each later successfully instantiated alternative is
+compared with it in written order. A different ADT identity or different
+canonical generic arguments report the existing `type.invalid_annotation` at
+the later alternative, even when a failed alternative occurs before or between
+the successful alternatives.
+When a nested type argument is invalid, the checker still reports an enclosing
+base-eligibility failure that can be proved from the enclosing base identity
+alone. It suppresses an enclosing annotation or final-segment failure that
+would require the invalid child to form a valid type.
+The checker visits each written type-path occurrence once during recovery.
+Repeated traversal of one source span does not duplicate its diagnostic, while
+equal path text at distinct spans remains distinct and can report once at each
+span.
+When separate union alternatives independently produce failures, their
+base diagnostics follow the alternatives' written order. Within each
+alternative, the checker reports casing before base resolution, generic arity,
+base eligibility, final-segment resolution, and visibility. Casing applies to
+the complete alternative, including qualified type arguments. A base failure
+from an earlier alternative therefore precedes a nested casing failure from a
+later alternative, and that casing failure precedes the later alternative's
+base failure. Diagnostics from unrelated checker families retain their
+established relative order and can remain between the casing and base failures
+of one alternative. The checked human and JSON cases below preserve the full
+sequence around unrelated public-signature and casing diagnostics as well as
+refinement failures.
+An independently provable generic-arity failure keeps
+`type.invalid_annotation` instead of adding the base diagnostic. This applies
+to exact and uniquely casing-recovered source-backed or source-less base types;
+the invalid-annotation span covers the complete structural refinement spelling.
+Unresolved, ambiguous, private, and wrong-kind bases also retain their existing
+diagnostics.
+The checker applies this contract to function and test parameters and results,
+local annotations, ADT payloads, effect-operation parameters and results,
+handler parameters, schema fields, and explicit call type arguments. A failure
+in a declaration annotation prevents publication of usable typed state. An
+invalid parameter supplies no expected argument types to callers and is unknown
+inside its declaration body. An invalid result supplies no return expectation
+to its body and no result type to callers. These quarantined types do not cause
+derivative assignability diagnostics. The declaration-level rule applies to an
+ordinary function, one effect operation, one handler, or one ADT constructor:
+if any parameter, result, or payload annotation in that declaration has a base
+failure, every parameter, result, or payload type exposed by that declaration is
+unknown. Declaration identity and independently provable declaration
+diagnostics remain available. A schema with such a field does not expose a
+generated helper through the existing schema eligibility boundary. Invalid-name
+function-value recovery and function aliases expose this same quarantined
+callable signature; they do not restore sibling parameter or result types.
+The same quarantine runs before private result inference when the source-backed
+base declaration comes from the reusable standard environment. Its related
+note retains the standard-library declaration span. An omitted result that
+calls the invalid declaration does not inherit that declaration's written
+result type. If no independent fact establishes a result, inference keeps it
+unknown instead of producing a derivative mismatch in a later consumer.
+
+Lowercase prospective bases without type arguments remain ordinary named-type
+source text. Type arguments before the final `::Variant` make the refinement
+structure explicit, so a lowercase generic base leaf is preserved for semantic
+recovery. If changing only that preserved base leaf to the required case
+identifies exactly one type, the checker reports `name.invalid_case`, retains
+that identity, and performs the independent eligibility check on carriers
+classified for casing analysis.
+Explicit expression type arguments remain casing-silent, but their base
+eligibility is still checked independently. A source type declaration with no
+variants, a source-less non-ADT type, or a compiler-known opaque type therefore
+also reports `type.variant_refinement_base`; a refinable ADT continues to
+final-segment checking without an eligibility failure. If recovery does not
+identify exactly one base, the checker does not manufacture an eligibility
+diagnostic or retained identity. When casing and eligibility use the same base
+span, the casing diagnostic precedes the eligibility diagnostic.
+The checked
+[`human`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-json/)
+cases cover source-backed, source-less, and opaque bases in declaration
+annotations and explicit call arguments, related provenance, recovered-casing
+overlap including a correct-arity generic base, occurrence-scoped downstream
+suppression, declaration quarantine, and arity precedence.
+The reusable-base and union-overlap
+[`human`](../../examples/specification/check/adt-variant-refinement-base-overlap-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-base-overlap-json/)
+cases cover standard-environment declaration provenance, quarantine before
+omitted-result inference, and a failed union alternative before, between, and
+after two successfully instantiated alternatives.
+The checked nested-recovery
+[`human`](../../examples/specification/check/adt-variant-refinement-nested-recovery-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-nested-recovery-json/)
+cases cover independent enclosing base failures, nested generic-arity failures,
+suppression of failures derived from an invalid child type, one diagnostic per
+written path occurrence, and independent diagnostics for equal paths at
+distinct spans.
+The qualified source-collision
+[`human`](../../examples/specification/check/adt-variant-refinement-qualified-source-collision-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-qualified-source-collision-json/)
+cases verify that qualified source declarations win over same-spelled
+compiler-known type identities and retain source declaration provenance.
+The checked nested-casing
+[`human`](../../examples/specification/check/adt-variant-refinement-nested-casing-diagnostics-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-nested-casing-diagnostics-json/)
+cases fix the per-alternative precedence when a non-ADT generic base contains a
+uniquely recovered invalid-cased qualified type argument.
+The checked declaration-quarantine
+[`human`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-json/)
+cases cover ordinary functions, effect-operation, handler, ADT-constructor, and
+schema carriers, including retained independent diagnostics and absent
+sibling-derived mismatches. For ordinary functions, invalid parameter or result
+annotations quarantine sibling parameter types, return expectations, and named
+result bindings used by contracts. Recovered invalid-name function values use
+the same quarantined parameters and result. The cases reject derivative
+`type.mismatch` and `contract.type_mismatch` diagnostics. The constructor coverage uses direct,
+one-hop alias, and transitive-alias views of the same quarantined variant; every
+view suppresses the derivative payload mismatch.
+
 A value whose complete ADT variant set is not assignable at a direct local,
 argument, branch, arm, or result boundary reports `type.variant_mismatch` at
 that value expression. The primary message states the actual and expected

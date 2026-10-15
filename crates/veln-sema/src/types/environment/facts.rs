@@ -6,6 +6,15 @@ use super::*;
 
 use crate::type_syntax::parse_type_or_unknown;
 
+mod quarantine;
+
+use quarantine::{
+    function_has_base_failure, quarantine_invalid_variant_refinement_declaration_types,
+    quarantine_invalid_variant_refinement_function_types,
+    quarantine_invalid_variant_refinement_handler_types,
+    quarantine_invalid_variant_refinement_signatures,
+};
+
 trait BaseFacts {
     fn extend_with(&mut self, base: &Self);
 }
@@ -75,37 +84,46 @@ pub(super) fn from_module_with_base(
     module: &SurfaceModule,
     base: Option<&TypeEnvironment>,
 ) -> TypeEnvironment {
-    let declarations = declaration_facts(module, base);
+    let mut declarations = declaration_facts(module, base);
+    let validation_environment = TypeEnvironment::for_path_classification_with_base(module, base);
+    quarantine_invalid_variant_refinement_declaration_types(
+        module,
+        &validation_environment,
+        &mut declarations.effects,
+        &mut declarations.adts,
+    );
     let callables = callable_facts(module, base, &declarations);
     finish_environment(module, base, declarations, callables)
 }
 
 pub(super) fn from_module_for_path_classification(module: &SurfaceModule) -> TypeEnvironment {
-    let declarations = declaration_facts(module, None);
-    let mut callables = declared_callable_facts(module, None, &declarations);
+    from_module_for_path_classification_with_base(module, None)
+}
+
+pub(super) fn from_module_for_path_classification_with_base(
+    module: &SurfaceModule,
+    base: Option<&TypeEnvironment>,
+) -> TypeEnvironment {
+    let declarations = declaration_facts(module, base);
+    let mut callables = declared_callable_facts(module, base, &declarations);
     append_schema_helpers(module, &mut callables.functions, &declarations.adts);
-    finish_environment(module, None, declarations, callables)
+    finish_environment(module, base, declarations, callables)
 }
 
 fn finish_environment(
     module: &SurfaceModule,
     base: Option<&TypeEnvironment>,
     declarations: DeclarationFacts,
-    mut callables: CallableFacts,
+    callables: CallableFacts,
 ) -> TypeEnvironment {
     let symbols = symbol_facts(module, base, &declarations.adts);
-    let aliases = function_alias_signatures(module, &callables.functions);
-    callables.functions.extend(aliases);
-    let functions_by_name = function_name_index(&callables.functions);
-    let recovery = recovery_facts(module, &callables.functions);
-
-    TypeEnvironment {
+    let mut environment = TypeEnvironment {
         functions: callables.functions,
-        functions_by_name,
-        function_recovery_signatures: recovery.function_signatures,
-        function_recoveries: recovery.functions,
-        constructor_recoveries: recovery.constructors,
-        import_constructor_recoveries: recovery.import_constructors,
+        functions_by_name: HashMap::new(),
+        function_recovery_signatures: Vec::new(),
+        function_recoveries: BTreeMap::new(),
+        constructor_recoveries: BTreeMap::new(),
+        import_constructor_recoveries: BTreeMap::new(),
         effects: declarations.effects,
         handlers: callables.handlers,
         schema_symbols: symbols.schema_symbols,
@@ -117,23 +135,31 @@ fn finish_environment(
         companion_function_access_targets: symbols.companion_function_access_targets,
         companion_schema_access_targets: symbols.companion_schema_access_targets,
         companion_effect_access_targets: declarations.companion_effect_access_targets,
-    }
+    };
+    quarantine_invalid_variant_refinement_signatures(module, &mut environment);
+    let aliases = function_alias_signatures(module, &environment.functions);
+    environment.functions.extend(aliases);
+    environment.functions_by_name = function_name_index(&environment.functions);
+    let recovery = recovery_facts(module, &environment);
+    environment.function_recovery_signatures = recovery.function_signatures;
+    environment.function_recoveries = recovery.functions;
+    environment.constructor_recoveries = recovery.constructors;
+    environment.import_constructor_recoveries = recovery.import_constructors;
+    environment
 }
 
-fn recovery_facts(module: &SurfaceModule, functions: &[FunctionSignature]) -> RecoveryFacts {
-    let mut facts = function_recovery_facts(module, functions);
+fn recovery_facts(module: &SurfaceModule, environment: &TypeEnvironment) -> RecoveryFacts {
+    let mut facts = function_recovery_facts(module, environment);
     facts.constructors = constructor_recovery_facts(module);
     facts.import_constructors = import_constructor_recovery_facts(module);
     facts
 }
 
-fn function_recovery_facts(
-    module: &SurfaceModule,
-    functions: &[FunctionSignature],
-) -> RecoveryFacts {
+fn function_recovery_facts(module: &SurfaceModule, environment: &TypeEnvironment) -> RecoveryFacts {
     let mut facts = RecoveryFacts::default();
     for function in &module.functions {
-        if let Some(signature) = invalid_function_recovery_signature(module, function) {
+        if let Some(signature) = invalid_function_recovery_signature(module, function, environment)
+        {
             facts.record_function(signature);
         }
     }
@@ -143,9 +169,12 @@ fn function_recovery_facts(
         .iter()
         .filter(|alias| alias.kind == PublicAliasKind::Function)
     {
-        if let Some(signature) =
-            invalid_alias_recovery_signature(module, alias, functions, &no_access_targets)
-        {
+        if let Some(signature) = invalid_alias_recovery_signature(
+            module,
+            alias,
+            &environment.functions,
+            &no_access_targets,
+        ) {
             facts.record_function(signature);
         }
     }
@@ -155,6 +184,7 @@ fn function_recovery_facts(
 fn invalid_function_recovery_signature(
     module: &SurfaceModule,
     function: &Function,
+    environment: &TypeEnvironment,
 ) -> Option<FunctionSignature> {
     let name = function.name.as_ref()?;
     if function.kind != FunctionKind::Function
@@ -163,7 +193,7 @@ fn invalid_function_recovery_signature(
         return None;
     }
     let (params, variadic) = function_signature_params(function);
-    Some(FunctionSignature {
+    let mut signature = FunctionSignature {
         name: name.clone(),
         target_name: name.clone(),
         module_name: function.module_name.clone(),
@@ -175,7 +205,15 @@ fn invalid_function_recovery_signature(
         callsite: function.callsite.is_some(),
         node_id: function.node_id,
         span: function.span.clone(),
-    })
+    };
+    if function_has_base_failure(function, environment) {
+        signature.params.fill(Type::Unknown);
+        if let Some(variadic) = &mut signature.variadic {
+            *variadic = Type::Unknown;
+        }
+        signature.return_type = Type::Unknown;
+    }
+    Some(signature)
 }
 
 fn invalid_alias_recovery_signature(
@@ -367,6 +405,17 @@ fn callable_facts(
         mut functions,
         mut handlers,
     } = declared_callable_facts(module, base, declarations);
+    let validation_environment = TypeEnvironment::for_path_classification_with_base(module, base);
+    quarantine_invalid_variant_refinement_function_types(
+        module,
+        &validation_environment,
+        &mut functions,
+    );
+    quarantine_invalid_variant_refinement_handler_types(
+        module,
+        &validation_environment,
+        &mut handlers,
+    );
     infer_private_function_body_return_types(module, &mut functions, &declarations.adts);
     infer_private_function_call_site_signature_types(module, &mut functions, &declarations.adts);
     infer_private_function_body_return_types(module, &mut functions, &declarations.adts);

@@ -120,7 +120,7 @@ grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name EffectBinder? \"(\" Par
 grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
-grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
+grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant* \"end\" NL?").
 grammar_line(101, "EffectDecl    ::= \"pub\"? \"effect\" Name NL EffectOperation+ \"end\" NL?").
 grammar_line(101, "EffectOperation ::= Name \"(\" EffectParamList? \")\" \"->\" TypeText NL").
 grammar_line(101, "EffectParamList ::= Name \":\" TypeText (\",\" Name \":\" TypeText)*").
@@ -158,7 +158,7 @@ grammar_line(111, "FunctionType  ::= \"fn\" \"(\" FunctionTypeParams? \")\" \"->
 grammar_line(111, "FunctionTypeParams ::= FunctionTypeParam (\",\" FunctionTypeParam)* \",\"?").
 grammar_line(111, "FunctionTypeParam ::= Name \":\" TypeText | TypeText | \"...\" TypeText?").
 grammar_line(111, "VariantRefinementType ::= VariantAlternative (\"|\" VariantAlternative)*").
-grammar_line(111, "VariantAlternative ::= NamedAdtBase RefinementTypeArguments? \"::\" UpperName").
+grammar_line(111, "VariantAlternative ::= NamedAdtBase \"::\" UpperName | TypePath RefinementTypeArguments \"::\" UpperName").
 grammar_line(111, "NamedAdtBase  ::= (Name \"::\")* UpperName").
 grammar_line(111, "NamedTypeArguments ::= \"<\" TypeText (\",\" TypeText)* \",\"? \">\"").
 grammar_line(111, "RefinementTypeArguments ::= \"<\" TypeText (\",\" TypeText)* \">\"").
@@ -603,6 +603,7 @@ ident_tail --> tok(comma), ident, !, ident_tail.
 ident_tail --> [].
 
 type_variants --> type_variant, !, type_variants_tail.
+type_variants --> [].
 type_variants_tail --> type_variant, !, type_variants_tail.
 type_variants_tail --> [].
 type_variant --> visibility, upper_name, type_variant_fields_opt, nl.
@@ -938,13 +939,14 @@ variant_refinement_tail -->
 variant_refinement_tail --> [].
 
 variant_alternative -->
-    variant_refinement_base,
+    named_adt_base,
     tok(double_colon),
     upper_name.
-
-variant_refinement_base -->
-    named_adt_base,
-    variant_type_arguments_opt.
+variant_alternative -->
+    type_path,
+    variant_type_arguments,
+    tok(double_colon),
+    upper_name.
 
 named_adt_base -->
     ascii_upper_name.
@@ -954,11 +956,6 @@ named_adt_base -->
     named_adt_base.
 
 ascii_upper_name --> identifier_text(Text), { ascii_upper_text(Text) }.
-
-variant_type_arguments_opt -->
-    variant_type_arguments,
-    !.
-variant_type_arguments_opt --> [].
 
 variant_type_arguments -->
     tok(less),

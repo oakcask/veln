@@ -678,6 +678,95 @@ case covers transitive singleton, union, and generic aliases together with
 mutual assignment, inference, finite joins, and complete-domain joins. An
 unknown variant, invalid base arity, or union of different resolved ADTs is an
 invalid type annotation; it does not become an assignable `unknown` contract.
+If a structurally valid refinement base resolves uniquely but cannot provide a
+finite ADT variant set, the checker rejects the annotation with
+`type.variant_refinement_base`. The reason is `not_adt` for a source declaration
+without variants or a source-less non-ADT type published by the type-syntax
+provider. The reason is `opaque` for a compiler-known type that intentionally
+hides its variants. A qualified source type takes precedence over a
+same-spelled compiler-known type, so the source declaration determines
+eligibility and diagnostic provenance. When the written base is a public type
+alias or a finite alias chain, `not_adt` eligibility and declaration provenance
+come from the canonical target declaration; the diagnostic still preserves the
+outer written alias as `written_type`. A base with invalid generic arity
+retains the existing `type.invalid_annotation` failure instead. Exact and
+uniquely casing-recovered source-backed or source-less type paths use the same
+arity rule. A failed refinement does not suppress an independently provable
+arity failure in a sibling record field or other structural type position. The
+same eligibility rule applies recursively to parameters, results, locals, ADT
+payloads, effect and handler annotations, schema fields, and explicit call type
+arguments. A uniquely recovered invalid-cased base retains its identity and is
+checked independently; recovery is not attempted when more than one base could
+match. A uniquely recovered invalid-cased type nested in a base's generic
+arguments likewise does not suppress an independently provable eligibility
+failure for that enclosing base. Any such invalid annotation prevents the
+containing declaration from being published as usable typed state. For an
+ordinary function, effect operation, handler, or ADT constructor, one failed
+parameter, result, or payload annotation makes every parameter, result, or
+payload type from that declaration unknown to bodies, calls, performs, handles,
+and constructor uses. The
+declaration identity and independently provable declaration diagnostics remain,
+but a valid sibling type cannot produce a derivative mismatch. Schema
+eligibility rejects a schema field with the same failure instead of generating
+a partially typed helper. A resolved base identity remains
+available internally for suppression and later semantic analysis, but this
+recovery does not make the invalid refinement selectable by language-service
+protocols. A source-less base retains the same semantic identity without
+acquiring a source target. The checker processes each written type-path
+occurrence once during nested recovery. Equal paths at different source spans
+remain independent occurrences. The
+early quarantine uses the same source-backed declarations as the analyzed
+module, including declarations selected from the reusable standard
+environment. Private return inference therefore cannot publish a result that
+depends on an invalid reusable-base annotation. Within a refinement union, the
+checker skips a failed alternative, retains the earliest successfully
+instantiated base, and compares each later successful alternative with that
+base. A later different base remains an invalid annotation; the failed
+alternative does not suppress that independent comparison. The
+[diagnostic specification](diagnostics-json.md#diagnostic-families) defines the
+closed details, related declaration or provider context, and downstream
+suppression; the checked
+[`human`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-json/)
+cases verify those boundaries.
+The reusable-base and union-overlap
+[`human`](../../examples/specification/check/adt-variant-refinement-base-overlap-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-base-overlap-json/)
+cases verify source-backed standard provenance, omitted-result recovery, and
+written-order comparison around a failed union alternative.
+The qualified source-collision
+[`human`](../../examples/specification/check/adt-variant-refinement-qualified-source-collision-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-qualified-source-collision-json/)
+cases verify source precedence over colliding compiler-known identities. The
+nested-recovery
+[`human`](../../examples/specification/check/adt-variant-refinement-nested-recovery-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-nested-recovery-json/)
+cases verify occurrence-scoped recovery.
+The declaration-quarantine
+[`human`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-declaration-quarantine-json/)
+cases verify the cross-carrier sibling boundary through direct, one-hop alias,
+and transitive-alias constructor views. An invalid-cased ordinary function's
+recovered function value exposes the same declaration-wide unknown parameters
+and result. A function alias copies that quarantined signature after qualified
+base resolution, including when resolution uses a reusable base environment.
+For `N` independent invalid bases, annotation collection, casing collection,
+enclosing-context processing, and diagnostic ordering each use linear
+instrumented work. This bound includes invalid-cased bases and unrelated
+diagnostics interleaved before, between, and after the base failures. Recovery
+also visits `N` structurally separate sibling type positions with linear
+instrumented comparison and diagnostic-ordering work. The
+regression check compares deterministic counters at increasing input sizes;
+elapsed time does not define the bound.
+For one recovered union with `N` alternatives, successful-base comparison and
+diagnostic merging also use linear instrumented work. The bounded regression
+compares adjacent alternative counts and does not use elapsed time as the
+contract.
 The checked
 [`generic alias boundaries`](../../examples/specification/check/adt-variant-refinement-generic-alias-boundaries/)
 case also verifies that imported alias-qualified constructor context supplies
@@ -832,8 +921,8 @@ rename behavior is specified by
 [MCP](mcp.md#saved-workspace-navigation). Public/private exposure paths,
 qualified-value control-flow refinement, schema boundaries,
 package-documentation catalog signatures, remaining LSP diagnostics and
-recovery, and remaining MCP diagnostics, package-signature, and saved-state
-behavior remain proposal work.
+recovery, and remaining MCP invalid-refinement recovery, package-signature,
+and saved-state behavior remain proposal work.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
@@ -950,5 +1039,7 @@ inventing an arithmetic rewrite.
   `crates/veln-sema/src/tests/variant_refinement_match_scaling.rs`.
 - Aggregate and alias-presentation join scaling:
   `crates/veln-sema/src/tests/variant_refinement_aggregate_scaling.rs`.
+- Invalid variant-refinement base recovery scaling:
+  `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results.rs`.
 - Parser coverage: `crates/veln-syntax/src/tests/calls_and_generics.rs`,
   `literals_and_numbers.rs`, and `patterns_and_control_flow.rs`.

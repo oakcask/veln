@@ -1,0 +1,93 @@
+type State
+	Ready
+end
+
+type Empty
+end
+
+type GenericEmpty<A>
+end
+
+pub fn unrelated_before()
+	()
+end
+
+fn casing_before(value: empty::Missing) -> ()
+	()
+end
+
+fn generic_casing_before(value: genericEmpty<Int>::Missing) -> ()
+	()
+end
+
+type Wrap
+	Wrapped(Empty::Missing)
+end
+
+pub fn unrelated_between()
+	()
+end
+
+fn base_failure(value: Empty::Missing) -> ()
+	()
+end
+
+fn source_less(value: Int::Missing) -> ()
+	()
+end
+
+fn source_less_recovered_arity(value: int<Int>::Missing) -> ()
+	()
+end
+
+fn source_less_exact_arity(value: Int<Int>::Missing) -> ()
+	()
+end
+
+fn opaque(value: NetStream::Missing) -> ()
+	()
+end
+
+fn arity_precedence(value: GenericEmpty<Int, String>::Missing) -> ()
+	()
+end
+
+fn arity_then_base(value: GenericEmpty<Int, String>::Missing | Empty::Missing) -> ()
+	()
+end
+
+fn later_recovered_casing(value: empty::Missing) -> ()
+	()
+end
+
+fn needs_string(value: String) -> ()
+	()
+end
+
+fn invalid_parameter(value: Empty::Missing) -> ()
+	needs_string(value)
+end
+
+fn invalid_return() -> Empty::Missing
+	"not empty"
+end
+
+fn explicit_type_argument() -> ()
+	let pair = channel::bounded<Empty::Missing>(1)
+	()
+end
+
+pub fn unrelated_after()
+	()
+end
+
+pub type EmptyAlias = Empty
+pub type EmptyChain = EmptyAlias
+
+fn alias_failure(value: EmptyAlias::Missing) -> ()
+	()
+end
+
+fn alias_chain_failure(value: EmptyChain::Missing) -> ()
+	()
+end

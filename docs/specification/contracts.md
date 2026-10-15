@@ -196,7 +196,16 @@ An `ensure` clause can refer to the returned value only when the return
 annotation names it: `-> result: Type`. The binding is visible to `ensure` only,
 not to `require`, `invariant`, or the function body. `result` is an ordinary
 identifier when no explicit result binding exists, so an unbound use reports an
-unresolved-name diagnostic.
+unresolved-name diagnostic. If an ordinary function parameter or its result
+annotation has an invalid variant-refinement base, the named result binding
+remains visible to `ensure` but has no usable type. Contract validation treats
+that binding and the function's parameters as `unknown`, including valid
+sibling annotations. Their written types therefore cannot produce derivative
+contract type mismatches. Independently provable predicate failures remain:
+selecting a missing field from the unknown result reports
+`contract.field_missing`. The
+[type specification](types.md#compatibility-and-limits) owns the annotation
+failure and declaration quarantine rules.
 
 ## References
 

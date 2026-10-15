@@ -1,0 +1,13 @@
+type Int
+end
+
+type NetStream
+end
+
+fn scalar(value: collision::Int::Missing) -> ()
+	()
+end
+
+fn stream(value: collision::NetStream::Missing) -> ()
+	()
+end

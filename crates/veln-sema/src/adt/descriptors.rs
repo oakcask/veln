@@ -14,6 +14,13 @@ pub(crate) enum AdtVariantKind {
     Source,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum VariantRefinementAvailability {
+    Finite,
+    Opaque,
+    Unavailable,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AdtDescriptor {
     pub(crate) type_name: String,
@@ -23,6 +30,7 @@ pub(crate) struct AdtDescriptor {
     pub(crate) type_parameters: Vec<String>,
     pub(crate) variants: Vec<AdtVariantDescriptor>,
     pub(crate) diagnostic_name: String,
+    pub(crate) refinement_availability: VariantRefinementAvailability,
     pub(crate) propagation: Option<ResultPropagationDescriptor>,
     pub(crate) visibility: Visibility,
 }

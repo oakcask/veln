@@ -614,6 +614,9 @@ impl AstBuilder {
             .map(|path| TypePathSegments {
                 segments: path.segments.clone(),
                 segment_spans: path.segment_spans.clone(),
+                type_argument_count: path.type_argument_count,
+                application_span: path.application_span.clone(),
+                written: path.written.clone(),
             })
             .collect()
     }
@@ -632,6 +635,9 @@ impl AstBuilder {
                         base: TypePathSegments {
                             segments: alternative.base.segments.clone(),
                             segment_spans: alternative.base.segment_spans.clone(),
+                            type_argument_count: alternative.base.type_argument_count,
+                            application_span: alternative.base.application_span.clone(),
+                            written: alternative.base.written.clone(),
                         },
                         type_arguments: alternative
                             .type_arguments

@@ -223,6 +223,7 @@ pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) function: &'a Function,
     pub(super) environment: &'a TypeEnvironment,
     pub(super) supports_callsite_modifier: bool,
+    pub(super) declaration_types_are_quarantined: bool,
     pub(super) bindings: Vec<Binding>,
     binding_positions: HashMap<String, Vec<usize>>,
     next_stable_record_root: usize,
@@ -441,10 +442,25 @@ impl<'a> FunctionChecker<'a> {
         supports_callsite_modifier: bool,
         variant_diagnostics: &'a mut VariantDiagnosticInterner,
     ) -> Self {
+        let declaration_types_are_quarantined = annotation_has_base_failure(
+            &function.return_type_refinements,
+            &function.return_type_paths,
+            function.module_name.as_deref(),
+            environment,
+        ) || (function.kind == FunctionKind::Function
+            && function.params.iter().any(|param| {
+                annotation_has_base_failure(
+                    &param.ty_refinements,
+                    &param.ty_paths,
+                    function.module_name.as_deref(),
+                    environment,
+                )
+            }));
         Self {
             function,
             environment,
             supports_callsite_modifier,
+            declaration_types_are_quarantined,
             bindings: Vec::new(),
             binding_positions: HashMap::new(),
             next_stable_record_root: 0,

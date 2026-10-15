@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use veln_ast::{
     InvalidName, NameClass, NameOccurrence, QualifiedPathSegment, QualifiedPathSegmentEvidence,
@@ -25,8 +25,8 @@ mod role_resolution;
 mod valid_segments;
 
 use occurrence_index::{
-    QualifiedPathOccurrenceIndex, classified_invalid_path_segment,
-    enclosing_function_span_for_segment, name_satisfies_class,
+    EnclosingFunctionSpanIndex, QualifiedPathOccurrenceIndex, classified_invalid_path_segment,
+    name_satisfies_class,
 };
 use recovered_segments::*;
 use recovered_traversal::*;
@@ -46,7 +46,7 @@ pub(super) fn check_invalid_name_casing(
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
     let mut invalid_names = classified_invalid_names(module, environment);
-    invalid_names.sort_by_key(|invalid| (invalid.span.start.offset, invalid.span.end.offset));
+    radix_sort_by_span(&mut invalid_names, |invalid| &invalid.span);
     invalid_names.dedup_by(|left, right| {
         left.class == right.class
             && left.occurrence == right.occurrence
@@ -62,9 +62,11 @@ fn classified_invalid_names(
     environment: &TypeEnvironment,
 ) -> Vec<InvalidName> {
     let classified_segments = classified_qualified_path_segments(module, environment);
+    let mut enclosing_functions = EnclosingFunctionSpanIndex::new(module);
     let mut invalid_names = module
         .invalid_names
         .iter()
+        .inspect(|_| crate::pipeline::record_variant_refinement_casing_work(1))
         .filter(|invalid| invalid.occurrence != NameOccurrence::PathSegment)
         .filter(|invalid| !invalid_name_is_valid_constructor_pattern(invalid, module, environment))
         .cloned()
@@ -74,7 +76,7 @@ fn classified_invalid_names(
             .into_iter()
             .filter(|segment| !name_satisfies_class(&segment.name, segment.role))
             .map(|segment| {
-                let enclosing_function_span = enclosing_function_span_for_segment(module, &segment);
+                let enclosing_function_span = enclosing_functions.for_ordered_segment(&segment);
                 InvalidName {
                     name: segment.name,
                     class: segment.role,
@@ -117,43 +119,14 @@ fn classified_qualified_path_segments_with_refinements(
     segments.extend(recovered_qualified_type_segments(module, environment));
     segments.extend(recovered_qualified_module_segments(module, environment));
     segments.extend(recovered_qualified_function_segments(module, environment));
-    let resolved_locations = segments
-        .iter()
-        .filter(|segment| segment.evidence != QualifiedPathSegmentEvidence::Syntax)
-        .map(|segment| {
-            (
-                segment.span.file.as_str().to_string(),
-                segment.span.start.offset,
-                segment.span.end.offset,
-                segment.segment_index,
-            )
-        })
-        .collect::<BTreeSet<_>>();
-    segments.retain(|segment| {
-        segment.evidence != QualifiedPathSegmentEvidence::Syntax
-            || !resolved_locations.contains(&(
-                segment.span.file.as_str().to_string(),
-                segment.span.start.offset,
-                segment.span.end.offset,
-                segment.segment_index,
-            ))
-    });
-    let mut classified_locations = BTreeMap::<String, BTreeSet<(usize, usize, usize)>>::new();
-    for segment in &segments {
-        classified_locations
-            .entry(segment.span.file.as_str().to_string())
-            .or_default()
-            .insert((
-                segment.span.start.offset,
-                segment.span.end.offset,
-                segment.segment_index,
-            ));
-    }
+    remove_shadowed_syntax_segments(&mut segments);
+    let classified_locations = classified_path_locations(&segments);
     let occurrence_index = QualifiedPathOccurrenceIndex::new(module);
     segments.extend(
         module
             .invalid_names
             .iter()
+            .inspect(|_| crate::pipeline::record_variant_refinement_casing_work(1))
             .filter(|invalid| invalid.occurrence == NameOccurrence::PathSegment)
             .filter(|invalid| {
                 !invalid_path_segment_is_already_classified(invalid, &classified_locations)
@@ -162,7 +135,7 @@ fn classified_qualified_path_segments_with_refinements(
                 classified_invalid_path_segment(invalid, &occurrence_index, module, environment)
             }),
     );
-    segments.sort_by_key(|segment| (segment.span.start.offset, segment.span.end.offset));
+    radix_sort_by_span(&mut segments, |segment| &segment.span);
     segments.dedup_by(|left, right| {
         left.role == right.role
             && left.occurrence == right.occurrence
@@ -173,9 +146,53 @@ fn classified_qualified_path_segments_with_refinements(
     segments
 }
 
+fn remove_shadowed_syntax_segments(segments: &mut Vec<QualifiedPathSegment>) {
+    let resolved_locations = segments
+        .iter()
+        .inspect(|_| crate::pipeline::record_variant_refinement_casing_work(1))
+        .filter(|segment| segment.evidence != QualifiedPathSegmentEvidence::Syntax)
+        .map(|segment| {
+            (
+                segment.span.file.as_str().to_string(),
+                segment.span.start.offset,
+                segment.span.end.offset,
+                segment.segment_index,
+            )
+        })
+        .collect::<HashSet<_>>();
+    segments.retain(|segment| {
+        crate::pipeline::record_variant_refinement_casing_work(1);
+        segment.evidence != QualifiedPathSegmentEvidence::Syntax
+            || !resolved_locations.contains(&(
+                segment.span.file.as_str().to_string(),
+                segment.span.start.offset,
+                segment.span.end.offset,
+                segment.segment_index,
+            ))
+    });
+}
+
+fn classified_path_locations(
+    segments: &[QualifiedPathSegment],
+) -> HashMap<String, HashSet<(usize, usize, usize)>> {
+    let mut classified_locations = HashMap::<String, HashSet<(usize, usize, usize)>>::new();
+    for segment in segments {
+        crate::pipeline::record_variant_refinement_casing_work(1);
+        classified_locations
+            .entry(segment.span.file.as_str().to_string())
+            .or_default()
+            .insert((
+                segment.span.start.offset,
+                segment.span.end.offset,
+                segment.segment_index,
+            ));
+    }
+    classified_locations
+}
+
 fn invalid_path_segment_is_already_classified(
     invalid: &InvalidName,
-    classified_locations: &BTreeMap<String, BTreeSet<(usize, usize, usize)>>,
+    classified_locations: &HashMap<String, HashSet<(usize, usize, usize)>>,
 ) -> bool {
     let Some(segment_index) = invalid.segment_index else {
         return false;
@@ -191,6 +208,67 @@ fn invalid_path_segment_is_already_classified(
                 segment_index,
             ))
         })
+}
+
+fn radix_sort_by_span<T>(items: &mut Vec<T>, span: fn(&T) -> &veln_source::SourceSpan) {
+    if items.len() < 2 {
+        return;
+    }
+    crate::pipeline::record_variant_refinement_casing_work(items.len() * 2);
+    let mut indices = (0..items.len()).collect::<Vec<_>>();
+    let mut scratch = vec![0; items.len()];
+    for use_end in [true, false] {
+        let offset = |item: &T| {
+            let source_span = span(item);
+            if use_end {
+                source_span.end.offset
+            } else {
+                source_span.start.offset
+            }
+        };
+        for shift in (0..usize::BITS).step_by(8) {
+            radix_sort_offset_byte(items, &indices, &mut scratch, shift, offset);
+            std::mem::swap(&mut indices, &mut scratch);
+        }
+    }
+    let mut original = std::mem::take(items)
+        .into_iter()
+        .map(Some)
+        .collect::<Vec<_>>();
+    crate::pipeline::record_variant_refinement_casing_work(original.len() * 2);
+    items.extend(
+        indices
+            .into_iter()
+            .map(|index| original[index].take().expect("radix index is unique")),
+    );
+}
+
+fn radix_sort_offset_byte<T>(
+    items: &[T],
+    indices: &[usize],
+    output: &mut [usize],
+    shift: u32,
+    offset: impl Fn(&T) -> usize,
+) {
+    let mut counts = [0usize; 256];
+    crate::pipeline::record_variant_refinement_casing_work(counts.len());
+    for &index in indices {
+        crate::pipeline::record_variant_refinement_casing_work(1);
+        counts[(offset(&items[index]) >> shift) as u8 as usize] += 1;
+    }
+    let mut next = 0;
+    for count in &mut counts {
+        crate::pipeline::record_variant_refinement_casing_work(1);
+        let start = next;
+        next += *count;
+        *count = start;
+    }
+    for &index in indices {
+        crate::pipeline::record_variant_refinement_casing_work(1);
+        let bucket = (offset(&items[index]) >> shift) as u8 as usize;
+        output[counts[bucket]] = index;
+        counts[bucket] += 1;
+    }
 }
 
 fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {

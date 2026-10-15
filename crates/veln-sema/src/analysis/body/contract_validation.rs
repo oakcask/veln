@@ -426,6 +426,7 @@ impl<'a> FunctionChecker<'a> {
                 self.function
                     .return_type
                     .as_deref()
+                    .filter(|_| !self.declaration_types_are_quarantined)
                     .and_then(|return_type| parse_type_annotation(return_type).ok())
                     .map(|ty| {
                         self.environment
@@ -448,11 +449,55 @@ impl<'a> FunctionChecker<'a> {
     pub(super) fn parse_annotation(
         &mut self,
         annotation: &str,
+        structure: (
+            &[veln_ast::VariantRefinementType],
+            &[veln_ast::TypePathSegments],
+        ),
         origin_node_id: NodeId,
         origin_span: &SourceSpan,
         source: ExpectedTypeSource,
         origin_message: &'static str,
     ) -> Option<ExpectedType> {
+        let (refinements, paths) = structure;
+        let base_failure = super::super::annotation_has_base_failure(
+            refinements,
+            paths,
+            self.function.module_name.as_deref(),
+            self.environment,
+        );
+        if base_failure {
+            for (failed_annotation, error, failure_span) in
+                super::super::independent_annotation_errors(
+                    refinements,
+                    paths,
+                    self.function.module_name.as_deref(),
+                    self.environment,
+                )
+            {
+                self.push_invalid_type_annotation(
+                    &failed_annotation,
+                    &error,
+                    origin_node_id,
+                    failure_span,
+                );
+            }
+            return None;
+        }
+        if let Some(error) = self
+            .environment
+            .recovered_variant_refinement_annotation_error(
+                paths,
+                self.function.module_name.as_deref(),
+            )
+        {
+            self.push_invalid_type_annotation(
+                annotation,
+                &error,
+                origin_node_id,
+                origin_span.clone(),
+            );
+            return None;
+        }
         match parse_type_annotation(annotation) {
             Ok(ty) => {
                 if let Some(error) = self
@@ -490,6 +535,9 @@ impl<'a> FunctionChecker<'a> {
     }
 
     pub(super) fn return_expected(&self, origin_node_id: NodeId) -> Option<ExpectedType> {
+        if self.declaration_types_are_quarantined {
+            return None;
+        }
         self.function
             .return_type
             .as_deref()

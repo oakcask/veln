@@ -429,6 +429,23 @@ fn materialize_refinement_candidate(
     let (segments, segment_spans) =
         refinement_base_path(source, tokens, candidate.start_index, shape.base_end);
     let span = source.span(tokens[candidate.start_index].range.cover(variant.range));
+    let application_end = if shape.generic_open.is_some() {
+        shape.variant_index - 1
+    } else {
+        shape.base_end + 1
+    };
+    let application_span = source.span(
+        tokens[candidate.start_index]
+            .range
+            .cover(tokens[application_end - 1].range),
+    );
+    let type_argument_count = type_arguments.len();
+    let written = super::type_paths::bounded_type_application_text(
+        tokens,
+        candidate.start_index,
+        application_end,
+        &segments.join("::"),
+    );
     RefinementCandidate {
         start_index: candidate.start_index,
         end_index: shape.variant_index,
@@ -436,6 +453,9 @@ fn materialize_refinement_candidate(
             base: TypePathSegments {
                 segments,
                 segment_spans,
+                type_argument_count,
+                application_span,
+                written,
             },
             type_arguments,
             variant: variant.text.clone(),
@@ -480,7 +500,7 @@ fn refinement_alternative_shape(
     generic_syntax: &[GenericSyntax],
     start: usize,
 ) -> Option<RefinementAlternativeShape> {
-    let (mut cursor, mut base_end) = refinement_base_end(tokens, start);
+    let (cursor, mut base_end) = refinement_base_end(tokens, start);
     let (base_end, generic_open, variant_index) =
         if tokens.get(cursor + 1).map(|token| token.kind) == Some(TokenKind::Less) {
             generic_refinement_shape(tokens, generic_syntax, cursor)?
@@ -493,10 +513,11 @@ fn refinement_alternative_shape(
             base_end = base_end.saturating_sub(2);
             (base_end, None, variant_index)
         };
-    cursor = base_end;
-    let base_leaf = tokens.get(cursor)?;
+    let base_leaf = tokens.get(base_end)?;
     let variant = tokens.get(variant_index)?;
-    if !starts_uppercase(&base_leaf.text) || !starts_uppercase(&variant.text) {
+    if (generic_open.is_none() && !starts_uppercase(&base_leaf.text))
+        || !starts_uppercase(&variant.text)
+    {
         return None;
     }
     Some(RefinementAlternativeShape {

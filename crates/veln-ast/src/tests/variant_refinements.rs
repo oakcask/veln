@@ -142,8 +142,9 @@ fn assert_result_refinement(decoded: &SurfaceModule) {
         result.type_arguments[0].ty_fragments,
         ["List<domain::Item>"]
     );
+    assert_eq!(result.type_arguments[0].ty_paths[0].segments, ["List"]);
     assert_eq!(
-        result.type_arguments[0].ty_paths[0].segments,
+        result.type_arguments[0].ty_paths[1].segments,
         ["domain", "Item"]
     );
     assert_eq!(result.type_arguments[1].ty_fragments, ["Wrapper<", ">"]);
@@ -198,12 +199,14 @@ fn assert_refinement_positions(decoded: &SurfaceModule) {
         panic!("expected call expression");
     };
     let ExprKind::TypeApply {
+        type_arg_paths,
         type_arg_refinements,
         ..
     } = &callee.kind
     else {
         panic!("expected type application");
     };
+    assert_eq!(type_arg_paths[0][0].segments, ["State", "Ready"]);
     assert_eq!(type_arg_refinements[0][0].alternatives.len(), 2);
 }
 

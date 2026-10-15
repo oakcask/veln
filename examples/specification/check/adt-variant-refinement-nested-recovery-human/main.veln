@@ -1,0 +1,29 @@
+type GenericEmpty<A>
+end
+
+type Empty
+end
+
+type Box<A>
+	Boxed(A)
+end
+
+fn outer(value: GenericEmpty<Vec<Int, String>>::Missing) -> ()
+	()
+end
+
+fn control(value: Box<Vec<Int, String>>::Boxed) -> ()
+	()
+end
+
+fn invalid_child(value: Box<Empty::Missing>::Boxed) -> ()
+	()
+end
+
+fn record_sibling(value: {bad: Empty::Missing, sibling: Vec<Int, Int>}) -> ()
+	()
+end
+
+fn record_control(value: {sibling: Vec<Int, Int>}) -> ()
+	()
+end

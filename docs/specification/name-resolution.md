@@ -63,6 +63,13 @@ resolve to a type reports `name.unresolved`. The
 [type compatibility rules](types.md#compatibility-and-limits) define how a
 resolved chain qualifies variant refinements and preserves display provenance.
 
+A qualified variant-refinement base first selects a matching source module
+identity. When that source type has the same leaf spelling as a compiler-known
+type, the source declaration wins. The compiler-known identity remains the
+fallback only when the qualified path does not identify a source declaration.
+This precedence applies to finite ADTs and to source declarations without
+variants; it does not turn the latter into an opaque compiler-known type.
+
 Each public type-alias declaration resolves its own target, including when
 another declaration in the same module has the same alias name. The later
 declaration reports `name.duplicate`. An unresolved or wrong-kind target also
@@ -306,11 +313,23 @@ does not change the existing qualified-type path records used by casing
 analysis. When a variant-refinement base resolves, casing analysis classifies
 its qualifiers as modules, its base leaf as a type, and its selected final
 segment as a constructor. Each classification retains the written segment,
-span, and segment index. An explicit expression type argument is a
-navigation-only carrier for variant refinements: casing analysis does not
-classify its qualifier, base, final variant, or nested generic arguments and
-does not emit `name.invalid_case` for those segments. The shared language
-service still uses their resolved type and constructor identities for
+span, and segment index. If changing only an invalid-cased base leaf selects
+exactly one type, casing analysis retains that type classification. It reports
+`name.invalid_case` and still checks the recovered base's independent
+variant-refinement eligibility. This includes a source-less base published by
+the type-syntax provider: an invalid-cased generic spelling reports casing and
+keeps an independently provable generic-arity failure. Qualified type arguments
+nested in the base retain their own type-path records. A uniquely recovered
+invalid-cased type in such an argument reports `name.invalid_case` without
+suppressing an independently provable eligibility failure for the enclosing
+refinement base. An ambiguous or unresolved recovery does not assign a type
+role or manufacture an eligibility failure. The
+[diagnostic specification](diagnostics-json.md#diagnostic-families) owns the
+overlap order and downstream suppression rules. An explicit expression type
+argument is a navigation-only carrier for variant refinements: casing analysis
+does not classify its qualifier, base, final variant, or nested generic
+arguments and does not emit `name.invalid_case` for those segments. The shared
+language service still uses their resolved type and constructor identities for
 variant-refinement definition, references, and rename. The observable LSP and
 MCP selection rules are specified by
 [editor support](editor-support.md#lsp-navigation-formatting-and-rename) and

@@ -1,4 +1,5 @@
 use super::*;
+use crate::semantic_model::Type;
 use crate::types::TypeEnvironment;
 
 fn diagnostics_for(source: &str) -> Vec<Diagnostic> {
@@ -15,6 +16,11 @@ const STATE_DECL: &str = concat!(
     "  Failed\n",
     "end\n",
 );
+
+mod base_failures;
+mod casing_base_failures;
+mod declaration_quarantine;
+mod scaling;
 
 #[test]
 fn explicitly_refined_nested_positions_remain_invariant() {
@@ -196,139 +202,6 @@ fn recursive_generic_payload_preserves_base_arguments_under_refined_expectation(
     ));
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-}
-
-#[test]
-fn invalid_refinement_annotations_are_diagnosed_instead_of_becoming_unknown() {
-    let diagnostics = diagnostics_for(&format!(
-        "{STATE_DECL}{}",
-        concat!(
-            "fn missing(value: State::Missing) -> State::Missing\n",
-            "  value\n",
-            "end\n",
-            "fn wrong_arity(value: Option<Int, String>::Some) -> ()\n",
-            "  ()\n",
-            "end\n",
-        )
-    ));
-
-    assert_eq!(
-        diagnostics
-            .iter()
-            .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
-            .count(),
-        3,
-        "{diagnostics:#?}"
-    );
-}
-
-#[test]
-fn compiler_known_refinements_require_base_type_arguments() {
-    let diagnostics = diagnostics_for(concat!(
-        "fn keep(value: Option::Some) -> Option::Some\n",
-        "  value\n",
-        "end\n",
-        "fn main() -> Option<Int>\n",
-        "  keep(None)\n",
-        "end\n",
-    ));
-
-    let invalid_annotations = diagnostics
-        .iter()
-        .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
-        .collect::<Vec<_>>();
-    assert_eq!(invalid_annotations.len(), 2, "{diagnostics:#?}");
-    assert!(invalid_annotations.iter().all(|diagnostic| {
-        diagnostic
-            .message
-            .contains("`Option` expects 1 type argument(s), found 0")
-    }));
-}
-
-#[test]
-fn source_defined_refinements_require_base_type_arguments() {
-    let diagnostics = diagnostics_for(concat!(
-        "type Choice<A>\n",
-        "  Present(A)\n",
-        "  Absent\n",
-        "end\n",
-        "fn keep(value: Choice::Absent) -> Choice::Absent\n",
-        "  value\n",
-        "end\n",
-        "fn main() -> ()\n",
-        "  keep(1)\n",
-        "end\n",
-    ));
-
-    let invalid_annotations = diagnostics
-        .iter()
-        .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
-        .collect::<Vec<_>>();
-    assert_eq!(invalid_annotations.len(), 2, "{diagnostics:#?}");
-    assert!(invalid_annotations.iter().all(|diagnostic| {
-        diagnostic
-            .message
-            .contains("`Choice` expects 1 type argument(s), found 0")
-    }));
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id == "type.invalid_annotation"),
-        "{diagnostics:#?}"
-    );
-}
-
-#[test]
-fn nested_refinement_canonicalization_handles_increasing_depths() {
-    fn canonicalization_work(depth: usize) -> usize {
-        let mut annotation = "Int".to_string();
-        for _ in 0..depth {
-            annotation = format!("Choice<{annotation}>::Present");
-        }
-        let source = format!(
-            "type Choice<A>\n  Present(A)\n  Absent\nend\nfn keep(value: {annotation}) -> {annotation}\n  value\nend\n"
-        );
-        crate::types::reset_type_canonicalization_visits();
-        let diagnostics = diagnostics_for(&source);
-        assert!(diagnostics.is_empty(), "depth {depth}: {diagnostics:#?}");
-        crate::types::take_type_canonicalization_visits()
-    }
-
-    let work = [16, 32, 64].map(canonicalization_work);
-    eprintln!("type canonicalization visits at depths 16, 32, and 64: {work:?}");
-    assert!(work[0] > 0, "the metric must observe canonicalization work");
-    assert!(
-        work[1] <= work[0] * 2 + 32 && work[2] <= work[1] * 2 + 32,
-        "doubling refinement depth must add only linear canonicalization work: {work:?}"
-    );
-}
-
-#[test]
-fn unresolved_nested_annotations_do_not_repeat_canonicalization() {
-    fn canonicalization_work(depth: usize) -> usize {
-        let mut annotation = "Int".to_string();
-        for _ in 0..depth {
-            annotation = format!("missing::Outer<{annotation}>");
-        }
-        let source = format!("fn keep(value: {annotation}) -> ()\n  ()\nend\n");
-        crate::types::reset_type_canonicalization_visits();
-        let diagnostics = diagnostics_for(&source);
-        assert!(
-            diagnostics
-                .iter()
-                .all(|diagnostic| diagnostic.id != "type.variant_mismatch"),
-            "depth {depth}: {diagnostics:#?}"
-        );
-        crate::types::take_type_canonicalization_visits()
-    }
-
-    let work = [16, 32, 64].map(canonicalization_work);
-    eprintln!("invalid annotation canonicalization visits at depths 16, 32, and 64: {work:?}");
-    assert!(work[0] > 0, "the metric must observe canonicalization work");
-    assert!(
-        work[0] == work[1] && work[1] == work[2],
-        "an invalid outer annotation must stop validation before child recanonicalization: {work:?}"
-    );
 }
 
 #[test]

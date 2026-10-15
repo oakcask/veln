@@ -1,0 +1,213 @@
+use super::*;
+use std::collections::HashSet;
+
+pub(super) fn quarantine_invalid_variant_refinement_signatures(
+    module: &SurfaceModule,
+    environment: &mut TypeEnvironment,
+) {
+    let validation_environment = environment.clone();
+    quarantine_invalid_variant_refinement_function_types(
+        module,
+        &validation_environment,
+        &mut environment.functions,
+    );
+    quarantine_invalid_variant_refinement_effect_types(
+        module,
+        &validation_environment,
+        &mut environment.effects,
+    );
+    quarantine_invalid_variant_refinement_handler_types(
+        module,
+        &validation_environment,
+        &mut environment.handlers,
+    );
+    quarantine_invalid_variant_refinement_adt_payload_types(
+        module,
+        &validation_environment,
+        &mut environment.adts,
+    );
+}
+
+pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    effects: &mut [EffectSignature],
+    adts: &mut AdtRegistry,
+) {
+    quarantine_invalid_variant_refinement_effect_types(module, environment, effects);
+    quarantine_invalid_variant_refinement_adt_payload_types(module, environment, adts);
+}
+
+fn annotation_has_base_failure(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[veln_ast::TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    crate::analysis::annotation_has_base_failure(refinements, paths, current_module, environment)
+}
+
+fn params_have_base_failure(
+    params: &[veln_ast::Param],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    params.iter().any(|param| {
+        annotation_has_base_failure(
+            &param.ty_refinements,
+            &param.ty_paths,
+            current_module,
+            environment,
+        )
+    })
+}
+
+pub(super) fn quarantine_invalid_variant_refinement_function_types(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    functions: &mut [FunctionSignature],
+) {
+    let mut signatures = functions.iter_mut();
+    for function in &module.functions {
+        crate::pipeline::record_variant_refinement_base_work(1);
+        if function.kind != FunctionKind::Function
+            || !function
+                .name
+                .as_ref()
+                .is_some_and(|name| name.as_bytes().first().is_some_and(u8::is_ascii_lowercase))
+        {
+            continue;
+        }
+        let signature = signatures
+            .next()
+            .expect("ordinary function signature follows its source declaration");
+        crate::pipeline::record_variant_refinement_base_work(1);
+        debug_assert_eq!(signature.node_id, function.node_id);
+        debug_assert_eq!(signature.span, function.span);
+        if !function_has_base_failure(function, environment) {
+            continue;
+        }
+        signature.params.fill(Type::Unknown);
+        if let Some(variadic) = &mut signature.variadic {
+            *variadic = Type::Unknown;
+        }
+        signature.return_type = Type::Unknown;
+    }
+}
+
+pub(super) fn function_has_base_failure(
+    function: &Function,
+    environment: &TypeEnvironment,
+) -> bool {
+    params_have_base_failure(
+        &function.params,
+        function.module_name.as_deref(),
+        environment,
+    ) || annotation_has_base_failure(
+        &function.return_type_refinements,
+        &function.return_type_paths,
+        function.module_name.as_deref(),
+        environment,
+    )
+}
+
+fn quarantine_invalid_variant_refinement_effect_types(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    effects: &mut [EffectSignature],
+) {
+    let mut signatures = effects.iter_mut();
+    for effect in &module.effects {
+        let Some(_) = effect.name.as_ref() else {
+            continue;
+        };
+        let signature = signatures
+            .next()
+            .expect("effect signature follows its source declaration");
+        let mut operation_signatures = signature.operations.iter_mut();
+        for operation in &effect.operations {
+            let Some(_) = operation.name.as_ref() else {
+                continue;
+            };
+            let signature = operation_signatures
+                .next()
+                .expect("effect operation signature follows its source declaration");
+            crate::pipeline::record_variant_refinement_base_work(1);
+            let invalid = params_have_base_failure(
+                &operation.params,
+                effect.module_name.as_deref(),
+                environment,
+            ) || annotation_has_base_failure(
+                &operation.return_type_refinements,
+                &operation.return_type_paths,
+                effect.module_name.as_deref(),
+                environment,
+            );
+            if !invalid {
+                continue;
+            }
+            debug_assert_eq!(signature.node_id, operation.node_id);
+            signature.params.fill(Type::Unknown);
+            signature.return_type = Type::Unknown;
+        }
+    }
+}
+
+pub(super) fn quarantine_invalid_variant_refinement_handler_types(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    handlers: &mut [HandlerSignature],
+) {
+    let mut signatures = handlers.iter_mut();
+    for handler in &module.handlers {
+        let Some(_) = handler.name.as_ref() else {
+            continue;
+        };
+        let signature = signatures
+            .next()
+            .expect("handler signature follows its source declaration");
+        crate::pipeline::record_variant_refinement_base_work(1);
+        if !params_have_base_failure(&handler.params, handler.module_name.as_deref(), environment) {
+            continue;
+        }
+        debug_assert_eq!(signature.name, handler.name.as_deref().unwrap_or_default());
+        debug_assert_eq!(signature.module_name, handler.module_name);
+        signature.params.fill(Type::Unknown);
+    }
+}
+
+fn quarantine_invalid_variant_refinement_adt_payload_types(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    adts: &mut AdtRegistry,
+) {
+    let mut invalid = HashSet::new();
+    for declaration in &module.types {
+        let Some(type_name) = declaration.name.as_deref() else {
+            continue;
+        };
+        for variant in &declaration.variants {
+            crate::pipeline::record_variant_refinement_base_work(1);
+            if !variant.fields.iter().any(|field| {
+                annotation_has_base_failure(
+                    &field.ty_refinements,
+                    &field.ty_paths,
+                    declaration.module_name.as_deref(),
+                    environment,
+                )
+            }) {
+                continue;
+            }
+            let Some(variant_name) = variant.name.as_deref() else {
+                continue;
+            };
+            invalid.insert((
+                declaration.module_name.clone(),
+                type_name.to_string(),
+                variant_name.to_string(),
+            ));
+        }
+    }
+    let work = adts.quarantine_source_variant_payload_types(&invalid);
+    crate::pipeline::record_variant_refinement_base_work(work);
+}

@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
 use veln_ast::{PublicAlias, UseDecl, Visibility};
@@ -14,6 +14,7 @@ use super::lookup_validation::{
 
 mod aliases;
 mod build;
+mod constructors;
 
 #[derive(Clone, Debug)]
 pub(crate) struct AdtRegistry {
@@ -27,6 +28,7 @@ pub(crate) struct AdtRegistry {
     type_alias_identities: BTreeSet<(Option<String>, String)>,
     resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     declaration_spans: HashMap<String, SourceSpan>,
+    local_descriptor_start: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -97,6 +99,47 @@ impl ConstructorShape {
 }
 
 impl AdtRegistry {
+    pub(crate) fn quarantine_source_variant_payload_types(
+        &mut self,
+        invalid: &HashSet<(Option<String>, String, String)>,
+    ) -> usize {
+        let mut work = 0;
+        let mut invalid_identities = HashMap::<String, HashSet<String>>::new();
+        for descriptor in &self.descriptors {
+            work += 1;
+            for variant in &descriptor.variants {
+                work += 1;
+                if invalid.contains(&(
+                    descriptor.module_name.clone(),
+                    descriptor.type_name.clone(),
+                    variant.name.clone(),
+                )) {
+                    invalid_identities
+                        .entry(descriptor.identity())
+                        .or_default()
+                        .insert(variant.name.clone());
+                }
+            }
+        }
+        for descriptor in &mut self.descriptors {
+            work += 1;
+            let identity = descriptor.identity();
+            for variant in &mut descriptor.variants {
+                work += 1;
+                if !invalid_identities
+                    .get(&identity)
+                    .is_some_and(|variants| variants.contains(&variant.name))
+                {
+                    continue;
+                }
+                for field in &mut variant.payload_fields {
+                    field.ty = super::descriptors::AdtPayloadType::Concrete(Type::Unknown);
+                }
+            }
+        }
+        work
+    }
+
     pub(crate) fn resolves_type_alias(&self, alias: &PublicAlias) -> bool {
         self.resolved_type_alias_declarations
             .contains(&TypeAliasDeclarationIdentity::new(alias))
@@ -143,6 +186,10 @@ impl AdtRegistry {
 
     pub(crate) fn declaration_span_for_type(&self, ty: &Type) -> Option<&SourceSpan> {
         let descriptor = self.descriptor_for_type(ty)?;
+        self.declaration_spans.get(&descriptor.identity())
+    }
+
+    pub(crate) fn declaration_span(&self, descriptor: &AdtDescriptor) -> Option<&SourceSpan> {
         self.declaration_spans.get(&descriptor.identity())
     }
 
@@ -228,7 +275,111 @@ impl AdtRegistry {
         self.descriptor_for_type_path_with_arity(name, None, current_module, uses)
     }
 
-    pub(crate) fn canonical_type_name_for_descriptor(&self, descriptor: &AdtDescriptor) -> String {
+    pub(crate) fn unique_descriptor_for_type_path_any_arity(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        if name.contains("::") {
+            self.unique_qualified_descriptor_any_arity(name, current_module, uses)
+        } else {
+            self.unique_unqualified_descriptor_any_arity(name, current_module, uses)
+        }
+    }
+
+    fn unique_unqualified_descriptor_any_arity(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        let indices = self
+            .descriptors_by_type_name
+            .get(name)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        let descriptors = |local| {
+            indices
+                .iter()
+                .copied()
+                .filter(move |index| (*index >= self.local_descriptor_start) == local)
+                .map(|index| &self.descriptors[index])
+        };
+        let local = descriptors(true)
+            .filter(|descriptor| descriptor.module_name.as_deref() == current_module);
+        let builtin = descriptors(false).filter(|descriptor| descriptor.module_name.is_none());
+        let imported = indices
+            .iter()
+            .map(|index| &self.descriptors[*index])
+            .filter(|descriptor| {
+                descriptor.visibility == Visibility::Public
+                    && descriptor
+                        .module_name
+                        .as_ref()
+                        .is_some_and(|module| uses.iter().any(|use_decl| &use_decl.name == module))
+            });
+        Self::unique_candidate(local)
+            .or_else(|| Self::unique_candidate(builtin))
+            .or_else(|| Self::unique_candidate(imported))
+            .flatten()
+    }
+
+    fn unique_qualified_descriptor_any_arity(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+        let type_name = segments.last()?;
+        let qualified_source_identity = self
+            .descriptors_named(type_name)
+            .find(|descriptor| {
+                self.descriptor_matches_qualified_source_identity(
+                    descriptor,
+                    &segments,
+                    current_module,
+                    uses,
+                )
+            })
+            .map(descriptor_identity);
+        let candidates = self.descriptors_named(type_name).filter(|descriptor| {
+            qualified_source_identity.as_ref().map_or_else(
+                || descriptor.module_name.is_none(),
+                |identity| descriptor_identity(descriptor) == *identity,
+            ) && self.descriptor_visible(descriptor, &segments, current_module, uses, true)
+        });
+        Self::unique_candidate(candidates).flatten()
+    }
+
+    fn descriptor_matches_qualified_source_identity(
+        &self,
+        descriptor: &AdtDescriptor,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> bool {
+        let Some(module_name) = descriptor.module_name.as_deref() else {
+            return false;
+        };
+        let module_segments = &segments[..segments.len() - 1];
+        (descriptor.module_name.as_deref() == current_module
+            && module_segments.join("::") == module_name)
+            || imported_module_path_matches(descriptor, module_segments, uses, current_module)
+    }
+
+    fn unique_candidate<'a>(
+        mut candidates: impl Iterator<Item = &'a AdtDescriptor>,
+    ) -> Option<Option<&'a AdtDescriptor>> {
+        let candidate = candidates.next()?;
+        Some(candidates.next().is_none().then_some(candidate))
+    }
+
+    pub(crate) fn canonical_descriptor_for<'a>(
+        &'a self,
+        descriptor: &'a AdtDescriptor,
+    ) -> &'a AdtDescriptor {
         self.descriptors_by_identity
             .get(&descriptor.identity())
             .into_iter()
@@ -238,10 +389,11 @@ impl AdtRegistry {
                 candidate.nominal_identity.is_none()
                     && candidate.type_parameters.len() == descriptor.type_parameters.len()
             })
-            .map_or_else(
-                || descriptor.type_name.clone(),
-                |candidate| candidate.type_name.clone(),
-            )
+            .unwrap_or(descriptor)
+    }
+
+    pub(crate) fn canonical_type_name_for_descriptor(&self, descriptor: &AdtDescriptor) -> String {
+        self.canonical_descriptor_for(descriptor).type_name.clone()
     }
 
     fn descriptor_for_type_path_with_arity(
@@ -293,171 +445,6 @@ impl AdtRegistry {
         self.descriptors_named(name).find(|descriptor| {
             descriptor.type_name == *name && descriptor.type_parameters.len() == args.len()
         })
-    }
-
-    pub(crate) fn constructor_for_core_type(
-        &self,
-        segments: &[String],
-        ty: &CoreType,
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-    ) -> Option<AdtConstructor<'_>> {
-        let descriptor = self.descriptor_for_core_type(ty)?;
-        self.constructor_for_descriptor(segments, descriptor, current_module, uses)
-    }
-
-    pub(crate) fn constructor_for_expected_type(
-        &self,
-        segments: &[String],
-        expected: Option<&CoreType>,
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-        shape: ConstructorShape,
-    ) -> ConstructorLookup<'_> {
-        let expected_constructor = || {
-            expected
-                .and_then(|ty| self.constructor_for_core_type(segments, ty, current_module, uses))
-                .filter(|constructor| shape.matches(*constructor))
-        };
-        if segments.len() == 1
-            && let Some(constructor) = expected_constructor()
-        {
-            return ConstructorLookup::Found(constructor);
-        }
-
-        match self.constructor(segments, current_module, uses) {
-            ConstructorLookup::Found(constructor) if shape.matches(constructor) => {
-                ConstructorLookup::Found(constructor)
-            }
-            ConstructorLookup::Ambiguous => expected_constructor()
-                .map(ConstructorLookup::Found)
-                .unwrap_or(ConstructorLookup::Ambiguous),
-            ConstructorLookup::Found(_) | ConstructorLookup::Missing => ConstructorLookup::Missing,
-        }
-    }
-
-    pub(crate) fn constructor(
-        &self,
-        segments: &[String],
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-    ) -> ConstructorLookup<'_> {
-        self.lookup_constructor(segments, current_module, uses, true)
-    }
-
-    pub(crate) fn constructor_candidates(
-        &self,
-        segments: &[String],
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-    ) -> Vec<AdtConstructor<'_>> {
-        self.lookup_constructor_candidates(segments, current_module, uses, true)
-    }
-
-    pub(crate) fn nullary_constructor(
-        &self,
-        segments: &[String],
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-    ) -> ConstructorLookup<'_> {
-        match self.constructor(segments, current_module, uses) {
-            ConstructorLookup::Found(constructor)
-                if constructor.variant.payload_fields.is_empty() =>
-            {
-                ConstructorLookup::Found(constructor)
-            }
-            ConstructorLookup::Found(_) => ConstructorLookup::Missing,
-            other => other,
-        }
-    }
-
-    pub(crate) fn constructor_for_descriptor(
-        &self,
-        segments: &[String],
-        descriptor: &AdtDescriptor,
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-    ) -> Option<AdtConstructor<'_>> {
-        match self.constructor(segments, current_module, uses) {
-            ConstructorLookup::Found(constructor)
-                if same_descriptor(constructor.descriptor, descriptor) =>
-            {
-                return Some(constructor);
-            }
-            ConstructorLookup::Found(_) if segments.len() == 1 => {}
-            ConstructorLookup::Ambiguous => {}
-            _ => return None,
-        }
-
-        let mut matches = Vec::new();
-        let name = segments.last()?;
-        for (candidate, variant) in self.variants_named(name) {
-            if !same_descriptor(candidate, descriptor)
-                || !self.descriptor_visible(candidate, segments, current_module, uses, true)
-            {
-                continue;
-            }
-            if constructor_matches_visible_path(candidate, variant, segments, uses, current_module)
-                && self.variant_visible(candidate, variant, current_module, uses, segments)
-            {
-                matches.push(AdtConstructor {
-                    descriptor: candidate,
-                    variant,
-                });
-            }
-        }
-        match matches.as_slice() {
-            [constructor] => Some(*constructor),
-            _ => None,
-        }
-    }
-
-    fn lookup_constructor(
-        &self,
-        segments: &[String],
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-        include_imports: bool,
-    ) -> ConstructorLookup<'_> {
-        let mut matches =
-            self.lookup_constructor_candidates(segments, current_module, uses, include_imports);
-        prefer_current_module_constructors(&mut matches, segments, current_module);
-        match matches.as_slice() {
-            [] => ConstructorLookup::Missing,
-            [constructor] => ConstructorLookup::Found(*constructor),
-            _ => ConstructorLookup::Ambiguous,
-        }
-    }
-
-    fn lookup_constructor_candidates(
-        &self,
-        segments: &[String],
-        current_module: Option<&str>,
-        uses: &[UseDecl],
-        include_imports: bool,
-    ) -> Vec<AdtConstructor<'_>> {
-        let mut matches = Vec::new();
-        let Some(name) = segments.last() else {
-            return matches;
-        };
-        for (descriptor, variant) in self.variants_named(name) {
-            #[cfg(test)]
-            constructor_lookup_counters::record_candidate_scan();
-            if !self.descriptor_visible(descriptor, segments, current_module, uses, include_imports)
-            {
-                continue;
-            }
-            if constructor_matches_visible_path(descriptor, variant, segments, uses, current_module)
-                && self.variant_visible(descriptor, variant, current_module, uses, segments)
-            {
-                matches.push(AdtConstructor {
-                    descriptor,
-                    variant,
-                });
-            }
-        }
-        deduplicate_nominal_constructors(&mut matches);
-        matches
     }
 
     fn descriptor_visible(
@@ -559,49 +546,6 @@ impl AdtRegistry {
                 && use_decl.name == target_module
         })
     }
-}
-
-fn deduplicate_nominal_constructors(constructors: &mut Vec<AdtConstructor<'_>>) {
-    let mut unique = Vec::<AdtConstructor<'_>>::with_capacity(constructors.len());
-    for constructor in constructors.drain(..) {
-        let duplicate = unique.iter_mut().find(|candidate| {
-            candidate.descriptor.identity() == constructor.descriptor.identity()
-                && candidate.variant.name == constructor.variant.name
-        });
-        match duplicate {
-            Some(candidate)
-                if candidate.descriptor.nominal_identity.is_some()
-                    && constructor.descriptor.nominal_identity.is_none() =>
-            {
-                *candidate = constructor;
-            }
-            Some(_) => {}
-            None => unique.push(constructor),
-        }
-    }
-    *constructors = unique;
-}
-
-fn prefer_current_module_constructors<'a>(
-    matches: &mut Vec<AdtConstructor<'a>>,
-    segments: &[String],
-    current_module: Option<&str>,
-) {
-    if segments.len() != 1 {
-        return;
-    }
-    let Some(current_module) = current_module else {
-        return;
-    };
-    if !matches
-        .iter()
-        .any(|constructor| constructor.descriptor.module_name.as_deref() == Some(current_module))
-    {
-        return;
-    }
-    matches.retain(|constructor| {
-        constructor.descriptor.module_name.as_deref() == Some(current_module)
-    });
 }
 
 fn imported_descriptor_path_matches(

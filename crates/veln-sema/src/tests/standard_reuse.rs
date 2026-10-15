@@ -1,6 +1,7 @@
 use std::thread;
 
 use super::*;
+use crate::types::TypeEnvironment;
 use veln_ast::Visibility;
 
 mod fixture;
@@ -91,6 +92,94 @@ fn reusable_standard_environment_matches_uncached_analysis_for_table_cases() {
 
         assert_same_analysis(case.name, uncached, cached);
     }
+}
+
+#[test]
+fn reusable_source_backed_base_is_quarantined_before_return_inference() {
+    let _guard = standard_reuse_test_lock();
+    let standard = module_with_identity(
+        "prelude.veln",
+        "mod std::prelude\npub type SharedEmpty\nend\n",
+        "std::prelude",
+    );
+    let reusable = prepare_reusable_standard_surface_module_environment(&standard)
+        .with_current_identity_for_test();
+    let application = app_case(
+        "source-backed refinement base",
+        "src/main.veln",
+        concat!(
+            "mod app\n",
+            "fn broken(invalid: prelude::SharedEmpty::Missing, sibling: String) -> Int\n",
+            "  0\n",
+            "end\n",
+            "fn inferred()\n",
+            "  broken(1, \"x\")\n",
+            "end\n",
+            "fn needs_string(value: String) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn user() -> ()\n",
+            "  needs_string(inferred())\n",
+            "end\n",
+        ),
+    );
+    let selected_standard_modules = std::iter::once("std::prelude".to_string()).collect();
+    let environment = TypeEnvironment::from_application_module_with_standard_module_names(
+        &application.module,
+        &selected_standard_modules,
+        &reusable,
+    );
+    let descriptor = environment
+        .adts
+        .unique_descriptor_for_type_path_any_arity(
+            "prelude::SharedEmpty",
+            Some("app"),
+            &environment.uses,
+        )
+        .expect("selected reusable type descriptor");
+    assert!(
+        environment.adts.declaration_span(descriptor).is_some(),
+        "selected reusable type must retain its source declaration span"
+    );
+    assert!(
+        environment
+            .variant_refinement_base_failure("prelude::SharedEmpty", 0, Some("app"))
+            .is_some(),
+        "selected reusable type must retain its base failure"
+    );
+    let cached = check_project_surface_module_with_standard_modules_environment(
+        &application.module,
+        &selected_standard_modules,
+        &reusable,
+    );
+
+    let base_diagnostics = cached
+        .0
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+        .collect::<Vec<_>>();
+    assert_eq!(base_diagnostics.len(), 1, "{:#?}", cached.0);
+    let base_json = veln_diagnostics::diagnostic_to_json(base_diagnostics[0]).to_json();
+    assert!(
+        base_json.contains(
+            "\"details\":{\"written_type\":\"prelude::SharedEmpty\",\"reason\":\"not_adt\"}"
+        ),
+        "{base_json}"
+    );
+    assert!(
+        base_json.contains("\"kind\":\"base_type_declaration\"")
+            && base_json.contains("\"resolved_identity\":\"SharedEmpty\"")
+            && base_json.contains("\"file\":\"prelude.veln\""),
+        "{base_json}"
+    );
+    assert!(
+        cached
+            .0
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.mismatch"),
+        "{:#?}",
+        cached.0
+    );
 }
 
 #[test]

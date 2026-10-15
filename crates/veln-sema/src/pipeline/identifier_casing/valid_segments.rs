@@ -108,6 +108,7 @@ pub(super) fn valid_qualified_path_segments(
         }
     }
     for function in &module.functions {
+        crate::pipeline::record_variant_refinement_casing_work(1);
         let current_module = function.module_name.as_deref();
         collect_type_path_segments(
             &function.return_type_paths,
@@ -126,6 +127,7 @@ pub(super) fn valid_qualified_path_segments(
             );
         }
         for param in &function.params {
+            crate::pipeline::record_variant_refinement_casing_work(1);
             collect_type_path_segments(&param.ty_paths, current_module, environment, &mut segments);
             if include_variant_refinements {
                 collect_variant_refinement_segments(
@@ -139,6 +141,7 @@ pub(super) fn valid_qualified_path_segments(
             }
         }
         for line in &function.body {
+            crate::pipeline::record_variant_refinement_casing_work(1);
             collect_valid_segments_from_body_line(
                 line,
                 current_module,
@@ -206,6 +209,28 @@ fn collect_type_path_segments(
         if path.segments.len() < 2 {
             continue;
         }
+        if environment.recovered_variant_refinement_candidate(&path.segments, current_module) {
+            let base_index = path.segments.len() - 2;
+            for (index, (segment, span)) in
+                path.segments.iter().zip(&path.segment_spans).enumerate()
+            {
+                let role = if index == base_index {
+                    NameClass::Type
+                } else if index + 1 == path.segments.len() {
+                    NameClass::Constructor
+                } else {
+                    NameClass::Module
+                };
+                output.push(qualified_path_segment_from_parts(
+                    segment,
+                    role,
+                    span,
+                    index,
+                    QualifiedPathSegmentEvidence::UniqueRecovery,
+                ));
+            }
+            continue;
+        }
         let quarantined_import_lacks_leaf = environment
             .quarantined_import_type_path_lacks_visible_leaf(&path.segments, current_module);
         if quarantined_import_lacks_leaf
@@ -261,45 +286,50 @@ fn collect_variant_refinement_segments(
             );
         let mut nested_refinements = Vec::new();
         for alternative in &refinement.alternatives {
-            if refinement_is_valid {
-                let mut segments = alternative.base.segments.clone();
-                segments.push(alternative.variant.clone());
-                let mut spans = alternative.base.segment_spans.clone();
-                spans.push(alternative.variant_span.clone());
-                if matches!(
-                    environment
-                        .adts
-                        .constructor(&segments, current_module, &environment.uses),
-                    crate::adt::registry::ConstructorLookup::Found(_)
-                ) {
-                    push_variant_refinement_path_segments(&segments, &spans, output);
-                } else if environment
+            let mut segments = alternative.base.segments.clone();
+            segments.push(alternative.variant.clone());
+            let mut spans = alternative.base.segment_spans.clone();
+            spans.push(alternative.variant_span.clone());
+            let base = alternative.base.segments.join("::");
+            let recovered_base =
+                environment.recovered_variant_refinement_base_resolves(&base, current_module);
+            if matches!(
+                environment
                     .adts
-                    .descriptor_for_type_path(
-                        &alternative.base.segments.join("::"),
-                        alternative.type_arguments.len(),
+                    .constructor(&segments, current_module, &environment.uses),
+                crate::adt::registry::ConstructorLookup::Found(_)
+            ) {
+                if refinement_is_valid {
+                    push_constructor_path_segments(
+                        &segments,
+                        &spans,
                         current_module,
-                        &environment.uses,
-                    )
-                    .is_some()
-                {
-                    for (index, (segment, span)) in segments.iter().zip(&spans).enumerate() {
-                        let role = if index + 1 == segments.len() {
-                            NameClass::Constructor
-                        } else if index + 2 == segments.len() {
-                            NameClass::Type
-                        } else {
-                            NameClass::Module
-                        };
-                        output.push(qualified_path_segment_from_parts(
-                            segment,
-                            role,
-                            span,
-                            index,
-                            QualifiedPathSegmentEvidence::Resolved,
-                        ));
-                    }
+                        environment,
+                        output,
+                    );
                 }
+            } else if environment
+                .adts
+                .descriptor_for_type_path(
+                    &base,
+                    alternative.type_arguments.len(),
+                    current_module,
+                    &environment.uses,
+                )
+                .is_some()
+                || environment.non_adt_refinement_base_resolves(
+                    &base,
+                    alternative.type_arguments.len(),
+                    current_module,
+                )
+                || recovered_base
+            {
+                let evidence = if recovered_base {
+                    QualifiedPathSegmentEvidence::UniqueRecovery
+                } else {
+                    QualifiedPathSegmentEvidence::Resolved
+                };
+                push_variant_refinement_path_segments(&segments, &spans, evidence, output);
             }
             for argument in &alternative.type_arguments {
                 collect_type_path_segments(&argument.ty_paths, current_module, environment, output);
@@ -393,6 +423,7 @@ fn render_variant_refinement_type_argument(
 fn push_variant_refinement_path_segments(
     segments: &[String],
     segment_spans: &[veln_source::SourceSpan],
+    evidence: QualifiedPathSegmentEvidence,
     output: &mut Vec<QualifiedPathSegment>,
 ) {
     for (index, (segment, span)) in segments.iter().zip(segment_spans).enumerate() {
@@ -404,11 +435,7 @@ fn push_variant_refinement_path_segments(
             NameClass::Module
         };
         output.push(qualified_path_segment_from_parts(
-            segment,
-            role,
-            span,
-            index,
-            QualifiedPathSegmentEvidence::Resolved,
+            segment, role, span, index, evidence,
         ));
     }
 }

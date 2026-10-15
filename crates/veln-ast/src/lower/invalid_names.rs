@@ -170,6 +170,9 @@ fn collect_invalid_type_path_names(
     enclosing: Option<SourceSpan>,
 ) {
     for path in paths {
+        if path.segments.len() < 2 {
+            continue;
+        }
         for index in 0..path.segments.len() {
             let class = if index + 1 == path.segments.len() {
                 NameClass::Type

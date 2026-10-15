@@ -126,6 +126,7 @@ impl AdtRegistry {
             descriptors_by_identity,
             variants_by_name,
         } = RegistryIndexes::from_descriptors(&descriptors);
+        let local_descriptor_start = descriptors.len();
         Self {
             descriptors,
             variant_declaration_orders,
@@ -137,6 +138,7 @@ impl AdtRegistry {
             type_alias_identities: BTreeSet::new(),
             resolved_type_alias_declarations: BTreeSet::new(),
             declaration_spans: HashMap::new(),
+            local_descriptor_start,
         }
     }
 
@@ -177,6 +179,7 @@ impl AdtRegistry {
         resolved_type_alias_declarations.extend(resolved_alias_declarations);
         extend_alias_annotation_types(module, &alias_targets, &mut annotation_types);
 
+        let local_descriptor_start = descriptors.len();
         descriptors.extend(aliases);
         let source_descriptor_start = descriptors.len();
         descriptors.extend(source_descriptors);
@@ -193,6 +196,7 @@ impl AdtRegistry {
         registry
             .declaration_spans
             .extend(source_declaration_spans(module));
+        registry.local_descriptor_start = local_descriptor_start;
         registry.canonicalize_source_payload_types(module, source_descriptor_start);
         registry
     }
@@ -294,10 +298,10 @@ fn source_declaration_spans(module: &SurfaceModule) -> HashMap<String, SourceSpa
                 .first()
                 .is_some_and(u8::is_ascii_uppercase)
                 .then(|| {
-                    let identity = decl
-                        .module_name
-                        .as_ref()
-                        .map_or_else(|| name.clone(), |module| format!("{module}::{name}"));
+                    let identity = match decl.module_name.as_deref() {
+                        None | Some("std::prelude") => name.clone(),
+                        Some(module) => format!("{module}::{name}"),
+                    };
                     (identity, decl.span.clone())
                 })
         })

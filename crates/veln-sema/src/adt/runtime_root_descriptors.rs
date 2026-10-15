@@ -39,6 +39,7 @@ pub(super) fn runtime_root_descriptors() -> Vec<AdtDescriptor> {
             visibility: Visibility::Public,
         }],
         diagnostic_name: "runtimediagnostic".to_string(),
+        refinement_availability: crate::adt::descriptors::VariantRefinementAvailability::Finite,
         propagation: None,
         visibility: Visibility::Public,
     }]

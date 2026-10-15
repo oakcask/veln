@@ -185,6 +185,63 @@ fn invalid_path_classification_work_grows_with_invalid_segments() {
     );
 }
 
+#[test]
+fn casing_pipeline_uses_linear_ordering_implementations() {
+    let casing = include_str!("../identifier_casing.rs");
+    let occurrence_index = include_str!("occurrence_index.rs");
+    let pipeline = include_str!("../../pipeline.rs");
+    let base_collection = include_str!("../../analysis/variant_refinement_bases.rs");
+    assert!(!casing.contains(".sort"), "use radix ordering in casing");
+    assert!(
+        !occurrence_index.contains(".sort"),
+        "use indexed or radix ordering for enclosing context"
+    );
+    assert!(
+        !pipeline.contains(".sort"),
+        "use radix ordering for diagnostic merging"
+    );
+    assert!(
+        !base_collection.contains(".sort"),
+        "preserve annotation collection order"
+    );
+}
+
+#[test]
+fn enclosing_function_index_preserves_exact_and_fallback_context() {
+    let module = named_module(
+        "main",
+        concat!(
+            "type Empty\n",
+            "end\n",
+            "fn first(value: empty::Missing) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn second(value: empty::Missing) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let environment = TypeEnvironment::from_module(&module);
+    let segments = classified_qualified_path_segments(&module, &environment)
+        .into_iter()
+        .filter(|segment| segment.name == "empty")
+        .collect::<Vec<_>>();
+    assert_eq!(segments.len(), 2);
+
+    let mut index = EnclosingFunctionSpanIndex::new(&module);
+    assert_eq!(
+        index.for_ordered_segment(&segments[0]),
+        Some(module.functions[0].span.clone())
+    );
+
+    let mut fallback = segments[1].clone();
+    fallback.segment_index += 10;
+    assert_eq!(
+        index.for_ordered_segment(&fallback),
+        Some(module.functions[1].span.clone())
+    );
+}
+
 fn named_module(name: &str, text: &str) -> SurfaceModule {
     let source = SourceFile::new(format!("{name}.veln"), text);
     let parsed = veln_syntax::parse(&source);

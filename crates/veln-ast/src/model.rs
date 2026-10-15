@@ -359,6 +359,9 @@ pub struct Param {
 pub struct TypePathSegments {
     pub segments: Vec<String>,
     pub segment_spans: Vec<SourceSpan>,
+    pub type_argument_count: usize,
+    pub application_span: SourceSpan,
+    pub written: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -474,6 +477,7 @@ pub enum ExprKind {
     TypeApply {
         callee: Box<Expr>,
         type_args: Vec<String>,
+        type_arg_paths: Vec<Vec<TypePathSegments>>,
         type_arg_refinements: Vec<Vec<VariantRefinementType>>,
     },
     Call {

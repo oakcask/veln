@@ -98,6 +98,9 @@ impl Writer {
     fn type_path_segments(&mut self, value: &TypePathSegments) {
         self.vec(&value.segments, |writer, value| writer.string(value));
         self.vec(&value.segment_spans, Self::span);
+        self.usize(value.type_argument_count);
+        self.span(&value.application_span);
+        self.string(&value.written);
     }
 
     fn variant_refinement(&mut self, value: &VariantRefinementType) {

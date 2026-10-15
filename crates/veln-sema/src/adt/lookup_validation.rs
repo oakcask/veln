@@ -17,6 +17,7 @@ use crate::type_annotation_parser::parse_type_annotation_with_arity;
 
 use super::descriptors::{
     AdtDescriptor, AdtPayloadField, AdtPayloadType, AdtVariantDescriptor, AdtVariantKind,
+    VariantRefinementAvailability,
 };
 
 #[cfg(test)]
@@ -145,6 +146,11 @@ pub(super) fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
         .iter()
         .filter_map(|variant| source_variant_descriptor(variant, decl, &type_parameter_indices))
         .collect::<Vec<_>>();
+    let refinement_availability = if variants.is_empty() {
+        VariantRefinementAvailability::Unavailable
+    } else {
+        VariantRefinementAvailability::Finite
+    };
     Some(AdtDescriptor {
         type_name: name.clone(),
         name_class: SourceLessNameClass::Type,
@@ -153,6 +159,7 @@ pub(super) fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
         type_parameters: decl.params.clone(),
         variants,
         diagnostic_name: name.to_lowercase(),
+        refinement_availability,
         propagation: None,
         visibility: decl.visibility,
     })

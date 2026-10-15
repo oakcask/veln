@@ -1,0 +1,26 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"type.variant_refinement_base\"",
+  "\"details\":{\"written_type\":\"Empty\",\"reason\":\"not_adt\"}",
+  "\"line\":34,\"column\":38",
+  "\"line\":38,\"column\":37",
+  "\"line\":42,\"column\":48",
+  "\"line\":47,\"column\":43",
+  "\"line\":52,\"column\":23",
+  "\"id\":\"name.invalid_case\"",
+  "\"id\":\"name.duplicate\"",
+  "function name `Recovered` must start with an ASCII lowercase letter",
+  "\"summary\":{\"diagnostic_count\":13,\"by_severity\":{\"error\":13},\"by_kind\":{\"name\":3,\"type\":10}}",
+]
+not_contains = [
+  "\"id\":\"type.mismatch\"",
+  "\"id\":\"contract.type_mismatch\"",
+  "\"id\":\"type.local_inference_incomplete\"",
+]
+
+[stderr]
+format = "empty"

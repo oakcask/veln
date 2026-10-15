@@ -39,6 +39,7 @@ fn runtime_diagnostic_detail_descriptor() -> AdtDescriptor {
         type_parameters: Vec::new(),
         variants,
         diagnostic_name: "runtimediagnosticdetail".to_string(),
+        refinement_availability: crate::adt::descriptors::VariantRefinementAvailability::Finite,
         propagation: None,
         visibility: Visibility::Public,
     }
@@ -98,6 +99,7 @@ fn publish_runtime_detail_families(mut descriptors: Vec<AdtDescriptor>) -> Vec<A
         type_parameters: Vec::new(),
         variants: http2_variants,
         diagnostic_name: "http2diagnosticdetail".to_string(),
+        refinement_availability: crate::adt::descriptors::VariantRefinementAvailability::Finite,
         propagation: None,
         visibility: Visibility::Public,
     });
@@ -109,6 +111,7 @@ fn publish_runtime_detail_families(mut descriptors: Vec<AdtDescriptor>) -> Vec<A
         type_parameters: Vec::new(),
         variants: hpack_variants,
         diagnostic_name: "hpackdiagnosticdetail".to_string(),
+        refinement_availability: crate::adt::descriptors::VariantRefinementAvailability::Finite,
         propagation: None,
         visibility: Visibility::Public,
     });

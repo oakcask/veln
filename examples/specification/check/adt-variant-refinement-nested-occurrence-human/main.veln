@@ -1,0 +1,14 @@
+type Empty<A>
+end
+
+type State
+	Ready
+end
+
+fn one(value: Empty<state::Missing>::Missing) -> ()
+	()
+end
+
+fn two(first: Empty<state::Missing>::Missing, second: Empty<state::Missing>::Missing) -> ()
+	()
+end

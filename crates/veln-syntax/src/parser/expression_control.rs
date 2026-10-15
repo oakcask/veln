@@ -639,9 +639,15 @@ fn cleanup_type_paths(source: &SourceFile, tokens: &[Token]) -> Vec<TypePathSegm
             cursor += 1;
         }
         if segments.len() > 1 {
+            let mut application_span = segment_spans.first().expect("type path segment").clone();
+            application_span.end = segment_spans.last().expect("type path segment").end;
+            let written = segments.join("::");
             paths.push(TypePathSegments {
                 segments,
                 segment_spans,
+                type_argument_count: 0,
+                application_span,
+                written,
             });
         }
     }

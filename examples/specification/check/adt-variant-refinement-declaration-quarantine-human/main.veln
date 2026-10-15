@@ -1,0 +1,79 @@
+type Empty
+end
+
+effect Broken
+	apply(invalid: Empty::Missing, sibling: String) -> String
+end
+
+type BrokenPayload
+	Built(invalid: Empty::Missing, sibling: String)
+	Other
+	Other
+end
+
+pub type BrokenAlias = BrokenPayload
+pub type BrokenTransitive = BrokenAlias
+
+effect Ask
+	value() -> Int
+end
+
+handler broken(Invalid: Empty::Missing, sibling: String) for Ask
+	value() => sibling
+end
+
+schema Packet
+	invalid: Empty::Missing
+	sibling: Int
+end
+
+fn needs_int(value: Int) -> ()
+	()
+end
+
+fn invalid_param_to_sibling(invalid: Empty::Missing, sibling: String) -> ()
+	needs_int(sibling)
+end
+
+fn invalid_param_to_result(invalid: Empty::Missing) -> Int
+	"not an int"
+end
+
+fn invalid_result_to_param(sibling: String) -> Empty::Missing
+	needs_int(sibling)
+	()
+end
+
+fn invalid_param_to_named_result(invalid: Empty::Missing) -> output: String
+ensure output % 2 == 0
+	"not an int"
+end
+
+fn Recovered(invalid: Empty::Missing, sibling: String) -> Int
+	0
+end
+
+fn use_recovered_function_value() -> ()
+	let recovered: fn(Int, Int) -> String = Recovered
+	let result: String = recovered(1, 2)
+end
+
+fn use_effect() -> () effects [Broken]
+	let result: Int = perform Broken::apply(1, 2)
+end
+
+fn use_handler() -> Int
+	handle perform Ask::value() with broken(1, 2)
+end
+
+fn use_constructor() -> BrokenPayload
+	BrokenPayload::Built(1, 2)
+end
+
+fn use_alias_constructor() -> BrokenPayload
+	BrokenAlias::Built(1, 2)
+end
+
+fn use_transitive_alias_constructor() -> BrokenPayload
+	BrokenTransitive::Built(1, 2)
+end
