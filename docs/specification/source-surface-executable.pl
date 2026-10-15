@@ -158,7 +158,7 @@ grammar_line(111, "FunctionType  ::= \"fn\" \"(\" FunctionTypeParams? \")\" \"->
 grammar_line(111, "FunctionTypeParams ::= FunctionTypeParam (\",\" FunctionTypeParam)* \",\"?").
 grammar_line(111, "FunctionTypeParam ::= Name \":\" TypeText | TypeText | \"...\" TypeText?").
 grammar_line(111, "VariantRefinementType ::= VariantAlternative (\"|\" VariantAlternative)*").
-grammar_line(111, "VariantAlternative ::= NamedAdtBase \"::\" UpperName | TypePath RefinementTypeArguments \"::\" Name").
+grammar_line(111, "VariantAlternative ::= NamedAdtBase \"::\" UpperName | TypePath RefinementTypeArguments \"::\" UpperName").
 grammar_line(111, "NamedAdtBase  ::= (Name \"::\")* UpperName").
 grammar_line(111, "NamedTypeArguments ::= \"<\" TypeText (\",\" TypeText)* \",\"? \">\"").
 grammar_line(111, "RefinementTypeArguments ::= \"<\" TypeText (\",\" TypeText)* \">\"").
@@ -946,7 +946,7 @@ variant_alternative -->
     type_path,
     variant_type_arguments,
     tok(double_colon),
-    ident.
+    upper_name.
 
 named_adt_base -->
     ascii_upper_name.

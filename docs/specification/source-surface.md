@@ -105,13 +105,13 @@ limits.
 ### Variant-refinement-shaped type text
 
 Type positions recognize a structural variant alternative as a named ADT base,
-optional type arguments, and an `::` plus a final segment. Without type
-arguments, the base leaf and final segment must start with an ASCII uppercase
+optional type arguments, and an `::` plus an ASCII-uppercase final segment.
+Without type arguments, the base leaf must start with an ASCII uppercase
 letter. Type arguments make the refinement shape explicit, so a generic base
-leaf or final segment with other casing is preserved for semantic casing
-recovery instead of being discarded as ordinary named-type text. Qualifier
-segments before the base leaf do not have a structural casing restriction. A
-`|` joins complete alternatives into one structural union:
+leaf with other casing is preserved for semantic casing recovery instead of
+being discarded as ordinary named-type text. Qualifier segments before the
+base leaf do not have a structural casing restriction. A `|` joins complete
+alternatives into one structural union:
 
 ```veln
 fn transition(
@@ -155,13 +155,19 @@ The parser reports `parse.variant_refinement_type` for these malformed forms:
 
 - an incomplete union alternative;
 - a missing base or final segment;
-- a lowercase final segment after a non-generic base;
+- a lowercase final segment;
 - an empty or misplaced type argument;
 - a missing generic closer;
 - a surplus generic closer before or after the final variant;
 - a segment following a generic base's final variant;
 - adjacent type text outside the completed structural position; or
 - `|>` between alternatives.
+
+A project check keeps the recovered tree for semantic diagnostics only when
+every parse failure in that source is either the lowercase-final diagnostic or
+the incomplete-union diagnostic produced beside it. The lowercase spelling
+remains rejected source syntax. Any other parse failure keeps the source out of
+semantic analysis.
 
 Nesting beyond 256 containing generic-argument boundaries reports the same
 diagnostic and does not prevent lossless-tree construction.
@@ -404,7 +410,7 @@ FunctionType  ::= "fn" "(" FunctionTypeParams? ")" "->" TypeText Effects?
 FunctionTypeParams ::= FunctionTypeParam ("," FunctionTypeParam)* ","?
 FunctionTypeParam ::= Name ":" TypeText | TypeText | "..." TypeText?
 VariantRefinementType ::= VariantAlternative ("|" VariantAlternative)*
-VariantAlternative ::= NamedAdtBase "::" UpperName | TypePath RefinementTypeArguments "::" Name
+VariantAlternative ::= NamedAdtBase "::" UpperName | TypePath RefinementTypeArguments "::" UpperName
 NamedAdtBase  ::= (Name "::")* UpperName
 NamedTypeArguments ::= "<" TypeText ("," TypeText)* ","? ">"
 RefinementTypeArguments ::= "<" TypeText ("," TypeText)* ">"

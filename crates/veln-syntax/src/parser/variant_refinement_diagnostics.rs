@@ -300,15 +300,42 @@ fn diagnose_generic_arguments(
     generic_syntax: &[GenericSyntax],
     errors: &mut Vec<(usize, &'static str)>,
 ) {
-    for syntax in generic_syntax {
+    for (open, syntax) in generic_syntax.iter().enumerate() {
         let Some(matched) = syntax.matched else {
             continue;
         };
+        diagnose_lowercase_generic_variant(tokens, open, matched, errors);
         if generic_closes_before_variant(tokens, matched) {
             for range in &syntax.arguments {
                 diagnose_empty_type_argument(tokens, range, errors);
             }
         }
+    }
+}
+
+fn diagnose_lowercase_generic_variant(
+    tokens: &[Token],
+    open: usize,
+    matched: super::generic_type_syntax::AngleMatch,
+    errors: &mut Vec<(usize, &'static str)>,
+) {
+    let exact_close =
+        matched.close_offset + 1 == closing_angle_count(tokens[matched.token_index].kind);
+    let variant_index = matched.token_index + 2;
+    let uppercase_base = open > 0
+        && tokens
+            .get(open - 1)
+            .is_some_and(|token| is_type_path_segment(token) && starts_uppercase(&token.text));
+    let has_separator =
+        tokens.get(matched.token_index + 1).map(|token| token.kind) == Some(TokenKind::DoubleColon);
+    let lowercase_variant = tokens
+        .get(variant_index)
+        .is_some_and(|token| is_type_path_segment(token) && !starts_uppercase(&token.text));
+    if exact_close && uppercase_base && has_separator && lowercase_variant {
+        errors.push((
+            variant_index,
+            "variant refinement final segment must start with an ASCII uppercase letter",
+        ));
     }
 }
 

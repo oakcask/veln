@@ -163,9 +163,6 @@ If initial-only casing recovery uniquely selects the base ADT and final
 constructor, `name.invalid_case` precedes the independent privacy diagnostic,
 whose `written_type` retains the source spelling. An ambiguous or unresolved
 base or final-constructor recovery does not produce a privacy diagnostic.
-For a generic base, recovery retains the complete base application and final
-segment, including a module-qualified base, so the same ordering and
-visibility rules apply without dropping a later exact union alternative.
 When one root union contains both invalid-cased and exact alternatives,
 recovery preserves every uniquely resolved direct alternative for this
 diagnostic in written order. This rule applies only when those alternatives
@@ -199,13 +196,17 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-generic-union-visibility-json/)
 cases verify complete alternative identity, exact duplicate removal, distinct
 unresolved arguments, and nested unresolved arguments.
-The recovered-generic visibility
+The recovered-and-generic visibility
 [`human`](../../examples/specification/check/adt-variant-refinement-recovered-generic-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-recovered-generic-visibility-json/)
-cases verify casing-before-privacy ordering, a later exact alternative with a
-qualified generic argument, unqualified parameters, qualified results,
-complete detail fields, and related declaration and boundary locations.
+cases verify casing-before-privacy ordering for a recovered nongeneric
+alternative followed by an exact generic alternative, unqualified parameters,
+results, complete detail fields, and related declaration and boundary
+locations. The CLI reports the lowercase-final parse failures before these
+semantic diagnostics. It retains the recovered source for semantic analysis
+only when no unrelated parse failure occurs; this diagnostic recovery does not
+make the lowercase final segment valid syntax.
 
 A failed base retains its resolved identity as semantic analysis state for
 suppression and later analysis. This diagnostic recovery does not make the

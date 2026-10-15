@@ -186,19 +186,19 @@ fn recovered_root_exposure_candidates(
             .map(|refinement| refinement.alternatives.len())
             .sum(),
     );
-    let mut candidates = refinements
+    let structured_candidates = refinements
         .iter()
         .flat_map(|refinement| refinement.alternatives.iter())
         .map(refinement_candidate)
         .collect::<Vec<_>>();
     let nested_path_occurrences = nested_type_argument_occurrences(refinements);
-    merge_recovered_type_paths(
+    let recovered_candidates = recovered_type_path_candidates(
         annotation_span,
         paths,
         &nested_path_occurrences,
-        &mut candidates,
+        &structured_candidates,
     );
-    candidates.sort_by_key(|candidate| candidate.occurrence_span.start.offset);
+    let candidates = merge_candidates_in_source_order(structured_candidates, recovered_candidates);
     if direct_root_sequence(annotation_text, &candidates) {
         candidates
     } else {
@@ -206,16 +206,17 @@ fn recovered_root_exposure_candidates(
     }
 }
 
-fn merge_recovered_type_paths(
+fn recovered_type_path_candidates(
     annotation_span: &SourceSpan,
     paths: &[TypePathSegments],
     nested_path_occurrences: &HashSet<(veln_source::SourcePath, usize, usize)>,
-    candidates: &mut Vec<RefinementExposureCandidate>,
-) {
-    let mut candidate_occurrences = candidates
+    structured_candidates: &[RefinementExposureCandidate],
+) -> Vec<RefinementExposureCandidate> {
+    let mut candidate_occurrences = structured_candidates
         .iter()
         .map(|candidate| occurrence_key(&candidate.occurrence_span))
         .collect::<HashSet<_>>();
+    let mut candidates = Vec::new();
     for path in paths {
         if path.segments.len() < 2 || !span_within(&path.application_span, annotation_span) {
             continue;
@@ -239,6 +240,33 @@ fn merge_recovered_type_paths(
             occurrence_span: path.application_span.clone(),
         });
     }
+    candidates
+}
+
+fn merge_candidates_in_source_order(
+    structured: Vec<RefinementExposureCandidate>,
+    recovered: Vec<RefinementExposureCandidate>,
+) -> Vec<RefinementExposureCandidate> {
+    let mut structured = structured.into_iter().peekable();
+    let mut recovered = recovered.into_iter().peekable();
+    let mut candidates = Vec::with_capacity(structured.len() + recovered.len());
+    while structured.peek().is_some() || recovered.peek().is_some() {
+        record_visibility_candidate_ordering(1);
+        let take_structured = match (structured.peek(), recovered.peek()) {
+            (Some(structured), Some(recovered)) => {
+                structured.occurrence_span.start.offset <= recovered.occurrence_span.start.offset
+            }
+            (Some(_), None) => true,
+            (None, Some(_)) => false,
+            (None, None) => unreachable!("candidate merge must have a remaining stream"),
+        };
+        if take_structured {
+            candidates.push(structured.next().expect("structured candidate"));
+        } else {
+            candidates.push(recovered.next().expect("recovered candidate"));
+        }
+    }
+    candidates
 }
 
 fn nested_type_argument_occurrences(
@@ -496,6 +524,7 @@ pub(crate) struct VisibilityCandidateWork {
     pub(crate) root_classification: usize,
     pub(crate) candidate_construction: usize,
     pub(crate) occurrence_lookup: usize,
+    pub(crate) candidate_ordering: usize,
 }
 
 #[cfg(test)]
@@ -505,6 +534,7 @@ impl VisibilityCandidateWork {
             root_classification: 0,
             candidate_construction: 0,
             occurrence_lookup: 0,
+            candidate_ordering: 0,
         }
     }
 }
@@ -549,6 +579,18 @@ fn record_visibility_occurrence_lookup(amount: usize) {
 
 #[cfg(not(test))]
 fn record_visibility_occurrence_lookup(_amount: usize) {}
+
+#[cfg(test)]
+fn record_visibility_candidate_ordering(amount: usize) {
+    VISIBILITY_CANDIDATE_WORK.with(|work| {
+        let mut next = work.get();
+        next.candidate_ordering += amount;
+        work.set(next);
+    });
+}
+
+#[cfg(not(test))]
+fn record_visibility_candidate_ordering(_amount: usize) {}
 
 #[cfg(not(test))]
 fn record_visibility_work(_amount: usize) {}

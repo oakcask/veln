@@ -7,10 +7,10 @@ pub type State<A>
 	Private(A)
 end
 
-pub fn exposed_parameter(value: State<Arg>::hidden | State<main::Arg>::Private) -> ()
+pub fn exposed_parameter(value: State::hidden | State<main::Arg>::Private) -> ()
 	()
 end
 
-pub fn exposed_result() -> main::State<Arg>::hidden | main::State<main::Arg>::Private
+pub fn exposed_result() -> State::hidden | State<main::Arg>::Private
 	Hidden(Value)
 end

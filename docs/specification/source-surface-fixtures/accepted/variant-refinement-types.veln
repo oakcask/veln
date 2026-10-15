@@ -21,7 +21,3 @@ end
 fn lowercase_generic_refinement_base(value: genericState<Int>::Ready) -> ()
   ()
 end
-
-fn lowercase_generic_refinement_variant(value: GenericState<Int>::ready) -> ()
-  ()
-end

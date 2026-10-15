@@ -28,7 +28,9 @@ pub(super) fn load_project_sources(
         {
             checked_export_source_paths.insert(source.path().as_str().to_string());
         }
-        if !parsed.diagnostics.is_empty() {
+        if !parsed.diagnostics.is_empty()
+            && !retains_lowercase_final_refinement_recovery(&parsed.diagnostics)
+        {
             derive_source_module(source, diagnostics, is_exported_source);
             record_rejected_source_module(source, parts, package);
             continue;
@@ -49,6 +51,24 @@ pub(super) fn load_project_sources(
             derived_module,
         );
     }
+}
+
+fn retains_lowercase_final_refinement_recovery(diagnostics: &[ParseDiagnostic]) -> bool {
+    let mut has_lowercase_final = false;
+    let retains_only_refinement_recovery = diagnostics.iter().all(|diagnostic| {
+        if diagnostic.id != "parse.variant_refinement_type" {
+            return false;
+        }
+        match diagnostic.message.as_str() {
+            "variant refinement final segment must start with an ASCII uppercase letter" => {
+                has_lowercase_final = true;
+                true
+            }
+            "`|` must join complete ADT variant refinement alternatives" => true,
+            _ => false,
+        }
+    });
+    has_lowercase_final && retains_only_refinement_recovery
 }
 
 fn process_parsed_source(
@@ -231,4 +251,87 @@ pub(super) fn internal_module_name(package: Option<&str>, module_name: &str) -> 
 
 pub(super) fn external_module_key(package: &str, module_name: &str) -> String {
     format!("{package}::{module_name}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_lowercase_final_refinement_recovery_is_lowered_after_parse_errors() {
+        let recovered = parse(&SourceFile::new(
+            "main.veln",
+            "fn expose(value: State::hidden | State<Arg>::Private) -> ()\n  ()\nend\n",
+        ));
+        assert!(
+            retains_lowercase_final_refinement_recovery(&recovered.diagnostics),
+            "{:#?}",
+            recovered.diagnostics
+        );
+
+        for text in [
+            "fn broken() -> ()\n  @\nend\n",
+            "fn broken(value: State::Hidden |) -> ()\n  ()\nend\n",
+            "fn broken(value: State::hidden) -> ()\n  @\nend\n",
+        ] {
+            let rejected = parse(&SourceFile::new("main.veln", text));
+            assert!(
+                !retains_lowercase_final_refinement_recovery(&rejected.diagnostics),
+                "{:#?}",
+                rejected.diagnostics
+            );
+        }
+    }
+
+    #[test]
+    fn project_loading_retains_only_the_scoped_refinement_recovery_tree() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "recovered.veln",
+                    concat!(
+                        "type State<A>\n",
+                        "  Hidden(A)\n",
+                        "  Private(A)\n",
+                        "end\n",
+                        "pub fn expose(value: State::hidden | State<Int>::Private) -> ()\n",
+                        "  ()\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new("rejected.veln", "fn discarded() -> ()\n  @\nend\n"),
+            ],
+            manifest: None,
+        };
+        let mut diagnostics = Vec::new();
+        let mut parts = SurfaceParts::new();
+
+        load_project_sources(&project, &mut diagnostics, &mut parts, None, None, None);
+
+        assert!(
+            parts
+                .module
+                .functions
+                .iter()
+                .any(|function| function.name.as_deref() == Some("expose")),
+            "{:#?}",
+            parts.module.functions
+        );
+        assert!(
+            parts
+                .module
+                .functions
+                .iter()
+                .all(|function| function.name.as_deref() != Some("discarded")),
+            "{:#?}",
+            parts.module.functions
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "parse.invalid_token"),
+            "{diagnostics:#?}"
+        );
+    }
 }

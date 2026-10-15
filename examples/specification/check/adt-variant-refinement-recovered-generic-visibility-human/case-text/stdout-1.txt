@@ -1,16 +1,20 @@
-main.veln:10:45: error[name.invalid_case]: constructor name `hidden` must start with an ASCII uppercase letter
-main.veln:14:46: error[name.invalid_case]: constructor name `hidden` must start with an ASCII uppercase letter
-main.veln:10:26: error[type.invalid_annotation]: invalid type annotation `State<Arg>::hidden | State<main::Arg>::Private`: variant refinement alternatives must resolve to declared variants of one ADT
-main.veln:10:45: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+main.veln:10:47: error[parse.variant_refinement_type]: `|` must join complete ADT variant refinement alternatives
+main.veln:10:40: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:14:42: error[parse.variant_refinement_type]: `|` must join complete ADT variant refinement alternatives
+main.veln:14:35: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:10:40: error[name.invalid_case]: constructor name `hidden` must start with an ASCII uppercase letter
+main.veln:14:35: error[name.invalid_case]: constructor name `hidden` must start with an ASCII uppercase letter
+main.veln:10:26: error[type.invalid_annotation]: invalid type annotation `State::hidden | State<main::Arg>::Private`: `State` expects 1 type argument(s), found 0
+main.veln:10:40: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
   note: main.veln:6:2: Private variant `main::State::Hidden` is declared here.
   note: main.veln:10:26: Public parameter `value` of function `exposed_parameter` exposes this refinement.
-main.veln:10:72: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Private`
+main.veln:10:67: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Private`
   note: main.veln:7:2: Private variant `main::State::Private` is declared here.
   note: main.veln:10:26: Public parameter `value` of function `exposed_parameter` exposes this refinement.
-main.veln:14:1: error[type.invalid_annotation]: invalid type annotation `main::State<Arg>::hidden | main::State<main::Arg>::Private`: variant refinement alternatives must resolve to declared variants of one ADT
-main.veln:14:46: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+main.veln:14:1: error[type.invalid_annotation]: invalid type annotation `State::hidden | State<main::Arg>::Private`: `State` expects 1 type argument(s), found 0
+main.veln:14:35: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
   note: main.veln:6:2: Private variant `main::State::Hidden` is declared here.
   note: main.veln:14:28: Public result of function `exposed_result` exposes this refinement.
-main.veln:14:79: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Private`
+main.veln:14:62: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Private`
   note: main.veln:7:2: Private variant `main::State::Private` is declared here.
   note: main.veln:14:28: Public result of function `exposed_result` exposes this refinement.

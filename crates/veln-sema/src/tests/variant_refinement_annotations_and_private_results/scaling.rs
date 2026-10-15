@@ -398,6 +398,10 @@ fn wide_structural_visibility_work(count: usize, boundary: &str) -> usize {
         candidate_work.occurrence_lookup == 0,
         "structural roots must be rejected before occurrence lookup: {candidate_work:?}"
     );
+    assert!(
+        candidate_work.candidate_ordering == 0,
+        "structural roots must be rejected before candidate ordering: {candidate_work:?}"
+    );
     eprintln!(
         "wide structural refinement visibility: boundary={boundary} fields={count} \
          candidate_work={candidate_work:?} visibility_work={visibility_work}"
@@ -405,6 +409,7 @@ fn wide_structural_visibility_work(count: usize, boundary: &str) -> usize {
     candidate_work.root_classification
         + candidate_work.candidate_construction
         + candidate_work.occurrence_lookup
+        + candidate_work.candidate_ordering
         + visibility_work
 }
 
@@ -425,7 +430,7 @@ fn public_result_structural_visibility_work_has_bounded_growth() {
 }
 
 #[test]
-fn recovered_root_union_candidate_membership_work_is_linear() {
+fn recovered_root_union_candidate_ordering_work_is_linear() {
     let measurements = [16, 32, 64].map(|count| {
         let mut source =
             String::from("mod main\npub type Arg\n  pub Value\nend\npub type State<A>\n");
@@ -459,13 +464,30 @@ fn recovered_root_union_candidate_membership_work_is_linear() {
         crate::analysis::reset_visibility_work();
         let diagnostics = analyze_surface_module(&module);
         let candidate_work = crate::analysis::take_visibility_candidate_work();
+        let visibility = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .collect::<Vec<_>>();
+        assert_eq!(visibility.len(), count, "count={count} diagnostics={diagnostics:#?}");
+        let diagnostic_variants = visibility
+            .iter()
+            .map(|diagnostic| {
+                let span = diagnostic.span.as_ref().expect("visibility span");
+                source.text()[span.start.offset..span.end.offset].to_string()
+            })
+            .collect::<Vec<_>>();
+        let expected_variants = (0..count)
+            .map(|index| {
+                if index % 2 == 0 {
+                    format!("hidden{index}")
+                } else {
+                    format!("Hidden{index}")
+                }
+            })
+            .collect::<Vec<_>>();
         assert_eq!(
-            diagnostics
-                .iter()
-                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
-                .count(),
-            count,
-            "count={count} diagnostics={diagnostics:#?}"
+            diagnostic_variants, expected_variants,
+            "privacy diagnostics must retain the recovered union's written order"
         );
         assert!(
             candidate_work.candidate_construction >= count,
@@ -475,9 +497,15 @@ fn recovered_root_union_candidate_membership_work_is_linear() {
             candidate_work.occurrence_lookup >= count,
             "count={count} candidate_work={candidate_work:?}"
         );
-        let measured = candidate_work.candidate_construction + candidate_work.occurrence_lookup;
+        assert!(
+            candidate_work.candidate_ordering >= count,
+            "every direct alternative must pass through source ordering: count={count} candidate_work={candidate_work:?}"
+        );
+        let measured = candidate_work.candidate_construction
+            + candidate_work.occurrence_lookup
+            + candidate_work.candidate_ordering;
         eprintln!(
-            "recovered refinement visibility membership: alternatives={count} \
+            "recovered refinement visibility ordering: alternatives={count} \
              candidate_work={candidate_work:?} measured={measured}"
         );
         measured
@@ -488,7 +516,7 @@ fn recovered_root_union_candidate_membership_work_is_linear() {
     assert_eq!(
         second_growth,
         first_growth * 2,
-        "recovered membership work must have exact affine growth: {measurements:?}"
+        "recovered candidate ordering work must have exact affine growth: {measurements:?}"
     );
 }
 
