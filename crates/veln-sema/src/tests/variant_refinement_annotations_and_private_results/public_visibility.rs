@@ -328,3 +328,138 @@ fn visibility_failure_is_not_published_to_a_consumer_environment() {
             .is_empty()
     );
 }
+
+#[test]
+fn visibility_failure_is_not_republished_through_function_aliases() {
+    let dependency = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "dep.veln",
+            concat!(
+                "mod dep\n",
+                "pub type State\n",
+                "  Hidden\n",
+                "  pub Ready\n",
+                "end\n",
+                "pub fn exposed(value: State::Hidden) -> State::Hidden\n",
+                "  value\n",
+                "end\n",
+                "pub fn first_alias = exposed\n",
+                "pub fn second_alias = exposed\n",
+                "pub fn accepted(value: State::Ready) -> State::Ready\n",
+                "  value\n",
+                "end\n",
+                "pub fn accepted_alias = accepted\n",
+            ),
+        ))
+        .tree,
+    );
+    let dependency_environment = TypeEnvironment::from_module(&dependency);
+    let exposed = dependency_environment
+        .function("exposed")
+        .expect("same-module recovery signature");
+    assert_eq!(exposed.params, [Type::Unknown]);
+    assert_eq!(exposed.return_type, Type::Unknown);
+    assert!(!dependency_environment.function_is_published_for_test("exposed"));
+    assert!(dependency_environment.function("first_alias").is_none());
+    assert!(dependency_environment.function("second_alias").is_none());
+    assert!(dependency_environment.function_is_published_for_test("accepted_alias"));
+
+    let invalid_consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "invalid_consumer.veln",
+            concat!(
+                "mod invalid_consumer\n",
+                "use dep\n",
+                "fn consume(value: Int) -> Int\n",
+                "  dep::first_alias(value)\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+    let (invalid_diagnostics, invalid_lowered) =
+        check_project_surface_module_with_base_for_test(&invalid_consumer, &dependency_environment);
+    assert!(!invalid_diagnostics.is_empty());
+    assert!(
+        invalid_lowered.core.is_none(),
+        "an unpublished alias must not recover checked core"
+    );
+    assert!(
+        invalid_lowered.ir.is_none(),
+        "an unpublished alias must not recover IR"
+    );
+
+    let valid_consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "valid_consumer.veln",
+            concat!(
+                "mod valid_consumer\n",
+                "use dep\n",
+                "fn consume(value: State::Ready) -> State::Ready\n",
+                "  dep::accepted_alias(value)\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+    let (valid_diagnostics, valid_lowered) =
+        check_project_surface_module_with_base_for_test(&valid_consumer, &dependency_environment);
+    assert!(valid_diagnostics.is_empty(), "{valid_diagnostics:#?}");
+    assert!(valid_lowered.core.is_some());
+    assert!(valid_lowered.ir.is_some());
+
+    let bridge = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "bridge.veln",
+            concat!(
+                "mod bridge\n",
+                "use dep\n",
+                "pub fn bridged_invalid = dep::first_alias\n",
+                "pub fn bridged_valid = dep::accepted_alias\n",
+            ),
+        ))
+        .tree,
+    );
+    let bridge_environment =
+        TypeEnvironment::from_module_with_base_for_test(&bridge, &dependency_environment);
+    assert!(bridge_environment.function("bridged_invalid").is_none());
+    assert!(bridge_environment.function_is_published_for_test("bridged_valid"));
+
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "main.veln",
+            "mod main\nuse dep\nuse bridge\n",
+        ))
+        .tree,
+    );
+    let consumer_environment =
+        TypeEnvironment::from_module_with_base_for_test(&consumer, &bridge_environment);
+    for (module, name) in [
+        ("dep", "exposed"),
+        ("dep", "first_alias"),
+        ("dep", "second_alias"),
+        ("bridge", "bridged_invalid"),
+    ] {
+        assert!(
+            consumer_environment
+                .function_path(&[module.to_string(), name.to_string()], Some("main"))
+                .is_none(),
+            "{module}::{name} must remain unpublished"
+        );
+        assert!(
+            consumer_environment
+                .unqualified_function_import_candidates(name, Some("main"))
+                .is_empty(),
+            "{name} must not be an import candidate"
+        );
+    }
+    assert!(
+        consumer_environment
+            .function_path(
+                &["bridge".to_string(), "bridged_valid".to_string()],
+                Some("main"),
+            )
+            .is_some(),
+        "an alias chain to a valid public function must remain published"
+    );
+}

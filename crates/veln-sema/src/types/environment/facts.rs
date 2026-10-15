@@ -152,7 +152,11 @@ fn finish_environment(
         .map(source_function_publication_key)
         .collect::<Vec<_>>();
     environment.unpublished_functions.extend(unpublished);
-    let aliases = function_alias_signatures(module, &environment.functions);
+    let published_functions = environment
+        .published_functions()
+        .cloned()
+        .collect::<Vec<_>>();
+    let aliases = function_alias_signatures(module, &published_functions);
     environment.functions.extend(aliases);
     environment.functions_by_name = function_name_index(&environment.functions);
     let recovery = recovery_facts(module, &environment);

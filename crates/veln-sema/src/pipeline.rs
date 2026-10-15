@@ -62,6 +62,15 @@ pub(crate) fn analyze_surface_module_with_base_for_test(
     analyze_surface_module_with_environment(module, &environment, true)
 }
 
+#[cfg(test)]
+pub(crate) fn check_project_surface_module_with_base_for_test(
+    module: &SurfaceModule,
+    base: &TypeEnvironment,
+) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
+    let environment = TypeEnvironment::from_module_with_base_for_test(module, base);
+    check_project_surface_module_with_environment(module, environment)
+}
+
 pub fn check_project_surface_module(
     module: &SurfaceModule,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
