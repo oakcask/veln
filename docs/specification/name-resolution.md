@@ -351,11 +351,13 @@ exactly one type, casing analysis retains that type classification. It reports
 `name.invalid_case` and still checks the recovered base's independent
 variant-refinement eligibility. For a refinement used as the complete
 annotation of a public function parameter or result, that unique recovered ADT
-identity also participates in the direct visibility check. Changing only an
-invalid-cased final segment participates in that check when it selects exactly
-one constructor of the recovered ADT. The privacy diagnostic retains the
-written casing. An ambiguous or unresolved base or final-segment recovery does
-not manufacture a privacy diagnostic. This includes a source-less base
+identity also participates in the direct visibility check when the written
+final segment starts with an ASCII uppercase letter and resolves exactly to one
+constructor of the recovered ADT. A lowercase final segment is a parse failure
+and does not reach casing or direct visibility analysis. The privacy diagnostic
+retains the written base casing. Ambiguous or unresolved base recovery, or an
+ambiguous or missing exact final segment, does not manufacture a privacy
+diagnostic. This includes a source-less base
 published by the type-syntax provider: an invalid-cased generic spelling
 reports casing and keeps an independently provable generic-arity failure.
 Qualified type arguments nested in the base retain their own type-path
