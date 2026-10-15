@@ -854,6 +854,18 @@ This keeps casing recovery, same-named imported ADTs, and unrelated declarations
 inside the checked bound. The counters, rather than elapsed time, define these
 regression checks.
 
+Wide record annotations on public function parameters and results have a
+separate bounded-growth check because refinements inside those structural roots
+are outside the direct visibility boundary. The measured work combines bytes
+inspected while classifying the root, exposure candidates constructed,
+candidate-occurrence comparisons, and visibility-checker steps. A structural
+root must be rejected before candidate construction or occurrence comparison,
+so both of those counters remain zero. For adjacent field counts of 256, 512,
+and 1,024, the second increase in total measured work must be no more than three
+times the first. A recovered root union containing an invalid-cased and an exact
+alternative separately verifies that candidate construction and occurrence
+comparison are accounted for when fallback root recovery is required.
+
 For `N` independent invalid bases, annotation collection, casing collection,
 enclosing-context processing, and diagnostic ordering each use linear
 instrumented work. This bound includes invalid-cased bases and unrelated
