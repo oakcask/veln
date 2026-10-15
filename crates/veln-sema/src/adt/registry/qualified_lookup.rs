@@ -20,6 +20,17 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
+        self.unique_local_descriptor_any_arity(name, current_module)
+            .or_else(|| self.unique_builtin_descriptor_any_arity(name))
+            .or_else(|| self.unique_imported_descriptor_any_arity(name, current_module, uses))
+            .flatten()
+    }
+
+    fn unique_local_descriptor_any_arity(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+    ) -> Option<Option<&AdtDescriptor>> {
         let local_indices = self
             .descriptors_by_source_identity
             .get(&(current_module.map(str::to_string), name.to_string()))
@@ -30,6 +41,10 @@ impl AdtRegistry {
             .copied()
             .filter(|index| *index >= self.local_descriptor_start)
             .map(|index| self.descriptor_lookup_candidate(index));
+        Self::unique_candidate(local)
+    }
+
+    fn unique_builtin_descriptor_any_arity(&self, name: &str) -> Option<Option<&AdtDescriptor>> {
         let builtin_indices = self
             .descriptors_by_source_identity
             .get(&(None, name.to_string()))
@@ -40,13 +55,25 @@ impl AdtRegistry {
             .copied()
             .filter(|index| *index < self.local_descriptor_start)
             .map(|index| self.descriptor_lookup_candidate(index));
-        let indexed_imported = self.source_import_indexes_ready.then(|| {
+        Self::unique_candidate(builtin)
+    }
+
+    fn unique_imported_descriptor_any_arity(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<Option<&AdtDescriptor>> {
+        if self.source_import_indexes_ready {
             crate::adt::lookup_validation::record_import_path_comparison();
-            self.imported_descriptors_by_type
-                .get(&(current_module.map(str::to_string), name.to_string()))
-                .copied()
-                .flatten()
-        });
+            return Some(
+                self.imported_descriptors_by_type
+                    .get(&(current_module.map(str::to_string), name.to_string()))
+                    .copied()
+                    .flatten()
+                    .map(|index| self.descriptor_lookup_candidate(index)),
+            );
+        }
         let imported = self
             .descriptors_by_type_name
             .get(name)
@@ -54,17 +81,9 @@ impl AdtRegistry {
             .flatten()
             .map(|index| self.descriptor_lookup_candidate(*index))
             .filter(|descriptor| {
-                !self.source_import_indexes_ready
-                    && Self::descriptor_is_unqualified_import(descriptor, current_module, uses)
+                Self::descriptor_is_unqualified_import(descriptor, current_module, uses)
             });
-        Self::unique_candidate(local)
-            .or_else(|| Self::unique_candidate(builtin))
-            .or_else(|| {
-                indexed_imported
-                    .map(|candidate| candidate.map(|index| self.descriptor_lookup_candidate(index)))
-                    .or_else(|| Self::unique_candidate(imported))
-            })
-            .flatten()
+        Self::unique_candidate(imported)
     }
 
     fn unique_qualified_descriptor_any_arity(
