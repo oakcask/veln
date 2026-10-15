@@ -873,6 +873,14 @@ A recovered direct union retains written-order diagnostics without avoidable
 superlinear visibility-analysis work, including when recovered and exact
 generic alternatives alternate.
 
+For one direct refinement whose qualified base requires initial-only casing
+recovery, increasing the qualifier depth adds linear path-normalization and
+comparison work. The deterministic scaling check compares depths 64, 128, and
+256 and requires each incremental qualified-path byte-work measurement to
+double in publication quarantine, diagnostic collection, and checked lowering.
+The measurement counts inspected path bytes instead of elapsed time, so runner
+timing noise does not affect the bound.
+
 Wide record annotations on public function parameters and results remain
 outside the direct visibility boundary. The checker rejects those structural
 roots without constructing or ordering direct-refinement candidates. Nested
@@ -1158,5 +1166,7 @@ inventing an arithmetic rewrite.
   `crates/veln-sema/src/tests/variant_refinement_aggregate_scaling.rs`.
 - Invalid variant-refinement base recovery scaling:
   `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results.rs`.
+- Direct variant-refinement visibility and qualified-path recovery scaling:
+  `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/scaling.rs`.
 - Parser coverage: `crates/veln-syntax/src/tests/calls_and_generics.rs`,
   `literals_and_numbers.rs`, and `patterns_and_control_flow.rs`.
