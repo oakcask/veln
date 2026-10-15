@@ -12,7 +12,7 @@ use super::aliases::{descriptor_for_alias_target, type_alias_descriptors};
 use super::{
     AdtRegistry, DescriptorKey, ImportedDescriptorCandidates, QualifiedImportModules,
     QualifiedRecoveryModules, TypeAliasDeclarationIdentity, VariantDeclarationOrder,
-    descriptor_identity,
+    VariantDescriptorKey, descriptor_identity,
 };
 use crate::adt::descriptors::AdtDescriptor;
 use crate::adt::lookup_validation::{
@@ -346,7 +346,7 @@ impl AdtRegistry {
     }
 }
 
-fn source_declaration_spans(module: &SurfaceModule) -> HashMap<String, SourceSpan> {
+fn source_declaration_spans(module: &SurfaceModule) -> HashMap<DescriptorKey, SourceSpan> {
     module
         .types
         .iter()
@@ -356,9 +356,11 @@ fn source_declaration_spans(module: &SurfaceModule) -> HashMap<String, SourceSpa
                 .first()
                 .is_some_and(u8::is_ascii_uppercase)
                 .then(|| {
-                    let identity = match decl.module_name.as_deref() {
-                        None | Some("std::prelude") => name.clone(),
-                        Some(module) => format!("{module}::{name}"),
+                    let identity = DescriptorKey {
+                        module_name: decl.module_name.clone(),
+                        type_name: name.clone(),
+                        nominal_identity: None,
+                        arity: decl.params.len(),
                     };
                     (identity, decl.span.clone())
                 })
@@ -368,20 +370,30 @@ fn source_declaration_spans(module: &SurfaceModule) -> HashMap<String, SourceSpa
 
 fn source_variant_declaration_spans(
     module: &SurfaceModule,
-) -> HashMap<String, HashMap<String, SourceSpan>> {
-    let mut spans = HashMap::<String, HashMap<String, SourceSpan>>::new();
+) -> HashMap<VariantDescriptorKey, SourceSpan> {
+    let mut spans = HashMap::new();
     for declaration in &module.types {
         let Some(name) = declaration.name.as_ref() else {
             continue;
         };
-        let identity = match declaration.module_name.as_deref() {
-            None | Some("std::prelude") => name.clone(),
-            Some(module) => format!("{module}::{name}"),
+        if !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase) {
+            continue;
+        }
+        let descriptor = DescriptorKey {
+            module_name: declaration.module_name.clone(),
+            type_name: name.clone(),
+            nominal_identity: None,
+            arity: declaration.params.len(),
         };
-        let variants = spans.entry(identity).or_default();
         for variant in &declaration.variants {
             if let Some(name) = &variant.name {
-                variants.insert(name.clone(), variant.span.clone());
+                spans.insert(
+                    VariantDescriptorKey {
+                        descriptor: descriptor.clone(),
+                        variant_name: name.clone(),
+                    },
+                    variant.span.clone(),
+                );
             }
         }
     }
@@ -391,15 +403,16 @@ fn source_variant_declaration_spans(
 fn retained_declaration_spans(
     source: &AdtRegistry,
     subset: &AdtRegistry,
-) -> HashMap<String, SourceSpan> {
+) -> HashMap<DescriptorKey, SourceSpan> {
+    let retained = subset
+        .descriptors
+        .iter()
+        .map(DescriptorKey::new)
+        .collect::<BTreeSet<_>>();
     source
         .declaration_spans
         .iter()
-        .filter(|(identity, _)| {
-            subset
-                .descriptors_by_identity
-                .contains_key(identity.as_str())
-        })
+        .filter(|(identity, _)| retained.contains(*identity))
         .map(|(identity, span)| (identity.clone(), span.clone()))
         .collect()
 }
@@ -407,16 +420,17 @@ fn retained_declaration_spans(
 fn retained_variant_declaration_spans(
     source: &AdtRegistry,
     subset: &AdtRegistry,
-) -> HashMap<String, HashMap<String, SourceSpan>> {
+) -> HashMap<VariantDescriptorKey, SourceSpan> {
+    let retained = subset
+        .descriptors
+        .iter()
+        .map(DescriptorKey::new)
+        .collect::<BTreeSet<_>>();
     source
         .variant_declaration_spans
         .iter()
-        .filter(|(identity, _)| {
-            subset
-                .descriptors_by_identity
-                .contains_key(identity.as_str())
-        })
-        .map(|(identity, spans)| (identity.clone(), spans.clone()))
+        .filter(|(identity, _)| retained.contains(&identity.descriptor))
+        .map(|(identity, span)| (identity.clone(), span.clone()))
         .collect()
 }
 

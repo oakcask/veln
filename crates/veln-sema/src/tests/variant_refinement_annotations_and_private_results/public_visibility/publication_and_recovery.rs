@@ -1,5 +1,57 @@
 use super::*;
 
+fn assert_related_span(diagnostic: &Diagnostic, kind: &str, expected: &veln_source::SourceSpan) {
+    let related = diagnostic
+        .related
+        .iter()
+        .find(|related| {
+            related.as_object().is_some_and(|fields| {
+                fields.iter().any(|(name, value)| {
+                    name == "kind" && value.as_text().is_some_and(|value| value == kind)
+                })
+            })
+        })
+        .unwrap_or_else(|| panic!("missing related note `{kind}`: {diagnostic:#?}"));
+    let span = related
+        .as_object()
+        .and_then(|fields| fields.iter().find(|(name, _)| name == "span"))
+        .map(|(_, value)| value)
+        .expect("related note span");
+    assert_eq!(span, &veln_diagnostics::source_span_to_json(expected));
+}
+
+fn assert_visibility_collision_is_quarantined(module: &veln_ast::SurfaceModule) {
+    let environment = TypeEnvironment::from_module(module);
+    assert!(!environment.function_is_published_for_test("expose"));
+
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "consumer.veln",
+            "mod consumer\nuse main\n",
+        ))
+        .tree,
+    );
+    let consumer_environment =
+        TypeEnvironment::from_module_with_base_for_test(&consumer, &environment);
+    assert!(
+        consumer_environment
+            .function_path(
+                &["main".to_string(), "expose".to_string()],
+                Some("consumer"),
+            )
+            .is_none()
+    );
+    assert!(
+        consumer_environment
+            .unqualified_function_import_candidates("expose", Some("consumer"))
+            .is_empty()
+    );
+
+    let lowered = lower_checked_surface_module(module);
+    assert!(lowered.core.is_none());
+    assert!(lowered.ir.is_none());
+}
+
 #[test]
 fn mixed_annotation_errors_retain_independent_root_visibility_failures() {
     let diagnostics = diagnostics_for(concat!(
@@ -303,6 +355,74 @@ fn alias_collisions_classify_the_descriptor_selected_by_arity() {
         "{diagnostics:#?}"
     );
     assert!(TypeEnvironment::from_module(&module).function_is_published_for_test("accepted"));
+}
+
+#[test]
+fn private_base_related_span_uses_the_descriptor_selected_by_arity() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\n",
+            "type Secret\n",
+            "  pub A\n",
+            "end\n",
+            "type Secret<T>\n",
+            "  pub B(T)\n",
+            "end\n",
+            "pub fn expose(value: Secret::A) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    let visibility = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+    assert_eq!(visibility.len(), 1, "{diagnostics:#?}");
+    assert_related_span(
+        visibility[0],
+        "private_type_declaration",
+        &module.types[0].span,
+    );
+    assert_visibility_collision_is_quarantined(&module);
+}
+
+#[test]
+fn private_variant_related_span_uses_the_descriptor_selected_by_arity() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\n",
+            "pub type State\n",
+            "  Hidden\n",
+            "end\n",
+            "pub type State<T>\n",
+            "  Hidden(T)\n",
+            "end\n",
+            "pub fn expose(value: State::Hidden) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    let visibility = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+    assert_eq!(visibility.len(), 1, "{diagnostics:#?}");
+    assert_related_span(
+        visibility[0],
+        "private_variant_declaration",
+        &module.types[0].variants[0].span,
+    );
+    assert_visibility_collision_is_quarantined(&module);
 }
 
 #[test]

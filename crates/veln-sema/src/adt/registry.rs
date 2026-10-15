@@ -30,8 +30,8 @@ pub(crate) struct AdtRegistry {
     annotation_types: BTreeMap<(Option<String>, String), Type>,
     type_alias_identities: BTreeSet<DescriptorKey>,
     resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
-    declaration_spans: HashMap<String, SourceSpan>,
-    variant_declaration_spans: HashMap<String, HashMap<String, SourceSpan>>,
+    declaration_spans: HashMap<DescriptorKey, SourceSpan>,
+    variant_declaration_spans: HashMap<VariantDescriptorKey, SourceSpan>,
     qualified_import_modules: HashMap<(Option<String>, String), QualifiedImportModules>,
     qualified_import_recovery_modules:
         HashMap<(Option<String>, String), Vec<QualifiedRecoveryModules>>,
@@ -82,6 +82,12 @@ struct DescriptorKey {
     arity: usize,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct VariantDescriptorKey {
+    descriptor: DescriptorKey,
+    variant_name: String,
+}
+
 impl DescriptorKey {
     fn new(descriptor: &AdtDescriptor) -> Self {
         Self {
@@ -89,6 +95,15 @@ impl DescriptorKey {
             type_name: descriptor.type_name.clone(),
             nominal_identity: descriptor.nominal_identity.clone(),
             arity: descriptor.type_parameters.len(),
+        }
+    }
+}
+
+impl VariantDescriptorKey {
+    fn new(descriptor: &AdtDescriptor, variant: &AdtVariantDescriptor) -> Self {
+        Self {
+            descriptor: DescriptorKey::new(descriptor),
+            variant_name: variant.name.clone(),
         }
     }
 }
@@ -253,11 +268,11 @@ impl AdtRegistry {
 
     pub(crate) fn declaration_span_for_type(&self, ty: &Type) -> Option<&SourceSpan> {
         let descriptor = self.descriptor_for_type(ty)?;
-        self.declaration_spans.get(&descriptor.identity())
+        self.declaration_spans.get(&DescriptorKey::new(descriptor))
     }
 
     pub(crate) fn declaration_span(&self, descriptor: &AdtDescriptor) -> Option<&SourceSpan> {
-        self.declaration_spans.get(&descriptor.identity())
+        self.declaration_spans.get(&DescriptorKey::new(descriptor))
     }
 
     pub(crate) fn variant_for_descriptor<'a>(
@@ -289,8 +304,7 @@ impl AdtRegistry {
         variant: &AdtVariantDescriptor,
     ) -> Option<&SourceSpan> {
         self.variant_declaration_spans
-            .get(&descriptor.identity())?
-            .get(&variant.name)
+            .get(&VariantDescriptorKey::new(descriptor, variant))
     }
 
     pub(crate) fn variant_declaration_order_for_type(
