@@ -76,7 +76,12 @@ cannot satisfy a different written module or import qualifier, regardless of
 descriptor registration order. If the selected identity has the wrong arity or
 has duplicate matching descriptors, lookup fails instead of falling through to
 the namesake. An unqualified type leaf continues to prefer the current-module
-ADT over imported namesakes.
+ADT over imported namesakes. A public ADT from another module participates in
+unqualified type lookup only when a `use` declared in the current module names
+its module. Imports declared in other modules neither supply a candidate nor
+make the current lookup ambiguous. This module-local import boundary applies
+both when lookup checks an exact generic arity and when recovery accepts any
+arity.
 
 Each public type-alias declaration resolves its own target, including when
 another declaration in the same module has the same alias name. The later
@@ -534,6 +539,8 @@ not become fallback targets.
 
 - Name and import analysis: `crates/veln-analysis/src/surface/` and
   `crates/veln-sema/src/name_recovery.rs`.
+- Unqualified ADT import lookup:
+  `crates/veln-sema/src/adt/tests/variant_lookup.rs`.
 - Deferred binding visibility:
   `examples/specification/check/defer-binding-visibility/`.
 - Casing and source-path diagnostics: `crates/veln-sema/src/pipeline/identifier_casing/`.
