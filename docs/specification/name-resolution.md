@@ -73,9 +73,12 @@ variants; it does not turn the latter into an opaque compiler-known type.
 Source identity selection precedes generic-arity and descriptor-uniqueness
 checks. A current-module ADT or another imported ADT with the same type leaf
 cannot satisfy a different written module or import qualifier, regardless of
-descriptor registration order. If the selected identity has the wrong arity or
-has duplicate matching descriptors, lookup fails instead of falling through to
-the namesake. An unqualified type leaf continues to prefer the current-module
+descriptor registration order. An exact written import path takes precedence
+over a same-spelled implicit leaf qualifier. Without an exact match, colliding
+implicit leaf qualifiers remain unresolved even when only one imported module
+declares the requested type leaf. If the selected identity has the wrong arity
+or has duplicate matching descriptors, lookup fails instead of falling through
+to the namesake. An unqualified type leaf continues to prefer the current-module
 ADT over imported namesakes. A public ADT from another module participates in
 unqualified type lookup only when a `use` declared in the current module names
 its module. Imports declared in other modules neither supply a candidate nor
