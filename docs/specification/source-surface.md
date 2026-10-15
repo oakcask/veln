@@ -32,6 +32,19 @@ end
 The sections below explain declarations and source boundaries. The grammar
 provides the production notation for these forms.
 
+A source `type` declaration may contain zero variants:
+
+```veln
+type Empty
+end
+```
+
+This form declares a named source type without declaring a constructor. It is
+valid source syntax, but it cannot supply a variant to a refinement such as
+`Empty::Missing`. The [type rules](types.md#compatibility-and-limits) and
+[diagnostic contract](diagnostics-json.md#diagnostic-families) define that
+semantic boundary.
+
 ### Declaration and expression inventory
 
 - Optional source-written `mod` headers, source path derived local module

@@ -42,8 +42,14 @@ Its topic identifiers are `lexical-structure`, `modules-imports-packages`,
 Each topic has validated descriptor text, normalized set-valued fields,
 validated related-topic identifiers, selected executable grammar productions,
 and selected displayed source files from specification case command inputs.
+The `declarations-aliases` topic projects `TypeDecl` with zero or more
+`TypeVariant` entries, so the published grammar admits a named type declaration
+with no constructors.
 The `types-inference-constructors` topic includes the executable productions
-for variant-refinement type text. Its descriptor publishes the current
+for variant-refinement type text. A non-generic alternative requires an
+uppercase base leaf. An alternative with type arguments retains any `TypePath`
+before those arguments so semantic analysis can diagnose and recover an
+invalid-cased generic base. Its descriptor publishes the current
 singleton and finite-set identity, subset assignability and direct widening,
 aggregate and control-flow joins, stable match-path narrowing, runtime erasure,
 transitive alias-qualified identity and presentation, complete-domain alias
