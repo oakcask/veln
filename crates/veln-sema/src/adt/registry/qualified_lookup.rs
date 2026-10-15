@@ -211,33 +211,21 @@ impl AdtRegistry {
         let qualifiers = &segments[..segments.len().saturating_sub(1)];
         let normalized = normalized_qualified_segments(qualifiers);
         crate::adt::lookup_validation::record_qualified_path_work(normalized.len());
-        let mut selected = None;
-        if let Some(module_path) = current_module.filter(|module_path| {
-            crate::adt::lookup_validation::record_qualified_path_work(module_path.len());
-            normalized_qualified_path(module_path) == normalized
-                && is_single_initial_recovery(qualifiers, module_path)
-        }) && self.source_identity_exists(Some(module_path), type_name)
-        {
-            selected = Some(QualifiedSourceIdentity::Source((
-                Some(module_path.to_string()),
-                type_name.to_string(),
-            )));
-        }
+        let mut selected = self.recovered_current_module_identity(
+            type_name,
+            qualifiers,
+            &normalized,
+            current_module,
+        );
 
         if self.qualified_import_recovery_modules.is_empty() {
-            let fallback = fallback_recovery_modules(qualifiers, current_module, uses);
-            for (module_path, modules) in fallback {
-                if current_module == Some(module_path.as_str())
-                    && self.source_identity_exists(current_module, type_name)
-                {
-                    continue;
-                }
-                let identity = self.source_identity_from_import_modules(type_name, &modules);
-                if merge_recovered_identity(&mut selected, identity) {
-                    return Some(QualifiedSourceIdentity::Ambiguous);
-                }
-            }
-            return selected;
+            return self.fallback_recovered_import_identity(
+                type_name,
+                qualifiers,
+                current_module,
+                uses,
+                selected,
+            );
         }
 
         let key = (current_module.map(str::to_string), normalized);
@@ -248,11 +236,12 @@ impl AdtRegistry {
             .flatten()
         {
             crate::adt::lookup_validation::record_qualified_path_work(candidate.module_path.len());
-            if !is_single_initial_recovery(qualifiers, &candidate.module_path) {
-                continue;
-            }
-            if current_module == Some(candidate.module_path.as_str())
-                && self.source_identity_exists(current_module, type_name)
+            if !is_single_initial_recovery(qualifiers, &candidate.module_path)
+                || self.is_current_module_identity(
+                    type_name,
+                    current_module,
+                    &candidate.module_path,
+                )
             {
                 continue;
             }
@@ -262,6 +251,57 @@ impl AdtRegistry {
             }
         }
         selected
+    }
+
+    fn recovered_current_module_identity(
+        &self,
+        type_name: &str,
+        qualifiers: &[String],
+        normalized: &str,
+        current_module: Option<&str>,
+    ) -> Option<QualifiedSourceIdentity> {
+        let module_path = current_module.filter(|module_path| {
+            crate::adt::lookup_validation::record_qualified_path_work(module_path.len());
+            normalized_qualified_path(module_path) == normalized
+                && is_single_initial_recovery(qualifiers, module_path)
+        })?;
+        self.source_identity_exists(Some(module_path), type_name)
+            .then(|| {
+                QualifiedSourceIdentity::Source((
+                    Some(module_path.to_string()),
+                    type_name.to_string(),
+                ))
+            })
+    }
+
+    fn fallback_recovered_import_identity(
+        &self,
+        type_name: &str,
+        qualifiers: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+        mut selected: Option<QualifiedSourceIdentity>,
+    ) -> Option<QualifiedSourceIdentity> {
+        for (module_path, modules) in fallback_recovery_modules(qualifiers, current_module, uses) {
+            if self.is_current_module_identity(type_name, current_module, &module_path) {
+                continue;
+            }
+            let identity = self.source_identity_from_import_modules(type_name, &modules);
+            if merge_recovered_identity(&mut selected, identity) {
+                return Some(QualifiedSourceIdentity::Ambiguous);
+            }
+        }
+        selected
+    }
+
+    fn is_current_module_identity(
+        &self,
+        type_name: &str,
+        current_module: Option<&str>,
+        module_path: &str,
+    ) -> bool {
+        current_module == Some(module_path)
+            && self.source_identity_exists(current_module, type_name)
     }
 
     fn source_identity_from_import_modules(

@@ -704,6 +704,17 @@ struct QualifiedPathDepthWork {
 }
 
 fn recovered_qualified_path_depth_work(depth: usize) -> QualifiedPathDepthWork {
+    let module = recovered_qualified_path_module(depth);
+    let work = QualifiedPathDepthWork {
+        publication: recovered_qualified_publication_work(&module, depth),
+        diagnostics: recovered_qualified_diagnostic_work(&module, depth),
+        checked_lowering: recovered_qualified_lowering_work(&module, depth),
+    };
+    eprintln!("recovered qualified refinement: depth={depth} work={work:?}");
+    work
+}
+
+fn recovered_qualified_path_module(depth: usize) -> veln_ast::SurfaceModule {
     let written_segments = std::iter::repeat_n("Q", depth).collect::<Vec<_>>();
     let mut module_segments = written_segments.clone();
     module_segments[depth / 2] = "q";
@@ -718,43 +729,41 @@ fn recovered_qualified_path_depth_work(depth: usize) -> QualifiedPathDepthWork {
     );
     let parsed = parse(&source);
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-    let module = veln_ast::lower_surface_ast_with_module_identity(
+    veln_ast::lower_surface_ast_with_module_identity(
         &parsed.tree,
         module_name,
         source.span(veln_source::TextRange::new(0, 0)),
-    );
+    )
+}
 
+fn recovered_qualified_publication_work(module: &veln_ast::SurfaceModule, depth: usize) -> usize {
     crate::adt::reset_qualified_path_work();
-    let environment = TypeEnvironment::from_module(&module);
-    let publication = crate::adt::qualified_path_work();
+    let environment = TypeEnvironment::from_module(module);
     assert!(
         !environment.function_is_published_for_test("expose"),
         "depth={depth}"
     );
+    crate::adt::qualified_path_work()
+}
 
+fn recovered_qualified_diagnostic_work(module: &veln_ast::SurfaceModule, depth: usize) -> usize {
     crate::adt::reset_qualified_path_work();
-    let diagnostics = analyze_surface_module(&module);
-    let diagnostic_work = crate::adt::qualified_path_work();
+    let diagnostics = analyze_surface_module(module);
     assert!(
         diagnostics
             .iter()
             .any(|diagnostic| diagnostic.id == "type.variant_refinement_private"),
         "depth={depth} diagnostics={diagnostics:#?}"
     );
+    crate::adt::qualified_path_work()
+}
 
+fn recovered_qualified_lowering_work(module: &veln_ast::SurfaceModule, depth: usize) -> usize {
     crate::adt::reset_qualified_path_work();
-    let lowered = lower_checked_surface_module(&module);
-    let checked_lowering = crate::adt::qualified_path_work();
+    let lowered = lower_checked_surface_module(module);
     assert!(lowered.core.is_none(), "depth={depth}");
     assert!(lowered.ir.is_none(), "depth={depth}");
-
-    let work = QualifiedPathDepthWork {
-        publication,
-        diagnostics: diagnostic_work,
-        checked_lowering,
-    };
-    eprintln!("recovered qualified refinement: depth={depth} work={work:?}");
-    work
+    crate::adt::qualified_path_work()
 }
 
 #[test]
