@@ -16,92 +16,133 @@ pub(super) fn type_paths_from_tokens(
             continue;
         }
 
-        if tokens.get(cursor + 1).map(|token| token.kind) == Some(TokenKind::Less) {
-            let Some((type_argument_count, end_cursor)) = generic_application(tokens, cursor + 1)
-            else {
-                cursor += 1;
-                continue;
-            };
-            if tokens.get(end_cursor).map(|token| token.kind) == Some(TokenKind::DoubleColon) {
-                cursor += 1;
-                continue;
-            }
-            paths.push(TypePathSegments {
-                segments: vec![tokens[cursor].text.clone()],
-                segment_spans: vec![source.span(tokens[cursor].range)],
-                type_argument_count,
-                application_span: source.span(TextRange::new(
-                    tokens[cursor].range.start,
-                    tokens[end_cursor - 1].range.end,
-                )),
-                written: bounded_type_application_text(
-                    tokens,
-                    cursor,
-                    end_cursor,
-                    &tokens[cursor].text,
-                ),
-            });
-            cursor += 1;
-            continue;
-        }
-        if tokens.get(cursor + 1).map(|token| token.kind) != Some(TokenKind::DoubleColon) {
-            if tokens.get(cursor.wrapping_sub(1)).map(|token| token.kind)
-                != Some(TokenKind::DoubleColon)
-                && tokens.get(cursor + 1).map(|token| token.kind) != Some(TokenKind::Colon)
-            {
-                let span = source.span(tokens[cursor].range);
-                paths.push(TypePathSegments {
-                    segments: vec![tokens[cursor].text.clone()],
-                    segment_spans: vec![span.clone()],
-                    type_argument_count: 0,
-                    application_span: span,
-                    written: tokens[cursor].text.clone(),
-                });
-            }
-            cursor += 1;
-            continue;
-        }
-
-        let path_start = cursor;
-        let mut segments = vec![tokens[cursor].text.clone()];
-        let mut segment_spans = vec![source.span(tokens[cursor].range)];
-        cursor += 2;
-        while let Some(token) = tokens.get(cursor) {
-            if !is_type_path_segment(token) {
-                break;
-            }
-            segments.push(token.text.clone());
-            segment_spans.push(source.span(token.range));
-            cursor += 1;
-            if tokens.get(cursor).map(|token| token.kind) != Some(TokenKind::DoubleColon) {
-                break;
-            }
-            cursor += 1;
-        }
-
-        if segments.len() > 1 {
-            let (type_argument_count, application_end) =
-                if tokens.get(cursor).map(|token| token.kind) == Some(TokenKind::Less) {
-                    generic_application(tokens, cursor).unwrap_or((0, cursor))
-                } else {
-                    (0, cursor)
-                };
-            let fallback = segments.join("::");
-            let written =
-                bounded_type_application_text(tokens, path_start, application_end, &fallback);
-            paths.push(TypePathSegments {
-                segments,
-                segment_spans,
-                type_argument_count,
-                application_span: source.span(TextRange::new(
-                    tokens[path_start].range.start,
-                    tokens[application_end.saturating_sub(1)].range.end,
-                )),
-                written,
-            });
+        let scanned = scan_type_path(source, tokens, cursor);
+        cursor = scanned.next_cursor;
+        if let Some(path) = scanned.path {
+            paths.push(path);
         }
     }
     paths
+}
+
+struct ScannedTypePath {
+    path: Option<TypePathSegments>,
+    next_cursor: usize,
+}
+
+fn scan_type_path(source: &SourceFile, tokens: &[Token], cursor: usize) -> ScannedTypePath {
+    if tokens.get(cursor + 1).map(|token| token.kind) == Some(TokenKind::DoubleColon) {
+        return scan_qualified_type_path(source, tokens, cursor);
+    }
+    ScannedTypePath {
+        path: scan_unqualified_type_path(source, tokens, cursor),
+        next_cursor: cursor + 1,
+    }
+}
+
+fn scan_unqualified_type_path(
+    source: &SourceFile,
+    tokens: &[Token],
+    cursor: usize,
+) -> Option<TypePathSegments> {
+    if tokens.get(cursor + 1).map(|token| token.kind) == Some(TokenKind::Less) {
+        let (type_argument_count, application_end) = generic_application(tokens, cursor + 1)?;
+        if tokens.get(application_end).map(|token| token.kind) == Some(TokenKind::DoubleColon) {
+            return None;
+        }
+        return Some(build_type_path(
+            source,
+            tokens,
+            cursor,
+            application_end,
+            vec![tokens[cursor].text.clone()],
+            vec![source.span(tokens[cursor].range)],
+            type_argument_count,
+        ));
+    }
+    if tokens.get(cursor.wrapping_sub(1)).map(|token| token.kind) == Some(TokenKind::DoubleColon)
+        || tokens.get(cursor + 1).map(|token| token.kind) == Some(TokenKind::Colon)
+    {
+        return None;
+    }
+    Some(build_type_path(
+        source,
+        tokens,
+        cursor,
+        cursor + 1,
+        vec![tokens[cursor].text.clone()],
+        vec![source.span(tokens[cursor].range)],
+        0,
+    ))
+}
+
+fn scan_qualified_type_path(
+    source: &SourceFile,
+    tokens: &[Token],
+    path_start: usize,
+) -> ScannedTypePath {
+    let mut segments = vec![tokens[path_start].text.clone()];
+    let mut segment_spans = vec![source.span(tokens[path_start].range)];
+    let mut cursor = path_start + 2;
+    while let Some(token) = tokens
+        .get(cursor)
+        .filter(|token| is_type_path_segment(token))
+    {
+        segments.push(token.text.clone());
+        segment_spans.push(source.span(token.range));
+        cursor += 1;
+        if tokens.get(cursor).map(|token| token.kind) != Some(TokenKind::DoubleColon) {
+            break;
+        }
+        cursor += 1;
+    }
+
+    let path = (segments.len() > 1).then(|| {
+        let (type_argument_count, application_end) = generic_application_after(tokens, cursor);
+        build_type_path(
+            source,
+            tokens,
+            path_start,
+            application_end,
+            segments,
+            segment_spans,
+            type_argument_count,
+        )
+    });
+    ScannedTypePath {
+        path,
+        next_cursor: cursor,
+    }
+}
+
+fn generic_application_after(tokens: &[Token], cursor: usize) -> (usize, usize) {
+    if tokens.get(cursor).map(|token| token.kind) == Some(TokenKind::Less) {
+        generic_application(tokens, cursor).unwrap_or((0, cursor))
+    } else {
+        (0, cursor)
+    }
+}
+
+fn build_type_path(
+    source: &SourceFile,
+    tokens: &[Token],
+    path_start: usize,
+    application_end: usize,
+    segments: Vec<String>,
+    segment_spans: Vec<SourceSpan>,
+    type_argument_count: usize,
+) -> TypePathSegments {
+    let fallback = segments.join("::");
+    TypePathSegments {
+        segments,
+        segment_spans,
+        type_argument_count,
+        application_span: source.span(TextRange::new(
+            tokens[path_start].range.start,
+            tokens[application_end.saturating_sub(1)].range.end,
+        )),
+        written: bounded_type_application_text(tokens, path_start, application_end, &fallback),
+    }
 }
 
 pub(super) fn bounded_type_application_text(

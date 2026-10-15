@@ -21,6 +21,53 @@ fn parses_minimal_public_function() {
 }
 
 #[test]
+fn collects_nested_type_paths_without_effect_names() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn transform(input: outer::Map<domain::Key, List<domain::Value> >) ",
+            "-> service::Result<domain::Item, Error> effects [io::Read]\n",
+            "  input\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    assert_eq!(
+        function.params[0]
+            .ty_paths
+            .iter()
+            .map(|path| (path.written.as_str(), path.type_argument_count))
+            .collect::<Vec<_>>(),
+        [
+            ("outer::Map<domain::Key, List<domain::Value>>", 2),
+            ("domain::Key", 0),
+            ("List<domain::Value>", 1),
+            ("domain::Value", 0),
+        ]
+    );
+    assert_eq!(
+        function
+            .return_type_paths
+            .iter()
+            .map(|path| (path.written.as_str(), path.type_argument_count))
+            .collect::<Vec<_>>(),
+        [
+            ("service::Result<domain::Item, Error>", 2),
+            ("domain::Item", 0),
+            ("Error", 0),
+        ]
+    );
+    assert_eq!(
+        function.effects.as_deref(),
+        Some(&["io::Read".to_string()][..])
+    );
+}
+
+#[test]
 fn parses_and_formats_callsite_modifier_after_optional_effects() {
     let source = SourceFile::new(
         "main.veln",
