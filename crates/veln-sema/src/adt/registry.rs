@@ -242,6 +242,8 @@ impl AdtRegistry {
         descriptor: &'a AdtDescriptor,
         name: &str,
     ) -> VariantLookup<'a> {
+        #[cfg(test)]
+        variant_lookup_counters::record_index_lookup();
         let Some(variant_index) = self
             .variants_by_descriptor
             .get(&DescriptorKey::new(descriptor))
@@ -485,5 +487,26 @@ pub(crate) mod descriptor_lookup_counters {
 
     pub(crate) fn candidate_scans() -> usize {
         CANDIDATE_SCANS.get()
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod variant_lookup_counters {
+    use std::cell::Cell;
+
+    thread_local! {
+        static INDEX_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub(crate) fn reset() {
+        INDEX_LOOKUPS.set(0);
+    }
+
+    pub(super) fn record_index_lookup() {
+        INDEX_LOOKUPS.set(INDEX_LOOKUPS.get() + 1);
+    }
+
+    pub(crate) fn index_lookups() -> usize {
+        INDEX_LOOKUPS.get()
     }
 }

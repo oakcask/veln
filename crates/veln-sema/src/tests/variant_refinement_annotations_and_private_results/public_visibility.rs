@@ -362,6 +362,166 @@ fn imported_refinements_preserve_qualified_and_unqualified_visibility_identity()
 }
 
 #[test]
+fn unrelated_modules_imports_do_not_change_unqualified_refinement_visibility() {
+    let without_unrelated_import = unqualified_import_isolation_observation(false);
+    let with_unrelated_import = unqualified_import_isolation_observation(true);
+
+    assert_eq!(
+        with_unrelated_import.visibility_json, without_unrelated_import.visibility_json,
+        "an unrelated module's same-leaf import must not change consumer diagnostics"
+    );
+    assert_eq!(with_unrelated_import.visibility_json.len(), 10);
+    assert_eq!(
+        with_unrelated_import.recovery_signatures,
+        without_unrelated_import.recovery_signatures
+    );
+    assert!(with_unrelated_import.recovery_signatures.iter().all(
+        |(_, params, result, published)| {
+            params == &[Type::Unknown] && result == &Type::Unknown && !*published
+        }
+    ));
+    assert_eq!(
+        with_unrelated_import.downstream_visibility,
+        without_unrelated_import.downstream_visibility
+    );
+    assert!(
+        with_unrelated_import
+            .downstream_visibility
+            .iter()
+            .all(|(_, qualified, unqualified)| !qualified && !unqualified)
+    );
+    assert!(!with_unrelated_import.has_core);
+    assert!(!with_unrelated_import.has_ir);
+}
+
+#[derive(Debug, PartialEq)]
+struct UnqualifiedImportIsolationObservation {
+    visibility_json: Vec<String>,
+    recovery_signatures: Vec<(String, Vec<Type>, Type, bool)>,
+    downstream_visibility: Vec<(String, bool, bool)>,
+    has_core: bool,
+    has_ir: bool,
+}
+
+fn unqualified_import_isolation_observation(
+    unrelated_imports_public_namesake: bool,
+) -> UnqualifiedImportIsolationObservation {
+    let private_dependency = SourceFile::new(
+        "dep_private.veln",
+        concat!(
+            "pub type State<A>\n",
+            "  Hidden(A)\n",
+            "  Other(A)\n",
+            "end\n",
+        ),
+    );
+    let public_dependency = SourceFile::new(
+        "dep_public.veln",
+        concat!(
+            "pub type State<A>\n",
+            "  pub Hidden(A)\n",
+            "  pub Other(A)\n",
+            "end\n",
+        ),
+    );
+    let consumer = SourceFile::new(
+        "consumer.veln",
+        concat!(
+            "use dep_private\n",
+            "pub fn exact(value: State<Int>::Hidden) -> State<Int>::Hidden\n",
+            "  value\n",
+            "end\n",
+            "pub fn wrong_arity(value: State::Hidden) -> State::Hidden\n",
+            "  value\n",
+            "end\n",
+            "pub fn recovered(value: state<Int>::Hidden) -> state<Int>::Hidden\n",
+            "  value\n",
+            "end\n",
+            "pub fn union(value: State<Int>::Other | State<Int>::Hidden) -> State<Int>::Other | State<Int>::Hidden\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let unrelated = SourceFile::new(
+        "unrelated.veln",
+        if unrelated_imports_public_namesake {
+            "use dep_public\n"
+        } else {
+            ""
+        },
+    );
+    let consumer_identity = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&consumer).tree,
+        "consumer".to_string(),
+        consumer.span(veln_source::TextRange::new(0, 0)),
+    );
+    let mut project = merged_modules_with_identities(vec![
+        ("dep_private", private_dependency),
+        ("dep_public", public_dependency),
+        ("consumer", consumer),
+        ("unrelated", unrelated),
+    ]);
+    project.module = consumer_identity.module;
+
+    let environment = TypeEnvironment::from_module(&project);
+    let function_names = ["exact", "wrong_arity", "recovered", "union"];
+    let recovery_signatures = function_names
+        .iter()
+        .map(|name| {
+            let signature = environment
+                .function(name)
+                .unwrap_or_else(|| panic!("{name} recovery signature"));
+            (
+                (*name).to_string(),
+                signature.params.clone(),
+                signature.return_type.clone(),
+                environment.function_is_published_for_test(name),
+            )
+        })
+        .collect();
+    let (diagnostics, lowered) = check_project_surface_module(&project);
+    let visibility_json = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect();
+
+    let downstream = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "downstream.veln",
+            "mod downstream\nuse consumer\n",
+        ))
+        .tree,
+    );
+    let downstream = TypeEnvironment::from_module_with_base_for_test(&downstream, &environment);
+    let downstream_visibility = function_names
+        .iter()
+        .map(|name| {
+            (
+                (*name).to_string(),
+                downstream
+                    .function_path(
+                        &["consumer".to_string(), (*name).to_string()],
+                        Some("downstream"),
+                    )
+                    .is_some(),
+                !downstream
+                    .unqualified_function_import_candidates(name, Some("downstream"))
+                    .is_empty(),
+            )
+        })
+        .collect();
+
+    UnqualifiedImportIsolationObservation {
+        visibility_json,
+        recovery_signatures,
+        downstream_visibility,
+        has_core: lowered.core.is_some(),
+        has_ir: lowered.ir.is_some(),
+    }
+}
+
+#[test]
 fn local_refinement_descriptor_shadows_imported_namesake() {
     let dependency = lower_surface_ast(
         &parse(&SourceFile::new(

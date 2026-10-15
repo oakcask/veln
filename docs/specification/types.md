@@ -821,14 +821,17 @@ checking of another union alternative.
 
 Visibility diagnostics retain the private declaration span when the ADT comes
 from a reusable or dependency environment. Deterministic work counters compare
-adjacent widths for one wide refinement union, many public declarations, and
-many same-leaf ADTs selected through distinct qualified imports. Each workload
-grows linearly in the number of direct alternatives, declarations, or qualified
-imports. The measured work combines visibility-checker steps with every
-qualified import/path comparison and every ADT descriptor candidate visited
-while resolving the refinement identity, so same-named imported ADTs and
-unrelated declarations cannot be hidden outside the checked bound. The counters,
-rather than elapsed time, define these regression checks.
+adjacent widths for one wide refinement union, many public declarations, one
+widening ADT paired with the same number of initial-case-recovered public
+boundaries, and many same-leaf ADTs selected through distinct qualified
+imports. Each workload grows linearly in the number of direct alternatives,
+declarations, declared variants, recovered boundaries, or qualified imports.
+The measured work combines visibility-checker steps with every indexed
+final-variant lookup, qualified import/path comparison, and ADT descriptor
+candidate visited while resolving the refinement identity. This keeps casing
+recovery, same-named imported ADTs, and unrelated declarations inside the
+checked bound. The counters, rather than elapsed time, define these regression
+checks.
 
 For `N` independent invalid bases, annotation collection, casing collection,
 enclosing-context processing, and diagnostic ordering each use linear

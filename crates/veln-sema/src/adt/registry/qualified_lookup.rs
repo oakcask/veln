@@ -39,11 +39,7 @@ impl AdtRegistry {
             .iter()
             .map(|index| self.descriptor_lookup_candidate(*index))
             .filter(|descriptor| {
-                descriptor.visibility == Visibility::Public
-                    && descriptor
-                        .module_name
-                        .as_ref()
-                        .is_some_and(|module| uses.iter().any(|use_decl| &use_decl.name == module))
+                Self::descriptor_is_unqualified_import(descriptor, current_module, uses)
             });
         Self::unique_candidate(local)
             .or_else(|| Self::unique_candidate(builtin))

@@ -109,12 +109,11 @@ impl TypeEnvironment {
             crate::adt::registry::VariantLookup::Ambiguous => None,
             crate::adt::registry::VariantLookup::Missing => {
                 let recovered = recover_type_case(variant)?;
-                let mut variants = descriptor
-                    .variants
-                    .iter()
-                    .filter(|candidate| candidate.name == recovered);
-                let variant = variants.next()?;
-                variants.next().is_none().then_some(variant)
+                match self.adts.variant_for_descriptor(descriptor, &recovered) {
+                    crate::adt::registry::VariantLookup::Found(variant) => Some(variant),
+                    crate::adt::registry::VariantLookup::Ambiguous
+                    | crate::adt::registry::VariantLookup::Missing => None,
+                }
             }
         }
     }

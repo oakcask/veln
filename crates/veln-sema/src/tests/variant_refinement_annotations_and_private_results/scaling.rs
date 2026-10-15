@@ -323,10 +323,12 @@ fn public_visibility_work_is_linear_for_wide_unions() {
 
         crate::analysis::reset_visibility_work();
         crate::adt::registry::descriptor_lookup_counters::reset();
+        crate::adt::registry::variant_lookup_counters::reset();
         let diagnostics = diagnostics_for(&source);
         let visibility_work = crate::analysis::take_visibility_work();
         let descriptor_work = crate::adt::registry::descriptor_lookup_counters::candidate_scans();
-        let work = visibility_work + descriptor_work;
+        let variant_work = crate::adt::registry::variant_lookup_counters::index_lookups();
+        let work = visibility_work + descriptor_work + variant_work;
         assert_eq!(
             diagnostics
                 .iter()
@@ -337,7 +339,8 @@ fn public_visibility_work_is_linear_for_wide_unions() {
         );
         eprintln!(
             "variant refinement visibility union: alternatives={count} \
-             visibility_work={visibility_work} descriptor_work={descriptor_work} work={work}"
+             visibility_work={visibility_work} descriptor_work={descriptor_work} \
+             variant_work={variant_work} work={work}"
         );
         work
     });
@@ -360,10 +363,12 @@ fn public_visibility_work_is_linear_for_many_declarations() {
 
         crate::analysis::reset_visibility_work();
         crate::adt::registry::descriptor_lookup_counters::reset();
+        crate::adt::registry::variant_lookup_counters::reset();
         let diagnostics = diagnostics_for(&source);
         let visibility_work = crate::analysis::take_visibility_work();
         let descriptor_work = crate::adt::registry::descriptor_lookup_counters::candidate_scans();
-        let work = visibility_work + descriptor_work;
+        let variant_work = crate::adt::registry::variant_lookup_counters::index_lookups();
+        let work = visibility_work + descriptor_work + variant_work;
         assert_eq!(
             diagnostics
                 .iter()
@@ -374,7 +379,71 @@ fn public_visibility_work_is_linear_for_many_declarations() {
         );
         eprintln!(
             "variant refinement visibility declarations: declarations={count} \
-             visibility_work={visibility_work} descriptor_work={descriptor_work} work={work}"
+             visibility_work={visibility_work} descriptor_work={descriptor_work} \
+             variant_work={variant_work} work={work}"
+        );
+        work
+    });
+
+    let first_growth = work[1] - work[0];
+    let second_growth = work[2] - work[1];
+    assert_eq!(second_growth, first_growth * 2, "work={work:?}");
+}
+
+#[test]
+fn recovered_final_variant_visibility_work_is_linear_for_one_widening_adt() {
+    let work = [16, 32, 64].map(|count| {
+        let mut source = String::from("pub type State\n");
+        for index in 0..count {
+            source.push_str(&format!("  Hidden{index}\n"));
+        }
+        source.push_str("end\n");
+        for index in 0..count {
+            source.push_str(&format!(
+                "pub fn expose_{index}(value: State::hidden{index}) -> ()\n  ()\nend\n"
+            ));
+        }
+
+        let source = SourceFile::new("main.veln", source);
+        let parsed = parse(&source);
+        assert_eq!(
+            parsed.diagnostics.len(),
+            count,
+            "count={count} parse diagnostics={:#?}",
+            parsed.diagnostics
+        );
+        assert!(
+            parsed
+                .diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
+            "count={count} parse diagnostics={:#?}",
+            parsed.diagnostics
+        );
+        crate::analysis::reset_visibility_work();
+        crate::adt::registry::descriptor_lookup_counters::reset();
+        crate::adt::registry::variant_lookup_counters::reset();
+        let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+        let visibility_work = crate::analysis::take_visibility_work();
+        let descriptor_work = crate::adt::registry::descriptor_lookup_counters::candidate_scans();
+        let variant_work = crate::adt::registry::variant_lookup_counters::index_lookups();
+        let work = visibility_work + descriptor_work + variant_work;
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+                .count(),
+            count,
+            "count={count} diagnostics={diagnostics:#?}"
+        );
+        assert!(
+            variant_work >= count * 2,
+            "exact misses and recovered index lookups must both be counted: count={count} variant_work={variant_work}"
+        );
+        eprintln!(
+            "recovered variant refinement visibility: variants={count} declarations={count} \
+             visibility_work={visibility_work} descriptor_work={descriptor_work} \
+             variant_work={variant_work} work={work}"
         );
         work
     });
@@ -423,12 +492,14 @@ fn same_leaf_qualified_import_work(count: usize) -> usize {
     let project = same_leaf_qualified_import_project(count);
     crate::analysis::reset_visibility_work();
     crate::adt::registry::descriptor_lookup_counters::reset();
+    crate::adt::registry::variant_lookup_counters::reset();
     crate::adt::reset_import_path_comparisons();
     let diagnostics = analyze_surface_module(&project);
     let visibility_work = crate::analysis::take_visibility_work();
     let descriptor_work = crate::adt::registry::descriptor_lookup_counters::candidate_scans();
+    let variant_work = crate::adt::registry::variant_lookup_counters::index_lookups();
     let import_path_work = crate::adt::import_path_comparisons();
-    let work = visibility_work + descriptor_work + import_path_work;
+    let work = visibility_work + descriptor_work + variant_work + import_path_work;
     assert_eq!(
         diagnostics
             .iter()
@@ -441,7 +512,7 @@ fn same_leaf_qualified_import_work(count: usize) -> usize {
     eprintln!(
         "qualified same-leaf refinement visibility: declarations={count} \
          visibility_work={visibility_work} descriptor_work={descriptor_work} \
-         import_path_work={import_path_work} work={work}"
+         variant_work={variant_work} import_path_work={import_path_work} work={work}"
     );
     work
 }

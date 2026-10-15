@@ -17,7 +17,7 @@ impl AdtRegistry {
     ) -> Option<&AdtDescriptor> {
         self.descriptor_in_current_module(name, args_len, current_module)
             .or_else(|| self.root_descriptor(name, args_len))
-            .or_else(|| self.unique_imported_descriptor(name, args_len, uses))
+            .or_else(|| self.unique_imported_descriptor(name, args_len, current_module, uses))
     }
 
     pub(super) fn descriptor_in_current_module(
@@ -52,17 +52,27 @@ impl AdtRegistry {
         &self,
         name: &str,
         args_len: Option<usize>,
+        current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
         let mut imported = self.descriptors_named(name).filter(|descriptor| {
             Self::descriptor_matches_arity(descriptor, args_len)
-                && descriptor.visibility == Visibility::Public
-                && descriptor
-                    .module_name
-                    .as_ref()
-                    .is_some_and(|module| uses.iter().any(|use_decl| &use_decl.name == module))
+                && Self::descriptor_is_unqualified_import(descriptor, current_module, uses)
         });
         let descriptor = imported.next()?;
         imported.next().is_none().then_some(descriptor)
+    }
+
+    pub(super) fn descriptor_is_unqualified_import(
+        descriptor: &AdtDescriptor,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> bool {
+        descriptor.visibility == Visibility::Public
+            && descriptor.module_name.as_ref().is_some_and(|module| {
+                uses.iter().any(|use_decl| {
+                    use_decl.module_name.as_deref() == current_module && &use_decl.name == module
+                })
+            })
     }
 }
