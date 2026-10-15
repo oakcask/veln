@@ -502,7 +502,7 @@ impl AdtRegistry {
                     super::lookup_validation::record_import_path_comparison();
                     (crate::name_recovery::use_decl_matches_import_path(
                         use_decl,
-                        &module_path,
+                        module_path,
                         current_module,
                     ) && use_decl.module_name.as_deref() == current_module)
                         .then(|| use_decl.name.clone())
