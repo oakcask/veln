@@ -31,3 +31,7 @@ main.veln:71:24: error[type.variant_refinement_base]: variant-refinement base `E
 main.veln:76:30: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
   note: main.veln:5:1: Type `Empty` is declared here without finite ADT variants.
 main.veln:80:1: error[type.public_signature_missing]: public function has no return type annotation
+main.veln:87:25: error[type.variant_refinement_base]: variant-refinement base `EmptyAlias` is not a finite ADT
+  note: main.veln:5:1: Type `Empty` is declared here without finite ADT variants.
+main.veln:91:31: error[type.variant_refinement_base]: variant-refinement base `EmptyChain` is not a finite ADT
+  note: main.veln:5:1: Type `Empty` is declared here without finite ADT variants.

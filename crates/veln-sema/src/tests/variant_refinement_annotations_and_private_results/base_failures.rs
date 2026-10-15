@@ -72,6 +72,63 @@ fn non_adt_base_reports_declaration_and_preserves_arity_precedence() {
 }
 
 #[test]
+fn non_adt_alias_bases_report_the_canonical_target_declaration() {
+    let diagnostics = diagnostics_for(concat!(
+        "pub type Empty\n",
+        "end\n",
+        "pub type Alias = Empty\n",
+        "pub type Transitive = Alias\n",
+        "fn direct(value: Alias::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn chained(value: Transitive::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let base = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    assert_eq!(base.len(), 2, "{diagnostics:#?}");
+    for (observed, written_type) in base.iter().zip(["Alias", "Transitive"]) {
+        assert!(
+            observed.contains(&format!(
+                "\"details\":{{\"written_type\":\"{written_type}\",\"reason\":\"not_adt\"}}"
+            )),
+            "{observed}"
+        );
+        assert!(
+            observed.contains(
+                "\"kind\":\"base_type_declaration\",\"message\":\"Type `Empty` is declared here without finite ADT variants.\",\"resolved_identity\":\"Empty\""
+            ),
+            "{observed}"
+        );
+        assert!(observed.contains("\"line\":1,\"column\":5"), "{observed}");
+        assert!(!observed.contains("Type `Alias` is declared"), "{observed}");
+        assert!(
+            !observed.contains("Type `Transitive` is declared"),
+            "{observed}"
+        );
+    }
+    let primary_spans = diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.span.as_ref().expect("base failure span"))
+        .map(|span| {
+            (
+                span.start.line,
+                span.start.column,
+                span.end.line,
+                span.end.column,
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(primary_spans, [(5, 18, 5, 23), (8, 19, 8, 29)]);
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+}
+
+#[test]
 fn source_less_non_adt_and_opaque_bases_report_closed_provenance() {
     let diagnostics = diagnostics_for(concat!(
         "fn scalar(value: Int::Missing) -> ()\n",

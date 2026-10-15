@@ -382,16 +382,17 @@ impl TypeEnvironment {
         match descriptor.refinement_availability {
             crate::adt::descriptors::VariantRefinementAvailability::Finite => None,
             crate::adt::descriptors::VariantRefinementAvailability::Unavailable => {
-                let declaration_span = self.adts.declaration_span(descriptor).cloned()?;
+                let target = self.adts.canonical_descriptor_for(descriptor);
+                let declaration_span = self.adts.declaration_span(target).cloned()?;
                 Some(VariantRefinementBaseFailure {
                     reason: "not_adt",
-                    resolved_identity: descriptor.identity(),
+                    resolved_identity: target.identity(),
                     declaration_span: Some(declaration_span),
                     related_kind: "base_type_declaration",
                     provider: None,
                     related_message: format!(
                         "Type `{}` is declared here without finite ADT variants.",
-                        descriptor.type_name
+                        target.type_name
                     ),
                 })
             }

@@ -80,3 +80,14 @@ end
 pub fn unrelated_after()
 	()
 end
+
+pub type EmptyAlias = Empty
+pub type EmptyChain = EmptyAlias
+
+fn alias_failure(value: EmptyAlias::Missing) -> ()
+	()
+end
+
+fn alias_chain_failure(value: EmptyChain::Missing) -> ()
+	()
+end

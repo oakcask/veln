@@ -376,7 +376,10 @@ impl AdtRegistry {
         Some(candidates.next().is_none().then_some(candidate))
     }
 
-    pub(crate) fn canonical_type_name_for_descriptor(&self, descriptor: &AdtDescriptor) -> String {
+    pub(crate) fn canonical_descriptor_for<'a>(
+        &'a self,
+        descriptor: &'a AdtDescriptor,
+    ) -> &'a AdtDescriptor {
         self.descriptors_by_identity
             .get(&descriptor.identity())
             .into_iter()
@@ -386,10 +389,11 @@ impl AdtRegistry {
                 candidate.nominal_identity.is_none()
                     && candidate.type_parameters.len() == descriptor.type_parameters.len()
             })
-            .map_or_else(
-                || descriptor.type_name.clone(),
-                |candidate| candidate.type_name.clone(),
-            )
+            .unwrap_or(descriptor)
+    }
+
+    pub(crate) fn canonical_type_name_for_descriptor(&self, descriptor: &AdtDescriptor) -> String {
+        self.canonical_descriptor_for(descriptor).type_name.clone()
     }
 
     fn descriptor_for_type_path_with_arity(
