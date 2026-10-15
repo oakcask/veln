@@ -70,6 +70,14 @@ fallback only when the qualified path does not identify a source declaration.
 This precedence applies to finite ADTs and to source declarations without
 variants; it does not turn the latter into an opaque compiler-known type.
 
+Source identity selection precedes generic-arity and descriptor-uniqueness
+checks. A current-module ADT or another imported ADT with the same type leaf
+cannot satisfy a different written module or import qualifier, regardless of
+descriptor registration order. If the selected identity has the wrong arity or
+has duplicate matching descriptors, lookup fails instead of falling through to
+the namesake. An unqualified type leaf continues to prefer the current-module
+ADT over imported namesakes.
+
 Each public type-alias declaration resolves its own target, including when
 another declaration in the same module has the same alias name. The later
 declaration reports `name.duplicate`. An unresolved or wrong-kind target also

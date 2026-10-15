@@ -781,6 +781,13 @@ final constructor. A recovered base or final constructor keeps its written
 spelling in diagnostic details. Its `name.invalid_case` diagnostic precedes the
 independently provable visibility failure. Ambiguous or unresolved casing
 recovery does not manufacture a visibility identity or a privacy diagnostic.
+Exact qualified lookup binds the base to the written module or import identity
+before it checks arity and uniqueness. An imported `State` therefore remains
+the base of `imported::State<Int>::Hidden` when the current module also declares
+`State`; a local namesake cannot replace it after an arity mismatch. Initial-only
+casing recovery preserves the same qualified source identity. The
+[name-resolution contract](name-resolution.md#namespaces-and-use-roles) defines
+the matching and fallback rules.
 
 This visibility check applies only when the refinement is the root annotation
 and its written base directly names the ADT. It does not resolve through a type
