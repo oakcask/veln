@@ -463,3 +463,59 @@ fn visibility_failure_is_not_republished_through_function_aliases() {
         "an alias chain to a valid public function must remain published"
     );
 }
+
+#[test]
+fn unpublished_local_function_keeps_alias_target_shadowing() {
+    let imported = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "imported.veln",
+            concat!(
+                "mod imported\n",
+                "pub fn exposed(value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+    let imported_environment = TypeEnvironment::from_module(&imported);
+
+    let application = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "application.veln",
+            concat!(
+                "mod application\n",
+                "use imported\n",
+                "pub type State\n",
+                "  Hidden\n",
+                "end\n",
+                "pub fn exposed(value: State::Hidden) -> State::Hidden\n",
+                "  value\n",
+                "end\n",
+                "pub fn alias = exposed\n",
+            ),
+        ))
+        .tree,
+    );
+    let application_environment =
+        TypeEnvironment::from_module_with_base_for_test(&application, &imported_environment);
+
+    let exposed = application_environment
+        .function("exposed")
+        .expect("local recovery signature must continue to shadow the imported function");
+    assert_eq!(exposed.module_name.as_deref(), Some("application"));
+    assert_eq!(exposed.params, [Type::Unknown]);
+    assert!(
+        application_environment
+            .function_path(
+                &["imported".to_string(), "exposed".to_string()],
+                Some("application"),
+            )
+            .is_some(),
+        "the imported namesake must remain available when explicitly qualified"
+    );
+    assert!(
+        application_environment.function("alias").is_none(),
+        "an unpublished local target must not be skipped in favor of an imported namesake"
+    );
+}

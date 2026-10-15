@@ -67,6 +67,14 @@ pub(crate) fn function_alias_signatures(
     module: &SurfaceModule,
     functions: &[FunctionSignature],
 ) -> Vec<FunctionSignature> {
+    function_alias_signatures_with_target_filter(module, functions, |_| true)
+}
+
+pub(crate) fn function_alias_signatures_with_target_filter(
+    module: &SurfaceModule,
+    functions: &[FunctionSignature],
+    target_is_publishable: impl Fn(&FunctionSignature) -> bool,
+) -> Vec<FunctionSignature> {
     let companion_access_targets = BTreeMap::new();
     let uses = normal_use_decls(module);
     module
@@ -92,6 +100,9 @@ pub(crate) fn function_alias_signatures(
                 alias.module_name.as_deref(),
                 &companion_access_targets,
             )?;
+            if !target_is_publishable(target) {
+                return None;
+            }
             Some(FunctionSignature {
                 name,
                 target_name: target.target_name.clone(),
