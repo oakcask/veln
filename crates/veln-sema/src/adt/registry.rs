@@ -442,6 +442,51 @@ impl AdtRegistry {
                 )
             })
             .map(descriptor_identity)
+            .or_else(|| {
+                self.recovered_qualified_source_identity(type_name, segments, current_module, uses)
+            })
+    }
+
+    fn recovered_qualified_source_identity(
+        &self,
+        type_name: &str,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<(Option<String>, String)> {
+        let mut recovered = segments.to_vec();
+        let mut selected = None;
+        for index in 0..segments.len().saturating_sub(1) {
+            let Some(first) = segments[index].as_bytes().first().copied() else {
+                continue;
+            };
+            if !first.is_ascii_uppercase() {
+                continue;
+            }
+            recovered[index].replace_range(..1, &(first as char).to_ascii_lowercase().to_string());
+            for identity in self
+                .descriptors_named(type_name)
+                .filter(|descriptor| {
+                    self.descriptor_matches_qualified_source_identity(
+                        descriptor,
+                        &recovered,
+                        current_module,
+                        uses,
+                    )
+                })
+                .map(descriptor_identity)
+            {
+                if selected
+                    .as_ref()
+                    .is_some_and(|selected| selected != &identity)
+                {
+                    return None;
+                }
+                selected = Some(identity);
+            }
+            recovered[index] = segments[index].clone();
+        }
+        selected
     }
 
     fn descriptor_matches_qualified_source_identity(

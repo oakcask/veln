@@ -591,6 +591,14 @@ fn exact_qualified_descriptor_lookup_binds_the_written_source_identity() {
             .expect("import alias must select the imported descriptor");
         assert_eq!(imported_match.module_name.as_deref(), Some("imported"));
 
+        let recovered_import_match = registry
+            .unique_descriptor_for_type_path("Imported::State", 1, Some("consumer"), &uses)
+            .expect("initial-only casing recovery must keep the imported descriptor identity");
+        assert_eq!(
+            recovered_import_match.module_name.as_deref(),
+            Some("imported")
+        );
+
         let local_match = registry
             .unique_descriptor_for_type_path("consumer::State", 1, Some("consumer"), &uses)
             .expect("the exact current-module qualifier must select the local descriptor");
@@ -607,6 +615,12 @@ fn exact_qualified_descriptor_lookup_binds_the_written_source_identity() {
                 .descriptor_for_type_path("imported::State", 0, Some("consumer"), &uses)
                 .is_none(),
             "an imported arity mismatch must not fall through to a local namesake"
+        );
+        assert!(
+            registry
+                .descriptor_for_type_path("Imported::State", 0, Some("consumer"), &uses)
+                .is_none(),
+            "a recovered import arity mismatch must not fall through to a local namesake"
         );
     }
 }
