@@ -434,6 +434,10 @@ fn visibility_failure_is_not_republished_through_function_aliases() {
     );
     let consumer_environment =
         TypeEnvironment::from_module_with_base_for_test(&consumer, &bridge_environment);
+    assert_visibility_alias_publication_boundary(&consumer_environment);
+}
+
+fn assert_visibility_alias_publication_boundary(consumer_environment: &TypeEnvironment) {
     for (module, name) in [
         ("dep", "exposed"),
         ("dep", "first_alias"),
