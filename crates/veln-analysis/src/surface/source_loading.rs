@@ -29,7 +29,7 @@ pub(super) fn load_project_sources(
             checked_export_source_paths.insert(source.path().as_str().to_string());
         }
         if !parsed.diagnostics.is_empty()
-            && !retains_lowercase_final_refinement_recovery(&parsed.diagnostics)
+            && !retains_lowercase_final_refinement_recovery(&parsed.tree, &parsed.diagnostics)
         {
             derive_source_module(source, diagnostics, is_exported_source);
             record_rejected_source_module(source, parts, package);
@@ -53,22 +53,65 @@ pub(super) fn load_project_sources(
     }
 }
 
-fn retains_lowercase_final_refinement_recovery(diagnostics: &[ParseDiagnostic]) -> bool {
-    let mut has_lowercase_final = false;
+fn retains_lowercase_final_refinement_recovery(
+    tree: &veln_syntax::SyntaxTree,
+    diagnostics: &[ParseDiagnostic],
+) -> bool {
+    let lowercase_final_ranges = diagnostics
+        .iter()
+        .filter(|diagnostic| is_lowercase_final_refinement_failure(diagnostic))
+        .filter_map(|diagnostic| diagnostic.span.as_ref())
+        .map(|span| (span.start.offset, span.end.offset))
+        .collect::<std::collections::HashSet<_>>();
+    let adjacent_pipe_ranges = adjacent_recovery_pipe_ranges(tree, &lowercase_final_ranges);
     let retains_only_refinement_recovery = diagnostics.iter().all(|diagnostic| {
         if diagnostic.id != "parse.variant_refinement_type" {
             return false;
         }
         match diagnostic.message.as_str() {
-            "variant refinement final segment must start with an ASCII uppercase letter" => {
-                has_lowercase_final = true;
-                true
+            "variant refinement final segment must start with an ASCII uppercase letter" => true,
+            "`|` must join complete ADT variant refinement alternatives" => {
+                diagnostic.span.as_ref().is_some_and(|span| {
+                    adjacent_pipe_ranges.contains(&(span.start.offset, span.end.offset))
+                })
             }
-            "`|` must join complete ADT variant refinement alternatives" => true,
             _ => false,
         }
     });
-    has_lowercase_final && retains_only_refinement_recovery
+    !lowercase_final_ranges.is_empty() && retains_only_refinement_recovery
+}
+
+fn adjacent_recovery_pipe_ranges(
+    tree: &veln_syntax::SyntaxTree,
+    lowercase_final_ranges: &std::collections::HashSet<(usize, usize)>,
+) -> std::collections::HashSet<(usize, usize)> {
+    let mut adjacent_pipes = std::collections::HashSet::new();
+    let mut preceding_non_trivia = None;
+    for token in tree.lossless_tokens() {
+        if matches!(
+            token.kind,
+            veln_syntax::TokenKind::Whitespace
+                | veln_syntax::TokenKind::Comment
+                | veln_syntax::TokenKind::Newline
+        ) {
+            continue;
+        }
+        if token.kind == veln_syntax::TokenKind::Pipe
+            && preceding_non_trivia.is_some_and(|range: veln_source::TextRange| {
+                lowercase_final_ranges.contains(&(range.start, range.end))
+            })
+        {
+            adjacent_pipes.insert((token.range.start, token.range.end));
+        }
+        preceding_non_trivia = Some(token.range);
+    }
+    adjacent_pipes
+}
+
+fn is_lowercase_final_refinement_failure(diagnostic: &ParseDiagnostic) -> bool {
+    diagnostic.id == "parse.variant_refinement_type"
+        && diagnostic.message
+            == "variant refinement final segment must start with an ASCII uppercase letter"
 }
 
 fn process_parsed_source(
@@ -264,7 +307,7 @@ mod tests {
             "fn expose(value: State::hidden | State<Arg>::Private) -> ()\n  ()\nend\n",
         ));
         assert!(
-            retains_lowercase_final_refinement_recovery(&recovered.diagnostics),
+            retains_lowercase_final_refinement_recovery(&recovered.tree, &recovered.diagnostics),
             "{:#?}",
             recovered.diagnostics
         );
@@ -276,11 +319,32 @@ mod tests {
         ] {
             let rejected = parse(&SourceFile::new("main.veln", text));
             assert!(
-                !retains_lowercase_final_refinement_recovery(&rejected.diagnostics),
+                !retains_lowercase_final_refinement_recovery(&rejected.tree, &rejected.diagnostics),
                 "{:#?}",
                 rejected.diagnostics
             );
         }
+    }
+
+    #[test]
+    fn unrelated_incomplete_union_does_not_share_lowercase_recovery_permission() {
+        let parsed = parse(&SourceFile::new(
+            "main.veln",
+            concat!(
+                "fn recovered(value: State::hidden | State::Visible) -> ()\n",
+                "  ()\n",
+                "end\n",
+                "fn broken(value: State::Hidden |) -> ()\n",
+                "  ()\n",
+                "end\n",
+            ),
+        ));
+
+        assert!(
+            !retains_lowercase_final_refinement_recovery(&parsed.tree, &parsed.diagnostics),
+            "{:#?}",
+            parsed.diagnostics
+        );
     }
 
     #[test]
@@ -332,6 +396,114 @@ mod tests {
                 .iter()
                 .any(|diagnostic| diagnostic.id == "parse.invalid_token"),
             "{diagnostics:#?}"
+        );
+    }
+
+    #[test]
+    fn scoped_lowercase_recovery_reaches_casing_and_visibility_checks() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "pub type State\n",
+                    "  Hidden\n",
+                    "  pub Visible\n",
+                    "end\n",
+                    "pub fn expose(value: State::hidden | State::Visible) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+
+        let analysis =
+            crate::analysis::analyze_project(project, crate::analysis::DoctestMode::Exclude);
+        let diagnostics = analysis.checked_diagnostics();
+
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "name.invalid_case"),
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "type.variant_refinement_private"),
+            "{diagnostics:#?}"
+        );
+        assert!(
+            analysis
+                .module
+                .functions
+                .iter()
+                .any(|decl| decl.name.as_deref() == Some("expose")),
+            "{:#?}",
+            analysis.module.functions
+        );
+    }
+
+    #[test]
+    fn unrelated_incomplete_union_excludes_source_from_importing_project() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "invalid.veln",
+                    concat!(
+                        "pub type State\n",
+                        "  Hidden\n",
+                        "  pub Visible\n",
+                        "end\n",
+                        "pub fn expose(value: State::hidden | State::Visible) -> ()\n",
+                        "  ()\n",
+                        "end\n",
+                        "fn unrelated(value: State::Hidden |) -> ()\n",
+                        "  ()\n",
+                        "end\n",
+                        "pub fn okay() -> Int\n",
+                        "  1\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "consumer.veln",
+                    "use invalid\n\npub fn consume() -> Int\n  invalid::okay()\nend\n",
+                ),
+            ],
+            manifest: None,
+        };
+
+        let analysis =
+            crate::analysis::analyze_project(project, crate::analysis::DoctestMode::Exclude);
+        let diagnostics = analysis.checked_diagnostics();
+
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "name.unresolved"
+                    && diagnostic.message == "unresolved call_target `invalid::okay`"
+            }),
+            "{diagnostics:#?}"
+        );
+        assert!(
+            analysis
+                .module
+                .types
+                .iter()
+                .all(|decl| { decl.module_name.as_deref() != Some("invalid") }),
+            "{:#?}",
+            analysis.module.types
+        );
+        assert!(
+            analysis
+                .module
+                .functions
+                .iter()
+                .all(|decl| { decl.module_name.as_deref() != Some("invalid") }),
+            "{:#?}",
+            analysis.module.functions
         );
     }
 }

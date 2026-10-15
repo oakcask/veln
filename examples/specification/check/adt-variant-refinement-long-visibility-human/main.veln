@@ -1,0 +1,12 @@
+pub type LongArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgument
+	pub Value
+end
+
+pub type State<A>
+	Hidden(A)
+	Private(A)
+end
+
+pub fn expose(value: State<LongArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgument>::Hidden | State<String>::Private) -> ()
+	()
+end

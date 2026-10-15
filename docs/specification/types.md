@@ -843,6 +843,12 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-generic-union-visibility-json/)
 cases verify complete alternative identity, exact duplicate removal, distinct
 unresolved arguments, and nested unresolved arguments.
+The long-alternative
+[`human`](../../examples/specification/check/adt-variant-refinement-long-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-long-visibility-json/)
+cases verify that lookup-oriented bounded path displays do not shorten the
+written alternative used for presentation or identity.
 The recovered-and-generic visibility
 [`human`](../../examples/specification/check/adt-variant-refinement-recovered-generic-visibility-human/)
 and
@@ -852,9 +858,10 @@ complete identity of a later exact generic alternative both reach the direct
 visibility check in written order.
 Project checking retains that recovered source for the visibility check only
 when its parse failures are limited to the lowercase-final refinement failure
-and the incomplete-union failure emitted beside it. The parser diagnostics
-remain errors, and any unrelated parse failure prevents semantic analysis of
-the source.
+and an incomplete-union failure at the separator immediately following the
+same recovered occurrence. The parser diagnostics remain errors. An
+incomplete union at another occurrence, or any other unrelated parse failure,
+prevents semantic analysis of the source.
 
 Visibility diagnostics retain the private declaration span when the ADT comes
 from a reusable or dependency environment. Direct visibility analysis grows

@@ -165,8 +165,10 @@ The parser reports `parse.variant_refinement_type` for these malformed forms:
 
 A project check keeps the recovered tree for semantic diagnostics only when
 every parse failure in that source is either the lowercase-final diagnostic or
-the incomplete-union diagnostic produced beside it. The lowercase spelling
-remains rejected source syntax. Any other parse failure keeps the source out of
+an incomplete-union diagnostic at the separator immediately following that
+same recovered lowercase-final occurrence, apart from source trivia. The
+lowercase spelling remains rejected source syntax. An incomplete union at
+another occurrence, or any other parse failure, keeps the source out of
 semantic analysis.
 
 Nesting beyond 256 containing generic-argument boundaries reports the same

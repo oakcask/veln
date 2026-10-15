@@ -140,6 +140,95 @@ fn union_visibility_preserves_distinct_unresolved_generic_arguments() {
 }
 
 #[test]
+fn long_generic_visibility_uses_complete_structured_alternative_identity() {
+    let nested = |leaf: &str| format!("{}{}{}", "Wrap<".repeat(48), leaf, ">".repeat(48));
+    let alias = format!("State<{}>::Hidden", nested("Alias"));
+    let target = format!("State<{}>::Hidden", nested("Arg"));
+    let string = format!("State<{}>::Hidden", nested("String"));
+    let boolean = format!("State<{}>::Hidden", nested("Bool"));
+    let unresolved_a = format!("State<{}>::Hidden", nested("missing::A"));
+    let unresolved_b = format!("State<{}>::Hidden", nested("other::B"));
+    for alternative in [
+        &alias,
+        &target,
+        &string,
+        &boolean,
+        &unresolved_a,
+        &unresolved_b,
+    ] {
+        assert!(alternative.len() > 256, "{alternative}");
+    }
+    let annotation = [
+        alias.as_str(),
+        target.as_str(),
+        string.as_str(),
+        string.as_str(),
+        boolean.as_str(),
+        unresolved_a.as_str(),
+        unresolved_a.as_str(),
+        unresolved_b.as_str(),
+    ]
+    .join(" | ");
+    let source = format!(
+        "pub type Arg\n  pub Value\nend\n\
+         pub type Alias = Arg\n\
+         pub type Wrap<A>\n  pub Wrapped(A)\nend\n\
+         pub type State<A>\n  Hidden(A)\nend\n\
+         pub fn expose(value: {annotation}) -> ()\n  ()\nend\n"
+    );
+
+    let diagnostics = diagnostics_for(&source);
+    let visibility = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+    let expected = [&alias, &string, &boolean, &unresolved_a, &unresolved_b];
+    assert_eq!(visibility.len(), expected.len(), "{diagnostics:#?}");
+    for (diagnostic, written_type) in visibility.iter().zip(expected) {
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(
+            json.contains(&format!("\"written_type\":\"{written_type}\"")),
+            "{json}"
+        );
+    }
+}
+
+#[test]
+fn recovered_long_generic_root_keeps_complete_written_alternatives() {
+    let long_argument = format!("{}Int{}", "Wrap<".repeat(48), ">".repeat(48));
+    let recovered = "State::hidden";
+    let exact = format!("State<{long_argument}>::Private");
+    assert!(exact.len() > 256, "{exact}");
+    let source = format!(
+        "pub type Wrap<A>\n  pub Wrapped(A)\nend\n\
+         pub type State<A>\n  Hidden(A)\n  Private(A)\nend\n\
+         pub fn expose(value: {recovered} | {exact}) -> ()\n  ()\nend\n"
+    );
+    let parsed = parse(&SourceFile::new("main.veln", source.clone()));
+    assert!(
+        parsed
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
+        "{:#?}",
+        parsed.diagnostics
+    );
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+    let visibility = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+    assert_eq!(visibility.len(), 2, "{diagnostics:#?}");
+    for (diagnostic, written_type) in visibility.iter().zip([recovered, exact.as_str()]) {
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(
+            json.contains(&format!("\"written_type\":\"{written_type}\"")),
+            "{json}"
+        );
+    }
+}
+
+#[test]
 fn public_refinements_and_private_function_refinements_remain_valid() {
     let diagnostics = diagnostics_for(concat!(
         "type Secret\n",

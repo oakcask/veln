@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["State<LongArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgumentArgument>::Hidden"]
+
+[stderr]
+format = "empty"

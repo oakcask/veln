@@ -194,6 +194,7 @@ fn recovered_root_exposure_candidates(
     let nested_path_occurrences = nested_type_argument_occurrences(refinements);
     let recovered_candidates = recovered_type_path_candidates(
         annotation_span,
+        annotation_text,
         paths,
         &nested_path_occurrences,
         &structured_candidates,
@@ -208,6 +209,7 @@ fn recovered_root_exposure_candidates(
 
 fn recovered_type_path_candidates(
     annotation_span: &SourceSpan,
+    annotation_text: &str,
     paths: &[TypePathSegments],
     nested_path_occurrences: &HashSet<(veln_source::SourcePath, usize, usize)>,
     structured_candidates: &[RefinementExposureCandidate],
@@ -229,12 +231,16 @@ fn recovered_type_path_candidates(
             continue;
         }
         let variant_index = path.segments.len() - 1;
+        let written_type =
+            annotation_occurrence_text(annotation_span, annotation_text, &path.application_span)
+                .unwrap_or_else(|| path.written.clone());
         record_visibility_candidate_construction(1);
         candidates.push(RefinementExposureCandidate {
             written_base: path.segments[..variant_index].join("::"),
             type_argument_count: path.type_argument_count,
             written_variant: path.segments[variant_index].clone(),
-            written_type: path.written.clone(),
+            written_type,
+            type_arguments: None,
             base_span: path.segment_spans[variant_index - 1].clone(),
             variant_span: path.segment_spans[variant_index].clone(),
             occurrence_span: path.application_span.clone(),
@@ -288,11 +294,25 @@ fn nested_type_argument_occurrences(
 fn refinement_candidate(
     alternative: &veln_ast::VariantRefinementAlternative,
 ) -> RefinementExposureCandidate {
+    let type_arguments = alternative
+        .type_arguments
+        .iter()
+        .map(render_type_argument)
+        .collect::<Vec<_>>();
+    let mut written_type = alternative.base.segments.join("::");
+    if !type_arguments.is_empty() {
+        written_type.push('<');
+        written_type.push_str(&type_arguments.join(", "));
+        written_type.push('>');
+    }
+    written_type.push_str("::");
+    written_type.push_str(&alternative.variant);
     RefinementExposureCandidate {
         written_base: alternative.base.segments.join("::"),
         type_argument_count: alternative.type_arguments.len(),
         written_variant: alternative.variant.clone(),
-        written_type: format!("{}::{}", alternative.base.written, alternative.variant),
+        written_type,
+        type_arguments: Some(type_arguments),
         base_span: alternative
             .base
             .segment_spans
@@ -302,6 +322,45 @@ fn refinement_candidate(
         variant_span: alternative.variant_span.clone(),
         occurrence_span: alternative.span.clone(),
     }
+}
+
+fn render_type_argument(argument: &veln_ast::VariantRefinementTypeArgument) -> String {
+    let mut text = String::new();
+    for (index, fragment) in argument.ty_fragments.iter().enumerate() {
+        text.push_str(fragment);
+        if let Some(refinement) = argument.ty_refinements.get(index) {
+            text.push_str(&render_refinement(refinement));
+        }
+    }
+    text
+}
+
+fn render_refinement(refinement: &veln_ast::VariantRefinementType) -> String {
+    refinement
+        .alternatives
+        .iter()
+        .map(|alternative| refinement_candidate(alternative).written_type)
+        .collect::<Vec<_>>()
+        .join(" | ")
+}
+
+fn annotation_occurrence_text(
+    annotation_span: &SourceSpan,
+    annotation_text: &str,
+    occurrence_span: &SourceSpan,
+) -> Option<String> {
+    if occurrence_span.file != annotation_span.file {
+        return None;
+    }
+    let start = occurrence_span
+        .start
+        .offset
+        .checked_sub(annotation_span.start.offset)?;
+    let end = occurrence_span
+        .end
+        .offset
+        .checked_sub(annotation_span.start.offset)?;
+    annotation_text.get(start..end).map(str::to_string)
 }
 
 fn span_within(candidate: &SourceSpan, enclosing: &SourceSpan) -> bool {
@@ -337,6 +396,7 @@ struct RefinementExposureCandidate {
     type_argument_count: usize,
     written_variant: String,
     written_type: String,
+    type_arguments: Option<Vec<String>>,
     base_span: SourceSpan,
     variant_span: SourceSpan,
     occurrence_span: SourceSpan,
@@ -364,12 +424,8 @@ fn private_exposure<'a>(
         return None;
     }
     record_visibility_work(1);
-    let alternative_identity = refinement_alternative_identity(
-        &candidate.written_type,
-        &variant.name,
-        current_module,
-        environment,
-    );
+    let alternative_identity =
+        refinement_alternative_identity(&candidate, &variant.name, current_module, environment);
     Some(PrivateExposure {
         written_type: candidate.written_type,
         base_span: candidate.base_span,
@@ -383,12 +439,26 @@ fn private_exposure<'a>(
 }
 
 fn refinement_alternative_identity(
-    written_type: &str,
+    candidate: &RefinementExposureCandidate,
     resolved_variant: &str,
     current_module: Option<&str>,
     environment: &TypeEnvironment,
 ) -> RefinementAlternativeIdentity {
-    if let Ok(Type::VariantRefinement { args, .. }) = parse_type_annotation(written_type) {
+    let parsed_arguments = candidate.type_arguments.as_ref().and_then(|arguments| {
+        arguments
+            .iter()
+            .map(|argument| parse_type_annotation(argument).ok())
+            .collect::<Option<Vec<_>>>()
+    });
+    let parsed_arguments = parsed_arguments.or_else(|| {
+        parse_type_annotation(&candidate.written_type)
+            .ok()
+            .and_then(|ty| match ty {
+                Type::VariantRefinement { args, .. } => Some(args),
+                _ => None,
+            })
+    });
+    if let Some(args) = parsed_arguments {
         let args = args
             .into_iter()
             .map(|argument| {
@@ -404,7 +474,7 @@ fn refinement_alternative_identity(
             };
         }
     }
-    RefinementAlternativeIdentity::Written(written_type.to_string())
+    RefinementAlternativeIdentity::Written(candidate.written_type.clone())
 }
 
 fn canonical_type_identity(ty: Type) -> Option<Type> {

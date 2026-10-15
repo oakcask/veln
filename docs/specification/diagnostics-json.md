@@ -157,8 +157,9 @@ its resolved target do not create separate privacy diagnostics. Canonical
 identity is used only when every nested type component resolves. Otherwise,
 deduplication uses the complete written alternative, so distinct unresolved
 arguments remain distinct while an exact written repeat retains its first
-occurrence. The declaration entry remains present when the ADT comes from a
-reusable or base environment.
+occurrence. The complete written alternative is reconstructed independently
+of any bounded path display used for lookup. The declaration entry remains
+present when the ADT comes from a reusable or base environment.
 If initial-only casing recovery uniquely selects the base ADT and final
 constructor, `name.invalid_case` precedes the independent privacy diagnostic,
 whose `written_type` retains the source spelling. An ambiguous or unresolved
@@ -196,6 +197,11 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-generic-union-visibility-json/)
 cases verify complete alternative identity, exact duplicate removal, distinct
 unresolved arguments, and nested unresolved arguments.
+The long-alternative
+[`human`](../../examples/specification/check/adt-variant-refinement-long-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-long-visibility-json/)
+cases verify complete presentation beyond the bounded lookup display.
 The recovered-and-generic visibility
 [`human`](../../examples/specification/check/adt-variant-refinement-recovered-generic-visibility-human/)
 and
