@@ -1,7 +1,13 @@
+pub type Arg
+	pub Value
+end
+
+pub type Alias = Arg
+
 pub type State<A>
 	Hidden(A)
 end
 
-pub fn expose(value: State<Int>::Hidden | State<String>::Hidden | State<Int>::Hidden) -> ()
+pub fn expose(value: State<Alias>::Hidden | State<Arg>::Hidden | State<String>::Hidden | State<Alias>::Hidden) -> ()
 	()
 end

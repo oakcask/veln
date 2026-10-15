@@ -250,6 +250,90 @@ fn recovered_final_variant_retains_visibility_identity() {
 }
 
 #[test]
+fn recovered_and_exact_union_alternatives_retain_direct_visibility_failures() {
+    let source = concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "  Private\n",
+        "end\n",
+        "pub fn expose(value: State::hidden | State::Private) -> ()\n",
+        "  ()\n",
+        "end\n",
+    );
+    let parsed = parse(&SourceFile::new("main.veln", source));
+    assert!(
+        parsed
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
+        "{:#?}",
+        parsed.diagnostics
+    );
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+    let relevant = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "name.invalid_case" | "type.variant_refinement_private"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        relevant
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "name.invalid_case",
+            "type.variant_refinement_private",
+            "type.variant_refinement_private",
+        ],
+        "{diagnostics:#?}"
+    );
+    let hidden_offsets = source
+        .match_indices("hidden")
+        .map(|(offset, _)| offset)
+        .collect::<Vec<_>>();
+    let private_offsets = source
+        .match_indices("Private")
+        .map(|(offset, _)| offset)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        relevant[1..]
+            .iter()
+            .map(|diagnostic| diagnostic
+                .span
+                .as_ref()
+                .expect("visibility span")
+                .start
+                .offset)
+            .collect::<Vec<_>>(),
+        [hidden_offsets[0], private_offsets[1]],
+        "{diagnostics:#?}"
+    );
+    for (diagnostic, written_type) in relevant[1..]
+        .iter()
+        .zip(["State::hidden", "State::Private"])
+    {
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(
+            json.contains(&format!("\"written_type\":\"{written_type}\"")),
+            "{json}"
+        );
+        assert!(json.contains("\"boundary\":\"public_parameter\""), "{json}");
+        assert!(
+            json.contains("\"kind\":\"private_variant_declaration\""),
+            "{json}"
+        );
+        assert!(
+            json.contains("\"kind\":\"public_parameter_boundary\""),
+            "{json}"
+        );
+    }
+}
+
+#[test]
 fn non_unique_final_variant_recovery_suppresses_visibility_identity() {
     let source = SourceFile::new(
         "main.veln",
@@ -544,10 +628,14 @@ fn union_visibility_reports_distinct_paths_in_written_order() {
 #[test]
 fn union_visibility_keeps_distinct_generic_arguments_and_removes_exact_repeats() {
     let source = concat!(
+        "pub type Arg\n",
+        "  pub Value\n",
+        "end\n",
+        "pub type Alias = Arg\n",
         "pub type State<A>\n",
         "  Hidden(A)\n",
         "end\n",
-        "pub fn expose(value: State<Int>::Hidden | State<String>::Hidden | State<Int>::Hidden) -> ()\n",
+        "pub fn expose(value: State<Alias>::Hidden | State<Arg>::Hidden | State<String>::Hidden | State<Alias>::Hidden) -> ()\n",
         "  ()\n",
         "end\n",
     );
@@ -571,12 +659,12 @@ fn union_visibility_keeps_distinct_generic_arguments_and_removes_exact_repeats()
                 .start
                 .offset)
             .collect::<Vec<_>>(),
-        hidden_starts[1..3],
+        [hidden_starts[1], hidden_starts[3]],
         "{diagnostics:#?}"
     );
     for (diagnostic, written_type) in visibility
         .iter()
-        .zip(["State<Int>::Hidden", "State<String>::Hidden"])
+        .zip(["State<Alias>::Hidden", "State<String>::Hidden"])
     {
         let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
         assert!(
@@ -594,7 +682,8 @@ fn union_visibility_keeps_distinct_generic_arguments_and_removes_exact_repeats()
     assert_eq!(union_base.len(), 1, "{diagnostics:#?}");
     let union_json = veln_diagnostics::diagnostic_to_json(union_base[0]).to_json();
     assert!(
-        union_json.contains("\"expected_base_type\":\"State<Int>\""),
+        union_json.contains("\"expected_base_type\":\"State<Arg>\"")
+            || union_json.contains("\"expected_base_type\":\"State<Alias>\""),
         "{union_json}"
     );
     assert!(

@@ -302,6 +302,74 @@ fn recovered_visibility_failure_quarantines_aliases_and_checked_output() {
 }
 
 #[test]
+fn recovered_union_visibility_failure_quarantines_all_publication_outputs() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\n",
+            "pub type State\n",
+            "  Hidden\n",
+            "  Private\n",
+            "end\n",
+            "pub fn exposed(value: State::hidden | State::Private) -> State::hidden | State::Private\n",
+            "  Hidden\n",
+            "end\n",
+            "pub fn exposed_alias = exposed\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(
+        parsed
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
+        "{:#?}",
+        parsed.diagnostics
+    );
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    let signature = environment.function("exposed").expect("recovery signature");
+    assert_eq!(signature.params, [Type::Unknown]);
+    assert_eq!(signature.return_type, Type::Unknown);
+    assert!(!environment.function_is_published_for_test("exposed"));
+    assert!(environment.function("exposed_alias").is_none());
+
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "consumer.veln",
+            "mod consumer\nuse main\n",
+        ))
+        .tree,
+    );
+    let consumer_environment =
+        TypeEnvironment::from_module_with_base_for_test(&consumer, &environment);
+    for name in ["exposed", "exposed_alias"] {
+        assert!(
+            consumer_environment
+                .function_path(&["main".to_string(), name.to_string()], Some("consumer"))
+                .is_none(),
+            "{name} must not be inherited"
+        );
+        assert!(
+            consumer_environment
+                .unqualified_function_import_candidates(name, Some("consumer"))
+                .is_empty(),
+            "{name} must not be an import candidate"
+        );
+    }
+
+    let lowered = lower_checked_surface_module(&module);
+    assert!(
+        lowered.core.is_none(),
+        "invalid declaration must not be checked"
+    );
+    assert!(
+        lowered.ir.is_none(),
+        "invalid declaration must not produce IR"
+    );
+}
+
+#[test]
 fn mixed_visibility_failure_quarantines_callable_facts_aliases_and_lowering() {
     let source = SourceFile::new(
         "main.veln",
