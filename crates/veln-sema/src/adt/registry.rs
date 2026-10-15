@@ -15,6 +15,7 @@ use super::lookup_validation::{
 mod aliases;
 mod build;
 mod constructors;
+mod lookup_helpers;
 
 #[derive(Clone, Debug)]
 pub(crate) struct AdtRegistry {
@@ -451,37 +452,13 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
-        let arity_matches = |descriptor: &&AdtDescriptor| {
-            args_len.is_none_or(|args_len| descriptor.type_parameters.len() == args_len)
-        };
         if !name.contains("::") {
-            return self
-                .descriptors_named(name)
-                .rev()
-                .find(|descriptor| {
-                    descriptor.module_name.as_deref() == current_module && arity_matches(descriptor)
-                })
-                .or_else(|| {
-                    self.descriptors_named(name).find(|descriptor| {
-                        descriptor.module_name.is_none() && arity_matches(descriptor)
-                    })
-                })
-                .or_else(|| {
-                    let mut imported = self.descriptors_named(name).filter(|descriptor| {
-                        arity_matches(descriptor)
-                            && descriptor.visibility == Visibility::Public
-                            && descriptor.module_name.as_ref().is_some_and(|module| {
-                                uses.iter().any(|use_decl| &use_decl.name == module)
-                            })
-                    });
-                    let descriptor = imported.next()?;
-                    imported.next().is_none().then_some(descriptor)
-                });
+            return self.descriptor_for_unqualified_type_path(name, args_len, current_module, uses);
         }
         let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
         let type_name = segments.last()?;
         self.descriptors_named(type_name).rev().find(|descriptor| {
-            arity_matches(descriptor)
+            Self::descriptor_matches_arity(descriptor, args_len)
                 && self.descriptor_visible(descriptor, &segments, current_module, uses, true)
         })
     }

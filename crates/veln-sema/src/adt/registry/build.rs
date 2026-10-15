@@ -9,7 +9,10 @@ use crate::semantic_model::Type;
 use crate::source_less_names::InvalidStandardSymbolCase;
 
 use super::aliases::{descriptor_for_alias_target, type_alias_descriptors};
-use super::{AdtRegistry, DescriptorKey, VariantDeclarationOrder, descriptor_identity};
+use super::{
+    AdtRegistry, DescriptorKey, TypeAliasDeclarationIdentity, VariantDeclarationOrder,
+    descriptor_identity,
+};
 use crate::adt::descriptors::AdtDescriptor;
 use crate::adt::lookup_validation::{
     companion_access_targets, source_descriptor, validate_adt_lookup_descriptors,
@@ -199,19 +202,36 @@ impl AdtRegistry {
             companion_targets,
             annotation_types,
         );
-        registry.type_alias_identities = type_alias_identities;
-        registry.resolved_type_alias_declarations = resolved_type_alias_declarations;
-        registry.declaration_spans = base.declaration_spans.clone();
+        registry.finish_source_registry(
+            base,
+            module,
+            local_descriptor_start,
+            source_descriptor_start,
+            type_alias_identities,
+            resolved_type_alias_declarations,
+        );
         registry
-            .declaration_spans
+    }
+
+    fn finish_source_registry(
+        &mut self,
+        base: &Self,
+        module: &SurfaceModule,
+        local_descriptor_start: usize,
+        source_descriptor_start: usize,
+        type_alias_identities: BTreeSet<(Option<String>, String)>,
+        resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
+    ) {
+        self.type_alias_identities = type_alias_identities;
+        self.resolved_type_alias_declarations = resolved_type_alias_declarations;
+        self.declaration_spans = base.declaration_spans.clone();
+        self.declaration_spans
             .extend(source_declaration_spans(module));
-        registry.variant_declaration_spans = base.variant_declaration_spans.clone();
-        registry
-            .variant_declaration_spans
+        self.variant_declaration_spans = base.variant_declaration_spans.clone();
+        self.variant_declaration_spans
             .extend(source_variant_declaration_spans(module));
-        registry.local_descriptor_start = local_descriptor_start;
-        registry.canonicalize_source_payload_types(module, source_descriptor_start);
-        registry
+        self.local_descriptor_start = local_descriptor_start;
+        self.canonicalize_source_payload_types(module, source_descriptor_start);
     }
 
     fn canonicalize_source_payload_types(
