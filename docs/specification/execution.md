@@ -224,12 +224,16 @@ connection-state, and service contracts are specified in [http2.md](http2.md).
 `serve_connection` maps one callback boundary to the HTTP/2 driver and
 preserves the callback effect row. `serve_tcp` owns the listener, accepted
 streams, and connection tasks, closes each owned stream once, closes the
-listener on clean end or first ordinary service failure, and stops accepting
-after the first application or join failure. `request_endpoint_sequence`
+listener after the first failure, and stops accepting after the first network,
+application, or join failure. The TCP service uses the standard network duplex
+adapter under the caller's `net::IO` handler. Its typed network failure retains
+the accepted count, and a later cleanup failure replaces the earlier outcome.
+`request_endpoint_sequence`
 owns each client stream and task, reuses a connection only while the core
 state is open and peer stream capacity remains, otherwise closes and
 reconnects. Callback, protocol, and join failures are typed service failures;
-abrupt transport failures remain runtime failures.
+client transport failures remain abrupt runtime failures until the planned
+client migration is complete.
 
 ## Binary schemas
 

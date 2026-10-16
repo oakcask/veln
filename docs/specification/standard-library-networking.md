@@ -309,10 +309,12 @@ successful resource reference for a fake handler.
 the active `net::IO` handler. The caller retains ownership of `stream`.
 `transport::network::net_stream` is the equivalent non-conflicting import path
 for a module that also imports `net` from `std`.
-`transport::net::read_stream_chunk(stream)` and
-`transport::net::write_stream_chunks(stream, chunks)` expose the same typed
-read and complete-write operations for callers that do not need the nominal
-duplex effect. Both handlers delegate to these operations.
+Both `transport::net` and `transport::network` expose
+`read_stream_chunk(stream)` and `write_stream_chunks(stream, chunks)` with the
+same typed read and complete-write behavior for callers that do not need the
+nominal duplex effect. Each handler uses the operations from its own module;
+the two import paths therefore remain equivalent across spawned task
+boundaries.
 
 - `ReadChunk(bytes)` becomes `Ok(Some(bytes))` when `bytes` is non-empty.
 - `ReadEnd` becomes `Ok(None)`.
@@ -340,12 +342,13 @@ The exported implementation and companion tests are in
 that source code can construct, `write_all`, scoped resolution and failure
 translation, exact write progress, concurrency, interruption decisions, and
 lifecycle uncertainty across retries.
-The adapter implementation and companion evidence are in
-`crates/veln-stdlib/veln/transport/net.veln`,
-`crates/veln-stdlib/veln/transport/net.test.veln`, and the adjacent separate
-Veln test-support module. They cover typed reads, non-progress, complete
-ordered writes, captured-resource identity, and the absence of lifecycle or
-connection-management operations.
+The adapter implementations are in
+`crates/veln-stdlib/veln/transport/net.veln` and
+`crates/veln-stdlib/veln/transport/network.veln`. Their companion evidence is
+in `crates/veln-stdlib/veln/transport/net.test.veln` and the adjacent separate
+Veln test-support modules. It covers both import paths, typed reads,
+non-progress, complete ordered writes, captured-resource identity, and the
+absence of lifecycle or connection-management operations.
 The JVM backend effect-injection tests use separate Veln test support to
 exercise the facade with opaque listener and stream resources and to check
 resource, option, byte, and result preservation. Checked command-level examples

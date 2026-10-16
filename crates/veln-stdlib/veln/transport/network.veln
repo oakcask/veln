@@ -1,9 +1,38 @@
 use prelude
 use transport
-use transport::net
 use net
 
 pub handler net_stream(stream: net::Stream) for transport::DuplexStream effects [net::IO]
-	read_chunk() => transport::net::read_stream_chunk(stream)
-	write_chunks(chunks) => transport::net::write_stream_chunks(stream, chunks)
+	read_chunk() => read_stream_chunk(stream)
+	write_chunks(chunks) => write_stream_chunks(stream, chunks)
+end
+
+pub fn read_stream_chunk(stream: net::Stream) -> Result<Option<ByteChunk>, net::NetError> effects [net::IO]
+	match net::read(stream)
+		Ok(net::ReadChunk(bytes)) => read_nonempty_chunk(bytes)
+		Ok(net::ReadEnd) => Ok(None)
+		Err(error) => Err(error)
+	end
+end
+
+fn read_nonempty_chunk(bytes: ByteChunk) -> Result<Option<ByteChunk>, net::NetError>
+	if byte_count_to_int(byte_chunk_count(bytes)) == 0
+		Err(net::NetError("read", None, None, net::Other, "read returned an empty chunk without reaching end-of-stream"))
+	else
+		Ok(Some(bytes))
+	end
+end
+
+pub fn write_stream_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [net::IO]
+	write_stream_chunk_list(stream, chunks)
+end
+
+fn write_stream_chunk_list(stream: net::Stream, chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [net::IO]
+	match chunks
+		Nil => Ok(())
+		Cons(chunk, tail) => match net::write_all(stream, chunk, None, None)
+			Ok(()) => write_stream_chunk_list(stream, tail)
+			Err(error) => Err(error)
+		end
+	end
 end

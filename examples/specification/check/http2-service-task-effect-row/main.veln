@@ -59,10 +59,10 @@ pub fn connection_task_missing_net_and_db(stream: NetStream) -> Task<Int> effect
 	task::spawn_with<Int, {stream: NetStream}>(connection_job, context)
 end
 
-pub fn pure_tcp_service_missing_net_and_concurrency(listener: NetListener) -> Result<(), Http2ServiceFailure>
+pub fn pure_tcp_service_missing_io_and_concurrency(listener: NetListener) -> Result<(), Http2ServiceFailure>
 	http2::connection::serve_tcp(listener, pure_handler)
 end
 
-pub fn db_tcp_service_missing_db(listener: NetListener) -> Result<(), Http2ServiceFailure> effects [net, concurrency]
+pub fn db_tcp_service_missing_db(listener: NetListener) -> Result<(), Http2ServiceFailure> effects [net::IO, concurrency]
 	http2::connection::serve_tcp(listener, db_handler)
 end

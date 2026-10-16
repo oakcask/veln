@@ -646,10 +646,14 @@ behavior under test.
 
 Deterministic network and time cases install lexical Veln handlers around their
 fixture entry. A case containing `fixture_effects.veln` receives a copy of
-`examples/test-support/fake_effects.veln` in its temporary project. Its command
-includes both files as ordinary Veln source inputs. The fixture factory creates
-fresh state, and the entry handles its body with the selected network and clock
-handlers. Fake behavior and failure plans live in those support sources. Clock
+`examples/test-support/fake_effects.veln` and
+`examples/test-support/http2_service_effects.veln` in its temporary project.
+The case command lists `fixture_effects.veln` and each shared support source
+that the fixture imports as ordinary Veln source inputs. The general fixture
+factory creates fresh network and clock state. The HTTP/2 service support
+creates fresh operation-trace state and supplies scripted accept, stream I/O,
+stream-close, and listener-close outcomes through a scoped `net::IO` handler.
+Fake behavior and failure plans live in those support sources. Clock
 configuration can provide one wall-clock reading or a comma-separated sequence
 of Unix-second readings plus one nanosecond field. The handler consumes a
 configured sequence in order and fails an unexpected extra read, which lets a

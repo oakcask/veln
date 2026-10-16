@@ -1,0 +1,101 @@
+use net from "std"
+
+pub fn create_http2_service_state() -> { tx : Sender<List<String>>, rx : Receiver<List<String>> } effects [concurrency]
+	let state = channel::bounded<List<String>>(1)
+	let _ = channel::send(state.tx, list_nil())
+	state
+end
+
+fn http2_service_trace_push(state: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String) -> List<String> effects [concurrency]
+	let observed: List<String> = option_unwrap_or(channel::recv(state.rx), list_nil())
+	let _ = channel::send(state.tx, list_cons(operation, observed))
+	observed
+end
+
+fn http2_service_trace_count(trace: List<String>, operation: String) -> Int
+	match trace
+		Nil => 0
+		Cons(head, tail) => if head == operation
+			1 + http2_service_trace_count(tail, operation)
+		else
+			http2_service_trace_count(tail, operation)
+		end
+	end
+end
+
+fn http2_service_failure(operation: String, message: String) -> net::NetError
+	net::NetError(operation, Some(net::Tcp4), Some("192.0.2.20:443"), net::ConnectionReset, message)
+end
+
+pub handler scripted(listener_seed: net::Listener, stream_seed: net::Stream, mode: String, accept_limit: Int, request: ByteChunk, state: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) for net::IO effects [concurrency]
+	resolve(address) => Err(http2_service_failure("resolve", "unexpected resolve"))
+	listen(address) => Err(http2_service_failure("listen", "unexpected listen"))
+	connect(address, deadline, token) => Err(http2_service_failure("connect", "unexpected connect"))
+	accept(listener, deadline, token) => scripted_accept(listener, listener_seed, stream_seed, accept_limit, state)
+	listener_address(listener) => Err(http2_service_failure("listener_address", "unexpected listener address"))
+	close_listener(listener) => scripted_close_listener(listener, listener_seed, mode, state)
+	read(stream, deadline, token) => scripted_read(stream, stream_seed, mode, request, state)
+	write(stream, bytes, deadline, token) => scripted_write(stream, stream_seed, mode, bytes, state)
+	local_address(stream) => Err(http2_service_failure("local_address", "unexpected local address"))
+	peer_address(stream) => Err(http2_service_failure("peer_address", "unexpected peer address"))
+	shutdown_read(stream) => Err(http2_service_failure("shutdown_read", "unexpected shutdown"))
+	shutdown_write(stream) => Err(http2_service_failure("shutdown_write", "unexpected shutdown"))
+	close_stream(stream) => scripted_close_stream(stream, stream_seed, mode, state)
+end
+
+fn scripted_accept(listener: net::Listener, expected: net::Listener, stream: net::Stream, limit: Int, state: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<net::Stream, net::NetError> effects [concurrency]
+	let observed = http2_service_trace_push(state, "accept")
+	if listener != expected
+		Err(http2_service_failure("accept", "wrong listener"))
+	else if http2_service_trace_count(observed, "accept") < limit
+		Ok(stream)
+	else
+		Err(http2_service_failure("accept", "fixture complete"))
+	end
+end
+
+fn scripted_read(stream: net::Stream, expected: net::Stream, mode: String, request: ByteChunk, state: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<net::ReadOutcome, net::NetError> effects [concurrency]
+	let observed = http2_service_trace_push(state, "read")
+	if stream != expected
+		Err(http2_service_failure("read", "wrong stream"))
+	else if mode == "read-failure"
+		Err(http2_service_failure("read", "fixture read failure"))
+	else if http2_service_trace_count(observed, "read") == http2_service_trace_count(observed, "close-stream") * 2
+		Ok(net::ReadChunk(request))
+	else
+		Ok(net::ReadEnd)
+	end
+end
+
+fn scripted_write(stream: net::Stream, expected: net::Stream, mode: String, bytes: ByteChunk, state: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> net::WriteOutcome effects [concurrency]
+	let _ = http2_service_trace_push(state, "write")
+	if stream != expected
+		net::WriteFailed(net::ByteCount(0), http2_service_failure("write", "wrong stream"))
+	else if mode == "write-failure"
+		net::WriteFailed(net::ByteCount(0), http2_service_failure("write", "fixture write failure"))
+	else
+		net::Written(byte_chunk_count(bytes))
+	end
+end
+
+fn scripted_close_stream(stream: net::Stream, expected: net::Stream, mode: String, state: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<(), net::NetError> effects [concurrency]
+	let _ = http2_service_trace_push(state, "close-stream")
+	if stream != expected
+		Err(http2_service_failure("close_stream", "wrong stream"))
+	else if mode == "close-stream-failure"
+		Err(http2_service_failure("close_stream", "fixture close failure"))
+	else
+		Ok(())
+	end
+end
+
+fn scripted_close_listener(listener: net::Listener, expected: net::Listener, mode: String, state: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<(), net::NetError> effects [concurrency]
+	let _ = http2_service_trace_push(state, "close-listener")
+	if listener != expected
+		Err(http2_service_failure("close_listener", "wrong listener"))
+	else if mode == "close-listener-failure"
+		Err(http2_service_failure("close_listener", "fixture listener close failure"))
+	else
+		Ok(())
+	end
+end

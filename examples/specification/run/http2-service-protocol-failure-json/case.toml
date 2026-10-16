@@ -1,6 +1,6 @@
 # Host-integration contract: protocol failure crosses the spawned service task;
-# JSON output and the event log detect classification or cleanup-order drift.
-command = ["run", "--json", "main", "main.veln", "fixture_effects.veln", "fake_effects.veln"]
+# inherited `net::IO` provider and JSON output detects classification drift.
+command = ["run", "--json", "main", "main.veln", "fixture_effects.veln", "fake_effects.veln", "http2_service_effects.veln"]
 exit = 0
 
 [requires]
@@ -21,7 +21,3 @@ equals = "passed"
 [[json_assert]]
 path = "stdout"
 equals_file = "case-text/json-assert-equals-1.txt"
-
-[[file_assert]]
-path = "net-events.log"
-equals_file = "case-text/file-assert-equals-1.txt"

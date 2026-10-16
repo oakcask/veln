@@ -17,10 +17,10 @@ fn handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>,
 	Ok(list_cons(Http2ApplicationAction::Http2SendResponseHeaders(http2::core::application_event_stream_id(event), response_headers()?, true), list_nil()))
 end
 
-pub fn outer_handler_does_not_enter_service_task(listener: NetListener, stream: net::Stream) -> Result<(), Http2ServiceFailure> effects [concurrency]
+pub fn outer_duplex_handler_does_not_handle_network_io(listener: NetListener, stream: net::Stream) -> Result<(), Http2ServiceFailure> effects [concurrency]
 	handle http2::connection::serve_tcp(listener, handler) with transport::network::net_stream(stream)
 end
 
-pub fn explicit_listener_boundary(listener: NetListener) -> Result<(), Http2ServiceFailure> effects [net, concurrency]
+pub fn explicit_listener_boundary(listener: NetListener) -> Result<(), Http2ServiceFailure> effects [net::IO, concurrency]
 	http2::connection::serve_tcp(listener, handler)
 end

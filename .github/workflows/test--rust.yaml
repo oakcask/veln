@@ -19,6 +19,7 @@ on:
       - crates/**/*.rs
       - crates/veln-stdlib/veln/**
       - examples/specification/**
+      - examples/test-support/**
       - tests/toolchain-cases/**
       - tools/**/Cargo.toml
       - tools/**/*.rs
@@ -39,6 +40,7 @@ on:
       - crates/**/*.rs
       - crates/veln-stdlib/veln/**
       - examples/specification/**
+      - examples/test-support/**
       - tests/toolchain-cases/**
       - tools/**/Cargo.toml
       - tools/**/*.rs
