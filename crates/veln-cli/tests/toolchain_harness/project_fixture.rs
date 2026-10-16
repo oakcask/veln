@@ -92,6 +92,13 @@ impl TestProject {
                 .join("../../examples/test-support/fake_effects.veln");
             fs::copy(&support, self.root.join("fake_effects.veln"))
                 .expect("shared Veln fake effect handlers should be copied");
+            let network_support = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../examples/test-support/http2_service_effects.veln");
+            fs::copy(
+                &network_support,
+                self.root.join("http2_service_effects.veln"),
+            )
+            .expect("shared HTTP/2 service effect handler should be copied");
         }
     }
 

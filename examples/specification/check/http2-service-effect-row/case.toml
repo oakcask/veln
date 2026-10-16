@@ -1,10 +1,11 @@
-# Integration contract: compiler effect inference retains the legacy TCP service row without requiring net::IO; the asserted effect sets detect regression.
+# Integration contract: compiler effect inference exposes the TCP service's
+# `net::IO` row; the asserted effect sets detect regression.
 command = ["check", "--json", "main.veln"]
 exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"effect.missing_public\"", "public function uses undeclared effect `std::transport::DuplexStream`", "public function uses undeclared effect `db`", "public function uses undeclared effect `stdio`", "\"symbol\":\"http2::connection::serve_connection\"", "\"symbol\":\"http2::connection::serve_tcp\"", "\"inferred_effects\":[\"std::transport::DuplexStream\"]", "\"inferred_effects\":[\"std::transport::DuplexStream\",\"db\"]", "\"inferred_effects\":[\"stdio\"]", "\"inferred_effects\":[\"db\",\"std::net::IO\"]", "\"inferred_effects\":[\"net\",\"concurrency\"]", "\"inferred_effects\":[\"net\",\"concurrency\",\"db\"]"]
+contains = ["\"id\":\"effect.missing_public\"", "public function uses undeclared effect `std::transport::DuplexStream`", "public function uses undeclared effect `db`", "public function uses undeclared effect `stdio`", "\"symbol\":\"http2::connection::serve_connection\"", "\"symbol\":\"http2::connection::serve_tcp\"", "\"inferred_effects\":[\"std::transport::DuplexStream\"]", "\"inferred_effects\":[\"std::transport::DuplexStream\",\"db\"]", "\"inferred_effects\":[\"stdio\"]", "\"inferred_effects\":[\"db\",\"std::net::IO\"]", "\"inferred_effects\":[\"std::net::IO\",\"concurrency\"]", "\"inferred_effects\":[\"std::net::IO\",\"concurrency\",\"db\"]"]
 
 [stderr]
 format = "empty"
@@ -76,7 +77,7 @@ column = 1
 id = "effect.missing_public"
 severity = "error"
 kind = "effect"
-message = "public function uses undeclared effect `net`"
+message = "public function uses undeclared effect `std::net::IO`"
 
 [diagnostics.span]
 file = "main.veln"

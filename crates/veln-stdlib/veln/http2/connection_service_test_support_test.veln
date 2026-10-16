@@ -1,0 +1,133 @@
+use prelude
+use net
+
+fn failure(operation: String, message: String) -> net::NetError
+	net::NetError(operation, Some(net::Tcp4), Some("192.0.2.10:443"), net::ConnectionReset, message)
+end
+
+fn trace_push(trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String) -> List<String> effects [concurrency]
+	let observed: List<String> = option_unwrap_or(channel::recv(trace.rx), list_nil())
+	let _ = channel::send(trace.tx, list_cons(operation, observed))
+	observed
+end
+
+fn trace_contains(trace: List<String>, operation: String) -> Bool
+	match trace
+		Nil => false
+		Cons(head, tail) => head == operation or trace_contains(tail, operation)
+	end
+end
+
+fn same_listener(actual: net::Listener, expected: net::Listener) -> Bool
+	actual == expected
+end
+
+fn same_stream(actual: net::Stream, expected: net::Stream) -> Bool
+	actual == expected
+end
+
+pub handler scripted_io(expected_listener: net::Listener, expected_stream: net::Stream, mode: String, request: ByteChunk, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) for net::IO effects [concurrency]
+	resolve(address) => unexpected_endpoints(trace, "resolve")
+	listen(address) => unexpected_listener(trace, "listen")
+	connect(address, deadline, token) => unexpected_stream(trace, "connect")
+	accept(listener, deadline, token) => scripted_accept(listener, expected_listener, expected_stream, mode, trace)
+	listener_address(listener) => unexpected_endpoint(trace, "listener-address")
+	close_listener(listener) => scripted_close_listener(listener, expected_listener, mode, trace)
+	read(stream, deadline, token) => scripted_read(stream, expected_stream, mode, request, trace)
+	write(stream, bytes, deadline, token) => scripted_write(stream, expected_stream, mode, bytes, trace)
+	local_address(stream) => unexpected_endpoint(trace, "local-address")
+	peer_address(stream) => unexpected_endpoint(trace, "peer-address")
+	shutdown_read(stream) => unexpected_unit(trace, "shutdown-read")
+	shutdown_write(stream) => unexpected_unit(trace, "shutdown-write")
+	close_stream(stream) => scripted_close_stream(stream, expected_stream, mode, trace)
+end
+
+fn scripted_accept(listener: net::Listener, expected_listener: net::Listener, stream: net::Stream, mode: String, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<net::Stream, net::NetError> effects [concurrency]
+	let observed = trace_push(trace, "accept")
+	if not same_listener(listener, expected_listener)
+		Err(failure("accept", "service used the wrong listener"))
+	else if mode == "accept-failure" or trace_contains(observed, "accept")
+		Err(failure("accept", "scripted accept failure"))
+	else
+		Ok(stream)
+	end
+end
+
+fn scripted_read(stream: net::Stream, expected_stream: net::Stream, mode: String, request: ByteChunk, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<net::ReadOutcome, net::NetError> effects [concurrency]
+	let observed = trace_push(trace, "read")
+	if not same_stream(stream, expected_stream)
+		Err(failure("read", "service used the wrong stream"))
+	else if mode == "read-failure"
+		Err(failure("read", "scripted read failure"))
+	else if trace_contains(observed, "read")
+		Ok(net::ReadEnd)
+	else
+		Ok(net::ReadChunk(request))
+	end
+end
+
+fn scripted_write(stream: net::Stream, expected_stream: net::Stream, mode: String, bytes: ByteChunk, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> net::WriteOutcome effects [concurrency]
+	let _ = trace_push(trace, "write")
+	if not same_stream(stream, expected_stream)
+		net::WriteFailed(net::ByteCount(0), failure("write", "service used the wrong stream"))
+	else if mode == "write-failure"
+		net::WriteFailed(net::ByteCount(0), failure("write", "scripted write failure"))
+	else
+		net::Written(byte_chunk_count(bytes))
+	end
+end
+
+fn scripted_close_stream(stream: net::Stream, expected_stream: net::Stream, mode: String, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<(), net::NetError> effects [concurrency]
+	let _ = trace_push(trace, "close-stream")
+	if not same_stream(stream, expected_stream)
+		Err(failure("close_stream", "service used the wrong stream"))
+	else if stream_close_fails(mode)
+		Err(failure("close_stream", "scripted stream close failure"))
+	else
+		Ok(())
+	end
+end
+
+fn stream_close_fails(mode: String) -> Bool
+	mode == "success-close-failure" or mode == "callback-close-failure" or mode == "protocol-close-failure" or mode == "join-close-failure" or mode == "both-close-failure"
+end
+
+fn scripted_close_listener(listener: net::Listener, expected_listener: net::Listener, mode: String, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<(), net::NetError> effects [concurrency]
+	let _ = trace_push(trace, "close-listener")
+	if not same_listener(listener, expected_listener)
+		Err(failure("close_listener", "service used the wrong listener"))
+	else if listener_close_fails(mode)
+		Err(failure("close_listener", "scripted listener close failure"))
+	else
+		Ok(())
+	end
+end
+
+fn listener_close_fails(mode: String) -> Bool
+	mode == "callback-listener-failure" or mode == "protocol-listener-failure" or mode == "join-listener-failure" or mode == "both-close-failure"
+end
+
+fn unexpected_endpoints(trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String) -> Result<List<net::Endpoint>, net::NetError> effects [concurrency]
+	let _ = trace_push(trace, operation)
+	Err(failure(operation, "unexpected network operation"))
+end
+
+fn unexpected_listener(trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String) -> Result<net::Listener, net::NetError> effects [concurrency]
+	let _ = trace_push(trace, operation)
+	Err(failure(operation, "unexpected network operation"))
+end
+
+fn unexpected_stream(trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String) -> Result<net::Stream, net::NetError> effects [concurrency]
+	let _ = trace_push(trace, operation)
+	Err(failure(operation, "unexpected network operation"))
+end
+
+fn unexpected_endpoint(trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String) -> Result<net::Endpoint, net::NetError> effects [concurrency]
+	let _ = trace_push(trace, operation)
+	Err(failure(operation, "unexpected network operation"))
+end
+
+fn unexpected_unit(trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String) -> Result<(), net::NetError> effects [concurrency]
+	let _ = trace_push(trace, operation)
+	Err(failure(operation, "unexpected network operation"))
+end

@@ -329,10 +329,12 @@ failure returns `Http2ApplicationTransportFailure(error)` with the unchanged
 failure.
 
 `http2::connection::Http2ServiceFailure` is the public failure value for the
-server service boundary. It exposes state creation failure, application
-boundary failure with accepted-connection index, and task join failure with
-accepted-connection index. Projection helpers expose service failure kind, id,
-reason, accepted index, and stream id.
+server service boundary. It exposes state creation failure, network failure
+with the unchanged `net::NetError` and accepted-connection count, application
+boundary failure with accepted-connection count, and task join failure with
+accepted-connection count. A network failure has kind `"network"` and id
+`"http2.service.network_failure"`. Projection helpers expose service failure
+kind, id, reason, accepted count, and stream id.
 
 `http2::connection::serve_connection(handler)` creates a server connection
 state and drives one caller-owned duplex stream through
@@ -341,23 +343,27 @@ state and drives one caller-owned duplex stream through
 
 `http2::connection::serve_tcp(listener, handler)` owns the supplied listener,
 accepted streams, and connection tasks. Each spawned connection task receives
-its `NetStream` as explicit context and installs an internal duplex-stream
-compatibility handler inside the task. That handler wraps successful
-compiler-known `net` reads and writes in the typed duplex result shape, while
-legacy host failures remain abrupt runtime failures. Lexical handlers installed
-outside `serve_tcp` do not satisfy the spawned connection task boundary. Its
-public effect boundary remains `[net, concurrency, ...E]`.
+its `net::Stream` as explicit context and installs the standard network duplex
+adapter `transport::network::net_stream` inside the task. The caller supplies
+one `net::IO` handler around the service. Spawned tasks inherit that handler,
+and listener and stream operations remain with the provider that created those
+resources. The public effect boundary is `[std::net::IO, concurrency, ...E]`.
 
 For each accepted stream, `serve_tcp` spawns one connection task with that
 stream as explicit context, joins the task, and closes the stream once. The
-service accepts the next stream only after the current task succeeds. On clean
-listener end, `serve_tcp` closes the listener once. On the first ordinary
-callback, protocol, or join failure, it preserves that first failure, closes
-the failed stream once, closes the listener once, and does not accept or write
-a later connection response. Abrupt runtime transport failures, including
-transport failures raised inside a spawned connection task, remain runtime
-failures rather than `Http2ServiceJoinFailure` values. Later source cleanup
-after an abrupt runtime transport failure is not specified.
+accepted count increases only after `net::accept` returns a stream. The service
+accepts the next stream only after the current task and stream close succeed.
+An accept, duplex-adapter read or write, stream-close, or listener-close error
+returns `Http2ServiceNetworkFailure` with the count at that boundary and the
+unchanged `net::NetError`; transport errors are not classified as application
+or join failures. On an application, protocol, or join failure, the service
+closes the failed stream and then the listener once and does not accept or
+write a later connection response. A stream-close error replaces either a
+successful connection result or that earlier failure. A listener-close error
+replaces the preceding service result, including a stream-close error, while
+retaining its accepted count. The exported `net::accept` operation has no
+clean-end result, so a running TCP service terminates with its first service
+or network failure rather than using listener exhaustion as success.
 
 `http2::connection::Http2ClientRequest` is the immutable public client request
 value. The implemented request shape is

@@ -22,3 +22,7 @@ end
 pub fn stream(label: String) -> NetStream effects [net]
 	handle net::connect(label) with fixed_network(label)
 end
+
+pub fn listener(label: String) -> NetListener effects [net]
+	handle net::listen(label) with fixed_network(label)
+end

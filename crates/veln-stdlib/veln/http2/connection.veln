@@ -1,5 +1,6 @@
 use prelude
 use transport
+use transport::network
 use net
 use http2::core
 use http2::legacy_network
@@ -31,6 +32,7 @@ end
 
 pub type Http2ServiceFailure
 	pub Http2ServiceStateFailure(reason: String)
+	pub Http2ServiceNetworkFailure(accepted: Int, error: net::NetError)
 	pub Http2ServiceApplicationFailure(accepted: Int, failure: Http2ApplicationBoundaryFailure)
 	pub Http2ServiceJoinFailure(accepted: Int, reason: String)
 end
@@ -94,10 +96,8 @@ pub fn serve_connection<effect E>(handler: fn(Http2ApplicationEvent) -> Result<L
 	end
 end
 
-pub fn serve_tcp<effect E>(listener: NetListener, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net, concurrency, ...E]
-	let result = service_accept_next(listener, 1, handler)
-	http2::legacy_network::close_listener(listener)
-	result
+pub fn serve_tcp<effect E>(listener: net::Listener, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net::IO, concurrency, ...E]
+	service_finish(listener, service_accept_next(listener, 0, handler))
 end
 
 pub fn client_bodyless_request(headers: HeaderList) -> Http2ClientRequest
@@ -206,9 +206,9 @@ fn service_initial_state() -> Result<CoreConnectionState, Http2ServiceFailure>
 	end
 end
 
-fn service_connection_task<effect E>(context: { stream : NetStream, callback : fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E] }) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [net, ...E]
+fn service_connection_task<effect E>(context: { stream : NetStream, callback : fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E] }) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [net::IO, ...E]
 	let state = service_application_initial_state()?
-	handle drive_server_application(state, context.callback) with http2::legacy_network::duplex_stream(context.stream)
+	handle drive_server_application(state, context.callback) with transport::network::net_stream(context.stream)
 end
 
 fn service_application_initial_state() -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure>
@@ -218,34 +218,59 @@ fn service_application_initial_state() -> Result<CoreConnectionState, Http2Appli
 	end
 end
 
-fn service_spawn_connection<effect E>(stream: NetStream, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Task<Result<CoreConnectionState, Http2ApplicationBoundaryFailure>> effects [net, concurrency, ...E]
+fn service_spawn_connection<effect E>(stream: NetStream, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Task<Result<CoreConnectionState, Http2ApplicationBoundaryFailure>> effects [net::IO, concurrency, ...E]
 	let context = { stream: stream, callback: handler }
 	task::spawn_with<Result<CoreConnectionState, Http2ApplicationBoundaryFailure>, { stream : NetStream, callback : fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E] }>(service_connection_task, context)
 end
 
-fn service_accept_next<effect E>(listener: NetListener, accepted: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net, concurrency, ...E]
-	match http2::legacy_network::accept_or_end(listener)
-		Some(stream) => service_run_one(stream, service_spawn_connection(stream, handler), listener, accepted, handler)
-		None => Ok(())
+fn service_accept_next<effect E>(listener: net::Listener, accepted: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net::IO, concurrency, ...E]
+	match net::accept(listener)
+		Ok(stream) => service_run_one(stream, service_spawn_connection(stream, handler), listener, accepted + 1, handler)
+		Err(error) => Err(Http2ServiceNetworkFailure(accepted, error))
 	end
 end
 
-fn service_run_one<effect E>(stream: NetStream, worker: Task<Result<CoreConnectionState, Http2ApplicationBoundaryFailure>>, listener: NetListener, accepted: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net, concurrency, ...E]
+fn service_run_one<effect E>(stream: net::Stream, worker: Task<Result<CoreConnectionState, Http2ApplicationBoundaryFailure>>, listener: net::Listener, accepted: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net::IO, concurrency, ...E]
 	match task::join(worker)
 		Ok(Ok(_)) => service_close_then_continue(stream, listener, accepted, handler)
-		Ok(Err(failure)) => service_fail_close(stream, Http2ServiceApplicationFailure(accepted, failure))
+		Ok(Err(failure)) => service_fail_close(stream, service_application_failure(accepted, failure))
 		Err(_) => service_fail_close(stream, Http2ServiceJoinFailure(accepted, "failed"))
 	end
 end
 
-fn service_close_then_continue<effect E>(stream: NetStream, listener: NetListener, accepted: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net, concurrency, ...E]
-	http2::legacy_network::close_stream(stream)
-	service_accept_next(listener, accepted + 1, handler)
+fn service_application_failure(accepted: Int, failure: Http2ApplicationBoundaryFailure) -> Http2ServiceFailure
+	match failure
+		Http2ApplicationTransportFailure(error) => Http2ServiceNetworkFailure(accepted, error)
+		_ => Http2ServiceApplicationFailure(accepted, failure)
+	end
 end
 
-fn service_fail_close(stream: NetStream, failure: Http2ServiceFailure) -> Result<(), Http2ServiceFailure> effects [net]
-	http2::legacy_network::close_stream(stream)
-	Err(failure)
+fn service_close_then_continue<effect E>(stream: net::Stream, listener: net::Listener, accepted: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net::IO, concurrency, ...E]
+	match net::close_stream(stream)
+		Ok(_) => service_accept_next(listener, accepted, handler)
+		Err(error) => Err(Http2ServiceNetworkFailure(accepted, error))
+	end
+end
+
+fn service_fail_close(stream: net::Stream, failure: Http2ServiceFailure) -> Result<(), Http2ServiceFailure> effects [net::IO]
+	match net::close_stream(stream)
+		Ok(_) => Err(failure)
+		Err(error) => Err(Http2ServiceNetworkFailure(service_failure_accepted(failure), error))
+	end
+end
+
+fn service_finish(listener: net::Listener, result: Result<(), Http2ServiceFailure>) -> Result<(), Http2ServiceFailure> effects [net::IO]
+	match net::close_listener(listener)
+		Ok(_) => result
+		Err(error) => Err(Http2ServiceNetworkFailure(service_result_accepted(result), error))
+	end
+end
+
+fn service_result_accepted(result: Result<(), Http2ServiceFailure>) -> Int
+	match result
+		Ok(_) => 0
+		Err(failure) => service_failure_accepted(failure)
+	end
 end
 
 fn client_request_next<effect E>(endpoint: String, requests: List<Http2ClientRequest>, retained: Http2ClientRetainedConnection, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
@@ -990,6 +1015,7 @@ end
 pub fn service_failure_kind(failure: Http2ServiceFailure) -> String
 	match failure
 		Http2ServiceStateFailure(_) => "state"
+		Http2ServiceNetworkFailure(_, _) => "network"
 		Http2ServiceApplicationFailure(_, inner) => application_failure_kind(inner)
 		Http2ServiceJoinFailure(_, _) => "join"
 	end
@@ -998,6 +1024,7 @@ end
 pub fn service_failure_id(failure: Http2ServiceFailure) -> String
 	match failure
 		Http2ServiceStateFailure(_) => "http2.service.state_failure"
+		Http2ServiceNetworkFailure(_, _) => "http2.service.network_failure"
 		Http2ServiceApplicationFailure(_, inner) => application_failure_id(inner)
 		Http2ServiceJoinFailure(_, _) => "http2.service.join_failure"
 	end
@@ -1006,6 +1033,7 @@ end
 pub fn service_failure_reason(failure: Http2ServiceFailure) -> String
 	match failure
 		Http2ServiceStateFailure(reason) => reason
+		Http2ServiceNetworkFailure(_, net::NetError(_, _, _, _, message)) => message
 		Http2ServiceApplicationFailure(_, inner) => application_failure_reason(inner)
 		Http2ServiceJoinFailure(_, reason) => reason
 	end
@@ -1014,6 +1042,7 @@ end
 pub fn service_failure_accepted(failure: Http2ServiceFailure) -> Int
 	match failure
 		Http2ServiceStateFailure(_) => 0
+		Http2ServiceNetworkFailure(accepted, _) => accepted
 		Http2ServiceApplicationFailure(accepted, _) => accepted
 		Http2ServiceJoinFailure(accepted, _) => accepted
 	end
@@ -1022,6 +1051,7 @@ end
 pub fn service_failure_stream_id(failure: Http2ServiceFailure) -> Int
 	match failure
 		Http2ServiceStateFailure(_) => 0
+		Http2ServiceNetworkFailure(_, _) => 0
 		Http2ServiceApplicationFailure(_, inner) => application_failure_stream_id(inner)
 		Http2ServiceJoinFailure(_, _) => 0
 	end

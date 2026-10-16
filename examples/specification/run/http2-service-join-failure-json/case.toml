@@ -1,6 +1,6 @@
 # JVM task contract: a callback runtime failure becomes the service join failure;
-# JSON output and the event log detect join mapping or cleanup-order drift.
-command = ["run", "--json", "main", "main.veln", "fixture_effects.veln", "fake_effects.veln"]
+# JSON output through an inherited `net::IO` provider detects join mapping drift.
+command = ["run", "--json", "main", "main.veln", "fixture_effects.veln", "fake_effects.veln", "http2_service_effects.veln"]
 exit = 0
 
 [requires]
@@ -21,7 +21,3 @@ equals = "passed"
 [[json_assert]]
 path = "stdout"
 equals_file = "case-text/json-assert-equals-1.txt"
-
-[[file_assert]]
-path = "net-events.log"
-equals_file = "case-text/file-assert-equals-1.txt"
