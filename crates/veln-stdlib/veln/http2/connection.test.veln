@@ -86,6 +86,17 @@ fn run_tcp_service<effect E>(mode: String, request: ByteChunk, handler: fn(Http2
 	Ok({ result: result, trace: observed })
 end
 
+fn run_later_connection_failure(mode: String) -> Result<{ result : Result<(), Http2ServiceFailure>, trace : List<String> }, String> effects [net, concurrency]
+	let listener = transport::net_resource_test_support_test::listener("later-service-listener")
+	let first_stream = transport::net_resource_test_support_test::stream("later-service-stream-first")
+	let second_stream = transport::net_resource_test_support_test::stream("later-service-stream-second")
+	let trace = channel::bounded<List<String>>(1)
+	let _ = channel::send(trace.tx, list_nil())
+	let result = handle http2::connection::serve_tcp(listener, bodyless_handler) with http2::connection_service_test_support_test::later_connection_failure(listener, first_stream, second_stream, mode, application_request_chunk()?, trace)
+	let observed: List<String> = option_unwrap_or(channel::recv(trace.rx), list_nil())
+	Ok({ result: result, trace: observed })
+end
+
 fn service_network_failure_matches(result: Result<(), Http2ServiceFailure>, accepted: Int, operation: String, message: String) -> Bool
 	match result
 		Err(failure) => if http2::connection::service_failure_kind(failure) == "network" and http2::connection::service_failure_id(failure) == "http2.service.network_failure" and http2::connection::service_failure_accepted(failure) == accepted and http2::connection::service_failure_reason(failure) == message
@@ -114,6 +125,24 @@ end
 fn service_cleanup_trace_matches(trace: List<String>) -> Bool
 	match trace
 		Cons("close-listener", Cons("close-stream", _)) => trace_count(trace, "close-listener") == 1 and trace_count(trace, "close-stream") == 1 and trace_count(trace, "accept") == 1
+		_ => false
+	end
+end
+
+fn trace_operation_has_earlier(trace: List<String>, operation: String, earlier: String) -> Bool
+	match trace
+		Nil => false
+		Cons(head, tail) => if head == operation
+			trace_count(tail, earlier) > 0
+		else
+			trace_operation_has_earlier(tail, operation, earlier)
+		end
+	end
+end
+
+fn later_connection_cleanup_trace_matches(trace: List<String>) -> Bool
+	match trace
+		Cons("close-listener", _) => trace_count(trace, "accept-first") == 1 and trace_count(trace, "accept-second") == 1 and trace_count(trace, "accept-extra") == 0 and trace_count(trace, "close-first") == 1 and trace_count(trace, "close-second") == 1 and trace_count(trace, "close-listener") == 1 and trace_operation_has_earlier(trace, "accept-second", "close-first") and trace_operation_has_earlier(trace, "close-listener", "close-second")
 		_ => false
 	end
 end
@@ -326,6 +355,46 @@ test tcp_service_later_listener_cleanup_failure_overrides_stream_cleanup_failure
 			Ok(())
 		else
 			Err("HTTP/2 TCP service did not return the later listener cleanup failure")
+		end
+	end
+end
+
+test tcp_service_preserves_later_connection_read_failure_progress() -> Result<(), String> effects [net, concurrency]
+	match run_later_connection_failure("later-read-failure")?
+		{ result: result, trace: trace } => if service_network_failure_matches(result, 2, "read", "scripted later read failure") and later_connection_cleanup_trace_matches(trace) and trace_count(trace, "read-second") == 1
+			Ok(())
+		else
+			Err("HTTP/2 TCP service changed a later read failure, progress, or per-stream cleanup")
+		end
+	end
+end
+
+test tcp_service_preserves_later_connection_write_failure_progress() -> Result<(), String> effects [net, concurrency]
+	match run_later_connection_failure("later-write-failure")?
+		{ result: result, trace: trace } => if service_network_failure_matches(result, 2, "write", "scripted later write failure") and later_connection_cleanup_trace_matches(trace) and trace_count(trace, "write-second") == 1
+			Ok(())
+		else
+			Err("HTTP/2 TCP service changed a later write failure, progress, or per-stream cleanup")
+		end
+	end
+end
+
+test tcp_service_preserves_later_connection_stream_cleanup_progress() -> Result<(), String> effects [net, concurrency]
+	match run_later_connection_failure("later-close-failure")?
+		{ result: result, trace: trace } => if service_network_failure_matches(result, 2, "close_stream", "scripted later stream close failure") and later_connection_cleanup_trace_matches(trace)
+			Ok(())
+		else
+			Err("HTTP/2 TCP service changed a later stream-close failure, progress, or per-stream cleanup")
+		end
+	end
+end
+
+test tcp_service_later_listener_cleanup_replaces_later_stream_cleanup_failure() -> Result<(), String> effects [net, concurrency]
+	match run_later_connection_failure("later-all-failure")?
+		{ result: result, trace: trace } => if service_network_failure_matches(result, 2, "close_listener", "scripted later listener close failure") and later_connection_cleanup_trace_matches(trace) and trace_count(trace, "read-second") == 1
+			Ok(())
+		else
+			Err("HTTP/2 TCP service did not preserve later progress through stream and listener cleanup precedence")
 		end
 	end
 end

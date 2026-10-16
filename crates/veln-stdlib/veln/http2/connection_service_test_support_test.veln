@@ -58,6 +58,118 @@ pub handler many_successful_connections(expected_listener: net::Listener, expect
 	close_stream(stream) => many_connections_close_stream(stream, expected_stream, stream_closes)
 end
 
+pub handler later_connection_failure(expected_listener: net::Listener, first_stream: net::Stream, second_stream: net::Stream, mode: String, request: ByteChunk, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) for net::IO effects [concurrency]
+	resolve(address) => unexpected_endpoints(trace, "resolve")
+	listen(address) => unexpected_listener(trace, "listen")
+	connect(address, deadline, token) => unexpected_stream(trace, "connect")
+	accept(listener, deadline, token) => later_connection_accept(listener, expected_listener, first_stream, second_stream, trace)
+	listener_address(listener) => unexpected_endpoint(trace, "listener-address")
+	close_listener(listener) => later_connection_close_listener(listener, expected_listener, mode, trace)
+	read(stream, deadline, token) => later_connection_read(stream, first_stream, second_stream, mode, request, trace)
+	write(stream, bytes, deadline, token) => later_connection_write(stream, first_stream, second_stream, mode, bytes, trace)
+	local_address(stream) => unexpected_endpoint(trace, "local-address")
+	peer_address(stream) => unexpected_endpoint(trace, "peer-address")
+	shutdown_read(stream) => unexpected_unit(trace, "shutdown-read")
+	shutdown_write(stream) => unexpected_unit(trace, "shutdown-write")
+	close_stream(stream) => later_connection_close_stream(stream, first_stream, second_stream, mode, trace)
+end
+
+fn later_connection_accept(listener: net::Listener, expected_listener: net::Listener, first_stream: net::Stream, second_stream: net::Stream, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<net::Stream, net::NetError> effects [concurrency]
+	let observed: List<String> = option_unwrap_or(channel::recv(trace.rx), list_nil())
+	if not same_listener(listener, expected_listener)
+		begin
+			let _ = channel::send(trace.tx, list_cons("accept-wrong-listener", observed))
+			Err(failure("accept", "service used the wrong listener"))
+		end
+	else if not trace_contains(observed, "accept-first")
+		begin
+			let _ = channel::send(trace.tx, list_cons("accept-first", observed))
+			Ok(first_stream)
+		end
+	else if not trace_contains(observed, "accept-second")
+		begin
+			let _ = channel::send(trace.tx, list_cons("accept-second", observed))
+			Ok(second_stream)
+		end
+	else
+		begin
+			let _ = channel::send(trace.tx, list_cons("accept-extra", observed))
+			Err(failure("accept", "service accepted after the planned failure"))
+		end
+	end
+end
+
+fn later_connection_read(stream: net::Stream, first_stream: net::Stream, second_stream: net::Stream, mode: String, request: ByteChunk, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<net::ReadOutcome, net::NetError> effects [concurrency]
+	if same_stream(stream, first_stream)
+		later_stream_read("read-first", false, request, trace)
+	else if same_stream(stream, second_stream)
+		later_stream_read("read-second", mode == "later-read-failure" or mode == "later-all-failure", request, trace)
+	else
+		Err(failure("read", "service used an unknown stream"))
+	end
+end
+
+fn later_stream_read(operation: String, fails: Bool, request: ByteChunk, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<net::ReadOutcome, net::NetError> effects [concurrency]
+	let observed = trace_push(trace, operation)
+	if fails
+		Err(failure("read", "scripted later read failure"))
+	else if trace_contains(observed, operation)
+		Ok(net::ReadEnd)
+	else
+		Ok(net::ReadChunk(request))
+	end
+end
+
+fn later_connection_write(stream: net::Stream, first_stream: net::Stream, second_stream: net::Stream, mode: String, bytes: ByteChunk, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> net::WriteOutcome effects [concurrency]
+	if same_stream(stream, first_stream)
+		later_stream_write("write-first", false, bytes, trace)
+	else if same_stream(stream, second_stream)
+		later_stream_write("write-second", mode == "later-write-failure", bytes, trace)
+	else
+		net::WriteFailed(net::ByteCount(0), failure("write", "service used an unknown stream"))
+	end
+end
+
+fn later_stream_write(operation: String, fails: Bool, bytes: ByteChunk, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> net::WriteOutcome effects [concurrency]
+	let _ = trace_push(trace, operation)
+	if fails
+		net::WriteFailed(net::ByteCount(0), failure("write", "scripted later write failure"))
+	else
+		net::Written(byte_chunk_count(bytes))
+	end
+end
+
+fn later_connection_close_stream(stream: net::Stream, first_stream: net::Stream, second_stream: net::Stream, mode: String, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<(), net::NetError> effects [concurrency]
+	if same_stream(stream, first_stream)
+		begin
+			let _ = trace_push(trace, "close-first")
+			Ok(())
+		end
+	else if same_stream(stream, second_stream)
+		begin
+			let _ = trace_push(trace, "close-second")
+			if mode == "later-close-failure" or mode == "later-all-failure"
+				Err(failure("close_stream", "scripted later stream close failure"))
+			else
+				Ok(())
+			end
+		end
+	else
+		Err(failure("close_stream", "service used an unknown stream"))
+	end
+end
+
+fn later_connection_close_listener(listener: net::Listener, expected_listener: net::Listener, mode: String, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<(), net::NetError> effects [concurrency]
+	let _ = trace_push(trace, "close-listener")
+	if not same_listener(listener, expected_listener)
+		Err(failure("close_listener", "service used the wrong listener"))
+	else if mode == "later-all-failure"
+		Err(failure("close_listener", "scripted later listener close failure"))
+	else
+		Ok(())
+	end
+end
+
 fn counter_increment(counter: { tx : Sender<Int>, rx : Receiver<Int> }) -> Int effects [concurrency]
 	let observed = option_unwrap_or(channel::recv(counter.rx), 0)
 	let next = observed + 1
