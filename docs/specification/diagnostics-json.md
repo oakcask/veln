@@ -132,12 +132,13 @@ record, and function positions.
 | `not_adt` | The resolved named type has no finite ADT variants. | A source-backed type uses `base_type_declaration` with the canonical target's `resolved_identity` and declaration span, including when the written base is a public alias or alias chain. A source-less type published by the type-syntax provider uses spanless `base_type_origin` with `resolved_identity` and `provider: "type_syntax"`. |
 | `opaque` | The resolved compiler-known type intentionally hides its variants. | A spanless `base_type_origin` contains `resolved_identity` and `provider: "adt"`. |
 
-A root variant refinement whose written base directly names an ADT in a public
-function parameter or result reports `type.variant_refinement_private` when
-that ADT is private or a selected variant is private. Type-alias-qualified
-roots and refinements in structural positions remain outside this check. The
-primary span selects the final identifier of the written base type for a private
-base and excludes preceding module qualifiers. For example,
+A root variant refinement in a public function parameter or result reports
+`type.variant_refinement_private` when its uniquely resolved terminal ADT is
+private or a selected variant is private. The written base can name the ADT
+directly or resolve through a finite local or imported type-alias chain.
+Refinements in structural positions remain outside this check. For a direct
+private base, the primary span selects the final identifier of the written base
+type and excludes preceding module qualifiers. For example,
 `main::Secret::One` selects `Secret`, not `main::Secret`. For a private variant
 of a public base, the primary span selects the final variant segment. The closed
 details contain exactly `written_type`,
@@ -147,17 +148,20 @@ details contain exactly `written_type`,
 `kind: "parameter"` and its `name`; a result path contains only
 `kind: "result"`.
 
-Related entries identify the `private_type_declaration` or
-`private_variant_declaration` and the `public_parameter_boundary` or
-`public_result_boundary`. A private declaration entry uses the declaration span
+For an alias-qualified failure, the primary span selects the outermost alias
+identifier and `written_type` retains the source-written refinement. Related
+entries identify each `type_alias_declaration` from outermost to innermost,
+then the `private_type_declaration` or `private_variant_declaration`, and then
+the `public_parameter_boundary` or `public_result_boundary`. A private
+declaration entry uses the declaration span
 from the selected ADT descriptor, including its generic arity. Another
 same-module ADT with the same type and variant names but a different arity does
-not supply that span. A union reports distinct inaccessible alternatives in
+not supply that span. A union reports distinct inaccessible exposure paths in
 written order. It removes paths with the same resolved base, canonical generic
-arguments, and variant, and retains the first written path. Canonical generic
-arguments recursively use resolved type identities, so an alias and its
-resolved target do not create separate privacy diagnostics. Canonical
-identity is used only when every nested type component resolves. Otherwise,
+arguments, variant, and alias declaration chain, and retains the first written
+path. A direct path and each distinct alias chain remain separate. Canonical
+generic arguments recursively use resolved type identities. Canonical identity
+is used only when every nested type component resolves. Otherwise,
 deduplication uses the complete written alternative, so distinct unresolved
 arguments remain distinct while an exact written repeat retains its first
 occurrence. The complete written alternative is reconstructed independently
@@ -183,12 +187,21 @@ require an instantiated base remain suppressed.
 An invalid annotation in a nested type argument or sibling alternative of the
 same root union also precedes but does not suppress an independently provable
 privacy diagnostic. This recovery does not extend visibility checking into
-aliases or structural type positions. The checked
+structural type positions. Cyclic or ambiguous aliases do not manufacture a
+visibility identity. Distinct written alias paths to one terminal variant
+produce distinct diagnostics, while an exact repeated path retains its first
+occurrence. Exact test-companion access does not change public-signature
+eligibility. The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-public-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-public-visibility-json/)
 cases fix the human messages, half-open spans, details, related context, and
-ordering.
+ordering. The alias-qualified
+[`human`](../../examples/specification/check/adt-variant-refinement-alias-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-alias-visibility-json/)
+cases fix alias primary spans, source-written details, and related-note order
+for parameter and result roots.
 The generic-union visibility
 [`human`](../../examples/specification/check/adt-variant-refinement-generic-union-visibility-human/)
 and

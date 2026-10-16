@@ -5,6 +5,7 @@ use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
 use crate::adt::descriptors::{AdtDescriptor, AdtVariantDescriptor};
+use crate::adt::registry::TypeAliasExposureDeclaration;
 use crate::diagnostics::span_json;
 use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_annotation;
@@ -115,6 +116,12 @@ fn root_exposures<'a>(
             exposure.descriptor.identity(),
             exposure.variant.name.clone(),
             exposure.alternative_identity.clone(),
+            exposure.alias_declarations.map(|aliases| {
+                aliases
+                    .iter()
+                    .map(|alias| alias.identity.as_str())
+                    .collect::<Vec<_>>()
+            }),
         ))
     });
     exposures.into_iter()
@@ -397,9 +404,8 @@ fn private_exposure<'a>(
         candidate.type_argument_count,
         current_module,
     )?;
-    if environment.adts.descriptor_is_type_alias(descriptor) {
-        return None;
-    }
+    let alias_declarations = environment.adts.type_alias_exposure_path(descriptor);
+    let descriptor = environment.adts.canonical_descriptor_for(descriptor);
     record_visibility_work(1);
     let variant =
         environment.variant_refinement_variant_identity(descriptor, &candidate.written_variant)?;
@@ -419,6 +425,7 @@ fn private_exposure<'a>(
         declaration_span: private_declaration_span(environment, descriptor, variant, private_base),
         private_base,
         alternative_identity,
+        alias_declarations,
     })
 }
 
@@ -660,6 +667,7 @@ struct PrivateExposure<'a> {
     declaration_span: Option<SourceSpan>,
     private_base: bool,
     alternative_identity: RefinementAlternativeIdentity,
+    alias_declarations: Option<&'a [TypeAliasExposureDeclaration]>,
 }
 
 impl PrivateExposure<'_> {
@@ -680,6 +688,21 @@ impl PrivateExposure<'_> {
                 ("exposure_path", boundary.exposure_path()),
             ]),
         );
+        if let Some(aliases) = self.alias_declarations {
+            for alias in aliases {
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("type_alias_declaration")),
+                    (
+                        "message",
+                        JsonValue::string(format!(
+                            "Public type alias `{}` is declared here.",
+                            alias.identity
+                        )),
+                    ),
+                    ("span", span_json(&alias.span)),
+                ]));
+            }
+        }
         if let Some(span) = &self.declaration_span {
             diagnostic.related.push(JsonValue::object([
                 ("kind", JsonValue::string(declaration_kind)),
@@ -700,6 +723,34 @@ impl PrivateExposure<'_> {
 
     fn primary_context(&self) -> (SourceSpan, String, &'static str, String) {
         let base_type = self.descriptor.identity();
+        if self.alias_declarations.is_some() {
+            let declaration_kind = if self.private_base {
+                "private_type_declaration"
+            } else {
+                "private_variant_declaration"
+            };
+            let declaration_message = if self.private_base {
+                format!("Private type `{base_type}` is declared here.")
+            } else {
+                format!(
+                    "Private variant `{}::{}` is declared here.",
+                    base_type, self.variant.name
+                )
+            };
+            return (
+                self.base_span.clone(),
+                if self.private_base {
+                    format!("public refinement exposes private type `{base_type}`")
+                } else {
+                    format!(
+                        "public refinement exposes private variant `{}::{}`",
+                        base_type, self.variant.name
+                    )
+                },
+                declaration_kind,
+                declaration_message,
+            );
+        }
         if self.private_base {
             (
                 self.base_span.clone(),

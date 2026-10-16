@@ -151,12 +151,224 @@ fn malformed_nested_annotations_do_not_expand_direct_root_visibility() {
             .any(|diagnostic| diagnostic.id == "type.invalid_annotation"),
         "{diagnostics:#?}"
     );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn alias_qualified_roots_report_outer_alias_and_ordered_declaration_path() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\n",
+            "type Secret\n",
+            "  pub Hidden\n",
+            "end\n",
+            "pub type State\n",
+            "  Hidden\n",
+            "  pub Ready\n",
+            "end\n",
+            "pub type SecretAlias = Secret\n",
+            "pub type Inner = State\n",
+            "pub type Outer = Inner\n",
+            "pub fn expose(value: SecretAlias::Hidden) -> Outer::Hidden\n",
+            "  State::Hidden\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    let parameter = veln_diagnostics::diagnostic_to_json(&diagnostics[0]).to_json();
+    assert!(parameter.contains("\"written_type\":\"SecretAlias::Hidden\""));
+    assert!(parameter.contains("\"base_type\":\"main::Secret\""));
+    assert!(parameter.contains("\"kind\":\"type_alias_declaration\""));
+    let result = veln_diagnostics::diagnostic_to_json(&diagnostics[1]).to_json();
+    assert!(result.contains("\"written_type\":\"Outer::Hidden\""));
+    let outer = result.find("main::Outer").expect("outer alias note");
+    let inner = result.find("main::Inner").expect("inner alias note");
+    let terminal = result
+        .find("private_variant_declaration")
+        .expect("terminal declaration note");
+    let boundary = result
+        .find("public_result_boundary")
+        .expect("public boundary note");
+    assert!(
+        outer < inner && inner < terminal && terminal < boundary,
+        "{result}"
+    );
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().start.column, 22);
+    assert_eq!(diagnostics[1].span.as_ref().unwrap().start.column, 46);
+}
+
+#[test]
+fn distinct_alias_paths_to_one_private_variant_remain_distinct() {
+    let diagnostics = visibility_diagnostics(concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub type First = State\n",
+        "pub type Second = State\n",
+        "pub fn expose(value: First::Hidden | Second::Hidden | First::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    let written = diagnostics
+        .iter()
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    assert!(written[0].contains("\"written_type\":\"First::Hidden\""));
+    assert!(written[1].contains("\"written_type\":\"Second::Hidden\""));
+}
+
+#[test]
+fn imported_and_locally_extended_alias_paths_reach_the_terminal_declaration() {
+    let dependency = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "shared.veln",
+            concat!(
+                "mod shared\n",
+                "pub type State\n",
+                "  Hidden\n",
+                "end\n",
+                "pub type Inner = State\n",
+                "pub type Outer = Inner\n",
+            ),
+        ))
+        .tree,
+    );
+    let base = TypeEnvironment::from_module(&dependency);
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "consumer.veln",
+            concat!(
+                "mod consumer\n",
+                "use shared\n",
+                "pub type Facade = shared::Outer\n",
+                "pub fn imported(value: shared::Outer::Hidden) -> Facade::Hidden\n",
+                "  value\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+
+    let diagnostics = analyze_surface_module_with_base_for_test(&consumer, &base)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    let imported = veln_diagnostics::diagnostic_to_json(&diagnostics[0]).to_json();
+    assert!(imported.find("shared::Outer").unwrap() < imported.find("shared::Inner").unwrap());
+    let extended = veln_diagnostics::diagnostic_to_json(&diagnostics[1]).to_json();
+    assert!(extended.find("consumer::Facade").unwrap() < extended.find("shared::Outer").unwrap());
+    assert!(extended.contains("private_variant_declaration"));
+}
+
+#[test]
+fn cyclic_and_ambiguous_aliases_do_not_manufacture_visibility_diagnostics() {
+    let diagnostics = diagnostics_for(concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub type CycleA = CycleB\n",
+        "pub type CycleB = CycleA\n",
+        "pub type Choice = State\n",
+        "pub type Choice = State\n",
+        "pub fn cycle(value: CycleA::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub fn ambiguous(value: Choice::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.duplicate")
+    );
     assert!(
         diagnostics
             .iter()
             .all(|diagnostic| diagnostic.id != "type.variant_refinement_private"),
         "{diagnostics:#?}"
     );
+}
+
+#[test]
+fn exact_companion_access_does_not_publish_an_alias_hidden_target_signature() {
+    let target = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "math.veln",
+            concat!(
+                "mod math\n",
+                "pub type State\n",
+                "  Hidden\n",
+                "end\n",
+                "pub type Alias = State\n",
+                "pub fn exposed(value: Alias::Hidden) -> Alias::Hidden\n",
+                "  value\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+    let companion = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "math.test.veln",
+            concat!(
+                "mod math__test_companion\n",
+                "use math\n",
+                "test can_use_private_variant() -> ()\n",
+                "  let value: math::State = math::State::Hidden\n",
+                "  ()\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+    let module = veln_ast::SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: target.aliases,
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        types: target.types,
+        functions: companion
+            .functions
+            .into_iter()
+            .chain(target.functions)
+            .collect(),
+        invalid_names: Vec::new(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+    let visibility = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+    assert_eq!(visibility.len(), 2, "{diagnostics:#?}");
+    assert!(visibility.iter().all(|diagnostic| {
+        diagnostic
+            .span
+            .as_ref()
+            .is_some_and(|span| span.file.as_str() == "math.veln")
+    }));
+    assert!(!TypeEnvironment::from_module(&module).function_is_published_for_test("exposed"));
 }
 
 #[test]
@@ -241,7 +453,7 @@ fn inherited_private_declaration_provenance_is_retained() {
 }
 
 #[test]
-fn nested_and_alias_refinements_remain_out_of_scope() {
+fn nested_refinements_remain_out_of_scope_while_root_aliases_are_checked() {
     let diagnostics = diagnostics_for(concat!(
         "pub type State\n",
         "  Hidden\n",
@@ -261,7 +473,14 @@ fn nested_and_alias_refinements_remain_out_of_scope() {
         "end\n",
     ));
 
-    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]
@@ -333,7 +552,7 @@ fn alias_collisions_classify_the_descriptor_selected_by_arity() {
         concat!(
             "mod main\n",
             "pub type Public\n",
-            "  Open\n",
+            "  pub Open\n",
             "end\n",
             "pub type State = Public\n",
             "pub type State<A>\n",
@@ -627,12 +846,13 @@ fn visibility_failure_is_not_republished_through_function_aliases() {
                 "  Hidden\n",
                 "  pub Ready\n",
                 "end\n",
-                "pub fn exposed(value: State::Hidden) -> State::Hidden\n",
+                "pub type Alias = State\n",
+                "pub fn exposed(value: Alias::Hidden) -> Alias::Hidden\n",
                 "  value\n",
                 "end\n",
                 "pub fn first_alias = exposed\n",
                 "pub fn second_alias = exposed\n",
-                "pub fn accepted(value: State::Ready) -> State::Ready\n",
+                "pub fn accepted(value: Alias::Ready) -> Alias::Ready\n",
                 "  value\n",
                 "end\n",
                 "pub fn accepted_alias = accepted\n",

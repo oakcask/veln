@@ -8,13 +8,23 @@ use crate::name_recovery::{
 
 #[cfg(test)]
 use super::type_alias_resolution_counters;
-use super::{TypeAliasDeclarationIdentity, descriptor_identity};
+use super::{
+    DescriptorKey, TypeAliasDeclarationIdentity, TypeAliasExposureDeclaration, descriptor_identity,
+};
 use crate::adt::descriptors::AdtDescriptor;
 
 pub(super) fn type_alias_descriptors(
     module: &SurfaceModule,
     descriptors: &[AdtDescriptor],
-) -> (Vec<AdtDescriptor>, Vec<TypeAliasDeclarationIdentity>) {
+    inherited_exposure_paths: &std::collections::BTreeMap<
+        DescriptorKey,
+        Vec<TypeAliasExposureDeclaration>,
+    >,
+) -> (
+    Vec<AdtDescriptor>,
+    Vec<TypeAliasDeclarationIdentity>,
+    std::collections::BTreeMap<DescriptorKey, Vec<TypeAliasExposureDeclaration>>,
+) {
     let uses = normal_use_decls(module);
     let aliases = eligible_type_aliases(module);
     let targets = TypeAliasTargetIndex::new(descriptors, &aliases, &uses);
@@ -22,7 +32,7 @@ pub(super) fn type_alias_descriptors(
         .iter()
         .map(|alias| targets.target(alias))
         .collect::<Vec<_>>();
-    TypeAliasResolver::new(descriptors, &aliases, &steps).resolve()
+    TypeAliasResolver::new(descriptors, &aliases, &steps, inherited_exposure_paths).resolve()
 }
 
 fn eligible_type_aliases(module: &SurfaceModule) -> Vec<&PublicAlias> {
@@ -61,6 +71,9 @@ struct TypeAliasResolver<'a> {
     visiting: Vec<bool>,
     resolved: Vec<AdtDescriptor>,
     resolved_declarations: Vec<TypeAliasDeclarationIdentity>,
+    inherited_exposure_paths:
+        &'a std::collections::BTreeMap<DescriptorKey, Vec<TypeAliasExposureDeclaration>>,
+    exposure_paths: std::collections::BTreeMap<DescriptorKey, Vec<TypeAliasExposureDeclaration>>,
 }
 
 impl<'a> TypeAliasResolver<'a> {
@@ -68,6 +81,10 @@ impl<'a> TypeAliasResolver<'a> {
         descriptors: &'a [AdtDescriptor],
         aliases: &'a [&'a PublicAlias],
         steps: &'a [TypeAliasTarget],
+        inherited_exposure_paths: &'a std::collections::BTreeMap<
+            DescriptorKey,
+            Vec<TypeAliasExposureDeclaration>,
+        >,
     ) -> Self {
         Self {
             descriptors,
@@ -77,16 +94,28 @@ impl<'a> TypeAliasResolver<'a> {
             visiting: vec![false; aliases.len()],
             resolved: Vec::new(),
             resolved_declarations: Vec::new(),
+            inherited_exposure_paths,
+            exposure_paths: std::collections::BTreeMap::new(),
         }
     }
 
-    fn resolve(mut self) -> (Vec<AdtDescriptor>, Vec<TypeAliasDeclarationIdentity>) {
+    fn resolve(
+        mut self,
+    ) -> (
+        Vec<AdtDescriptor>,
+        Vec<TypeAliasDeclarationIdentity>,
+        std::collections::BTreeMap<DescriptorKey, Vec<TypeAliasExposureDeclaration>>,
+    ) {
         for start in 0..self.aliases.len() {
             if self.memo[start].is_none() {
                 self.resolve_from(start);
             }
         }
-        (self.resolved, self.resolved_declarations)
+        (
+            self.resolved,
+            self.resolved_declarations,
+            self.exposure_paths,
+        )
     }
 
     fn resolve_from(&mut self, start: usize) {
@@ -99,6 +128,20 @@ impl<'a> TypeAliasResolver<'a> {
                 .map(|target| alias_descriptor(self.aliases[index], target));
             self.memo[index] = Some(descriptor.clone());
             if let Some(descriptor) = &descriptor {
+                let mut exposure_path = vec![alias_exposure_declaration(self.aliases[index])];
+                if let Some(target) = &target
+                    && let Some(inherited) = self
+                        .exposure_paths
+                        .get(&DescriptorKey::new(target))
+                        .or_else(|| {
+                            self.inherited_exposure_paths
+                                .get(&DescriptorKey::new(target))
+                        })
+                {
+                    exposure_path.extend(inherited.iter().cloned());
+                }
+                self.exposure_paths
+                    .insert(DescriptorKey::new(descriptor), exposure_path);
                 self.resolved.push(descriptor.clone());
                 self.resolved_declarations
                     .push(TypeAliasDeclarationIdentity::new(self.aliases[index]));
@@ -129,6 +172,18 @@ impl<'a> TypeAliasResolver<'a> {
                 TypeAliasTarget::Missing => return (path, None),
             }
         }
+    }
+}
+
+fn alias_exposure_declaration(alias: &PublicAlias) -> TypeAliasExposureDeclaration {
+    let name = alias.name.as_deref().expect("filtered alias has a name");
+    let identity = match alias.module_name.as_deref() {
+        None | Some("std::prelude") => name.to_string(),
+        Some(module) => format!("{module}::{name}"),
+    };
+    TypeAliasExposureDeclaration {
+        identity,
+        span: alias.span.clone(),
     }
 }
 

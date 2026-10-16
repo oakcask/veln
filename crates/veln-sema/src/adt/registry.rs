@@ -29,6 +29,7 @@ pub(crate) struct AdtRegistry {
     companion_access_targets: BTreeMap<String, String>,
     annotation_types: BTreeMap<(Option<String>, String), Type>,
     type_alias_identities: BTreeSet<DescriptorKey>,
+    type_alias_exposure_paths: BTreeMap<DescriptorKey, Vec<TypeAliasExposureDeclaration>>,
     resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     declaration_spans: HashMap<DescriptorKey, SourceSpan>,
     variant_declaration_spans: HashMap<VariantDescriptorKey, SourceSpan>,
@@ -72,6 +73,12 @@ struct TypeAliasDeclarationIdentity {
     file: SourcePath,
     start: usize,
     end: usize,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct TypeAliasExposureDeclaration {
+    pub(crate) identity: String,
+    pub(crate) span: SourceSpan,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -434,9 +441,13 @@ impl AdtRegistry {
         matches.next().is_none().then_some(unique)
     }
 
-    pub(crate) fn descriptor_is_type_alias(&self, descriptor: &AdtDescriptor) -> bool {
-        self.type_alias_identities
-            .contains(&DescriptorKey::new(descriptor))
+    pub(crate) fn type_alias_exposure_path(
+        &self,
+        descriptor: &AdtDescriptor,
+    ) -> Option<&[TypeAliasExposureDeclaration]> {
+        self.type_alias_exposure_paths
+            .get(&DescriptorKey::new(descriptor))
+            .map(Vec::as_slice)
     }
 
     pub(crate) fn descriptor_for_type_path_any_arity(

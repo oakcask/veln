@@ -1,0 +1,9 @@
+main.veln:14:32: error[type.variant_refinement_private]: public refinement exposes private type `main::Secret`
+  note: main.veln:10:1: Public type alias `main::SecretAlias` is declared here.
+  note: main.veln:1:1: Private type `main::Secret` is declared here.
+  note: main.veln:14:25: Public parameter `value` of function `expose_parameter` exposes this refinement.
+main.veln:18:27: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:12:1: Public type alias `main::Outer` is declared here.
+  note: main.veln:11:1: Public type alias `main::Inner` is declared here.
+  note: main.veln:6:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:18:27: Public result of function `expose_result` exposes this refinement.

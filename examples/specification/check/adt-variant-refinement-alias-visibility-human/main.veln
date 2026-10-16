@@ -1,0 +1,20 @@
+type Secret
+	pub Hidden
+end
+
+pub type State
+	Hidden
+	pub Ready
+end
+
+pub type SecretAlias = Secret
+pub type Inner = State
+pub type Outer = Inner
+
+pub fn expose_parameter(value: SecretAlias::Hidden) -> ()
+	()
+end
+
+pub fn expose_result() -> Outer::Hidden
+	State::Hidden
+end

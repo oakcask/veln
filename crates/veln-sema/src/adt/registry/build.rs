@@ -158,6 +158,7 @@ impl AdtRegistry {
             companion_access_targets,
             annotation_types,
             type_alias_identities: BTreeSet::new(),
+            type_alias_exposure_paths: BTreeMap::new(),
             resolved_type_alias_declarations: BTreeSet::new(),
             declaration_spans: HashMap::new(),
             variant_declaration_spans: HashMap::new(),
@@ -200,11 +201,14 @@ impl AdtRegistry {
 
         let mut alias_targets = descriptors.clone();
         alias_targets.extend(source_descriptors.clone());
-        let (aliases, resolved_alias_declarations) = type_alias_descriptors(module, &alias_targets);
+        let (aliases, resolved_alias_declarations, resolved_alias_exposure_paths) =
+            type_alias_descriptors(module, &alias_targets, &base.type_alias_exposure_paths);
         let mut type_alias_identities = base.type_alias_identities.clone();
         type_alias_identities.extend(aliases.iter().map(DescriptorKey::new));
         let mut resolved_type_alias_declarations = base.resolved_type_alias_declarations.clone();
         resolved_type_alias_declarations.extend(resolved_alias_declarations);
+        let mut type_alias_exposure_paths = base.type_alias_exposure_paths.clone();
+        type_alias_exposure_paths.extend(resolved_alias_exposure_paths);
         extend_alias_annotation_types(module, &alias_targets, &mut annotation_types);
 
         let local_descriptor_start = descriptors.len();
@@ -218,6 +222,7 @@ impl AdtRegistry {
             companion_targets,
             annotation_types,
         );
+        registry.type_alias_exposure_paths = type_alias_exposure_paths;
         registry.finish_source_registry(
             base,
             module,
@@ -329,6 +334,17 @@ impl AdtRegistry {
             annotation_types,
         );
         registry.type_alias_identities = retained_type_alias_identities(self, module_names);
+        registry.type_alias_exposure_paths = self
+            .type_alias_exposure_paths
+            .iter()
+            .filter(|(identity, _)| {
+                identity
+                    .module_name
+                    .as_ref()
+                    .is_none_or(|module_name| module_names.contains(module_name))
+            })
+            .map(|(identity, path)| (identity.clone(), path.clone()))
+            .collect();
         registry.resolved_type_alias_declarations = self
             .resolved_type_alias_declarations
             .iter()
