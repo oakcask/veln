@@ -9,10 +9,10 @@ Veln programs need structured runtime evidence that tools and AI agents can
 correlate with source, tasks, requests, and external services. The language
 core must not prescribe an exporter or an external telemetry protocol.
 
-The public observation effect, no-op and recording handlers, typed scalar
-attributes, optional trace context, opaque span lifecycle, and call-site-aware
-structured log records at debug, info, warning, and error severities are
-implemented in the
+The public observation effect, no-op and recording handlers, non-consuming
+recording snapshots, typed scalar attributes, optional trace context,
+effect-polymorphic scoped span lifecycle, and call-site-aware structured log
+records at debug, info, warning, and error severities are implemented in the
 [current observability specification](../specification/standard-library-observability.md).
 This proposal covers only the remaining facilities described below.
 
