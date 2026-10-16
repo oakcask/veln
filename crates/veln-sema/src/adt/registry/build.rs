@@ -8,7 +8,7 @@ use crate::name_recovery::normal_use_decls;
 use crate::semantic_model::Type;
 use crate::source_less_names::InvalidStandardSymbolCase;
 
-use super::aliases::{descriptor_for_alias_target, type_alias_descriptors};
+use super::aliases::{ResolvedTypeAliases, descriptor_for_alias_target, type_alias_descriptors};
 use super::{
     AdtRegistry, DescriptorKey, ImportedDescriptorCandidates, QualifiedImportModules,
     QualifiedRecoveryModules, TypeAliasDeclarationIdentity, VariantDeclarationOrder,
@@ -158,6 +158,7 @@ impl AdtRegistry {
             companion_access_targets,
             annotation_types,
             type_alias_identities: BTreeSet::new(),
+            type_alias_exposure_segments: Vec::new(),
             type_alias_exposure_paths: BTreeMap::new(),
             resolved_type_alias_declarations: BTreeSet::new(),
             declaration_spans: HashMap::new(),
@@ -201,14 +202,21 @@ impl AdtRegistry {
 
         let mut alias_targets = descriptors.clone();
         alias_targets.extend(source_descriptors.clone());
-        let (aliases, resolved_alias_declarations, resolved_alias_exposure_paths) =
-            type_alias_descriptors(module, &alias_targets, &base.type_alias_exposure_paths);
+        let ResolvedTypeAliases {
+            descriptors: aliases,
+            declarations: resolved_alias_declarations,
+            exposure_segments: type_alias_exposure_segments,
+            exposure_paths: type_alias_exposure_paths,
+        } = type_alias_descriptors(
+            module,
+            &alias_targets,
+            &base.type_alias_exposure_segments,
+            &base.type_alias_exposure_paths,
+        );
         let mut type_alias_identities = base.type_alias_identities.clone();
         type_alias_identities.extend(aliases.iter().map(DescriptorKey::new));
         let mut resolved_type_alias_declarations = base.resolved_type_alias_declarations.clone();
         resolved_type_alias_declarations.extend(resolved_alias_declarations);
-        let mut type_alias_exposure_paths = base.type_alias_exposure_paths.clone();
-        type_alias_exposure_paths.extend(resolved_alias_exposure_paths);
         extend_alias_annotation_types(module, &alias_targets, &mut annotation_types);
 
         let local_descriptor_start = descriptors.len();
@@ -222,6 +230,7 @@ impl AdtRegistry {
             companion_targets,
             annotation_types,
         );
+        registry.type_alias_exposure_segments = type_alias_exposure_segments;
         registry.type_alias_exposure_paths = type_alias_exposure_paths;
         registry.finish_source_registry(
             base,
@@ -334,6 +343,7 @@ impl AdtRegistry {
             annotation_types,
         );
         registry.type_alias_identities = retained_type_alias_identities(self, module_names);
+        registry.type_alias_exposure_segments = self.type_alias_exposure_segments.clone();
         registry.type_alias_exposure_paths = self
             .type_alias_exposure_paths
             .iter()

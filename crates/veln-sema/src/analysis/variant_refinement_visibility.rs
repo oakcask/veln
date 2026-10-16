@@ -118,7 +118,9 @@ fn root_exposures<'a>(
             exposure.alternative_identity.clone(),
             exposure
                 .alias_declarations
-                .map(TypeAliasExposurePath::outer_identity),
+                .as_ref()
+                .map(TypeAliasExposurePath::outer_identity)
+                .map(str::to_string),
         ))
     });
     exposures.into_iter()
@@ -673,7 +675,7 @@ struct PrivateExposure<'a> {
     declaration_span: Option<SourceSpan>,
     private_base: bool,
     alternative_identity: RefinementAlternativeIdentity,
-    alias_declarations: Option<&'a TypeAliasExposurePath>,
+    alias_declarations: Option<TypeAliasExposurePath<'a>>,
 }
 
 impl PrivateExposure<'_> {
@@ -694,7 +696,7 @@ impl PrivateExposure<'_> {
                 ("exposure_path", boundary.exposure_path()),
             ]),
         );
-        if let Some(path) = self.alias_declarations {
+        if let Some(path) = &self.alias_declarations {
             let aliases = path.declarations().collect::<Vec<_>>();
             for alias in aliases {
                 diagnostic.related.push(JsonValue::object([

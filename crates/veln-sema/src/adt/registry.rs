@@ -29,7 +29,8 @@ pub(crate) struct AdtRegistry {
     companion_access_targets: BTreeMap<String, String>,
     annotation_types: BTreeMap<(Option<String>, String), Type>,
     type_alias_identities: BTreeSet<DescriptorKey>,
-    type_alias_exposure_paths: BTreeMap<DescriptorKey, Arc<TypeAliasExposurePath>>,
+    type_alias_exposure_segments: Vec<Arc<[TypeAliasExposureNode]>>,
+    type_alias_exposure_paths: BTreeMap<DescriptorKey, TypeAliasExposurePathRecord>,
     resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     declaration_spans: HashMap<DescriptorKey, SourceSpan>,
     variant_declaration_spans: HashMap<VariantDescriptorKey, SourceSpan>,
@@ -82,32 +83,58 @@ pub(crate) struct TypeAliasExposureDeclaration {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct TypeAliasExposurePath {
+struct TypeAliasExposureNode {
     declaration: TypeAliasExposureDeclaration,
-    inherited: Option<Arc<TypeAliasExposurePath>>,
+    inherited: Option<TypeAliasExposureNodeId>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct TypeAliasExposureNodeId {
+    segment: usize,
+    offset: usize,
+}
+
+#[derive(Clone, Debug)]
+struct TypeAliasExposurePathRecord {
+    outer_node: TypeAliasExposureNodeId,
     terminal: Arc<AdtDescriptor>,
 }
 
-impl TypeAliasExposurePath {
+#[derive(Clone, Copy)]
+pub(crate) struct TypeAliasExposurePath<'a> {
+    segments: &'a [Arc<[TypeAliasExposureNode]>],
+    record: &'a TypeAliasExposurePathRecord,
+}
+
+impl TypeAliasExposurePath<'_> {
     pub(crate) fn outer_identity(&self) -> &str {
-        &self.declaration.identity
+        &self.node(self.record.outer_node).declaration.identity
     }
 
     pub(crate) fn declarations(&self) -> TypeAliasExposureDeclarations<'_> {
-        TypeAliasExposureDeclarations { next: Some(self) }
+        TypeAliasExposureDeclarations {
+            segments: self.segments,
+            next: Some(self.record.outer_node),
+        }
+    }
+
+    fn node(&self, id: TypeAliasExposureNodeId) -> &TypeAliasExposureNode {
+        &self.segments[id.segment][id.offset]
     }
 }
 
 pub(crate) struct TypeAliasExposureDeclarations<'a> {
-    next: Option<&'a TypeAliasExposurePath>,
+    segments: &'a [Arc<[TypeAliasExposureNode]>],
+    next: Option<TypeAliasExposureNodeId>,
 }
 
 impl<'a> Iterator for TypeAliasExposureDeclarations<'a> {
     type Item = &'a TypeAliasExposureDeclaration;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let node = self.next?;
-        self.next = node.inherited.as_deref();
+        let id = self.next?;
+        let node = &self.segments[id.segment][id.offset];
+        self.next = node.inherited;
         Some(&node.declaration)
     }
 }
@@ -475,10 +502,13 @@ impl AdtRegistry {
     pub(crate) fn type_alias_exposure_path(
         &self,
         descriptor: &AdtDescriptor,
-    ) -> Option<&TypeAliasExposurePath> {
+    ) -> Option<TypeAliasExposurePath<'_>> {
         self.type_alias_exposure_paths
             .get(&DescriptorKey::new(descriptor))
-            .map(Arc::as_ref)
+            .map(|record| TypeAliasExposurePath {
+                segments: &self.type_alias_exposure_segments,
+                record,
+            })
     }
 
     pub(crate) fn terminal_descriptor_for_alias(

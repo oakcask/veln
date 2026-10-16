@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use veln_ast::{PublicAlias, PublicAliasKind, SurfaceModule, UseDecl, UseOrigin, Visibility};
+use veln_ast::{PublicAlias, PublicAliasKind, SurfaceModule, UseDecl, Visibility};
 
 use crate::name_recovery::{
     normal_use_decls, public_alias_has_invalid_target_leaf, use_decl_matches_import_path,
@@ -11,22 +11,20 @@ use crate::name_recovery::{
 use super::type_alias_resolution_counters;
 use super::{
     DescriptorKey, TypeAliasDeclarationIdentity, TypeAliasExposureDeclaration,
-    TypeAliasExposurePath, descriptor_identity,
+    TypeAliasExposureNode, TypeAliasExposureNodeId, TypeAliasExposurePathRecord,
+    descriptor_identity,
 };
 use crate::adt::descriptors::AdtDescriptor;
 
 pub(super) fn type_alias_descriptors(
     module: &SurfaceModule,
     descriptors: &[AdtDescriptor],
+    inherited_exposure_segments: &[Arc<[TypeAliasExposureNode]>],
     inherited_exposure_paths: &std::collections::BTreeMap<
         DescriptorKey,
-        Arc<TypeAliasExposurePath>,
+        TypeAliasExposurePathRecord,
     >,
-) -> (
-    Vec<AdtDescriptor>,
-    Vec<TypeAliasDeclarationIdentity>,
-    std::collections::BTreeMap<DescriptorKey, Arc<TypeAliasExposurePath>>,
-) {
+) -> ResolvedTypeAliases {
     let uses = normal_use_decls(module);
     let aliases = eligible_type_aliases(module);
     let targets = TypeAliasTargetIndex::new(descriptors, &aliases, &uses);
@@ -34,7 +32,22 @@ pub(super) fn type_alias_descriptors(
         .iter()
         .map(|alias| targets.target(alias))
         .collect::<Vec<_>>();
-    TypeAliasResolver::new(descriptors, &aliases, &steps, inherited_exposure_paths).resolve()
+    TypeAliasResolver::new(
+        descriptors,
+        &aliases,
+        &steps,
+        inherited_exposure_segments,
+        inherited_exposure_paths,
+    )
+    .resolve()
+}
+
+pub(super) struct ResolvedTypeAliases {
+    pub(super) descriptors: Vec<AdtDescriptor>,
+    pub(super) declarations: Vec<TypeAliasDeclarationIdentity>,
+    pub(super) exposure_segments: Vec<Arc<[TypeAliasExposureNode]>>,
+    pub(super) exposure_paths:
+        std::collections::BTreeMap<DescriptorKey, TypeAliasExposurePathRecord>,
 }
 
 fn eligible_type_aliases(module: &SurfaceModule) -> Vec<&PublicAlias> {
@@ -73,9 +86,10 @@ struct TypeAliasResolver<'a> {
     visiting: Vec<bool>,
     resolved: Vec<AdtDescriptor>,
     resolved_declarations: Vec<TypeAliasDeclarationIdentity>,
-    inherited_exposure_paths:
-        &'a std::collections::BTreeMap<DescriptorKey, Arc<TypeAliasExposurePath>>,
-    exposure_paths: std::collections::BTreeMap<DescriptorKey, Arc<TypeAliasExposurePath>>,
+    exposure_segments: Vec<Arc<[TypeAliasExposureNode]>>,
+    local_segment: usize,
+    local_nodes: Vec<TypeAliasExposureNode>,
+    exposure_paths: std::collections::BTreeMap<DescriptorKey, TypeAliasExposurePathRecord>,
 }
 
 impl<'a> TypeAliasResolver<'a> {
@@ -83,9 +97,10 @@ impl<'a> TypeAliasResolver<'a> {
         descriptors: &'a [AdtDescriptor],
         aliases: &'a [&'a PublicAlias],
         steps: &'a [TypeAliasTarget],
-        inherited_exposure_paths: &'a std::collections::BTreeMap<
+        inherited_exposure_segments: &[Arc<[TypeAliasExposureNode]>],
+        inherited_exposure_paths: &std::collections::BTreeMap<
             DescriptorKey,
-            Arc<TypeAliasExposurePath>,
+            TypeAliasExposurePathRecord,
         >,
     ) -> Self {
         Self {
@@ -96,28 +111,28 @@ impl<'a> TypeAliasResolver<'a> {
             visiting: vec![false; aliases.len()],
             resolved: Vec::new(),
             resolved_declarations: Vec::new(),
-            inherited_exposure_paths,
-            exposure_paths: std::collections::BTreeMap::new(),
+            exposure_segments: inherited_exposure_segments.to_vec(),
+            local_segment: inherited_exposure_segments.len(),
+            local_nodes: Vec::new(),
+            exposure_paths: inherited_exposure_paths.clone(),
         }
     }
 
-    fn resolve(
-        mut self,
-    ) -> (
-        Vec<AdtDescriptor>,
-        Vec<TypeAliasDeclarationIdentity>,
-        std::collections::BTreeMap<DescriptorKey, Arc<TypeAliasExposurePath>>,
-    ) {
+    fn resolve(mut self) -> ResolvedTypeAliases {
         for start in 0..self.aliases.len() {
             if self.memo[start].is_none() {
                 self.resolve_from(start);
             }
         }
-        (
-            self.resolved,
-            self.resolved_declarations,
-            self.exposure_paths,
-        )
+        if !self.local_nodes.is_empty() {
+            self.exposure_segments.push(self.local_nodes.into());
+        }
+        ResolvedTypeAliases {
+            descriptors: self.resolved,
+            declarations: self.resolved_declarations,
+            exposure_segments: self.exposure_segments,
+            exposure_paths: self.exposure_paths,
+        }
     }
 
     fn resolve_from(&mut self, start: usize) {
@@ -133,26 +148,27 @@ impl<'a> TypeAliasResolver<'a> {
                 let (inherited, terminal) = target
                     .as_ref()
                     .map(|target| {
-                        let inherited = self
-                            .exposure_paths
-                            .get(&DescriptorKey::new(target))
-                            .or_else(|| {
-                                self.inherited_exposure_paths
-                                    .get(&DescriptorKey::new(target))
-                            });
+                        let inherited = self.exposure_paths.get(&DescriptorKey::new(target));
                         inherited.map_or_else(
                             || (None, Arc::new(target.clone())),
                             |inherited| {
-                                (Some(Arc::clone(inherited)), Arc::clone(&inherited.terminal))
+                                (Some(inherited.outer_node), Arc::clone(&inherited.terminal))
                             },
                         )
                     })
                     .expect("resolved alias has a target");
-                let exposure_path = Arc::new(TypeAliasExposurePath {
+                let outer_node = TypeAliasExposureNodeId {
+                    segment: self.local_segment,
+                    offset: self.local_nodes.len(),
+                };
+                self.local_nodes.push(TypeAliasExposureNode {
                     declaration: alias_exposure_declaration(self.aliases[index]),
                     inherited,
-                    terminal,
                 });
+                let exposure_path = TypeAliasExposurePathRecord {
+                    outer_node,
+                    terminal,
+                };
                 #[cfg(test)]
                 type_alias_resolution_counters::record_provenance_node();
                 self.exposure_paths
@@ -220,7 +236,13 @@ struct TypeAliasTargetIndex {
     opaque_public: HashMap<String, usize>,
     alias_first: HashMap<TypeAliasKey, usize>,
     alias_last: HashMap<TypeAliasKey, usize>,
-    imports: HashMap<TypeAliasKey, String>,
+    imports: HashMap<TypeAliasKey, TypeAliasImportTargets>,
+}
+
+#[derive(Default)]
+struct TypeAliasImportTargets {
+    exact: HashSet<String>,
+    implicit: HashSet<String>,
 }
 
 impl TypeAliasTargetIndex {
@@ -285,21 +307,28 @@ impl TypeAliasTargetIndex {
             let target = use_decl.name.clone();
             self.imports
                 .entry((module.clone(), target.clone()))
-                .or_insert_with(|| target.clone());
+                .or_default()
+                .exact
+                .insert(target.clone());
             if is_standard_import(use_decl, module.as_deref())
                 && let Some(relative) = target.strip_prefix("std::")
             {
                 self.imports
                     .entry((module.clone(), relative.to_string()))
-                    .or_insert_with(|| target.clone());
+                    .or_default()
+                    .exact
+                    .insert(target.clone());
             }
-            if use_decl.package.is_some()
-                || !target.contains("::")
-                || use_decl.origin == UseOrigin::ImplicitStandardPrelude
-            {
+            if crate::name_recovery::use_decl_matches_implicit_import_alias(
+                use_decl,
+                &use_decl.alias,
+                module.as_deref(),
+            ) {
                 self.imports
                     .entry((module, use_decl.alias.clone()))
-                    .or_insert(target);
+                    .or_default()
+                    .implicit
+                    .insert(target);
             }
         }
     }
@@ -335,9 +364,21 @@ impl TypeAliasTargetIndex {
         }
         let qualifier = alias.target[..alias.target.len() - 1].join("::");
         let key = (alias.module_name.clone(), qualifier);
-        let Some(module) = self.imports.get(&key) else {
+        let Some(imports) = self.imports.get(&key) else {
             return TypeAliasTarget::Missing;
         };
+        let candidates = if imports.exact.is_empty() {
+            &imports.implicit
+        } else {
+            &imports.exact
+        };
+        let mut candidates = candidates.iter();
+        let Some(module) = candidates.next() else {
+            return TypeAliasTarget::Missing;
+        };
+        if candidates.next().is_some() {
+            return TypeAliasTarget::Missing;
+        }
         let key = (Some(module.clone()), name.clone());
         match self.local_target(&key) {
             IndexedTarget::Unique(target) => target,

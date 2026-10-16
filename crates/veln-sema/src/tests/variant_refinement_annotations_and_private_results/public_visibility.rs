@@ -332,6 +332,129 @@ fn exact_import_path_precedes_a_colliding_implicit_qualifier() {
     }
 }
 
+#[test]
+fn alias_qualifier_keeps_colliding_implicit_imports_unresolved_in_all_orders() {
+    for imports_reversed in [false, true] {
+        for sources_reversed in [false, true] {
+            let project = alias_import_collision_project(
+                AliasImportCollision::Ambiguous,
+                imports_reversed,
+                sources_reversed,
+            );
+            let environment = TypeEnvironment::from_module(&project);
+            let diagnostics = analyze_surface_module(&project);
+            assert!(
+                diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.id != "type.variant_refinement_private"),
+                "imports_reversed={imports_reversed} sources_reversed={sources_reversed} diagnostics={diagnostics:#?}"
+            );
+            let signature = environment.function("expose").expect("recovery signature");
+            assert_eq!(signature.params, [Type::Unknown]);
+            assert_eq!(signature.return_type, Type::unit());
+            assert!(environment.function_is_published_for_test("expose"));
+            let (_, lowered) = check_project_surface_module(&project);
+            assert!(lowered.core.is_none());
+            assert!(lowered.ir.is_none());
+        }
+    }
+}
+
+#[test]
+fn alias_qualifier_prefers_exact_import_over_implicit_collision_in_all_orders() {
+    for imports_reversed in [false, true] {
+        for sources_reversed in [false, true] {
+            let project = alias_import_collision_project(
+                AliasImportCollision::ExactPrecedence,
+                imports_reversed,
+                sources_reversed,
+            );
+            let environment = TypeEnvironment::from_module(&project);
+            let diagnostics = analyze_surface_module(&project);
+            let visibility = diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+                .collect::<Vec<_>>();
+            assert_eq!(
+                visibility.len(),
+                1,
+                "imports_reversed={imports_reversed} sources_reversed={sources_reversed} diagnostics={diagnostics:#?}"
+            );
+            let json = veln_diagnostics::diagnostic_to_json(visibility[0]).to_json();
+            assert!(
+                json.contains("\"written_type\":\"Facade::Hidden\""),
+                "{json}"
+            );
+            assert!(
+                json.contains("\"kind\":\"type_alias_declaration\""),
+                "{json}"
+            );
+            assert!(json.contains("\"file\":\"shared.veln\""), "{json}");
+            assert!(!environment.function_is_published_for_test("expose"));
+            let (_, lowered) = check_project_surface_module(&project);
+            assert!(lowered.core.is_none());
+            assert!(lowered.ir.is_none());
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum AliasImportCollision {
+    Ambiguous,
+    ExactPrecedence,
+}
+
+fn alias_import_collision_project(
+    collision: AliasImportCollision,
+    imports_reversed: bool,
+    sources_reversed: bool,
+) -> SurfaceModule {
+    let (first_name, first, second_name, second, first_import, second_import) = match collision {
+        AliasImportCollision::Ambiguous => (
+            "first::shared",
+            SourceFile::new("first-shared.veln", "pub type State\n  Hidden\nend\n"),
+            "second::shared",
+            SourceFile::new("second-shared.veln", "pub type Other\n  pub Ready\nend\n"),
+            "use first::shared from \"first\"\n",
+            "use second::shared from \"second\"\n",
+        ),
+        AliasImportCollision::ExactPrecedence => (
+            "shared",
+            SourceFile::new("shared.veln", "pub type State\n  Hidden\nend\n"),
+            "nested::shared",
+            SourceFile::new("nested-shared.veln", "pub type State\n  pub Hidden\nend\n"),
+            "use shared\n",
+            "use nested::shared from \"dependency\"\n",
+        ),
+    };
+    let imports = if imports_reversed {
+        format!("{second_import}{first_import}")
+    } else {
+        format!("{first_import}{second_import}")
+    };
+    let consumer = SourceFile::new(
+        "consumer.veln",
+        format!(
+            "{imports}pub type Facade = shared::State\n\
+             pub fn expose(value: Facade::Hidden) -> ()\n  ()\nend\n"
+        ),
+    );
+    let consumer_identity = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&consumer).tree,
+        "consumer".to_string(),
+        consumer.span(veln_source::TextRange::new(0, 0)),
+    );
+    let mut sources = if sources_reversed {
+        vec![(second_name, second), (first_name, first)]
+    } else {
+        vec![(first_name, first), (second_name, second)]
+    };
+    sources.push(("consumer", consumer));
+    let mut project = merged_modules_with_identities(sources);
+    project.module = consumer_identity.module;
+    project
+}
+
 fn assert_colliding_recovery_signatures(environment: &TypeEnvironment) {
     for name in ["exact", "invalid_arity", "recovered_case"] {
         let signature = environment
