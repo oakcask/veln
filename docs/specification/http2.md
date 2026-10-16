@@ -383,13 +383,14 @@ capacity is not reusable. When the retained connection is not reusable, the
 service closes that stream once before connecting a new stream for the next
 request.
 
-On the first ordinary request-send, protocol, callback, join, connect, or close failure,
-`request_endpoint_sequence` returns `Http2ClientServiceFailure` with the
-completed request count and closes the retained stream once. Connect and close
-failures use `Http2ClientServiceNetworkFailure`; duplex read and write failures
-remain `Http2ClientServiceConnectionFailure` containing
-`Http2ConnectionTransportFailure`. A pure response handler leaves only
-`std::net::IO` and `concurrency` on the service expression. A handler with
+On the first ordinary request-send, protocol, callback, join, connect, or close
+failure, `request_endpoint_sequence` returns `Http2ClientServiceFailure` with
+the completed request count and closes the retained stream once. Connect and
+close failures use `Http2ClientServiceNetworkFailure`. A final close failure
+after all requests succeeded carries the total completed request count. Duplex
+read and write failures remain `Http2ClientServiceConnectionFailure`
+containing `Http2ConnectionTransportFailure`. A pure response handler leaves
+only `std::net::IO` and `concurrency` on the service expression. A handler with
 callback effects adds that callback row to the same expression.
 
 ## Shutdown
