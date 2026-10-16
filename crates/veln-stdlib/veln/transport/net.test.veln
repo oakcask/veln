@@ -2,6 +2,7 @@ use prelude
 use host_effects
 use net from "std"
 use transport::net
+use transport_net_test_support_test
 
 fn reply(status: String, value: String, bytes: ByteChunk, committed: Int, category: String, cause: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
 	{ status: status, value: value, local: "127.0.0.1:1", peer: "127.0.0.1:2", bytes: bytes, resolved_endpoints: list_nil(), bytes_committed: committed, category: category, phase: "before_operation", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: cause }
@@ -85,6 +86,20 @@ fn fresh_state() -> { tx : Sender<{ index : Int, writes : List<ByteChunk> }>, rx
 	state
 end
 
+fn fresh_read_count() -> { tx : Sender<Int>, rx : Receiver<Int> } effects [concurrency]
+	let calls = channel::bounded<Int>(1)
+	let _ = channel::send(calls.tx, 0)
+	calls
+end
+
+fn fake_stream() -> net::Stream effects [net]
+	transport_net_test_support_test::legacy_stream()
+end
+
+fn observed_one_read(calls: { tx : Sender<Int>, rx : Receiver<Int> }) -> Bool effects [concurrency]
+	option_unwrap_or(channel::recv(calls.rx), 0) == 1
+end
+
 test adapter_maps_chunk_and_clean_end() -> Result<(), String> effects [net, time, concurrency]
 	let chunk = with_stream_read("read-chunk", fresh_state())
 	let ended = with_stream_read("read-end", fresh_state())
@@ -95,6 +110,19 @@ test adapter_maps_chunk_and_clean_end() -> Result<(), String> effects [net, time
 			Err("adapter did not preserve successful read or clean end")
 		end
 		_ => Err("adapter did not return the successful read chunk")
+	end
+end
+
+test adapter_rejects_empty_source_read_once() -> Result<(), String> effects [net, concurrency]
+	let calls = fresh_read_count()
+	let result = handle transport::net::read_stream_chunk(fake_stream()) with transport_net_test_support_test::empty_read(calls)
+	match result
+		Err(net::NetError("read_stream_chunk", None, None, net::Other, "read returned an empty chunk")) => if observed_one_read(calls)
+			Ok(())
+		else
+			Err("adapter retried an empty source read")
+		end
+		_ => Err("adapter did not reject the empty source read")
 	end
 end
 

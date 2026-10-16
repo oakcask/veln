@@ -273,7 +273,11 @@ in output-buffer order. Rejected transitions return
 not write output from the rejected transition; bytes from earlier accepted
 driver iterations remain committed. On clean end, the driver delegates to
 `finalize_receive_connection_eof(...)` and returns either the accepted final
-core state or `Http2ConnectionIncompleteInput`.
+core state or `Http2ConnectionIncompleteInput`. When
+`transport::net::net_stream` supplies the duplex-stream effect, only a
+non-empty source `ReadChunk` reaches the `Some(chunk)` path. The adapter rejects
+an empty source `ReadChunk` without another read, and the driver returns
+`Http2ConnectionTransportFailure(NetError)`.
 
 `http2::connection::Http2ApplicationAction` is the public immutable response
 action value for the server application boundary. It has

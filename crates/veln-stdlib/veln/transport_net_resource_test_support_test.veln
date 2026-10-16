@@ -1,0 +1,5 @@
+use prelude
+
+pub fn legacy_stream() -> NetStream effects [net]
+	net::connect("transport-net-test")
+end

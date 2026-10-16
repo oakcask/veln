@@ -207,11 +207,13 @@ streams, standard input, or undo completed writes.
 
 `transport::net::net_stream(stream)` adapts a caller-owned `std::net::Stream`
 to the `DuplexStream` interface through `std::net::IO`. `read_chunk()` returns
-`Ok(Some(ByteChunk))` or `Ok(None)` for clean end and preserves a failed read
-as `Err(NetError)`. `write_chunks(chunks)` writes in list order and completes
-each chunk through `std::net::write_all`, including partial-write retries,
-before advancing. It preserves the first typed write failure. The adapter does
-not listen, connect, accept, close, or shut down the stream.
+`Ok(Some(bytes))` for a non-empty `ReadChunk(bytes)` and `Ok(None)` for
+`ReadEnd`. It preserves an existing failed read as `Err(NetError)`. It rejects
+an empty `ReadChunk` as a `read_stream_chunk`/`Other` `NetError` and performs no
+additional read. `write_chunks(chunks)` writes in list order and completes each
+chunk through `std::net::write_all`, including partial-write retries, before
+advancing. It preserves the first typed write failure. The adapter does not
+listen, connect, accept, close, or shut down the stream.
 
 HTTP/2 connection drivers own only the core state and caller-owned duplex
 interface. The client writes its preface and initial SETTINGS before reading;

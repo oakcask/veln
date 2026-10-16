@@ -1,0 +1,50 @@
+use prelude
+use host_effects from "std"
+use net from "std"
+use transport_net_resource_test_support_test
+
+fn legacy_stream_reply(operation: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	if operation == "connect"
+		{ status: "ok", value: "transport-net-test", local: "127.0.0.1:1", peer: "127.0.0.1:2", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+	else
+		{ status: "error", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "other", phase: "before_operation", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "unexpected legacy resource operation" }
+	end
+end
+
+handler legacy_stream_network() for host_effects::Network
+	request(operation, subject, bytes, remaining_ms, cancelled) => legacy_stream_reply(operation)
+end
+
+pub fn legacy_stream() -> net::Stream effects [net]
+	handle transport_net_resource_test_support_test::legacy_stream() with legacy_stream_network()
+end
+
+fn read_failure(operation: String, message: String) -> net::NetError
+	net::NetError(operation, None, None, net::Other, message)
+end
+
+fn unexpected(operation: String) -> net::NetError
+	read_failure(operation, "unexpected network operation")
+end
+
+fn record_empty_read(calls: { tx : Sender<Int>, rx : Receiver<Int> }) -> Result<net::ReadOutcome, net::NetError> effects [concurrency]
+	let count = option_unwrap_or(channel::recv(calls.rx), 0)
+	let _ = channel::send(calls.tx, count + 1)
+	Ok(net::ReadChunk(byte_chunk([])))
+end
+
+pub handler empty_read(calls: { tx : Sender<Int>, rx : Receiver<Int> }) for net::IO effects [concurrency]
+	resolve(address) => Err(unexpected("resolve"))
+	listen(address) => Err(unexpected("listen"))
+	connect(address, deadline, token) => Err(unexpected("connect"))
+	accept(listener, deadline, token) => Err(unexpected("accept"))
+	listener_address(listener) => Err(unexpected("listener_address"))
+	close_listener(listener) => Err(unexpected("close_listener"))
+	read(stream, deadline, token) => record_empty_read(calls)
+	write(stream, bytes, deadline, token) => net::Written(byte_chunk_count(bytes))
+	local_address(stream) => Err(unexpected("local_address"))
+	peer_address(stream) => Err(unexpected("peer_address"))
+	shutdown_read(stream) => Err(unexpected("shutdown_read"))
+	shutdown_write(stream) => Err(unexpected("shutdown_write"))
+	close_stream(stream) => Err(unexpected("close_stream"))
+end

@@ -308,9 +308,13 @@ Unix-domain sockets, TLS, HTTP, proxies, packet APIs, file-descriptor conversion
 or platform-specific socket options. Prompt peer-visible cleanup still requires
 an explicit close; scope cleanup is a safety net. The
 `transport::net::net_stream` handler adapts a borrowed `Stream` to
-`transport::DuplexStream`, preserves typed `NetError` failures, and leaves
-close and shutdown ownership with its caller. Removing the remaining legacy
-compiler-known network compatibility surface remains proposal work.
+`transport::DuplexStream`. A non-empty `ReadChunk(bytes)` becomes
+`Ok(Some(bytes))`, and `ReadEnd` becomes `Ok(None)`. An empty `ReadChunk`
+becomes a `NetError` whose operation is `read_stream_chunk` and whose kind is
+`Other`; the adapter performs no additional read after that result. Other typed
+`NetError` failures are preserved. The handler leaves close and shutdown
+ownership with its caller. Removing the remaining legacy compiler-known network
+compatibility surface remains proposal work.
 
 ## References
 
@@ -320,8 +324,10 @@ The exported implementation and companion tests are in
 that source code can construct, `write_all`, scoped resolution and failure
 translation, exact write progress, concurrency, interruption decisions, and
 lifecycle uncertainty across retries.
-The transport adapter companion suite covers adapter reads, clean end, partial
-writes across ordered chunks, and typed read and write failures.
+The transport adapter companion suite covers non-empty reads, empty-read
+rejection without retry, clean end, partial writes across ordered chunks, and
+typed read and write failures. The HTTP/2 connection companion suite checks
+the empty-read transport-failure projection through the network adapter.
 The JVM backend effect-injection tests use separate Veln test support to
 exercise the facade with opaque listener and stream resources and to check
 resource, option, byte, and result preservation. Checked command-level examples

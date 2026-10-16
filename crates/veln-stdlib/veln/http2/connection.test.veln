@@ -2,6 +2,8 @@ use prelude
 use host_effects
 use net from "std"
 use transport
+use transport::net
+use transport_net_test_support_test
 use http2::connection
 use http2::core
 use http2::hpack
@@ -156,6 +158,20 @@ test connection_driver_preserves_typed_write_failure() -> Result<(), String>
 	match result
 		Err(Http2ConnectionTransportFailure(net::NetError("write", None, None, net::ConnectionReset, "write reset"))) => Ok(())
 		_ => Err("HTTP/2 connection driver did not preserve the typed duplex write failure")
+	end
+end
+
+test net_adapter_projects_empty_read_once() -> Result<(), String> effects [net, concurrency]
+	let calls = channel::bounded<Int>(1)
+	let _ = channel::send(calls.tx, 0)
+	let result = handle handle http2::connection::drive_server(http2::core::server_connection_state(0)?) with transport::net::net_stream(transport_net_test_support_test::legacy_stream()) with transport_net_test_support_test::empty_read(calls)
+	match result
+		Err(Http2ConnectionTransportFailure(net::NetError("read_stream_chunk", None, None, net::Other, "read returned an empty chunk"))) => if option_unwrap_or(channel::recv(calls.rx), 0) == 1
+			Ok(())
+		else
+			Err("HTTP/2 adapter path retried an empty source read")
+		end
+		_ => Err("HTTP/2 adapter path did not preserve the empty-read failure")
 	end
 end
 

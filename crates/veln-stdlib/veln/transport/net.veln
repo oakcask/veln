@@ -4,7 +4,11 @@ use net from "std"
 
 pub fn read_stream_chunk(stream: net::Stream) -> Result<Option<ByteChunk>, net::NetError> effects [net::IO]
 	match net::read(stream)
-		Ok(net::ReadChunk(bytes)) => Ok(Some(bytes))
+		Ok(net::ReadChunk(bytes)) => if byte_count_to_int(byte_chunk_count(bytes)) == 0
+			Err(net::NetError("read_stream_chunk", None, None, net::Other, "read returned an empty chunk"))
+		else
+			Ok(Some(bytes))
+		end
 		Ok(net::ReadEnd) => Ok(None)
 		Err(error) => Err(error)
 	end

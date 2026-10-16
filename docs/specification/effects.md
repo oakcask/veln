@@ -178,11 +178,13 @@ The exported `transport::net` module declares
 `net_stream(stream: std::net::Stream)` as a public lexical handler for
 `transport::DuplexStream`. Handling a body with `transport::net::net_stream`
 removes `std::transport::DuplexStream` from the inferred effect set and adds
-`std::net::IO` from the handler clauses. Reads preserve a chunk, clean end, or
-typed `NetError`. Writes use `std::net::write_all` for every chunk in list
-order, so a partial host write retries only its remaining suffix and a typed
-write failure stops the list. The handler does not close its caller-owned
-stream. A public function
+`std::net::IO` from the handler clauses. Reads preserve a non-empty chunk,
+clean end, or an existing typed `NetError`. An empty `ReadChunk` becomes a
+`NetError` whose operation is `read_stream_chunk` and whose kind is `Other`;
+the handler performs no additional read after that result. Writes use
+`std::net::write_all` for every chunk in list order, so a partial host write
+retries only its remaining suffix and a typed write failure stops the list.
+The handler does not close its caller-owned stream. A public function
 that performs a duplex-stream operation without a handler must declare the
 duplex-stream effect. A public function that wraps that body with the
 `net_stream` handler must declare `std::net::IO` and does not retain the handled
