@@ -169,23 +169,27 @@ The exported standard `transport` module declares this public nominal effect:
 
 ```veln
 pub effect DuplexStream
-	read_chunk() -> Option<ByteChunk>
-	write_chunks(chunks: List<ByteChunk>) -> ()
+	read_chunk() -> Result<Option<ByteChunk>, std::net::NetError>
+	write_chunks(chunks: List<ByteChunk>) -> Result<(), std::net::NetError>
 end
 ```
 
 The exported `transport::net` module declares
-`net_stream(stream: NetStream)` as a public lexical handler for
+`net_stream(stream: std::net::Stream)` as a public lexical handler for
 `transport::DuplexStream`. Handling a body with `transport::net::net_stream`
 removes `std::transport::DuplexStream` from the inferred effect set and adds
-the existing coarse `net` effect from the handler clauses. A public function
+`std::net::IO` from the handler clauses. Reads preserve a chunk, clean end, or
+typed `NetError`. Writes use `std::net::write_all` for every chunk in list
+order, so a partial host write retries only its remaining suffix and a typed
+write failure stops the list. The handler does not close its caller-owned
+stream. A public function
 that performs a duplex-stream operation without a handler must declare the
 duplex-stream effect. A public function that wraps that body with the
-`net_stream` handler must declare `net` and does not retain the handled
+`net_stream` handler must declare `std::net::IO` and does not retain the handled
 duplex-stream effect.
 `http2::connection::drive_server` and `http2::connection::drive_client` expose
 only `std::transport::DuplexStream`; handling either driver with `net_stream`
-therefore replaces that nominal effect with `net` and does not expose
+therefore replaces that nominal effect with `std::net::IO` and does not expose
 HTTP/2-internal effects.
 `http2::connection::drive_server_application<effect E>` exposes
 `std::transport::DuplexStream` plus the effect row of its application
@@ -833,7 +837,7 @@ ordinary source context value. A pure job substitutes the empty effect set for
 job substitutes its concrete effect set for `E`, so the task creation
 expression infers `concurrency` plus each job effect once. A job that handles
 `transport::DuplexStream` with `transport::net::net_stream(stream)` substitutes
-the handled expression's remaining effects plus `net`; the task creation
+the handled expression's remaining effects plus `std::net::IO`; the task creation
 expression does not retain `transport::DuplexStream` after handler
 replacement. Pure, effectful, and context jobs retain these declared effect
 rows.

@@ -1,4 +1,5 @@
 use http2::connection from "std"
+use net from "std"
 use http2::core from "std"
 use http2::hpack from "std"
 use transport from "std"
@@ -16,10 +17,10 @@ fn handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>,
 	Ok(list_cons(Http2ApplicationAction::Http2SendResponseHeaders(http2::core::application_event_stream_id(event), response_headers()?, true), list_nil()))
 end
 
-pub fn outer_handler_does_not_enter_service_task(listener: NetListener, stream: NetStream) -> Result<(), Http2ServiceFailure> effects [concurrency]
+pub fn outer_handler_does_not_enter_service_task(listener: net::Listener, stream: net::Stream) -> Result<(), Http2ServiceFailure> effects [concurrency]
 	handle http2::connection::serve_tcp(listener, handler) with transport::net::net_stream(stream)
 end
 
-pub fn explicit_listener_boundary(listener: NetListener) -> Result<(), Http2ServiceFailure> effects [net, concurrency]
+pub fn explicit_listener_boundary(listener: net::Listener) -> Result<(), Http2ServiceFailure> effects [net::IO, concurrency]
 	http2::connection::serve_tcp(listener, handler)
 end

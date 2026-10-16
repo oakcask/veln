@@ -1,0 +1,134 @@
+use prelude
+use host_effects
+use net from "std"
+use transport::net
+
+fn reply(status: String, value: String, bytes: ByteChunk, committed: Int, category: String, cause: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: status, value: value, local: "127.0.0.1:1", peer: "127.0.0.1:2", bytes: bytes, resolved_endpoints: list_nil(), bytes_committed: committed, category: category, phase: "before_operation", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: cause }
+end
+
+fn success(value: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	reply("ok", value, byte_chunk([]), 0, "", "")
+end
+
+fn resolved() -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_cons({ network: "tcp4", address: "127.0.0.1:1" }, list_nil()), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+end
+
+fn update_index(state: { tx : Sender<Int>, rx : Receiver<Int> }) -> Int effects [concurrency]
+	let current = option_unwrap_or(channel::recv(state.rx), 0)
+	let _ = channel::send(state.tx, current + 1)
+	current
+end
+
+fn scripted_reply(scenario: String, state: { tx : Sender<Int>, rx : Receiver<Int> }, operation: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+	if operation == "resolve_tcp4"
+		resolved()
+	else if operation == "connect"
+		success("adapter-stream")
+	else if operation == "read" and scenario == "read-chunk"
+		reply("ok", "", byte_chunk([Byte(1), Byte(2)]), 0, "", "")
+	else if operation == "read" and scenario == "read-end"
+		reply("end", "", byte_chunk([]), 0, "", "")
+	else if operation == "read" and scenario == "read-failure"
+		reply("error", "", byte_chunk([]), 0, "permission_denied", "denied")
+	else if operation == "write" and scenario == "partial-write"
+		partial_write_reply(state, bytes)
+	else if operation == "write" and scenario == "write-failure"
+		reply("error", "", byte_chunk([]), 1, "connection_reset", "reset")
+	else if operation == "close_stream"
+		success("")
+	else
+		reply("error", "", byte_chunk([]), 0, "other", "unexpected adapter operation")
+	end
+end
+
+fn partial_write_reply(state: { tx : Sender<Int>, rx : Receiver<Int> }, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+	let index = update_index(state)
+	let count = byte_count_to_int(byte_chunk_count(bytes))
+	if index == 0 and count == 3
+		reply("ok", "", byte_chunk([]), 1, "", "")
+	else if index == 1 and count == 2
+		reply("ok", "", byte_chunk([]), 2, "", "")
+	else if index == 2 and count == 2
+		reply("ok", "", byte_chunk([]), 2, "", "")
+	else
+		reply("error", "", byte_chunk([]), 0, "other", "adapter wrote an unexpected suffix")
+	end
+end
+
+handler scripted_network(scenario: String, state: { tx : Sender<Int>, rx : Receiver<Int> }) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => scripted_reply(scenario, state, operation, bytes)
+end
+
+fn with_stream_read(scenario: String, state: { tx : Sender<Int>, rx : Receiver<Int> }) -> Result<Option<ByteChunk>, net::NetError> effects [net, time, concurrency]
+	handle handle begin
+		let stream = net::connect(net::Address(net::Tcp4, "127.0.0.1", 1))?
+		let result = transport::net::read_stream_chunk(stream)
+		let _ = net::close_stream(stream)?
+		result
+	end with net::system() with scripted_network(scenario, state)
+end
+
+fn with_stream_write(scenario: String, state: { tx : Sender<Int>, rx : Receiver<Int> }, chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [net, time, concurrency]
+	handle handle begin
+		let stream = net::connect(net::Address(net::Tcp4, "127.0.0.1", 1))?
+		let result = transport::net::write_stream_chunks(stream, chunks)
+		let _ = net::close_stream(stream)?
+		result
+	end with net::system() with scripted_network(scenario, state)
+end
+
+fn fresh_state() -> { tx : Sender<Int>, rx : Receiver<Int> } effects [concurrency]
+	let state = channel::bounded<Int>(1)
+	let _ = channel::send(state.tx, 0)
+	state
+end
+
+test adapter_maps_chunk_and_clean_end() -> Result<(), String> effects [net, time, concurrency]
+	let chunk = with_stream_read("read-chunk", fresh_state())
+	let ended = with_stream_read("read-end", fresh_state())
+	match chunk
+		Ok(Some(bytes)) => if byte_count_to_int(byte_chunk_count(bytes)) == 2 and is_clean_end(ended)
+			Ok(())
+		else
+			Err("adapter did not preserve successful read or clean end")
+		end
+		_ => Err("adapter did not return the successful read chunk")
+	end
+end
+
+fn is_clean_end(result: Result<Option<ByteChunk>, net::NetError>) -> Bool
+	match result
+		Ok(None) => true
+		_ => false
+	end
+end
+
+test adapter_retries_partial_writes_and_preserves_order() -> Result<(), String> effects [net, time, concurrency]
+	let state = fresh_state()
+	let first = byte_chunk_from_hex("010203")?
+	let second = byte_chunk_from_hex("0a0b")?
+	match with_stream_write("partial-write", state, list_cons(first, list_cons(second, list_nil())))
+		Ok(()) => if option_unwrap_or(channel::recv(state.rx), -1) == 3
+			Ok(())
+		else
+			Err("adapter did not issue the expected partial-write sequence")
+		end
+		Err(_) => Err("adapter did not complete partial writes")
+	end
+end
+
+test adapter_preserves_typed_read_failure() -> Result<(), String> effects [net, time, concurrency]
+	match with_stream_read("read-failure", fresh_state())
+		Err(net::NetError("read", _, _, net::PermissionDenied, _)) => Ok(())
+		_ => Err("adapter did not preserve the typed read failure")
+	end
+end
+
+test adapter_preserves_typed_write_failure() -> Result<(), String> effects [net, time, concurrency]
+	match with_stream_write("write-failure", fresh_state(), list_cons(byte_chunk_from_hex("0102")?, list_nil()))
+		Err(net::NetError("write", _, _, net::ConnectionReset, _)) => Ok(())
+		_ => Err("adapter did not preserve the typed write failure")
+	end
+end

@@ -292,7 +292,7 @@ effects [...E]`, and the driver has the public effect boundary
 the duplex-stream effect on the driver expression. An effectful callback adds
 its row to the driver expression. Handling the driver with
 `transport::net::net_stream` replaces only the duplex-stream effect with
-`net`; callback effects remain declared by the caller.
+`std::net::IO`; callback effects remain declared by the caller.
 The driver drains core application events exactly once. In this bounded slice
 it accepts at most one request whose completed HEADERS also set END_STREAM.
 It invokes the callback exactly once for that request. A body-bearing request
@@ -314,14 +314,15 @@ the duplex stream before the next core action is attempted. If a later core
 action is rejected, earlier committed writes remain visible and the rejected
 action and later actions write no bytes. Callback failures write no response
 action bytes. Clean EOF and incomplete EOF preserve the same accepted and
-incomplete-input behavior as the connection driver. Abrupt runtime transport
-failures remain runtime failures rather than typed application failures.
+incomplete-input behavior as the connection driver. A duplex read or write
+failure becomes `Http2ConnectionTransportFailure(NetError)` inside
+`Http2ApplicationConnectionFailure`.
 
 `http2::connection::Http2ServiceFailure` is the public failure value for the
 server service boundary. It exposes state creation failure, application
-boundary failure with accepted-connection index, and task join failure with
-accepted-connection index. Projection helpers expose service failure kind, id,
-reason, accepted index, and stream id.
+boundary failure with accepted-connection index, task join failure with
+accepted-connection index, and listener or stream network failure. Projection
+helpers expose service failure kind, id, reason, accepted index, and stream id.
 
 `http2::connection::serve_connection(handler)` creates a server connection
 state and drives one caller-owned duplex stream through
@@ -333,18 +334,19 @@ accepted streams, and connection tasks. Each spawned connection task receives
 its `NetStream` as explicit context and installs
 `transport::net::net_stream` inside the task. Lexical handlers installed
 outside `serve_tcp` do not satisfy the spawned connection task boundary. Its
-public effect boundary is `[net, concurrency, ...E]`.
+public effect boundary is `[std::net::IO, concurrency, ...E]`.
 
 For each accepted stream, `serve_tcp` spawns one connection task with that
 stream as explicit context, joins the task, and closes the stream once. The
 service accepts the next stream only after the current task succeeds. On clean
 listener end, `serve_tcp` closes the listener once. On the first ordinary
-callback, protocol, or join failure, it preserves that first failure, closes
-the failed stream once, closes the listener once, and does not accept or write
-a later connection response. Abrupt runtime transport failures, including
-transport failures raised inside a spawned connection task, remain runtime
-failures rather than `Http2ServiceJoinFailure` values. Later source cleanup
-after an abrupt runtime transport failure is not specified.
+callback, protocol, or join failure, it closes the failed stream once, closes
+the listener once, and does not accept or write a later connection response.
+It returns that ordinary failure when both cleanup closes succeed. An accept
+or cleanup-close failure instead becomes
+`Http2ServiceNetworkFailure(NetError)`. Duplex failures inside a spawned task
+remain connection transport failures and are not reclassified as join
+failures.
 
 `http2::connection::Http2ClientRequest` is the immutable public client request
 value. The implemented request shape is
@@ -376,13 +378,14 @@ capacity is not reusable. When the retained connection is not reusable, the
 service closes that stream once before connecting a new stream for the next
 request.
 
-On the first ordinary request-send, protocol, callback, or join failure,
+On the first ordinary request-send, protocol, callback, join, connect, or close failure,
 `request_endpoint_sequence` returns `Http2ClientServiceFailure` with the
-completed request count and closes the retained stream once. Abrupt runtime
-transport failures remain runtime failures, and later source cleanup after
-that failure is not specified. A pure response handler leaves only `net` and
-`concurrency` on the service expression. A handler with callback effects adds
-that callback row to the same expression.
+completed request count and closes the retained stream once. Connect and close
+failures use `Http2ClientServiceNetworkFailure`; duplex read and write failures
+remain `Http2ClientServiceConnectionFailure` containing
+`Http2ConnectionTransportFailure`. A pure response handler leaves only
+`std::net::IO` and `concurrency` on the service expression. A handler with
+callback effects adds that callback row to the same expression.
 
 ## Shutdown
 

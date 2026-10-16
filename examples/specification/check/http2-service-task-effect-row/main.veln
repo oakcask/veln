@@ -1,6 +1,7 @@
 use http2::connection from "std"
 use http2::core from "std"
 use http2::hpack from "std"
+use net from "std"
 use transport from "std"
 use transport::net from "std"
 
@@ -32,7 +33,7 @@ fn db_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationActio
 	Ok(list_cons(Http2ApplicationAction::Http2SendResponseHeaders(http2::core::application_event_stream_id(event), response_headers()?, true), list_nil()))
 end
 
-fn read_request() -> Option<ByteChunk> effects [transport::DuplexStream]
+fn read_request() -> Result<Option<ByteChunk>, net::NetError> effects [transport::DuplexStream]
 	perform transport::DuplexStream::read_chunk()
 end
 
@@ -41,7 +42,7 @@ fn connection_body() -> Int effects [transport::DuplexStream, db]
 	application_callback()
 end
 
-fn connection_job(context: {stream: NetStream}) -> Int effects [net, db]
+fn connection_job(context: {stream: net::Stream}) -> Int effects [net::IO, db]
 	handle connection_body() with transport::net::net_stream(context.stream)
 end
 
@@ -53,15 +54,15 @@ pub fn db_spawn_missing_db() -> Task<Int> effects [concurrency]
 	task::spawn(db_job)
 end
 
-pub fn connection_task_missing_net_and_db(stream: NetStream) -> Task<Int> effects [concurrency]
+pub fn connection_task_missing_net_and_db(stream: net::Stream) -> Task<Int> effects [concurrency]
 	let context = {stream: stream}
-	task::spawn_with<Int, {stream: NetStream}>(connection_job, context)
+	task::spawn_with(connection_job, context)
 end
 
-pub fn pure_tcp_service_missing_net_and_concurrency(listener: NetListener) -> Result<(), Http2ServiceFailure>
+pub fn pure_tcp_service_missing_net_and_concurrency(listener: net::Listener) -> Result<(), Http2ServiceFailure>
 	http2::connection::serve_tcp(listener, pure_handler)
 end
 
-pub fn db_tcp_service_missing_db(listener: NetListener) -> Result<(), Http2ServiceFailure> effects [net, concurrency]
+pub fn db_tcp_service_missing_db(listener: net::Listener) -> Result<(), Http2ServiceFailure> effects [net::IO, concurrency]
 	http2::connection::serve_tcp(listener, db_handler)
 end

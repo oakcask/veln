@@ -1,5 +1,6 @@
 use prelude
 use host_effects
+use net from "std"
 use transport
 use http2::connection
 use http2::core
@@ -37,14 +38,14 @@ fn application_two_request_chunk() -> Result<ByteChunk, String>
 	byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010500000001828784000003010500000003828785")
 end
 
-fn fixed_read_chunk(chunk: ByteChunk) -> Option<ByteChunk>
-	Some(chunk)
+fn fixed_read_chunk(chunk: ByteChunk) -> Result<Option<ByteChunk>, net::NetError>
+	Ok(Some(chunk))
 end
 
-fn discard_write_chunks(chunk: ByteChunk, chunks: List<ByteChunk>) -> ()
+fn discard_write_chunks(chunk: ByteChunk, chunks: List<ByteChunk>) -> Result<(), net::NetError>
 	let _ = chunk
 	let _ = chunks
-	()
+	Ok(())
 end
 
 handler fixed_duplex(chunk: ByteChunk) for transport::DuplexStream
@@ -127,7 +128,7 @@ test client_reuse_decision_uses_public_lifecycle_and_capacity() -> Result<(), St
 	end
 end
 
-test client_service_callback_failure_uses_ordinary_cleanup_path() -> Result<(), String> effects [net, concurrency]
+test client_service_callback_failure_uses_ordinary_cleanup_path() -> Result<(), String> effects [net, time, concurrency]
 	let response = byte_chunk_from_hex("00000004000000000000000101050000000189")?
 	let trace = channel::bounded<List<{operation:String, bytes:ByteChunk}>>(1)
 	let _ = channel::send(trace.tx, list_nil())
@@ -143,12 +144,17 @@ end
 fn callback_network_reply(response: ByteChunk, trace: { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> }, operation: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
 	let observed: List<{ operation : String, bytes : ByteChunk }> = option_unwrap_or(channel::recv(trace.rx), list_nil())
 	let _ = channel::send(trace.tx, list_cons({ operation: operation, bytes: bytes }, observed))
-	{ status: "ok", value: "callback-stream", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: response, resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+	let endpoints = if operation == "resolve_tcp"
+		list_cons({ network: "tcp4", address: "127.0.0.1:0" }, list_nil())
+	else
+		list_nil()
+	end
+	{ status: "ok", value: "callback-stream", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: response, resolved_endpoints: endpoints, bytes_committed: byte_count_to_int(byte_chunk_count(bytes)), category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
 end
 
 fn callback_network_trace_matches(trace: List<{ operation : String, bytes : ByteChunk }>) -> Result<(), String>
 	match trace
-		Cons(closed, Cons(read, Cons(request, Cons(settings, Cons(preface, Cons(connected, Nil)))))) => if connected.operation == "connect" and preface.operation == "write_chunk" and settings.operation == "write_chunk" and request.operation == "write_chunk" and read.operation == "read_chunk_or_end" and closed.operation == "close_stream"
+		Cons(closed, Cons(read, Cons(request, Cons(settings, Cons(preface, Cons(connected, Cons(resolved, Nil))))))) => if resolved.operation == "resolve_tcp" and connected.operation == "connect" and preface.operation == "write" and settings.operation == "write" and request.operation == "write" and read.operation == "read" and closed.operation == "close_stream"
 			if callback_write_matches(preface.bytes, "505249202a20485454502f322e300d0a0d0a534d0d0a0d0a")? and callback_write_matches(settings.bytes, "000000040000000000")? and callback_write_matches(request.bytes, "000003010500000001828784")?
 				Ok(())
 			else
@@ -189,8 +195,8 @@ fn callback_bytes_match_next(actual: ByteChunk, expected: ByteChunk, index: Int,
 	end
 end
 
-fn client_service_callback_failure_cleanup_result() -> Result<(), String> effects [net, concurrency]
-	match http2::connection::request_endpoint_sequence("127.0.0.1:0", client_one_request()?, reject_client_response)
+fn client_service_callback_failure_cleanup_result() -> Result<(), String> effects [net, time, concurrency]
+	match handle http2::connection::request_endpoint_sequence("127.0.0.1:0", client_one_request()?, reject_client_response) with net::system()
 		Ok(_) => Err("HTTP/2 client service did not return the callback failure")
 		Err(failure) => client_service_callback_failure_matches_ordinary_path(failure)
 	end

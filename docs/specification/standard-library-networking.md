@@ -306,9 +306,11 @@ successful resource reference for a fake handler.
 The system handler supports TCP streams only. It does not provide UDP,
 Unix-domain sockets, TLS, HTTP, proxies, packet APIs, file-descriptor conversion,
 or platform-specific socket options. Prompt peer-visible cleanup still requires
-an explicit close; scope cleanup is a safety net. Adapting an owned stream to
-`transport::DuplexStream` and removing the legacy compiler-known network
-compatibility surface remain proposal work.
+an explicit close; scope cleanup is a safety net. The
+`transport::net::net_stream` handler adapts a borrowed `Stream` to
+`transport::DuplexStream`, preserves typed `NetError` failures, and leaves
+close and shutdown ownership with its caller. Removing the remaining legacy
+compiler-known network compatibility surface remains proposal work.
 
 ## References
 
@@ -318,6 +320,8 @@ The exported implementation and companion tests are in
 that source code can construct, `write_all`, scoped resolution and failure
 translation, exact write progress, concurrency, interruption decisions, and
 lifecycle uncertainty across retries.
+The transport adapter companion suite covers adapter reads, clean end, partial
+writes across ordered chunks, and typed read and write failures.
 The JVM backend effect-injection tests use separate Veln test support to
 exercise the facade with opaque listener and stream resources and to check
 resource, option, byte, and result preservation. Checked command-level examples

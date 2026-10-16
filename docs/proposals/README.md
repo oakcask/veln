@@ -35,9 +35,6 @@ also states it.
 
 ## Blocked
 
-- The network `transport::DuplexStream` adapter is blocked until the transport
-  effect has a decided typed failure contract:
-  [network-duplex-adapter.md](network-duplex-adapter.md).
 - Generic named-type and function variance remains separate from ADT variant
   refinement and is blocked until its constructor classifications and complete
   callable composition table are decided:

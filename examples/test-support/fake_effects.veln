@@ -1,4 +1,15 @@
 use host_effects from "std"
+use transport from "std"
+
+## Adapt the legacy host-network fixture surface to the typed duplex contract.
+## Production code uses transport::net::net_stream with std::net::IO instead.
+pub handler legacy_duplex_stream(stream: NetStream) for transport::DuplexStream effects [net]
+	read_chunk() => Ok(net::read_chunk_or_end(stream))
+	write_chunks(chunks) => begin
+		net::write_chunks(stream, chunks)
+		Ok(())
+	end
+end
 
 pub fn create_state(configuration: Dict<String, String>) -> { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> } effects [concurrency]
 	let state = channel::bounded<Dict<String, String>>(1)
@@ -371,8 +382,19 @@ fn inspect(state: Dict<String, String>, operation: String, subject: String) -> {
 	end
 end
 
+fn resolve(state: Dict<String, String>, operation: String, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } }
+	let network = if operation == "resolve_tcp6"
+		"tcp6"
+	else
+		"tcp4"
+	end
+	transition(state, { status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_cons({ network: network, address: subject }, list_nil()), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" })
+end
+
 fn network_transition(state: Dict<String, String>, operation: String, subject: String, bytes: ByteChunk, remaining: Int, cancelled: Bool) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
-	if operation == "listen"
+	if begins(operation, "resolve")
+		resolve(state, operation, subject)
+	else if operation == "listen"
 		listen(state, subject)
 	else if operation == "connect"
 		connect(state, subject)
@@ -545,7 +567,7 @@ fn write_bytes(bytes: ByteChunk, state: Dict<String, String>, subject: String) -
 	let paired = publish_pair_write(state, subject, hex_from(bytes, 0))
 	let next = dict_insert(dict_insert(paired, join(["write_index:", subject]), int_to_string(number(state, join(["write_index:", subject])) + 1)), join(["writes:", subject]), join([get(state, join(["writes:", subject])), hex_from(bytes, 0)]))
 	if event(state, join(["write", suffix(state), " ", subject, " ", display(bytes)]))
-		transition(next, success("", "", ""))
+		transition(next, reply("ok", "", "", "", bytes))
 	else
 		transition(next, failure(subject, local(state, subject), peer(state, subject), "event_record_failed", "output_committed", 0, 1, 0, "could not record injected net events"))
 	end

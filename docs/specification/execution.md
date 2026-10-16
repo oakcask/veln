@@ -205,16 +205,20 @@ their streams. This orchestration belongs to the source program; task failure
 or cancellation does not automatically close caller-owned listeners,
 streams, standard input, or undo completed writes.
 
-`transport::net::net_stream(stream)` adapts a caller-owned `NetStream` to the
-`DuplexStream` interface. `read_chunk()` returns `Some(ByteChunk)` or `None`
-for clean end; `write_chunks(chunks)` writes in list order. The adapter does
+`transport::net::net_stream(stream)` adapts a caller-owned `std::net::Stream`
+to the `DuplexStream` interface through `std::net::IO`. `read_chunk()` returns
+`Ok(Some(ByteChunk))` or `Ok(None)` for clean end and preserves a failed read
+as `Err(NetError)`. `write_chunks(chunks)` writes in list order and completes
+each chunk through `std::net::write_all`, including partial-write retries,
+before advancing. It preserves the first typed write failure. The adapter does
 not listen, connect, accept, close, or shut down the stream.
 
 HTTP/2 connection drivers own only the core state and caller-owned duplex
 interface. The client writes its preface and initial SETTINGS before reading;
 the server writes its initial SETTINGS before reading. Closed entry state
 returns without I/O. Protocol failures are typed core failures, while host
-transport failures remain runtime failures. Detailed HTTP/2 frame, HPACK,
+transport failures become `Http2ConnectionTransportFailure(NetError)` values.
+Detailed HTTP/2 frame, HPACK,
 connection-state, and service contracts are specified in [http2.md](http2.md).
 
 `serve_connection` maps one callback boundary to the HTTP/2 driver and
@@ -224,8 +228,10 @@ listener on clean end or first ordinary service failure, and stops accepting
 after the first application or join failure. `request_endpoint_sequence`
 owns each client stream and task, reuses a connection only while the core
 state is open and peer stream capacity remains, otherwise closes and
-reconnects. Callback, protocol, and join failures are typed service failures;
-abrupt transport failures remain runtime failures.
+reconnects. Callback, protocol, join, connection-transport, and service-level
+network failures are typed failures. The HTTP/2 services expose `std::net::IO`;
+the caller installs `std::net::system()` only at a production host boundary or
+installs a scoped fake `net::IO` handler for deterministic execution.
 
 ## Binary schemas
 

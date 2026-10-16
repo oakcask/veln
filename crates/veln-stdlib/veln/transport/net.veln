@@ -1,15 +1,26 @@
 use prelude
 use transport
+use net from "std"
 
-pub fn read_stream_chunk(stream: NetStream) -> Option<ByteChunk> effects [net]
-	net::read_chunk_or_end(stream)
+pub fn read_stream_chunk(stream: net::Stream) -> Result<Option<ByteChunk>, net::NetError> effects [net::IO]
+	match net::read(stream)
+		Ok(net::ReadChunk(bytes)) => Ok(Some(bytes))
+		Ok(net::ReadEnd) => Ok(None)
+		Err(error) => Err(error)
+	end
 end
 
-pub fn write_stream_chunks(stream: NetStream, chunks: List<ByteChunk>) -> () effects [net]
-	net::write_chunks(stream, chunks)
+pub fn write_stream_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [net::IO]
+	match chunks
+		Nil => Ok(())
+		Cons(chunk, tail) => match net::write_all(stream, chunk, None, None)
+			Ok(()) => write_stream_chunks(stream, tail)
+			Err(error) => Err(error)
+		end
+	end
 end
 
-pub handler net_stream(stream: NetStream) for transport::DuplexStream effects [net]
+pub handler net_stream(stream: net::Stream) for transport::DuplexStream effects [net::IO]
 	read_chunk() => read_stream_chunk(stream)
 	write_chunks(chunks) => write_stream_chunks(stream, chunks)
 end

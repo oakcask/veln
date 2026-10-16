@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"effect.missing_public\"", "public function uses undeclared effect `net`", "\"inferred_effects\":[\"net\",\"concurrency\"]"]
+contains = ["\"id\":\"effect.missing_public\"", "public function uses undeclared effect `std::net::IO`", "\"inferred_effects\":[\"std::net::IO\",\"concurrency\"]"]
 
 [stderr]
 format = "empty"
@@ -20,9 +20,9 @@ equals = 1
 id = "effect.missing_public"
 severity = "error"
 kind = "effect"
-message = "public function uses undeclared effect `net`"
+message = "public function uses undeclared effect `std::net::IO`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 19
+line = 20
 column = 1

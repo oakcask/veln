@@ -2,8 +2,12 @@ use fixture_effects
 use fake_effects
 use http2::connection from "std"
 use http2::core from "std"
-use transport::net from "std"
+use transport from "std"
 use stdio
+
+fn listen_loopback() -> Result<NetListener, String> effects [net]
+	Ok(net::listen("127.0.0.1:0"))
+end
 
 fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
 	match net::accept_or_end(listener)
@@ -13,7 +17,7 @@ fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
 end
 
 fn run_server(stream: NetStream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [net]
-	handle http2::connection::drive_server(state) with transport::net::net_stream(stream)
+	handle http2::connection::drive_server(state) with fake_effects::legacy_duplex_stream(stream)
 end
 
 fn print_result(label: String, result: Result<CoreConnectionState, Http2ConnectionFailure>) -> Result<(), String> effects [stdio]
@@ -46,7 +50,7 @@ fn run_one(listener: NetListener, label: String) -> Result<(), String> effects [
 end
 
 fn fixture_body() -> Result<(), String> effects [net, stdio]
-	let listener = net::listen("127.0.0.1:0")
+	let listener = listen_loopback()?
 	let _ = run_one(listener, "split")?
 	let _ = run_one(listener, "complete")?
 	Ok(())
