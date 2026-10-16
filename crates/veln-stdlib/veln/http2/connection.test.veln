@@ -53,6 +53,28 @@ handler fixed_duplex(chunk: ByteChunk) for transport::DuplexStream
 	write_chunks(chunks) => discard_write_chunks(chunk, chunks)
 end
 
+fn failing_duplex_read(mode: String) -> Result<Option<ByteChunk>, net::NetError>
+	if mode == "read"
+		Err(net::NetError("read", None, None, net::PermissionDenied, "read denied"))
+	else
+		Ok(None)
+	end
+end
+
+fn failing_duplex_write(mode: String, chunks: List<ByteChunk>) -> Result<(), net::NetError>
+	let _ = chunks
+	if mode == "write"
+		Err(net::NetError("write", None, None, net::ConnectionReset, "write reset"))
+	else
+		Ok(())
+	end
+end
+
+handler failing_duplex(mode: String) for transport::DuplexStream
+	read_chunk() => failing_duplex_read(mode)
+	write_chunks(chunks) => failing_duplex_write(mode, chunks)
+end
+
 fn fail_if_called_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
 	let _ = http2::core::application_event_stream_id(event)
 	Err("callback should not run")
@@ -118,6 +140,22 @@ test application_driver_effect_boundary_handles_closed_state_without_callback() 
 			Err("HTTP/2 application driver did not preserve closed state")
 		end
 		Err(failure) => Err(http2::connection::application_failure_reason(failure))
+	end
+end
+
+test connection_driver_preserves_typed_read_failure() -> Result<(), String>
+	let result = handle http2::connection::drive_server(http2::core::server_connection_state(0)?) with failing_duplex("read")
+	match result
+		Err(Http2ConnectionTransportFailure(net::NetError("read", None, None, net::PermissionDenied, "read denied"))) => Ok(())
+		_ => Err("HTTP/2 connection driver did not preserve the typed duplex read failure")
+	end
+end
+
+test connection_driver_preserves_typed_write_failure() -> Result<(), String>
+	let result = handle http2::connection::drive_server(http2::core::server_connection_state(0)?) with failing_duplex("write")
+	match result
+		Err(Http2ConnectionTransportFailure(net::NetError("write", None, None, net::ConnectionReset, "write reset"))) => Ok(())
+		_ => Err("HTTP/2 connection driver did not preserve the typed duplex write failure")
 	end
 end
 

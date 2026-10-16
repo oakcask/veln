@@ -1,3 +1,7 @@
+# JVM integration contract: the scoped host-network fake around net::system()
+# must reach serve_tcp's spawned connection task. The exact event trace detects
+# handler inheritance, and the stdout failure id detects the injected task write
+# failure without turning the successful CLI run envelope into a runtime error.
 command = ["run", "--json", "main", "main.veln", "fixture_effects.veln", "fake_effects.veln"]
 exit = 0
 
