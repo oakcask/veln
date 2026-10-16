@@ -68,42 +68,7 @@ fn scan_expr_tail_recursion(
 ) {
     match &expr.kind {
         IrExprKind::Call { target, args, .. } => {
-            match target {
-                IrCallTarget::Function(name) if name == function && tail_position => {
-                    facts.has_tail_self_call = true;
-                }
-                IrCallTarget::Function(name) if name == function => {
-                    facts.has_non_tail_self_call = true;
-                }
-                IrCallTarget::Value(_) => {
-                    facts.has_indirect_value_call = true;
-                }
-                IrCallTarget::CallsiteValue { callsite, .. } => {
-                    facts.has_indirect_value_call = true;
-                    scan_expr_tail_recursion(callsite, function, false, facts);
-                }
-                IrCallTarget::CallbackBoundary {
-                    target: IrCallbackTarget::Function(name),
-                    callsite,
-                } if name == function && tail_position => {
-                    facts.has_tail_self_call = true;
-                    scan_expr_tail_recursion(callsite, function, false, facts);
-                }
-                IrCallTarget::CallbackBoundary {
-                    target: IrCallbackTarget::Function(name),
-                    callsite,
-                } if name == function => {
-                    facts.has_non_tail_self_call = true;
-                    scan_expr_tail_recursion(callsite, function, false, facts);
-                }
-                IrCallTarget::CallbackBoundary { callsite, .. } => {
-                    scan_expr_tail_recursion(callsite, function, false, facts);
-                }
-                _ => {}
-            }
-            for arg in args {
-                scan_expr_tail_recursion(arg, function, false, facts);
-            }
+            scan_call_tail_recursion(target, args, function, tail_position, facts);
         }
         IrExprKind::Match { scrutinee, arms } => {
             scan_expr_tail_recursion(scrutinee, function, false, facts);
@@ -112,16 +77,12 @@ fn scan_expr_tail_recursion(
             }
         }
         IrExprKind::Perform { args, .. } => {
-            for arg in args {
-                scan_expr_tail_recursion(arg, function, false, facts);
-            }
+            scan_non_tail_exprs(args, function, facts);
         }
         IrExprKind::Handle {
             context_args, body, ..
         } => {
-            for arg in context_args {
-                scan_expr_tail_recursion(arg, function, false, facts);
-            }
+            scan_non_tail_exprs(context_args, function, facts);
             scan_expr_tail_recursion(body, function, tail_position, facts);
         }
         IrExprKind::ResultOk(value)
@@ -137,9 +98,7 @@ fn scan_expr_tail_recursion(
             scan_expr_tail_recursion(tail, function, false, facts);
         }
         IrExprKind::AdtVariant { payloads, .. } | IrExprKind::List(payloads) => {
-            for value in payloads {
-                scan_expr_tail_recursion(value, function, false, facts);
-            }
+            scan_non_tail_exprs(payloads, function, facts);
         }
         IrExprKind::Record(fields) => {
             for field in fields {
@@ -157,20 +116,7 @@ fn scan_expr_tail_recursion(
             scan_expr_tail_recursion(right, function, false, facts);
         }
         IrExprKind::CleanupRegion { region } => {
-            for stmt in region {
-                match &stmt.kind {
-                    IrStmtKind::Let { value, .. }
-                    | IrStmtKind::Expr { value }
-                    | IrStmtKind::Return { value } => {
-                        scan_expr_tail_recursion(value, function, false, facts);
-                    }
-                    IrStmtKind::Defer(block) => {
-                        for stmt in &block.body {
-                            scan_stmt_tail_recursion(stmt, function, facts);
-                        }
-                    }
-                }
-            }
+            scan_cleanup_region_tail_recursion(region, function, facts);
         }
         IrExprKind::Local(_)
         | IrExprKind::BoolLiteral(_)
@@ -181,6 +127,85 @@ fn scan_expr_tail_recursion(
         | IrExprKind::FunctionValue { .. }
         | IrExprKind::OptionNone
         | IrExprKind::ListNil => {}
+    }
+}
+
+fn scan_call_tail_recursion(
+    target: &IrCallTarget,
+    args: &[IrExpr],
+    function: &str,
+    tail_position: bool,
+    facts: &mut TailRecursionFacts,
+) {
+    scan_call_target_tail_recursion(target, function, tail_position, facts);
+    scan_non_tail_exprs(args, function, facts);
+}
+
+fn scan_call_target_tail_recursion(
+    target: &IrCallTarget,
+    function: &str,
+    tail_position: bool,
+    facts: &mut TailRecursionFacts,
+) {
+    match target {
+        IrCallTarget::Function(name) if name == function && tail_position => {
+            facts.has_tail_self_call = true;
+        }
+        IrCallTarget::Function(name) if name == function => {
+            facts.has_non_tail_self_call = true;
+        }
+        IrCallTarget::Value(_) => {
+            facts.has_indirect_value_call = true;
+        }
+        IrCallTarget::CallsiteValue { callsite, .. } => {
+            facts.has_indirect_value_call = true;
+            scan_expr_tail_recursion(callsite, function, false, facts);
+        }
+        IrCallTarget::CallbackBoundary {
+            target: IrCallbackTarget::Function(name),
+            callsite,
+        } if name == function && tail_position => {
+            facts.has_tail_self_call = true;
+            scan_expr_tail_recursion(callsite, function, false, facts);
+        }
+        IrCallTarget::CallbackBoundary {
+            target: IrCallbackTarget::Function(name),
+            callsite,
+        } if name == function => {
+            facts.has_non_tail_self_call = true;
+            scan_expr_tail_recursion(callsite, function, false, facts);
+        }
+        IrCallTarget::CallbackBoundary { callsite, .. } => {
+            scan_expr_tail_recursion(callsite, function, false, facts);
+        }
+        _ => {}
+    }
+}
+
+fn scan_non_tail_exprs(exprs: &[IrExpr], function: &str, facts: &mut TailRecursionFacts) {
+    for expr in exprs {
+        scan_expr_tail_recursion(expr, function, false, facts);
+    }
+}
+
+fn scan_cleanup_region_tail_recursion(
+    region: &[IrStmt],
+    function: &str,
+    facts: &mut TailRecursionFacts,
+) {
+    for stmt in region {
+        match &stmt.kind {
+            IrStmtKind::Let { value, .. }
+            | IrStmtKind::Expr { value }
+            | IrStmtKind::Return { value } => {
+                scan_expr_tail_recursion(value, function, false, facts);
+            }
+            IrStmtKind::Defer(block) => {
+                for stmt in &block.body {
+                    scan_stmt_tail_recursion(stmt, function, facts);
+                }
+            }
+        }
     }
 }
 

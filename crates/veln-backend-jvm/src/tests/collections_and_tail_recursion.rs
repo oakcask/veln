@@ -474,6 +474,12 @@ fn bytecode_backend_classifies_tail_recursion_conservatively() {
         "    _ => forward_callback(callback, value - 1)\n",
         "  end\n",
         "end\n",
+        "fn callsite_length(value: Int) -> Int callsite\n",
+        "  match value\n",
+        "    0 => 0\n",
+        "    _ => 1 + callsite_length(value - 1)\n",
+        "  end\n",
+        "end\n",
     ));
 
     let function = |name: &str| {
@@ -502,5 +508,9 @@ fn bytecode_backend_classifies_tail_recursion_conservatively() {
     assert_eq!(
         classify_tail_recursion(function("forward_callback")),
         TailRecursionEligibility::Eligible
+    );
+    assert_eq!(
+        classify_tail_recursion(function("callsite_length")),
+        TailRecursionEligibility::NonTailSelfCall
     );
 }
