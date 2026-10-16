@@ -96,7 +96,8 @@ discovery guidance; the linked subject pages own behavior and evidence.
   [http2.md](http2.md).
 - Exported standard-library network values, pure host-port helpers, the nominal
   network-operation boundary and direct facade, the host system handler and
-  its resource lifecycle, and the complete-write helper:
+  its resource lifecycle, the complete-write helper, and the typed duplex
+  stream adapter:
   [standard-library-networking.md](standard-library-networking.md).
 - Standard-library observation effect, public no-op handler, typed attributes,
   trace context, and call-site-aware structured logs at debug, info, warning,

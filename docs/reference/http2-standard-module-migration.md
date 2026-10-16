@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: supporting
-update-when: The HTTP/2 standard-module public symbol surface or residual legacy-name classification changes.
+update-when: A former implicit-prelude HTTP/2 name changes its current standard-module path or residual legacy-name classification.
 ---
 
 # HTTP/2 Standard Module Migration
