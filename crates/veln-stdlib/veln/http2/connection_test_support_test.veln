@@ -1,0 +1,28 @@
+use prelude
+use transport
+use net
+
+pub handler fixed_duplex(chunk: ByteChunk) for transport::DuplexStream
+	read_chunk() => Ok(Some(chunk))
+	write_chunks(chunks) => accept_chunks(chunks)
+end
+
+pub handler failing_duplex_read(error: net::NetError) for transport::DuplexStream
+	read_chunk() => Err(error)
+	write_chunks(chunks) => accept_chunks(chunks)
+end
+
+pub handler failing_duplex_write(error: net::NetError) for transport::DuplexStream
+	read_chunk() => Err(net::NetError("unexpected-read", None, None, net::Other, "read followed a failed write"))
+	write_chunks(chunks) => reject_chunks(chunks, error)
+end
+
+fn accept_chunks(chunks: List<ByteChunk>) -> Result<(), net::NetError>
+	let _ = chunks
+	Ok(())
+end
+
+fn reject_chunks(chunks: List<ByteChunk>, error: net::NetError) -> Result<(), net::NetError>
+	let _ = chunks
+	Err(error)
+end

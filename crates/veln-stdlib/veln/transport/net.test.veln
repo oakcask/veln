@@ -1,0 +1,50 @@
+use prelude
+use net
+use transport::net_test_support_test
+
+test adapter_read_preserves_data_clean_end_and_network_failure() -> Result<(), String> effects [net, concurrency]
+	match transport::net_test_support_test::read_result("data")
+		Ok(Some(bytes)) => if byte_chunk_to_visible_ascii_string(bytes)? == "data"
+			match transport::net_test_support_test::read_result("end")
+				Ok(None) => match transport::net_test_support_test::read_result("failure")
+					Err(net::NetError("scripted-read", Some(net::Tcp4), Some("192.0.2.1:443"), net::ConnectionReset, "read failed")) => Ok(())
+					_ => Err("adapter changed or ignored the read failure")
+				end
+				_ => Err("adapter did not preserve clean end")
+			end
+		else
+			Err("adapter changed the read bytes")
+		end
+		_ => Err("adapter did not return the read chunk")
+	end
+end
+
+test adapter_rejects_successful_empty_read_as_typed_non_progress() -> Result<(), String> effects [net, concurrency]
+	match transport::net_test_support_test::read_result("empty")
+		Err(net::NetError("read", None, None, net::Other, "read returned an empty chunk without reaching end-of-stream")) => Ok(())
+		_ => Err("adapter did not reject an empty successful read")
+	end
+end
+
+test adapter_writes_chunks_in_order_and_completes_partial_writes() -> Result<(), String> effects [net, concurrency]
+	let chunks = list_cons(byte_chunk_from_visible_ascii_string("abc")?, list_cons(byte_chunk_from_visible_ascii_string("xy")?, list_nil()))
+	match transport::net_test_support_test::write_result("ordered", chunks)?
+		{ result: Ok(()), trace: Cons("write:xy", Cons("write:bc", Cons("write:abc", Nil))) } => Ok(())
+		_ => Err("adapter did not complete chunks in list order")
+	end
+end
+
+test adapter_empty_write_performs_no_io() -> Result<(), String> effects [net, concurrency]
+	match transport::net_test_support_test::write_result("ordered", list_nil())?
+		{ result: Ok(()), trace: Nil } => Ok(())
+		_ => Err("adapter performed I/O for an empty chunk list")
+	end
+end
+
+test adapter_returns_first_write_failure_unchanged() -> Result<(), String> effects [net, concurrency]
+	let chunks = list_cons(byte_chunk_from_visible_ascii_string("bad")?, list_cons(byte_chunk_from_visible_ascii_string("later")?, list_nil()))
+	match transport::net_test_support_test::write_result("write-failure", chunks)?
+		{ result: Err(net::NetError("scripted-write", Some(net::Tcp4), Some("192.0.2.1:443"), net::ConnectionReset, "write failed")), trace: Cons("write:bad", Nil) } => Ok(())
+		_ => Err("adapter changed the first write failure or continued writing")
+	end
+end

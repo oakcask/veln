@@ -1,6 +1,7 @@
 use prelude
+use net
 
 pub effect DuplexStream
-	read_chunk() -> Option<ByteChunk>
-	write_chunks(chunks: List<ByteChunk>) -> ()
+	read_chunk() -> Result<Option<ByteChunk>, net::NetError>
+	write_chunks(chunks: List<ByteChunk>) -> Result<(), net::NetError>
 end

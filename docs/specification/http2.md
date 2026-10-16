@@ -265,7 +265,7 @@ writes the HTTP/2 client connection preface, then writes the initial client
 SETTINGS bytes produced by the existing local SETTINGS send transition. It
 commits the returned core state before reading peer input.
 
-For each `Some(chunk)` read, the driver delegates to
+For each `Ok(Some(chunk))` read, the driver delegates to
 `http2::core::receive_connection_chunk(...)`. Accepted transitions commit the
 returned receive state and write each newly accepted output chunk exactly once
 in output-buffer order. Rejected transitions return
@@ -274,6 +274,13 @@ not write output from the rejected transition; bytes from earlier accepted
 driver iterations remain committed. On clean end, the driver delegates to
 `finalize_receive_connection_eof(...)` and returns either the accepted final
 core state or `Http2ConnectionIncompleteInput`.
+
+A duplex read or write `Err(error)` returns
+`Http2ConnectionTransportFailure(error)`. The variant contains the unchanged
+`net::NetError`; it is distinct from protocol, incomplete-input, and local
+settings failures. The connection failure projections report kind
+`"transport"`, id `"http2.connection.transport_failure"`, the network
+operation as source, and the network message as reason.
 
 `http2::connection::Http2ApplicationAction` is the public immutable response
 action value for the server application boundary. It has
@@ -291,8 +298,9 @@ effects [...E]`, and the driver has the public effect boundary
 `[std::transport::DuplexStream, ...E]`. A pure callback therefore leaves only
 the duplex-stream effect on the driver expression. An effectful callback adds
 its row to the driver expression. Handling the driver with
-`transport::net::net_stream` replaces only the duplex-stream effect with
-`net`; callback effects remain declared by the caller.
+`transport::network::net_stream` (or its `transport::net` equivalent)
+replaces only the duplex-stream effect with
+`std::net::IO`; callback effects remain declared by the caller.
 The driver drains core application events exactly once. In this bounded slice
 it accepts at most one request whose completed HEADERS also set END_STREAM.
 It invokes the callback exactly once for that request. A body-bearing request
@@ -314,8 +322,11 @@ the duplex stream before the next core action is attempted. If a later core
 action is rejected, earlier committed writes remain visible and the rejected
 action and later actions write no bytes. Callback failures write no response
 action bytes. Clean EOF and incomplete EOF preserve the same accepted and
-incomplete-input behavior as the connection driver. Abrupt runtime transport
-failures remain runtime failures rather than typed application failures.
+incomplete-input behavior as the connection driver. A duplex read or write
+failure returns `Http2ApplicationTransportFailure(error)` with the unchanged
+`net::NetError`. Its kind is `"transport"` and its id is
+`"http2.application.transport_failure"`; it is not a protocol or callback
+failure.
 
 `http2::connection::Http2ServiceFailure` is the public failure value for the
 server service boundary. It exposes state creation failure, application
@@ -331,9 +342,10 @@ state and drives one caller-owned duplex stream through
 `http2::connection::serve_tcp(listener, handler)` owns the supplied listener,
 accepted streams, and connection tasks. Each spawned connection task receives
 its `NetStream` as explicit context and installs
-`transport::net::net_stream` inside the task. Lexical handlers installed
+`transport::network::net_stream` inside the task. The adapter adds `std::net::IO`
+to the existing service effects. Lexical handlers installed
 outside `serve_tcp` do not satisfy the spawned connection task boundary. Its
-public effect boundary is `[net, concurrency, ...E]`.
+public effect boundary is `[net, std::net::IO, concurrency, ...E]`.
 
 For each accepted stream, `serve_tcp` spawns one connection task with that
 stream as explicit context, joins the task, and closes the stream once. The
@@ -363,7 +375,7 @@ capacity that the service uses for the next reuse decision.
 owns each connected `NetStream` and each spawned request task for a finite
 request list to one endpoint. A request task receives the stream, immutable
 core state, reuse flag, and request value as explicit task context, then
-installs `transport::net::net_stream` inside that task. The application
+installs `transport::network::net_stream` inside that task. The application
 handler receives only `Http2ClientResponse` values. It does not receive
 transport handles, handler context, or mutable core state.
 
@@ -380,8 +392,8 @@ On the first ordinary request-send, protocol, callback, or join failure,
 `request_endpoint_sequence` returns `Http2ClientServiceFailure` with the
 completed request count and closes the retained stream once. Abrupt runtime
 transport failures remain runtime failures, and later source cleanup after
-that failure is not specified. A pure response handler leaves only `net` and
-`concurrency` on the service expression. A handler with callback effects adds
+that failure is not specified. A pure response handler leaves `net`,
+`std::net::IO`, and `concurrency` on the service expression. A handler with callback effects adds
 that callback row to the same expression.
 
 ## Shutdown
@@ -856,4 +868,9 @@ Projections expose chunk count, indexed chunks, and concatenated bytes.
 
 ## Verification references
 
-The public implementations are under `crates/veln-stdlib/veln/http2/`; adjacent module tests exercise source-visible return values and failure projections. Runtime adapter and protocol diagnostic projections are covered by the JVM backend and CLI protocol suites. Representative frame, connection, and HPACK inputs live under `examples/specification/`.
+The public implementations are under `crates/veln-stdlib/veln/http2/`.
+Adjacent companion tests and their separate Veln handler support exercise
+source-visible return values, unchanged direct transport errors, and failure
+projections. The CLI protocol suites cover command diagnostics rather than
+adapter API permutations. Representative frame, connection, and HPACK inputs
+live under `examples/specification/`.

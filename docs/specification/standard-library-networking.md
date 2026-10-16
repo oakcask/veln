@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#usage; behavior=#network-operation-boundary; limits=#limits-and-errors
-update-when: The exported std net values, functions, system handler, resource lifecycle, host-port behavior, effect boundary, or executable network examples change.
+update-when: The exported std net values, functions, system handler, duplex adapter, resource lifecycle, host-port behavior, effect boundary, or executable network examples change.
 ---
 
 # Standard-library Networking
@@ -303,12 +303,30 @@ The helpers do not validate DNS spelling or the internal syntax of an IP
 literal. `Listener` and `Stream` are opaque; source code cannot construct a
 successful resource reference for a fake handler.
 
+## Duplex stream adapter
+
+`transport::net::net_stream(stream)` handles `transport::DuplexStream` through
+the active `net::IO` handler. The caller retains ownership of `stream`.
+`transport::network::net_stream` is the equivalent non-conflicting import path
+for a module that also imports `net` from `std`.
+
+- `ReadChunk(bytes)` becomes `Ok(Some(bytes))` when `bytes` is non-empty.
+- `ReadEnd` becomes `Ok(None)`.
+- `Err(error)` returns the same `NetError` value.
+- A successful empty `ReadChunk` becomes
+  `NetError("read", None, None, Other, "read returned an empty chunk without reaching end-of-stream")`.
+- An empty write list succeeds without a write. Otherwise the adapter calls
+  `net::write_all` for each chunk in list order and returns the first
+  `NetError` unchanged.
+
+Every read and write targets the captured stream. The adapter does not resolve,
+listen, accept, connect, inspect addresses, shut down, or close a resource.
+
 The system handler supports TCP streams only. It does not provide UDP,
 Unix-domain sockets, TLS, HTTP, proxies, packet APIs, file-descriptor conversion,
 or platform-specific socket options. Prompt peer-visible cleanup still requires
-an explicit close; scope cleanup is a safety net. Adapting an owned stream to
-`transport::DuplexStream` and removing the legacy compiler-known network
-compatibility surface remain proposal work.
+an explicit close; scope cleanup is a safety net. Removing the legacy
+compiler-known network compatibility surface remains proposal work.
 
 ## References
 
@@ -318,6 +336,12 @@ The exported implementation and companion tests are in
 that source code can construct, `write_all`, scoped resolution and failure
 translation, exact write progress, concurrency, interruption decisions, and
 lifecycle uncertainty across retries.
+The adapter implementation and companion evidence are in
+`crates/veln-stdlib/veln/transport/net.veln`,
+`crates/veln-stdlib/veln/transport/net.test.veln`, and the adjacent separate
+Veln test-support module. They cover typed reads, non-progress, complete
+ordered writes, captured-resource identity, and the absence of lifecycle or
+connection-management operations.
 The JVM backend effect-injection tests use separate Veln test support to
 exercise the facade with opaque listener and stream resources and to check
 resource, option, byte, and result preservation. Checked command-level examples

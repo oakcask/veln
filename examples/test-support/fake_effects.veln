@@ -1,4 +1,15 @@
 use host_effects from "std"
+use transport from "std"
+
+pub handler legacy_duplex(stream: NetStream) for transport::DuplexStream effects [net]
+	read_chunk() => Ok(net::read_chunk_or_end(stream))
+	write_chunks(chunks) => legacy_write_chunks(stream, chunks)
+end
+
+fn legacy_write_chunks(stream: NetStream, chunks: List<ByteChunk>) -> Result<(), std::net::NetError> effects [net]
+	net::write_chunks(stream, chunks)
+	Ok(())
+end
 
 pub fn create_state(configuration: Dict<String, String>) -> { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> } effects [concurrency]
 	let state = channel::bounded<Dict<String, String>>(1)

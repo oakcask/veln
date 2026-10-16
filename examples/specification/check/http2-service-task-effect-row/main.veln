@@ -2,7 +2,8 @@ use http2::connection from "std"
 use http2::core from "std"
 use http2::hpack from "std"
 use transport from "std"
-use transport::net from "std"
+use transport::network from "std"
+use net from "std"
 
 fn pure_job() -> Int
 	1
@@ -32,7 +33,7 @@ fn db_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationActio
 	Ok(list_cons(Http2ApplicationAction::Http2SendResponseHeaders(http2::core::application_event_stream_id(event), response_headers()?, true), list_nil()))
 end
 
-fn read_request() -> Option<ByteChunk> effects [transport::DuplexStream]
+fn read_request() -> Result<Option<ByteChunk>, net::NetError> effects [transport::DuplexStream]
 	perform transport::DuplexStream::read_chunk()
 end
 
@@ -41,8 +42,8 @@ fn connection_body() -> Int effects [transport::DuplexStream, db]
 	application_callback()
 end
 
-fn connection_job(context: {stream: NetStream}) -> Int effects [net, db]
-	handle connection_body() with transport::net::net_stream(context.stream)
+fn connection_job(context: {stream: NetStream}) -> Int effects [net::IO, db]
+	handle connection_body() with transport::network::net_stream(context.stream)
 end
 
 pub fn pure_spawn_missing_concurrency() -> Task<Int>
@@ -62,6 +63,6 @@ pub fn pure_tcp_service_missing_net_and_concurrency(listener: NetListener) -> Re
 	http2::connection::serve_tcp(listener, pure_handler)
 end
 
-pub fn db_tcp_service_missing_db(listener: NetListener) -> Result<(), Http2ServiceFailure> effects [net, concurrency]
+pub fn db_tcp_service_missing_db(listener: NetListener) -> Result<(), Http2ServiceFailure> effects [net, net::IO, concurrency]
 	http2::connection::serve_tcp(listener, db_handler)
 end

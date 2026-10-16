@@ -1,0 +1,17 @@
+use prelude
+
+pub fn accept_or_end(listener: NetListener) -> Option<NetStream> effects [net]
+	net::accept_or_end(listener)
+end
+
+pub fn connect(endpoint: String) -> NetStream effects [net]
+	net::connect(endpoint)
+end
+
+pub fn close_listener(listener: NetListener) -> () effects [net]
+	net::close_listener(listener)
+end
+
+pub fn close_stream(stream: NetStream) -> () effects [net]
+	net::close_stream(stream)
+end
