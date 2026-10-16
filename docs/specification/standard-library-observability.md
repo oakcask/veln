@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The standard-library Observe effect, observation handlers, structured logging, or observation data model changes.
+update-when: The standard-library Observe effect, observation handlers, scoped span helpers, structured logging, or observation data model changes.
 specification-coverage: usage=#usage; behavior=#behavior; limits=#limits
 ---
 
@@ -143,7 +143,9 @@ process or machine termination can prevent it from running.
 
 - Standard-library API coverage:
   [`observe.test.veln`](../../crates/veln-stdlib/veln/observe.test.veln) and
-  [`log.test.veln`](../../crates/veln-stdlib/veln/log.test.veln).
+  [`log.test.veln`](../../crates/veln-stdlib/veln/log.test.veln), plus scoped
+  span lifecycle coverage in
+  [`trace.test.veln`](../../crates/veln-stdlib/veln/trace.test.veln).
 - Call-site and effect-dispatch execution evidence:
   [`observability-log-severities`](../../examples/specification/run/observability-log-severities/).
 - Public no-op handler execution evidence:
