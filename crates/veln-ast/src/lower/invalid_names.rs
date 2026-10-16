@@ -1,6 +1,29 @@
 use super::*;
 
-pub(super) fn collect_invalid_module_header(module: &SyntaxModule, invalid: &mut Vec<InvalidName>) {
+pub(super) fn collect_invalid_names(tree: &SyntaxTree) -> Vec<InvalidName> {
+    let mut invalid = Vec::new();
+    if let Some(module) = &tree.module {
+        collect_invalid_module_header(module, &mut invalid);
+    }
+    for item in &tree.items {
+        match item {
+            SyntaxItem::Function(function) => {
+                collect_invalid_function_names(function, &mut invalid);
+            }
+            SyntaxItem::Effect(effect) => collect_invalid_effect_names(effect, &mut invalid),
+            SyntaxItem::Handler(handler) => collect_invalid_handler_names(handler, &mut invalid),
+            SyntaxItem::Type(type_decl) => collect_invalid_type_names(type_decl, &mut invalid),
+            SyntaxItem::Schema(schema) => collect_invalid_schema_names(schema, &mut invalid),
+            SyntaxItem::PublicAlias(alias) => collect_invalid_alias_name(alias, &mut invalid),
+        }
+    }
+    for use_decl in &tree.uses {
+        collect_invalid_use_name(use_decl, &mut invalid);
+    }
+    invalid
+}
+
+fn collect_invalid_module_header(module: &SyntaxModule, invalid: &mut Vec<InvalidName>) {
     push_invalid_name(
         invalid,
         Some(&module.name),
@@ -12,10 +35,7 @@ pub(super) fn collect_invalid_module_header(module: &SyntaxModule, invalid: &mut
     );
 }
 
-pub(super) fn collect_invalid_alias_name(
-    alias: &SyntaxPublicAlias,
-    invalid: &mut Vec<InvalidName>,
-) {
+fn collect_invalid_alias_name(alias: &SyntaxPublicAlias, invalid: &mut Vec<InvalidName>) {
     let class = match alias.kind {
         SyntaxPublicAliasKind::Function => NameClass::Function,
         SyntaxPublicAliasKind::Type => NameClass::Type,
@@ -41,10 +61,7 @@ pub(super) fn collect_invalid_alias_name(
     );
 }
 
-pub(super) fn collect_invalid_type_names(
-    type_decl: &SyntaxTypeDecl,
-    invalid: &mut Vec<InvalidName>,
-) {
+fn collect_invalid_type_names(type_decl: &SyntaxTypeDecl, invalid: &mut Vec<InvalidName>) {
     push_invalid_name(
         invalid,
         type_decl.name.as_deref(),
@@ -70,7 +87,7 @@ pub(super) fn collect_invalid_type_names(
     }
 }
 
-pub(super) fn collect_invalid_use_name(use_decl: &SyntaxUse, invalid: &mut Vec<InvalidName>) {
+fn collect_invalid_use_name(use_decl: &SyntaxUse, invalid: &mut Vec<InvalidName>) {
     for (index, (segment, span)) in module_path_segments(&use_decl.name)
         .into_iter()
         .zip(use_decl.name_spans.iter())
@@ -94,10 +111,7 @@ fn module_path_segments(name: &str) -> Vec<&str> {
         .collect()
 }
 
-pub(super) fn collect_invalid_function_names(
-    function: &SyntaxFunction,
-    invalid: &mut Vec<InvalidName>,
-) {
+fn collect_invalid_function_names(function: &SyntaxFunction, invalid: &mut Vec<InvalidName>) {
     let enclosing = Some(function.span.clone());
     push_invalid_name(
         invalid,
