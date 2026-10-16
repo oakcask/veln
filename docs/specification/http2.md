@@ -265,19 +265,22 @@ writes the HTTP/2 client connection preface, then writes the initial client
 SETTINGS bytes produced by the existing local SETTINGS send transition. It
 commits the returned core state before reading peer input.
 
-For each `Some(chunk)` read, the driver delegates to
+For each `Ok(Some(chunk))` read, the driver delegates to
 `http2::core::receive_connection_chunk(...)`. Accepted transitions commit the
 returned receive state and write each newly accepted output chunk exactly once
 in output-buffer order. Rejected transitions return
 `Http2ConnectionProtocolFailure` with the focused core failure facts and do
 not write output from the rejected transition; bytes from earlier accepted
-driver iterations remain committed. On clean end, the driver delegates to
+driver iterations remain committed. On `Ok(None)`, the driver delegates to
 `finalize_receive_connection_eof(...)` and returns either the accepted final
-core state or `Http2ConnectionIncompleteInput`. When
+core state or `Http2ConnectionIncompleteInput`. A read or write `Err(error)`
+returns `Http2ConnectionTransportFailure(error)`. Its projections report kind
+and source `transport`, id `http2.connection.transport_failure`, and the
+underlying `NetError` message as the reason. When
 `transport::net::net_stream` supplies the duplex-stream effect, only a
-non-empty source `ReadChunk` reaches the `Some(chunk)` path. The adapter rejects
-an empty source `ReadChunk` without another read, and the driver returns
-`Http2ConnectionTransportFailure(NetError)`.
+non-empty source `ReadChunk` reaches the `Ok(Some(chunk))` path. The adapter
+rejects an empty source `ReadChunk` without another read, and the driver
+returns `Http2ConnectionTransportFailure(NetError)`.
 
 `http2::connection::Http2ApplicationAction` is the public immutable response
 action value for the server application boundary. It has
@@ -327,6 +330,9 @@ server service boundary. It exposes state creation failure, application
 boundary failure with accepted-connection index, task join failure with
 accepted-connection index, and listener or stream network failure. Projection
 helpers expose service failure kind, id, reason, accepted index, and stream id.
+For `Http2ServiceNetworkFailure`, they report kind `network`, id
+`http2.service.network_failure`, the underlying `NetError` message as the
+reason, the stored accepted index, and stream id zero.
 
 `http2::connection::serve_connection(handler)` creates a server connection
 state and drives one caller-owned duplex stream through
@@ -343,7 +349,9 @@ public effect boundary is `[std::net::IO, concurrency, ...E]`.
 For each accepted stream, `serve_tcp` spawns one connection task with that
 stream as explicit context, joins the task, and closes the stream once. The
 service accepts the next stream only after the current task succeeds. On clean
-listener end, `serve_tcp` closes the listener once. On the first ordinary
+listener end, represented by an accept `NetError` whose kind is `Closed`,
+`serve_tcp` closes the listener once and succeeds if that close succeeds. Every
+other accept error becomes `Http2ServiceNetworkFailure`. On the first ordinary
 callback, protocol, or join failure, it closes the failed stream once, closes
 the listener once, and does not accept or write a later connection response.
 It returns that ordinary failure when both cleanup closes succeed. An accept
@@ -389,12 +397,18 @@ request.
 
 On the first ordinary request-send, protocol, callback, join, connect, or close
 failure, `request_endpoint_sequence` returns `Http2ClientServiceFailure` with
-the completed request count and closes the retained stream once. Connect and
-close failures use `Http2ClientServiceNetworkFailure`. A final close failure
-after all requests succeeded carries the total completed request count. Duplex
-read and write failures remain `Http2ClientServiceConnectionFailure`
-containing `Http2ConnectionTransportFailure`. A pure response handler leaves
-only `std::net::IO` and `concurrency` on the service expression. A handler with
+the completed request count and closes the retained stream once. If that
+cleanup close fails after a request-send, protocol, callback, or join failure,
+`Http2ClientServiceNetworkFailure` replaces the earlier failure and retains its
+completed request count. Connect and close failures use
+`Http2ClientServiceNetworkFailure`. A final close failure after all requests
+succeeded carries the total completed request count. Its projections report
+kind `network`, id `http2.client_service.network_failure`, the underlying
+`NetError` message as the reason, the stored completed count, and stream id
+zero. Duplex read and write failures remain
+`Http2ClientServiceConnectionFailure` containing
+`Http2ConnectionTransportFailure`. A pure response handler leaves only
+`std::net::IO` and `concurrency` on the service expression. A handler with
 callback effects adds that callback row to the same expression.
 
 ## Shutdown
