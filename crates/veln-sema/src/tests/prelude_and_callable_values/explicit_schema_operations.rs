@@ -261,69 +261,18 @@ fn explicit_schema_operations_resolve_public_schema_alias_to_target_schema() {
     let lowered = lower_checked_surface_module(&module);
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.as_ref().expect("checked core should be built");
-    let decode_alias = core
-        .functions
-        .iter()
-        .find(|function| function.name == "decode_alias")
-        .expect("decode_alias should be lowered");
-    let CoreStmtKind::Return { expr } = &decode_alias.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "PublicPacket"
-    ));
-    let encode_alias = core
-        .functions
-        .iter()
-        .find(|function| function.name == "encode_alias")
-        .expect("encode_alias should be lowered");
-    let CoreStmtKind::Return { expr } = &encode_alias.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncode(name),
-            ..
-        } if name == "PublicPacket"
-    ));
-
-    let ir = lowered.ir.expect("typed IR should be built");
-    let decode_alias = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "decode_alias")
-        .expect("decode_alias should be in IR");
-    let IrStmtKind::Return { value } = &decode_alias.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "PublicPacket"
-    ));
-    let encode_alias = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "encode_alias")
-        .expect("encode_alias should be in IR");
-    let IrStmtKind::Return { value } = &encode_alias.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaEncode(name),
-            ..
-        } if name == "PublicPacket"
-    ));
+    assert_named_schema_boundary(
+        &lowered,
+        "decode_alias",
+        "PublicPacket",
+        ExpectedSchemaBoundary::DecodeStep,
+    );
+    assert_named_schema_boundary(
+        &lowered,
+        "encode_alias",
+        "PublicPacket",
+        ExpectedSchemaBoundary::Encode,
+    );
 }
 
 #[test]
