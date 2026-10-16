@@ -67,6 +67,11 @@ fn reject_client_response(response: Http2ClientResponse) -> Result<(), String>
 	Err("callback rejected response")
 end
 
+fn accept_client_response(response: Http2ClientResponse) -> Result<(), String>
+	let _ = http2::connection::client_response_stream_id(response)
+	Ok(())
+end
+
 fn invalid_action_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
 	Ok(list_cons(Http2ApplicationAction::Http2SendResponseData(http2::core::application_event_stream_id(event), byte_chunk_from_hex("0a")?, true), list_nil()))
 end
@@ -208,6 +213,102 @@ fn client_service_callback_failure_matches_ordinary_path(failure: Http2ClientSer
 	else
 		Err("HTTP/2 client service did not preserve the callback failure before cleanup")
 	end
+end
+
+test client_final_close_failure_preserves_completed_progress() -> Result<(), String> effects [net, time, concurrency]
+	let response = byte_chunk_from_hex("00000004000000000000000101050000000189")?
+	let request = application_request_chunk()?
+	let trace = cleanup_trace()
+	let result = handle handle http2::connection::request_endpoint_sequence("127.0.0.1:0", client_one_request()?, accept_client_response) with net::system() with cleanup_network("client-close", response, request, trace)
+	match result
+		Err(Http2ClientServiceNetworkFailure(1, net::NetError(_, _, _, net::ConnectionReset, _))) => Ok(())
+		Err(_) => Err("HTTP/2 client final close failure did not preserve completed progress and typed error")
+		Ok(()) => Err("HTTP/2 client final close unexpectedly succeeded")
+	end
+end
+
+test server_stream_close_failure_preserves_accepted_index() -> Result<(), String> effects [net, time, concurrency]
+	let response = byte_chunk_from_hex("00000004000000000000000101050000000189")?
+	let request = application_request_chunk()?
+	let trace = cleanup_trace()
+	let result = handle handle server_stream_close_result() with net::system() with cleanup_network("server-close", response, request, trace)
+	match result
+		Err(Http2ServiceNetworkFailure(1, net::NetError(_, _, _, net::ConnectionReset, _))) => Ok(())
+		Err(_) => Err("HTTP/2 server stream close failure did not preserve accepted index and typed error")
+		Ok(()) => Err("HTTP/2 server stream close unexpectedly succeeded")
+	end
+end
+
+fn server_stream_close_result() -> Result<(), Http2ServiceFailure> effects [net::IO, concurrency]
+	match net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))
+		Ok(listener) => http2::connection::serve_tcp(listener, bodyless_handler)
+		Err(error) => Err(Http2ServiceNetworkFailure(0, error))
+	end
+end
+
+fn cleanup_trace() -> { tx : Sender<List<String>>, rx : Receiver<List<String>> } effects [concurrency]
+	let trace = channel::bounded<List<String>>(1)
+	let _ = channel::send(trace.tx, list_nil())
+	trace
+end
+
+handler cleanup_network(mode: String, client_response: ByteChunk, server_request: ByteChunk, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => cleanup_network_reply(mode, client_response, server_request, trace, operation, bytes)
+end
+
+fn cleanup_network_reply(mode: String, client_response: ByteChunk, server_request: ByteChunk, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+	let observed = option_unwrap_or(channel::recv(trace.rx), list_nil())
+	let reads = cleanup_operation_count(observed, "read")
+	let closes = cleanup_operation_count(observed, "close_stream")
+	let _ = channel::send(trace.tx, list_cons(operation, observed))
+	if operation == "resolve_tcp" or operation == "resolve_tcp4"
+		{ status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_cons({ network: "tcp4", address: "127.0.0.1:0" }, list_nil()), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+	else if operation == "listen"
+		cleanup_success("server-listener", bytes)
+	else if operation == "accept"
+		cleanup_success("server-stream", bytes)
+	else if operation == "connect"
+		cleanup_success("client-stream", bytes)
+	else if operation == "read" and mode == "client-close"
+		cleanup_bytes(client_response)
+	else if operation == "read" and mode == "server-close" and reads == 0
+		cleanup_bytes(server_request)
+	else if operation == "read" and mode == "server-close"
+		cleanup_end()
+	else if operation == "close_stream" and mode == "client-close" and closes == 0
+		cleanup_failure("client close failed")
+	else if operation == "close_stream" and mode == "server-close" and closes == 0
+		cleanup_failure("server close failed")
+	else
+		cleanup_success("", bytes)
+	end
+end
+
+fn cleanup_operation_count(operations: List<String>, expected: String) -> Int
+	match operations
+		Nil => 0
+		Cons(operation, tail) => if operation == expected
+			1 + cleanup_operation_count(tail, expected)
+		else
+			cleanup_operation_count(tail, expected)
+		end
+	end
+end
+
+fn cleanup_success(value: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: "ok", value: value, local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: byte_count_to_int(byte_chunk_count(bytes)), category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+end
+
+fn cleanup_bytes(bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: "ok", value: "", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: bytes, resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+end
+
+fn cleanup_end() -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: "end", value: "", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+end
+
+fn cleanup_failure(cause: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: "error", value: "", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "connection_reset", phase: "before_operation", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: cause }
 end
 
 test application_driver_rejects_body_bearing_request_without_callback() -> Result<(), String>

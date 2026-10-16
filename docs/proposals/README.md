@@ -20,8 +20,8 @@ also states it.
   a public recording handler, production exporters, and exporter lifecycle
   behavior:
   [observability.md](observability.md).
-- Legacy compiler-known network compatibility removal after checked sources
-  migrate to the exported standard module:
+- Remaining checked-source migration to the exported standard network module,
+  followed by legacy compiler-known lookup removal and its migration diagnostic:
   [network-compatibility-removal.md](network-compatibility-removal.md).
 - Remaining ADT variant-refinement support for structural visibility beyond
   root alias-qualified public function annotations, qualified immutable values

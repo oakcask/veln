@@ -15,13 +15,13 @@ fn resolved() -> { status : String, value : String, local : String, peer : Strin
 	{ status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_cons({ network: "tcp4", address: "127.0.0.1:1" }, list_nil()), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
 end
 
-fn update_index(state: { tx : Sender<Int>, rx : Receiver<Int> }) -> Int effects [concurrency]
-	let current = option_unwrap_or(channel::recv(state.rx), 0)
-	let _ = channel::send(state.tx, current + 1)
-	current
+fn record_write(state: { tx : Sender<{ index : Int, writes : List<ByteChunk> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk> }> }, bytes: ByteChunk) -> Int effects [concurrency]
+	let current: { index : Int, writes : List<ByteChunk> } = option_unwrap_or(channel::recv(state.rx), { index: 0, writes: list_nil() })
+	let _ = channel::send(state.tx, { index: current.index + 1, writes: list_cons(bytes, current.writes) })
+	current.index
 end
 
-fn scripted_reply(scenario: String, state: { tx : Sender<Int>, rx : Receiver<Int> }, operation: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+fn scripted_reply(scenario: String, state: { tx : Sender<{ index : Int, writes : List<ByteChunk> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk> }> }, operation: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
 	if operation == "resolve_tcp4"
 		resolved()
 	else if operation == "connect"
@@ -43,8 +43,8 @@ fn scripted_reply(scenario: String, state: { tx : Sender<Int>, rx : Receiver<Int
 	end
 end
 
-fn partial_write_reply(state: { tx : Sender<Int>, rx : Receiver<Int> }, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
-	let index = update_index(state)
+fn partial_write_reply(state: { tx : Sender<{ index : Int, writes : List<ByteChunk> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk> }> }, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+	let index = record_write(state, bytes)
 	let count = byte_count_to_int(byte_chunk_count(bytes))
 	if index == 0 and count == 3
 		reply("ok", "", byte_chunk([]), 1, "", "")
@@ -57,11 +57,11 @@ fn partial_write_reply(state: { tx : Sender<Int>, rx : Receiver<Int> }, bytes: B
 	end
 end
 
-handler scripted_network(scenario: String, state: { tx : Sender<Int>, rx : Receiver<Int> }) for host_effects::Network effects [concurrency]
+handler scripted_network(scenario: String, state: { tx : Sender<{ index : Int, writes : List<ByteChunk> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk> }> }) for host_effects::Network effects [concurrency]
 	request(operation, subject, bytes, remaining_ms, cancelled) => scripted_reply(scenario, state, operation, bytes)
 end
 
-fn with_stream_read(scenario: String, state: { tx : Sender<Int>, rx : Receiver<Int> }) -> Result<Option<ByteChunk>, net::NetError> effects [net, time, concurrency]
+fn with_stream_read(scenario: String, state: { tx : Sender<{ index : Int, writes : List<ByteChunk> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk> }> }) -> Result<Option<ByteChunk>, net::NetError> effects [net, time, concurrency]
 	handle handle begin
 		let stream = net::connect(net::Address(net::Tcp4, "127.0.0.1", 1))?
 		let result = transport::net::read_stream_chunk(stream)
@@ -70,7 +70,7 @@ fn with_stream_read(scenario: String, state: { tx : Sender<Int>, rx : Receiver<I
 	end with net::system() with scripted_network(scenario, state)
 end
 
-fn with_stream_write(scenario: String, state: { tx : Sender<Int>, rx : Receiver<Int> }, chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [net, time, concurrency]
+fn with_stream_write(scenario: String, state: { tx : Sender<{ index : Int, writes : List<ByteChunk> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk> }> }, chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [net, time, concurrency]
 	handle handle begin
 		let stream = net::connect(net::Address(net::Tcp4, "127.0.0.1", 1))?
 		let result = transport::net::write_stream_chunks(stream, chunks)
@@ -79,9 +79,9 @@ fn with_stream_write(scenario: String, state: { tx : Sender<Int>, rx : Receiver<
 	end with net::system() with scripted_network(scenario, state)
 end
 
-fn fresh_state() -> { tx : Sender<Int>, rx : Receiver<Int> } effects [concurrency]
-	let state = channel::bounded<Int>(1)
-	let _ = channel::send(state.tx, 0)
+fn fresh_state() -> { tx : Sender<{ index : Int, writes : List<ByteChunk> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk> }> } effects [concurrency]
+	let state = channel::bounded<{ index : Int, writes : List<ByteChunk> }>(1)
+	let _ = channel::send(state.tx, { index: 0, writes: list_nil() })
 	state
 end
 
@@ -89,7 +89,7 @@ test adapter_maps_chunk_and_clean_end() -> Result<(), String> effects [net, time
 	let chunk = with_stream_read("read-chunk", fresh_state())
 	let ended = with_stream_read("read-end", fresh_state())
 	match chunk
-		Ok(Some(bytes)) => if byte_count_to_int(byte_chunk_count(bytes)) == 2 and is_clean_end(ended)
+		Ok(Some(bytes)) => if chunk_matches(bytes, "0102")? and is_clean_end(ended)
 			Ok(())
 		else
 			Err("adapter did not preserve successful read or clean end")
@@ -110,12 +110,47 @@ test adapter_retries_partial_writes_and_preserves_order() -> Result<(), String> 
 	let first = byte_chunk_from_hex("010203")?
 	let second = byte_chunk_from_hex("0a0b")?
 	match with_stream_write("partial-write", state, list_cons(first, list_cons(second, list_nil())))
-		Ok(()) => if option_unwrap_or(channel::recv(state.rx), -1) == 3
+		Ok(()) => if write_sequence_matches(option_unwrap_or(channel::recv(state.rx), { index: 0, writes: list_nil() }))?
 			Ok(())
 		else
 			Err("adapter did not issue the expected partial-write sequence")
 		end
 		Err(_) => Err("adapter did not complete partial writes")
+	end
+end
+
+fn write_sequence_matches(state: { index : Int, writes : List<ByteChunk> }) -> Result<Bool, String>
+	match state.writes
+		Cons(third, Cons(second, Cons(first, Nil))) => Ok(state.index == 3 and chunk_matches(first, "010203")? and chunk_matches(second, "0203")? and chunk_matches(third, "0a0b")?)
+		_ => Ok(false)
+	end
+end
+
+fn chunk_matches(actual: ByteChunk, expected_hex: String) -> Result<Bool, String>
+	let expected = byte_chunk_from_hex(expected_hex)?
+	let count = byte_count_to_int(byte_chunk_count(expected))
+	if byte_count_to_int(byte_chunk_count(actual)) == count
+		chunk_matches_at(actual, expected, 0, count)
+	else
+		Ok(false)
+	end
+end
+
+fn chunk_matches_at(actual: ByteChunk, expected: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	if index == count
+		Ok(true)
+	else
+		chunk_matches_next(actual, expected, index, count)
+	end
+end
+
+fn chunk_matches_next(actual: ByteChunk, expected: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	let one = byte_count(1)?
+	let offset = byte_offset(index)?
+	if byte_read_u8_be(byte_view(actual, offset, one)?)? == byte_read_u8_be(byte_view(expected, offset, one)?)?
+		chunk_matches_at(actual, expected, index + 1, count)
+	else
+		Ok(false)
 	end
 end
 

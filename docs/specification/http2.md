@@ -344,9 +344,14 @@ callback, protocol, or join failure, it closes the failed stream once, closes
 the listener once, and does not accept or write a later connection response.
 It returns that ordinary failure when both cleanup closes succeed. An accept
 or cleanup-close failure instead becomes
-`Http2ServiceNetworkFailure(NetError)`. Duplex failures inside a spawned task
-remain connection transport failures and are not reclassified as join
-failures.
+`Http2ServiceNetworkFailure(accepted, NetError)`. An accept failure carries the
+one-based index of the connection that the service attempted to accept. A
+stream-close failure carries the index of that accepted stream. A listener
+close failure after an ordinary connection failure preserves that failure's
+accepted index; a listener close failure after clean service completion carries
+zero because it is not associated with one accepted stream. Duplex failures
+inside a spawned task remain connection transport failures and are not
+reclassified as join failures.
 
 `http2::connection::Http2ClientRequest` is the immutable public client request
 value. The implemented request shape is

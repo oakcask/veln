@@ -8,11 +8,9 @@ update-when: Legacy compiler-known network lookup or the standard network import
 ## Outcome
 
 The compiler will stop recognizing legacy `net::...` spellings when source has
-not imported the exported standard `net` module. The standard networking
-implementation, its transport adapter, and HTTP/2 connection boundaries now
-use the explicit module. Remaining checked sources that exercise the legacy
-surface must migrate to `use net from "std"` before fallback removal. An
-explicit standard import selects the nominal `net::IO` boundary.
+not imported the exported standard `net` module. Remaining checked sources
+that exercise the legacy surface must migrate to `use net from "std"` before
+fallback removal.
 
 After migration, an unresolved legacy spelling will produce one diagnostic
 that identifies the standard import, the `net::IO` effect, and the
