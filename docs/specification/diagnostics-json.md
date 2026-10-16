@@ -166,7 +166,10 @@ deduplication uses the complete written alternative, so distinct unresolved
 arguments remain distinct while an exact written repeat retains its first
 occurrence. The complete written alternative is reconstructed independently
 of any bounded path display used for lookup. The declaration entry remains
-present when the ADT comes from a reusable or base environment.
+present when the ADT comes from a reusable or base environment. A public alias
+from an imported or reusable environment does not replace the terminal
+declaration's visibility, identity, or span; its alias entry precedes the
+private terminal entry under the same ordering rule.
 If initial-only casing recovery uniquely selects the base ADT and the written
 uppercase final segment resolves exactly, `name.invalid_case` precedes the
 independent privacy diagnostic. The diagnostic's `written_type` retains the

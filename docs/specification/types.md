@@ -795,6 +795,13 @@ variant remain distinct paths. Public refinements remain valid when the
 terminal base and selected variants are public. The same private refinements
 remain valid on private functions.
 
+An alias declaration does not replace or upgrade the terminal declaration's
+visibility. An imported or reusable public alias, including an implicit
+standard-prelude alias, still exposes a private terminal type or variant when
+it is used as a public-function root refinement. The diagnostic retains the
+terminal identity and declaration location through each local and imported
+alias hop.
+
 The root check selects the base identity by unique exact lookup or
 initial-only casing recovery. The written uppercase final constructor must
 resolve exactly to one declaration. When the selected ADT contains multiple declarations with the

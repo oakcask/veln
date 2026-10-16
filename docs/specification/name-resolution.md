@@ -352,11 +352,13 @@ span, and segment index. If changing only an invalid-cased base leaf selects
 exactly one type, casing analysis retains that type classification. It reports
 `name.invalid_case` and still checks the recovered base's independent
 variant-refinement eligibility. For a refinement used as the complete
-annotation of a public function parameter or result, that unique recovered ADT
-identity also participates in the direct visibility check when the written
-final segment starts with an ASCII uppercase letter and resolves exactly to one
-constructor of the recovered ADT. A lowercase final segment is a parse failure
-and does not reach casing or direct visibility analysis. The privacy diagnostic
+annotation of a public function parameter or result, that unique recovered
+terminal ADT identity also participates in the root visibility check when the
+written base names it directly or reaches it through a finite transparent
+type-alias chain, and when the written final segment starts with an ASCII
+uppercase letter and resolves exactly to one constructor of that ADT. A
+lowercase final segment is a parse failure and does not reach casing or root
+visibility analysis. The privacy diagnostic
 retains the written base casing. Ambiguous or unresolved base recovery, or an
 ambiguous or missing exact final segment, does not manufacture a privacy
 diagnostic. This includes a source-less base
