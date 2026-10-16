@@ -84,6 +84,36 @@ fn partial_source_analysis_rejects_unrelated_source_errors() {
 }
 
 #[test]
+fn partial_source_analysis_rejection_preserves_diagnostic_order() {
+    let project = Project {
+        root: ".".into(),
+        manifest: None,
+        files: vec![
+            SourceFile::new(
+                "app.veln",
+                "use App\nuse missing::thing\nfn main() -> ()\n  ()\nend\n",
+            ),
+            SourceFile::new("App.veln", "pub fn entry() -> Int\n  1\nend\n"),
+        ],
+    };
+    let diagnostics = source_graph_diagnostics(&project);
+    let expected = diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+
+    let rejected = partial_source_analysis(&project, &diagnostics).expect_err("source errors");
+
+    assert_eq!(
+        rejected
+            .iter()
+            .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
+            .collect::<Vec<_>>(),
+        expected
+    );
+}
+
+#[test]
 fn partial_source_analysis_uses_source_kind_aware_excluded_identities() {
     let project = Project {
         root: ".".into(),
