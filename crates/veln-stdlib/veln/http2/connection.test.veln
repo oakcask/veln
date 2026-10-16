@@ -204,6 +204,32 @@ test tcp_service_preserves_accept_failure_after_one_completed_connection() -> Re
 	end
 end
 
+test tcp_service_iteration_is_bounded_across_many_completed_connections() -> Result<(), String> effects [net, concurrency]
+	let connection_count = 5000
+	let listener = transport::net_resource_test_support_test::listener("many-service-listener")
+	let stream = transport::net_resource_test_support_test::stream("many-service-stream")
+	let accepted = channel::bounded<Int>(1)
+	let read_ready = channel::bounded<Bool>(1)
+	let stream_closes = channel::bounded<Int>(1)
+	let listener_closes = channel::bounded<Int>(1)
+	let _ = channel::send(accepted.tx, 0)
+	let _ = channel::send(read_ready.tx, false)
+	let _ = channel::send(stream_closes.tx, 0)
+	let _ = channel::send(listener_closes.tx, 0)
+	let result = handle http2::connection::serve_tcp(listener, bodyless_handler) with http2::connection_service_test_support_test::many_successful_connections(listener, stream, connection_count, application_request_chunk()?, accepted, read_ready, stream_closes, listener_closes)
+	let observed_accepted: Int = option_unwrap_or(channel::recv(accepted.rx), -1)
+	let observed_stream_closes: Int = option_unwrap_or(channel::recv(stream_closes.rx), -1)
+	let observed_listener_closes: Int = option_unwrap_or(channel::recv(listener_closes.rx), -1)
+	if service_network_failure_matches(result, connection_count, "accept", "scripted accept failure") and observed_accepted == connection_count and observed_stream_closes == connection_count and observed_listener_closes == 1
+		Ok(())
+	else
+		match result
+			Err(failure) => Err(string::concat(string::concat(string::concat(string::concat(string::concat(string::concat("HTTP/2 TCP service stopped as ", http2::connection::service_failure_kind(failure)), " after "), int_to_string(http2::connection::service_failure_accepted(failure))), " accepted; handler observed "), int_to_string(observed_accepted)), " accepts"))
+			Ok(_) => Err("HTTP/2 TCP service completed without the terminal accept failure")
+		end
+	end
+end
+
 test tcp_service_promotes_adapter_read_failure_to_network_failure() -> Result<(), String> effects [net, concurrency]
 	match run_tcp_service("read-failure", application_request_chunk()?, bodyless_handler)?
 		{ result: result, trace: trace } => if service_network_failure_matches(result, 1, "read", "scripted read failure") and service_cleanup_trace_matches(trace)

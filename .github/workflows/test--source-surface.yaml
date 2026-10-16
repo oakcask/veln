@@ -15,6 +15,7 @@ on:
       - docs/specification/source-surface-fixtures/**
       - docs/specification/source-surface.md
       - examples/specification/**
+      - examples/test-support/**
       - rust-toolchain.toml
       - tools/veln-repo-toolchain-cases/**
       - tools/veln-repo-toolchain-case/**
@@ -31,6 +32,7 @@ on:
       - docs/specification/source-surface-fixtures/**
       - docs/specification/source-surface.md
       - examples/specification/**
+      - examples/test-support/**
       - rust-toolchain.toml
       - tools/veln-repo-toolchain-cases/**
       - tools/veln-repo-toolchain-case/**

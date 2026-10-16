@@ -42,6 +42,113 @@ pub handler scripted_io(expected_listener: net::Listener, expected_stream: net::
 	close_stream(stream) => scripted_close_stream(stream, expected_stream, mode, trace)
 end
 
+pub handler many_successful_connections(expected_listener: net::Listener, expected_stream: net::Stream, limit: Int, request: ByteChunk, accepted: { tx : Sender<Int>, rx : Receiver<Int> }, read_ready: { tx : Sender<Bool>, rx : Receiver<Bool> }, stream_closes: { tx : Sender<Int>, rx : Receiver<Int> }, listener_closes: { tx : Sender<Int>, rx : Receiver<Int> }) for net::IO effects [concurrency]
+	resolve(address) => unexpected_endpoints_without_trace("resolve")
+	listen(address) => unexpected_listener_without_trace("listen")
+	connect(address, deadline, token) => unexpected_stream_without_trace("connect")
+	accept(listener, deadline, token) => many_connections_accept(listener, expected_listener, expected_stream, limit, accepted, read_ready)
+	listener_address(listener) => unexpected_endpoint_without_trace("listener-address")
+	close_listener(listener) => many_connections_close_listener(listener, expected_listener, listener_closes)
+	read(stream, deadline, token) => many_connections_read(stream, expected_stream, request, read_ready)
+	write(stream, bytes, deadline, token) => many_connections_write(stream, expected_stream, bytes)
+	local_address(stream) => unexpected_endpoint_without_trace("local-address")
+	peer_address(stream) => unexpected_endpoint_without_trace("peer-address")
+	shutdown_read(stream) => unexpected_unit_without_trace("shutdown-read")
+	shutdown_write(stream) => unexpected_unit_without_trace("shutdown-write")
+	close_stream(stream) => many_connections_close_stream(stream, expected_stream, stream_closes)
+end
+
+fn counter_increment(counter: { tx : Sender<Int>, rx : Receiver<Int> }) -> Int effects [concurrency]
+	let observed = option_unwrap_or(channel::recv(counter.rx), 0)
+	let next = observed + 1
+	let _ = channel::send(counter.tx, next)
+	next
+end
+
+fn many_connections_accept(listener: net::Listener, expected_listener: net::Listener, stream: net::Stream, limit: Int, accepted: { tx : Sender<Int>, rx : Receiver<Int> }, read_ready: { tx : Sender<Bool>, rx : Receiver<Bool> }) -> Result<net::Stream, net::NetError> effects [concurrency]
+	let observed = option_unwrap_or(channel::recv(accepted.rx), 0)
+	if not same_listener(listener, expected_listener)
+		begin
+			let _ = channel::send(accepted.tx, observed)
+			Err(failure("accept", "service used the wrong listener"))
+		end
+	else if observed == limit
+		begin
+			let _ = channel::send(accepted.tx, observed)
+			Err(failure("accept", "scripted accept failure"))
+		end
+	else
+		begin
+			let _ = channel::recv(read_ready.rx)
+			let _ = channel::send(read_ready.tx, true)
+			let _ = channel::send(accepted.tx, observed + 1)
+			Ok(stream)
+		end
+	end
+end
+
+fn many_connections_read(stream: net::Stream, expected_stream: net::Stream, request: ByteChunk, read_ready: { tx : Sender<Bool>, rx : Receiver<Bool> }) -> Result<net::ReadOutcome, net::NetError> effects [concurrency]
+	let ready = option_unwrap_or(channel::recv(read_ready.rx), false)
+	let _ = channel::send(read_ready.tx, false)
+	if not same_stream(stream, expected_stream)
+		Err(failure("read", "service used the wrong stream"))
+	else if ready
+		Ok(net::ReadChunk(request))
+	else
+		Ok(net::ReadEnd)
+	end
+end
+
+fn many_connections_write(stream: net::Stream, expected_stream: net::Stream, bytes: ByteChunk) -> net::WriteOutcome
+	if same_stream(stream, expected_stream)
+		net::Written(byte_chunk_count(bytes))
+	else
+		net::WriteFailed(net::ByteCount(0), failure("write", "service used the wrong stream"))
+	end
+end
+
+fn many_connections_close_stream(stream: net::Stream, expected_stream: net::Stream, closes: { tx : Sender<Int>, rx : Receiver<Int> }) -> Result<(), net::NetError> effects [concurrency]
+	if same_stream(stream, expected_stream)
+		begin
+			let _ = counter_increment(closes)
+			Ok(())
+		end
+	else
+		Err(failure("close_stream", "service used the wrong stream"))
+	end
+end
+
+fn many_connections_close_listener(listener: net::Listener, expected_listener: net::Listener, closes: { tx : Sender<Int>, rx : Receiver<Int> }) -> Result<(), net::NetError> effects [concurrency]
+	if same_listener(listener, expected_listener)
+		begin
+			let _ = counter_increment(closes)
+			Ok(())
+		end
+	else
+		Err(failure("close_listener", "service used the wrong listener"))
+	end
+end
+
+fn unexpected_endpoints_without_trace(operation: String) -> Result<List<net::Endpoint>, net::NetError>
+	Err(failure(operation, "unexpected network operation"))
+end
+
+fn unexpected_listener_without_trace(operation: String) -> Result<net::Listener, net::NetError>
+	Err(failure(operation, "unexpected network operation"))
+end
+
+fn unexpected_stream_without_trace(operation: String) -> Result<net::Stream, net::NetError>
+	Err(failure(operation, "unexpected network operation"))
+end
+
+fn unexpected_endpoint_without_trace(operation: String) -> Result<net::Endpoint, net::NetError>
+	Err(failure(operation, "unexpected network operation"))
+end
+
+fn unexpected_unit_without_trace(operation: String) -> Result<(), net::NetError>
+	Err(failure(operation, "unexpected network operation"))
+end
+
 fn scripted_accept(listener: net::Listener, expected_listener: net::Listener, stream: net::Stream, mode: String, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<net::Stream, net::NetError> effects [concurrency]
 	let observed = trace_push(trace, "accept")
 	if not same_listener(listener, expected_listener)

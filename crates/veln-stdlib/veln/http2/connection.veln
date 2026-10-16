@@ -225,14 +225,17 @@ end
 
 fn service_accept_next<effect E>(listener: net::Listener, accepted: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net::IO, concurrency, ...E]
 	match net::accept(listener)
-		Ok(stream) => service_run_one(stream, service_spawn_connection(stream, handler), listener, accepted + 1, handler)
+		Ok(stream) => match service_run_one(stream, service_spawn_connection(stream, handler), accepted + 1)
+			Ok(_) => service_accept_next(listener, accepted + 1, handler)
+			Err(failure) => Err(failure)
+		end
 		Err(error) => Err(Http2ServiceNetworkFailure(accepted, error))
 	end
 end
 
-fn service_run_one<effect E>(stream: net::Stream, worker: Task<Result<CoreConnectionState, Http2ApplicationBoundaryFailure>>, listener: net::Listener, accepted: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net::IO, concurrency, ...E]
+fn service_run_one(stream: net::Stream, worker: Task<Result<CoreConnectionState, Http2ApplicationBoundaryFailure>>, accepted: Int) -> Result<(), Http2ServiceFailure> effects [net::IO, concurrency]
 	match task::join(worker)
-		Ok(Ok(_)) => service_close_then_continue(stream, listener, accepted, handler)
+		Ok(Ok(_)) => service_close_after_success(stream, accepted)
 		Ok(Err(failure)) => service_fail_close(stream, service_application_failure(accepted, failure))
 		Err(_) => service_fail_close(stream, Http2ServiceJoinFailure(accepted, "failed"))
 	end
@@ -245,9 +248,9 @@ fn service_application_failure(accepted: Int, failure: Http2ApplicationBoundaryF
 	end
 end
 
-fn service_close_then_continue<effect E>(stream: net::Stream, listener: net::Listener, accepted: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net::IO, concurrency, ...E]
+fn service_close_after_success(stream: net::Stream, accepted: Int) -> Result<(), Http2ServiceFailure> effects [net::IO]
 	match net::close_stream(stream)
-		Ok(_) => service_accept_next(listener, accepted, handler)
+		Ok(_) => Ok(())
 		Err(error) => Err(Http2ServiceNetworkFailure(accepted, error))
 	end
 end
