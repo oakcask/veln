@@ -352,8 +352,10 @@ the same provider. The public effect boundary is
 
 For each accepted stream, `serve_tcp` spawns one connection task with that
 stream as explicit context, joins the task, and closes the stream once. The
-accepted count increases only after `net::accept` returns a stream. The service
-accepts the next stream only after the current task and stream close succeed.
+accepted count increases only after `net::accept` returns a stream. It counts
+every stream returned during the service invocation, including streams whose
+earlier connection task and stream close completed. The service accepts the
+next stream only after the current task and stream close succeed.
 An accept, duplex-adapter read or write, stream-close, or listener-close error
 returns `Http2ServiceNetworkFailure` with the count at that boundary and the
 unchanged `net::NetError`; transport errors are not classified as application
@@ -880,9 +882,9 @@ The public implementations are under `crates/veln-stdlib/veln/http2/`.
 Adjacent companion tests and their separate Veln handler support exercise
 source-visible return values, unchanged direct transport errors, and failure
 projections. The `connection.test.veln` companion covers TCP service accept,
-stream I/O, stream-close, and listener-close failures, accepted counts,
-cleanup precedence, and bounded iteration across thousands of completed
-connections with the separate
+stream I/O, stream-close, and listener-close failures on first and later
+accepted connections, cumulative accepted counts, cleanup precedence, and
+bounded iteration across thousands of completed connections with the separate
 `connection_service_test_support_test.veln` handler.
 The checked
 [`http2-service-two-connections`](../../examples/specification/run/http2-service-two-connections/)

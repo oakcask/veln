@@ -199,6 +199,15 @@ effects [...E]`, and the driver requires
 `transport::net::net_stream` removes only the duplex-stream effect and leaves
 callback effects such as `db` on the handled expression.
 
+`http2::connection::serve_tcp<effect E>` composes this driver with listener,
+stream, and task ownership. Its public effect set is
+`[std::net::IO, concurrency, ...E]`. Each spawned connection task inherits the
+caller's active `std::net::IO` handler. Its internal
+`transport::network::net_stream` handler removes only
+`std::transport::DuplexStream`; it does not remove the inherited network
+effect or a callback effect. The [HTTP/2 specification](http2.md#connection-drivers-and-services)
+defines the service result and cleanup behavior.
+
 ## Stdio Calls
 
 The implemented compiler-known stdio calls are registered in the standard
