@@ -1,0 +1,30 @@
+use observe from "std"
+use trace from "std"
+use fake_clock
+
+# Companion tests own the span API. This case checks CLI/JVM failure unwinding
+# through the public helper and the durable lifecycle observation order.
+fn fail(span: Span) -> Result<(), String>
+	let invalid_count = 64
+	let ignored = 1 << invalid_count
+	Ok(())
+end
+
+fn print_lifecycle(recording: Recording) -> () effects [stdio, concurrency]
+	match observe::recorded(recording)
+		Cons(observe::SpanStarted("work", trace_id, span_id, None, 40), Cons(observe::SpanFinished(finish_trace_id, finish_span_id, 40), Nil)) => begin
+			stdio::println(string::concat(string::concat("start ", trace_id), string::concat(" ", span_id)))
+			stdio::println(string::concat(string::concat("finish ", finish_trace_id), string::concat(" ", finish_span_id)))
+		end
+		_ => stdio::println("unexpected lifecycle")
+	end
+end
+
+pub fn main() -> () effects [stdio, time, concurrency]
+	let recording = observe::new_recording("o3")
+	defer
+		print_lifecycle(recording)
+	end
+	let _ = handle (handle trace::in_span(observe::SpanRequest("work", None), fail) with observe::recording(recording)) with fake_clock::clock()
+	()
+end

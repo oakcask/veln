@@ -1,0 +1,68 @@
+use observe
+use observe_test_support_test
+use trace
+
+fn return_value(span: Span) -> Result<(), String>
+	Ok(())
+end
+
+fn return_error(span: Span) -> Result<(), String>
+	Err("body error")
+end
+
+fn propagate_error(span: Span) -> Result<(), String>
+	let _ = return_error(span)?
+	Ok(())
+end
+
+fn child_value(span: Span) -> Result<(), String>
+	Ok(())
+end
+
+fn is_ok(result: Result<(), String>) -> Bool
+	match result
+		Ok(()) => true
+		_ => false
+	end
+end
+
+test in_span_finishes_once_after_normal_return() -> Result<(), String> effects [time, concurrency]
+	let recording = observe_test_support_test::span_recording("normal")
+	let value = handle (handle trace::in_span(observe::SpanRequest("work", None), return_value) with observe::recording(recording)) with observe_test_support_test::clock(10)
+	match observe::recorded(recording)
+		Cons(observe::SpanStarted("work", "normal-0", "normal-1", None, 10), Cons(observe::SpanFinished("normal-0", "normal-1", 10), Nil)) => if is_ok(value)
+			Ok(())
+		else
+			Err("in_span changed the body result")
+		end
+		_ => Err("normal in_span lifecycle was not exactly start then finish")
+	end
+end
+
+test in_span_finishes_once_when_error_propagates() -> Result<(), String> effects [time, concurrency]
+	let recording = observe_test_support_test::span_recording("error")
+	let result = handle (handle trace::in_span(observe::SpanRequest("work", None), propagate_error) with observe::recording(recording)) with observe_test_support_test::clock(20)
+	match observe::recorded(recording)
+		Cons(observe::SpanStarted("work", "error-0", "error-1", None, 20), Cons(observe::SpanFinished("error-0", "error-1", 20), Nil)) => match result
+			Err("body error") => Ok(())
+			_ => Err("in_span changed the propagated error")
+		end
+		_ => Err("error in_span lifecycle was not exactly start then finish")
+	end
+end
+
+test sibling_spans_share_parent_and_have_distinct_identities() -> Result<(), String> effects [time, concurrency]
+	let recording = observe_test_support_test::span_recording("tree")
+	let parent = handle (handle perform observe::Observe::start_span(observe::SpanRequest("parent", None)) with observe::recording(recording)) with observe_test_support_test::clock(30)
+	let first = handle (handle trace::in_span(observe::SpanRequest("first", Some(parent)), child_value) with observe::recording(recording)) with observe_test_support_test::clock(30)
+	let second = handle (handle trace::in_span(observe::SpanRequest("second", Some(parent)), child_value) with observe::recording(recording)) with observe_test_support_test::clock(30)
+	let _ = handle (handle perform observe::Observe::finish_span(observe::finish(parent)) with observe::recording(recording)) with observe_test_support_test::clock(30)
+	match observe::recorded(recording)
+		Cons(observe::SpanStarted("parent", "tree-0", "tree-1", None, 30), Cons(observe::SpanStarted("first", "tree-0", "tree-2", Some("tree-1"), 30), Cons(observe::SpanFinished("tree-0", "tree-2", 30), Cons(observe::SpanStarted("second", "tree-0", "tree-3", Some("tree-1"), 30), Cons(observe::SpanFinished("tree-0", "tree-3", 30), Cons(observe::SpanFinished("tree-0", "tree-1", 30), Nil)))))) => if is_ok(first) and is_ok(second)
+			Ok(())
+		else
+			Err("nested in_span changed the body result")
+		end
+		_ => Err("sibling span parentage, identities, or lifecycle order changed")
+	end
+end

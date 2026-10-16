@@ -10,7 +10,7 @@ test noop_preserves_a_handled_body_result() -> Result<(), String>
 end
 
 test noop_start_span_returns_an_opaque_span() -> Result<(), String>
-	let span = handle perform observe::Observe::start_span(observe::noop_span_request()) with observe::noop()
+	let span = handle perform observe::Observe::start_span(observe::SpanRequest("noop", None)) with observe::noop()
 	if observe::is_noop_span(span)
 		Ok(())
 	else
@@ -29,11 +29,24 @@ test noop_emit_completes_without_observation() -> Result<(), String>
 end
 
 test noop_finish_span_completes() -> Result<(), String>
-	let completed = handle perform observe::Observe::finish_span(observe::noop_span_finish()) with observe::noop()
+	let span = handle perform observe::Observe::start_span(observe::SpanRequest("noop", None)) with observe::noop()
+	let completed = handle perform observe::Observe::finish_span(observe::finish(span)) with observe::noop()
 	if completed == ()
 		Ok(())
 	else
 		Err("no-op observation handler did not complete finish_span")
+	end
+end
+
+test recording_exposes_ordered_start_emit_and_finish_entries() -> Result<(), String> effects [time, concurrency]
+	let recording = observe::new_recording("recording")
+	let span = handle perform observe::Observe::start_span(observe::SpanRequest("request", None)) with observe::recording(recording)
+	let record = observe::Log(observe::LogRecord("log", observe::Info, "message", list_nil(), None, callsite_location()))
+	let _ = handle perform observe::Observe::emit(record) with observe::recording(recording)
+	let _ = handle perform observe::Observe::finish_span(observe::finish(span)) with observe::recording(recording)
+	match observe::recorded(recording)
+		Cons(observe::SpanStarted("request", "recording-0", "recording-1", None, _), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "message", Nil, None, _))), Cons(observe::SpanFinished("recording-0", "recording-1", _), Nil))) => Ok(())
+		_ => Err("recording did not preserve lifecycle order or identities")
 	end
 end
 
