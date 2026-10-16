@@ -342,12 +342,13 @@ The exported implementation and companion tests are in
 that source code can construct, `write_all`, scoped resolution and failure
 translation, exact write progress, concurrency, interruption decisions, and
 lifecycle uncertainty across retries.
-The adapter implementation and companion evidence are in
-`crates/veln-stdlib/veln/transport/net.veln`,
-`crates/veln-stdlib/veln/transport/net.test.veln`, and the adjacent separate
-Veln test-support module. They cover typed reads, non-progress, complete
-ordered writes, captured-resource identity, and the absence of lifecycle or
-connection-management operations.
+The adapter implementations are in
+`crates/veln-stdlib/veln/transport/net.veln` and
+`crates/veln-stdlib/veln/transport/network.veln`. Their companion evidence is
+in `crates/veln-stdlib/veln/transport/net.test.veln` and the adjacent separate
+Veln test-support modules. It covers both import paths, typed reads,
+non-progress, complete ordered writes, captured-resource identity, and the
+absence of lifecycle or connection-management operations.
 The JVM backend effect-injection tests use separate Veln test support to
 exercise the facade with opaque listener and stream resources and to check
 resource, option, byte, and result preservation. Checked command-level examples

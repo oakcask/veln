@@ -879,6 +879,15 @@ Projections expose chunk count, indexed chunks, and concatenated bytes.
 The public implementations are under `crates/veln-stdlib/veln/http2/`.
 Adjacent companion tests and their separate Veln handler support exercise
 source-visible return values, unchanged direct transport errors, and failure
-projections. The CLI protocol suites cover command diagnostics rather than
-adapter API permutations. Representative frame, connection, and HPACK inputs
-live under `examples/specification/`.
+projections. The `connection.test.veln` companion covers TCP service accept,
+stream I/O, stream-close, and listener-close failures, accepted counts, and
+cleanup precedence with the separate
+`connection_service_test_support_test.veln` handler.
+The checked
+[`http2-service-two-connections`](../../examples/specification/run/http2-service-two-connections/)
+case exposes the accepted count after a completed connection. The adjacent
+`http2-service-*-failure` run cases expose typed callback, join, protocol, and
+network failures, while the `http2-service-*-effect-row` check cases cover the
+public effect boundary. The CLI protocol suites cover command diagnostics
+rather than adapter API permutations. Representative frame, connection, and
+HPACK inputs live under `examples/specification/`.
