@@ -21,6 +21,6 @@ pub fn outer_handler_does_not_enter_service_task(listener: NetListener, stream: 
 	handle http2::connection::serve_tcp(listener, handler) with transport::network::net_stream(stream)
 end
 
-pub fn explicit_listener_boundary(listener: NetListener) -> Result<(), Http2ServiceFailure> effects [net, net::IO, concurrency]
+pub fn explicit_listener_boundary(listener: NetListener) -> Result<(), Http2ServiceFailure> effects [net, concurrency]
 	http2::connection::serve_tcp(listener, handler)
 end

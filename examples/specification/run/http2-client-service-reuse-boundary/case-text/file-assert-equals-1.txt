@@ -1,0 +1,15 @@
+connect-production 127.0.0.1:0 production-stream
+write-production production-stream ByteChunk([Byte(80), Byte(82), Byte(73), Byte(32), Byte(42), Byte(32), Byte(72), Byte(84), Byte(84), Byte(80), Byte(47), Byte(50), Byte(46), Byte(48), Byte(13), Byte(10), Byte(13), Byte(10), Byte(83), Byte(77), Byte(13), Byte(10), Byte(13), Byte(10)])
+write-production production-stream ByteChunk([Byte(0), Byte(0), Byte(0), Byte(4), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0)])
+write-production production-stream ByteChunk([Byte(0), Byte(0), Byte(3), Byte(1), Byte(5), Byte(0), Byte(0), Byte(0), Byte(1), Byte(130), Byte(135), Byte(132)])
+read-production production-stream 00000004000000000000000101050000000189
+write-production production-stream ByteChunk([Byte(0), Byte(0), Byte(3), Byte(1), Byte(5), Byte(0), Byte(0), Byte(0), Byte(3), Byte(130), Byte(135), Byte(132)])
+read-production production-stream 00000604000000000000030000000000000101050000000389
+write-production production-stream ByteChunk([Byte(0), Byte(0), Byte(0), Byte(4), Byte(1), Byte(0), Byte(0), Byte(0), Byte(0)])
+close-production production-stream
+connect-production 127.0.0.1:0 production-stream
+write-production production-stream ByteChunk([Byte(80), Byte(82), Byte(73), Byte(32), Byte(42), Byte(32), Byte(72), Byte(84), Byte(84), Byte(80), Byte(47), Byte(50), Byte(46), Byte(48), Byte(13), Byte(10), Byte(13), Byte(10), Byte(83), Byte(77), Byte(13), Byte(10), Byte(13), Byte(10)])
+write-production production-stream ByteChunk([Byte(0), Byte(0), Byte(0), Byte(4), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0)])
+write-production production-stream ByteChunk([Byte(0), Byte(0), Byte(3), Byte(1), Byte(5), Byte(0), Byte(0), Byte(0), Byte(1), Byte(130), Byte(135), Byte(132)])
+read-production production-stream 00000004000000000000000101050000000189
+close-production production-stream

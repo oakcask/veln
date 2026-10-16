@@ -1,0 +1,27 @@
+# Host-integration contract: sequential spawned service tasks share the injected
+# provider; exact output and event logs detect lost inheritance or ordering.
+command = ["run", "--json", "main", "main.veln", "fixture_effects.veln", "fake_effects.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[env]
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals_file = "case-text/json-assert-equals-1.txt"
+
+[[file_assert]]
+path = "client-writes.hex"
+equals_file = "case-text/file-assert-equals-1.txt"

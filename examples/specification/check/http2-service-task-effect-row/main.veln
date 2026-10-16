@@ -63,6 +63,6 @@ pub fn pure_tcp_service_missing_net_and_concurrency(listener: NetListener) -> Re
 	http2::connection::serve_tcp(listener, pure_handler)
 end
 
-pub fn db_tcp_service_missing_db(listener: NetListener) -> Result<(), Http2ServiceFailure> effects [net, net::IO, concurrency]
+pub fn db_tcp_service_missing_db(listener: NetListener) -> Result<(), Http2ServiceFailure> effects [net, concurrency]
 	http2::connection::serve_tcp(listener, db_handler)
 end

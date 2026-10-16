@@ -341,11 +341,12 @@ state and drives one caller-owned duplex stream through
 
 `http2::connection::serve_tcp(listener, handler)` owns the supplied listener,
 accepted streams, and connection tasks. Each spawned connection task receives
-its `NetStream` as explicit context and installs
-`transport::network::net_stream` inside the task. The adapter adds `std::net::IO`
-to the existing service effects. Lexical handlers installed
+its `NetStream` as explicit context and installs an internal duplex-stream
+compatibility handler inside the task. That handler wraps successful
+compiler-known `net` reads and writes in the typed duplex result shape, while
+legacy host failures remain abrupt runtime failures. Lexical handlers installed
 outside `serve_tcp` do not satisfy the spawned connection task boundary. Its
-public effect boundary is `[net, std::net::IO, concurrency, ...E]`.
+public effect boundary remains `[net, concurrency, ...E]`.
 
 For each accepted stream, `serve_tcp` spawns one connection task with that
 stream as explicit context, joins the task, and closes the stream once. The
@@ -374,10 +375,10 @@ capacity that the service uses for the next reuse decision.
 `http2::connection::request_endpoint_sequence(endpoint, requests, handler)`
 owns each connected `NetStream` and each spawned request task for a finite
 request list to one endpoint. A request task receives the stream, immutable
-core state, reuse flag, and request value as explicit task context, then
-installs `transport::network::net_stream` inside that task. The application
-handler receives only `Http2ClientResponse` values. It does not receive
-transport handles, handler context, or mutable core state.
+core state, reuse flag, and request value as explicit task context. It installs
+the internal compiler-known `net` compatibility handler inside that task. The
+application handler receives only `Http2ClientResponse` values. It does not
+receive transport handles, handler context, or mutable core state.
 
 After a successful request, the service may retain the connection for the next
 request only when `client_connection_reusable(state)` is true. That projection
@@ -392,8 +393,8 @@ On the first ordinary request-send, protocol, callback, or join failure,
 `request_endpoint_sequence` returns `Http2ClientServiceFailure` with the
 completed request count and closes the retained stream once. Abrupt runtime
 transport failures remain runtime failures, and later source cleanup after
-that failure is not specified. A pure response handler leaves `net`,
-`std::net::IO`, and `concurrency` on the service expression. A handler with callback effects adds
+that failure is not specified. A pure response handler leaves only `net` and
+`concurrency` on the service expression. A handler with callback effects adds
 that callback row to the same expression.
 
 ## Shutdown

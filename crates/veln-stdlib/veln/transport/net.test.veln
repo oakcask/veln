@@ -2,27 +2,35 @@ use prelude
 use net
 use transport::net_test_support_test
 
-test adapter_read_preserves_data_clean_end_and_network_failure() -> Result<(), String> effects [net, concurrency]
-	match transport::net_test_support_test::read_result("data")
-		Ok(Some(bytes)) => if byte_chunk_to_visible_ascii_string(bytes)? == "data"
-			match transport::net_test_support_test::read_result("end")
-				Ok(None) => match transport::net_test_support_test::read_result("failure")
-					Err(net::NetError("scripted-read", Some(net::Tcp4), Some("192.0.2.1:443"), net::ConnectionReset, "read failed")) => Ok(())
-					_ => Err("adapter changed or ignored the read failure")
-				end
-				_ => Err("adapter did not preserve clean end")
-			end
+test adapter_read_preserves_data_on_captured_stream_only() -> Result<(), String> effects [net, concurrency]
+	match transport::net_test_support_test::read_result("data")?
+		{ result: Ok(Some(bytes)), trace: Cons("read:captured", Nil) } => if byte_chunk_to_visible_ascii_string(bytes)? == "data"
+			Ok(())
 		else
 			Err("adapter changed the read bytes")
 		end
-		_ => Err("adapter did not return the read chunk")
+		_ => Err("adapter did not return data from exactly one read of the captured stream")
+	end
+end
+
+test adapter_read_preserves_clean_end_on_captured_stream_only() -> Result<(), String> effects [net, concurrency]
+	match transport::net_test_support_test::read_result("end")?
+		{ result: Ok(None), trace: Cons("read:captured", Nil) } => Ok(())
+		_ => Err("adapter did not preserve clean end from exactly one read of the captured stream")
+	end
+end
+
+test adapter_read_preserves_network_failure_on_captured_stream_only() -> Result<(), String> effects [net, concurrency]
+	match transport::net_test_support_test::read_result("failure")?
+		{ result: Err(net::NetError("scripted-read", Some(net::Tcp4), Some("192.0.2.1:443"), net::ConnectionReset, "read failed")), trace: Cons("read:captured", Nil) } => Ok(())
+		_ => Err("adapter changed the failure or did not use exactly one read of the captured stream")
 	end
 end
 
 test adapter_rejects_successful_empty_read_as_typed_non_progress() -> Result<(), String> effects [net, concurrency]
-	match transport::net_test_support_test::read_result("empty")
-		Err(net::NetError("read", None, None, net::Other, "read returned an empty chunk without reaching end-of-stream")) => Ok(())
-		_ => Err("adapter did not reject an empty successful read")
+	match transport::net_test_support_test::read_result("empty")?
+		{ result: Err(net::NetError("read", None, None, net::Other, "read returned an empty chunk without reaching end-of-stream")), trace: Cons("read:captured", Nil) } => Ok(())
+		_ => Err("adapter did not reject one empty read of the captured stream")
 	end
 end
 

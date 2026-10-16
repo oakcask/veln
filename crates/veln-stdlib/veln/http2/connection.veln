@@ -1,6 +1,5 @@
 use prelude
 use transport
-use transport::network
 use net
 use http2::core
 use http2::legacy_network
@@ -95,7 +94,7 @@ pub fn serve_connection<effect E>(handler: fn(Http2ApplicationEvent) -> Result<L
 	end
 end
 
-pub fn serve_tcp<effect E>(listener: NetListener, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net, net::IO, concurrency, ...E]
+pub fn serve_tcp<effect E>(listener: NetListener, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net, concurrency, ...E]
 	let result = service_accept_next(listener, 1, handler)
 	http2::legacy_network::close_listener(listener)
 	result
@@ -105,7 +104,7 @@ pub fn client_bodyless_request(headers: HeaderList) -> Http2ClientRequest
 	Http2ClientBodylessRequest(headers)
 end
 
-pub fn request_endpoint_sequence<effect E>(endpoint: String, requests: List<Http2ClientRequest>, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, net::IO, concurrency, ...E]
+pub fn request_endpoint_sequence<effect E>(endpoint: String, requests: List<Http2ClientRequest>, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
 	client_request_next(endpoint, requests, NoRetainedClientConnection, 0, handler)
 end
 
@@ -209,7 +208,7 @@ end
 
 fn service_connection_task<effect E>(context: { stream : NetStream, callback : fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E] }) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [net, ...E]
 	let state = service_application_initial_state()?
-	handle drive_server_application(state, context.callback) with transport::network::net_stream(context.stream)
+	handle drive_server_application(state, context.callback) with http2::legacy_network::duplex_stream(context.stream)
 end
 
 fn service_application_initial_state() -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure>
@@ -336,7 +335,7 @@ fn client_spawn_request(stream: NetStream, state: CoreConnectionState, reused: B
 end
 
 fn client_request_task(context: { stream : NetStream, state : CoreConnectionState, reused : Bool, request : Http2ClientRequest }) -> Result<Http2ClientTaskResult, Http2ClientServiceFailure> effects [net]
-	handle client_request_body(context.state, context.reused, context.request) with transport::network::net_stream(context.stream)
+	handle client_request_body(context.state, context.reused, context.request) with http2::legacy_network::duplex_stream(context.stream)
 end
 
 fn start_server(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]

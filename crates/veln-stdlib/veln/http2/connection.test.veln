@@ -1,5 +1,4 @@
 use prelude
-use host_effects
 use transport
 use net
 use http2::connection_test_support_test
@@ -163,14 +162,13 @@ test client_reuse_decision_uses_public_lifecycle_and_capacity() -> Result<(), St
 	end
 end
 
-handler callback_network(response: ByteChunk, trace: { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> }) for host_effects::Network effects [concurrency]
-	request(operation, subject, bytes, remaining_ms, cancelled) => callback_network_reply(response, trace, operation, bytes)
-end
-
-fn callback_network_reply(response: ByteChunk, trace: { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> }, operation: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+test client_service_callback_failure_uses_ordinary_cleanup_path() -> Result<(), String> effects [net, concurrency]
+	let response = byte_chunk_from_hex("00000004000000000000000101050000000189")?
+	let trace = channel::bounded<List<{operation:String, bytes:ByteChunk}>>(1)
+	let _ = channel::send(trace.tx, list_nil())
+	let _ = handle client_service_callback_failure_cleanup_result() with http2::connection_test_support_test::callback_network(response, trace)?
 	let observed: List<{ operation : String, bytes : ByteChunk }> = option_unwrap_or(channel::recv(trace.rx), list_nil())
-	let _ = channel::send(trace.tx, list_cons({ operation: operation, bytes: bytes }, observed))
-	{ status: "ok", value: "callback-stream", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: response, resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+	callback_network_trace_matches(observed)
 end
 
 fn callback_network_trace_matches(trace: List<{ operation : String, bytes : ByteChunk }>) -> Result<(), String>

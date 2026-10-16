@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"effect.missing_public\"", "public function uses undeclared effect `concurrency`", "public function uses undeclared effect `db`", "public function uses undeclared effect `net`", "public function uses undeclared effect `std::net::IO`", "\"symbol\":\"http2::connection::serve_tcp\"", "\"inferred_effects\":[\"concurrency\"]", "\"inferred_effects\":[\"concurrency\",\"db\"]", "\"inferred_effects\":[\"concurrency\",\"std::net::IO\",\"db\"]", "\"inferred_effects\":[\"net\",\"std::net::IO\",\"concurrency\"]", "\"inferred_effects\":[\"net\",\"std::net::IO\",\"concurrency\",\"db\"]"]
+contains = ["\"id\":\"effect.missing_public\"", "public function uses undeclared effect `concurrency`", "public function uses undeclared effect `db`", "public function uses undeclared effect `net`", "public function uses undeclared effect `std::net::IO`", "\"symbol\":\"http2::connection::serve_tcp\"", "\"inferred_effects\":[\"concurrency\"]", "\"inferred_effects\":[\"concurrency\",\"db\"]", "\"inferred_effects\":[\"concurrency\",\"std::net::IO\",\"db\"]", "\"inferred_effects\":[\"net\",\"concurrency\"]", "\"inferred_effects\":[\"net\",\"concurrency\",\"db\"]"]
 
 [stderr]
 format = "empty"
@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 8
+equals = 7
 
 [[diagnostics]]
 id = "effect.missing_public"
@@ -65,17 +65,6 @@ id = "effect.missing_public"
 severity = "error"
 kind = "effect"
 message = "public function uses undeclared effect `net`"
-
-[diagnostics.span]
-file = "main.veln"
-line = 62
-column = 1
-
-[[diagnostics]]
-id = "effect.missing_public"
-severity = "error"
-kind = "effect"
-message = "public function uses undeclared effect `std::net::IO`"
 
 [diagnostics.span]
 file = "main.veln"

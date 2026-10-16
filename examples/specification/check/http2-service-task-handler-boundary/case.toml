@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"effect.missing_public\"", "public function uses undeclared effect `net`", "public function uses undeclared effect `std::net::IO`", "\"inferred_effects\":[\"net\",\"std::net::IO\",\"concurrency\"]"]
+contains = ["\"id\":\"effect.missing_public\"", "public function uses undeclared effect `net`", "public function uses undeclared effect `std::net::IO`", "\"inferred_effects\":[\"net\",\"concurrency\",\"std::net::IO\"]"]
 
 [stderr]
 format = "empty"
