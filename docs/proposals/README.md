@@ -23,6 +23,9 @@ also states it.
 - Legacy compiler-known network compatibility removal after checked sources
   migrate to the exported standard module:
   [network-compatibility-removal.md](network-compatibility-removal.md).
+- Typed `transport::DuplexStream` failures, the caller-owned `net::Stream`
+  adapter, and the resulting HTTP/2 network-failure boundaries:
+  [network-duplex-adapter.md](network-duplex-adapter.md).
 - Remaining ADT variant-refinement support for structural visibility beyond
   root alias-qualified public function annotations, qualified immutable values
   after a separate source-surface prerequisite, schema boundaries,
@@ -35,9 +38,6 @@ also states it.
 
 ## Blocked
 
-- The network `transport::DuplexStream` adapter is blocked until the transport
-  effect has a decided typed failure contract:
-  [network-duplex-adapter.md](network-duplex-adapter.md).
 - Generic named-type and function variance remains separate from ADT variant
   refinement and is blocked until its constructor classifications and complete
   callable composition table are decided:
