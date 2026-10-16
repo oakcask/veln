@@ -29,6 +29,8 @@ pub(crate) struct AdtRegistry {
     companion_access_targets: BTreeMap<String, String>,
     annotation_types: BTreeMap<(Option<String>, String), Type>,
     type_alias_identities: BTreeSet<DescriptorKey>,
+    type_alias_exposure_segments: Vec<Arc<[TypeAliasExposureNode]>>,
+    type_alias_exposure_paths: BTreeMap<DescriptorKey, TypeAliasExposurePathRecord>,
     resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     declaration_spans: HashMap<DescriptorKey, SourceSpan>,
     variant_declaration_spans: HashMap<VariantDescriptorKey, SourceSpan>,
@@ -72,6 +74,69 @@ struct TypeAliasDeclarationIdentity {
     file: SourcePath,
     start: usize,
     end: usize,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct TypeAliasExposureDeclaration {
+    pub(crate) identity: String,
+    pub(crate) span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+struct TypeAliasExposureNode {
+    declaration: TypeAliasExposureDeclaration,
+    inherited: Option<TypeAliasExposureNodeId>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct TypeAliasExposureNodeId {
+    segment: usize,
+    offset: usize,
+}
+
+#[derive(Clone, Debug)]
+struct TypeAliasExposurePathRecord {
+    outer_node: TypeAliasExposureNodeId,
+    terminal: Arc<AdtDescriptor>,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct TypeAliasExposurePath<'a> {
+    segments: &'a [Arc<[TypeAliasExposureNode]>],
+    record: &'a TypeAliasExposurePathRecord,
+}
+
+impl TypeAliasExposurePath<'_> {
+    pub(crate) fn outer_identity(&self) -> &str {
+        &self.node(self.record.outer_node).declaration.identity
+    }
+
+    pub(crate) fn declarations(&self) -> TypeAliasExposureDeclarations<'_> {
+        TypeAliasExposureDeclarations {
+            segments: self.segments,
+            next: Some(self.record.outer_node),
+        }
+    }
+
+    fn node(&self, id: TypeAliasExposureNodeId) -> &TypeAliasExposureNode {
+        &self.segments[id.segment][id.offset]
+    }
+}
+
+pub(crate) struct TypeAliasExposureDeclarations<'a> {
+    segments: &'a [Arc<[TypeAliasExposureNode]>],
+    next: Option<TypeAliasExposureNodeId>,
+}
+
+impl<'a> Iterator for TypeAliasExposureDeclarations<'a> {
+    type Item = &'a TypeAliasExposureDeclaration;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let id = self.next?;
+        let node = &self.segments[id.segment][id.offset];
+        self.next = node.inherited;
+        Some(&node.declaration)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -434,9 +499,31 @@ impl AdtRegistry {
         matches.next().is_none().then_some(unique)
     }
 
-    pub(crate) fn descriptor_is_type_alias(&self, descriptor: &AdtDescriptor) -> bool {
-        self.type_alias_identities
-            .contains(&DescriptorKey::new(descriptor))
+    pub(crate) fn type_alias_exposure_path(
+        &self,
+        descriptor: &AdtDescriptor,
+    ) -> Option<TypeAliasExposurePath<'_>> {
+        self.type_alias_exposure_paths
+            .get(&DescriptorKey::new(descriptor))
+            .map(|record| TypeAliasExposurePath {
+                segments: &self.type_alias_exposure_segments,
+                record,
+            })
+    }
+
+    pub(crate) fn terminal_descriptor_for_alias(
+        &self,
+        descriptor: &AdtDescriptor,
+    ) -> Option<&AdtDescriptor> {
+        self.type_alias_exposure_paths
+            .get(&DescriptorKey::new(descriptor))
+            .map(|path| path.terminal.as_ref())
+    }
+
+    fn type_alias_terminal_keys(&self) -> impl Iterator<Item = DescriptorKey> + '_ {
+        self.type_alias_exposure_paths
+            .values()
+            .map(|path| DescriptorKey::new(&path.terminal))
     }
 
     pub(crate) fn descriptor_for_type_path_any_arity(
@@ -478,10 +565,12 @@ pub(in crate::adt) mod type_alias_resolution_counters {
 
     thread_local! {
         static WORK: Cell<usize> = const { Cell::new(0) };
+        static PROVENANCE_NODES: Cell<usize> = const { Cell::new(0) };
     }
 
     pub(in crate::adt) fn reset() {
         WORK.set(0);
+        PROVENANCE_NODES.set(0);
     }
 
     pub(super) fn record_work() {
@@ -490,6 +579,14 @@ pub(in crate::adt) mod type_alias_resolution_counters {
 
     pub(in crate::adt) fn work() -> usize {
         WORK.get()
+    }
+
+    pub(super) fn record_provenance_node() {
+        PROVENANCE_NODES.set(PROVENANCE_NODES.get() + 1);
+    }
+
+    pub(in crate::adt) fn provenance_nodes() -> usize {
+        PROVENANCE_NODES.get()
     }
 }
 

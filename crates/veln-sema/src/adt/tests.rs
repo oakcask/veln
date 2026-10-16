@@ -117,12 +117,96 @@ fn type_alias_reverse_chain_resolution_work_is_linear() {
                 .count(),
             count,
         );
-        measurements.push((count, type_alias_resolution_counters::work(), elapsed));
+        measurements.push((
+            count,
+            type_alias_resolution_counters::work(),
+            type_alias_resolution_counters::provenance_nodes(),
+            elapsed,
+        ));
     }
     eprintln!("type alias reverse chain measurements: {measurements:?}");
-    for (count, work, _) in measurements {
+    for (count, work, provenance_nodes, _) in measurements {
         assert!(work <= count * 3 + 8, "work={work} count={count}");
+        assert_eq!(provenance_nodes, count, "count={count}");
     }
+}
+
+#[test]
+fn type_alias_exposure_registry_drops_deep_reverse_chain_on_bounded_stack() {
+    const CHILD_MARKER: &str = "VELN_TEST_DEEP_ALIAS_DROP_CHILD";
+    const TEST_NAME: &str =
+        "adt::tests::type_alias_exposure_registry_drops_deep_reverse_chain_on_bounded_stack";
+    if std::env::var_os(CHILD_MARKER).is_some() {
+        run_deep_alias_drop_on_bounded_stack();
+        println!("deep-alias-drop-complete");
+        return;
+    }
+
+    let output = std::process::Command::new(std::env::current_exe().expect("test executable"))
+        .args(["--exact", TEST_NAME, "--nocapture"])
+        .env(CHILD_MARKER, "1")
+        .output()
+        .expect("run deep alias drop child");
+    assert!(
+        output.status.success(),
+        "deep alias drop child failed: status={} stdout={} stderr={}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("deep-alias-drop-complete"),
+        "deep alias drop child did not execute the test: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+}
+
+fn run_deep_alias_drop_on_bounded_stack() {
+    const DEPTH: usize = 12_000;
+    let mut source = String::from("mod facade\n\npub type Packet\nend\n\n");
+    for index in (0..DEPTH).rev() {
+        let target = if index == 0 {
+            "Packet".to_string()
+        } else {
+            format!("Alias{:05}", index - 1)
+        };
+        source.push_str(&format!("pub type Alias{index:05} = {target}\n"));
+    }
+    let parsed = veln_syntax::parse(&veln_source::SourceFile::new("facade.veln", source));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = veln_ast::lower_surface_ast(&parsed.tree);
+
+    std::thread::Builder::new()
+        .name("deep-alias-drop".to_string())
+        .stack_size(256 * 1024)
+        .spawn(move || {
+            let registry = AdtRegistry::from_module_with_base(&module, &registry());
+            let outer_name = format!("Alias{:05}", DEPTH - 1);
+            let outer = registry
+                .descriptors()
+                .iter()
+                .find(|descriptor| descriptor.type_name == outer_name)
+                .expect("outer alias descriptor");
+            let path = registry
+                .type_alias_exposure_path(outer)
+                .expect("outer alias exposure path");
+            let declarations = path.declarations().collect::<Vec<_>>();
+            assert_eq!(declarations.len(), DEPTH);
+            assert!(declarations[0].identity.ends_with(&outer_name));
+            assert!(declarations[DEPTH - 1].identity.ends_with("Alias00000"));
+            assert_eq!(
+                registry
+                    .terminal_descriptor_for_alias(outer)
+                    .expect("terminal descriptor")
+                    .type_name,
+                "Packet"
+            );
+            drop(registry);
+        })
+        .expect("spawn bounded-stack alias registry thread")
+        .join()
+        .expect("bounded-stack alias registry thread");
 }
 
 #[test]
@@ -137,6 +221,11 @@ fn type_alias_shared_suffix_cycle_and_unresolved_work_stays_bounded() {
         assert_shared_suffix_aliases(&registry, count);
         let work = type_alias_resolution_counters::work();
         assert!(work <= count * 9 + 16, "work={work} count={count}");
+        assert_eq!(
+            type_alias_resolution_counters::provenance_nodes(),
+            count * 3,
+            "count={count}"
+        );
     }
 }
 

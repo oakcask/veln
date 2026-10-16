@@ -1,6 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
-use veln_ast::{PublicAlias, PublicAliasKind, SurfaceModule, UseDecl, UseOrigin, Visibility};
+use veln_ast::{PublicAlias, PublicAliasKind, SurfaceModule, UseDecl, Visibility};
 
 use crate::name_recovery::{
     normal_use_decls, public_alias_has_invalid_target_leaf, use_decl_matches_import_path,
@@ -8,13 +9,22 @@ use crate::name_recovery::{
 
 #[cfg(test)]
 use super::type_alias_resolution_counters;
-use super::{TypeAliasDeclarationIdentity, descriptor_identity};
+use super::{
+    DescriptorKey, TypeAliasDeclarationIdentity, TypeAliasExposureDeclaration,
+    TypeAliasExposureNode, TypeAliasExposureNodeId, TypeAliasExposurePathRecord,
+    descriptor_identity,
+};
 use crate::adt::descriptors::AdtDescriptor;
 
 pub(super) fn type_alias_descriptors(
     module: &SurfaceModule,
     descriptors: &[AdtDescriptor],
-) -> (Vec<AdtDescriptor>, Vec<TypeAliasDeclarationIdentity>) {
+    inherited_exposure_segments: &[Arc<[TypeAliasExposureNode]>],
+    inherited_exposure_paths: &std::collections::BTreeMap<
+        DescriptorKey,
+        TypeAliasExposurePathRecord,
+    >,
+) -> ResolvedTypeAliases {
     let uses = normal_use_decls(module);
     let aliases = eligible_type_aliases(module);
     let targets = TypeAliasTargetIndex::new(descriptors, &aliases, &uses);
@@ -22,7 +32,22 @@ pub(super) fn type_alias_descriptors(
         .iter()
         .map(|alias| targets.target(alias))
         .collect::<Vec<_>>();
-    TypeAliasResolver::new(descriptors, &aliases, &steps).resolve()
+    TypeAliasResolver::new(
+        descriptors,
+        &aliases,
+        &steps,
+        inherited_exposure_segments,
+        inherited_exposure_paths,
+    )
+    .resolve()
+}
+
+pub(super) struct ResolvedTypeAliases {
+    pub(super) descriptors: Vec<AdtDescriptor>,
+    pub(super) declarations: Vec<TypeAliasDeclarationIdentity>,
+    pub(super) exposure_segments: Vec<Arc<[TypeAliasExposureNode]>>,
+    pub(super) exposure_paths:
+        std::collections::BTreeMap<DescriptorKey, TypeAliasExposurePathRecord>,
 }
 
 fn eligible_type_aliases(module: &SurfaceModule) -> Vec<&PublicAlias> {
@@ -61,6 +86,10 @@ struct TypeAliasResolver<'a> {
     visiting: Vec<bool>,
     resolved: Vec<AdtDescriptor>,
     resolved_declarations: Vec<TypeAliasDeclarationIdentity>,
+    exposure_segments: Vec<Arc<[TypeAliasExposureNode]>>,
+    local_segment: usize,
+    local_nodes: Vec<TypeAliasExposureNode>,
+    exposure_paths: std::collections::BTreeMap<DescriptorKey, TypeAliasExposurePathRecord>,
 }
 
 impl<'a> TypeAliasResolver<'a> {
@@ -68,6 +97,11 @@ impl<'a> TypeAliasResolver<'a> {
         descriptors: &'a [AdtDescriptor],
         aliases: &'a [&'a PublicAlias],
         steps: &'a [TypeAliasTarget],
+        inherited_exposure_segments: &[Arc<[TypeAliasExposureNode]>],
+        inherited_exposure_paths: &std::collections::BTreeMap<
+            DescriptorKey,
+            TypeAliasExposurePathRecord,
+        >,
     ) -> Self {
         Self {
             descriptors,
@@ -77,16 +111,28 @@ impl<'a> TypeAliasResolver<'a> {
             visiting: vec![false; aliases.len()],
             resolved: Vec::new(),
             resolved_declarations: Vec::new(),
+            exposure_segments: inherited_exposure_segments.to_vec(),
+            local_segment: inherited_exposure_segments.len(),
+            local_nodes: Vec::new(),
+            exposure_paths: inherited_exposure_paths.clone(),
         }
     }
 
-    fn resolve(mut self) -> (Vec<AdtDescriptor>, Vec<TypeAliasDeclarationIdentity>) {
+    fn resolve(mut self) -> ResolvedTypeAliases {
         for start in 0..self.aliases.len() {
             if self.memo[start].is_none() {
                 self.resolve_from(start);
             }
         }
-        (self.resolved, self.resolved_declarations)
+        if !self.local_nodes.is_empty() {
+            self.exposure_segments.push(self.local_nodes.into());
+        }
+        ResolvedTypeAliases {
+            descriptors: self.resolved,
+            declarations: self.resolved_declarations,
+            exposure_segments: self.exposure_segments,
+            exposure_paths: self.exposure_paths,
+        }
     }
 
     fn resolve_from(&mut self, start: usize) {
@@ -99,6 +145,34 @@ impl<'a> TypeAliasResolver<'a> {
                 .map(|target| alias_descriptor(self.aliases[index], target));
             self.memo[index] = Some(descriptor.clone());
             if let Some(descriptor) = &descriptor {
+                let (inherited, terminal) = target
+                    .as_ref()
+                    .map(|target| {
+                        let inherited = self.exposure_paths.get(&DescriptorKey::new(target));
+                        inherited.map_or_else(
+                            || (None, Arc::new(target.clone())),
+                            |inherited| {
+                                (Some(inherited.outer_node), Arc::clone(&inherited.terminal))
+                            },
+                        )
+                    })
+                    .expect("resolved alias has a target");
+                let outer_node = TypeAliasExposureNodeId {
+                    segment: self.local_segment,
+                    offset: self.local_nodes.len(),
+                };
+                self.local_nodes.push(TypeAliasExposureNode {
+                    declaration: alias_exposure_declaration(self.aliases[index]),
+                    inherited,
+                });
+                let exposure_path = TypeAliasExposurePathRecord {
+                    outer_node,
+                    terminal,
+                };
+                #[cfg(test)]
+                type_alias_resolution_counters::record_provenance_node();
+                self.exposure_paths
+                    .insert(DescriptorKey::new(descriptor), exposure_path);
                 self.resolved.push(descriptor.clone());
                 self.resolved_declarations
                     .push(TypeAliasDeclarationIdentity::new(self.aliases[index]));
@@ -132,6 +206,18 @@ impl<'a> TypeAliasResolver<'a> {
     }
 }
 
+fn alias_exposure_declaration(alias: &PublicAlias) -> TypeAliasExposureDeclaration {
+    let name = alias.name.as_deref().expect("filtered alias has a name");
+    let identity = match alias.module_name.as_deref() {
+        None | Some("std::prelude") => name.to_string(),
+        Some(module) => format!("{module}::{name}"),
+    };
+    TypeAliasExposureDeclaration {
+        identity,
+        span: alias.span.clone(),
+    }
+}
+
 fn alias_descriptor(alias: &PublicAlias, target: &AdtDescriptor) -> AdtDescriptor {
     let mut descriptor = target.clone();
     descriptor.nominal_identity =
@@ -146,10 +232,17 @@ struct TypeAliasTargetIndex {
     descriptor_first: HashMap<TypeAliasKey, usize>,
     descriptor_last: HashMap<TypeAliasKey, usize>,
     prelude_public: HashMap<String, TypeAliasTarget>,
+    ambiguous_prelude_public: HashSet<String>,
     opaque_public: HashMap<String, usize>,
     alias_first: HashMap<TypeAliasKey, usize>,
     alias_last: HashMap<TypeAliasKey, usize>,
-    imports: HashMap<TypeAliasKey, String>,
+    imports: HashMap<TypeAliasKey, TypeAliasImportTargets>,
+}
+
+#[derive(Default)]
+struct TypeAliasImportTargets {
+    exact: HashSet<String>,
+    implicit: HashSet<String>,
 }
 
 impl TypeAliasTargetIndex {
@@ -158,6 +251,7 @@ impl TypeAliasTargetIndex {
             descriptor_first: HashMap::new(),
             descriptor_last: HashMap::new(),
             prelude_public: HashMap::new(),
+            ambiguous_prelude_public: HashSet::new(),
             opaque_public: HashMap::new(),
             alias_first: HashMap::new(),
             alias_last: HashMap::new(),
@@ -177,9 +271,10 @@ impl TypeAliasTargetIndex {
             if descriptor.module_name.as_deref() == Some("std::prelude")
                 && descriptor.visibility == Visibility::Public
             {
-                self.prelude_public
-                    .entry(descriptor.type_name.clone())
-                    .or_insert(TypeAliasTarget::Descriptor(position));
+                self.index_prelude_target(
+                    descriptor.type_name.clone(),
+                    TypeAliasTarget::Descriptor(position),
+                );
             }
             if descriptor.module_name.is_none()
                 && matches!(descriptor.type_name.as_str(), "NetListener" | "NetStream")
@@ -201,9 +296,7 @@ impl TypeAliasTargetIndex {
             self.alias_first.entry(key.clone()).or_insert(position);
             self.alias_last.insert(key.clone(), position);
             if alias.module_name.as_deref() == Some("std::prelude") {
-                self.prelude_public
-                    .entry(key.1)
-                    .or_insert(TypeAliasTarget::Alias(position));
+                self.index_prelude_target(key.1, TypeAliasTarget::Alias(position));
             }
         }
     }
@@ -214,22 +307,35 @@ impl TypeAliasTargetIndex {
             let target = use_decl.name.clone();
             self.imports
                 .entry((module.clone(), target.clone()))
-                .or_insert_with(|| target.clone());
+                .or_default()
+                .exact
+                .insert(target.clone());
             if is_standard_import(use_decl, module.as_deref())
                 && let Some(relative) = target.strip_prefix("std::")
             {
                 self.imports
                     .entry((module.clone(), relative.to_string()))
-                    .or_insert_with(|| target.clone());
+                    .or_default()
+                    .exact
+                    .insert(target.clone());
             }
-            if use_decl.package.is_some()
-                || !target.contains("::")
-                || use_decl.origin == UseOrigin::ImplicitStandardPrelude
-            {
+            if crate::name_recovery::use_decl_matches_implicit_import_alias(
+                use_decl,
+                &use_decl.alias,
+                module.as_deref(),
+            ) {
                 self.imports
                     .entry((module, use_decl.alias.clone()))
-                    .or_insert(target);
+                    .or_default()
+                    .implicit
+                    .insert(target);
             }
+        }
+    }
+
+    fn index_prelude_target(&mut self, name: String, target: TypeAliasTarget) {
+        if self.prelude_public.insert(name.clone(), target).is_some() {
+            self.ambiguous_prelude_public.insert(name);
         }
     }
 
@@ -241,13 +347,14 @@ impl TypeAliasTargetIndex {
         };
         if alias.target.len() == 1 {
             let key = (alias.module_name.clone(), name.clone());
-            if let Some(&index) = self.alias_last.get(&key) {
-                return TypeAliasTarget::Alias(index);
+            match self.local_target(&key) {
+                IndexedTarget::Unique(target) => return target,
+                IndexedTarget::Ambiguous => return TypeAliasTarget::Missing,
+                IndexedTarget::Absent => {}
             }
-            if let Some(&index) = self.descriptor_last.get(&key) {
-                return TypeAliasTarget::Descriptor(index);
-            }
-            if let Some(&target) = self.prelude_public.get(name) {
+            if !self.ambiguous_prelude_public.contains(name)
+                && let Some(&target) = self.prelude_public.get(name)
+            {
                 return target;
             }
             if let Some(&index) = self.opaque_public.get(name) {
@@ -257,17 +364,66 @@ impl TypeAliasTargetIndex {
         }
         let qualifier = alias.target[..alias.target.len() - 1].join("::");
         let key = (alias.module_name.clone(), qualifier);
-        let Some(module) = self.imports.get(&key) else {
+        let Some(imports) = self.imports.get(&key) else {
             return TypeAliasTarget::Missing;
         };
-        let key = (Some(module.clone()), name.clone());
-        if let Some(&index) = self.descriptor_first.get(&key) {
-            return TypeAliasTarget::Descriptor(index);
+        let candidates = if imports.exact.is_empty() {
+            &imports.implicit
+        } else {
+            &imports.exact
+        };
+        let mut candidates = candidates.iter();
+        let Some(module) = candidates.next() else {
+            return TypeAliasTarget::Missing;
+        };
+        if candidates.next().is_some() {
+            return TypeAliasTarget::Missing;
         }
-        self.alias_first
-            .get(&key)
-            .copied()
-            .map_or(TypeAliasTarget::Missing, TypeAliasTarget::Alias)
+        let key = (Some(module.clone()), name.clone());
+        match self.local_target(&key) {
+            IndexedTarget::Unique(target) => target,
+            IndexedTarget::Absent | IndexedTarget::Ambiguous => TypeAliasTarget::Missing,
+        }
+    }
+
+    fn local_target(&self, key: &TypeAliasKey) -> IndexedTarget {
+        let alias = indexed_position(&self.alias_first, &self.alias_last, key);
+        let descriptor = indexed_position(&self.descriptor_first, &self.descriptor_last, key);
+        match (alias, descriptor) {
+            (IndexedPosition::Unique(index), IndexedPosition::Absent) => {
+                IndexedTarget::Unique(TypeAliasTarget::Alias(index))
+            }
+            (IndexedPosition::Absent, IndexedPosition::Unique(index)) => {
+                IndexedTarget::Unique(TypeAliasTarget::Descriptor(index))
+            }
+            (IndexedPosition::Absent, IndexedPosition::Absent) => IndexedTarget::Absent,
+            _ => IndexedTarget::Ambiguous,
+        }
+    }
+}
+
+enum IndexedTarget {
+    Absent,
+    Unique(TypeAliasTarget),
+    Ambiguous,
+}
+
+enum IndexedPosition {
+    Absent,
+    Unique(usize),
+    Ambiguous,
+}
+
+fn indexed_position(
+    first: &HashMap<TypeAliasKey, usize>,
+    last: &HashMap<TypeAliasKey, usize>,
+    key: &TypeAliasKey,
+) -> IndexedPosition {
+    match (first.get(key), last.get(key)) {
+        (None, None) => IndexedPosition::Absent,
+        (Some(first), Some(last)) if first == last => IndexedPosition::Unique(*first),
+        (Some(_), Some(_)) => IndexedPosition::Ambiguous,
+        _ => unreachable!("alias target indexes are populated together"),
     }
 }
 

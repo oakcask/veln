@@ -14,8 +14,9 @@ direct assignability and widening, aggregate retention and joins, control-flow
 result joins, contextual aggregate construction, refined calls and results,
 stable mismatch diagnostics, and runtime erasure.
 
-This proposal retains only the unfinished work: transitive type-alias and
-structural visibility, qualified-value match refinement, schema boundaries,
+This proposal retains only the unfinished work: structural visibility beyond
+root alias-qualified public function annotations, qualified-value match
+refinement, schema boundaries,
 package documentation catalog signatures, remaining LSP diagnostics and
 invalid-refinement recovery, and MCP invalid-refinement recovery,
 package-signature, and saved-state behavior. Qualified
@@ -67,12 +68,12 @@ the unimplemented semantic and tooling behavior below.
 
 The current [type specification](../specification/types.md#compatibility-and-limits)
 owns alias-qualified refinement identity, assignability, presentation, and
-direct ADT-root refinement visibility on public function parameters and
-results resolved by unique exact lookup or unique casing recovery, including
-suppression of public function aliases derived from a function that fails that
-direct visibility check. The remaining work covers public package signatures
-and visibility failures hidden behind type aliases or structural type
-positions.
+root refinement visibility on public function parameters and results. Root
+visibility resolves finite local and imported alias chains to the terminal ADT,
+reports the traversed aliases, and suppresses public function aliases derived
+from a rejected function. The remaining work covers public package signatures
+and visibility failures reached inside structural type positions, including
+aliases reached from those positions.
 
 A refinement is valid only when the selected constructor is visible at the
 annotation. The remaining traversal prevents a public declaration from
@@ -97,12 +98,12 @@ the public type contract. Exact test-companion permission can use a private
 constructor in test source, but it cannot make that constructor valid in a
 public signature or generated public schema boundary.
 
-When the inaccessible refinement is hidden entirely behind one or more aliases,
-the primary span is the outermost alias occurrence written in the public
-signature. Related notes identify the alias declarations along the exposure
-path and the final private type or variant declaration. Structured
-`exposure_path` segments distinguish record fields, generic arguments,
-function parameters and results, ADT payloads, union alternatives, and aliases.
+When an inaccessible refinement is reached inside a structural position, the
+primary span is the outermost written type occurrence that exposes that path.
+Structured `exposure_path` segments distinguish record fields, generic
+arguments, function parameters and results, ADT payloads, and union
+alternatives. Alias declarations reached from that structural position remain
+related context.
 
 Each remaining indirect public type occurrence reports one
 `type.variant_refinement_private` diagnostic for each distinct inaccessible
@@ -204,7 +205,7 @@ repair guidance belong in `related` notes rather than the primary message.
 | --- | --- | --- | --- |
 | `type.variant_refinement_base` | The ADT identity is known, but its selected production provider has no public finite variant descriptor. | `written_type`, `reason` | The selected provider and its provenance. |
 | `type.variant_refinement_unknown` | The final segment does not name a variant owned by the resolved ADT. | `base_type`, `variant` | The ADT declaration and visible variant names. |
-| `type.variant_refinement_private` | An indirect refinement exposure reaches a private base type or inaccessible variant. The current [type](../specification/types.md#compatibility-and-limits) and [diagnostic](../specification/diagnostics-json.md#diagnostic-families) specifications own direct public-function root refinements whose written base names the ADT. | `written_type`, `base_type`, `variant`, `boundary`, `exposure_path` | The alias declarations on the exposure path, the final private declaration, and the public-signature boundary. |
+| `type.variant_refinement_private` | A refinement in a structural type position reaches a private base type or inaccessible variant. The current [type](../specification/types.md#compatibility-and-limits) and [diagnostic](../specification/diagnostics-json.md#diagnostic-families) specifications own public-function root refinements whose written base names the ADT directly or resolves through a finite transparent alias chain. | `written_type`, `base_type`, `variant`, `boundary`, `exposure_path` | The structural exposure path, including aliases reached from that position, followed by the final private declaration and public-signature boundary. |
 | `type.variant_union_base` | A union alternative resolves to a different ADT identity or generic arguments. | `expected_base_type`, `actual_base_type` | The first alternative that established the required union base. |
 | `schema.variant_refinement_decode_unsupported` | A decode target contains a refinement that the selected decoder can neither construct directly nor validate from the decoded ADT tag. | `target_type`, `base_type`, `expected_variants`, `decoder` | The decoder or codec declaration whose result cannot establish the refinement. |
 
@@ -276,7 +277,7 @@ analysis; it does not by itself publish protocol-visible navigation.
 | The base is unresolved. | The existing unresolved-name diagnostic. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | None. |
 | The base is ambiguous. | The existing ambiguity diagnostic with its candidates. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | No selected base or variant identity; candidates remain related context. |
 | A provider-backed ADT identity has no public finite variant descriptor. | `type.variant_refinement_base` with `reason: "variant_descriptor_unavailable"`. | Variant, visibility, union comparison involving that alternative, and assignability diagnostics. | The resolved base identity only. |
-| Generic arity is invalid in a remaining indirect exposure after the base type resolves exactly or through unique casing recovery. | The existing generic-arity diagnostic, plus any independently provable final-segment casing, unknown-variant, or indirect visibility diagnostic. Direct public-function root overlap is current behavior in the [type](../specification/types.md#compatibility-and-limits) and [diagnostic](../specification/diagnostics-json.md#diagnostic-families) specifications. | Union comparison involving that alternative and assignability diagnostics that require an instantiated type. | The source declaration or source-less type identity and, when resolved, the constructor declaration; no instantiated refinement type. |
+| Generic arity is invalid in a remaining indirect exposure after the base type resolves exactly or through unique casing recovery. | The existing generic-arity diagnostic, plus any independently provable final-segment casing, unknown-variant, or indirect visibility diagnostic. Public-function root overlap, including a finite transparent alias chain, is current behavior in the [type](../specification/types.md#compatibility-and-limits) and [diagnostic](../specification/diagnostics-json.md#diagnostic-families) specifications. | Union comparison involving that alternative and assignability diagnostics that require an instantiated type. | The source declaration or source-less type identity and, when resolved, the constructor declaration; no instantiated refinement type. |
 | The final segment is not a variant of the resolved ADT. | `type.variant_refinement_unknown`, plus an independently applicable casing diagnostic. | Visibility and assignability diagnostics that require a selected constructor. | The base declaration only. |
 | Under the planned invalid-refinement recovery, a lowercase final segment has one recovery identity. | `parse.variant_refinement_type`, followed by `name.invalid_case` and independent semantic failures discovered through that identity. | A lookup or unknown-variant diagnostic whose only cause is the recovered casing. | The uniquely recovered constructor declaration. |
 | Under the planned invalid-refinement recovery, a lowercase final segment has no unique recovery. | `parse.variant_refinement_type`, followed by the independently provable casing or lookup diagnostic. | Downstream failures that require a selected constructor identity. | Only identities selected independently of the failed final segment. |
@@ -410,7 +411,7 @@ current behavior:
 
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
-| Transitive type-alias and structural visibility | Imported, private, opaque, ambiguous, and exact-companion exposure paths follow the visibility contract. Public-signature checking traverses record fields, generic arguments, function positions, public source ADT payloads, refinement unions, and type-alias chains without leaking a private base or variant or looping on recursion. Alias-hidden leaks select the outermost written type alias and report the structural exposure path. Public package signatures preserve written annotations. Failed visibility retains unambiguous source navigation identities under existing recovery rules but publishes no declaration or package signature. | Table-driven package-signature cases covering every structural position, multi-alias leaks, multiple paths, recursive cycles, exact companions, deterministic diagnostic order, exact primary and related spans, retained source identities, and absent public identities. |
+| Structural visibility beyond root aliases | Public-signature checking traverses record fields, generic arguments, function positions, public source ADT payloads, and refinement unions without leaking a private base or variant or looping on recursion. Aliases reached inside those positions remain part of the reported structural exposure path. Public package signatures preserve written annotations. Failed visibility retains unambiguous source navigation identities under existing recovery rules but publishes no declaration or package signature. | Table-driven package-signature cases covering every structural position, aliases reached inside those positions, multiple paths, recursive ADT cycles, deterministic diagnostic order, exact primary and related spans, retained source identities, and absent public identities. |
 | Qualified immutable values | After a separate Ready proposal adds module-addressable immutable data values, matching a qualified reference to such a declaration has the same stable-value refinement as the corresponding direct binding. A same-shaped qualified constructor or function expression remains outside this rule. | Accepted and rejected source-grammar fixtures and name-resolution cases for the prerequisite declaration, followed by match cases that resolve an actual qualified immutable data-value declaration and distinguish it from constructors and functions. |
 | Schema encode and decode | Refinement annotations preserve the base ADT wire representation. Encode and typed pass-through helpers require statically assignable refined inputs. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. | Schema eligibility and type-checker cases for refined and base inputs; binary, format-neutral, incremental, singleton, union, nested record, payload, option, result, collection, and dictionary cases; runtime cases for admitted variants, excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, and unchanged wire bytes. |
 | Provider descriptor unavailable | After the separate provider prerequisite lands, a production compiler or package input with a known ADT identity and no public finite variant descriptor reports `type.variant_refinement_base` with reason `variant_descriptor_unavailable`. A local source declaration with no lowered variants does not establish this reason. | Human and JSON command fixtures that select the production provider, plus semantic cases that distinguish compiler or package provenance from local source declarations and unit-only provider injection. |
@@ -418,9 +419,10 @@ current behavior:
 | MCP | Invalid-refinement recovery, package signatures, and failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
 
 The remaining state-machine examples must include match-based recovery of a
-refined value, an indirect private-variant boundary reached through an alias or
-structural public-signature position, and an unchanged saved result after a
-failed language-service request.
+refined value, an indirect private-variant boundary reached through a
+structural public-signature position, optionally through an alias nested in
+that position, and an unchanged saved result after a failed language-service
+request.
 
 ## Non-Goals
 

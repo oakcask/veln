@@ -63,6 +63,15 @@ resolve to a type reports `name.unresolved`. The
 [type compatibility rules](types.md#compatibility-and-limits) define how a
 resolved chain qualifies variant refinements and preserves display provenance.
 
+A qualified target in a public type-alias declaration resolves through imports
+declared in that alias's source module. An exact written import path takes
+precedence over a same-spelled implicit leaf qualifier. Without an exact match,
+the implicit qualifier must identify exactly one imported module before the
+checker looks for the target type in that module. Colliding implicit qualifiers
+therefore remain unresolved even when only one candidate module declares the
+requested type leaf. Reordering imports or selected source modules does not
+change these results.
+
 A qualified variant-refinement base first selects a matching source module
 identity. When that source type has the same leaf spelling as a compiler-known
 type, the source declaration wins. The compiler-known identity remains the
@@ -190,18 +199,20 @@ Bare names resolve to local bindings. Function calls resolve to:
 - implicit standard prelude helper imports by bare name or `prelude::function`
   form
 
-A public function whose direct variant-refinement visibility check fails can
+A public function whose root variant-refinement visibility check fails can
 retain an all-`unknown` signature for same-module recovery without publishing a
-callable signature. A public alias of that function is not a qualified call
-target or an unqualified import candidate, and another module cannot republish
-it through a further alias. An alias of a valid public function remains
-available through each supported alias chain. This publication rule does not
-change invalid-name function recovery, whose callable-signature behavior is
-defined by the [type-checking contract](types.md#compatibility-and-limits).
+callable signature. This includes a root whose written base directly names its
+ADT and a root whose written base resolves through a finite transparent
+type-alias chain. A public alias of that function is not a qualified call target
+or an unqualified import candidate, and another module cannot republish it
+through a further alias. An alias of a valid public function remains available
+through each supported alias chain. This publication rule does not change
+invalid-name function recovery, whose callable-signature behavior is defined by
+the [type-checking contract](types.md#compatibility-and-limits).
 
 When a public alias uses a bare target name, a same-module function shadows an
 imported function with that name before publication eligibility is checked. If
-the local function is unpublished because its direct refinement visibility
+the local function is unpublished because its root refinement visibility
 check failed, the alias is also unpublished; resolution does not fall back to
 the imported namesake. The imported function remains available through its
 qualified module path.
@@ -350,11 +361,13 @@ span, and segment index. If changing only an invalid-cased base leaf selects
 exactly one type, casing analysis retains that type classification. It reports
 `name.invalid_case` and still checks the recovered base's independent
 variant-refinement eligibility. For a refinement used as the complete
-annotation of a public function parameter or result, that unique recovered ADT
-identity also participates in the direct visibility check when the written
-final segment starts with an ASCII uppercase letter and resolves exactly to one
-constructor of the recovered ADT. A lowercase final segment is a parse failure
-and does not reach casing or direct visibility analysis. The privacy diagnostic
+annotation of a public function parameter or result, that unique recovered
+terminal ADT identity also participates in the root visibility check when the
+written base names it directly or reaches it through a finite transparent
+type-alias chain, and when the written final segment starts with an ASCII
+uppercase letter and resolves exactly to one constructor of that ADT. A
+lowercase final segment is a parse failure and does not reach casing or root
+visibility analysis. The privacy diagnostic
 retains the written base casing. Ambiguous or unresolved base recovery, or an
 ambiguous or missing exact final segment, does not manufacture a privacy
 diagnostic. This includes a source-less base

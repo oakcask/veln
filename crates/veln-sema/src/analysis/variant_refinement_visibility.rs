@@ -5,6 +5,7 @@ use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
 use crate::adt::descriptors::{AdtDescriptor, AdtVariantDescriptor};
+use crate::adt::registry::TypeAliasExposurePath;
 use crate::diagnostics::span_json;
 use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_annotation;
@@ -115,6 +116,11 @@ fn root_exposures<'a>(
             exposure.descriptor.identity(),
             exposure.variant.name.clone(),
             exposure.alternative_identity.clone(),
+            exposure
+                .alias_declarations
+                .as_ref()
+                .map(TypeAliasExposurePath::outer_identity)
+                .map(str::to_string),
         ))
     });
     exposures.into_iter()
@@ -392,14 +398,19 @@ fn private_exposure<'a>(
     environment: &'a TypeEnvironment,
 ) -> Option<PrivateExposure<'a>> {
     record_visibility_work(1);
-    let descriptor = environment.variant_refinement_descriptor_identity(
+    let written_descriptor = environment.variant_refinement_descriptor_identity(
         &candidate.written_base,
         candidate.type_argument_count,
         current_module,
     )?;
-    if environment.adts.descriptor_is_type_alias(descriptor) {
-        return None;
-    }
+    let descriptor = environment
+        .adts
+        .terminal_descriptor_for_alias(written_descriptor)
+        .unwrap_or_else(|| {
+            environment
+                .adts
+                .canonical_descriptor_for(written_descriptor)
+        });
     record_visibility_work(1);
     let variant =
         environment.variant_refinement_variant_identity(descriptor, &candidate.written_variant)?;
@@ -407,6 +418,9 @@ fn private_exposure<'a>(
     if !private_base && variant.visibility == Visibility::Public {
         return None;
     }
+    let alias_declarations = environment
+        .adts
+        .type_alias_exposure_path(written_descriptor);
     record_visibility_work(1);
     let alternative_identity =
         refinement_alternative_identity(&candidate, &variant.name, current_module, environment);
@@ -419,6 +433,7 @@ fn private_exposure<'a>(
         declaration_span: private_declaration_span(environment, descriptor, variant, private_base),
         private_base,
         alternative_identity,
+        alias_declarations,
     })
 }
 
@@ -660,6 +675,7 @@ struct PrivateExposure<'a> {
     declaration_span: Option<SourceSpan>,
     private_base: bool,
     alternative_identity: RefinementAlternativeIdentity,
+    alias_declarations: Option<TypeAliasExposurePath<'a>>,
 }
 
 impl PrivateExposure<'_> {
@@ -680,6 +696,22 @@ impl PrivateExposure<'_> {
                 ("exposure_path", boundary.exposure_path()),
             ]),
         );
+        if let Some(path) = &self.alias_declarations {
+            let aliases = path.declarations().collect::<Vec<_>>();
+            for alias in aliases {
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("type_alias_declaration")),
+                    (
+                        "message",
+                        JsonValue::string(format!(
+                            "Public type alias `{}` is declared here.",
+                            alias.identity
+                        )),
+                    ),
+                    ("span", span_json(&alias.span)),
+                ]));
+            }
+        }
         if let Some(span) = &self.declaration_span {
             diagnostic.related.push(JsonValue::object([
                 ("kind", JsonValue::string(declaration_kind)),
@@ -700,6 +732,34 @@ impl PrivateExposure<'_> {
 
     fn primary_context(&self) -> (SourceSpan, String, &'static str, String) {
         let base_type = self.descriptor.identity();
+        if self.alias_declarations.is_some() {
+            let declaration_kind = if self.private_base {
+                "private_type_declaration"
+            } else {
+                "private_variant_declaration"
+            };
+            let declaration_message = if self.private_base {
+                format!("Private type `{base_type}` is declared here.")
+            } else {
+                format!(
+                    "Private variant `{}::{}` is declared here.",
+                    base_type, self.variant.name
+                )
+            };
+            return (
+                self.base_span.clone(),
+                if self.private_base {
+                    format!("public refinement exposes private type `{base_type}`")
+                } else {
+                    format!(
+                        "public refinement exposes private variant `{}::{}`",
+                        base_type, self.variant.name
+                    )
+                },
+                declaration_kind,
+                declaration_message,
+            );
+        }
         if self.private_base {
             (
                 self.base_span.clone(),
