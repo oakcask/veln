@@ -168,6 +168,31 @@ fn invalid_module_header_is_quarantined_without_declaring_module_identity() {
 }
 
 #[test]
+fn collects_invalid_names_in_module_item_then_use_order() {
+    let module = lower_source_allowing_diagnostics(concat!(
+        "mod App\n",
+        "use Platform.io\n",
+        "fn Main() -> Int\n",
+        "  1\n",
+        "end\n",
+    ));
+
+    let invalid = module
+        .invalid_names
+        .iter()
+        .map(|name| (name.name.as_str(), name.class, name.occurrence))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        invalid,
+        [
+            ("App", NameClass::Module, NameOccurrence::Declaration),
+            ("Main", NameClass::Function, NameOccurrence::Declaration),
+            ("Platform", NameClass::Module, NameOccurrence::PathSegment),
+        ]
+    );
+}
+
+#[test]
 fn lowercase_module_header_remains_normal_module_identity() {
     let module = lower_source(concat!(
         "mod app\n",

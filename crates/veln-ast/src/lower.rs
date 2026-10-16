@@ -26,12 +26,9 @@ use crate::{
 
 mod expressions;
 mod invalid_names;
+mod items;
 
-use invalid_names::{
-    collect_invalid_alias_name, collect_invalid_effect_names, collect_invalid_function_names,
-    collect_invalid_handler_names, collect_invalid_module_header, collect_invalid_schema_names,
-    collect_invalid_type_names, collect_invalid_use_name,
-};
+use invalid_names::collect_invalid_names;
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
     let mut builder = AstBuilder { next_node_id: 1 };
@@ -96,67 +93,18 @@ impl AstBuilder {
             .iter()
             .map(|use_decl| self.lower_use_decl(use_decl, module_name.clone()))
             .collect();
-        let mut types = Vec::new();
-        let mut effects = Vec::new();
-        let mut handlers = Vec::new();
-        let mut schemas = Vec::new();
-        let mut functions = Vec::new();
-        let mut aliases = Vec::new();
-        let mut invalid_names = Vec::new();
-
-        if let Some(module) = &tree.module {
-            collect_invalid_module_header(module, &mut invalid_names);
-        }
-        for item in &tree.items {
-            match item {
-                SyntaxItem::Function(function) => {
-                    collect_invalid_function_names(function, &mut invalid_names);
-                    functions.push(self.lower_function(
-                        function,
-                        module_name.clone(),
-                        package_name.clone(),
-                    ));
-                }
-                SyntaxItem::Effect(effect) => {
-                    collect_invalid_effect_names(effect, &mut invalid_names);
-                    effects.push(self.lower_effect_decl(effect, module_name.clone()));
-                }
-                SyntaxItem::Handler(handler) => {
-                    collect_invalid_handler_names(handler, &mut invalid_names);
-                    handlers.push(self.lower_handler_decl(
-                        handler,
-                        module_name.clone(),
-                        package_name.clone(),
-                    ));
-                }
-                SyntaxItem::Type(type_decl) => {
-                    collect_invalid_type_names(type_decl, &mut invalid_names);
-                    types.push(self.lower_type_decl(type_decl, module_name.clone()));
-                }
-                SyntaxItem::Schema(schema) => {
-                    collect_invalid_schema_names(schema, &mut invalid_names);
-                    schemas.push(self.lower_schema_decl(schema, module_name.clone()));
-                }
-                SyntaxItem::PublicAlias(alias) => {
-                    collect_invalid_alias_name(alias, &mut invalid_names);
-                    aliases.push(self.lower_public_alias(alias, module_name.clone()));
-                }
-            }
-        }
-        for use_decl in &tree.uses {
-            collect_invalid_use_name(use_decl, &mut invalid_names);
-        }
+        let items = self.lower_items(&tree.items, &module_name, &package_name);
 
         SurfaceModule {
             module,
             uses,
-            aliases,
-            effects,
-            handlers,
-            types,
-            schemas,
-            functions,
-            invalid_names,
+            aliases: items.aliases,
+            effects: items.effects,
+            handlers: items.handlers,
+            types: items.types,
+            schemas: items.schemas,
+            functions: items.functions,
+            invalid_names: collect_invalid_names(tree),
         }
     }
 }
