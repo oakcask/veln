@@ -63,6 +63,15 @@ resolve to a type reports `name.unresolved`. The
 [type compatibility rules](types.md#compatibility-and-limits) define how a
 resolved chain qualifies variant refinements and preserves display provenance.
 
+A qualified target in a public type-alias declaration resolves through imports
+declared in that alias's source module. An exact written import path takes
+precedence over a same-spelled implicit leaf qualifier. Without an exact match,
+the implicit qualifier must identify exactly one imported module before the
+checker looks for the target type in that module. Colliding implicit qualifiers
+therefore remain unresolved even when only one candidate module declares the
+requested type leaf. Reordering imports or selected source modules does not
+change these results.
+
 A qualified variant-refinement base first selects a matching source module
 identity. When that source type has the same leaf spelling as a compiler-known
 type, the source declaration wins. The compiler-known identity remains the
