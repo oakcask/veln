@@ -345,9 +345,10 @@ state and drives one caller-owned duplex stream through
 accepted streams, and connection tasks. Each spawned connection task receives
 its `net::Stream` as explicit context and installs the standard network duplex
 adapter `transport::network::net_stream` inside the task. The caller supplies
-one `net::IO` handler around the service. Spawned tasks inherit that handler,
-and listener and stream operations remain with the provider that created those
-resources. The public effect boundary is `[std::net::IO, concurrency, ...E]`.
+the `net::IO` handler that owns the listener and keeps it active around the
+service. Spawned tasks inherit that handler, so accepted-stream operations use
+the same provider. The public effect boundary is
+`[std::net::IO, concurrency, ...E]`.
 
 For each accepted stream, `serve_tcp` spawns one connection task with that
 stream as explicit context, joins the task, and closes the stream once. The

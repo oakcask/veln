@@ -33,7 +33,9 @@ end
 fn print_failure(failure: Http2ServiceFailure) -> Result<(), String> effects [stdio]
 	stdio::print(http2::connection::service_failure_kind(failure))
 	stdio::print(" ")
-	stdio::println(http2::connection::service_failure_id(failure))
+	stdio::print(http2::connection::service_failure_id(failure))
+	stdio::print(" ")
+	stdio::println(int_to_string(http2::connection::service_failure_accepted(failure)))
 	Ok(())
 end
 

@@ -1,1 +1,1 @@
-network http2.service.network_failure
+network http2.service.network_failure 2
