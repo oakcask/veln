@@ -880,8 +880,9 @@ The public implementations are under `crates/veln-stdlib/veln/http2/`.
 Adjacent companion tests and their separate Veln handler support exercise
 source-visible return values, unchanged direct transport errors, and failure
 projections. The `connection.test.veln` companion covers TCP service accept,
-stream I/O, stream-close, and listener-close failures, accepted counts, and
-cleanup precedence with the separate
+stream I/O, stream-close, and listener-close failures, accepted counts,
+cleanup precedence, and bounded iteration across thousands of completed
+connections with the separate
 `connection_service_test_support_test.veln` handler.
 The checked
 [`http2-service-two-connections`](../../examples/specification/run/http2-service-two-connections/)
