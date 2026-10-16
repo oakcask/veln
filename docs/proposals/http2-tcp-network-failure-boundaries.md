@@ -31,9 +31,9 @@ not remove compiler-known network compatibility.
   as a lifecycle operation separate from reads and writes.
 - **Applicability and limits:** Go does not define Veln's effect rows, progress
   counts, or cleanup-failure precedence.
-- **Veln consequence:** The remaining service and client work keeps lifecycle
-  ownership at those boundaries and reports cleanup as a typed network
-  outcome instead of folding it into protocol or callback failures.
+- **Veln consequence:** The remaining client work keeps lifecycle ownership at
+  that boundary and reports cleanup as a typed network outcome instead of
+  folding it into protocol or callback failures.
 
 ## Acceptance model
 

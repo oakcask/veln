@@ -141,14 +141,30 @@ fn selected_sources(
             *input = package_root.join(&*input);
         }
     }
-    // The execution harness materializes this shared source in the copied case.
-    // Check its repository source while discovering the ordinary case inputs.
-    let shared_fake = package_root.join("fake_effects.veln");
-    let has_shared_fake = case_dir.join("fixture_effects.veln").is_file()
-        && !shared_fake.exists()
-        && inputs.contains(&shared_fake);
-    if has_shared_fake {
-        inputs.retain(|input| input != &shared_fake);
+    // The execution harness materializes these shared sources in the copied case.
+    // Check their repository sources while discovering the ordinary case inputs.
+    let shared_support = [
+        (
+            "fake_effects.veln",
+            "examples/test-support/fake_effects.veln",
+        ),
+        (
+            "http2_service_effects.veln",
+            "examples/test-support/http2_service_effects.veln",
+        ),
+    ];
+    let materialized_support: Vec<_> = shared_support
+        .into_iter()
+        .filter_map(|(input_name, repository_path)| {
+            let input = package_root.join(input_name);
+            (case_dir.join("fixture_effects.veln").is_file()
+                && !input.exists()
+                && inputs.contains(&input))
+            .then_some((input, repo_root.join(repository_path)))
+        })
+        .collect();
+    for (input, _) in &materialized_support {
+        inputs.retain(|candidate| candidate != input);
     }
     let project = Project::discover(package_root, &inputs).map_err(|error| {
             format!(
@@ -161,8 +177,8 @@ fn selected_sources(
         .into_iter()
         .map(|source| project.root.join(source.path().as_str()))
         .collect();
-    if has_shared_fake {
-        sources.push(repo_root.join("examples/test-support/fake_effects.veln"));
+    for (_, repository_source) in materialized_support {
+        sources.push(repository_source);
     }
     Ok(sources)
 }
@@ -206,6 +222,27 @@ mod tests {
         assert!(sources.contains(&case_dir.join("main.veln")));
         assert!(sources.contains(&case_dir.join("fixture_effects.veln")));
         assert!(sources.contains(&repo_root.join("examples/test-support/fake_effects.veln")));
+    }
+
+    #[test]
+    fn injected_http2_fixture_checks_each_shared_support_source() {
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .unwrap();
+        let case_dir = repo_root.join("examples/specification/run/http2-service-callback-failure");
+        let manifest_path = case_dir.join("case.toml");
+        let text = fs::read_to_string(&manifest_path).unwrap();
+        let manifest =
+            CaseManifest::parse_for_accepted_source_selection(&manifest_path, &text).unwrap();
+        let sources = selected_sources(&manifest, &case_dir, &repo_root).unwrap();
+        assert_eq!(sources.len(), 4);
+        assert!(sources.contains(&case_dir.join("main.veln")));
+        assert!(sources.contains(&case_dir.join("fixture_effects.veln")));
+        assert!(sources.contains(&repo_root.join("examples/test-support/fake_effects.veln")));
+        assert!(
+            sources.contains(&repo_root.join("examples/test-support/http2_service_effects.veln"))
+        );
     }
 
     #[test]
