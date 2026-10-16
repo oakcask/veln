@@ -331,7 +331,7 @@ state and drives one caller-owned duplex stream through
 
 `http2::connection::serve_tcp(listener, handler)` owns the supplied listener,
 accepted streams, and connection tasks. Each spawned connection task receives
-its `NetStream` as explicit context and installs
+its `net::Stream` as explicit context and installs
 `transport::net::net_stream` inside the task. Lexical handlers installed
 outside `serve_tcp` do not satisfy the spawned connection task boundary. Its
 public effect boundary is `[std::net::IO, concurrency, ...E]`.
@@ -352,7 +352,7 @@ failures.
 value. The implemented request shape is
 `Http2ClientBodylessRequest(headers)`, created by
 `client_bodyless_request(headers)`. It carries only a validated HPACK header
-list for one bodyless request and exposes no `NetStream`, handler context, or
+list for one bodyless request and exposes no `net::Stream`, handler context, or
 mutable core state.
 
 `http2::connection::Http2ClientResponse` is the immutable public client
@@ -362,7 +362,7 @@ connection lifecycle label, the active stream count, and the peer stream
 capacity that the service uses for the next reuse decision.
 
 `http2::connection::request_endpoint_sequence(endpoint, requests, handler)`
-owns each connected `NetStream` and each spawned request task for a finite
+owns each connected `net::Stream` and each spawned request task for a finite
 request list to one endpoint. A request task receives the stream, immutable
 core state, reuse flag, and request value as explicit task context, then
 installs `transport::net::net_stream` inside that task. The application

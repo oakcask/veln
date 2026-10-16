@@ -27,6 +27,16 @@ Current specification examples import the public module explicitly. Private
 HPACK responsibility modules are loaded only through the dependency closure of
 the public facade and cannot be imported from the `std` package.
 
+## Explicit Network Boundary Follow-up
+
+The later connection-facade migration also introduced no implicit compatibility
+names. `http2::connection::serve_tcp` accepts `net::Listener`, connection tasks
+carry `net::Stream`, and the TCP server and client services retain `net::IO`.
+The public failure values preserve transport errors as `net::NetError` instead
+of converting them to abrupt runtime failures. The
+[HTTP/2 specification](../specification/http2.md) owns the current service and
+failure behavior.
+
 ## Prefixed-Integer Fixture Retirement
 
 The adjacent
