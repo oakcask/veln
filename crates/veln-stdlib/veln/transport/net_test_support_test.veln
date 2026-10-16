@@ -1,6 +1,7 @@
 use prelude
 use net
-use transport::net
+use transport
+use transport::network
 use transport::net_resource_test_support_test
 
 fn failure(operation: String, message: String) -> net::NetError
@@ -102,13 +103,21 @@ fn scripted_write_text(mode: String, text: String, bytes: ByteChunk, trace: { tx
 	end
 end
 
+fn read_chunk() -> Result<Option<ByteChunk>, net::NetError> effects [transport::DuplexStream]
+	perform transport::DuplexStream::read_chunk()
+end
+
+fn write_chunks(chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [transport::DuplexStream]
+	perform transport::DuplexStream::write_chunks(chunks)
+end
+
 fn run_read(mode: String) -> Result<Option<ByteChunk>, net::NetError> effects [net, concurrency]
 	let seed = transport::net_resource_test_support_test::stream("captured")
 	let other = transport::net_resource_test_support_test::stream("other")
 	let _ = other
 	let trace = channel::bounded<List<String>>(1)
 	let _ = channel::send(trace.tx, list_nil())
-	handle transport::net::read_stream_chunk(seed) with scripted_io(seed, mode, trace)
+	handle handle read_chunk() with transport::network::net_stream(seed) with scripted_io(seed, mode, trace)
 end
 
 pub fn read_result(mode: String) -> Result<Option<ByteChunk>, net::NetError> effects [net, concurrency]
@@ -121,7 +130,7 @@ fn run_write(mode: String, chunks: List<ByteChunk>) -> Result<{ result : Result<
 	let _ = other
 	let trace = channel::bounded<List<String>>(1)
 	let _ = channel::send(trace.tx, list_nil())
-	let result = handle transport::net::write_stream_chunks(seed, chunks) with scripted_io(seed, mode, trace)
+	let result = handle handle write_chunks(chunks) with transport::network::net_stream(seed) with scripted_io(seed, mode, trace)
 	let observed: List<String> = option_unwrap_or(channel::recv(trace.rx), list_nil())
 	Ok({ result: result, trace: observed })
 end
