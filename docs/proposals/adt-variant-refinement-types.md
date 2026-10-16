@@ -419,9 +419,10 @@ current behavior:
 | MCP | Invalid-refinement recovery, package signatures, and failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
 
 The remaining state-machine examples must include match-based recovery of a
-refined value, an indirect private-variant boundary reached through an alias or
-structural public-signature position, and an unchanged saved result after a
-failed language-service request.
+refined value, an indirect private-variant boundary reached through a
+structural public-signature position, optionally through an alias nested in
+that position, and an unchanged saved result after a failed language-service
+request.
 
 ## Non-Goals
 

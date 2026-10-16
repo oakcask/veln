@@ -117,11 +117,17 @@ fn type_alias_reverse_chain_resolution_work_is_linear() {
                 .count(),
             count,
         );
-        measurements.push((count, type_alias_resolution_counters::work(), elapsed));
+        measurements.push((
+            count,
+            type_alias_resolution_counters::work(),
+            type_alias_resolution_counters::provenance_nodes(),
+            elapsed,
+        ));
     }
     eprintln!("type alias reverse chain measurements: {measurements:?}");
-    for (count, work, _) in measurements {
+    for (count, work, provenance_nodes, _) in measurements {
         assert!(work <= count * 3 + 8, "work={work} count={count}");
+        assert_eq!(provenance_nodes, count, "count={count}");
     }
 }
 
@@ -137,6 +143,11 @@ fn type_alias_shared_suffix_cycle_and_unresolved_work_stays_bounded() {
         assert_shared_suffix_aliases(&registry, count);
         let work = type_alias_resolution_counters::work();
         assert!(work <= count * 9 + 16, "work={work} count={count}");
+        assert_eq!(
+            type_alias_resolution_counters::provenance_nodes(),
+            count * 3,
+            "count={count}"
+        );
     }
 }
 

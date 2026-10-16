@@ -29,7 +29,7 @@ pub(crate) struct AdtRegistry {
     companion_access_targets: BTreeMap<String, String>,
     annotation_types: BTreeMap<(Option<String>, String), Type>,
     type_alias_identities: BTreeSet<DescriptorKey>,
-    type_alias_exposure_paths: BTreeMap<DescriptorKey, Vec<TypeAliasExposureDeclaration>>,
+    type_alias_exposure_paths: BTreeMap<DescriptorKey, Arc<TypeAliasExposurePath>>,
     resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     declaration_spans: HashMap<DescriptorKey, SourceSpan>,
     variant_declaration_spans: HashMap<VariantDescriptorKey, SourceSpan>,
@@ -79,6 +79,37 @@ struct TypeAliasDeclarationIdentity {
 pub(crate) struct TypeAliasExposureDeclaration {
     pub(crate) identity: String,
     pub(crate) span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct TypeAliasExposurePath {
+    declaration: TypeAliasExposureDeclaration,
+    inherited: Option<Arc<TypeAliasExposurePath>>,
+    terminal: Arc<AdtDescriptor>,
+}
+
+impl TypeAliasExposurePath {
+    pub(crate) fn outer_identity(&self) -> &str {
+        &self.declaration.identity
+    }
+
+    pub(crate) fn declarations(&self) -> TypeAliasExposureDeclarations<'_> {
+        TypeAliasExposureDeclarations { next: Some(self) }
+    }
+}
+
+pub(crate) struct TypeAliasExposureDeclarations<'a> {
+    next: Option<&'a TypeAliasExposurePath>,
+}
+
+impl<'a> Iterator for TypeAliasExposureDeclarations<'a> {
+    type Item = &'a TypeAliasExposureDeclaration;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let node = self.next?;
+        self.next = node.inherited.as_deref();
+        Some(&node.declaration)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -444,10 +475,25 @@ impl AdtRegistry {
     pub(crate) fn type_alias_exposure_path(
         &self,
         descriptor: &AdtDescriptor,
-    ) -> Option<&[TypeAliasExposureDeclaration]> {
+    ) -> Option<&TypeAliasExposurePath> {
         self.type_alias_exposure_paths
             .get(&DescriptorKey::new(descriptor))
-            .map(Vec::as_slice)
+            .map(Arc::as_ref)
+    }
+
+    pub(crate) fn terminal_descriptor_for_alias(
+        &self,
+        descriptor: &AdtDescriptor,
+    ) -> Option<&AdtDescriptor> {
+        self.type_alias_exposure_paths
+            .get(&DescriptorKey::new(descriptor))
+            .map(|path| path.terminal.as_ref())
+    }
+
+    fn type_alias_terminal_keys(&self) -> impl Iterator<Item = DescriptorKey> + '_ {
+        self.type_alias_exposure_paths
+            .values()
+            .map(|path| DescriptorKey::new(&path.terminal))
     }
 
     pub(crate) fn descriptor_for_type_path_any_arity(
@@ -489,10 +535,12 @@ pub(in crate::adt) mod type_alias_resolution_counters {
 
     thread_local! {
         static WORK: Cell<usize> = const { Cell::new(0) };
+        static PROVENANCE_NODES: Cell<usize> = const { Cell::new(0) };
     }
 
     pub(in crate::adt) fn reset() {
         WORK.set(0);
+        PROVENANCE_NODES.set(0);
     }
 
     pub(super) fn record_work() {
@@ -501,6 +549,14 @@ pub(in crate::adt) mod type_alias_resolution_counters {
 
     pub(in crate::adt) fn work() -> usize {
         WORK.get()
+    }
+
+    pub(super) fn record_provenance_node() {
+        PROVENANCE_NODES.set(PROVENANCE_NODES.get() + 1);
+    }
+
+    pub(in crate::adt) fn provenance_nodes() -> usize {
+        PROVENANCE_NODES.get()
     }
 }
 

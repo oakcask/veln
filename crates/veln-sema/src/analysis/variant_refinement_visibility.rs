@@ -5,7 +5,7 @@ use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
 use crate::adt::descriptors::{AdtDescriptor, AdtVariantDescriptor};
-use crate::adt::registry::TypeAliasExposureDeclaration;
+use crate::adt::registry::TypeAliasExposurePath;
 use crate::diagnostics::span_json;
 use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_annotation;
@@ -116,12 +116,9 @@ fn root_exposures<'a>(
             exposure.descriptor.identity(),
             exposure.variant.name.clone(),
             exposure.alternative_identity.clone(),
-            exposure.alias_declarations.map(|aliases| {
-                aliases
-                    .iter()
-                    .map(|alias| alias.identity.as_str())
-                    .collect::<Vec<_>>()
-            }),
+            exposure
+                .alias_declarations
+                .map(TypeAliasExposurePath::outer_identity),
         ))
     });
     exposures.into_iter()
@@ -399,13 +396,19 @@ fn private_exposure<'a>(
     environment: &'a TypeEnvironment,
 ) -> Option<PrivateExposure<'a>> {
     record_visibility_work(1);
-    let descriptor = environment.variant_refinement_descriptor_identity(
+    let written_descriptor = environment.variant_refinement_descriptor_identity(
         &candidate.written_base,
         candidate.type_argument_count,
         current_module,
     )?;
-    let alias_declarations = environment.adts.type_alias_exposure_path(descriptor);
-    let descriptor = environment.adts.canonical_descriptor_for(descriptor);
+    let descriptor = environment
+        .adts
+        .terminal_descriptor_for_alias(written_descriptor)
+        .unwrap_or_else(|| {
+            environment
+                .adts
+                .canonical_descriptor_for(written_descriptor)
+        });
     record_visibility_work(1);
     let variant =
         environment.variant_refinement_variant_identity(descriptor, &candidate.written_variant)?;
@@ -413,6 +416,9 @@ fn private_exposure<'a>(
     if !private_base && variant.visibility == Visibility::Public {
         return None;
     }
+    let alias_declarations = environment
+        .adts
+        .type_alias_exposure_path(written_descriptor);
     record_visibility_work(1);
     let alternative_identity =
         refinement_alternative_identity(&candidate, &variant.name, current_module, environment);
@@ -667,7 +673,7 @@ struct PrivateExposure<'a> {
     declaration_span: Option<SourceSpan>,
     private_base: bool,
     alternative_identity: RefinementAlternativeIdentity,
-    alias_declarations: Option<&'a [TypeAliasExposureDeclaration]>,
+    alias_declarations: Option<&'a TypeAliasExposurePath>,
 }
 
 impl PrivateExposure<'_> {
@@ -688,7 +694,8 @@ impl PrivateExposure<'_> {
                 ("exposure_path", boundary.exposure_path()),
             ]),
         );
-        if let Some(aliases) = self.alias_declarations {
+        if let Some(path) = self.alias_declarations {
+            let aliases = path.declarations().collect::<Vec<_>>();
             for alias in aliases {
                 diagnostic.related.push(JsonValue::object([
                     ("kind", JsonValue::string("type_alias_declaration")),

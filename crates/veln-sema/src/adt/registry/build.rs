@@ -420,11 +420,12 @@ fn retained_declaration_spans(
     source: &AdtRegistry,
     subset: &AdtRegistry,
 ) -> HashMap<DescriptorKey, SourceSpan> {
-    let retained = subset
+    let mut retained = subset
         .descriptors
         .iter()
         .map(DescriptorKey::new)
         .collect::<BTreeSet<_>>();
+    retained.extend(subset.type_alias_terminal_keys());
     source
         .declaration_spans
         .iter()
@@ -437,11 +438,12 @@ fn retained_variant_declaration_spans(
     source: &AdtRegistry,
     subset: &AdtRegistry,
 ) -> HashMap<VariantDescriptorKey, SourceSpan> {
-    let retained = subset
+    let mut retained = subset
         .descriptors
         .iter()
         .map(DescriptorKey::new)
         .collect::<BTreeSet<_>>();
+    retained.extend(subset.type_alias_terminal_keys());
     source
         .variant_declaration_spans
         .iter()

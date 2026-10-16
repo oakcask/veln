@@ -8,6 +8,10 @@ mod fixture;
 
 use fixture::*;
 
+pub(crate) fn standard_reuse_test_lock_for_sibling() -> std::sync::MutexGuard<'static, ()> {
+    standard_reuse_test_lock()
+}
+
 #[test]
 fn reusable_standard_environment_matches_uncached_analysis_for_table_cases() {
     let _guard = standard_reuse_test_lock();
