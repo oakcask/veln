@@ -50,6 +50,177 @@ fn related_kinds_and_spans(
         .collect()
 }
 
+fn assert_embedded_prelude_diagnostic_details(diagnostics: &[Diagnostic]) {
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "type.variant_refinement_private",
+            "type.variant_refinement_private",
+            "type.variant_refinement_private",
+            "type.variant_refinement_private",
+            "type.variant_refinement_private",
+            "type.variant_refinement_private",
+        ],
+        "{diagnostics:#?}"
+    );
+
+    let expected_written = [
+        "Byte::Byte",
+        "prelude::Byte::Byte",
+        "Local::Byte",
+        "Local::Byte",
+        "Imported::Byte",
+        "Facade::Byte",
+    ];
+    for (diagnostic, written_type) in diagnostics.iter().zip(expected_written) {
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(
+            json.contains(&format!("\"written_type\":\"{written_type}\"")),
+            "{json}"
+        );
+        assert!(
+            json.contains("\"base_type\":\"std::bytes::Byte\""),
+            "{json}"
+        );
+    }
+}
+
+fn assert_embedded_prelude_direct_related(
+    diagnostic: &Diagnostic,
+    application: &veln_ast::SurfaceModule,
+    prelude_alias_span: &veln_source::SourceSpan,
+    terminal_span: &veln_source::SourceSpan,
+) {
+    assert_eq!(
+        related_kinds_and_spans(diagnostic),
+        vec![
+            (
+                "type_alias_declaration".to_string(),
+                "Public type alias `Byte` is declared here.".to_string(),
+                veln_diagnostics::source_span_to_json(prelude_alias_span),
+            ),
+            (
+                "private_type_declaration".to_string(),
+                "Private type `std::bytes::Byte` is declared here.".to_string(),
+                veln_diagnostics::source_span_to_json(terminal_span),
+            ),
+            (
+                "public_parameter_boundary".to_string(),
+                "Public parameter `value` of function `direct` exposes this refinement."
+                    .to_string(),
+                veln_diagnostics::source_span_to_json(&application.functions[0].params[0].span),
+            ),
+        ]
+    );
+    assert_eq!(
+        diagnostic.span.as_ref(),
+        Some(&application.functions[0].params[0].ty_paths[0].segment_spans[0])
+    );
+}
+
+fn assert_embedded_prelude_imported_related(
+    diagnostic: &Diagnostic,
+    application: &veln_ast::SurfaceModule,
+    prelude_alias_span: &veln_source::SourceSpan,
+    terminal_span: &veln_source::SourceSpan,
+) {
+    assert_eq!(
+        related_kinds_and_spans(diagnostic),
+        vec![
+            (
+                "type_alias_declaration".to_string(),
+                "Public type alias `app::Facade` is declared here.".to_string(),
+                veln_diagnostics::source_span_to_json(&application.aliases[2].span),
+            ),
+            (
+                "type_alias_declaration".to_string(),
+                "Public type alias `app::Imported` is declared here.".to_string(),
+                veln_diagnostics::source_span_to_json(&application.aliases[1].span),
+            ),
+            (
+                "type_alias_declaration".to_string(),
+                "Public type alias `Byte` is declared here.".to_string(),
+                veln_diagnostics::source_span_to_json(prelude_alias_span),
+            ),
+            (
+                "private_type_declaration".to_string(),
+                "Private type `std::bytes::Byte` is declared here.".to_string(),
+                veln_diagnostics::source_span_to_json(terminal_span),
+            ),
+            (
+                "public_result_boundary".to_string(),
+                "Public result of function `imported` exposes this refinement.".to_string(),
+                veln_diagnostics::source_span_to_json(
+                    application.functions[2]
+                        .return_type_span
+                        .as_ref()
+                        .expect("imported result span"),
+                ),
+            ),
+        ]
+    );
+    assert_eq!(
+        diagnostic.span.as_ref(),
+        Some(&application.functions[2].return_type_paths[0].segment_spans[0])
+    );
+}
+
+fn embedded_prelude_visibility_project(
+    standard: &veln_ast::SurfaceModule,
+) -> (veln_ast::SurfaceModule, veln_ast::SurfaceModule) {
+    let source = SourceFile::new(
+        "src/main.veln",
+        concat!(
+            "mod app\n",
+            "pub type Local = Byte\n",
+            "pub type Imported = prelude::Byte\n",
+            "pub type Facade = Imported\n",
+            "pub fn direct(value: Byte::Byte) -> prelude::Byte::Byte\n",
+            "  value\n",
+            "end\n",
+            "pub fn direct_alias = direct\n",
+            "pub fn local(value: Local::Byte) -> Local::Byte\n",
+            "  value\n",
+            "end\n",
+            "pub fn local_alias = local\n",
+            "pub fn imported(value: Imported::Byte) -> Facade::Byte\n",
+            "  value\n",
+            "end\n",
+            "pub fn imported_alias = imported\n",
+        ),
+    );
+    let mut application = lower_surface_ast(&parse(&source).tree);
+    application
+        .uses
+        .push(veln_ast::UseDecl::implicit_standard_prelude(
+            "app".to_string(),
+            source.span(veln_source::TextRange::new(0, 0)),
+        ));
+    let mut project = standard.clone();
+    project.module = application.module.clone();
+    project.uses.extend(application.uses.clone());
+    project.aliases.extend(application.aliases.clone());
+    project.types.extend(application.types.clone());
+    project.functions.extend(application.functions.clone());
+    (application, project)
+}
+
+fn assert_embedded_prelude_functions_are_unpublished(environment: &TypeEnvironment) {
+    for name in [
+        "direct",
+        "direct_alias",
+        "local",
+        "local_alias",
+        "imported",
+        "imported_alias",
+    ] {
+        assert!(!environment.function_is_published_for_test(name), "{name}");
+    }
+}
+
 fn assert_visibility_collision_is_quarantined(module: &veln_ast::SurfaceModule) {
     let environment = TypeEnvironment::from_module(module);
     assert!(!environment.function_is_published_for_test("expose"));
@@ -399,40 +570,7 @@ fn embedded_prelude_aliases_retain_private_terminal_visibility() {
         })
         .expect("embedded private Byte declaration");
 
-    let source = SourceFile::new(
-        "src/main.veln",
-        concat!(
-            "mod app\n",
-            "pub type Local = Byte\n",
-            "pub type Imported = prelude::Byte\n",
-            "pub type Facade = Imported\n",
-            "pub fn direct(value: Byte::Byte) -> prelude::Byte::Byte\n",
-            "  value\n",
-            "end\n",
-            "pub fn direct_alias = direct\n",
-            "pub fn local(value: Local::Byte) -> Local::Byte\n",
-            "  value\n",
-            "end\n",
-            "pub fn local_alias = local\n",
-            "pub fn imported(value: Imported::Byte) -> Facade::Byte\n",
-            "  value\n",
-            "end\n",
-            "pub fn imported_alias = imported\n",
-        ),
-    );
-    let mut application = lower_surface_ast(&parse(&source).tree);
-    application
-        .uses
-        .push(veln_ast::UseDecl::implicit_standard_prelude(
-            "app".to_string(),
-            source.span(veln_source::TextRange::new(0, 0)),
-        ));
-    let mut project = standard.clone();
-    project.module = application.module.clone();
-    project.uses.extend(application.uses.clone());
-    project.aliases.extend(application.aliases.clone());
-    project.types.extend(application.types.clone());
-    project.functions.extend(application.functions.clone());
+    let (application, project) = embedded_prelude_visibility_project(&standard);
 
     let diagnostics = check_project_surface_module_with_standard_environment(&project, &reusable)
         .0
@@ -444,119 +582,22 @@ fn embedded_prelude_aliases_retain_private_terminal_visibility() {
                 .is_some_and(|span| span.file.as_str() == "src/main.veln")
         })
         .collect::<Vec<_>>();
-    assert_eq!(
-        diagnostics
-            .iter()
-            .map(|diagnostic| diagnostic.id.as_str())
-            .collect::<Vec<_>>(),
-        [
-            "type.variant_refinement_private",
-            "type.variant_refinement_private",
-            "type.variant_refinement_private",
-            "type.variant_refinement_private",
-            "type.variant_refinement_private",
-            "type.variant_refinement_private",
-        ],
-        "{diagnostics:#?}"
+    assert_embedded_prelude_diagnostic_details(&diagnostics);
+    assert_embedded_prelude_direct_related(
+        &diagnostics[0],
+        &application,
+        &prelude_byte_alias.span,
+        &terminal_byte.span,
     );
-
-    let expected_written = [
-        "Byte::Byte",
-        "prelude::Byte::Byte",
-        "Local::Byte",
-        "Local::Byte",
-        "Imported::Byte",
-        "Facade::Byte",
-    ];
-    for (diagnostic, written_type) in diagnostics.iter().zip(expected_written) {
-        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
-        assert!(
-            json.contains(&format!("\"written_type\":\"{written_type}\"")),
-            "{json}"
-        );
-        assert!(
-            json.contains("\"base_type\":\"std::bytes::Byte\""),
-            "{json}"
-        );
-    }
-
-    let terminal_span = veln_diagnostics::source_span_to_json(&terminal_byte.span);
-    assert_eq!(
-        related_kinds_and_spans(&diagnostics[0]),
-        vec![
-            (
-                "type_alias_declaration".to_string(),
-                "Public type alias `Byte` is declared here.".to_string(),
-                veln_diagnostics::source_span_to_json(&prelude_byte_alias.span),
-            ),
-            (
-                "private_type_declaration".to_string(),
-                "Private type `std::bytes::Byte` is declared here.".to_string(),
-                terminal_span.clone(),
-            ),
-            (
-                "public_parameter_boundary".to_string(),
-                "Public parameter `value` of function `direct` exposes this refinement."
-                    .to_string(),
-                veln_diagnostics::source_span_to_json(&application.functions[0].params[0].span),
-            ),
-        ]
-    );
-    assert_eq!(
-        related_kinds_and_spans(&diagnostics[5]),
-        vec![
-            (
-                "type_alias_declaration".to_string(),
-                "Public type alias `app::Facade` is declared here.".to_string(),
-                veln_diagnostics::source_span_to_json(&application.aliases[2].span),
-            ),
-            (
-                "type_alias_declaration".to_string(),
-                "Public type alias `app::Imported` is declared here.".to_string(),
-                veln_diagnostics::source_span_to_json(&application.aliases[1].span),
-            ),
-            (
-                "type_alias_declaration".to_string(),
-                "Public type alias `Byte` is declared here.".to_string(),
-                veln_diagnostics::source_span_to_json(&prelude_byte_alias.span),
-            ),
-            (
-                "private_type_declaration".to_string(),
-                "Private type `std::bytes::Byte` is declared here.".to_string(),
-                terminal_span,
-            ),
-            (
-                "public_result_boundary".to_string(),
-                "Public result of function `imported` exposes this refinement.".to_string(),
-                veln_diagnostics::source_span_to_json(
-                    application.functions[2]
-                        .return_type_span
-                        .as_ref()
-                        .expect("imported result span"),
-                ),
-            ),
-        ]
-    );
-    assert_eq!(
-        diagnostics[0].span.as_ref(),
-        Some(&application.functions[0].params[0].ty_paths[0].segment_spans[0])
-    );
-    assert_eq!(
-        diagnostics[5].span.as_ref(),
-        Some(&application.functions[2].return_type_paths[0].segment_spans[0])
+    assert_embedded_prelude_imported_related(
+        &diagnostics[5],
+        &application,
+        &prelude_byte_alias.span,
+        &terminal_byte.span,
     );
 
     let environment = TypeEnvironment::from_module_with_standard(&project, &reusable);
-    for name in [
-        "direct",
-        "direct_alias",
-        "local",
-        "local_alias",
-        "imported",
-        "imported_alias",
-    ] {
-        assert!(!environment.function_is_published_for_test(name), "{name}");
-    }
+    assert_embedded_prelude_functions_are_unpublished(&environment);
 }
 
 #[test]
