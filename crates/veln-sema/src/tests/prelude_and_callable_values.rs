@@ -12,28 +12,29 @@ enum ExpectedSchemaBoundary {
     Encode,
 }
 
-fn assert_main_schema_boundary(
-    source: &SourceFile,
+fn assert_named_schema_boundary(
+    lowered: &LoweredSurfaceModule,
+    function_name: &str,
     schema_name: &str,
     expected: ExpectedSchemaBoundary,
 ) {
-    let parsed = parse(source);
-    let module = lower_surface_ast(&parsed.tree);
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.expect("checked core should be built");
-    let main = core
+    let expected_argument_count = match expected {
+        ExpectedSchemaBoundary::DecodeStep => 2,
+        ExpectedSchemaBoundary::Encode => 1,
+    };
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let function = core
         .functions
         .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
-    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        .find(|function| function.name == function_name)
+        .unwrap_or_else(|| panic!("{function_name} should be lowered"));
+    let CoreStmtKind::Return { expr } = &function.body[0].kind else {
         panic!("tail expression should lower as return");
     };
-    let CoreExprKind::Call { target, .. } = &expr.kind else {
+    let CoreExprKind::Call { target, args } = &expr.kind else {
         panic!("tail expression should lower as call");
     };
+    assert_eq!(args.len(), expected_argument_count);
     assert!(
         match (expected, target) {
             (ExpectedSchemaBoundary::DecodeStep, CoreCallTarget::SchemaDecodeStep(name))
@@ -44,18 +45,19 @@ fn assert_main_schema_boundary(
         "unexpected core call target: {target:?}"
     );
 
-    let ir = lowered.ir.expect("typed IR should be built");
-    let main = ir
+    let ir = lowered.ir.as_ref().expect("typed IR should be built");
+    let function = ir
         .functions
         .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be in IR");
-    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        .find(|function| function.name == function_name)
+        .unwrap_or_else(|| panic!("{function_name} should be in IR"));
+    let IrStmtKind::Return { value } = &function.body[0].kind else {
         panic!("tail expression should lower as IR return");
     };
-    let IrExprKind::Call { target, .. } = &value.kind else {
+    let IrExprKind::Call { target, args } = &value.kind else {
         panic!("tail expression should lower as IR call");
     };
+    assert_eq!(args.len(), expected_argument_count);
     assert!(
         match (expected, target) {
             (ExpectedSchemaBoundary::DecodeStep, IrCallTarget::SchemaDecodeStep(name))
@@ -65,6 +67,19 @@ fn assert_main_schema_boundary(
         },
         "unexpected IR call target: {target:?}"
     );
+}
+
+fn assert_main_schema_boundary(
+    source: &SourceFile,
+    schema_name: &str,
+    expected: ExpectedSchemaBoundary,
+) {
+    let parsed = parse(source);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    assert_named_schema_boundary(&lowered, "main", schema_name, expected);
 }
 
 mod byte_view_and_repeat_expressions;
