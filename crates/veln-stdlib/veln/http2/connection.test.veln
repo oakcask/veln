@@ -1,8 +1,8 @@
 use prelude
-use host_effects
 use net from "std"
 use transport
 use transport::net
+use http2_connection_test_support_test
 use transport_net_test_support_test
 use http2::connection
 use http2::core
@@ -38,43 +38,6 @@ end
 
 fn application_two_request_chunk() -> Result<ByteChunk, String>
 	byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010500000001828784000003010500000003828785")
-end
-
-fn fixed_read_chunk(chunk: ByteChunk) -> Result<Option<ByteChunk>, net::NetError>
-	Ok(Some(chunk))
-end
-
-fn discard_write_chunks(chunk: ByteChunk, chunks: List<ByteChunk>) -> Result<(), net::NetError>
-	let _ = chunk
-	let _ = chunks
-	Ok(())
-end
-
-handler fixed_duplex(chunk: ByteChunk) for transport::DuplexStream
-	read_chunk() => fixed_read_chunk(chunk)
-	write_chunks(chunks) => discard_write_chunks(chunk, chunks)
-end
-
-fn failing_duplex_read(mode: String) -> Result<Option<ByteChunk>, net::NetError>
-	if mode == "read"
-		Err(net::NetError("read", None, None, net::PermissionDenied, "read denied"))
-	else
-		Ok(None)
-	end
-end
-
-fn failing_duplex_write(mode: String, chunks: List<ByteChunk>) -> Result<(), net::NetError>
-	let _ = chunks
-	if mode == "write"
-		Err(net::NetError("write", None, None, net::ConnectionReset, "write reset"))
-	else
-		Ok(())
-	end
-end
-
-handler failing_duplex(mode: String) for transport::DuplexStream
-	read_chunk() => failing_duplex_read(mode)
-	write_chunks(chunks) => failing_duplex_write(mode, chunks)
 end
 
 fn fail_if_called_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
@@ -134,7 +97,7 @@ end
 test application_driver_effect_boundary_handles_closed_state_without_callback() -> Result<(), String>
 	let open = http2::core::server_connection_state(0)?
 	let closed = http2::core::connection_state_with_lifecycle(open, http2::core::connection_lifecycle_closed(0, 0))
-	let result = handle http2::connection::drive_server_application(closed, fail_if_called_handler) with fixed_duplex(byte_chunk([]))
+	let result = handle http2::connection::drive_server_application(closed, fail_if_called_handler) with http2_connection_test_support_test::fixed_duplex(byte_chunk([]))
 	match result
 		Ok(state) => if http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "closed"
 			Ok(())
@@ -146,7 +109,7 @@ test application_driver_effect_boundary_handles_closed_state_without_callback() 
 end
 
 test connection_driver_preserves_typed_read_failure() -> Result<(), String>
-	let result = handle http2::connection::drive_server(http2::core::server_connection_state(0)?) with failing_duplex("read")
+	let result = handle http2::connection::drive_server(http2::core::server_connection_state(0)?) with http2_connection_test_support_test::failing_duplex("read")
 	match result
 		Err(Http2ConnectionTransportFailure(net::NetError("read", None, None, net::PermissionDenied, "read denied"))) => Ok(())
 		_ => Err("HTTP/2 connection driver did not preserve the typed duplex read failure")
@@ -154,7 +117,7 @@ test connection_driver_preserves_typed_read_failure() -> Result<(), String>
 end
 
 test connection_driver_preserves_typed_write_failure() -> Result<(), String>
-	let result = handle http2::connection::drive_server(http2::core::server_connection_state(0)?) with failing_duplex("write")
+	let result = handle http2::connection::drive_server(http2::core::server_connection_state(0)?) with http2_connection_test_support_test::failing_duplex("write")
 	match result
 		Err(Http2ConnectionTransportFailure(net::NetError("write", None, None, net::ConnectionReset, "write reset"))) => Ok(())
 		_ => Err("HTTP/2 connection driver did not preserve the typed duplex write failure")
@@ -162,16 +125,23 @@ test connection_driver_preserves_typed_write_failure() -> Result<(), String>
 end
 
 test net_adapter_projects_empty_read_once() -> Result<(), String> effects [net, concurrency]
-	let calls = channel::bounded<Int>(1)
-	let _ = channel::send(calls.tx, 0)
-	let result = handle handle http2::connection::drive_server(http2::core::server_connection_state(0)?) with transport::net::net_stream(transport_net_test_support_test::legacy_stream()) with transport_net_test_support_test::empty_read(calls)
+	let state = transport_net_test_support_test::adapter_state()
+	let result = handle handle http2::connection::drive_server(http2::core::server_connection_state(0)?) with transport::net::net_stream(transport_net_test_support_test::legacy_stream()) with transport_net_test_support_test::scripted_io("empty-read", state)
+	let observation = transport_net_test_support_test::adapter_observation(state)
 	match result
-		Err(Http2ConnectionTransportFailure(net::NetError("read_stream_chunk", None, None, net::Other, "read returned an empty chunk"))) => if option_unwrap_or(channel::recv(calls.rx), 0) == 1
+		Err(Http2ConnectionTransportFailure(net::NetError("read_stream_chunk", None, None, net::Other, "read returned an empty chunk"))) => if one_adapter_write_then_read(observation)
 			Ok(())
 		else
-			Err("HTTP/2 adapter path retried an empty source read")
+			Err("inspect the HTTP/2 adapter trace: expect the initial write, one empty read, and no lifecycle operation")
 		end
 		_ => Err("HTTP/2 adapter path did not preserve the empty-read failure")
+	end
+end
+
+fn one_adapter_write_then_read(observation: { index : Int, writes : List<ByteChunk>, operations : List<String> }) -> Bool
+	match observation.operations
+		Cons(read, Cons(write, Nil)) => observation.index == 2 and write == "write" and read == "read"
+		_ => false
 	end
 end
 
@@ -189,26 +159,10 @@ end
 
 test client_service_callback_failure_uses_ordinary_cleanup_path() -> Result<(), String> effects [net, time, concurrency]
 	let response = byte_chunk_from_hex("00000004000000000000000101050000000189")?
-	let trace = channel::bounded<List<{operation:String, bytes:ByteChunk}>>(1)
-	let _ = channel::send(trace.tx, list_nil())
-	let _ = handle client_service_callback_failure_cleanup_result() with callback_network(response, trace)?
-	let observed: List<{ operation : String, bytes : ByteChunk }> = option_unwrap_or(channel::recv(trace.rx), list_nil())
+	let trace = http2_connection_test_support_test::callback_trace()
+	let _ = handle client_service_callback_failure_cleanup_result() with http2_connection_test_support_test::callback_network(response, trace)?
+	let observed = http2_connection_test_support_test::callback_observation(trace)
 	callback_network_trace_matches(observed)
-end
-
-handler callback_network(response: ByteChunk, trace: { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> }) for host_effects::Network effects [concurrency]
-	request(operation, subject, bytes, remaining_ms, cancelled) => callback_network_reply(response, trace, operation, bytes)
-end
-
-fn callback_network_reply(response: ByteChunk, trace: { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> }, operation: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
-	let observed: List<{ operation : String, bytes : ByteChunk }> = option_unwrap_or(channel::recv(trace.rx), list_nil())
-	let _ = channel::send(trace.tx, list_cons({ operation: operation, bytes: bytes }, observed))
-	let endpoints = if operation == "resolve_tcp"
-		list_cons({ network: "tcp4", address: "127.0.0.1:0" }, list_nil())
-	else
-		list_nil()
-	end
-	{ status: "ok", value: "callback-stream", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: response, resolved_endpoints: endpoints, bytes_committed: byte_count_to_int(byte_chunk_count(bytes)), category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
 end
 
 fn callback_network_trace_matches(trace: List<{ operation : String, bytes : ByteChunk }>) -> Result<(), String>
@@ -272,8 +226,8 @@ end
 test client_final_close_failure_preserves_completed_progress() -> Result<(), String> effects [net, time, concurrency]
 	let response = byte_chunk_from_hex("00000004000000000000000101050000000189")?
 	let request = application_request_chunk()?
-	let trace = cleanup_trace()
-	let result = handle handle http2::connection::request_endpoint_sequence("127.0.0.1:0", client_one_request()?, accept_client_response) with net::system() with cleanup_network("client-close", response, request, trace)
+	let trace = http2_connection_test_support_test::cleanup_trace()
+	let result = handle handle http2::connection::request_endpoint_sequence("127.0.0.1:0", client_one_request()?, accept_client_response) with net::system() with http2_connection_test_support_test::cleanup_network("client-close", response, request, trace)
 	match result
 		Err(Http2ClientServiceNetworkFailure(1, net::NetError(_, _, _, net::ConnectionReset, _))) => Ok(())
 		Err(_) => Err("HTTP/2 client final close failure did not preserve completed progress and typed error")
@@ -284,8 +238,8 @@ end
 test server_stream_close_failure_preserves_accepted_index() -> Result<(), String> effects [net, time, concurrency]
 	let response = byte_chunk_from_hex("00000004000000000000000101050000000189")?
 	let request = application_request_chunk()?
-	let trace = cleanup_trace()
-	let result = handle handle server_stream_close_result() with net::system() with cleanup_network("server-close", response, request, trace)
+	let trace = http2_connection_test_support_test::cleanup_trace()
+	let result = handle handle server_stream_close_result() with net::system() with http2_connection_test_support_test::cleanup_network("server-close", response, request, trace)
 	match result
 		Err(Http2ServiceNetworkFailure(1, net::NetError(_, _, _, net::ConnectionReset, _))) => Ok(())
 		Err(_) => Err("HTTP/2 server stream close failure did not preserve accepted index and typed error")
@@ -300,73 +254,8 @@ fn server_stream_close_result() -> Result<(), Http2ServiceFailure> effects [net:
 	end
 end
 
-fn cleanup_trace() -> { tx : Sender<List<String>>, rx : Receiver<List<String>> } effects [concurrency]
-	let trace = channel::bounded<List<String>>(1)
-	let _ = channel::send(trace.tx, list_nil())
-	trace
-end
-
-handler cleanup_network(mode: String, client_response: ByteChunk, server_request: ByteChunk, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) for host_effects::Network effects [concurrency]
-	request(operation, subject, bytes, remaining_ms, cancelled) => cleanup_network_reply(mode, client_response, server_request, trace, operation, bytes)
-end
-
-fn cleanup_network_reply(mode: String, client_response: ByteChunk, server_request: ByteChunk, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
-	let observed = option_unwrap_or(channel::recv(trace.rx), list_nil())
-	let reads = cleanup_operation_count(observed, "read")
-	let closes = cleanup_operation_count(observed, "close_stream")
-	let _ = channel::send(trace.tx, list_cons(operation, observed))
-	if operation == "resolve_tcp" or operation == "resolve_tcp4"
-		{ status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_cons({ network: "tcp4", address: "127.0.0.1:0" }, list_nil()), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
-	else if operation == "listen"
-		cleanup_success("server-listener", bytes)
-	else if operation == "accept"
-		cleanup_success("server-stream", bytes)
-	else if operation == "connect"
-		cleanup_success("client-stream", bytes)
-	else if operation == "read" and mode == "client-close"
-		cleanup_bytes(client_response)
-	else if operation == "read" and mode == "server-close" and reads == 0
-		cleanup_bytes(server_request)
-	else if operation == "read" and mode == "server-close"
-		cleanup_end()
-	else if operation == "close_stream" and mode == "client-close" and closes == 0
-		cleanup_failure("client close failed")
-	else if operation == "close_stream" and mode == "server-close" and closes == 0
-		cleanup_failure("server close failed")
-	else
-		cleanup_success("", bytes)
-	end
-end
-
-fn cleanup_operation_count(operations: List<String>, expected: String) -> Int
-	match operations
-		Nil => 0
-		Cons(operation, tail) => if operation == expected
-			1 + cleanup_operation_count(tail, expected)
-		else
-			cleanup_operation_count(tail, expected)
-		end
-	end
-end
-
-fn cleanup_success(value: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
-	{ status: "ok", value: value, local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: byte_count_to_int(byte_chunk_count(bytes)), category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
-end
-
-fn cleanup_bytes(bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
-	{ status: "ok", value: "", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: bytes, resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
-end
-
-fn cleanup_end() -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
-	{ status: "end", value: "", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
-end
-
-fn cleanup_failure(cause: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
-	{ status: "error", value: "", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "connection_reset", phase: "before_operation", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: cause }
-end
-
 test application_driver_rejects_body_bearing_request_without_callback() -> Result<(), String>
-	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, fail_if_called_handler) with fixed_duplex(application_body_request_chunk()?)
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, fail_if_called_handler) with http2_connection_test_support_test::fixed_duplex(application_body_request_chunk()?)
 	match result
 		Ok(_) => Err("HTTP/2 application driver accepted an unsupported body-bearing request")
 		Err(failure) => if http2::connection::application_failure_kind(failure) == "unsupported-request-shape" and http2::connection::application_failure_stream_id(failure) == 1 and http2::connection::application_failure_reason(failure) == "request headers do not end the request stream"
@@ -378,7 +267,7 @@ test application_driver_rejects_body_bearing_request_without_callback() -> Resul
 end
 
 test application_driver_rejects_second_request_without_second_callback() -> Result<(), String>
-	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, bodyless_handler) with fixed_duplex(application_two_request_chunk()?)
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, bodyless_handler) with http2_connection_test_support_test::fixed_duplex(application_two_request_chunk()?)
 	match result
 		Ok(_) => Err("HTTP/2 application driver accepted a second request")
 		Err(failure) => if http2::connection::application_failure_kind(failure) == "unsupported-request-count" and http2::connection::application_failure_stream_id(failure) == 3
@@ -390,7 +279,7 @@ test application_driver_rejects_second_request_without_second_callback() -> Resu
 end
 
 test application_driver_validates_complete_action_list_before_writing() -> Result<(), String>
-	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, invalid_action_handler) with fixed_duplex(application_request_chunk()?)
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, invalid_action_handler) with http2_connection_test_support_test::fixed_duplex(application_request_chunk()?)
 	match result
 		Ok(_) => Err("HTTP/2 application driver accepted DATA before HEADERS")
 		Err(failure) => if http2::connection::application_failure_kind(failure) == "invalid-action-sequence" and http2::connection::application_failure_action_index(failure) == 0 and http2::connection::application_failure_stream_id(failure) == 1 and http2::connection::application_failure_reason(failure) == "DATA cannot appear before response HEADERS"
@@ -402,7 +291,7 @@ test application_driver_validates_complete_action_list_before_writing() -> Resul
 end
 
 test application_driver_requires_response_actions_for_request_stream() -> Result<(), String>
-	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, mismatched_stream_handler) with fixed_duplex(application_request_chunk()?)
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, mismatched_stream_handler) with http2_connection_test_support_test::fixed_duplex(application_request_chunk()?)
 	match result
 		Ok(_) => Err("HTTP/2 application driver accepted a mismatched response stream id")
 		Err(failure) => if http2::connection::application_failure_kind(failure) == "invalid-action-sequence" and http2::connection::application_failure_action_index(failure) == 0 and http2::connection::application_failure_stream_id(failure) == 3
@@ -414,7 +303,7 @@ test application_driver_requires_response_actions_for_request_stream() -> Result
 end
 
 test application_driver_distinguishes_rejected_later_core_action() -> Result<(), String>
-	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, rejected_data_handler) with fixed_duplex(application_request_chunk()?)
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, rejected_data_handler) with http2_connection_test_support_test::fixed_duplex(application_request_chunk()?)
 	match result
 		Ok(_) => Err("HTTP/2 application driver accepted a DATA action rejected by core")
 		Err(failure) => if http2::connection::application_failure_kind(failure) == "rejected-data-action" and http2::connection::application_failure_id(failure) == "http2.protocol.content_length_mismatch" and http2::connection::application_failure_stream_id(failure) == 1

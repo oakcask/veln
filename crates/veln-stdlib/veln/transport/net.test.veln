@@ -1,126 +1,58 @@
 use prelude
-use host_effects
 use net from "std"
+use transport
 use transport::net
 use transport_net_test_support_test
 
-fn reply(status: String, value: String, bytes: ByteChunk, committed: Int, category: String, cause: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
-	{ status: status, value: value, local: "127.0.0.1:1", peer: "127.0.0.1:2", bytes: bytes, resolved_endpoints: list_nil(), bytes_committed: committed, category: category, phase: "before_operation", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: cause }
+fn read_from_duplex() -> Result<Option<ByteChunk>, net::NetError> effects [transport::DuplexStream]
+	perform transport::DuplexStream::read_chunk()
 end
 
-fn success(value: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
-	reply("ok", value, byte_chunk([]), 0, "", "")
+fn write_to_duplex(chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [transport::DuplexStream]
+	perform transport::DuplexStream::write_chunks(chunks)
 end
 
-fn resolved() -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
-	{ status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_cons({ network: "tcp4", address: "127.0.0.1:1" }, list_nil()), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+fn with_adapter_read(scenario: String, state: { tx : Sender<{ index : Int, writes : List<ByteChunk>, operations : List<String> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk>, operations : List<String> }> }) -> Result<Option<ByteChunk>, net::NetError> effects [net, concurrency]
+	handle handle read_from_duplex() with transport::net::net_stream(transport_net_test_support_test::legacy_stream()) with transport_net_test_support_test::scripted_io(scenario, state)
 end
 
-fn record_write(state: { tx : Sender<{ index : Int, writes : List<ByteChunk> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk> }> }, bytes: ByteChunk) -> Int effects [concurrency]
-	let current: { index : Int, writes : List<ByteChunk> } = option_unwrap_or(channel::recv(state.rx), { index: 0, writes: list_nil() })
-	let _ = channel::send(state.tx, { index: current.index + 1, writes: list_cons(bytes, current.writes) })
-	current.index
+fn with_adapter_write(scenario: String, state: { tx : Sender<{ index : Int, writes : List<ByteChunk>, operations : List<String> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk>, operations : List<String> }> }, chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [net, concurrency]
+	handle handle write_to_duplex(chunks) with transport::net::net_stream(transport_net_test_support_test::legacy_stream()) with transport_net_test_support_test::scripted_io(scenario, state)
 end
 
-fn scripted_reply(scenario: String, state: { tx : Sender<{ index : Int, writes : List<ByteChunk> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk> }> }, operation: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
-	if operation == "resolve_tcp4"
-		resolved()
-	else if operation == "connect"
-		success("adapter-stream")
-	else if operation == "read" and scenario == "read-chunk"
-		reply("ok", "", byte_chunk([Byte(1), Byte(2)]), 0, "", "")
-	else if operation == "read" and scenario == "read-end"
-		reply("end", "", byte_chunk([]), 0, "", "")
-	else if operation == "read" and scenario == "read-failure"
-		reply("error", "", byte_chunk([]), 0, "permission_denied", "denied")
-	else if operation == "write" and scenario == "partial-write"
-		partial_write_reply(state, bytes)
-	else if operation == "write" and scenario == "write-failure"
-		reply("error", "", byte_chunk([]), 1, "connection_reset", "reset")
-	else if operation == "close_stream"
-		success("")
-	else
-		reply("error", "", byte_chunk([]), 0, "other", "unexpected adapter operation")
+fn one_operation(observation: { index : Int, writes : List<ByteChunk>, operations : List<String> }, expected: String) -> Bool
+	match observation.operations
+		Cons(operation, Nil) => observation.index == 1 and operation == expected
+		_ => false
 	end
 end
 
-fn partial_write_reply(state: { tx : Sender<{ index : Int, writes : List<ByteChunk> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk> }> }, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
-	let index = record_write(state, bytes)
-	let count = byte_count_to_int(byte_chunk_count(bytes))
-	if index == 0 and count == 3
-		reply("ok", "", byte_chunk([]), 1, "", "")
-	else if index == 1 and count == 2
-		reply("ok", "", byte_chunk([]), 2, "", "")
-	else if index == 2 and count == 2
-		reply("ok", "", byte_chunk([]), 2, "", "")
-	else
-		reply("error", "", byte_chunk([]), 0, "other", "adapter wrote an unexpected suffix")
-	end
-end
-
-handler scripted_network(scenario: String, state: { tx : Sender<{ index : Int, writes : List<ByteChunk> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk> }> }) for host_effects::Network effects [concurrency]
-	request(operation, subject, bytes, remaining_ms, cancelled) => scripted_reply(scenario, state, operation, bytes)
-end
-
-fn with_stream_read(scenario: String, state: { tx : Sender<{ index : Int, writes : List<ByteChunk> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk> }> }) -> Result<Option<ByteChunk>, net::NetError> effects [net, time, concurrency]
-	handle handle begin
-		let stream = net::connect(net::Address(net::Tcp4, "127.0.0.1", 1))?
-		let result = transport::net::read_stream_chunk(stream)
-		let _ = net::close_stream(stream)?
-		result
-	end with net::system() with scripted_network(scenario, state)
-end
-
-fn with_stream_write(scenario: String, state: { tx : Sender<{ index : Int, writes : List<ByteChunk> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk> }> }, chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [net, time, concurrency]
-	handle handle begin
-		let stream = net::connect(net::Address(net::Tcp4, "127.0.0.1", 1))?
-		let result = transport::net::write_stream_chunks(stream, chunks)
-		let _ = net::close_stream(stream)?
-		result
-	end with net::system() with scripted_network(scenario, state)
-end
-
-fn fresh_state() -> { tx : Sender<{ index : Int, writes : List<ByteChunk> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk> }> } effects [concurrency]
-	let state = channel::bounded<{ index : Int, writes : List<ByteChunk> }>(1)
-	let _ = channel::send(state.tx, { index: 0, writes: list_nil() })
-	state
-end
-
-fn fresh_read_count() -> { tx : Sender<Int>, rx : Receiver<Int> } effects [concurrency]
-	let calls = channel::bounded<Int>(1)
-	let _ = channel::send(calls.tx, 0)
-	calls
-end
-
-fn fake_stream() -> net::Stream effects [net]
-	transport_net_test_support_test::legacy_stream()
-end
-
-fn observed_one_read(calls: { tx : Sender<Int>, rx : Receiver<Int> }) -> Bool effects [concurrency]
-	option_unwrap_or(channel::recv(calls.rx), 0) == 1
-end
-
-test adapter_maps_chunk_and_clean_end() -> Result<(), String> effects [net, time, concurrency]
-	let chunk = with_stream_read("read-chunk", fresh_state())
-	let ended = with_stream_read("read-end", fresh_state())
+test adapter_maps_chunk_and_clean_end_without_taking_ownership() -> Result<(), String> effects [net, concurrency]
+	let chunk_state = transport_net_test_support_test::adapter_state()
+	let chunk = with_adapter_read("read-chunk", chunk_state)
+	let chunk_observation = transport_net_test_support_test::adapter_observation(chunk_state)
+	let end_state = transport_net_test_support_test::adapter_state()
+	let ended = with_adapter_read("read-end", end_state)
+	let end_observation = transport_net_test_support_test::adapter_observation(end_state)
 	match chunk
-		Ok(Some(bytes)) => if chunk_matches(bytes, "0102")? and is_clean_end(ended)
+		Ok(Some(bytes)) => if chunk_matches(bytes, "0102")? and is_clean_end(ended) and one_operation(chunk_observation, "read") and one_operation(end_observation, "read")
 			Ok(())
 		else
-			Err("adapter did not preserve successful read or clean end")
+			Err("inspect net_stream read handling: preserve successful reads and clean end without close or shutdown")
 		end
 		_ => Err("adapter did not return the successful read chunk")
 	end
 end
 
-test adapter_rejects_empty_source_read_once() -> Result<(), String> effects [net, concurrency]
-	let calls = fresh_read_count()
-	let result = handle transport::net::read_stream_chunk(fake_stream()) with transport_net_test_support_test::empty_read(calls)
+test adapter_rejects_empty_source_read_once_without_taking_ownership() -> Result<(), String> effects [net, concurrency]
+	let state = transport_net_test_support_test::adapter_state()
+	let result = with_adapter_read("empty-read", state)
+	let observation = transport_net_test_support_test::adapter_observation(state)
 	match result
-		Err(net::NetError("read_stream_chunk", None, None, net::Other, "read returned an empty chunk")) => if observed_one_read(calls)
+		Err(net::NetError("read_stream_chunk", None, None, net::Other, "read returned an empty chunk")) => if one_operation(observation, "read")
 			Ok(())
 		else
-			Err("adapter retried an empty source read")
+			Err("inspect net_stream read handling: reject an empty read after one IO::read without close or shutdown")
 		end
 		_ => Err("adapter did not reject the empty source read")
 	end
@@ -133,23 +65,28 @@ fn is_clean_end(result: Result<Option<ByteChunk>, net::NetError>) -> Bool
 	end
 end
 
-test adapter_retries_partial_writes_and_preserves_order() -> Result<(), String> effects [net, time, concurrency]
-	let state = fresh_state()
+test adapter_retries_partial_writes_in_order_without_taking_ownership() -> Result<(), String> effects [net, concurrency]
+	let state = transport_net_test_support_test::adapter_state()
 	let first = byte_chunk_from_hex("010203")?
 	let second = byte_chunk_from_hex("0a0b")?
-	match with_stream_write("partial-write", state, list_cons(first, list_cons(second, list_nil())))
-		Ok(()) => if write_sequence_matches(option_unwrap_or(channel::recv(state.rx), { index: 0, writes: list_nil() }))?
+	let result = with_adapter_write("partial-write", state, list_cons(first, list_cons(second, list_nil())))
+	let observation = transport_net_test_support_test::adapter_observation(state)
+	match result
+		Ok(()) => if write_sequence_matches(observation)?
 			Ok(())
 		else
-			Err("adapter did not issue the expected partial-write sequence")
+			Err("inspect net_stream write handling: retry exact suffixes in list order without close or shutdown")
 		end
 		Err(_) => Err("adapter did not complete partial writes")
 	end
 end
 
-fn write_sequence_matches(state: { index : Int, writes : List<ByteChunk> }) -> Result<Bool, String>
-	match state.writes
-		Cons(third, Cons(second, Cons(first, Nil))) => Ok(state.index == 3 and chunk_matches(first, "010203")? and chunk_matches(second, "0203")? and chunk_matches(third, "0a0b")?)
+fn write_sequence_matches(observation: { index : Int, writes : List<ByteChunk>, operations : List<String> }) -> Result<Bool, String>
+	match observation.operations
+		Cons(third_operation, Cons(second_operation, Cons(first_operation, Nil))) => match observation.writes
+			Cons(third, Cons(second, Cons(first, Nil))) => Ok(observation.index == 3 and first_operation == "write" and second_operation == "write" and third_operation == "write" and chunk_matches(first, "010203")? and chunk_matches(second, "0203")? and chunk_matches(third, "0a0b")?)
+			_ => Ok(false)
+		end
 		_ => Ok(false)
 	end
 end
@@ -182,16 +119,30 @@ fn chunk_matches_next(actual: ByteChunk, expected: ByteChunk, index: Int, count:
 	end
 end
 
-test adapter_preserves_typed_read_failure() -> Result<(), String> effects [net, time, concurrency]
-	match with_stream_read("read-failure", fresh_state())
-		Err(net::NetError("read", _, _, net::PermissionDenied, _)) => Ok(())
+test adapter_preserves_typed_read_failure_without_taking_ownership() -> Result<(), String> effects [net, concurrency]
+	let state = transport_net_test_support_test::adapter_state()
+	let result = with_adapter_read("read-failure", state)
+	let observation = transport_net_test_support_test::adapter_observation(state)
+	match result
+		Err(net::NetError("read", _, _, net::PermissionDenied, _)) => if one_operation(observation, "read")
+			Ok(())
+		else
+			Err("inspect net_stream read failure handling: preserve the typed error without close or shutdown")
+		end
 		_ => Err("adapter did not preserve the typed read failure")
 	end
 end
 
-test adapter_preserves_typed_write_failure() -> Result<(), String> effects [net, time, concurrency]
-	match with_stream_write("write-failure", fresh_state(), list_cons(byte_chunk_from_hex("0102")?, list_nil()))
-		Err(net::NetError("write", _, _, net::ConnectionReset, _)) => Ok(())
+test adapter_preserves_typed_write_failure_without_taking_ownership() -> Result<(), String> effects [net, concurrency]
+	let state = transport_net_test_support_test::adapter_state()
+	let result = with_adapter_write("write-failure", state, list_cons(byte_chunk_from_hex("0102")?, list_nil()))
+	let observation = transport_net_test_support_test::adapter_observation(state)
+	match result
+		Err(net::NetError("write", _, _, net::ConnectionReset, _)) => if one_operation(observation, "write")
+			Ok(())
+		else
+			Err("inspect net_stream write failure handling: stop after the typed error without close or shutdown")
+		end
 		_ => Err("adapter did not preserve the typed write failure")
 	end
 end

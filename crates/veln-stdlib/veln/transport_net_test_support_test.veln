@@ -19,32 +19,76 @@ pub fn legacy_stream() -> net::Stream effects [net]
 	handle transport_net_resource_test_support_test::legacy_stream() with legacy_stream_network()
 end
 
-fn read_failure(operation: String, message: String) -> net::NetError
-	net::NetError(operation, None, None, net::Other, message)
+pub fn adapter_state() -> { tx : Sender<{ index : Int, writes : List<ByteChunk>, operations : List<String> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk>, operations : List<String> }> } effects [concurrency]
+	let state = channel::bounded<{ index : Int, writes : List<ByteChunk>, operations : List<String> }>(1)
+	let _ = channel::send(state.tx, { index: 0, writes: list_nil(), operations: list_nil() })
+	state
 end
 
-fn unexpected(operation: String) -> net::NetError
-	read_failure(operation, "unexpected network operation")
+pub fn adapter_observation(state: { tx : Sender<{ index : Int, writes : List<ByteChunk>, operations : List<String> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk>, operations : List<String> }> }) -> { index : Int, writes : List<ByteChunk>, operations : List<String> } effects [concurrency]
+	option_unwrap_or(channel::recv(state.rx), { index: 0, writes: list_nil(), operations: list_nil() })
 end
 
-fn record_empty_read(calls: { tx : Sender<Int>, rx : Receiver<Int> }) -> Result<net::ReadOutcome, net::NetError> effects [concurrency]
-	let count = option_unwrap_or(channel::recv(calls.rx), 0)
-	let _ = channel::send(calls.tx, count + 1)
-	Ok(net::ReadChunk(byte_chunk([])))
+fn record_operation(state: { tx : Sender<{ index : Int, writes : List<ByteChunk>, operations : List<String> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk>, operations : List<String> }> }, operation: String, bytes: Option<ByteChunk>) -> Int effects [concurrency]
+	let current: { index : Int, writes : List<ByteChunk>, operations : List<String> } = option_unwrap_or(channel::recv(state.rx), { index: 0, writes: list_nil(), operations: list_nil() })
+	let writes: List<ByteChunk> = match bytes
+		Some(chunk) => list_cons(chunk, current.writes)
+		None => current.writes
+	end
+	let _ = channel::send(state.tx, { index: current.index + 1, writes: writes, operations: list_cons(operation, current.operations) })
+	current.index
 end
 
-pub handler empty_read(calls: { tx : Sender<Int>, rx : Receiver<Int> }) for net::IO effects [concurrency]
-	resolve(address) => Err(unexpected("resolve"))
-	listen(address) => Err(unexpected("listen"))
-	connect(address, deadline, token) => Err(unexpected("connect"))
-	accept(listener, deadline, token) => Err(unexpected("accept"))
-	listener_address(listener) => Err(unexpected("listener_address"))
-	close_listener(listener) => Err(unexpected("close_listener"))
-	read(stream, deadline, token) => record_empty_read(calls)
-	write(stream, bytes, deadline, token) => net::Written(byte_chunk_count(bytes))
-	local_address(stream) => Err(unexpected("local_address"))
-	peer_address(stream) => Err(unexpected("peer_address"))
-	shutdown_read(stream) => Err(unexpected("shutdown_read"))
-	shutdown_write(stream) => Err(unexpected("shutdown_write"))
-	close_stream(stream) => Err(unexpected("close_stream"))
+fn scripted_read(scenario: String, state: { tx : Sender<{ index : Int, writes : List<ByteChunk>, operations : List<String> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk>, operations : List<String> }> }) -> Result<net::ReadOutcome, net::NetError> effects [concurrency]
+	let _ = record_operation(state, "read", None)
+	if scenario == "read-chunk"
+		Ok(net::ReadChunk(byte_chunk([Byte(1), Byte(2)])))
+	else if scenario == "read-end"
+		Ok(net::ReadEnd)
+	else if scenario == "empty-read"
+		Ok(net::ReadChunk(byte_chunk([])))
+	else if scenario == "read-failure"
+		Err(net::NetError("read", None, None, net::PermissionDenied, "denied"))
+	else
+		Err(net::NetError("read", None, None, net::Other, "unexpected adapter read"))
+	end
+end
+
+fn scripted_write(scenario: String, state: { tx : Sender<{ index : Int, writes : List<ByteChunk>, operations : List<String> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk>, operations : List<String> }> }, bytes: ByteChunk) -> net::WriteOutcome effects [concurrency]
+	let index = record_operation(state, "write", Some(bytes))
+	let count = byte_count_to_int(byte_chunk_count(bytes))
+	if scenario == "partial-write" and index == 0 and count == 3
+		net::Written(net::ByteCount(1))
+	else if scenario == "partial-write" and index == 1 and count == 2
+		net::Written(net::ByteCount(2))
+	else if scenario == "partial-write" and index == 2 and count == 2
+		net::Written(net::ByteCount(2))
+	else if scenario == "empty-read"
+		net::Written(byte_chunk_count(bytes))
+	else if scenario == "write-failure"
+		net::WriteFailed(net::ByteCount(1), net::NetError("write", None, None, net::ConnectionReset, "reset"))
+	else
+		net::WriteFailed(net::ByteCount(0), net::NetError("write", None, None, net::Other, "unexpected adapter write"))
+	end
+end
+
+fn unexpected(state: { tx : Sender<{ index : Int, writes : List<ByteChunk>, operations : List<String> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk>, operations : List<String> }> }, operation: String) -> net::NetError effects [concurrency]
+	let _ = record_operation(state, operation, None)
+	net::NetError(operation, None, None, net::Other, "unexpected network operation")
+end
+
+pub handler scripted_io(scenario: String, state: { tx : Sender<{ index : Int, writes : List<ByteChunk>, operations : List<String> }>, rx : Receiver<{ index : Int, writes : List<ByteChunk>, operations : List<String> }> }) for net::IO effects [concurrency]
+	resolve(address) => Err(unexpected(state, "resolve"))
+	listen(address) => Err(unexpected(state, "listen"))
+	connect(address, deadline, token) => Err(unexpected(state, "connect"))
+	accept(listener, deadline, token) => Err(unexpected(state, "accept"))
+	listener_address(listener) => Err(unexpected(state, "listener_address"))
+	close_listener(listener) => Err(unexpected(state, "close_listener"))
+	read(stream, deadline, token) => scripted_read(scenario, state)
+	write(stream, bytes, deadline, token) => scripted_write(scenario, state, bytes)
+	local_address(stream) => Err(unexpected(state, "local_address"))
+	peer_address(stream) => Err(unexpected(state, "peer_address"))
+	shutdown_read(stream) => Err(unexpected(state, "shutdown_read"))
+	shutdown_write(stream) => Err(unexpected(state, "shutdown_write"))
+	close_stream(stream) => Err(unexpected(state, "close_stream"))
 end

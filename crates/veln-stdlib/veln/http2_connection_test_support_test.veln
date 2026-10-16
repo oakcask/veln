@@ -1,0 +1,131 @@
+use prelude
+use host_effects from "std"
+use net from "std"
+use transport
+
+fn fixed_read_chunk(chunk: ByteChunk) -> Result<Option<ByteChunk>, net::NetError>
+	Ok(Some(chunk))
+end
+
+fn discard_write_chunks(chunk: ByteChunk, chunks: List<ByteChunk>) -> Result<(), net::NetError>
+	let _ = chunk
+	let _ = chunks
+	Ok(())
+end
+
+pub handler fixed_duplex(chunk: ByteChunk) for transport::DuplexStream
+	read_chunk() => fixed_read_chunk(chunk)
+	write_chunks(chunks) => discard_write_chunks(chunk, chunks)
+end
+
+fn failing_duplex_read(mode: String) -> Result<Option<ByteChunk>, net::NetError>
+	if mode == "read"
+		Err(net::NetError("read", None, None, net::PermissionDenied, "read denied"))
+	else
+		Ok(None)
+	end
+end
+
+fn failing_duplex_write(mode: String, chunks: List<ByteChunk>) -> Result<(), net::NetError>
+	let _ = chunks
+	if mode == "write"
+		Err(net::NetError("write", None, None, net::ConnectionReset, "write reset"))
+	else
+		Ok(())
+	end
+end
+
+pub handler failing_duplex(mode: String) for transport::DuplexStream
+	read_chunk() => failing_duplex_read(mode)
+	write_chunks(chunks) => failing_duplex_write(mode, chunks)
+end
+
+pub fn callback_trace() -> { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> } effects [concurrency]
+	let trace = channel::bounded<List<{ operation : String, bytes : ByteChunk }>>(1)
+	let _ = channel::send(trace.tx, list_nil())
+	trace
+end
+
+pub fn callback_observation(trace: { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> }) -> List<{ operation : String, bytes : ByteChunk }> effects [concurrency]
+	option_unwrap_or(channel::recv(trace.rx), list_nil())
+end
+
+pub handler callback_network(response: ByteChunk, trace: { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> }) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => callback_network_reply(response, trace, operation, bytes)
+end
+
+fn callback_network_reply(response: ByteChunk, trace: { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> }, operation: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+	let observed: List<{ operation : String, bytes : ByteChunk }> = option_unwrap_or(channel::recv(trace.rx), list_nil())
+	let _ = channel::send(trace.tx, list_cons({ operation: operation, bytes: bytes }, observed))
+	let endpoints = if operation == "resolve_tcp"
+		list_cons({ network: "tcp4", address: "127.0.0.1:0" }, list_nil())
+	else
+		list_nil()
+	end
+	{ status: "ok", value: "callback-stream", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: response, resolved_endpoints: endpoints, bytes_committed: byte_count_to_int(byte_chunk_count(bytes)), category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+end
+
+pub fn cleanup_trace() -> { tx : Sender<List<String>>, rx : Receiver<List<String>> } effects [concurrency]
+	let trace = channel::bounded<List<String>>(1)
+	let _ = channel::send(trace.tx, list_nil())
+	trace
+end
+
+pub handler cleanup_network(mode: String, client_response: ByteChunk, server_request: ByteChunk, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => cleanup_network_reply(mode, client_response, server_request, trace, operation, bytes)
+end
+
+fn cleanup_network_reply(mode: String, client_response: ByteChunk, server_request: ByteChunk, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+	let observed = option_unwrap_or(channel::recv(trace.rx), list_nil())
+	let reads = operation_count(observed, "read")
+	let closes = operation_count(observed, "close_stream")
+	let _ = channel::send(trace.tx, list_cons(operation, observed))
+	if operation == "resolve_tcp" or operation == "resolve_tcp4"
+		{ status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_cons({ network: "tcp4", address: "127.0.0.1:0" }, list_nil()), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+	else if operation == "listen"
+		cleanup_success("server-listener", bytes)
+	else if operation == "accept"
+		cleanup_success("server-stream", bytes)
+	else if operation == "connect"
+		cleanup_success("client-stream", bytes)
+	else if operation == "read" and mode == "client-close"
+		cleanup_bytes(client_response)
+	else if operation == "read" and mode == "server-close" and reads == 0
+		cleanup_bytes(server_request)
+	else if operation == "read" and mode == "server-close"
+		cleanup_end()
+	else if operation == "close_stream" and mode == "client-close" and closes == 0
+		cleanup_failure("client close failed")
+	else if operation == "close_stream" and mode == "server-close" and closes == 0
+		cleanup_failure("server close failed")
+	else
+		cleanup_success("", bytes)
+	end
+end
+
+fn operation_count(operations: List<String>, expected: String) -> Int
+	match operations
+		Nil => 0
+		Cons(operation, tail) => if operation == expected
+			1 + operation_count(tail, expected)
+		else
+			operation_count(tail, expected)
+		end
+	end
+end
+
+fn cleanup_success(value: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: "ok", value: value, local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: byte_count_to_int(byte_chunk_count(bytes)), category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+end
+
+fn cleanup_bytes(bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: "ok", value: "", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: bytes, resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+end
+
+fn cleanup_end() -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: "end", value: "", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+end
+
+fn cleanup_failure(cause: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: "error", value: "", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "connection_reset", phase: "before_operation", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: cause }
+end
