@@ -1,2 +1,3 @@
 start o3-0 o3-1
+body before failure
 finish o3-0 o3-1

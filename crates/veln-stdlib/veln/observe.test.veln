@@ -50,6 +50,31 @@ test recording_exposes_ordered_start_emit_and_finish_entries() -> Result<(), Str
 	end
 end
 
+test recorded_is_a_non_consuming_sequential_snapshot() -> Result<(), String> effects [time, concurrency]
+	let recording = observe::new_recording("snapshot")
+	let first_span = handle perform observe::Observe::start_span(observe::SpanRequest("first", None)) with observe::recording(recording)
+	let first_read = observe::recorded(recording)
+	let second_read = observe::recorded(recording)
+	let record = observe::Log(observe::LogRecord("log", observe::Info, "after read", list_nil(), None, callsite_location()))
+	let _ = handle perform observe::Observe::emit(record) with observe::recording(recording)
+	let appended_read = observe::recorded(recording)
+	let second_span = handle perform observe::Observe::start_span(observe::SpanRequest("second", None)) with observe::recording(recording)
+	let identity_read = observe::recorded(recording)
+	match first_read
+		Cons(observe::SpanStarted("first", "snapshot-0", "snapshot-1", None, _), Nil) => match second_read
+			Cons(observe::SpanStarted("first", "snapshot-0", "snapshot-1", None, _), Nil) => match appended_read
+				Cons(observe::SpanStarted("first", "snapshot-0", "snapshot-1", None, _), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "after read", Nil, None, _))), Nil)) => match identity_read
+					Cons(observe::SpanStarted("first", "snapshot-0", "snapshot-1", None, _), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "after read", Nil, None, _))), Cons(observe::SpanStarted("second", "snapshot-2", "snapshot-3", None, _), Nil))) => Ok(())
+					_ => Err("recorded changed the preserved entries or reset identity allocation")
+				end
+				_ => Err("recording after a read did not preserve and append entries")
+			end
+			_ => Err("repeated recorded read changed the prior snapshot")
+		end
+		_ => Err("first recorded read changed the prior entries")
+	end
+end
+
 fn callsite_location() -> SourceLocation callsite
 	callsite
 end

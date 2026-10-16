@@ -1,6 +1,6 @@
 use observe
 
-pub fn in_span(request: SpanRequest, body: fn(Span) -> Result<(), String>) -> Result<(), String> effects [observe::Observe]
+pub fn in_span<effect E>(request: SpanRequest, body: fn(Span) -> Result<(), String> effects [...E]) -> Result<(), String> effects [observe::Observe, ...E]
 	let span = perform observe::Observe::start_span(request)
 	defer
 		perform observe::Observe::finish_span(observe::finish(span))

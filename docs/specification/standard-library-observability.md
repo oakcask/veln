@@ -31,27 +31,32 @@ end
 `Observe` has three operations: `start_span(SpanRequest) -> Span`,
 `emit(Observation) -> ()`, and `finish_span(SpanFinish) -> ()`. `Span` is
 opaque. Construct a request with a stable name and an optional opaque parent
-span. `trace::in_span` accepts a body that returns `Result<(), String>`, starts
-the span, passes its opaque handle to the body, and finishes it with lexical
-deferred cleanup:
+span. `trace::in_span<effect E>` accepts a body of type
+`fn(Span) -> Result<(), String> effects [...E]`. It starts the span, passes its
+opaque handle to the body, forwards the callback effect row beside `Observe`,
+and finishes the span with lexical deferred cleanup:
 
 ```veln
 use observe from "std"
 use trace from "std"
 
-fn work(span: Span) -> Result<(), String>
+fn work(span: Span) -> Result<(), String> effects [stdio]
+	stdio::println("working")
 	Ok(())
 end
 
-fn traced_work() -> Result<(), String> effects [observe::Observe]
+fn traced_work() -> Result<(), String> effects [observe::Observe, stdio]
 	trace::in_span(observe::SpanRequest("work", None), work)
 end
 ```
 
 Create a recording with `observe::new_recording(prefix)`, install
 `observe::recording(recording)`, and call `observe::recorded(recording)` to
-inspect its ordered entries. The prefix scopes deterministic trace and span
-identities to that recording. The handler uses the monotonic clock, so a scoped
+inspect its ordered entries. A read is a non-consuming sequential snapshot.
+Repeated reads preserve the same prior entries. Later recording operations
+append after that preserved prefix and continue identity allocation from the
+same recording state. The prefix scopes deterministic trace and span identities
+to that recording. The handler uses the monotonic clock, so a scoped
 `host_effects::Clock` handler can supply deterministic readings in tests while
 the unhandled production boundary reads the real host clock.
 
@@ -117,12 +122,14 @@ the caller propagates, and while a contract or runtime failure unwinds the
 body. An existing abrupt failure remains primary. The finish entry uses the
 same trace and span identities as its start entry.
 
-`observe::recorded` returns entries in operation order. `SpanStarted` exposes
-the name, trace identity, span identity, optional parent span identity, and
-monotonic millisecond reading. `SpanFinished` exposes the matching identities
-and finish reading. `Emitted` retains an emitted observation alongside span
-entries, so one recording preserves the order across all three `Observe`
-operations.
+`observe::recorded` returns a sequential snapshot in operation order without
+consuming entries or resetting the next identity. A later snapshot includes
+the preserved prefix followed by entries from subsequent recording operations.
+`SpanStarted` exposes the name, trace identity, span identity, optional parent
+span identity, and monotonic millisecond reading. `SpanFinished` exposes the
+matching identities and finish reading. `Emitted` retains an emitted
+observation alongside span entries, so one recording preserves the order
+across all three `Observe` operations.
 
 ## Limits
 
@@ -130,8 +137,8 @@ Events, metrics, task or channel propagation helpers, carrier propagation,
 production exporters, wall-time or resource enrichment, exporter health, and
 shutdown flushing are not available. The no-op handler does not record,
 enrich, buffer, export, or report observations. `trace::in_span` currently
-accepts only a body returning `Result<(), String>`; it does not define rescue
-or exception recovery.
+accepts only a body returning `Result<(), String>`, while forwarding that
+body's effect row; it does not define rescue or exception recovery.
 
 An unhandled `Observe` effect follows the ordinary nominal-effect runnable
 boundary in [Effects](effects.md): a runnable entry must handle it before
