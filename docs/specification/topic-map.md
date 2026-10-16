@@ -99,9 +99,9 @@ discovery guidance; the linked subject pages own behavior and evidence.
   its resource lifecycle, the complete-write helper, and the typed duplex
   stream adapter:
   [standard-library-networking.md](standard-library-networking.md).
-- Standard-library observation effect, public no-op handler, typed attributes,
-  trace context, and call-site-aware structured logs at debug, info, warning,
-  and error severities:
+- Standard-library observation effect, public no-op and recording handlers,
+  typed attributes, trace context, scoped span lifecycle, and call-site-aware
+  structured logs at debug, info, warning, and error severities:
   [standard-library-observability.md](standard-library-observability.md).
 - JVM execution behavior, values, calls, control flow, and host boundaries:
   [execution.md](execution.md).

@@ -17,6 +17,9 @@ contains = [
   "# Effect IO",
   "# Handler system",
   "# Handler noop",
+  "# Handler recording",
+  "# Module trace",
+  "# Function in_span",
   "[alias Listener]",
   "[alias Stream]",
   "[alias ByteCount]",
@@ -96,12 +99,12 @@ contains = "- Package identity: std"
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/1d6b4f47bb37aacf378ce2205068c61aaae77e7f5d331fbff9ff3889a04847ea/documentation/7f1881f79603a435b72fd8d907cbbbcc868989a89b719525075dd289b80a296a/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
+contains = "veln-doc:///package/std/snapshot/9143a40f419d5dbad9a74a8c161bff3600771ae04338a39006f28ad11bc7a132/documentation/78e8c41640da3aa55bbfb5237e2e40438517d29e6a82e965d657501bd5791ad4/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
 
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/1d6b4f47bb37aacf378ce2205068c61aaae77e7f5d331fbff9ff3889a04847ea/documentation/7f1881f79603a435b72fd8d907cbbbcc868989a89b719525075dd289b80a296a/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
+contains = "veln-doc:///package/std/snapshot/9143a40f419d5dbad9a74a8c161bff3600771ae04338a39006f28ad11bc7a132/documentation/78e8c41640da3aa55bbfb5237e2e40438517d29e6a82e965d657501bd5791ad4/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
 
 [[mcp_assert]]
 id = 5
@@ -111,17 +114,17 @@ contains = "- Source path: prelude.veln"
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/1d6b4f47bb37aacf378ce2205068c61aaae77e7f5d331fbff9ff3889a04847ea/documentation/7f1881f79603a435b72fd8d907cbbbcc868989a89b719525075dd289b80a296a/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
+contains = "veln-doc:///package/std/snapshot/9143a40f419d5dbad9a74a8c161bff3600771ae04338a39006f28ad11bc7a132/documentation/78e8c41640da3aa55bbfb5237e2e40438517d29e6a82e965d657501bd5791ad4/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
 
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/1d6b4f47bb37aacf378ce2205068c61aaae77e7f5d331fbff9ff3889a04847ea/documentation/7f1881f79603a435b72fd8d907cbbbcc868989a89b719525075dd289b80a296a/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
+contains = "veln-doc:///package/std/snapshot/9143a40f419d5dbad9a74a8c161bff3600771ae04338a39006f28ad11bc7a132/documentation/78e8c41640da3aa55bbfb5237e2e40438517d29e6a82e965d657501bd5791ad4/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
 
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/1d6b4f47bb37aacf378ce2205068c61aaae77e7f5d331fbff9ff3889a04847ea/documentation/7f1881f79603a435b72fd8d907cbbbcc868989a89b719525075dd289b80a296a/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
+contains = "veln-doc:///package/std/snapshot/9143a40f419d5dbad9a74a8c161bff3600771ae04338a39006f28ad11bc7a132/documentation/78e8c41640da3aa55bbfb5237e2e40438517d29e6a82e965d657501bd5791ad4/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
 
 [[mcp_assert]]
 id = 6
@@ -301,8 +304,8 @@ id = 18
 path = "/result/contents/0/text"
 contains = "Write the complete byte chunk through the active IO handler."
 
-# Integration contract: package documentation publishes the public no-op
-# observation handler while keeping the opaque span constructors private.
+# Integration contract: package documentation publishes the public observation
+# handlers and scoped trace helper while keeping opaque Span constructors private.
 [[mcp_assert]]
 id = 19
 path = "/result/contents/0/text"
@@ -322,3 +325,33 @@ contains = "# Handler noop"
 id = 20
 path = "/result/contents/0/text"
 contains = "- Signature: handler noop() for Observe"
+
+[[mcp_assert]]
+id = 21
+path = "/result/contents/0/text"
+contains = "# Handler recording"
+
+[[mcp_assert]]
+id = 21
+path = "/result/contents/0/text"
+contains = "handler recording(recording: Recording) for Observe effects [time, concurrency]"
+
+[[mcp_assert]]
+id = 22
+path = "/result/contents/0/text"
+contains = "# Module trace"
+
+[[mcp_assert]]
+id = 22
+path = "/result/contents/0/text"
+contains = "fn in_span(request: SpanRequest, body: fn(Span) -> Result<(), String>)"
+
+[[mcp_assert]]
+id = 23
+path = "/result/contents/0/text"
+contains = "# Function in_span"
+
+[[mcp_assert]]
+id = 23
+path = "/result/contents/0/text"
+contains = "fn in_span(request: SpanRequest, body: fn(Span) -> Result<(), String>) -> Result<(), String> effects [observe::Observe]"
