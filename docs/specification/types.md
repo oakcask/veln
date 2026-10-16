@@ -1037,8 +1037,8 @@ Variant-refinement semantic-token classifications are specified in
 [editor-support.md](editor-support.md#token-classes), and its navigation and
 rename behavior is specified by
 [editor support](editor-support.md#lsp-navigation-formatting-and-rename) and
-[MCP](mcp.md#saved-workspace-navigation). Transitive alias and structural
-public/private exposure paths,
+[MCP](mcp.md#saved-workspace-navigation). Structural public/private exposure
+paths, including aliases nested in those positions,
 qualified-value control-flow refinement, schema boundaries,
 package-documentation catalog signatures, remaining LSP diagnostics and
 recovery, and remaining MCP invalid-refinement recovery, package-signature,

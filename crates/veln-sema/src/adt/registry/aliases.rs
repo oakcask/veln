@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use veln_ast::{PublicAlias, PublicAliasKind, SurfaceModule, UseDecl, UseOrigin, Visibility};
@@ -216,6 +216,7 @@ struct TypeAliasTargetIndex {
     descriptor_first: HashMap<TypeAliasKey, usize>,
     descriptor_last: HashMap<TypeAliasKey, usize>,
     prelude_public: HashMap<String, TypeAliasTarget>,
+    ambiguous_prelude_public: HashSet<String>,
     opaque_public: HashMap<String, usize>,
     alias_first: HashMap<TypeAliasKey, usize>,
     alias_last: HashMap<TypeAliasKey, usize>,
@@ -228,6 +229,7 @@ impl TypeAliasTargetIndex {
             descriptor_first: HashMap::new(),
             descriptor_last: HashMap::new(),
             prelude_public: HashMap::new(),
+            ambiguous_prelude_public: HashSet::new(),
             opaque_public: HashMap::new(),
             alias_first: HashMap::new(),
             alias_last: HashMap::new(),
@@ -247,9 +249,10 @@ impl TypeAliasTargetIndex {
             if descriptor.module_name.as_deref() == Some("std::prelude")
                 && descriptor.visibility == Visibility::Public
             {
-                self.prelude_public
-                    .entry(descriptor.type_name.clone())
-                    .or_insert(TypeAliasTarget::Descriptor(position));
+                self.index_prelude_target(
+                    descriptor.type_name.clone(),
+                    TypeAliasTarget::Descriptor(position),
+                );
             }
             if descriptor.module_name.is_none()
                 && matches!(descriptor.type_name.as_str(), "NetListener" | "NetStream")
@@ -271,9 +274,7 @@ impl TypeAliasTargetIndex {
             self.alias_first.entry(key.clone()).or_insert(position);
             self.alias_last.insert(key.clone(), position);
             if alias.module_name.as_deref() == Some("std::prelude") {
-                self.prelude_public
-                    .entry(key.1)
-                    .or_insert(TypeAliasTarget::Alias(position));
+                self.index_prelude_target(key.1, TypeAliasTarget::Alias(position));
             }
         }
     }
@@ -303,6 +304,12 @@ impl TypeAliasTargetIndex {
         }
     }
 
+    fn index_prelude_target(&mut self, name: String, target: TypeAliasTarget) {
+        if self.prelude_public.insert(name.clone(), target).is_some() {
+            self.ambiguous_prelude_public.insert(name);
+        }
+    }
+
     fn target(&self, alias: &PublicAlias) -> TypeAliasTarget {
         #[cfg(test)]
         type_alias_resolution_counters::record_work();
@@ -311,13 +318,14 @@ impl TypeAliasTargetIndex {
         };
         if alias.target.len() == 1 {
             let key = (alias.module_name.clone(), name.clone());
-            if let Some(&index) = self.alias_last.get(&key) {
-                return TypeAliasTarget::Alias(index);
+            match self.local_target(&key) {
+                IndexedTarget::Unique(target) => return target,
+                IndexedTarget::Ambiguous => return TypeAliasTarget::Missing,
+                IndexedTarget::Absent => {}
             }
-            if let Some(&index) = self.descriptor_last.get(&key) {
-                return TypeAliasTarget::Descriptor(index);
-            }
-            if let Some(&target) = self.prelude_public.get(name) {
+            if !self.ambiguous_prelude_public.contains(name)
+                && let Some(&target) = self.prelude_public.get(name)
+            {
                 return target;
             }
             if let Some(&index) = self.opaque_public.get(name) {
@@ -331,13 +339,50 @@ impl TypeAliasTargetIndex {
             return TypeAliasTarget::Missing;
         };
         let key = (Some(module.clone()), name.clone());
-        if let Some(&index) = self.descriptor_first.get(&key) {
-            return TypeAliasTarget::Descriptor(index);
+        match self.local_target(&key) {
+            IndexedTarget::Unique(target) => target,
+            IndexedTarget::Absent | IndexedTarget::Ambiguous => TypeAliasTarget::Missing,
         }
-        self.alias_first
-            .get(&key)
-            .copied()
-            .map_or(TypeAliasTarget::Missing, TypeAliasTarget::Alias)
+    }
+
+    fn local_target(&self, key: &TypeAliasKey) -> IndexedTarget {
+        let alias = indexed_position(&self.alias_first, &self.alias_last, key);
+        let descriptor = indexed_position(&self.descriptor_first, &self.descriptor_last, key);
+        match (alias, descriptor) {
+            (IndexedPosition::Unique(index), IndexedPosition::Absent) => {
+                IndexedTarget::Unique(TypeAliasTarget::Alias(index))
+            }
+            (IndexedPosition::Absent, IndexedPosition::Unique(index)) => {
+                IndexedTarget::Unique(TypeAliasTarget::Descriptor(index))
+            }
+            (IndexedPosition::Absent, IndexedPosition::Absent) => IndexedTarget::Absent,
+            _ => IndexedTarget::Ambiguous,
+        }
+    }
+}
+
+enum IndexedTarget {
+    Absent,
+    Unique(TypeAliasTarget),
+    Ambiguous,
+}
+
+enum IndexedPosition {
+    Absent,
+    Unique(usize),
+    Ambiguous,
+}
+
+fn indexed_position(
+    first: &HashMap<TypeAliasKey, usize>,
+    last: &HashMap<TypeAliasKey, usize>,
+    key: &TypeAliasKey,
+) -> IndexedPosition {
+    match (first.get(key), last.get(key)) {
+        (None, None) => IndexedPosition::Absent,
+        (Some(first), Some(last)) if first == last => IndexedPosition::Unique(*first),
+        (Some(_), Some(_)) => IndexedPosition::Ambiguous,
+        _ => unreachable!("alias target indexes are populated together"),
     }
 }
 
