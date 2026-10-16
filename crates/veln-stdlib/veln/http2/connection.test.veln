@@ -71,13 +71,37 @@ end
 
 fn connection_transport_failure_matches(result: Result<CoreConnectionState, Http2ConnectionFailure>, operation: String, message: String) -> Result<(), String>
 	match result
-		Err(Http2ConnectionFailure::Http2ConnectionTransportFailure(net::NetError(observed_operation, Some(net::Tcp6), Some("[2001:db8::1]:443"), net::ConnectionReset, observed_message))) => if observed_operation == operation and observed_message == message
-			Ok(())
+		Err(failure) => if http2::connection::connection_failure_kind(failure) == "transport" and http2::connection::connection_failure_id(failure) == "http2.connection.transport_failure" and http2::connection::connection_failure_source(failure) == operation and http2::connection::connection_failure_reason(failure) == message
+			match failure
+				Http2ConnectionFailure::Http2ConnectionTransportFailure(net::NetError(observed_operation, Some(net::Tcp6), Some("[2001:db8::1]:443"), net::ConnectionReset, observed_message)) => if observed_operation == operation and observed_message == message
+					Ok(())
+				else
+					Err("HTTP/2 connection changed the network failure fields")
+				end
+				_ => Err("HTTP/2 connection transport projections did not identify a transport variant")
+			end
 		else
-			Err("HTTP/2 connection changed the network failure fields")
+			Err(string::concat("HTTP/2 connection misclassified transport failure as ", http2::connection::connection_failure_kind(failure)))
 		end
-		Err(failure) => Err(string::concat("HTTP/2 connection misclassified transport failure as ", http2::connection::connection_failure_kind(failure)))
 		Ok(_) => Err("HTTP/2 connection ignored the transport failure")
+	end
+end
+
+fn application_transport_failure_matches(result: Result<CoreConnectionState, Http2ApplicationBoundaryFailure>, operation: String, message: String) -> Result<(), String>
+	match result
+		Err(failure) => if http2::connection::application_failure_kind(failure) == "transport" and http2::connection::application_failure_id(failure) == "http2.application.transport_failure" and http2::connection::application_failure_reason(failure) == message
+			match failure
+				Http2ApplicationBoundaryFailure::Http2ApplicationTransportFailure(net::NetError(observed_operation, Some(net::Tcp6), Some("[2001:db8::1]:443"), net::ConnectionReset, observed_message)) => if observed_operation == operation and observed_message == message
+					Ok(())
+				else
+					Err("HTTP/2 application changed the network failure fields")
+				end
+				_ => Err("HTTP/2 application transport projections did not identify a transport variant")
+			end
+		else
+			Err(string::concat("HTTP/2 application misclassified transport failure as ", http2::connection::application_failure_kind(failure)))
+		end
+		Ok(_) => Err("HTTP/2 application ignored the transport failure")
 	end
 end
 
@@ -98,20 +122,12 @@ end
 
 test application_boundary_preserves_duplex_read_failure_without_callback_classification() -> Result<(), String>
 	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, fail_if_called_handler) with http2::connection_test_support_test::failing_duplex_read(transport_failure("read", "application read"))
-	match result
-		Err(Http2ApplicationBoundaryFailure::Http2ApplicationTransportFailure(net::NetError("read", Some(net::Tcp6), Some("[2001:db8::1]:443"), net::ConnectionReset, "application read"))) => Ok(())
-		Err(failure) => Err(string::concat("HTTP/2 application misclassified transport failure as ", http2::connection::application_failure_kind(failure)))
-		Ok(_) => Err("HTTP/2 application ignored the transport failure")
-	end
+	application_transport_failure_matches(result, "read", "application read")
 end
 
 test application_boundary_preserves_duplex_write_failure() -> Result<(), String>
 	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, fail_if_called_handler) with http2::connection_test_support_test::failing_duplex_write(transport_failure("write", "application write"))
-	match result
-		Err(Http2ApplicationBoundaryFailure::Http2ApplicationTransportFailure(net::NetError("write", Some(net::Tcp6), Some("[2001:db8::1]:443"), net::ConnectionReset, "application write"))) => Ok(())
-		Err(failure) => Err(string::concat("HTTP/2 application misclassified transport failure as ", http2::connection::application_failure_kind(failure)))
-		Ok(_) => Err("HTTP/2 application ignored the transport failure")
-	end
+	application_transport_failure_matches(result, "write", "application write")
 end
 
 test application_action_values_are_public_and_immutable() -> Result<(), String>

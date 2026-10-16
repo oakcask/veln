@@ -19,12 +19,6 @@ The public TCP service and client effect rows will name `net::IO`. A production
 entry point will install `net::system()`; the service, client, direct protocol
 drivers, and stream adapter will remain handler-polymorphic.
 
-The typed `transport::DuplexStream`, caller-owned `net::Stream` adapter, and
-direct HTTP/2 connection and application transport failures are implemented.
-Their current contracts are in the [effects](../specification/effects.md),
-[standard-library networking](../specification/standard-library-networking.md),
-and [HTTP/2](../specification/http2.md) specifications.
-
 This proposal does not give the adapter ownership of stream lifecycle. It does
 not remove compiler-known network compatibility.
 

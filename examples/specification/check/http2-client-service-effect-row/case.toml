@@ -1,3 +1,4 @@
+# Integration contract: compiler effect inference retains the legacy TCP client row without requiring net::IO; the asserted effect sets detect regression.
 command = ["check", "--json", "main.veln"]
 exit = 1
 

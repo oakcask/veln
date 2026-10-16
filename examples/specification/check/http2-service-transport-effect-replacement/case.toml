@@ -1,3 +1,4 @@
+# Integration contract: a caller adapter replaces only the direct DuplexStream boundary while preserving callback effects; the asserted effect sets detect regression.
 command = ["check", "--json", "main.veln"]
 exit = 1
 

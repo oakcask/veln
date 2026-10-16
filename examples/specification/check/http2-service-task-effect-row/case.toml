@@ -1,3 +1,4 @@
+# Integration contract: compiler task-boundary checking retains the legacy network effects of spawned HTTP/2 service work; the asserted effect sets detect regression.
 command = ["check", "--json", "main.veln"]
 exit = 1
 

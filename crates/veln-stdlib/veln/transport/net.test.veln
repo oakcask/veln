@@ -1,6 +1,21 @@
 use prelude
-use net
+use transport
+use transport::net
 use transport::net_test_support_test
+use transport::net_resource_test_support_test
+
+fn canonical_read() -> Result<Option<ByteChunk>, std::net::NetError> effects [transport::DuplexStream]
+	perform transport::DuplexStream::read_chunk()
+end
+
+fn canonical_read_result(mode: String) -> Result<{ result : Result<Option<ByteChunk>, std::net::NetError>, trace : List<String> }, String> effects [net, concurrency]
+	let seed = transport::net_resource_test_support_test::stream("captured")
+	let trace = channel::bounded<List<String>>(1)
+	let _ = channel::send(trace.tx, list_nil())
+	let result: Result<Option<ByteChunk>, std::net::NetError> = handle handle canonical_read() with transport::net::net_stream(seed) with transport::net_test_support_test::scripted_io(seed, mode, trace)
+	let observed: List<String> = option_unwrap_or(channel::recv(trace.rx), list_nil())
+	Ok({ result: result, trace: observed })
+end
 
 test adapter_read_preserves_data_on_captured_stream_only() -> Result<(), String> effects [net, concurrency]
 	match transport::net_test_support_test::read_result("data")?
@@ -13,6 +28,17 @@ test adapter_read_preserves_data_on_captured_stream_only() -> Result<(), String>
 	end
 end
 
+test canonical_adapter_preserves_the_documented_read_boundary() -> Result<(), String> effects [net, concurrency]
+	match canonical_read_result("data")?
+		{ result: Ok(Some(bytes)), trace: Cons("read:captured", Nil) } => if byte_chunk_to_visible_ascii_string(bytes)? == "data"
+			Ok(())
+		else
+			Err("canonical adapter changed the read bytes")
+		end
+		_ => Err("canonical adapter did not use the captured-stream boundary")
+	end
+end
+
 test adapter_read_preserves_clean_end_on_captured_stream_only() -> Result<(), String> effects [net, concurrency]
 	match transport::net_test_support_test::read_result("end")?
 		{ result: Ok(None), trace: Cons("read:captured", Nil) } => Ok(())
@@ -22,14 +48,22 @@ end
 
 test adapter_read_preserves_network_failure_on_captured_stream_only() -> Result<(), String> effects [net, concurrency]
 	match transport::net_test_support_test::read_result("failure")?
-		{ result: Err(net::NetError("scripted-read", Some(net::Tcp4), Some("192.0.2.1:443"), net::ConnectionReset, "read failed")), trace: Cons("read:captured", Nil) } => Ok(())
+		{ result: result, trace: Cons("read:captured", Nil) } => if transport::net_test_support_test::read_failure_matches(result, "scripted-read", "read failed")
+			Ok(())
+		else
+			Err("adapter changed the network failure")
+		end
 		_ => Err("adapter changed the failure or did not use exactly one read of the captured stream")
 	end
 end
 
 test adapter_rejects_successful_empty_read_as_typed_non_progress() -> Result<(), String> effects [net, concurrency]
 	match transport::net_test_support_test::read_result("empty")?
-		{ result: Err(net::NetError("read", None, None, net::Other, "read returned an empty chunk without reaching end-of-stream")), trace: Cons("read:captured", Nil) } => Ok(())
+		{ result: result, trace: Cons("read:captured", Nil) } => if transport::net_test_support_test::empty_read_failure_matches(result)
+			Ok(())
+		else
+			Err("adapter changed the typed non-progress failure")
+		end
 		_ => Err("adapter did not reject one empty read of the captured stream")
 	end
 end
@@ -52,7 +86,11 @@ end
 test adapter_returns_first_write_failure_unchanged() -> Result<(), String> effects [net, concurrency]
 	let chunks = list_cons(byte_chunk_from_visible_ascii_string("bad")?, list_cons(byte_chunk_from_visible_ascii_string("later")?, list_nil()))
 	match transport::net_test_support_test::write_result("write-failure", chunks)?
-		{ result: Err(net::NetError("scripted-write", Some(net::Tcp4), Some("192.0.2.1:443"), net::ConnectionReset, "write failed")), trace: Cons("write:bad", Nil) } => Ok(())
+		{ result: result, trace: Cons("write:bad", Nil) } => if transport::net_test_support_test::write_failure_matches(result, "scripted-write", "write failed")
+			Ok(())
+		else
+			Err("adapter changed the first write failure")
+		end
 		_ => Err("adapter changed the first write failure or continued writing")
 	end
 end

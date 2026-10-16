@@ -309,6 +309,10 @@ successful resource reference for a fake handler.
 the active `net::IO` handler. The caller retains ownership of `stream`.
 `transport::network::net_stream` is the equivalent non-conflicting import path
 for a module that also imports `net` from `std`.
+`transport::net::read_stream_chunk(stream)` and
+`transport::net::write_stream_chunks(stream, chunks)` expose the same typed
+read and complete-write operations for callers that do not need the nominal
+duplex effect. Both handlers delegate to these operations.
 
 - `ReadChunk(bytes)` becomes `Ok(Some(bytes))` when `bytes` is non-empty.
 - `ReadEnd` becomes `Ok(None)`.

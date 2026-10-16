@@ -1,3 +1,4 @@
+# Integration contract: compiler effect inference preserves callback effects while a network adapter replaces only DuplexStream; the asserted missing-effect diagnostics detect regression.
 command = ["check", "--json", "main.veln"]
 exit = 1
 

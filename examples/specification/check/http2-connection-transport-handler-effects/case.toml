@@ -1,3 +1,4 @@
+# Integration contract: compiler effect inference replaces DuplexStream with net::IO at the public adapter boundary; the asserted missing-effect diagnostics detect regression.
 command = ["check", "--json", "main.veln"]
 exit = 1
 

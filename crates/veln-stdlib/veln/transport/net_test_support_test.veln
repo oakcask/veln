@@ -18,7 +18,7 @@ fn stream_matches(actual: net::Stream, expected: net::Stream) -> Bool
 	actual == expected
 end
 
-handler scripted_io(expected: net::Stream, mode: String, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) for net::IO effects [concurrency]
+pub handler scripted_io(expected: net::Stream, mode: String, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) for net::IO effects [concurrency]
 	resolve(address) => unexpected_endpoints(trace, "resolve")
 	listen(address) => unexpected_listener(trace, "listen")
 	connect(address, deadline, token) => unexpected_stream(trace, "connect")
@@ -137,6 +137,20 @@ pub fn read_result(mode: String) -> Result<{ result : Result<Option<ByteChunk>, 
 	run_read(mode)
 end
 
+pub fn read_failure_matches(result: Result<Option<ByteChunk>, net::NetError>, operation: String, message: String) -> Bool
+	match result
+		Err(net::NetError(observed_operation, Some(net::Tcp4), Some("192.0.2.1:443"), net::ConnectionReset, observed_message)) => observed_operation == operation and observed_message == message
+		_ => false
+	end
+end
+
+pub fn empty_read_failure_matches(result: Result<Option<ByteChunk>, net::NetError>) -> Bool
+	match result
+		Err(net::NetError("read", None, None, net::Other, "read returned an empty chunk without reaching end-of-stream")) => true
+		_ => false
+	end
+end
+
 fn run_write(mode: String, chunks: List<ByteChunk>) -> Result<{ result : Result<(), net::NetError>, trace : List<String> }, String> effects [net, concurrency]
 	let seed = transport::net_resource_test_support_test::stream("captured")
 	let other = transport::net_resource_test_support_test::stream("other")
@@ -150,4 +164,11 @@ end
 
 pub fn write_result(mode: String, chunks: List<ByteChunk>) -> Result<{ result : Result<(), net::NetError>, trace : List<String> }, String> effects [net, concurrency]
 	run_write(mode, chunks)
+end
+
+pub fn write_failure_matches(result: Result<(), net::NetError>, operation: String, message: String) -> Bool
+	match result
+		Err(net::NetError(observed_operation, Some(net::Tcp4), Some("192.0.2.1:443"), net::ConnectionReset, observed_message)) => observed_operation == operation and observed_message == message
+		_ => false
+	end
 end
