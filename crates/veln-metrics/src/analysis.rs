@@ -47,6 +47,68 @@ pub(super) struct PartialSourceAnalysis {
     pub(super) excluded_paths: BTreeSet<String>,
 }
 
+struct PartialSourceScope {
+    excluded_paths: BTreeSet<String>,
+    excluded_modules: BTreeSet<String>,
+    project_modules: BTreeSet<String>,
+}
+
+impl PartialSourceScope {
+    fn new(project: &Project, diagnostics: &[Diagnostic]) -> Self {
+        let excluded_paths = diagnostics
+            .iter()
+            .filter_map(|diagnostic| json_string_field(&diagnostic.details, "source_path"))
+            .map(str::to_string)
+            .collect::<BTreeSet<_>>();
+        let excluded_modules = project
+            .files
+            .iter()
+            .filter(|source| excluded_paths.contains(source.path().as_str()))
+            .filter_map(invalid_case_rejected_visible_module_path)
+            .collect::<BTreeSet<_>>();
+        let project_modules = project
+            .files
+            .iter()
+            .filter_map(source_visible_module_path)
+            .collect::<BTreeSet<_>>();
+        Self {
+            excluded_paths,
+            excluded_modules,
+            project_modules,
+        }
+    }
+
+    fn allows(&self, diagnostic: &Diagnostic) -> bool {
+        diagnostic.severity != Severity::Error
+            || is_source_path_invalid_case(diagnostic)
+            || is_exclusion_caused_unresolved_import(
+                diagnostic,
+                &self.excluded_paths,
+                &self.excluded_modules,
+                &self.project_modules,
+            )
+    }
+
+    fn finish(self, diagnostics: Vec<Diagnostic>) -> PartialSourceAnalysis {
+        let excluded_sources = self
+            .excluded_paths
+            .iter()
+            .map(|path| ExcludedSource {
+                path: path.clone(),
+                reason: "invalid_module_identity".to_string(),
+            })
+            .collect();
+        PartialSourceAnalysis {
+            diagnostics,
+            completeness: MetricsCompleteness {
+                excluded_sources,
+                excluded_baseline_subjects: Vec::new(),
+            },
+            excluded_paths: self.excluded_paths,
+        }
+    }
+}
+
 pub(super) fn partial_source_analysis(
     project: &Project,
     diagnostics: &[Diagnostic],
@@ -68,51 +130,15 @@ pub(super) fn partial_source_analysis(
         return Err(diagnostics.to_vec());
     }
 
-    let excluded_paths = qualifying
+    let scope = PartialSourceScope::new(project, &qualifying);
+    if diagnostics
         .iter()
-        .filter_map(|diagnostic| json_string_field(&diagnostic.details, "source_path"))
-        .map(str::to_string)
-        .collect::<BTreeSet<_>>();
-    let excluded_modules = project
-        .files
-        .iter()
-        .filter(|source| excluded_paths.contains(source.path().as_str()))
-        .filter_map(invalid_case_rejected_visible_module_path)
-        .collect::<BTreeSet<_>>();
-    let project_modules = project
-        .files
-        .iter()
-        .filter_map(source_visible_module_path)
-        .collect::<BTreeSet<_>>();
-
-    let disallowed = diagnostics.iter().any(|diagnostic| {
-        diagnostic.severity == Severity::Error
-            && !is_source_path_invalid_case(diagnostic)
-            && !is_exclusion_caused_unresolved_import(
-                diagnostic,
-                &excluded_paths,
-                &excluded_modules,
-                &project_modules,
-            )
-    });
-    if disallowed {
+        .any(|diagnostic| !scope.allows(diagnostic))
+    {
         return Err(diagnostics.to_vec());
     }
 
-    Ok(PartialSourceAnalysis {
-        diagnostics: qualifying,
-        completeness: MetricsCompleteness {
-            excluded_sources: excluded_paths
-                .iter()
-                .map(|path| ExcludedSource {
-                    path: path.clone(),
-                    reason: "invalid_module_identity".to_string(),
-                })
-                .collect(),
-            excluded_baseline_subjects: Vec::new(),
-        },
-        excluded_paths,
-    })
+    Ok(scope.finish(qualifying))
 }
 
 pub(super) fn project_without_paths(
