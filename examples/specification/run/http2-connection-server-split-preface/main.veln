@@ -13,7 +13,7 @@ fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
 end
 
 fn run_server(stream: NetStream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [net]
-	handle http2::connection::drive_server(state) with transport::net::net_stream(stream)
+	handle http2::connection::drive_server(state) with fake_effects::legacy_duplex(stream)
 end
 
 fn print_result(label: String, result: Result<CoreConnectionState, Http2ConnectionFailure>) -> Result<(), String> effects [stdio]

@@ -1,0 +1,9 @@
+use prelude
+use transport
+use transport::net
+use net
+
+pub handler net_stream(stream: net::Stream) for transport::DuplexStream effects [net::IO]
+	read_chunk() => transport::net::read_stream_chunk(stream)
+	write_chunks(chunks) => transport::net::write_stream_chunks(stream, chunks)
+end

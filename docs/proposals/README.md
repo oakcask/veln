@@ -23,9 +23,9 @@ also states it.
 - Legacy compiler-known network compatibility removal after checked sources
   migrate to the exported standard module:
   [network-compatibility-removal.md](network-compatibility-removal.md).
-- Typed `transport::DuplexStream` failures, the caller-owned `net::Stream`
-  adapter, and the resulting HTTP/2 network-failure boundaries:
-  [network-duplex-adapter.md](network-duplex-adapter.md).
+- HTTP/2 TCP service and client network failures with progress counts,
+  cleanup-failure precedence, and the production `net::system()` boundary:
+  [http2-tcp-network-failure-boundaries.md](http2-tcp-network-failure-boundaries.md).
 - Remaining ADT variant-refinement support for structural visibility beyond
   root alias-qualified public function annotations, qualified immutable values
   after a separate source-surface prerequisite, schema boundaries,

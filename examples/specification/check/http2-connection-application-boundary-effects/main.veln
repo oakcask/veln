@@ -1,7 +1,8 @@
 use http2::connection from "std"
 use http2::core from "std"
 use http2::hpack from "std"
-use transport::net from "std"
+use transport::network from "std"
+use net from "std"
 
 fn ascii_header(name: String, value: String) -> Result<HeaderField, String>
 	Ok(http2::hpack::header_field(name, byte_chunk_from_visible_ascii_string(value)?))
@@ -19,6 +20,6 @@ pub fn unhandled_application_driver(state: CoreConnectionState) -> Result<CoreCo
 	http2::connection::drive_server_application(state, pure_handler)
 end
 
-pub fn handled_application_driver(stream: NetStream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [net]
-	handle http2::connection::drive_server_application(state, pure_handler) with transport::net::net_stream(stream)
+pub fn handled_application_driver(stream: net::Stream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [net::IO]
+	handle http2::connection::drive_server_application(state, pure_handler) with transport::network::net_stream(stream)
 end

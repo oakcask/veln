@@ -1,3 +1,5 @@
+# CLI/JVM contract: abrupt host transport failure remains a structured runtime
+# failure; JSON commit facts and the event log detect misclassification.
 command = ["run", "--json", "main", "main.veln", "fixture_effects.veln", "fake_effects.veln"]
 exit = 1
 

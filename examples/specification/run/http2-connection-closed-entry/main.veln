@@ -34,7 +34,7 @@ fn fixture_body() -> Result<(), String> effects [net, stdio]
 	let stream = accept_next(listener)?
 	let open = http2::core::server_connection_state(0)?
 	let closed = http2::core::connection_state_with_lifecycle(open, http2::core::connection_lifecycle_closed(0, 0))
-	let result = handle http2::connection::drive_server(closed) with transport::net::net_stream(stream)
+	let result = handle http2::connection::drive_server(closed) with fake_effects::legacy_duplex(stream)
 	let _ = print_result(result)?
 	net::close_stream(stream)
 	Ok(())

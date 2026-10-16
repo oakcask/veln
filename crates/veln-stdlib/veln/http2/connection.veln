@@ -1,9 +1,11 @@
 use prelude
 use transport
-use transport::net
+use net
 use http2::core
+use http2::legacy_network
 
 pub type Http2ConnectionFailure
+	pub Http2ConnectionTransportFailure(error: net::NetError)
 	Http2ConnectionProtocolFailure(CoreReceiveConnectionFailure)
 	Http2ConnectionIncompleteInput(CoreReceiveConnectionEofFailure)
 	Http2ConnectionLocalSettingsFailure(LocalSettingsFailure)
@@ -16,6 +18,7 @@ pub type Http2ApplicationAction
 end
 
 pub type Http2ApplicationBoundaryFailure
+	pub Http2ApplicationTransportFailure(error: net::NetError)
 	pub Http2ApplicationConnectionFailure(Http2ConnectionFailure)
 	pub Http2ApplicationCallbackFailure(reason: String)
 	pub Http2ApplicationUnsupportedRequestShape(stream_id: Int, reason: String)
@@ -93,7 +96,7 @@ end
 
 pub fn serve_tcp<effect E>(listener: NetListener, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net, concurrency, ...E]
 	let result = service_accept_next(listener, 1, handler)
-	net::close_listener(listener)
+	http2::legacy_network::close_listener(listener)
 	result
 end
 
@@ -205,7 +208,7 @@ end
 
 fn service_connection_task<effect E>(context: { stream : NetStream, callback : fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E] }) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [net, ...E]
 	let state = service_application_initial_state()?
-	handle drive_server_application(state, context.callback) with transport::net::net_stream(context.stream)
+	handle drive_server_application(state, context.callback) with http2::legacy_network::duplex_stream(context.stream)
 end
 
 fn service_application_initial_state() -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure>
@@ -221,7 +224,7 @@ fn service_spawn_connection<effect E>(stream: NetStream, handler: fn(Http2Applic
 end
 
 fn service_accept_next<effect E>(listener: NetListener, accepted: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net, concurrency, ...E]
-	match net::accept_or_end(listener)
+	match http2::legacy_network::accept_or_end(listener)
 		Some(stream) => service_run_one(stream, service_spawn_connection(stream, handler), listener, accepted, handler)
 		None => Ok(())
 	end
@@ -236,12 +239,12 @@ fn service_run_one<effect E>(stream: NetStream, worker: Task<Result<CoreConnecti
 end
 
 fn service_close_then_continue<effect E>(stream: NetStream, listener: NetListener, accepted: Int, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<(), Http2ServiceFailure> effects [net, concurrency, ...E]
-	net::close_stream(stream)
+	http2::legacy_network::close_stream(stream)
 	service_accept_next(listener, accepted + 1, handler)
 end
 
 fn service_fail_close(stream: NetStream, failure: Http2ServiceFailure) -> Result<(), Http2ServiceFailure> effects [net]
-	net::close_stream(stream)
+	http2::legacy_network::close_stream(stream)
 	Err(failure)
 end
 
@@ -264,13 +267,13 @@ fn client_dispatch_request<effect E>(endpoint: String, request: Http2ClientReque
 end
 
 fn client_connect_and_run<effect E>(endpoint: String, request: Http2ClientRequest, tail: List<Http2ClientRequest>, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
-	let stream = net::connect(endpoint)
+	let stream = http2::legacy_network::connect(endpoint)
 	let state = client_service_initial_state()?
 	client_run_one(endpoint, stream, state, false, request, tail, completed, handler)
 end
 
 fn client_replace_connection<effect E>(endpoint: String, stream: NetStream, request: Http2ClientRequest, tail: List<Http2ClientRequest>, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
-	net::close_stream(stream)
+	http2::legacy_network::close_stream(stream)
 	client_connect_and_run(endpoint, request, tail, completed, handler)
 end
 
@@ -307,12 +310,12 @@ fn client_close_retained(retained: Http2ClientRetainedConnection) -> Result<(), 
 end
 
 fn client_close_stream_ok(stream: NetStream) -> Result<(), Http2ClientServiceFailure> effects [net]
-	net::close_stream(stream)
+	http2::legacy_network::close_stream(stream)
 	Ok(())
 end
 
 fn client_fail_close(stream: NetStream, failure: Http2ClientServiceFailure) -> Result<(), Http2ClientServiceFailure> effects [net]
-	net::close_stream(stream)
+	http2::legacy_network::close_stream(stream)
 	Err(failure)
 end
 
@@ -332,7 +335,7 @@ fn client_spawn_request(stream: NetStream, state: CoreConnectionState, reused: B
 end
 
 fn client_request_task(context: { stream : NetStream, state : CoreConnectionState, reused : Bool, request : Http2ClientRequest }) -> Result<Http2ClientTaskResult, Http2ClientServiceFailure> effects [net]
-	handle client_request_body(context.state, context.reused, context.request) with transport::net::net_stream(context.stream)
+	handle client_request_body(context.state, context.reused, context.request) with http2::legacy_network::duplex_stream(context.stream)
 end
 
 fn start_server(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
@@ -451,8 +454,9 @@ fn client_drive_response(state: CoreReceiveConnectionState, written_count: Int, 
 		Ok(Http2ClientTaskResult(client_response_from(http2::core::receive_connection_connection(after_write.state), stream_id, reused), http2::core::receive_connection_connection(after_write.state)))
 	else
 		match perform transport::DuplexStream::read_chunk()
-			Some(chunk) => client_receive_and_continue(after_write.state, chunk, after_write.written_count, stream_id, reused)
-			None => Err(Http2ClientServiceIncompleteResponse(0, stream_id, client_stream_lifecycle_label(http2::core::receive_connection_connection(after_write.state), stream_id)))
+			Ok(Some(chunk)) => client_receive_and_continue(after_write.state, chunk, after_write.written_count, stream_id, reused)
+			Ok(None) => Err(Http2ClientServiceIncompleteResponse(0, stream_id, client_stream_lifecycle_label(http2::core::receive_connection_connection(after_write.state), stream_id)))
+			Err(error) => Err(Http2ClientServiceConnectionFailure(0, Http2ConnectionTransportFailure(error)))
 		end
 	end
 end
@@ -498,8 +502,10 @@ end
 
 fn client_write_output_range(state: CoreReceiveConnectionState, output: CoreOutputBuffer, written_count: Int, total: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ClientServiceFailure> effects [std::transport::DuplexStream]
 	let chunks = output_chunks_from(output, written_count, total)
-	perform transport::DuplexStream::write_chunks(chunks)
-	Ok({ state: state, written_count: total })
+	match perform transport::DuplexStream::write_chunks(chunks)
+		Ok(()) => Ok({ state: state, written_count: total })
+		Err(error) => Err(Http2ClientServiceConnectionFailure(0, Http2ConnectionTransportFailure(error)))
+	end
 end
 
 fn client_stream_is_final(state: CoreConnectionState, stream_id: Int) -> Bool
@@ -553,16 +559,18 @@ end
 fn drive_loop(state: CoreReceiveConnectionState, written_count: Int) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]
 	let after_write = write_new_output(state, written_count)?
 	match perform transport::DuplexStream::read_chunk()
-		Some(chunk) => receive_and_continue(after_write.state, chunk, after_write.written_count)
-		None => finish_eof(after_write.state)
+		Ok(Some(chunk)) => receive_and_continue(after_write.state, chunk, after_write.written_count)
+		Ok(None) => finish_eof(after_write.state)
+		Err(error) => Err(Http2ConnectionTransportFailure(error))
 	end
 end
 
 fn application_drive_loop<effect E>(state: CoreReceiveConnectionState, written_count: Int, handled_request: Bool, handler: fn(Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String> effects [...E]) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream, ...E]
 	let after_write = write_new_application_output(state, written_count)?
 	match perform transport::DuplexStream::read_chunk()
-		Some(chunk) => application_receive_and_continue(after_write.state, chunk, after_write.written_count, handled_request, handler)
-		None => application_finish_eof(after_write.state)
+		Ok(Some(chunk)) => application_receive_and_continue(after_write.state, chunk, after_write.written_count, handled_request, handler)
+		Ok(None) => application_finish_eof(after_write.state)
+		Err(error) => Err(Http2ApplicationTransportFailure(error))
 	end
 end
 
@@ -745,14 +753,18 @@ end
 
 fn write_output_range(state: CoreReceiveConnectionState, output: CoreOutputBuffer, written_count: Int, total: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ConnectionFailure> effects [std::transport::DuplexStream]
 	let chunks = output_chunks_from(output, written_count, total)
-	perform transport::DuplexStream::write_chunks(chunks)
-	Ok({ state: state, written_count: total })
+	match perform transport::DuplexStream::write_chunks(chunks)
+		Ok(()) => Ok({ state: state, written_count: total })
+		Err(error) => Err(Http2ConnectionTransportFailure(error))
+	end
 end
 
 fn write_application_output_range(state: CoreReceiveConnectionState, output: CoreOutputBuffer, written_count: Int, total: Int) -> Result<{ state : CoreReceiveConnectionState, written_count : Int }, Http2ApplicationBoundaryFailure> effects [std::transport::DuplexStream]
 	let chunks = output_chunks_from(output, written_count, total)
-	perform transport::DuplexStream::write_chunks(chunks)
-	Ok({ state: state, written_count: total })
+	match perform transport::DuplexStream::write_chunks(chunks)
+		Ok(()) => Ok({ state: state, written_count: total })
+		Err(error) => Err(Http2ApplicationTransportFailure(error))
+	end
 end
 
 fn output_chunks_from(output: CoreOutputBuffer, index: Int, total: Int) -> List<ByteChunk>
@@ -914,6 +926,7 @@ end
 
 pub fn application_failure_kind(failure: Http2ApplicationBoundaryFailure) -> String
 	match failure
+		Http2ApplicationTransportFailure(_) => "transport"
 		Http2ApplicationConnectionFailure(_) => "connection"
 		Http2ApplicationCallbackFailure(_) => "callback"
 		Http2ApplicationUnsupportedRequestShape(_, _) => "unsupported-request-shape"
@@ -927,6 +940,7 @@ end
 
 pub fn application_failure_reason(failure: Http2ApplicationBoundaryFailure) -> String
 	match failure
+		Http2ApplicationTransportFailure(net::NetError(_, _, _, _, message)) => message
 		Http2ApplicationConnectionFailure(inner) => connection_failure_reason(inner)
 		Http2ApplicationCallbackFailure(reason) => reason
 		Http2ApplicationUnsupportedRequestShape(_, reason) => reason
@@ -940,6 +954,7 @@ end
 
 pub fn application_failure_id(failure: Http2ApplicationBoundaryFailure) -> String
 	match failure
+		Http2ApplicationTransportFailure(_) => "http2.application.transport_failure"
 		Http2ApplicationConnectionFailure(inner) => connection_failure_id(inner)
 		Http2ApplicationCallbackFailure(_) => "http2.application.callback_failure"
 		Http2ApplicationUnsupportedRequestShape(_, _) => "http2.application.unsupported_request_shape"
@@ -953,6 +968,7 @@ end
 
 pub fn application_failure_stream_id(failure: Http2ApplicationBoundaryFailure) -> Int
 	match failure
+		Http2ApplicationTransportFailure(_) => 0
 		Http2ApplicationConnectionFailure(inner) => connection_failure_stream_id(inner)
 		Http2ApplicationCallbackFailure(_) => 0
 		Http2ApplicationUnsupportedRequestShape(stream_id, _) => stream_id
@@ -1013,6 +1029,7 @@ end
 
 pub fn connection_failure_kind(failure: Http2ConnectionFailure) -> String
 	match failure
+		Http2ConnectionTransportFailure(_) => "transport"
 		Http2ConnectionProtocolFailure(_) => "protocol"
 		Http2ConnectionIncompleteInput(_) => "incomplete-input"
 		Http2ConnectionLocalSettingsFailure(_) => "local-settings"
@@ -1022,6 +1039,7 @@ end
 
 pub fn connection_failure_source(failure: Http2ConnectionFailure) -> String
 	match failure
+		Http2ConnectionTransportFailure(net::NetError(operation, _, _, _, _)) => operation
 		Http2ConnectionProtocolFailure(inner) => http2::core::receive_connection_failure_source(inner)
 		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_source(inner)
 		Http2ConnectionLocalSettingsFailure(_) => "local-settings"
@@ -1031,6 +1049,7 @@ end
 
 pub fn connection_failure_id(failure: Http2ConnectionFailure) -> String
 	match failure
+		Http2ConnectionTransportFailure(_) => "http2.connection.transport_failure"
 		Http2ConnectionProtocolFailure(inner) => http2::core::receive_connection_failure_id(inner)
 		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_id(inner)
 		Http2ConnectionLocalSettingsFailure(inner) => http2::core::local_settings_failure_id(inner)
@@ -1040,6 +1059,7 @@ end
 
 pub fn connection_failure_offset(failure: Http2ConnectionFailure) -> Int
 	match failure
+		Http2ConnectionTransportFailure(_) => 0
 		Http2ConnectionProtocolFailure(inner) => http2::core::receive_connection_failure_offset(inner)
 		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_offset(inner)
 		Http2ConnectionLocalSettingsFailure(inner) => http2::core::local_settings_failure_offset(inner)
@@ -1049,6 +1069,7 @@ end
 
 pub fn connection_failure_frame_kind(failure: Http2ConnectionFailure) -> Int
 	match failure
+		Http2ConnectionTransportFailure(_) => 0
 		Http2ConnectionProtocolFailure(inner) => http2::core::receive_connection_failure_frame_kind(inner)
 		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_frame_kind(inner)
 		Http2ConnectionLocalSettingsFailure(inner) => http2::core::local_settings_failure_frame_kind(inner)
@@ -1058,6 +1079,7 @@ end
 
 pub fn connection_failure_stream_id(failure: Http2ConnectionFailure) -> Int
 	match failure
+		Http2ConnectionTransportFailure(_) => 0
 		Http2ConnectionProtocolFailure(inner) => http2::core::receive_connection_failure_stream_id(inner)
 		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_stream_id(inner)
 		Http2ConnectionLocalSettingsFailure(_) => 0
@@ -1067,6 +1089,7 @@ end
 
 pub fn connection_failure_reason(failure: Http2ConnectionFailure) -> String
 	match failure
+		Http2ConnectionTransportFailure(net::NetError(_, _, _, _, message)) => message
 		Http2ConnectionProtocolFailure(inner) => http2::core::receive_connection_failure_reason(inner)
 		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_reason(inner)
 		Http2ConnectionLocalSettingsFailure(inner) => http2::core::local_settings_failure_rule_provenance(inner)
@@ -1076,6 +1099,7 @@ end
 
 pub fn connection_failure_pending_count(failure: Http2ConnectionFailure) -> Int
 	match failure
+		Http2ConnectionTransportFailure(_) => 0
 		Http2ConnectionProtocolFailure(_) => 0
 		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_pending_count(inner)
 		Http2ConnectionLocalSettingsFailure(_) => 0
@@ -1085,6 +1109,7 @@ end
 
 pub fn connection_failure_expected_count(failure: Http2ConnectionFailure) -> Int
 	match failure
+		Http2ConnectionTransportFailure(_) => 0
 		Http2ConnectionProtocolFailure(_) => 0
 		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_expected_count(inner)
 		Http2ConnectionLocalSettingsFailure(_) => 0
@@ -1094,6 +1119,7 @@ end
 
 pub fn connection_failure_preview(failure: Http2ConnectionFailure) -> ByteChunk
 	match failure
+		Http2ConnectionTransportFailure(_) => byte_chunk([])
 		Http2ConnectionProtocolFailure(inner) => http2::core::receive_connection_failure_preview(inner)
 		Http2ConnectionIncompleteInput(inner) => http2::core::receive_connection_eof_failure_preview(inner)
 		Http2ConnectionLocalSettingsFailure(inner) => byte_view_to_chunk(http2::core::local_settings_failure_preview(inner))

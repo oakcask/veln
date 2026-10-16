@@ -1,0 +1,24 @@
+use prelude
+use host_effects
+
+handler fixed_network(label: String) for host_effects::Network
+	request(operation, subject, bytes, remaining_ms, cancelled) => {
+		status: "ok",
+		value: label,
+		local: label,
+		peer: label,
+		bytes: bytes,
+		resolved_endpoints: list_nil(),
+		bytes_committed: byte_count_to_int(byte_chunk_count(bytes)),
+		category: "",
+		phase: "",
+		input_committed: 0,
+		output_committed: 0,
+		ownership_committed: 0,
+		cause: ""
+	}
+end
+
+pub fn stream(label: String) -> NetStream effects [net]
+	handle net::connect(label) with fixed_network(label)
+end

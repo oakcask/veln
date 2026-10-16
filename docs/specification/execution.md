@@ -205,16 +205,20 @@ their streams. This orchestration belongs to the source program; task failure
 or cancellation does not automatically close caller-owned listeners,
 streams, standard input, or undo completed writes.
 
-`transport::net::net_stream(stream)` adapts a caller-owned `NetStream` to the
-`DuplexStream` interface. `read_chunk()` returns `Some(ByteChunk)` or `None`
-for clean end; `write_chunks(chunks)` writes in list order. The adapter does
+`transport::net::net_stream(stream)` adapts a caller-owned `net::Stream` to the
+`DuplexStream` interface and retains `net::IO`. `read_chunk()` returns
+`Ok(Some(ByteChunk))` for non-empty data, `Ok(None)` for clean end, and the
+unchanged typed network error for failure. A successful empty read is a typed
+non-progress error. `write_chunks(chunks)` completes each chunk in list order
+through `net::write_all` and returns the first typed failure. The adapter does
 not listen, connect, accept, close, or shut down the stream.
 
 HTTP/2 connection drivers own only the core state and caller-owned duplex
 interface. The client writes its preface and initial SETTINGS before reading;
 the server writes its initial SETTINGS before reading. Closed entry state
-returns without I/O. Protocol failures are typed core failures, while host
-transport failures remain runtime failures. Detailed HTTP/2 frame, HPACK,
+returns without I/O. Protocol failures are typed core failures. Duplex read
+and write failures are distinct typed transport failures at the direct
+connection and application boundaries. Detailed HTTP/2 frame, HPACK,
 connection-state, and service contracts are specified in [http2.md](http2.md).
 
 `serve_connection` maps one callback boundary to the HTTP/2 driver and

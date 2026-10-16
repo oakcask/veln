@@ -1,6 +1,7 @@
 use prelude
-use host_effects
 use transport
+use net
+use http2::connection_test_support_test
 use http2::connection
 use http2::core
 use http2::hpack
@@ -37,21 +38,6 @@ fn application_two_request_chunk() -> Result<ByteChunk, String>
 	byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000006040000000000000500008000000003010500000001828784000003010500000003828785")
 end
 
-fn fixed_read_chunk(chunk: ByteChunk) -> Option<ByteChunk>
-	Some(chunk)
-end
-
-fn discard_write_chunks(chunk: ByteChunk, chunks: List<ByteChunk>) -> ()
-	let _ = chunk
-	let _ = chunks
-	()
-end
-
-handler fixed_duplex(chunk: ByteChunk) for transport::DuplexStream
-	read_chunk() => fixed_read_chunk(chunk)
-	write_chunks(chunks) => discard_write_chunks(chunk, chunks)
-end
-
 fn fail_if_called_handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>, String>
 	let _ = http2::core::application_event_stream_id(event)
 	Err("callback should not run")
@@ -79,6 +65,71 @@ fn rejected_data_handler(event: Http2ApplicationEvent) -> Result<List<Http2Appli
 	Ok(list_cons(Http2ApplicationAction::Http2SendResponseHeaders(stream_id, response_headers_with_length("5")?, false), list_cons(Http2ApplicationAction::Http2SendResponseData(stream_id, byte_chunk_from_hex("0a0b")?, true), list_nil())))
 end
 
+fn transport_failure(operation: String, message: String) -> net::NetError
+	net::NetError(operation, Some(net::Tcp6), Some("[2001:db8::1]:443"), net::ConnectionReset, message)
+end
+
+fn connection_transport_failure_matches(result: Result<CoreConnectionState, Http2ConnectionFailure>, operation: String, message: String) -> Result<(), String>
+	match result
+		Err(failure) => if http2::connection::connection_failure_kind(failure) == "transport" and http2::connection::connection_failure_id(failure) == "http2.connection.transport_failure" and http2::connection::connection_failure_source(failure) == operation and http2::connection::connection_failure_reason(failure) == message
+			match failure
+				Http2ConnectionFailure::Http2ConnectionTransportFailure(net::NetError(observed_operation, Some(net::Tcp6), Some("[2001:db8::1]:443"), net::ConnectionReset, observed_message)) => if observed_operation == operation and observed_message == message
+					Ok(())
+				else
+					Err("HTTP/2 connection changed the network failure fields")
+				end
+				_ => Err("HTTP/2 connection transport projections did not identify a transport variant")
+			end
+		else
+			Err(string::concat("HTTP/2 connection misclassified transport failure as ", http2::connection::connection_failure_kind(failure)))
+		end
+		Ok(_) => Err("HTTP/2 connection ignored the transport failure")
+	end
+end
+
+fn application_transport_failure_matches(result: Result<CoreConnectionState, Http2ApplicationBoundaryFailure>, operation: String, message: String) -> Result<(), String>
+	match result
+		Err(failure) => if http2::connection::application_failure_kind(failure) == "transport" and http2::connection::application_failure_id(failure) == "http2.application.transport_failure" and http2::connection::application_failure_reason(failure) == message
+			match failure
+				Http2ApplicationBoundaryFailure::Http2ApplicationTransportFailure(net::NetError(observed_operation, Some(net::Tcp6), Some("[2001:db8::1]:443"), net::ConnectionReset, observed_message)) => if observed_operation == operation and observed_message == message
+					Ok(())
+				else
+					Err("HTTP/2 application changed the network failure fields")
+				end
+				_ => Err("HTTP/2 application transport projections did not identify a transport variant")
+			end
+		else
+			Err(string::concat("HTTP/2 application misclassified transport failure as ", http2::connection::application_failure_kind(failure)))
+		end
+		Ok(_) => Err("HTTP/2 application ignored the transport failure")
+	end
+end
+
+test server_connection_preserves_duplex_write_failure() -> Result<(), String>
+	let result = handle http2::connection::drive_server(http2::core::server_connection_state(0)?) with http2::connection_test_support_test::failing_duplex_write(transport_failure("write", "server write"))
+	connection_transport_failure_matches(result, "write", "server write")
+end
+
+test server_connection_preserves_duplex_read_failure() -> Result<(), String>
+	let result = handle http2::connection::drive_server(http2::core::server_connection_state(0)?) with http2::connection_test_support_test::failing_duplex_read(transport_failure("read", "server read"))
+	connection_transport_failure_matches(result, "read", "server read")
+end
+
+test client_connection_preserves_duplex_write_failure() -> Result<(), String>
+	let result = handle http2::connection::drive_client(http2::core::client_connection_state(0)?) with http2::connection_test_support_test::failing_duplex_write(transport_failure("write", "client write"))
+	connection_transport_failure_matches(result, "write", "client write")
+end
+
+test application_boundary_preserves_duplex_read_failure_without_callback_classification() -> Result<(), String>
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, fail_if_called_handler) with http2::connection_test_support_test::failing_duplex_read(transport_failure("read", "application read"))
+	application_transport_failure_matches(result, "read", "application read")
+end
+
+test application_boundary_preserves_duplex_write_failure() -> Result<(), String>
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, fail_if_called_handler) with http2::connection_test_support_test::failing_duplex_write(transport_failure("write", "application write"))
+	application_transport_failure_matches(result, "write", "application write")
+end
+
 test application_action_values_are_public_and_immutable() -> Result<(), String>
 	let headers = Http2ApplicationAction::Http2SendResponseHeaders(1, response_headers()?, true)
 	let data = Http2ApplicationAction::Http2SendResponseData(1, byte_chunk_from_hex("0a0b")?, true)
@@ -104,7 +155,7 @@ end
 test application_driver_effect_boundary_handles_closed_state_without_callback() -> Result<(), String>
 	let open = http2::core::server_connection_state(0)?
 	let closed = http2::core::connection_state_with_lifecycle(open, http2::core::connection_lifecycle_closed(0, 0))
-	let result = handle http2::connection::drive_server_application(closed, fail_if_called_handler) with fixed_duplex(byte_chunk([]))
+	let result = handle http2::connection::drive_server_application(closed, fail_if_called_handler) with http2::connection_test_support_test::fixed_duplex(byte_chunk([]))
 	match result
 		Ok(state) => if http2::core::connection_lifecycle_label(http2::core::connection_state_lifecycle(state)) == "closed"
 			Ok(())
@@ -131,19 +182,9 @@ test client_service_callback_failure_uses_ordinary_cleanup_path() -> Result<(), 
 	let response = byte_chunk_from_hex("00000004000000000000000101050000000189")?
 	let trace = channel::bounded<List<{operation:String, bytes:ByteChunk}>>(1)
 	let _ = channel::send(trace.tx, list_nil())
-	let _ = handle client_service_callback_failure_cleanup_result() with callback_network(response, trace)?
+	let _ = handle client_service_callback_failure_cleanup_result() with http2::connection_test_support_test::callback_network(response, trace)?
 	let observed: List<{ operation : String, bytes : ByteChunk }> = option_unwrap_or(channel::recv(trace.rx), list_nil())
 	callback_network_trace_matches(observed)
-end
-
-handler callback_network(response: ByteChunk, trace: { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> }) for host_effects::Network effects [concurrency]
-	request(operation, subject, bytes, remaining_ms, cancelled) => callback_network_reply(response, trace, operation, bytes)
-end
-
-fn callback_network_reply(response: ByteChunk, trace: { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> }, operation: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
-	let observed: List<{ operation : String, bytes : ByteChunk }> = option_unwrap_or(channel::recv(trace.rx), list_nil())
-	let _ = channel::send(trace.tx, list_cons({ operation: operation, bytes: bytes }, observed))
-	{ status: "ok", value: "callback-stream", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: response, resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
 end
 
 fn callback_network_trace_matches(trace: List<{ operation : String, bytes : ByteChunk }>) -> Result<(), String>
@@ -205,7 +246,7 @@ fn client_service_callback_failure_matches_ordinary_path(failure: Http2ClientSer
 end
 
 test application_driver_rejects_body_bearing_request_without_callback() -> Result<(), String>
-	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, fail_if_called_handler) with fixed_duplex(application_body_request_chunk()?)
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, fail_if_called_handler) with http2::connection_test_support_test::fixed_duplex(application_body_request_chunk()?)
 	match result
 		Ok(_) => Err("HTTP/2 application driver accepted an unsupported body-bearing request")
 		Err(failure) => if http2::connection::application_failure_kind(failure) == "unsupported-request-shape" and http2::connection::application_failure_stream_id(failure) == 1 and http2::connection::application_failure_reason(failure) == "request headers do not end the request stream"
@@ -217,7 +258,7 @@ test application_driver_rejects_body_bearing_request_without_callback() -> Resul
 end
 
 test application_driver_rejects_second_request_without_second_callback() -> Result<(), String>
-	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, bodyless_handler) with fixed_duplex(application_two_request_chunk()?)
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, bodyless_handler) with http2::connection_test_support_test::fixed_duplex(application_two_request_chunk()?)
 	match result
 		Ok(_) => Err("HTTP/2 application driver accepted a second request")
 		Err(failure) => if http2::connection::application_failure_kind(failure) == "unsupported-request-count" and http2::connection::application_failure_stream_id(failure) == 3
@@ -229,7 +270,7 @@ test application_driver_rejects_second_request_without_second_callback() -> Resu
 end
 
 test application_driver_validates_complete_action_list_before_writing() -> Result<(), String>
-	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, invalid_action_handler) with fixed_duplex(application_request_chunk()?)
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, invalid_action_handler) with http2::connection_test_support_test::fixed_duplex(application_request_chunk()?)
 	match result
 		Ok(_) => Err("HTTP/2 application driver accepted DATA before HEADERS")
 		Err(failure) => if http2::connection::application_failure_kind(failure) == "invalid-action-sequence" and http2::connection::application_failure_action_index(failure) == 0 and http2::connection::application_failure_stream_id(failure) == 1 and http2::connection::application_failure_reason(failure) == "DATA cannot appear before response HEADERS"
@@ -241,7 +282,7 @@ test application_driver_validates_complete_action_list_before_writing() -> Resul
 end
 
 test application_driver_requires_response_actions_for_request_stream() -> Result<(), String>
-	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, mismatched_stream_handler) with fixed_duplex(application_request_chunk()?)
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, mismatched_stream_handler) with http2::connection_test_support_test::fixed_duplex(application_request_chunk()?)
 	match result
 		Ok(_) => Err("HTTP/2 application driver accepted a mismatched response stream id")
 		Err(failure) => if http2::connection::application_failure_kind(failure) == "invalid-action-sequence" and http2::connection::application_failure_action_index(failure) == 0 and http2::connection::application_failure_stream_id(failure) == 3
@@ -253,7 +294,7 @@ test application_driver_requires_response_actions_for_request_stream() -> Result
 end
 
 test application_driver_distinguishes_rejected_later_core_action() -> Result<(), String>
-	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, rejected_data_handler) with fixed_duplex(application_request_chunk()?)
+	let result = handle http2::connection::drive_server_application(http2::core::server_connection_state(0)?, rejected_data_handler) with http2::connection_test_support_test::fixed_duplex(application_request_chunk()?)
 	match result
 		Ok(_) => Err("HTTP/2 application driver accepted a DATA action rejected by core")
 		Err(failure) => if http2::connection::application_failure_kind(failure) == "rejected-data-action" and http2::connection::application_failure_id(failure) == "http2.protocol.content_length_mismatch" and http2::connection::application_failure_stream_id(failure) == 1

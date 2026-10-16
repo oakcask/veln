@@ -26,7 +26,7 @@ fn handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>,
 end
 
 fn run_server(stream: NetStream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [net]
-	handle http2::connection::drive_server_application(state, handler) with transport::net::net_stream(stream)
+	handle http2::connection::drive_server_application(state, handler) with fake_effects::legacy_duplex(stream)
 end
 
 fn print_result(result: Result<CoreConnectionState, Http2ApplicationBoundaryFailure>) -> Result<(), String> effects [stdio]

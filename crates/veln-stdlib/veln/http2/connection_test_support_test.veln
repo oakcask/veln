@@ -1,0 +1,39 @@
+use prelude
+use host_effects
+use transport
+use net
+
+pub handler fixed_duplex(chunk: ByteChunk) for transport::DuplexStream
+	read_chunk() => Ok(Some(chunk))
+	write_chunks(chunks) => accept_chunks(chunks)
+end
+
+pub handler failing_duplex_read(error: net::NetError) for transport::DuplexStream
+	read_chunk() => Err(error)
+	write_chunks(chunks) => accept_chunks(chunks)
+end
+
+pub handler failing_duplex_write(error: net::NetError) for transport::DuplexStream
+	read_chunk() => Err(net::NetError("unexpected-read", None, None, net::Other, "read followed a failed write"))
+	write_chunks(chunks) => reject_chunks(chunks, error)
+end
+
+fn accept_chunks(chunks: List<ByteChunk>) -> Result<(), net::NetError>
+	let _ = chunks
+	Ok(())
+end
+
+fn reject_chunks(chunks: List<ByteChunk>, error: net::NetError) -> Result<(), net::NetError>
+	let _ = chunks
+	Err(error)
+end
+
+pub handler callback_network(response: ByteChunk, trace: { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> }) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => callback_network_reply(response, trace, operation, bytes)
+end
+
+fn callback_network_reply(response: ByteChunk, trace: { tx : Sender<List<{ operation : String, bytes : ByteChunk }>>, rx : Receiver<List<{ operation : String, bytes : ByteChunk }>> }, operation: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+	let observed: List<{ operation : String, bytes : ByteChunk }> = option_unwrap_or(channel::recv(trace.rx), list_nil())
+	let _ = channel::send(trace.tx, list_cons({ operation: operation, bytes: bytes }, observed))
+	{ status: "ok", value: "callback-stream", local: "127.0.0.1:1", peer: "127.0.0.1:0", bytes: response, resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+end
