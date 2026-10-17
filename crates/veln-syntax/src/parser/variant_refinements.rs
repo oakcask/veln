@@ -100,6 +100,7 @@ fn collect_record_field_paths(
                 if !field.function_field
                     && field.angle_depth == 0
                     && field.paren_depth == 0
+                    && field.square_depth == 0
                     && let Some(index) = targets.get(&cursor)
                 {
                     let shared_prefix_len = previous_path_len

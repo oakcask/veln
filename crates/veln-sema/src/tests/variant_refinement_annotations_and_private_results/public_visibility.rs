@@ -169,6 +169,20 @@ fn public_record_refinements_and_private_function_records_remain_valid() {
 }
 
 #[test]
+fn square_bracket_nesting_does_not_extend_record_visibility() {
+    let diagnostics = visibility_diagnostics(concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub fn boundary(value: {wrapped: [State::Hidden]}) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn function_field_effect_rows_do_not_hide_later_record_refinements() {
     let diagnostics = visibility_diagnostics(concat!(
         "pub type State\n",

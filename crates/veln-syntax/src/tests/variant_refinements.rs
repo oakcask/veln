@@ -125,6 +125,34 @@ fn record_field_paths_use_source_tokens_when_function_text_shares_a_prefix() {
 }
 
 #[test]
+fn record_field_paths_exclude_refinements_nested_in_square_brackets() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn expose(value: {wrapped: [State::Hidden], direct: State::Hidden}) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    let function = first_function(&output);
+    assert_eq!(function.params[0].ty_refinements.len(), 2);
+    assert!(
+        function.params[0].ty_refinements[0]
+            .record_field_path
+            .is_none()
+    );
+    assert_eq!(
+        function.params[0].ty_refinements[1].record_field_path,
+        Some(RecordFieldPath {
+            shared_prefix_len: 0,
+            suffix: vec!["direct".to_string()],
+        })
+    );
+}
+
+#[test]
 fn formats_deep_record_without_refinements_on_bounded_stack() {
     format_deep_record_on_bounded_stack("Int");
 }
