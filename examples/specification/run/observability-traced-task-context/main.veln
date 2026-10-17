@@ -12,7 +12,7 @@ fn run(recording: Recording) -> Result<(), JoinError> effects [observe::Observe,
 	let worker = traced::spawn(context, child)
 	let _ = match task::join(worker)?
 		Err(message) => stdio::println(message)
-		Ok(()) => stdio::println("unexpected-result")
+		Ok(_) => stdio::println("unexpected-result")
 	end
 	let _ = match observe::recorded(recording)
 		Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "child", Nil, Some(observe::TraceContext(trace_id, span_id)), _))), Nil) => begin
