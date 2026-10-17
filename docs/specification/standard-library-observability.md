@@ -31,7 +31,8 @@ end
 `Observe` has three operations: `start_span(SpanRequest) -> Span`,
 `emit(Observation) -> ()`, and `finish_span(SpanFinish) -> ()`. `Span` is
 opaque. Construct a request with a stable name and an optional opaque parent
-span. `trace::in_span<effect E>` accepts a body of type
+span from a recording handler when recorded parentage is required.
+`trace::in_span<effect E>` accepts a body of type
 `fn(Span) -> Result<(), String> effects [...E]`. It starts the span, passes its
 opaque handle to the body, forwards the callback effect row beside `Observe`,
 and finishes the span with lexical deferred cleanup:
@@ -119,7 +120,9 @@ another recording. If both recordings use the same prefix, child allocation
 skips a candidate that equals the supplied parent identity. Children accepted
 by one recording therefore remain distinct from their parent and siblings.
 This local guarantee does not make identities globally unique across unrelated
-recordings or processes.
+recordings or processes. A no-op span has no recording identity; if one is
+supplied as a parent to a recording handler, that request starts a root span
+and records no parent identity.
 
 `trace::in_span` registers the matching finish immediately after start. The
 finish runs exactly once after a normal `Ok` return, after an `Err` result that

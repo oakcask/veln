@@ -87,6 +87,16 @@ test recording_children_do_not_collide_with_a_parent_from_another_recording() ->
 	end
 end
 
+test recording_treats_a_noop_parent_as_a_root_request() -> Result<(), String> effects [time, concurrency]
+	let parent = handle perform observe::Observe::start_span(observe::SpanRequest("ignored", None)) with observe::noop()
+	let recording = observe::new_recording("mixed")
+	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("root", Some(parent))) with observe::recording(recording)
+	match observe::recorded(recording)
+		Cons(observe::SpanStarted("root", "mixed-0", "mixed-1", None, _), Nil) => Ok(())
+		_ => Err("recording did not treat a no-op parent as a root request")
+	end
+end
+
 fn callsite_location() -> SourceLocation callsite
 	callsite
 end
