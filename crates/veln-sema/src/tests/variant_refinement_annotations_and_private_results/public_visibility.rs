@@ -121,6 +121,9 @@ fn public_record_refinements_and_private_function_records_remain_valid() {
             "fn private_allowed(value: {state: State::Hidden}) -> {state: State::Hidden}\n",
             "  value\n",
             "end\n",
+            "pub fn function_record_boundary(value: {callback: fn() -> {state: State::Hidden, nested: {again: State::Hidden}}, sibling: Int}) -> ()\n",
+            "  ()\n",
+            "end\n",
         ),
     );
     let parsed = parse(&source);
@@ -134,6 +137,10 @@ fn public_record_refinements_and_private_function_records_remain_valid() {
         "{diagnostics:#?}"
     );
     assert!(TypeEnvironment::from_module(&module).function_is_published_for_test("accepted"));
+    assert!(
+        TypeEnvironment::from_module(&module)
+            .function_is_published_for_test("function_record_boundary")
+    );
 }
 
 #[test]

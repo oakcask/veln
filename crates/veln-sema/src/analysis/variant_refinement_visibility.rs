@@ -212,7 +212,7 @@ fn record_exposure_candidates(
         .filter_map(|(index, position)| position.map(|position| (position, index)))
         .collect::<HashMap<_, _>>();
     let mut paths = vec![None; refinements.len()];
-    collect_record_field_paths(
+    let _ = collect_record_field_paths(
         compact_annotation.as_bytes(),
         0,
         &mut Vec::new(),
@@ -242,15 +242,15 @@ fn collect_record_field_paths(
     path: &mut Vec<String>,
     targets: &HashMap<usize, usize>,
     paths: &mut [Option<Vec<String>>],
-) {
+) -> Option<usize> {
     if text.get(record_start) != Some(&b'{') {
-        return;
+        return None;
     }
     let mut cursor = record_start + 1;
     loop {
         skip_ascii_whitespace(text, &mut cursor);
         if text.get(cursor) == Some(&b'}') {
-            return;
+            return Some(cursor + 1);
         }
         let name_start = cursor;
         while text
@@ -260,14 +260,14 @@ fn collect_record_field_paths(
             cursor += 1;
         }
         if cursor == name_start {
-            return;
+            return None;
         }
         let Ok(field) = std::str::from_utf8(&text[name_start..cursor]) else {
-            return;
+            return None;
         };
         skip_ascii_whitespace(text, &mut cursor);
         if text.get(cursor) != Some(&b':') {
-            return;
+            return None;
         }
         cursor += 1;
         skip_ascii_whitespace(text, &mut cursor);
@@ -276,6 +276,7 @@ fn collect_record_field_paths(
         path.push(field.to_string());
         let mut angle_depth = 0usize;
         let mut paren_depth = 0usize;
+        let mut skipped_brace_depth = 0usize;
         while cursor < text.len() {
             if !function_field
                 && angle_depth == 0
@@ -285,24 +286,29 @@ fn collect_record_field_paths(
                 paths[*index] = Some(path.clone());
             }
             match text[cursor] {
-                b'{' if angle_depth == 0 && paren_depth == 0 => {
-                    collect_record_field_paths(text, cursor, path, targets, paths);
-                    let Some(nested_end) = matching_brace(text, cursor) else {
+                b'{' if !function_field && angle_depth == 0 && paren_depth == 0 => {
+                    let Some(nested_end) =
+                        collect_record_field_paths(text, cursor, path, targets, paths)
+                    else {
                         path.pop();
-                        return;
+                        return None;
                     };
                     cursor = nested_end - 1;
+                }
+                b'{' if function_field => skipped_brace_depth += 1,
+                b'}' if function_field && skipped_brace_depth > 0 => {
+                    skipped_brace_depth -= 1;
                 }
                 b'<' => angle_depth += 1,
                 b'>' if angle_depth > 0 => angle_depth -= 1,
                 b'(' => paren_depth += 1,
                 b')' if paren_depth > 0 => paren_depth -= 1,
-                b',' | b'}' if angle_depth == 0 && paren_depth == 0 => {
+                b',' | b'}' if angle_depth == 0 && paren_depth == 0 && skipped_brace_depth == 0 => {
                     let end = text[cursor];
                     cursor += 1;
                     path.pop();
                     if end == b'}' {
-                        return;
+                        return Some(cursor);
                     }
                     break;
                 }
@@ -310,24 +316,11 @@ fn collect_record_field_paths(
             }
             cursor += 1;
         }
-    }
-}
-
-fn matching_brace(text: &[u8], start: usize) -> Option<usize> {
-    let mut depth = 0usize;
-    for (offset, byte) in text[start..].iter().enumerate() {
-        match byte {
-            b'{' => depth += 1,
-            b'}' => {
-                depth = depth.checked_sub(1)?;
-                if depth == 0 {
-                    return Some(start + offset + 1);
-                }
-            }
-            _ => {}
+        if cursor == text.len() {
+            path.pop();
+            return None;
         }
     }
-    None
 }
 
 fn skip_ascii_whitespace(text: &[u8], cursor: &mut usize) {

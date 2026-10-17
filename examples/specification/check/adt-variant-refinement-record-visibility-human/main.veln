@@ -30,6 +30,6 @@ pub fn named_boundary(value: Box<State::Hidden>) -> ()
 	()
 end
 
-pub fn function_boundary(value: {callback: fn(State::Hidden) -> State::Hidden}) -> ()
+pub fn function_boundary(value: {callback: fn(State::Hidden) -> {state: State::Hidden, nested: {again: State::Hidden}}, sibling: Int}) -> ()
 	()
 end
