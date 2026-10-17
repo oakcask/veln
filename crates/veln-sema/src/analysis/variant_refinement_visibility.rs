@@ -113,7 +113,10 @@ fn root_exposures<'a>(
     exposures.retain(|exposure| {
         record_visibility_work(1);
         seen.insert((
-            exposure.record_fields.clone(),
+            exposure
+                .record_path
+                .as_ref()
+                .map(RecordFieldPathRef::node_identity),
             exposure.descriptor.identity(),
             exposure.variant.name.clone(),
             exposure.alternative_identity.clone(),
@@ -188,17 +191,41 @@ fn record_exposure_candidates(
     refinements: &[VariantRefinementType],
 ) -> Vec<RefinementExposureCandidate> {
     let mut candidates = Vec::new();
+    let mut candidate_tails = Vec::new();
+    let mut path_nodes = Vec::new();
+    let mut record_path = Vec::<usize>::new();
     for refinement in refinements {
-        let Some(record_fields) = &refinement.record_field_path else {
+        let Some(path) = &refinement.record_field_path else {
             continue;
         };
+        if path.shared_prefix_len > record_path.len() {
+            record_path.clear();
+            continue;
+        }
+        record_path.truncate(path.shared_prefix_len);
+        for field in &path.suffix {
+            record_visibility_path_node_construction(1);
+            path_nodes.push(RecordFieldPathNode {
+                parent: record_path.last().copied(),
+                field: field.clone(),
+            });
+            record_path.push(path_nodes.len() - 1);
+        }
+        let record_path_tail = record_path.last().copied();
         record_visibility_candidate_construction(refinement.alternatives.len());
-        candidates.extend(refinement.alternatives.iter().map(|alternative| {
+        for alternative in &refinement.alternatives {
             let mut candidate = refinement_candidate(alternative);
-            candidate.record_fields.clone_from(record_fields);
             candidate.structural_span = Some(refinement.span.clone());
-            candidate
-        }));
+            candidates.push(candidate);
+            candidate_tails.push(record_path_tail);
+        }
+    }
+    let arena = Arc::<[RecordFieldPathNode]>::from(path_nodes);
+    for (candidate, tail) in candidates.iter_mut().zip(candidate_tails) {
+        candidate.record_path = tail.map(|tail| RecordFieldPathRef {
+            arena: Arc::clone(&arena),
+            tail,
+        });
     }
     candidates
 }
@@ -283,7 +310,7 @@ fn recovered_type_path_candidates(
             base_span: path.segment_spans[variant_index - 1].clone(),
             variant_span: path.segment_spans[variant_index].clone(),
             occurrence_span: path.application_span.clone(),
-            record_fields: Vec::new(),
+            record_path: None,
             structural_span: None,
         });
     }
@@ -336,7 +363,7 @@ fn refinement_candidate(
             .clone(),
         variant_span: alternative.variant_span.clone(),
         occurrence_span: alternative.span.clone(),
-        record_fields: Vec::new(),
+        record_path: None,
         structural_span: None,
     }
 }
@@ -417,8 +444,25 @@ struct RefinementExposureCandidate {
     base_span: SourceSpan,
     variant_span: SourceSpan,
     occurrence_span: SourceSpan,
-    record_fields: Vec<String>,
+    record_path: Option<RecordFieldPathRef>,
     structural_span: Option<SourceSpan>,
+}
+
+struct RecordFieldPathNode {
+    parent: Option<usize>,
+    field: String,
+}
+
+#[derive(Clone)]
+struct RecordFieldPathRef {
+    arena: Arc<[RecordFieldPathNode]>,
+    tail: usize,
+}
+
+impl RecordFieldPathRef {
+    fn node_identity(&self) -> usize {
+        std::ptr::from_ref(&self.arena[self.tail]) as usize
+    }
 }
 
 fn private_exposure<'a>(
@@ -463,9 +507,21 @@ fn private_exposure<'a>(
         private_base,
         alternative_identity,
         alias_declarations,
-        record_fields: candidate.record_fields,
+        record_path: candidate.record_path,
         structural_span: candidate.structural_span,
     })
+}
+
+fn materialize_record_field_path(path: &RecordFieldPathRef) -> Vec<String> {
+    let mut fields = Vec::new();
+    let mut node = Some(path.tail);
+    while let Some(index) = node {
+        let current = &path.arena[index];
+        fields.push(current.field.clone());
+        node = current.parent;
+    }
+    fields.reverse();
+    fields
 }
 
 fn refinement_alternative_identity(
@@ -624,6 +680,7 @@ pub(crate) struct VisibilityCandidateWork {
     pub(crate) root_classification: usize,
     pub(crate) candidate_construction: usize,
     pub(crate) occurrence_lookup: usize,
+    pub(crate) record_path_nodes: usize,
 }
 
 #[cfg(test)]
@@ -633,6 +690,7 @@ impl VisibilityCandidateWork {
             root_classification: 0,
             candidate_construction: 0,
             occurrence_lookup: 0,
+            record_path_nodes: 0,
         }
     }
 }
@@ -678,6 +736,18 @@ fn record_visibility_occurrence_lookup(amount: usize) {
 #[cfg(not(test))]
 fn record_visibility_occurrence_lookup(_amount: usize) {}
 
+#[cfg(test)]
+fn record_visibility_path_node_construction(amount: usize) {
+    VISIBILITY_CANDIDATE_WORK.with(|work| {
+        let mut next = work.get();
+        next.record_path_nodes += amount;
+        work.set(next);
+    });
+}
+
+#[cfg(not(test))]
+fn record_visibility_path_node_construction(_amount: usize) {}
+
 #[cfg(not(test))]
 fn record_visibility_work(_amount: usize) {}
 
@@ -707,7 +777,7 @@ struct PrivateExposure<'a> {
     private_base: bool,
     alternative_identity: RefinementAlternativeIdentity,
     alias_declarations: Option<TypeAliasExposurePath<'a>>,
-    record_fields: Vec<String>,
+    record_path: Option<RecordFieldPathRef>,
     structural_span: Option<SourceSpan>,
 }
 
@@ -715,6 +785,11 @@ impl PrivateExposure<'_> {
     fn diagnostic(&self, boundary: PublicBoundary<'_>, function: &Function) -> Diagnostic {
         let base_type = self.descriptor.identity();
         let (span, message, declaration_kind, declaration_message) = self.primary_context();
+        let record_fields = self
+            .record_path
+            .as_ref()
+            .map(materialize_record_field_path)
+            .unwrap_or_default();
         let mut diagnostic = Diagnostic::new(
             "type.variant_refinement_private",
             Severity::Error,
@@ -726,7 +801,7 @@ impl PrivateExposure<'_> {
                 ("base_type", JsonValue::string(base_type)),
                 ("variant", JsonValue::string(self.variant.name.clone())),
                 ("boundary", JsonValue::string(boundary.name())),
-                ("exposure_path", boundary.exposure_path(&self.record_fields)),
+                ("exposure_path", boundary.exposure_path(&record_fields)),
             ]),
         );
         if let Some(path) = &self.alias_declarations {

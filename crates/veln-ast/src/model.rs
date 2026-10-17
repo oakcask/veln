@@ -368,8 +368,16 @@ pub struct TypePathSegments {
 pub struct VariantRefinementType {
     pub alternatives: Vec<VariantRefinementAlternative>,
     pub pipe_spans: Vec<SourceSpan>,
-    pub record_field_path: Option<Vec<String>>,
+    pub record_field_path: Option<RecordFieldPath>,
     pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RecordFieldPath {
+    /// Fields shared with the preceding record-associated refinement in this annotation.
+    pub shared_prefix_len: usize,
+    /// Fields appended after the shared prefix to reach this source occurrence.
+    pub suffix: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -107,7 +107,8 @@ impl Writer {
         self.vec(&value.alternatives, Self::variant_refinement_alternative);
         self.vec(&value.pipe_spans, Self::span);
         self.option(&value.record_field_path, |writer, path| {
-            writer.vec(path, |writer, field| writer.string(field));
+            writer.usize(path.shared_prefix_len);
+            writer.vec(&path.suffix, |writer, field| writer.string(field));
         });
         self.span(&value.span);
     }

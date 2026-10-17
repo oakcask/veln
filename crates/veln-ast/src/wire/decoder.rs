@@ -175,7 +175,12 @@ impl<'a> Reader<'a> {
         Ok(VariantRefinementType {
             alternatives: self.vec(|reader| reader.variant_refinement_alternative(depth))?,
             pipe_spans: self.vec(Self::span)?,
-            record_field_path: self.option(|reader| reader.vec(Self::string))?,
+            record_field_path: self.option(|reader| {
+                Ok(crate::RecordFieldPath {
+                    shared_prefix_len: reader.usize()?,
+                    suffix: reader.vec(Self::string)?,
+                })
+            })?,
             span: self.span()?,
         })
     }

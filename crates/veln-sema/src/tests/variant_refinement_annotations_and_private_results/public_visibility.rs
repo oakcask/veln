@@ -107,6 +107,31 @@ fn record_fields_report_distinct_nested_paths_and_alias_hops() {
 }
 
 #[test]
+fn deep_record_field_path_is_materialized_for_the_visibility_diagnostic() {
+    const DEPTH: usize = 64;
+    let mut annotation = String::with_capacity(DEPTH * 8 + 13);
+    for _ in 0..DEPTH {
+        annotation.push_str("{next: ");
+    }
+    annotation.push_str("State::Hidden");
+    for _ in 0..DEPTH {
+        annotation.push('}');
+    }
+    let diagnostics = visibility_diagnostics(&format!(
+        "pub type State\n  Hidden\nend\npub fn expose(value: {annotation}) -> ()\n  ()\nend\n"
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let observed = veln_diagnostics::diagnostic_to_json(&diagnostics[0]).to_json();
+    assert_eq!(
+        observed.matches("record_field").count(),
+        DEPTH,
+        "{observed}"
+    );
+    assert!(observed.contains("\"name\":\"next\""), "{observed}");
+}
+
+#[test]
 fn public_record_refinements_and_private_function_records_remain_valid() {
     let source = SourceFile::new(
         "main.veln",

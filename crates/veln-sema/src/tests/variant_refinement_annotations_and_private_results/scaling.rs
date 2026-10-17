@@ -408,7 +408,47 @@ fn wide_structural_visibility_work(count: usize, boundary: &str) -> usize {
     candidate_work.root_classification
         + candidate_work.candidate_construction
         + candidate_work.occurrence_lookup
+        + candidate_work.record_path_nodes
         + visibility_work
+}
+
+#[test]
+fn nested_record_visibility_keeps_linear_shared_path_nodes() {
+    let measurements = [64, 65, 66].map(|depth| {
+        let mut annotation = String::with_capacity(depth * 37 + 3);
+        for _ in 0..depth {
+            annotation.push_str("{state: State::Ready, next: ");
+        }
+        annotation.push_str("Int");
+        for _ in 0..depth {
+            annotation.push('}');
+        }
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "pub type State\n  pub Ready\nend\npub fn expose(value: {annotation}) -> ()\n  ()\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        crate::analysis::reset_visibility_work();
+        let diagnostics = analyze_surface_module(&module);
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "type.variant_refinement_private"),
+            "{diagnostics:#?}"
+        );
+        let work = crate::analysis::take_visibility_candidate_work();
+        assert!(work.record_path_nodes > 0, "{work:?}");
+        work.record_path_nodes
+    });
+    assert_eq!(
+        measurements[1] - measurements[0],
+        measurements[2] - measurements[1],
+        "semantic record path nodes must have constant adjacent growth: {measurements:?}"
+    );
 }
 
 #[test]

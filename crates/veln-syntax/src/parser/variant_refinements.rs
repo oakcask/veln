@@ -38,7 +38,7 @@ fn assign_record_field_paths(tokens: &[Token], refinements: &mut [VariantRefinem
         })
         .collect::<std::collections::HashMap<_, _>>();
     let mut paths = vec![None; refinements.len()];
-    let _ = collect_record_field_paths(tokens, 0, &mut Vec::new(), &targets, &mut paths);
+    collect_record_field_paths(tokens, &targets, &mut paths);
     for (refinement, path) in refinements.iter_mut().zip(paths) {
         refinement.record_field_path = path;
     }
@@ -46,85 +46,143 @@ fn assign_record_field_paths(tokens: &[Token], refinements: &mut [VariantRefinem
 
 fn collect_record_field_paths(
     tokens: &[Token],
-    record_start: usize,
-    path: &mut Vec<String>,
     targets: &std::collections::HashMap<usize, usize>,
-    paths: &mut [Option<Vec<String>>],
-) -> Option<usize> {
-    if tokens.get(record_start).map(|token| token.kind) != Some(TokenKind::LBrace) {
-        return None;
+    paths: &mut [Option<RecordFieldPath>],
+) {
+    #[derive(Default)]
+    struct FieldState {
+        function_field: bool,
+        angle_depth: usize,
+        paren_depth: usize,
+        square_depth: usize,
+        skipped_brace_depth: usize,
     }
-    let mut cursor = record_start + 1;
-    loop {
-        skip_type_trivia(tokens, &mut cursor);
-        if tokens.get(cursor).map(|token| token.kind) == Some(TokenKind::RBrace) {
-            return Some(cursor + 1);
-        }
-        let field = tokens.get(cursor)?.text.clone();
-        cursor += 1;
-        skip_type_trivia(tokens, &mut cursor);
-        if tokens.get(cursor).map(|token| token.kind) != Some(TokenKind::Colon) {
-            return None;
-        }
-        cursor += 1;
-        skip_type_trivia(tokens, &mut cursor);
-        let function_field = tokens.get(cursor).map(|token| token.kind) == Some(TokenKind::Fn);
-        path.push(field);
-        let mut angle_depth = 0usize;
-        let mut paren_depth = 0usize;
-        let mut square_depth = 0usize;
-        let mut skipped_brace_depth = 0usize;
-        while cursor < tokens.len() {
-            if !function_field
-                && angle_depth == 0
-                && paren_depth == 0
-                && let Some(index) = targets.get(&cursor)
-            {
-                paths[*index] = Some(path.clone());
-            }
-            let kind = tokens[cursor].kind;
-            match kind {
-                TokenKind::LBrace if !function_field && angle_depth == 0 && paren_depth == 0 => {
-                    let Some(nested_end) =
-                        collect_record_field_paths(tokens, cursor, path, targets, paths)
-                    else {
-                        path.pop();
-                        return None;
-                    };
-                    cursor = nested_end - 1;
-                }
-                TokenKind::LBrace if function_field => skipped_brace_depth += 1,
-                TokenKind::RBrace if function_field && skipped_brace_depth > 0 => {
-                    skipped_brace_depth -= 1;
-                }
-                TokenKind::Less => angle_depth += 1,
-                TokenKind::Greater | TokenKind::ShiftRight | TokenKind::ShiftRightLogical => {
-                    angle_depth = angle_depth.saturating_sub(closing_angle_count(kind));
-                }
-                TokenKind::LParen => paren_depth += 1,
-                TokenKind::RParen if paren_depth > 0 => paren_depth -= 1,
-                TokenKind::LBracket => square_depth += 1,
-                TokenKind::RBracket if square_depth > 0 => square_depth -= 1,
-                TokenKind::Comma | TokenKind::RBrace
-                    if angle_depth == 0
-                        && paren_depth == 0
-                        && square_depth == 0
-                        && skipped_brace_depth == 0 =>
-                {
+
+    enum State {
+        Record,
+        Field(FieldState),
+    }
+
+    let mut cursor = 1usize;
+    let mut path = Vec::new();
+    let mut previous_path_len = 0usize;
+    let mut minimum_depth_since_target = usize::MAX;
+    let mut states = vec![State::Record];
+    while let Some(state) = states.pop() {
+        match state {
+            State::Record => {
+                skip_type_trivia(tokens, &mut cursor);
+                if tokens.get(cursor).map(|token| token.kind) == Some(TokenKind::RBrace) {
                     cursor += 1;
-                    path.pop();
-                    if kind == TokenKind::RBrace {
-                        return Some(cursor);
-                    }
-                    break;
+                    continue;
                 }
-                _ => {}
+                let Some(token) = tokens.get(cursor) else {
+                    return;
+                };
+                path.push(token.text.clone());
+                cursor += 1;
+                skip_type_trivia(tokens, &mut cursor);
+                if tokens.get(cursor).map(|token| token.kind) != Some(TokenKind::Colon) {
+                    return;
+                }
+                cursor += 1;
+                skip_type_trivia(tokens, &mut cursor);
+                states.push(State::Field(FieldState {
+                    function_field: tokens.get(cursor).map(|token| token.kind)
+                        == Some(TokenKind::Fn),
+                    ..FieldState::default()
+                }));
             }
-            cursor += 1;
-        }
-        if cursor == tokens.len() {
-            path.pop();
-            return None;
+            State::Field(mut field) => {
+                let Some(token) = tokens.get(cursor) else {
+                    return;
+                };
+                if !field.function_field
+                    && field.angle_depth == 0
+                    && field.paren_depth == 0
+                    && let Some(index) = targets.get(&cursor)
+                {
+                    let shared_prefix_len = previous_path_len
+                        .min(path.len())
+                        .min(minimum_depth_since_target);
+                    paths[*index] = Some(RecordFieldPath {
+                        shared_prefix_len,
+                        suffix: path[shared_prefix_len..].to_vec(),
+                    });
+                    previous_path_len = path.len();
+                    minimum_depth_since_target = usize::MAX;
+                }
+                let kind = token.kind;
+                match kind {
+                    TokenKind::LBrace
+                        if !field.function_field
+                            && field.angle_depth == 0
+                            && field.paren_depth == 0 =>
+                    {
+                        cursor += 1;
+                        states.push(State::Field(field));
+                        states.push(State::Record);
+                    }
+                    TokenKind::LBrace if field.function_field => {
+                        field.skipped_brace_depth += 1;
+                        cursor += 1;
+                        states.push(State::Field(field));
+                    }
+                    TokenKind::RBrace if field.function_field && field.skipped_brace_depth > 0 => {
+                        field.skipped_brace_depth -= 1;
+                        cursor += 1;
+                        states.push(State::Field(field));
+                    }
+                    TokenKind::Less => {
+                        field.angle_depth += 1;
+                        cursor += 1;
+                        states.push(State::Field(field));
+                    }
+                    TokenKind::Greater | TokenKind::ShiftRight | TokenKind::ShiftRightLogical => {
+                        field.angle_depth =
+                            field.angle_depth.saturating_sub(closing_angle_count(kind));
+                        cursor += 1;
+                        states.push(State::Field(field));
+                    }
+                    TokenKind::LParen => {
+                        field.paren_depth += 1;
+                        cursor += 1;
+                        states.push(State::Field(field));
+                    }
+                    TokenKind::RParen if field.paren_depth > 0 => {
+                        field.paren_depth -= 1;
+                        cursor += 1;
+                        states.push(State::Field(field));
+                    }
+                    TokenKind::LBracket => {
+                        field.square_depth += 1;
+                        cursor += 1;
+                        states.push(State::Field(field));
+                    }
+                    TokenKind::RBracket if field.square_depth > 0 => {
+                        field.square_depth -= 1;
+                        cursor += 1;
+                        states.push(State::Field(field));
+                    }
+                    TokenKind::Comma | TokenKind::RBrace
+                        if field.angle_depth == 0
+                            && field.paren_depth == 0
+                            && field.square_depth == 0
+                            && field.skipped_brace_depth == 0 =>
+                    {
+                        cursor += 1;
+                        path.pop();
+                        minimum_depth_since_target = minimum_depth_since_target.min(path.len());
+                        if kind == TokenKind::Comma {
+                            states.push(State::Record);
+                        }
+                    }
+                    _ => {
+                        cursor += 1;
+                        states.push(State::Field(field));
+                    }
+                }
+            }
         }
     }
 }
