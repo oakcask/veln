@@ -111,10 +111,6 @@ pub fn checked_bundle_for_snapshot(snapshot_digest: &str) -> Result<CheckedBundl
     Ok(bundle)
 }
 
-pub fn verify_checked_artifact() -> Result<(), String> {
-    checked_bundle().map(|_| ())
-}
-
 fn verify_checked_digest() -> Result<(), String> {
     let expected = bundle_digest(CHECKED_ARTIFACT.as_bytes());
     if expected != checked_artifact_digest() {
