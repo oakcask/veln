@@ -199,11 +199,14 @@ privacy diagnostic. Record-field traversal retains this recovery. It does not
 extend visibility checking into other structural type positions. In
 particular, it skips a function-typed field and refinements inside that
 function type. An effect row on the skipped field does not stop traversal of a
-later sibling record field. A named type in the skipped field can share a
-source-text prefix with a later refinement, but the later refinement keeps its
-own primary span, `written_type`, and record-field `exposure_path`. Cyclic or
-ambiguous aliases do not manufacture a visibility identity. Distinct written
-alias paths to one terminal variant
+later sibling record field. An invalid square-bracket type position reports
+`type.invalid_annotation` and does not make a record nested inside the brackets
+a visibility path. A later direct record field still reports its independently
+provable privacy diagnostic with its own `exposure_path`. A named type in a
+skipped field can share a source-text prefix with a later refinement, but the
+later refinement keeps its own primary span, `written_type`, and record-field
+`exposure_path`. Cyclic or ambiguous aliases do not manufacture a visibility
+identity. Distinct written alias paths to one terminal variant
 produce distinct diagnostics, while an exact repeated path retains its first
 occurrence. Exact test-companion access does not change public-signature
 eligibility. The checked

@@ -841,8 +841,12 @@ annotation. It does not traverse a named type argument, function type, ADT
 payload, or another structural position. Skipping a function-typed field also
 skips refinements inside that function type, including its result, but an
 effect row on that field does not hide a later sibling record field from the
-record traversal. A visibility failure leaves an all-`unknown` signature only
-as internal same-module recovery state. The failed function is
+record traversal. An invalid square-bracket type position likewise does not
+make a record nested inside the brackets part of the traversal. Its
+`type.invalid_annotation` diagnostic precedes an independently provable
+visibility failure in a later direct sibling field. A visibility failure leaves
+an all-`unknown` signature only as internal same-module recovery state. The
+failed function is
 absent from the callable facts inherited by another module. A public function
 alias can publish only a function that is present in those callable facts, so
 an alias cannot republish the failed function directly or through another
