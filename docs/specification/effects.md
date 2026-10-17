@@ -165,6 +165,16 @@ operation clause expression therefore contributes both its direct effects and
 the effects of calls made from its body and deferred blocks to that handler's
 retained effect set.
 
+The exported standard `observe` module declares the public nominal
+`observe::Observe` effect. Handling a body with `observe::noop()` removes that
+effect without adding another effect. Handling it with
+`observe::recording(recording)` removes `observe::Observe` and adds `time` and
+`concurrency` from the handler clauses. The `trace::in_span<effect E>` helper
+retains `observe::Observe` together with the effect row `E` of its callback
+until an enclosing handler discharges the observation effect. The
+[standard-library observability specification](standard-library-observability.md)
+defines the operations, recording behavior, and scoped span lifecycle.
+
 The exported standard `transport` module declares this public nominal effect:
 
 ```veln
