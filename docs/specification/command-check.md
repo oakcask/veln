@@ -51,6 +51,12 @@ qualified calls from analyzed files participate in the same analysis path as
 `run` and `test`. Lowering reports checked-core blockers such as missing
 expressions and call or constructor arity mismatches. Parse-clean, semantically
 valid `begin` and `defer` forms pass checked-core readiness.
+A private variant refinement at a public-function signature root or within its
+recursively nested record fields is a semantic error, so `check` emits no
+success report. The [type rules](types.md#compatibility-and-limits) define the
+publication and checked-output gate. The
+[diagnostic contract](diagnostics-json.md#diagnostic-families) defines human
+spans, related context, and JSON `exposure_path` segments.
 A selected documentation source that cannot form a canonical virtual doctest
 path reports `module.invalid_source_path` against the original source. Analysis
 continues for other selected sources, and JSON output includes the rejected

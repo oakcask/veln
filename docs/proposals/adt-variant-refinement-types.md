@@ -30,8 +30,8 @@ that dependency.
 The remaining proposal has these intended outcomes:
 
 - Public signatures reject private refinement bases or variants reached
-  transitively through aliases and structural type positions, and public
-  package signatures preserve the accepted written annotations.
+  transitively through aliases and the remaining structural type positions,
+  and public package signatures preserve the accepted written annotations.
 - Qualified immutable values gain the implemented stable-value match
   refinement only after a separate source-surface and name-resolution contract
   provides module-addressable immutable data values.

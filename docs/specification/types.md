@@ -694,12 +694,14 @@ eligibility and diagnostic provenance. When the written base is a public type
 alias or a finite alias chain, `not_adt` eligibility and declaration provenance
 come from the canonical target declaration; the diagnostic still preserves the
 outer written alias as `written_type`. A base with invalid generic arity
-retains the existing `type.invalid_annotation` failure. For a public-function
-root refinement, a uniquely resolved direct ADT or transparent type-alias chain
-and final constructor also retain an independently provable private-base or
+retains the existing `type.invalid_annotation` failure. For a refinement at a
+public-function signature root or in a recursively nested record field, a
+uniquely resolved direct ADT or transparent type-alias chain and final
+constructor also retain an independently provable private-base or
 private-variant failure. An invalid nested type argument or sibling union
-alternative does not suppress that root visibility failure. Visibility
-checking does not use this recovery to traverse a structural type position.
+alternative does not suppress that visibility failure. Visibility checking
+uses this recovery while traversing record fields, but it does not traverse
+named type arguments, function types, or other structural positions.
 Union comparison and assignability remain suppressed because they require a
 valid instantiation. Exact and uniquely casing-recovered source-backed or
 source-less type paths use the same arity rule. A failed refinement does not
@@ -802,11 +804,11 @@ public. The same private refinements remain valid on private functions.
 An alias declaration does not replace or upgrade the terminal declaration's
 visibility. An imported or reusable public alias, including an implicit
 standard-prelude alias, still exposes a private terminal type or variant when
-it is used as a public-function root refinement. The diagnostic retains the
-terminal identity and declaration location through each local and imported
-alias hop.
+it is used at a checked public-function signature root or within its record
+fields. The diagnostic retains the terminal identity and declaration location
+through each local and imported alias hop.
 
-The root check selects the base identity by unique exact lookup or
+The visibility check selects the base identity by unique exact lookup or
 initial-only casing recovery. The written uppercase final constructor must
 resolve exactly to one declaration. When the selected ADT contains multiple declarations with the
 exact written variant name, that alternative has no visibility identity. It
@@ -818,8 +820,9 @@ exactly one base ADT. A recovered base keeps its written spelling in diagnostic
 details. Its `name.invalid_case` diagnostic precedes the independently provable
 visibility failure. Ambiguous or unresolved base recovery does not manufacture
 a visibility identity or a privacy diagnostic. The check treats alternatives
-as direct roots only when they occupy the complete annotation; paths nested
-inside another type shape do not become direct roots through recovery.
+as direct roots only when they occupy the complete annotation. Record-field
+traversal identifies its own candidates; paths nested inside other type shapes
+do not become direct roots through recovery.
 Exact qualified lookup binds the base to the written module or import identity
 before it checks arity and uniqueness. An imported `State` therefore remains
 the base of `imported::State<Int>::Hidden` when the current module also declares
@@ -892,10 +895,10 @@ double in publication quarantine, diagnostic collection, and checked lowering.
 The measurement counts inspected path bytes instead of elapsed time, so runner
 timing noise does not affect the bound.
 
-Wide record annotations on public function parameters and results remain
-outside the direct visibility boundary. The checker rejects those structural
-roots without constructing direct-refinement candidates. Nested generic paths
-remain excluded from the direct-root check.
+Wide record annotations on public function parameters and results check each
+refinement occurrence in their record fields. Each private occurrence rejects
+publication, and analysis work grows linearly with the written occurrences.
+Nested generic paths remain excluded from the visibility traversal.
 The checked
 [`generic alias boundaries`](../../examples/specification/check/adt-variant-refinement-generic-alias-boundaries/)
 case also verifies that imported alias-qualified constructor context supplies
