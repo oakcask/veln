@@ -394,7 +394,7 @@ fn wide_structural_visibility_work(count: usize, boundary: &str) -> usize {
     );
     assert!(
         candidate_work.candidate_construction >= count
-            && candidate_work.candidate_construction % count == 0,
+            && candidate_work.candidate_construction.is_multiple_of(count),
         "each visibility pass must construct one candidate per structural field: {candidate_work:?}"
     );
     assert!(
