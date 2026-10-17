@@ -383,11 +383,13 @@ capacity that the service uses for the next reuse decision.
 
 `http2::connection::request_endpoint_sequence(endpoint, requests, handler)`
 owns each connected `NetStream` and each spawned request task for a finite
-request list to one endpoint. A request task receives the stream, immutable
-core state, reuse flag, and request value as explicit task context. It installs
-the internal compiler-known `net` compatibility handler inside that task. The
-application handler receives only `Http2ClientResponse` values. It does not
-receive transport handles, handler context, or mutable core state.
+request list to one `net::Address`. A request task receives the stream, immutable
+core state, reuse flag, and request value as explicit task context. The service
+uses the caller's `net::IO` handler for connect, duplex reads and writes, and
+stream cleanup. Each spawned request task inherits that handler and installs
+only the `transport::DuplexStream` adapter for its stream. The application
+handler receives only `Http2ClientResponse` values. It does not receive
+transport handles, handler context, or mutable core state.
 
 After a successful request, the service may retain the connection for the next
 request only when `client_connection_reusable(state)` is true. That projection
@@ -398,13 +400,17 @@ capacity is not reusable. When the retained connection is not reusable, the
 service closes that stream once before connecting a new stream for the next
 request.
 
-On the first ordinary request-send, protocol, callback, or join failure,
+On the first request-send, protocol, callback, or join failure,
 `request_endpoint_sequence` returns `Http2ClientServiceFailure` with the
-completed request count and closes the retained stream once. Abrupt runtime
-transport failures remain runtime failures, and later source cleanup after
-that failure is not specified. A pure response handler leaves only `net` and
-`concurrency` on the service expression. A handler with callback effects adds
-that callback row to the same expression.
+completed request count and closes the retained stream once. A connect,
+duplex read, duplex write, replacement close, or final close failure returns
+`Http2ClientServiceNetworkFailure` with the unchanged `net::NetError` and the
+completed count at that boundary. If stream cleanup fails after an earlier
+client outcome, the cleanup network failure replaces that outcome and retains
+its completed count. The service keeps ownership of connected streams; the
+duplex adapter does not close them. A pure response handler leaves only
+`net::IO` and `concurrency` on the service expression. A handler with callback
+effects adds that callback row to the same expression.
 
 ## Shutdown
 
@@ -886,6 +892,9 @@ stream I/O, stream-close, and listener-close failures on first and later
 accepted connections, cumulative accepted counts, cleanup precedence, and
 bounded iteration across thousands of completed connections with the separate
 `connection_service_test_support_test.veln` handler.
+The same companion covers client connect, stream I/O, and cleanup network
+failures, completed-request counts, and cleanup precedence with the separate
+scoped `connection_client_test_support_test.veln` handler.
 The checked
 [`http2-service-two-connections`](../../examples/specification/run/http2-service-two-connections/)
 case exposes the accepted count after a completed connection. The adjacent

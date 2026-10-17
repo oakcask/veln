@@ -232,8 +232,10 @@ the accepted count, and a later cleanup failure replaces the earlier outcome.
 owns each client stream and task, reuses a connection only while the core
 state is open and peer stream capacity remains, otherwise closes and
 reconnects. Callback, protocol, and join failures are typed service failures;
-client transport failures remain abrupt runtime failures until the planned
-client migration is complete.
+connect, stream I/O, and stream-cleanup failures are typed network failures
+that retain the originating `NetError` and completed-request count. A cleanup
+failure replaces an earlier client outcome without changing that count. The
+client and its spawned tasks use the caller's `net::IO` handler.
 
 ## Binary schemas
 

@@ -14,11 +14,9 @@ sources must use `use net from "std"`. An explicit standard import already
 selects the nominal `net::IO` boundary.
 
 The standard library now uses the exported module for typed duplex I/O, the
-HTTP/2 transport-failure surface, and the HTTP/2 TCP service. The service's
-accept, stream I/O, stream-close, and listener-close operations use `net::IO`.
-The remaining HTTP/2 client compiler-known connect and close calls are isolated
-in the internal `http2::legacy_network` module. The fallback remains required
-until the client operations move to `net::IO` and the remaining checked sources
+HTTP/2 transport-failure surface, and the HTTP/2 TCP service and client. Their
+connect, accept, stream I/O, stream-close, and listener-close operations use
+`net::IO`. The fallback remains required until all remaining checked sources
 use explicit standard imports.
 
 After migration, an unresolved legacy spelling will produce one diagnostic
