@@ -144,6 +144,26 @@ fn public_record_refinements_and_private_function_records_remain_valid() {
 }
 
 #[test]
+fn function_field_effect_rows_do_not_hide_later_record_refinements() {
+    let diagnostics = visibility_diagnostics(concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub fn exposed(value: {callback: fn() -> {inside: State::Hidden} effects [stdio, net], state: State::Hidden}) -> () effects [stdio, net]\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let observed = veln_diagnostics::diagnostic_to_json(&diagnostics[0]).to_json();
+    assert!(observed.contains(concat!(
+        "\"exposure_path\":[{\"kind\":\"parameter\",\"name\":\"value\"},",
+        "{\"kind\":\"record_field\",\"name\":\"state\"}]"
+    )));
+    assert!(observed.contains("\"written_type\":\"State::Hidden\""));
+}
+
+#[test]
 fn unique_casing_recovery_retains_direct_visibility_identity() {
     let diagnostics = diagnostics_for(concat!(
         "type Secret\n",

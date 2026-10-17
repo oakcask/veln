@@ -276,6 +276,7 @@ fn collect_record_field_paths(
         path.push(field.to_string());
         let mut angle_depth = 0usize;
         let mut paren_depth = 0usize;
+        let mut square_depth = 0usize;
         let mut skipped_brace_depth = 0usize;
         while cursor < text.len() {
             if !function_field
@@ -303,7 +304,14 @@ fn collect_record_field_paths(
                 b'>' if angle_depth > 0 => angle_depth -= 1,
                 b'(' => paren_depth += 1,
                 b')' if paren_depth > 0 => paren_depth -= 1,
-                b',' | b'}' if angle_depth == 0 && paren_depth == 0 && skipped_brace_depth == 0 => {
+                b'[' => square_depth += 1,
+                b']' if square_depth > 0 => square_depth -= 1,
+                b',' | b'}'
+                    if angle_depth == 0
+                        && paren_depth == 0
+                        && square_depth == 0
+                        && skipped_brace_depth == 0 =>
+                {
                     let end = text[cursor];
                     cursor += 1;
                     path.pop();
