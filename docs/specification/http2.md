@@ -905,6 +905,12 @@ request writes in operation order, and cleanup precedence including after the
 first write fails. It uses the separate scoped
 `connection_client_test_support_test.veln` handler.
 The checked
+[`http2-client-service-effect-row`](../../examples/specification/check/http2-client-service-effect-row/)
+case covers the public client effect boundary. The
+[`http2-client-service-reuse-boundary`](../../examples/specification/run/http2-client-service-reuse-boundary/)
+case covers spawned-task inheritance through `net::system()` and observable
+connection reuse.
+The checked
 [`http2-service-two-connections`](../../examples/specification/run/http2-service-two-connections/)
 case exposes the accepted count after a completed connection. The adjacent
 `http2-service-*-failure` run cases expose typed callback, join, protocol, and

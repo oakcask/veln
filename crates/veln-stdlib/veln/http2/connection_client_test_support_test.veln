@@ -71,10 +71,10 @@ fn scripted_read(stream: net::Stream, expected: net::Stream, mode: String, respo
 end
 
 fn scripted_write(stream: net::Stream, expected: net::Stream, mode: String, bytes: ByteChunk, trace: { tx : Sender<List<{operation:String, bytes:ByteChunk}>>, rx : Receiver<List<{operation:String, bytes:ByteChunk}>> }) -> net::WriteOutcome effects [concurrency]
-	let _ = trace_push(trace, "write", bytes)
+	let observed = trace_push(trace, "write", bytes)
 	if not same_stream(stream, expected)
 		net::WriteFailed(net::ByteCount(0), failure("write", "client used the wrong stream"))
-	else if mode == "write-failure" or mode == "write-close-failure"
+	else if mode == "write-failure" or mode == "write-close-failure" or (mode == "later-write-failure" or mode == "later-write-close-failure") and trace_contains(observed, "read")
 		net::WriteFailed(net::ByteCount(0), failure("write", "scripted client write failure"))
 	else
 		net::Written(byte_chunk_count(bytes))
@@ -85,7 +85,7 @@ fn scripted_close(stream: net::Stream, expected: net::Stream, mode: String, trac
 	let _ = trace_push(trace, "close", byte_chunk([]))
 	if not same_stream(stream, expected)
 		Err(failure("close_stream", "client used the wrong stream"))
-	else if mode == "success-close-failure" or mode == "callback-close-failure" or mode == "read-close-failure" or mode == "write-close-failure" or mode == "replacement-close-failure" or mode == "later-read-close-failure"
+	else if mode == "success-close-failure" or mode == "callback-close-failure" or mode == "read-close-failure" or mode == "write-close-failure" or mode == "replacement-close-failure" or mode == "later-read-close-failure" or mode == "later-write-close-failure"
 		Err(failure("close_stream", "scripted client close failure"))
 	else
 		Ok(())

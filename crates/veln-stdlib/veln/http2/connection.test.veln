@@ -621,6 +621,17 @@ test client_service_preserves_later_read_failure_progress() -> Result<(), String
 	end
 end
 
+test client_service_preserves_later_write_failure_progress() -> Result<(), String> effects [net, concurrency]
+	match run_client_service("later-write-failure", client_two_requests()?, accept_client_response)?
+		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 1, "write", "scripted client write failure") and client_trace_count(trace, "read") == 1 and client_trace_count(trace, "close") == 1
+			Ok(())
+		else
+			Err("HTTP/2 client later write failure lost completed request progress")
+		end
+		_ => Err("HTTP/2 client ignored the later write failure")
+	end
+end
+
 test client_service_cleanup_failure_preserves_completed_count() -> Result<(), String> effects [net, concurrency]
 	match run_client_service("success-close-failure", client_two_requests()?, accept_client_response)?
 		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 2, "close_stream", "scripted client close failure") and client_trace_count(trace, "connect") == 1 and client_trace_count(trace, "read") == 2 and client_trace_count(trace, "close") == 1
@@ -673,6 +684,17 @@ test client_service_later_cleanup_failure_overrides_read_failure_with_progress()
 			Err("HTTP/2 client later cleanup failure did not replace the read failure with completed progress")
 		end
 		_ => Err("HTTP/2 client ignored later cleanup failure after read failure")
+	end
+end
+
+test client_service_later_cleanup_failure_overrides_write_failure_with_progress() -> Result<(), String> effects [net, concurrency]
+	match run_client_service("later-write-close-failure", client_two_requests()?, accept_client_response)?
+		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 1, "close_stream", "scripted client close failure") and client_trace_count(trace, "read") == 1 and client_trace_count(trace, "close") == 1
+			Ok(())
+		else
+			Err("HTTP/2 client later cleanup failure did not replace the write failure with completed progress")
+		end
+		_ => Err("HTTP/2 client ignored later cleanup failure after write failure")
 	end
 end
 
