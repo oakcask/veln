@@ -650,7 +650,12 @@ fixture entry. A case containing `fixture_effects.veln` receives a copy of
 `examples/test-support/http2_service_effects.veln` in its temporary project.
 The case command lists `fixture_effects.veln` and each shared support source
 that the fixture imports as ordinary Veln source inputs. The general fixture
-factory creates fresh network and clock state. The HTTP/2 service support
+factory creates fresh network and clock state. Its scoped host-network handler
+can supply deterministic resolution, connection, stream-I/O, and lifecycle
+results while recording the observable operation trace. A case can therefore
+install the production `net::system()` handler for `net::IO` and place the
+host-network fixture outside it without replacing the production handler.
+The HTTP/2 service support
 creates fresh operation-trace state and supplies scripted accept, stream I/O,
 stream-close, and listener-close outcomes through a scoped `net::IO` handler.
 Fake behavior and failure plans live in those support sources. Clock

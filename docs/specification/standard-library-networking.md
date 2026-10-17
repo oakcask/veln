@@ -354,7 +354,10 @@ exercise the facade with opaque listener and stream resources and to check
 resource, option, byte, and result preservation. Checked command-level examples
 under `examples/specification/check/` and `examples/specification/run/` cover
 the explicit standard-module identity, nominal effect requirement, and
-unhandled runner boundary. The bounded
+unhandled runner boundary. The HTTP/2 client service examples also check that
+a spawned client task inherits the surrounding `net::system()` handler while
+a scoped host-network fixture supplies deterministic resolution and socket
+results. The bounded
 `standard-library-network-system-handler` loopback case checks real JVM host
 integration for port-zero listening, addresses, byte transfer, peer end,
 deadline and cancellation reuse, half-close, ownership rejection, and

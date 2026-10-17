@@ -381,6 +381,13 @@ stream id, whether the retained connection was reused for the request, the
 connection lifecycle label, the active stream count, and the peer stream
 capacity that the service uses for the next reuse decision.
 
+`http2::connection::Http2ClientServiceFailure` is the public client-service
+failure value. Projection helpers expose its kind, id, reason, and completed
+request count. A network failure has kind `"network"`, id
+`"http2.client_service.network_failure"`, the message from its unchanged
+`net::NetError` as its reason, and the completed count stored at the failing
+boundary.
+
 `http2::connection::request_endpoint_sequence(endpoint, requests, handler)`
 owns each connected `NetStream` and each spawned request task for a finite
 request list to one `net::Address`. A request task receives the stream, immutable
