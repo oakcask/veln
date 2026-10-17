@@ -15,10 +15,10 @@ an exporter implicitly.
 
 ## Usage
 
-Import `observe`, `log`, and `traced` from the standard package. Supply optional trace
-context, a message, and an ordered list of typed attributes to `log::debug`,
-`log::info`, `log::warning`, or `log::error`. Run the call inside a lexical
-`Observe` handler:
+Import `observe`, `log`, and `traced` from the standard package. Supply optional
+trace context, a message, and an ordered list of typed attributes to
+`log::debug`, `log::info`, `log::warning`, or `log::error`. Run the call inside
+a lexical `Observe` handler:
 
 ```veln
 use log from "std"
@@ -174,9 +174,10 @@ log or observation helper.
 
 The helper does not create a span, allocate identifiers, install a handler, or
 infer ambient context. Raw `task::spawn`, `task::spawn_with`, and channel
-operations have no observation-context behavior. Context propagation across a
-task boundary occurs only through the `TraceContext` argument of
-`traced::spawn`.
+operations do not attach observation context implicitly. A program can pass a
+`TraceContext` explicitly through the ordinary context argument of
+`task::spawn_with`; `traced::spawn` provides the named observability helper for
+that pattern.
 
 ## Limits
 
