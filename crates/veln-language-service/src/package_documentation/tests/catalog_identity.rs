@@ -154,36 +154,45 @@ fn catalog_identity_digest_and_uris_are_deterministic() {
     );
 }
 
-#[test]
-fn public_handler_has_stable_identity_signature_docs_and_resource() {
-    let manifest = "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n";
-    let source = concat!(
-        "pub effect Ask\n",
-        "\task(value: Int) -> Int\n",
-        "end\n",
-        "\n",
-        "## Answer Ask operations from a caller-supplied seed.\n",
-        "## ```veln\n",
-        "## > let hidden_setup: Int = 0\n",
-        "## fn sample() -> Int effects [stdio]\n",
-        "## \thandle perform Ask::ask(1) with answer(2)\n",
-        "## end\n",
-        "## ```\n",
-        "pub handler answer(seed: Int) for Ask effects [stdio]\n",
-        "\task(value) => value + seed\n",
-        "end\n",
-        "\n",
-        "handler private_answer() for Ask\n",
-        "\task(value) => value\n",
-        "end\n",
-    );
-    let result = generate(manifest, &[("main.veln", source)]);
-    let catalog = catalog_or_panic(&result);
-    let handler = catalog.modules[0]
+const HANDLER_MANIFEST: &str = "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n";
+const HANDLER_SOURCE: &str = concat!(
+    "pub effect Ask\n",
+    "\task(value: Int) -> Int\n",
+    "end\n",
+    "\n",
+    "## Answer Ask operations from a caller-supplied seed.\n",
+    "## ```veln\n",
+    "## > let hidden_setup: Int = 0\n",
+    "## fn sample() -> Int effects [stdio]\n",
+    "## \thandle perform Ask::ask(1) with answer(2)\n",
+    "## end\n",
+    "## ```\n",
+    "pub handler answer(seed: Int) for Ask effects [stdio]\n",
+    "\task(value) => value + seed\n",
+    "end\n",
+    "\n",
+    "handler private_answer() for Ask\n",
+    "\task(value) => value\n",
+    "end\n",
+);
+
+fn generate_handler_catalog(source: &str) -> PackageDocResult {
+    generate(HANDLER_MANIFEST, &[("main.veln", source)])
+}
+
+fn public_handler(result: &PackageDocResult) -> &PackageDocDeclaration {
+    let catalog = catalog_or_panic(result);
+    catalog.modules[0]
         .declarations
         .iter()
         .find(|declaration| declaration.kind == "handler")
-        .unwrap();
+        .unwrap()
+}
+
+#[test]
+fn public_handler_catalogs_signature_docs_and_location() {
+    let result = generate_handler_catalog(HANDLER_SOURCE);
+    let handler = public_handler(&result);
 
     assert_eq!(handler.name, "answer");
     assert_eq!(
@@ -204,6 +213,12 @@ fn public_handler_has_stable_identity_signature_docs_and_resource() {
             .declaration_locations()
             .any(|location| { location.declaration_uri == handler.uri && location.line == 12 })
     );
+}
+
+#[test]
+fn public_handler_resource_redacts_implementation_details() {
+    let result = generate_handler_catalog(HANDLER_SOURCE);
+    let handler = public_handler(&result);
 
     let resource = render_package_documentation(&result)
         .into_iter()
@@ -219,23 +234,27 @@ fn public_handler_has_stable_identity_signature_docs_and_resource() {
     assert!(!canonical.contains("private_answer"));
     assert!(!canonical.contains("hidden_setup"));
     assert!(!canonical.contains("value + seed"));
+}
 
-    let changed_body = source.replace("value + seed", "seed + value");
-    let changed = generate(manifest, &[("main.veln", &changed_body)]);
-    let changed_handler = changed.catalog().unwrap().modules[0]
-        .declarations
-        .iter()
-        .find(|declaration| declaration.kind == "handler")
-        .unwrap();
+#[test]
+fn public_handler_identity_ignores_body_changes() {
+    let result = generate_handler_catalog(HANDLER_SOURCE);
+    let handler = public_handler(&result);
+
+    let changed_body = HANDLER_SOURCE.replace("value + seed", "seed + value");
+    let changed = generate_handler_catalog(&changed_body);
+    let changed_handler = public_handler(&changed);
     assert_eq!(handler.id, changed_handler.id);
+}
 
-    let variadic_parameter = source.replace("answer(seed: Int)", "answer(seed: ...Int)");
-    let changed = generate(manifest, &[("main.veln", &variadic_parameter)]);
-    let changed_handler = changed.catalog().unwrap().modules[0]
-        .declarations
-        .iter()
-        .find(|declaration| declaration.kind == "handler")
-        .unwrap();
+#[test]
+fn public_handler_identity_includes_variadic_parameters() {
+    let result = generate_handler_catalog(HANDLER_SOURCE);
+    let handler = public_handler(&result);
+
+    let variadic_parameter = HANDLER_SOURCE.replace("answer(seed: Int)", "answer(seed: ...Int)");
+    let changed = generate_handler_catalog(&variadic_parameter);
+    let changed_handler = public_handler(&changed);
     assert_eq!(
         changed_handler.signature,
         "handler answer(seed: ...Int) for Ask effects [stdio]"
