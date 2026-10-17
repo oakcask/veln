@@ -16,7 +16,7 @@ also states it.
 
 ## Ready
 
-- Standard-library events, metrics, explicit task, channel, and carrier context
+- Standard-library events, metrics, explicit channel and carrier context
   propagation, production exporters, JSON Lines, exporter health, and exporter
   lifecycle behavior:
   [observability.md](observability.md).

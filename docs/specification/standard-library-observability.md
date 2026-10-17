@@ -1,20 +1,21 @@
 ---
 role: specification
 authority: normative
-update-when: The standard-library Observe effect, observation handlers, scoped span helpers, structured logging, or observation data model changes.
+update-when: The standard-library Observe effect, observation handlers, scoped span helpers, explicit task-context propagation, structured logging, or observation data model changes.
 specification-coverage: usage=#usage; behavior=#behavior; limits=#limits
 ---
 
 # Standard-library Observability
 
 The standard library provides a substitutable observation effect, scoped span
-lifecycle, an inspectable recording handler, and call-site-aware structured
-log helpers for four severities. Programs choose a lexical handler for the
-effect; the library does not select an exporter implicitly.
+lifecycle, explicit child-task context propagation, an inspectable recording
+handler, and call-site-aware structured log helpers for four severities.
+Programs choose a lexical handler for the effect; the library does not select
+an exporter implicitly.
 
 ## Usage
 
-Import `observe` and `log` from the standard package. Supply optional trace
+Import `observe`, `log`, and `traced` from the standard package. Supply optional trace
 context, a message, and an ordered list of typed attributes to `log::debug`,
 `log::info`, `log::warning`, or `log::error`. Run the call inside a lexical
 `Observe` handler:
@@ -73,6 +74,29 @@ end
 The recording and no-op handlers preserve the handled program's ordinary
 result. They do not select behavior through process environment or system
 properties.
+
+Use `traced::spawn(context, body)` to start a child task whose callback needs
+an explicit `observe::TraceContext`. The callback accepts that context as its
+only argument and returns `Result<(), String>`. Its effect row is forwarded:
+
+```veln
+use observe from "std"
+use traced from "std"
+
+fn child(context: TraceContext) -> Result<(), String> effects [observe::Observe]
+	# Supply context explicitly to observation helpers used here.
+	Ok(())
+end
+
+fn start(context: TraceContext) -> Task<Result<(), String>> effects [observe::Observe, concurrency]
+	traced::spawn(context, child)
+end
+```
+
+The helper returns the ordinary task handle. `task::join` therefore returns
+`Result<Result<(), String>, JoinError>`: the inner result is the callback
+result, while the outer result retains ordinary task join and cancellation
+behavior.
 
 ## Behavior
 
@@ -139,14 +163,31 @@ matching identities and finish reading. `Emitted` retains an emitted
 observation alongside span entries, so one recording preserves the order
 across all three `Observe` operations.
 
+### Explicit child-task context
+
+`traced::spawn` creates an ordinary child task through the task API and passes
+the supplied `TraceContext` unchanged to its callback. The callback's effects
+remain part of the helper's effect row. A scoped observation handler active at
+task creation is inherited under the ordinary task-handler rule, so a child
+record can retain the context when the callback explicitly supplies it to a
+log or observation helper.
+
+The helper does not create a span, allocate identifiers, install a handler, or
+infer ambient context. Raw `task::spawn`, `task::spawn_with`, and channel
+operations have no observation-context behavior. Context propagation across a
+task boundary occurs only through the `TraceContext` argument of
+`traced::spawn`.
+
 ## Limits
 
-Events, metrics, task or channel propagation helpers, carrier propagation,
+Events, metrics, channel propagation helpers, carrier propagation,
 production exporters, wall-time or resource enrichment, exporter health, and
 shutdown flushing are not available. The no-op handler does not record,
 enrich, buffer, export, or report observations. `trace::in_span` currently
 accepts only a body returning `Result<(), String>`, while forwarding that
 body's effect row; it does not define rescue or exception recovery.
+`traced::spawn` has the same callback-result restriction. It does not wrap
+channel values or propagate context through raw task or channel operations.
 
 An unhandled `Observe` effect follows the ordinary nominal-effect runnable
 boundary in [Effects](effects.md): a runnable entry must handle it before
@@ -160,7 +201,11 @@ process or machine termination can prevent it from running.
   [`observe.test.veln`](../../crates/veln-stdlib/veln/observe.test.veln) and
   [`log.test.veln`](../../crates/veln-stdlib/veln/log.test.veln), plus scoped
   span lifecycle coverage in
-  [`trace.test.veln`](../../crates/veln-stdlib/veln/trace.test.veln).
+  [`trace.test.veln`](../../crates/veln-stdlib/veln/trace.test.veln) and explicit
+  task-context coverage in
+  [`traced.test.veln`](../../crates/veln-stdlib/veln/traced.test.veln).
+- Public task-context execution evidence:
+  [`observability-traced-task-context`](../../examples/specification/run/observability-traced-task-context/).
 - Call-site and effect-dispatch execution evidence:
   [`observability-log-severities`](../../examples/specification/run/observability-log-severities/).
 - Public no-op handler execution evidence:

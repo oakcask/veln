@@ -1,0 +1,30 @@
+use log from "std"
+use observe from "std"
+use traced from "std"
+
+fn child(context: TraceContext) -> Result<(), String> effects [observe::Observe]
+	log::info(Some(context), "child", list_nil())
+	Err("child-result")
+end
+
+fn run(recording: Recording) -> Result<(), JoinError> effects [observe::Observe, stdio, concurrency]
+	let context = observe::TraceContext("trace-explicit", "span-explicit")
+	let worker = traced::spawn(context, child)
+	let _ = match task::join(worker)?
+		Err(message) => stdio::println(message)
+		Ok(()) => stdio::println("unexpected-result")
+	end
+	let _ = match observe::recorded(recording)
+		Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "child", Nil, Some(observe::TraceContext(trace_id, span_id)), _))), Nil) => begin
+			stdio::println(trace_id)
+			stdio::println(span_id)
+		end
+		_ => stdio::println("unexpected-record")
+	end
+	Ok(())
+end
+
+pub fn main() -> Result<(), JoinError> effects [stdio, time, concurrency]
+	let recording = observe::new_recording("task")
+	handle run(recording) with observe::recording(recording)
+end

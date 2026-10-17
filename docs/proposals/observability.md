@@ -12,7 +12,8 @@ core must not prescribe an exporter or an external telemetry protocol.
 The public observation effect, no-op and recording handlers, non-consuming
 recording snapshots, typed scalar attributes, optional trace context,
 effect-polymorphic scoped span lifecycle, and call-site-aware structured log
-records at debug, info, warning, and error severities are implemented in the
+records at debug, info, warning, and error severities, plus explicit direct
+child-task context propagation, are implemented in the
 [current observability specification](../specification/standard-library-observability.md).
 This proposal covers only the remaining facilities described below.
 
@@ -57,7 +58,7 @@ The remaining standard-library work supplies these groups:
 - `event`: named domain events;
 - `metric`: counter increments and histogram samples;
 - `observe`: JSON Lines and configured export handlers; and
-- `traced`: explicit context attachment for task and channel values.
+- `traced`: explicit context attachment for channel values.
 
 Future event helpers follow the current call-site-aware logging contract.
 
@@ -66,8 +67,6 @@ Future event helpers follow the current call-site-aware logging contract.
 Trace context is explicit application data. Raw `task` and `channel`
 operations do not acquire observability semantics.
 
-- A direct child task can receive context through a `traced::spawn` library
-  helper.
 - A long-lived worker receives the producer's context in a `Traced<A>` value.
 - Fan-in code chooses which context is the parent and can represent other
   causal inputs as links.
@@ -121,7 +120,6 @@ invent a version before a checked schema exists.
 
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |
-| O5 | `traced::spawn` starts a child task. | Records from that task use the explicitly supplied parent context. | Task runtime case. |
 | O6 | A value crosses a raw channel without `Traced<A>`. | No trace context is implicitly added. | Type-check and recording-handler case. |
 | O7 | A long-lived worker receives two traced values. | Each operation uses the context attached to its own value. | Channel worker case. |
 | O8 | Several producers feed one consumer. | The selected parent and additional links match the consumer's explicit choice. | Fan-in case. |
@@ -133,8 +131,8 @@ invent a version before a checked schema exists.
 
 ## Verification and Promotion
 
-The next implementation work starts with explicit task and channel context
-propagation, events, and metrics. The JSON Lines schema and fixtures then
+The next implementation work starts with explicit channel context propagation,
+events, and metrics. The JSON Lines schema and fixtures then
 establish the machine-readable contract. An external protocol adapter is
 verified against that protocol's conformance fixtures and remains replaceable.
 

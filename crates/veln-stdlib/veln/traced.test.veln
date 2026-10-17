@@ -1,0 +1,40 @@
+use log
+use observe
+use traced
+
+fn traced_child(context: TraceContext) -> Result<(), String> effects [observe::Observe]
+	log::info(Some(context), "child", list_nil())
+	Err("child-result")
+end
+
+fn raw_child() -> String effects [observe::Observe]
+	log::info(None, "raw", list_nil())
+	"raw-joined"
+end
+
+test spawn_passes_the_supplied_context_and_preserves_join_result() -> Result<(), String> effects [time, concurrency]
+	let recording = observe::new_recording("traced-task")
+	let context = observe::TraceContext("supplied-trace", "supplied-span")
+	let worker = handle traced::spawn(context, traced_child) with observe::recording(recording)
+	let joined = task::join(worker)
+	match joined
+		Ok(Err("child-result")) => match observe::recorded(recording)
+			Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "child", Nil, Some(observe::TraceContext("supplied-trace", "supplied-span")), _))), Nil) => Ok(())
+			_ => Err("traced spawn did not pass the supplied context to the inherited observation handler")
+		end
+		_ => Err("traced spawn changed the task result or join behavior")
+	end
+end
+
+test raw_spawn_does_not_add_observation_context() -> Result<(), String> effects [time, concurrency]
+	let recording = observe::new_recording("raw-task")
+	let worker: Task<String> = handle task::spawn(raw_child) with observe::recording(recording)
+	let joined = task::join(worker)
+	match joined
+		Ok("raw-joined") => match observe::recorded(recording)
+			Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "raw", Nil, None, _))), Nil) => Ok(())
+			_ => Err("raw spawn added observation context")
+		end
+		_ => Err("raw spawn changed its task result or join behavior")
+	end
+end
