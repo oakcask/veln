@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#usage; behavior=#network-operation-boundary; limits=#limits-and-errors
-update-when: The exported std net values, functions, system handler, duplex adapter, resource lifecycle, host-port behavior, effect boundary, or executable network examples change.
+update-when: The exported std net values, functions, system handler, duplex adapter, resource lifecycle, host-port behavior, effect boundary, or executable network evidence changes.
 ---
 
 # Standard-library Networking
