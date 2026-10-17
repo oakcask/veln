@@ -51,7 +51,7 @@ fn scripted_read(stream: net::Stream, expected: net::Stream, mode: String, respo
 	let observed = trace_push(trace, "read")
 	if not same_stream(stream, expected)
 		Err(failure("read", "client used the wrong stream"))
-	else if mode == "read-failure" or mode == "read-close-failure" or mode == "later-read-failure" and trace_contains(observed, "read")
+	else if mode == "read-failure" or mode == "read-close-failure" or (mode == "later-read-failure" or mode == "later-read-close-failure") and trace_contains(observed, "read")
 		Err(failure("read", "scripted client read failure"))
 	else
 		begin
@@ -85,7 +85,7 @@ fn scripted_close(stream: net::Stream, expected: net::Stream, mode: String, trac
 	let _ = trace_push(trace, "close")
 	if not same_stream(stream, expected)
 		Err(failure("close_stream", "client used the wrong stream"))
-	else if mode == "success-close-failure" or mode == "callback-close-failure" or mode == "read-close-failure" or mode == "write-close-failure"
+	else if mode == "success-close-failure" or mode == "callback-close-failure" or mode == "read-close-failure" or mode == "write-close-failure" or mode == "replacement-close-failure" or mode == "later-read-close-failure"
 		Err(failure("close_stream", "scripted client close failure"))
 	else
 		Ok(())

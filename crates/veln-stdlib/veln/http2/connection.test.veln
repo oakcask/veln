@@ -481,7 +481,7 @@ fn run_client_service<effect E>(mode: String, requests: List<Http2ClientRequest>
 end
 
 fn client_responses(mode: String) -> Result<List<ByteChunk>, String>
-	if mode == "later-connect-failure"
+	if mode == "later-connect-failure" or mode == "replacement-close-failure"
 		Ok(list_cons(byte_chunk_from_hex("00000604000000000000030000000000000101050000000189")?, list_nil()))
 	else
 		Ok(list_cons(byte_chunk_from_hex("00000004000000000000000101050000000189")?, list_cons(byte_chunk_from_hex("00000101050000000389")?, list_nil())))
@@ -547,6 +547,17 @@ test client_service_preserves_later_connect_failure_progress() -> Result<(), Str
 	end
 end
 
+test client_service_preserves_replacement_close_failure_progress() -> Result<(), String> effects [net, concurrency]
+	match run_client_service("replacement-close-failure", client_two_requests()?, accept_client_response)?
+		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 1, "close_stream", "scripted client close failure") and trace_count(trace, "connect") == 1 and trace_count(trace, "close") == 1
+			Ok(())
+		else
+			Err("HTTP/2 client replacement close failure lost completed request progress")
+		end
+		_ => Err("HTTP/2 client ignored the replacement close failure")
+	end
+end
+
 test client_service_preserves_later_read_failure_progress() -> Result<(), String> effects [net, concurrency]
 	match run_client_service("later-read-failure", client_two_requests()?, accept_client_response)?
 		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 1, "read", "scripted client read failure") and trace_count(trace, "read") == 2 and trace_count(trace, "close") == 1
@@ -588,6 +599,17 @@ test client_service_cleanup_failure_overrides_read_failure() -> Result<(), Strin
 			Err("HTTP/2 client cleanup failure did not replace the read failure")
 		end
 		_ => Err("HTTP/2 client ignored cleanup failure after read failure")
+	end
+end
+
+test client_service_later_cleanup_failure_overrides_read_failure_with_progress() -> Result<(), String> effects [net, concurrency]
+	match run_client_service("later-read-close-failure", client_two_requests()?, accept_client_response)?
+		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 1, "close_stream", "scripted client close failure") and trace_count(trace, "read") == 2 and trace_count(trace, "close") == 1
+			Ok(())
+		else
+			Err("HTTP/2 client later cleanup failure did not replace the read failure with completed progress")
+		end
+		_ => Err("HTTP/2 client ignored later cleanup failure after read failure")
 	end
 end
 
