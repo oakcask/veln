@@ -53,7 +53,7 @@ end
 
 test adapter_read_preserves_network_failure_on_captured_stream_only() -> Result<(), String> effects [net, time, concurrency]
 	match transport::net_test_support_test::read_result("failure")?
-		{ result: result, trace: Cons("read:captured", Nil) } => if transport::net_test_support_test::read_failure_matches(result, "read", "read failed")
+		{ result: result, trace: Cons("read:captured", Nil) } => if transport::net_test_support_test::read_failure_matches(result, "read")
 			Ok(())
 		else
 			Err("adapter changed the network failure")
@@ -91,7 +91,7 @@ end
 test adapter_returns_first_write_failure_unchanged() -> Result<(), String> effects [net, time, concurrency]
 	let chunks = list_cons(byte_chunk_from_visible_ascii_string("bad")?, list_cons(byte_chunk_from_visible_ascii_string("later")?, list_nil()))
 	match transport::net_test_support_test::write_result("write-failure", chunks)?
-		{ result: result, trace: Cons("write:bad", Nil) } => if transport::net_test_support_test::write_failure_matches(result, "write", "write failed")
+		{ result: result, trace: Cons("write:bad", Nil) } => if transport::net_test_support_test::write_failure_matches(result, "write")
 			Ok(())
 		else
 			Err("adapter changed the first write failure")

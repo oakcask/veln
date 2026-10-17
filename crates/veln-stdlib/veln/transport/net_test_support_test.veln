@@ -190,9 +190,9 @@ pub fn read_result(mode: String) -> Result<{ result : Result<Option<ByteChunk>, 
 	run_read(mode)
 end
 
-pub fn read_failure_matches(result: Result<Option<ByteChunk>, net::NetError>, operation: String, message: String) -> Bool
+pub fn read_failure_matches(result: Result<Option<ByteChunk>, net::NetError>, operation: String) -> Bool
 	match result
-		Err(net::NetError(observed_operation, _, _, net::ConnectionReset, _)) => observed_operation == operation
+		Err(net::NetError(observed_operation, None, Some("captured:443"), net::ConnectionReset, _)) => observed_operation == operation
 		_ => false
 	end
 end
@@ -223,9 +223,9 @@ pub fn write_result(mode: String, chunks: List<ByteChunk>) -> Result<{ result : 
 	run_write(mode, chunks)
 end
 
-pub fn write_failure_matches(result: Result<(), net::NetError>, operation: String, message: String) -> Bool
+pub fn write_failure_matches(result: Result<(), net::NetError>, operation: String) -> Bool
 	match result
-		Err(net::NetError(observed_operation, _, _, net::ConnectionReset, _)) => observed_operation == operation
+		Err(net::NetError(observed_operation, None, Some("captured:443"), net::ConnectionReset, _)) => observed_operation == operation
 		_ => false
 	end
 end
