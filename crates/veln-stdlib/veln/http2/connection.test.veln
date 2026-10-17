@@ -450,12 +450,53 @@ end
 
 test client_service_callback_failure_uses_ordinary_cleanup_path() -> Result<(), String> effects [net, concurrency]
 	match run_client_service("ordinary", client_one_request()?, reject_client_response)?
-		{ result: Err(failure), trace: trace } => if client_callback_failure_matches(failure) and trace_count(trace, "connect") == 1 and trace_count(trace, "read") == 1 and trace_count(trace, "close") == 1
-			Ok(())
+		{ result: Err(failure), trace: trace } => if client_callback_failure_matches(failure)
+			client_ordinary_trace_matches(trace)
 		else
 			Err("HTTP/2 client callback failure did not use the ordinary cleanup path")
 		end
 		_ => Err("HTTP/2 client service did not return the callback failure")
+	end
+end
+
+fn client_ordinary_trace_matches(trace: List<{ operation : String, bytes : ByteChunk }>) -> Result<(), String>
+	match trace
+		Cons(closed, Cons(read, Cons(request, Cons(settings, Cons(preface, Cons(connected, Nil)))))) => if connected.operation == "connect" and preface.operation == "write" and settings.operation == "write" and request.operation == "write" and read.operation == "read" and closed.operation == "close"
+			if client_write_matches(preface.bytes, "505249202a20485454502f322e300d0a0d0a534d0d0a0d0a")? and client_write_matches(settings.bytes, "000000040000000000")? and client_write_matches(request.bytes, "000003010500000001828784")?
+				Ok(())
+			else
+				Err("HTTP/2 client changed the preface, SETTINGS, or request write bytes")
+			end
+		else
+			Err("HTTP/2 client did not connect, write the preface, SETTINGS, and request, read, and close in order")
+		end
+		_ => Err("HTTP/2 client ordinary path performed an unexpected number of network operations")
+	end
+end
+
+fn client_write_matches(actual: ByteChunk, expected_hex: String) -> Result<Bool, String>
+	let expected = byte_chunk_from_hex(expected_hex)?
+	let count = byte_count_to_int(byte_chunk_count(expected))
+	if byte_count_to_int(byte_chunk_count(actual)) == count
+		client_bytes_match_at(actual, expected, 0, count)
+	else
+		Ok(false)
+	end
+end
+
+fn client_bytes_match_at(actual: ByteChunk, expected: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	if index == count
+		Ok(true)
+	else
+		begin
+			let actual_byte = byte_read_u8_be(byte_view(actual, byte_offset(index)?, byte_count(1)?)?)?
+			let expected_byte = byte_read_u8_be(byte_view(expected, byte_offset(index)?, byte_count(1)?)?)?
+			if actual_byte == expected_byte
+				client_bytes_match_at(actual, expected, index + 1, count)
+			else
+				Ok(false)
+			end
+		end
 	end
 end
 
@@ -469,14 +510,14 @@ fn client_two_requests() -> Result<List<Http2ClientRequest>, String>
 	Ok(list_cons(request, list_cons(request, list_nil())))
 end
 
-fn run_client_service<effect E>(mode: String, requests: List<Http2ClientRequest>, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<{ result : Result<(), Http2ClientServiceFailure>, trace : List<String> }, String> effects [net, concurrency, ...E]
+fn run_client_service<effect E>(mode: String, requests: List<Http2ClientRequest>, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<{ result : Result<(), Http2ClientServiceFailure>, trace : List<{operation:String, bytes:ByteChunk}> }, String> effects [net, concurrency, ...E]
 	let stream = transport::net_resource_test_support_test::stream("client-stream")
 	let responses = channel::bounded<List<ByteChunk>>(1)
 	let _ = channel::send(responses.tx, client_responses(mode)?)
-	let trace = channel::bounded<List<String>>(1)
+	let trace = channel::bounded<List<{operation:String, bytes:ByteChunk}>>(1)
 	let _ = channel::send(trace.tx, list_nil())
 	let result = handle http2::connection::request_endpoint_sequence(net::Address(net::Tcp4, "127.0.0.1", 443), requests, handler) with http2::connection_client_test_support_test::scripted_io(stream, mode, responses, trace)
-	let observed: List<String> = option_unwrap_or(channel::recv(trace.rx), list_nil())
+	let observed: List<{ operation : String, bytes : ByteChunk }> = option_unwrap_or(channel::recv(trace.rx), list_nil())
 	Ok({ result: result, trace: observed })
 end
 
@@ -503,9 +544,20 @@ fn client_network_failure_matches(failure: Http2ClientServiceFailure, completed:
 	end
 end
 
+fn client_trace_count(trace: List<{operation:String, bytes:ByteChunk}>, operation: String) -> Int
+	match trace
+		Nil => 0
+		Cons(head, tail) => if head.operation == operation
+			1 + client_trace_count(tail, operation)
+		else
+			client_trace_count(tail, operation)
+		end
+	end
+end
+
 test client_service_preserves_connect_failure() -> Result<(), String> effects [net, concurrency]
 	match run_client_service("connect-failure", client_one_request()?, accept_client_response)?
-		{ result: Err(failure), trace: Cons("connect", Nil) } => if client_network_failure_matches(failure, 0, "connect", "scripted client connect failure")
+		{ result: Err(failure), trace: Cons(connected, Nil) } => if connected.operation == "connect" and client_network_failure_matches(failure, 0, "connect", "scripted client connect failure")
 			Ok(())
 		else
 			Err("HTTP/2 client changed the connect failure or completed count")
@@ -516,7 +568,7 @@ end
 
 test client_service_promotes_stream_read_failure_to_network_failure() -> Result<(), String> effects [net, concurrency]
 	match run_client_service("read-failure", client_one_request()?, accept_client_response)?
-		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 0, "read", "scripted client read failure") and trace_count(trace, "close") == 1
+		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 0, "read", "scripted client read failure") and client_trace_count(trace, "close") == 1
 			Ok(())
 		else
 			Err("HTTP/2 client did not preserve and clean up after the read failure")
@@ -527,7 +579,7 @@ end
 
 test client_service_promotes_stream_write_failure_to_network_failure() -> Result<(), String> effects [net, concurrency]
 	match run_client_service("write-failure", client_one_request()?, accept_client_response)?
-		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 0, "write", "scripted client write failure") and trace_count(trace, "close") == 1
+		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 0, "write", "scripted client write failure") and client_trace_count(trace, "close") == 1
 			Ok(())
 		else
 			Err("HTTP/2 client did not preserve and clean up after the write failure")
@@ -538,7 +590,7 @@ end
 
 test client_service_preserves_later_connect_failure_progress() -> Result<(), String> effects [net, concurrency]
 	match run_client_service("later-connect-failure", client_two_requests()?, accept_client_response)?
-		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 1, "connect", "scripted client connect failure") and trace_count(trace, "connect") == 2 and trace_count(trace, "close") == 1
+		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 1, "connect", "scripted client connect failure") and client_trace_count(trace, "connect") == 2 and client_trace_count(trace, "close") == 1
 			Ok(())
 		else
 			Err("HTTP/2 client later connect failure lost completed request progress")
@@ -549,7 +601,7 @@ end
 
 test client_service_preserves_replacement_close_failure_progress() -> Result<(), String> effects [net, concurrency]
 	match run_client_service("replacement-close-failure", client_two_requests()?, accept_client_response)?
-		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 1, "close_stream", "scripted client close failure") and trace_count(trace, "connect") == 1 and trace_count(trace, "close") == 1
+		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 1, "close_stream", "scripted client close failure") and client_trace_count(trace, "connect") == 1 and client_trace_count(trace, "close") == 1
 			Ok(())
 		else
 			Err("HTTP/2 client replacement close failure lost completed request progress")
@@ -560,7 +612,7 @@ end
 
 test client_service_preserves_later_read_failure_progress() -> Result<(), String> effects [net, concurrency]
 	match run_client_service("later-read-failure", client_two_requests()?, accept_client_response)?
-		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 1, "read", "scripted client read failure") and trace_count(trace, "read") == 2 and trace_count(trace, "close") == 1
+		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 1, "read", "scripted client read failure") and client_trace_count(trace, "read") == 2 and client_trace_count(trace, "close") == 1
 			Ok(())
 		else
 			Err("HTTP/2 client later read failure lost completed request progress")
@@ -571,7 +623,7 @@ end
 
 test client_service_cleanup_failure_preserves_completed_count() -> Result<(), String> effects [net, concurrency]
 	match run_client_service("success-close-failure", client_two_requests()?, accept_client_response)?
-		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 2, "close_stream", "scripted client close failure") and trace_count(trace, "connect") == 1 and trace_count(trace, "read") == 2 and trace_count(trace, "close") == 1
+		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 2, "close_stream", "scripted client close failure") and client_trace_count(trace, "connect") == 1 and client_trace_count(trace, "read") == 2 and client_trace_count(trace, "close") == 1
 			Ok(())
 		else
 			Err("HTTP/2 client cleanup failure lost completed request progress")
@@ -582,7 +634,7 @@ end
 
 test client_service_cleanup_failure_overrides_callback_failure() -> Result<(), String> effects [net, concurrency]
 	match run_client_service("callback-close-failure", client_one_request()?, reject_client_response)?
-		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 0, "close_stream", "scripted client close failure") and trace_count(trace, "close") == 1
+		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 0, "close_stream", "scripted client close failure") and client_trace_count(trace, "close") == 1
 			Ok(())
 		else
 			Err("HTTP/2 client cleanup failure did not replace the callback failure")
@@ -593,7 +645,7 @@ end
 
 test client_service_cleanup_failure_overrides_read_failure() -> Result<(), String> effects [net, concurrency]
 	match run_client_service("read-close-failure", client_one_request()?, accept_client_response)?
-		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 0, "close_stream", "scripted client close failure") and trace_count(trace, "close") == 1
+		{ result: Err(failure), trace: Cons(closed, Cons(read, Cons(request, Cons(settings, Cons(preface, Cons(connected, Nil)))))) } => if client_network_failure_matches(failure, 0, "close_stream", "scripted client close failure") and connected.operation == "connect" and preface.operation == "write" and settings.operation == "write" and request.operation == "write" and read.operation == "read" and closed.operation == "close"
 			Ok(())
 		else
 			Err("HTTP/2 client cleanup failure did not replace the read failure")
@@ -602,9 +654,20 @@ test client_service_cleanup_failure_overrides_read_failure() -> Result<(), Strin
 	end
 end
 
+test client_service_cleanup_failure_overrides_write_failure() -> Result<(), String> effects [net, concurrency]
+	match run_client_service("write-close-failure", client_one_request()?, accept_client_response)?
+		{ result: Err(failure), trace: Cons(closed, Cons(written, Cons(connected, Nil))) } => if client_network_failure_matches(failure, 0, "close_stream", "scripted client close failure") and connected.operation == "connect" and written.operation == "write" and closed.operation == "close"
+			Ok(())
+		else
+			Err("HTTP/2 client cleanup failure did not replace the first write failure")
+		end
+		_ => Err("HTTP/2 client ignored cleanup failure after write failure")
+	end
+end
+
 test client_service_later_cleanup_failure_overrides_read_failure_with_progress() -> Result<(), String> effects [net, concurrency]
 	match run_client_service("later-read-close-failure", client_two_requests()?, accept_client_response)?
-		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 1, "close_stream", "scripted client close failure") and trace_count(trace, "read") == 2 and trace_count(trace, "close") == 1
+		{ result: Err(failure), trace: trace } => if client_network_failure_matches(failure, 1, "close_stream", "scripted client close failure") and client_trace_count(trace, "read") == 2 and client_trace_count(trace, "close") == 1
 			Ok(())
 		else
 			Err("HTTP/2 client later cleanup failure did not replace the read failure with completed progress")
