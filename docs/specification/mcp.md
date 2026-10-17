@@ -819,9 +819,10 @@ boundaries, and anonymous boundaries under `examples/specification/mcp/rename-*`
 The checked
 [`standard-library-package-documentation-resources`](../../examples/specification/mcp/standard-library-package-documentation-resources/)
 transcript covers discovery and exact reads for the embedded package catalog,
-including the public `net::system()` and `observe::noop()` handler declaration
-resources and the exclusion of private host adapters and private span
-constructors.
+including the public `net::system()`, `observe::noop()`, and
+`observe::recording(Recording)` handler declaration resources, the public
+`trace` module and `trace::in_span` function resource, and the exclusion of
+private host adapters and private `Span` constructors.
 The checked
 [`callsite-presentation`](../../examples/specification/mcp/callsite-presentation/)
 transcript covers modifier and empty-body built-in completion, an ordinary-body

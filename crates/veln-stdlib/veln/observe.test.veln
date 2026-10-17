@@ -10,7 +10,7 @@ test noop_preserves_a_handled_body_result() -> Result<(), String>
 end
 
 test noop_start_span_returns_an_opaque_span() -> Result<(), String>
-	let span = handle perform observe::Observe::start_span(observe::noop_span_request()) with observe::noop()
+	let span = handle perform observe::Observe::start_span(observe::SpanRequest("noop", None)) with observe::noop()
 	if observe::is_noop_span(span)
 		Ok(())
 	else
@@ -29,11 +29,71 @@ test noop_emit_completes_without_observation() -> Result<(), String>
 end
 
 test noop_finish_span_completes() -> Result<(), String>
-	let completed = handle perform observe::Observe::finish_span(observe::noop_span_finish()) with observe::noop()
+	let span = handle perform observe::Observe::start_span(observe::SpanRequest("noop", None)) with observe::noop()
+	let completed = handle perform observe::Observe::finish_span(observe::finish(span)) with observe::noop()
 	if completed == ()
 		Ok(())
 	else
 		Err("no-op observation handler did not complete finish_span")
+	end
+end
+
+test recording_exposes_ordered_start_emit_and_finish_entries() -> Result<(), String> effects [time, concurrency]
+	let recording = observe::new_recording("recording")
+	let span = handle perform observe::Observe::start_span(observe::SpanRequest("request", None)) with observe::recording(recording)
+	let record = observe::Log(observe::LogRecord("log", observe::Info, "message", list_nil(), None, callsite_location()))
+	let _ = handle perform observe::Observe::emit(record) with observe::recording(recording)
+	let _ = handle perform observe::Observe::finish_span(observe::finish(span)) with observe::recording(recording)
+	match observe::recorded(recording)
+		Cons(observe::SpanStarted("request", "recording-0", "recording-1", None, _), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "message", Nil, None, _))), Cons(observe::SpanFinished("recording-0", "recording-1", _), Nil))) => Ok(())
+		_ => Err("recording did not preserve lifecycle order or identities")
+	end
+end
+
+test recorded_is_a_non_consuming_sequential_snapshot() -> Result<(), String> effects [time, concurrency]
+	let recording = observe::new_recording("snapshot")
+	let first_span = handle perform observe::Observe::start_span(observe::SpanRequest("first", None)) with observe::recording(recording)
+	let first_read = observe::recorded(recording)
+	let second_read = observe::recorded(recording)
+	let record = observe::Log(observe::LogRecord("log", observe::Info, "after read", list_nil(), None, callsite_location()))
+	let _ = handle perform observe::Observe::emit(record) with observe::recording(recording)
+	let appended_read = observe::recorded(recording)
+	let second_span = handle perform observe::Observe::start_span(observe::SpanRequest("second", None)) with observe::recording(recording)
+	let identity_read = observe::recorded(recording)
+	match first_read
+		Cons(observe::SpanStarted("first", "snapshot-0", "snapshot-1", None, _), Nil) => match second_read
+			Cons(observe::SpanStarted("first", "snapshot-0", "snapshot-1", None, _), Nil) => match appended_read
+				Cons(observe::SpanStarted("first", "snapshot-0", "snapshot-1", None, _), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "after read", Nil, None, _))), Nil)) => match identity_read
+					Cons(observe::SpanStarted("first", "snapshot-0", "snapshot-1", None, _), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "after read", Nil, None, _))), Cons(observe::SpanStarted("second", "snapshot-2", "snapshot-3", None, _), Nil))) => Ok(())
+					_ => Err("recorded changed the preserved entries or reset identity allocation")
+				end
+				_ => Err("recording after a read did not preserve and append entries")
+			end
+			_ => Err("repeated recorded read changed the prior snapshot")
+		end
+		_ => Err("first recorded read changed the prior entries")
+	end
+end
+
+test recording_children_do_not_collide_with_a_parent_from_another_recording() -> Result<(), String> effects [time, concurrency]
+	let parent_recording = observe::new_recording("shared")
+	let child_recording = observe::new_recording("shared")
+	let parent = handle perform observe::Observe::start_span(observe::SpanRequest("parent", None)) with observe::recording(parent_recording)
+	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("first", Some(parent))) with observe::recording(child_recording)
+	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("second", Some(parent))) with observe::recording(child_recording)
+	match observe::recorded(child_recording)
+		Cons(observe::SpanStarted("first", "shared-0", "shared-0", Some("shared-1"), _), Cons(observe::SpanStarted("second", "shared-0", "shared-2", Some("shared-1"), _), Nil)) => Ok(())
+		_ => Err("cross-recording children changed trace, parent, sibling, or allocation identities")
+	end
+end
+
+test recording_treats_a_noop_parent_as_a_root_request() -> Result<(), String> effects [time, concurrency]
+	let parent = handle perform observe::Observe::start_span(observe::SpanRequest("ignored", None)) with observe::noop()
+	let recording = observe::new_recording("mixed")
+	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("root", Some(parent))) with observe::recording(recording)
+	match observe::recorded(recording)
+		Cons(observe::SpanStarted("root", "mixed-0", "mixed-1", None, _), Nil) => Ok(())
+		_ => Err("recording did not treat a no-op parent as a root request")
 	end
 end
 

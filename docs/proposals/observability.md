@@ -9,8 +9,9 @@ Veln programs need structured runtime evidence that tools and AI agents can
 correlate with source, tasks, requests, and external services. The language
 core must not prescribe an exporter or an external telemetry protocol.
 
-The public observation effect and no-op handler, typed scalar attributes,
-optional trace context, opaque span handle, and call-site-aware structured log
+The public observation effect, no-op and recording handlers, non-consuming
+recording snapshots, typed scalar attributes, optional trace context,
+effect-polymorphic scoped span lifecycle, and call-site-aware structured log
 records at debug, info, warning, and error severities are implemented in the
 [current observability specification](../specification/standard-library-observability.md).
 This proposal covers only the remaining facilities described below.
@@ -45,10 +46,9 @@ support for the library and do not define a global ambient observability API.
 ## Observation Effect Remainder
 
 Extend the current `Observation` model with domain events, counter increments,
-and histogram samples. Add span lifecycle handlers that create valid opaque
-handles, and add trace-context operations that inject and extract context at
-process boundaries. Export handlers add wall time, resource identity, sequence
-information, and exporter-specific encoding.
+and histogram samples. Add trace-context operations that inject and extract
+context at process boundaries. Export handlers add wall time, resource
+identity, sequence information, and exporter-specific encoding.
 
 ## Library Surface
 
@@ -56,15 +56,10 @@ The remaining standard-library work supplies these groups:
 
 - `event`: named domain events;
 - `metric`: counter increments and histogram samples;
-- `trace`: span start, finish, and scoped `in_span` helpers;
-- `observe`: recording, JSON Lines, and configured export handlers; and
+- `observe`: JSON Lines and configured export handlers; and
 - `traced`: explicit context attachment for task and channel values.
 
 Future event helpers follow the current call-site-aware logging contract.
-
-`trace::in_span` starts a span, registers its finish operation with `defer`,
-and invokes its body with the child context. The helper does not require a
-special span construct in the language.
 
 ## Context Propagation
 
@@ -86,8 +81,8 @@ libraries possible.
 ## Handler and Failure Contract
 
 Applications install an observation handler at their outer execution boundary.
-Tests can use a recording handler that replaces clocks, identifiers, and
-resource attributes with deterministic values.
+Future exporter tests can replace resource attributes and exporter outcomes
+with deterministic values.
 
 Normal telemetry is best effort. `emit` and `finish_span` return `()`. An
 export failure does not change the application result and does not recursively
@@ -126,9 +121,6 @@ invent a version before a checked schema exists.
 
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |
-| O2 | `in_span` completes normally or propagates `Err`. | Exactly one finish operation follows its matching start operation. | Ordered recording-handler cases. |
-| O3 | A span body raises a contract or runtime failure. | Deferred cleanup finishes the span and the original failure remains primary. | Human and JSON runtime-failure cases. |
-| O4 | A parent starts two child spans. | Both children identify the parent and have distinct span identities. | Deterministic recording-handler case. |
 | O5 | `traced::spawn` starts a child task. | Records from that task use the explicitly supplied parent context. | Task runtime case. |
 | O6 | A value crosses a raw channel without `Traced<A>`. | No trace context is implicitly added. | Type-check and recording-handler case. |
 | O7 | A long-lived worker receives two traced values. | Each operation uses the context attached to its own value. | Channel worker case. |
@@ -141,9 +133,8 @@ invent a version before a checked schema exists.
 
 ## Verification and Promotion
 
-The next implementation work starts with a public recording handler and span
-lifecycle. Their deterministic cases extend the current emission evidence
-before a production exporter is added. The JSON Lines schema and fixtures then
+The next implementation work starts with explicit task and channel context
+propagation, events, and metrics. The JSON Lines schema and fixtures then
 establish the machine-readable contract. An external protocol adapter is
 verified against that protocol's conformance fixtures and remains replaceable.
 

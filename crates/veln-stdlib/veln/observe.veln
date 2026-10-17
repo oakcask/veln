@@ -1,15 +1,30 @@
 use prelude
 
 pub type SpanRequest
-	NoopSpanRequest
+	pub SpanRequest(name: String, parent: Option<Span>)
 end
 
 pub type Span
-	NoopSpan
+	NoopSpan(request: SpanRequest)
+	RecordingSpan(trace_id: String, span_id: String)
 end
 
 pub type SpanFinish
-	NoopSpanFinish
+	SpanFinish(span: Span)
+end
+
+pub type RecordingEntry
+	pub SpanStarted(name: String, trace_id: String, span_id: String, parent_span_id: Option<String>, monotonic_ms: Int)
+	pub SpanFinished(trace_id: String, span_id: String, monotonic_ms: Int)
+	pub Emitted(record: Observation)
+end
+
+type RecordingBuffer
+	RecordingBuffer(next_identity: Int, entries: List<RecordingEntry>)
+end
+
+pub type Recording
+	Recording(prefix: String, state: { tx : Sender<RecordingBuffer>, rx : Receiver<RecordingBuffer> })
 end
 
 pub type AttributeValue
@@ -48,21 +63,103 @@ pub effect Observe
 end
 
 pub handler noop() for Observe
-	start_span(request) => NoopSpan
+	start_span(request) => NoopSpan(request)
 	emit(record) => ()
 	finish_span(request) => ()
 end
 
-fn noop_span_request() -> SpanRequest
-	NoopSpanRequest
+pub fn new_recording(prefix: String) -> Recording effects [concurrency]
+	let state = channel::bounded<RecordingBuffer>(1)
+	let _ = channel::send(state.tx, RecordingBuffer(0, list_nil()))
+	Recording(prefix, state)
 end
 
-fn noop_span_finish() -> SpanFinish
-	NoopSpanFinish
+pub fn recorded(recording: Recording) -> List<RecordingEntry> effects [concurrency]
+	match recording
+		Recording(prefix, state) => match channel::recv(state.rx)
+			Some(buffer) => restore_and_read(state.tx, buffer)
+			None => list_nil()
+		end
+	end
+end
+
+pub handler recording(recording: Recording) for Observe effects [time, concurrency]
+	start_span(request) => match recording
+		Recording(prefix, state) => begin
+			let monotonic_ms = time::monotonic_ms()
+			match channel::recv(state.rx)
+				Some(RecordingBuffer(next_identity, entries)) => match request
+					SpanRequest(name, Some(RecordingSpan(trace_id, parent_span_id))) => begin
+						let candidate = string::concat(string::concat(prefix, "-"), int_to_string(next_identity))
+						if candidate == parent_span_id
+							begin
+								let span_id = string::concat(string::concat(prefix, "-"), int_to_string(next_identity + 1))
+								let entry = SpanStarted(name, trace_id, span_id, Some(parent_span_id), monotonic_ms)
+								let _ = channel::send(state.tx, RecordingBuffer(next_identity + 2, list_cons(entry, entries)))
+								RecordingSpan(trace_id, span_id)
+							end
+						else
+							begin
+								let entry = SpanStarted(name, trace_id, candidate, Some(parent_span_id), monotonic_ms)
+								let _ = channel::send(state.tx, RecordingBuffer(next_identity + 1, list_cons(entry, entries)))
+								RecordingSpan(trace_id, candidate)
+							end
+						end
+					end
+					SpanRequest(name, _) => begin
+						let trace_id = string::concat(string::concat(prefix, "-"), int_to_string(next_identity))
+						let span_id = string::concat(string::concat(prefix, "-"), int_to_string(next_identity + 1))
+						let entry = SpanStarted(name, trace_id, span_id, None, monotonic_ms)
+						let _ = channel::send(state.tx, RecordingBuffer(next_identity + 2, list_cons(entry, entries)))
+						RecordingSpan(trace_id, span_id)
+					end
+				end
+				None => NoopSpan(request)
+			end
+		end
+	end
+	emit(record) => match recording
+		Recording(prefix, state) => match channel::recv(state.rx)
+			Some(RecordingBuffer(next_identity, entries)) => begin
+				let _ = channel::send(state.tx, RecordingBuffer(next_identity, list_cons(Emitted(record), entries)))
+				()
+			end
+			None => ()
+		end
+	end
+	finish_span(request) => begin
+		let monotonic_ms = time::monotonic_ms()
+		match request
+			SpanFinish(RecordingSpan(trace_id, span_id)) => match recording
+				Recording(prefix, state) => match channel::recv(state.rx)
+					Some(RecordingBuffer(next_identity, entries)) => begin
+						let _ = channel::send(state.tx, RecordingBuffer(next_identity, list_cons(SpanFinished(trace_id, span_id, monotonic_ms), entries)))
+						()
+					end
+					None => ()
+				end
+			end
+			SpanFinish(NoopSpan(_)) => ()
+		end
+	end
+end
+
+pub fn finish(span: Span) -> SpanFinish
+	SpanFinish(span)
+end
+
+fn restore_and_read(tx: Sender<RecordingBuffer>, buffer: RecordingBuffer) -> List<RecordingEntry> effects [concurrency]
+	match buffer
+		RecordingBuffer(next_identity, entries) => begin
+			let _ = channel::send(tx, buffer)
+			list_reverse(entries)
+		end
+	end
 end
 
 fn is_noop_span(span: Span) -> Bool
 	match span
-		NoopSpan => true
+		NoopSpan(_) => true
+		_ => false
 	end
 end

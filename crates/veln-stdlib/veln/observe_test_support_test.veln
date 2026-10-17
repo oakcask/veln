@@ -1,5 +1,15 @@
 use observe
 use prelude
+use host_effects
+
+pub fn span_recording(prefix: String) -> Recording effects [concurrency]
+	observe::new_recording(prefix)
+end
+
+pub handler clock(now: Int) for host_effects::Clock
+	request(operation, milliseconds) => Ok(now)
+	wall_time() => Ok({ unix_seconds: 0, nanosecond: 0 })
+end
 
 pub fn records(capacity: Int) -> { tx : Sender<Observation>, rx : Receiver<Observation> } effects [concurrency]
 	channel::bounded<Observation>(capacity)
