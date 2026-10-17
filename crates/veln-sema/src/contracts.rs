@@ -395,7 +395,10 @@ use predicate_typing::*;
 use static_literals::*;
 
 #[cfg(test)]
-pub(crate) use boolean_core::{reset_static_boolean_work, take_static_boolean_work};
+pub(crate) use boolean_core::{
+    reset_static_boolean_work, take_static_boolean_work,
+    take_wide_boolean_full_width_fallback_bytes,
+};
 pub(crate) use contract_calls::{contract_calls, is_contract_keyword, referenced_names};
 pub(crate) use predicate_remainder_typing::{
     PredicateRemainderTypingContext, missing_contract_field, predicate_is_boolean_with_calls,

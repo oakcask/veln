@@ -30,16 +30,23 @@ impl BooleanFormula {
 #[cfg(test)]
 thread_local! {
     static STATIC_BOOLEAN_LEAF_VISITS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static WIDE_BOOLEAN_FULL_WIDTH_FALLBACK_BYTES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 #[cfg(test)]
 pub(crate) fn reset_static_boolean_work() {
     STATIC_BOOLEAN_LEAF_VISITS.set(0);
+    WIDE_BOOLEAN_FULL_WIDTH_FALLBACK_BYTES.set(0);
 }
 
 #[cfg(test)]
 pub(crate) fn take_static_boolean_work() -> usize {
     STATIC_BOOLEAN_LEAF_VISITS.replace(0)
+}
+
+#[cfg(test)]
+pub(crate) fn take_wide_boolean_full_width_fallback_bytes() -> usize {
+    WIDE_BOOLEAN_FULL_WIDTH_FALLBACK_BYTES.replace(0)
 }
 
 #[cfg(test)]
@@ -49,6 +56,15 @@ fn record_static_boolean_leaf_visit() {
 
 #[cfg(not(test))]
 fn record_static_boolean_leaf_visit() {}
+
+#[cfg(test)]
+fn record_wide_boolean_full_width_fallback(predicate: &str) {
+    WIDE_BOOLEAN_FULL_WIDTH_FALLBACK_BYTES
+        .set(WIDE_BOOLEAN_FULL_WIDTH_FALLBACK_BYTES.get() + predicate.len());
+}
+
+#[cfg(not(test))]
+fn record_wide_boolean_full_width_fallback(_predicate: &str) {}
 
 #[derive(Clone, Copy)]
 pub(super) struct StaticBooleanOptions {
@@ -105,6 +121,10 @@ fn static_boolean_value_for_wide_remainder_contract(predicate: &str) -> StaticBo
     if literal_composition != StaticBooleanValue::Unknown {
         return literal_composition;
     }
+    if let Some(value) = static_boolean_value_after_resolving_wide_clauses(predicate) {
+        return value;
+    }
+    record_wide_boolean_full_width_fallback(predicate);
     if let Some(value) = static_boolean_top_level_shortcut(predicate) {
         return value;
     }
@@ -132,6 +152,23 @@ fn static_boolean_value_for_wide_remainder_contract(predicate: &str) -> StaticBo
     }
 
     static_boolean_value_for_contract(predicate)
+}
+
+fn static_boolean_value_after_resolving_wide_clauses(
+    predicate: &str,
+) -> Option<StaticBooleanValue> {
+    let disjuncts = split_top_level_keyword(predicate, "or");
+    if disjuncts.len() > MAX_RECURSIVE_REMAINDER_BOOLEAN_CLAUSES {
+        let value = static_boolean_value_for_wide_clauses(disjuncts, true);
+        return (value != StaticBooleanValue::Unknown).then_some(value);
+    }
+
+    let conjuncts = split_top_level_keyword(predicate, "and");
+    if conjuncts.len() > MAX_RECURSIVE_REMAINDER_BOOLEAN_CLAUSES {
+        let value = static_boolean_value_for_wide_clauses(conjuncts, false);
+        return (value != StaticBooleanValue::Unknown).then_some(value);
+    }
+    None
 }
 
 fn static_boolean_value_for_wide_clauses(

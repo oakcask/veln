@@ -89,6 +89,17 @@ fn assert_simple_wide_boolean_identities() {
     ));
 }
 
+#[test]
+fn wide_literal_remainder_tails_skip_full_width_heuristics() {
+    let false_remainders = repeated_boolean_clauses("7 % 3 == 0", 511, "or");
+    crate::contracts::reset_static_boolean_work();
+    assert_proven(&format!("value >= 0 or value < 0 or {false_remainders}"));
+    assert_eq!(
+        crate::contracts::take_wide_boolean_full_width_fallback_bytes(),
+        0
+    );
+}
+
 fn assert_wide_partial_case_split() {
     let parameters = std::iter::once("value: Int".to_string())
         .chain(["b: Bool".to_string(), "c: Bool".to_string()])
