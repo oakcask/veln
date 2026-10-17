@@ -1,5 +1,6 @@
 use http2::connection from "std"
 use http2::hpack from "std"
+use net from "std"
 
 fn ascii_header(name: String, value: String) -> Result<HeaderField, String>
 	Ok(http2::hpack::header_field(name, byte_chunk_from_visible_ascii_string(value)?))
@@ -24,17 +25,17 @@ fn db_observer(response: Http2ClientResponse) -> Result<(), String> effects [db]
 end
 
 pub fn pure_client_service_missing_net_and_concurrency() -> Result<(), Http2ClientServiceFailure>
-	http2::connection::request_endpoint_sequence("127.0.0.1:0", one_request(), pure_observer)
+	http2::connection::request_endpoint_sequence(net::Address(net::Tcp4, "127.0.0.1", 0), one_request(), pure_observer)
 end
 
-pub fn db_client_service_missing_db() -> Result<(), Http2ClientServiceFailure> effects [net, concurrency]
-	http2::connection::request_endpoint_sequence("127.0.0.1:0", one_request(), db_observer)
+pub fn db_client_service_missing_db() -> Result<(), Http2ClientServiceFailure> effects [net::IO, concurrency]
+	http2::connection::request_endpoint_sequence(net::Address(net::Tcp4, "127.0.0.1", 0), one_request(), db_observer)
 end
 
-pub fn declared_pure_client_service() -> Result<(), Http2ClientServiceFailure> effects [net, concurrency]
-	http2::connection::request_endpoint_sequence("127.0.0.1:0", one_request(), pure_observer)
+pub fn declared_pure_client_service() -> Result<(), Http2ClientServiceFailure> effects [net::IO, concurrency]
+	http2::connection::request_endpoint_sequence(net::Address(net::Tcp4, "127.0.0.1", 0), one_request(), pure_observer)
 end
 
-pub fn declared_db_client_service() -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, db]
-	http2::connection::request_endpoint_sequence("127.0.0.1:0", one_request(), db_observer)
+pub fn declared_db_client_service() -> Result<(), Http2ClientServiceFailure> effects [net::IO, concurrency, db]
+	http2::connection::request_endpoint_sequence(net::Address(net::Tcp4, "127.0.0.1", 0), one_request(), db_observer)
 end

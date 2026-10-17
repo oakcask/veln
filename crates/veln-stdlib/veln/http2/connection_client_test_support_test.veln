@@ -1,0 +1,113 @@
+use prelude
+use net
+
+fn failure(operation: String, message: String) -> net::NetError
+	net::NetError(operation, Some(net::Tcp4), Some("192.0.2.20:443"), net::ConnectionReset, message)
+end
+
+fn trace_push(trace: { tx : Sender<List<{operation:String, bytes:ByteChunk}>>, rx : Receiver<List<{operation:String, bytes:ByteChunk}>> }, operation: String, bytes: ByteChunk) -> List<{operation:String, bytes:ByteChunk}> effects [concurrency]
+	let observed: List<{ operation : String, bytes : ByteChunk }> = option_unwrap_or(channel::recv(trace.rx), list_nil())
+	let _ = channel::send(trace.tx, list_cons({ operation: operation, bytes: bytes }, observed))
+	observed
+end
+
+fn trace_contains(trace: List<{operation:String, bytes:ByteChunk}>, operation: String) -> Bool
+	match trace
+		Nil => false
+		Cons(head, tail) => head.operation == operation or trace_contains(tail, operation)
+	end
+end
+
+fn same_stream(actual: net::Stream, expected: net::Stream) -> Bool
+	actual == expected
+end
+
+pub handler scripted_io(expected_stream: net::Stream, mode: String, responses: { tx : Sender<List<ByteChunk>>, rx : Receiver<List<ByteChunk>> }, trace: { tx : Sender<List<{operation:String, bytes:ByteChunk}>>, rx : Receiver<List<{operation:String, bytes:ByteChunk}>> }) for net::IO effects [concurrency]
+	resolve(address) => unexpected_endpoints("resolve")
+	listen(address) => unexpected_listener("listen")
+	connect(address, deadline, token) => scripted_connect(expected_stream, mode, trace)
+	accept(listener, deadline, token) => unexpected_stream("accept")
+	listener_address(listener) => unexpected_endpoint("listener_address")
+	close_listener(listener) => unexpected_unit("close_listener")
+	read(stream, deadline, token) => scripted_read(stream, expected_stream, mode, responses, trace)
+	write(stream, bytes, deadline, token) => scripted_write(stream, expected_stream, mode, bytes, trace)
+	local_address(stream) => unexpected_endpoint("local_address")
+	peer_address(stream) => unexpected_endpoint("peer_address")
+	shutdown_read(stream) => unexpected_unit("shutdown_read")
+	shutdown_write(stream) => unexpected_unit("shutdown_write")
+	close_stream(stream) => scripted_close(stream, expected_stream, mode, trace)
+end
+
+fn scripted_connect(stream: net::Stream, mode: String, trace: { tx : Sender<List<{operation:String, bytes:ByteChunk}>>, rx : Receiver<List<{operation:String, bytes:ByteChunk}>> }) -> Result<net::Stream, net::NetError> effects [concurrency]
+	let observed = trace_push(trace, "connect", byte_chunk([]))
+	if mode == "connect-failure" or mode == "later-connect-failure" and trace_contains(observed, "connect")
+		Err(failure("connect", "scripted client connect failure"))
+	else
+		Ok(stream)
+	end
+end
+
+fn scripted_read(stream: net::Stream, expected: net::Stream, mode: String, responses: { tx : Sender<List<ByteChunk>>, rx : Receiver<List<ByteChunk>> }, trace: { tx : Sender<List<{operation:String, bytes:ByteChunk}>>, rx : Receiver<List<{operation:String, bytes:ByteChunk}>> }) -> Result<net::ReadOutcome, net::NetError> effects [concurrency]
+	let observed = trace_push(trace, "read", byte_chunk([]))
+	if not same_stream(stream, expected)
+		Err(failure("read", "client used the wrong stream"))
+	else if mode == "read-failure" or mode == "read-close-failure" or (mode == "later-read-failure" or mode == "later-read-close-failure") and trace_contains(observed, "read")
+		Err(failure("read", "scripted client read failure"))
+	else
+		begin
+			let queued: List<ByteChunk> = option_unwrap_or(channel::recv(responses.rx), list_nil())
+			match queued
+				Nil => begin
+					let _ = channel::send(responses.tx, list_nil())
+					Ok(net::ReadEnd)
+				end
+				Cons(chunk, tail) => begin
+					let _ = channel::send(responses.tx, tail)
+					Ok(net::ReadChunk(chunk))
+				end
+			end
+		end
+	end
+end
+
+fn scripted_write(stream: net::Stream, expected: net::Stream, mode: String, bytes: ByteChunk, trace: { tx : Sender<List<{operation:String, bytes:ByteChunk}>>, rx : Receiver<List<{operation:String, bytes:ByteChunk}>> }) -> net::WriteOutcome effects [concurrency]
+	let observed = trace_push(trace, "write", bytes)
+	if not same_stream(stream, expected)
+		net::WriteFailed(net::ByteCount(0), failure("write", "client used the wrong stream"))
+	else if mode == "write-failure" or mode == "write-close-failure" or (mode == "later-write-failure" or mode == "later-write-close-failure") and trace_contains(observed, "read")
+		net::WriteFailed(net::ByteCount(0), failure("write", "scripted client write failure"))
+	else
+		net::Written(byte_chunk_count(bytes))
+	end
+end
+
+fn scripted_close(stream: net::Stream, expected: net::Stream, mode: String, trace: { tx : Sender<List<{operation:String, bytes:ByteChunk}>>, rx : Receiver<List<{operation:String, bytes:ByteChunk}>> }) -> Result<(), net::NetError> effects [concurrency]
+	let _ = trace_push(trace, "close", byte_chunk([]))
+	if not same_stream(stream, expected)
+		Err(failure("close_stream", "client used the wrong stream"))
+	else if mode == "success-close-failure" or mode == "callback-close-failure" or mode == "read-close-failure" or mode == "write-close-failure" or mode == "replacement-close-failure" or mode == "later-read-close-failure" or mode == "later-write-close-failure"
+		Err(failure("close_stream", "scripted client close failure"))
+	else
+		Ok(())
+	end
+end
+
+fn unexpected_endpoints(operation: String) -> Result<List<net::Endpoint>, net::NetError>
+	Err(failure(operation, "unexpected client network operation"))
+end
+
+fn unexpected_listener(operation: String) -> Result<net::Listener, net::NetError>
+	Err(failure(operation, "unexpected client network operation"))
+end
+
+fn unexpected_stream(operation: String) -> Result<net::Stream, net::NetError>
+	Err(failure(operation, "unexpected client network operation"))
+end
+
+fn unexpected_endpoint(operation: String) -> Result<net::Endpoint, net::NetError>
+	Err(failure(operation, "unexpected client network operation"))
+end
+
+fn unexpected_unit(operation: String) -> Result<(), net::NetError>
+	Err(failure(operation, "unexpected client network operation"))
+end

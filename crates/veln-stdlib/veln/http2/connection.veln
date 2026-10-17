@@ -3,7 +3,6 @@ use transport
 use transport::network
 use net
 use http2::core
-use http2::legacy_network
 
 pub type Http2ConnectionFailure
 	pub Http2ConnectionTransportFailure(error: net::NetError)
@@ -47,6 +46,7 @@ end
 
 pub type Http2ClientServiceFailure
 	pub Http2ClientServiceStateFailure(reason: String)
+	pub Http2ClientServiceNetworkFailure(completed: Int, error: net::NetError)
 	pub Http2ClientServiceRequestFailure(completed: Int, failure: CoreOutboundHeadersFailure)
 	pub Http2ClientServiceRequestEncodeFailure(completed: Int, reason: String)
 	pub Http2ClientServiceConnectionFailure(completed: Int, failure: Http2ConnectionFailure)
@@ -104,7 +104,7 @@ pub fn client_bodyless_request(headers: HeaderList) -> Http2ClientRequest
 	Http2ClientBodylessRequest(headers)
 end
 
-pub fn request_endpoint_sequence<effect E>(endpoint: String, requests: List<Http2ClientRequest>, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
+pub fn request_endpoint_sequence<effect E>(endpoint: net::Address, requests: List<Http2ClientRequest>, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net::IO, concurrency, ...E]
 	client_request_next(endpoint, requests, NoRetainedClientConnection, 0, handler)
 end
 
@@ -145,6 +145,7 @@ end
 pub fn client_service_failure_kind(failure: Http2ClientServiceFailure) -> String
 	match failure
 		Http2ClientServiceStateFailure(_) => "state"
+		Http2ClientServiceNetworkFailure(_, _) => "network"
 		Http2ClientServiceRequestFailure(_, _) => "request"
 		Http2ClientServiceRequestEncodeFailure(_, _) => "request-encode"
 		Http2ClientServiceConnectionFailure(_, inner) => connection_failure_kind(inner)
@@ -157,6 +158,7 @@ end
 pub fn client_service_failure_id(failure: Http2ClientServiceFailure) -> String
 	match failure
 		Http2ClientServiceStateFailure(_) => "http2.client_service.state_failure"
+		Http2ClientServiceNetworkFailure(_, _) => "http2.client_service.network_failure"
 		Http2ClientServiceRequestFailure(_, inner) => http2::core::outbound_headers_failure_id(inner)
 		Http2ClientServiceRequestEncodeFailure(_, _) => "http2.client_service.request_encode_failure"
 		Http2ClientServiceConnectionFailure(_, inner) => connection_failure_id(inner)
@@ -169,6 +171,7 @@ end
 pub fn client_service_failure_reason(failure: Http2ClientServiceFailure) -> String
 	match failure
 		Http2ClientServiceStateFailure(reason) => reason
+		Http2ClientServiceNetworkFailure(_, net::NetError(_, _, _, _, message)) => message
 		Http2ClientServiceRequestFailure(_, inner) => http2::core::outbound_headers_failure_rule_provenance(inner)
 		Http2ClientServiceRequestEncodeFailure(_, reason) => reason
 		Http2ClientServiceConnectionFailure(_, inner) => connection_failure_reason(inner)
@@ -181,6 +184,7 @@ end
 pub fn client_service_failure_completed(failure: Http2ClientServiceFailure) -> Int
 	match failure
 		Http2ClientServiceStateFailure(_) => 0
+		Http2ClientServiceNetworkFailure(completed, _) => completed
 		Http2ClientServiceRequestFailure(completed, _) => completed
 		Http2ClientServiceRequestEncodeFailure(completed, _) => completed
 		Http2ClientServiceConnectionFailure(completed, _) => completed
@@ -276,14 +280,14 @@ fn service_result_accepted(result: Result<(), Http2ServiceFailure>) -> Int
 	end
 end
 
-fn client_request_next<effect E>(endpoint: String, requests: List<Http2ClientRequest>, retained: Http2ClientRetainedConnection, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
+fn client_request_next<effect E>(endpoint: net::Address, requests: List<Http2ClientRequest>, retained: Http2ClientRetainedConnection, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net::IO, concurrency, ...E]
 	match requests
-		Nil => client_close_retained(retained)
+		Nil => client_close_retained(retained, completed)
 		Cons(request, tail) => client_dispatch_request(endpoint, request, tail, retained, completed, handler)
 	end
 end
 
-fn client_dispatch_request<effect E>(endpoint: String, request: Http2ClientRequest, tail: List<Http2ClientRequest>, retained: Http2ClientRetainedConnection, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
+fn client_dispatch_request<effect E>(endpoint: net::Address, request: Http2ClientRequest, tail: List<Http2ClientRequest>, retained: Http2ClientRetainedConnection, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net::IO, concurrency, ...E]
 	match retained
 		NoRetainedClientConnection => client_connect_and_run(endpoint, request, tail, completed, handler)
 		RetainedClientConnection(stream, state) => if client_connection_reusable(state)
@@ -294,15 +298,26 @@ fn client_dispatch_request<effect E>(endpoint: String, request: Http2ClientReque
 	end
 end
 
-fn client_connect_and_run<effect E>(endpoint: String, request: Http2ClientRequest, tail: List<Http2ClientRequest>, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
-	let stream = http2::legacy_network::connect(endpoint)
-	let state = client_service_initial_state()?
-	client_run_one(endpoint, stream, state, false, request, tail, completed, handler)
+fn client_connect_and_run<effect E>(endpoint: net::Address, request: Http2ClientRequest, tail: List<Http2ClientRequest>, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net::IO, concurrency, ...E]
+	let stream = client_connect(endpoint, completed)?
+	match client_service_initial_state()
+		Ok(state) => client_run_one(endpoint, stream, state, false, request, tail, completed, handler)
+		Err(failure) => client_fail_close(stream, failure)
+	end
 end
 
-fn client_replace_connection<effect E>(endpoint: String, stream: NetStream, request: Http2ClientRequest, tail: List<Http2ClientRequest>, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
-	http2::legacy_network::close_stream(stream)
-	client_connect_and_run(endpoint, request, tail, completed, handler)
+fn client_connect(endpoint: net::Address, completed: Int) -> Result<net::Stream, Http2ClientServiceFailure> effects [net::IO]
+	match net::connect(endpoint)
+		Ok(stream) => Ok(stream)
+		Err(error) => Err(Http2ClientServiceNetworkFailure(completed, error))
+	end
+end
+
+fn client_replace_connection<effect E>(endpoint: net::Address, stream: NetStream, request: Http2ClientRequest, tail: List<Http2ClientRequest>, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net::IO, concurrency, ...E]
+	match net::close_stream(stream)
+		Ok(_) => client_connect_and_run(endpoint, request, tail, completed, handler)
+		Err(error) => Err(Http2ClientServiceNetworkFailure(completed, error))
+	end
 end
 
 fn client_service_initial_state() -> Result<CoreConnectionState, Http2ClientServiceFailure>
@@ -312,7 +327,7 @@ fn client_service_initial_state() -> Result<CoreConnectionState, Http2ClientServ
 	end
 end
 
-fn client_run_one<effect E>(endpoint: String, stream: NetStream, state: CoreConnectionState, reused: Bool, request: Http2ClientRequest, tail: List<Http2ClientRequest>, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
+fn client_run_one<effect E>(endpoint: net::Address, stream: NetStream, state: CoreConnectionState, reused: Bool, request: Http2ClientRequest, tail: List<Http2ClientRequest>, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net::IO, concurrency, ...E]
 	let worker = client_spawn_request(stream, state, reused, request)
 	match task::join(worker)
 		Ok(Ok(result)) => client_handle_response(endpoint, stream, result, tail, completed, handler)
@@ -321,7 +336,7 @@ fn client_run_one<effect E>(endpoint: String, stream: NetStream, state: CoreConn
 	end
 end
 
-fn client_handle_response<effect E>(endpoint: String, stream: NetStream, result: Http2ClientTaskResult, tail: List<Http2ClientRequest>, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net, concurrency, ...E]
+fn client_handle_response<effect E>(endpoint: net::Address, stream: NetStream, result: Http2ClientTaskResult, tail: List<Http2ClientRequest>, completed: Int, handler: fn(Http2ClientResponse) -> Result<(), String> effects [...E]) -> Result<(), Http2ClientServiceFailure> effects [net::IO, concurrency, ...E]
 	match result
 		Http2ClientTaskResult(response, state) => match handler(response)
 			Ok(_) => client_request_next(endpoint, tail, RetainedClientConnection(stream, state), completed + 1, handler)
@@ -330,40 +345,46 @@ fn client_handle_response<effect E>(endpoint: String, stream: NetStream, result:
 	end
 end
 
-fn client_close_retained(retained: Http2ClientRetainedConnection) -> Result<(), Http2ClientServiceFailure> effects [net]
+fn client_close_retained(retained: Http2ClientRetainedConnection, completed: Int) -> Result<(), Http2ClientServiceFailure> effects [net::IO]
 	match retained
 		NoRetainedClientConnection => Ok(())
-		RetainedClientConnection(stream, _) => client_close_stream_ok(stream)
+		RetainedClientConnection(stream, _) => client_close_stream_ok(stream, completed)
 	end
 end
 
-fn client_close_stream_ok(stream: NetStream) -> Result<(), Http2ClientServiceFailure> effects [net]
-	http2::legacy_network::close_stream(stream)
-	Ok(())
+fn client_close_stream_ok(stream: NetStream, completed: Int) -> Result<(), Http2ClientServiceFailure> effects [net::IO]
+	match net::close_stream(stream)
+		Ok(_) => Ok(())
+		Err(error) => Err(Http2ClientServiceNetworkFailure(completed, error))
+	end
 end
 
-fn client_fail_close(stream: NetStream, failure: Http2ClientServiceFailure) -> Result<(), Http2ClientServiceFailure> effects [net]
-	http2::legacy_network::close_stream(stream)
-	Err(failure)
+fn client_fail_close(stream: NetStream, failure: Http2ClientServiceFailure) -> Result<(), Http2ClientServiceFailure> effects [net::IO]
+	match net::close_stream(stream)
+		Ok(_) => Err(failure)
+		Err(error) => Err(Http2ClientServiceNetworkFailure(client_service_failure_completed(failure), error))
+	end
 end
 
 fn client_connection_task_failure(completed: Int, failure: Http2ClientServiceFailure) -> Http2ClientServiceFailure
 	match failure
+		Http2ClientServiceNetworkFailure(_, error) => Http2ClientServiceNetworkFailure(completed, error)
 		Http2ClientServiceRequestFailure(_, inner) => Http2ClientServiceRequestFailure(completed, inner)
 		Http2ClientServiceRequestEncodeFailure(_, reason) => Http2ClientServiceRequestEncodeFailure(completed, reason)
+		Http2ClientServiceConnectionFailure(_, Http2ConnectionTransportFailure(error)) => Http2ClientServiceNetworkFailure(completed, error)
 		Http2ClientServiceConnectionFailure(_, inner) => Http2ClientServiceConnectionFailure(completed, inner)
 		Http2ClientServiceIncompleteResponse(_, stream_id, lifecycle) => Http2ClientServiceIncompleteResponse(completed, stream_id, lifecycle)
 		_ => failure
 	end
 end
 
-fn client_spawn_request(stream: NetStream, state: CoreConnectionState, reused: Bool, request: Http2ClientRequest) -> Task<Result<Http2ClientTaskResult, Http2ClientServiceFailure>> effects [net, concurrency]
+fn client_spawn_request(stream: NetStream, state: CoreConnectionState, reused: Bool, request: Http2ClientRequest) -> Task<Result<Http2ClientTaskResult, Http2ClientServiceFailure>> effects [net::IO, concurrency]
 	let context = { stream: stream, state: state, reused: reused, request: request }
 	task::spawn_with<Result<Http2ClientTaskResult, Http2ClientServiceFailure>, { stream : NetStream, state : CoreConnectionState, reused : Bool, request : Http2ClientRequest }>(client_request_task, context)
 end
 
-fn client_request_task(context: { stream : NetStream, state : CoreConnectionState, reused : Bool, request : Http2ClientRequest }) -> Result<Http2ClientTaskResult, Http2ClientServiceFailure> effects [net]
-	handle client_request_body(context.state, context.reused, context.request) with http2::legacy_network::duplex_stream(context.stream)
+fn client_request_task(context: { stream : NetStream, state : CoreConnectionState, reused : Bool, request : Http2ClientRequest }) -> Result<Http2ClientTaskResult, Http2ClientServiceFailure> effects [net::IO]
+	handle client_request_body(context.state, context.reused, context.request) with transport::network::net_stream(context.stream)
 end
 
 fn start_server(state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [std::transport::DuplexStream]

@@ -218,6 +218,12 @@ caller's active `std::net::IO` handler. Its internal
 effect or a callback effect. The [HTTP/2 specification](http2.md#connection-drivers-and-services)
 defines the service result and cleanup behavior.
 
+`http2::connection::request_endpoint_sequence<effect E>` has the same public
+effect set, `[std::net::IO, concurrency, ...E]`, for the TCP client. Its
+spawned request tasks inherit the active `std::net::IO` handler. Their
+`transport::network::net_stream` handlers adapt owned streams without
+installing a host provider or consuming callback effects.
+
 ## Stdio Calls
 
 The implemented compiler-known stdio calls are registered in the standard
