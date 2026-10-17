@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use veln_repo_mcp_standard_library_docs::{
-    generate_checked_bundle, verify_checked_artifact, verify_freshness, write_checked_outputs,
+    generate_checked_bundle, verify_freshness, write_checked_outputs,
 };
 
 struct Cli {
@@ -11,7 +11,6 @@ struct Cli {
 
 enum Command {
     Generate,
-    Check,
     CheckFresh,
 }
 
@@ -23,7 +22,6 @@ fn main() {
     let result = match cli.command {
         Command::Generate => generate_checked_bundle()
             .and_then(|generated| write_checked_outputs(&cli.repository_root, &generated)),
-        Command::Check => verify_checked_artifact(),
         Command::CheckFresh => verify_freshness().map_err(|mismatch| {
             format!(
                 "run `cargo run --locked -p veln-repo-mcp-standard-library-docs -- . generate` to regenerate the MCP standard-library package-documentation resources; artifact_matches={}, digest_matches={}, checked_digest={}, generated_digest={}",
@@ -62,15 +60,25 @@ fn parse_cli() -> Result<Cli, String> {
 fn parse_command(command: &str) -> Result<Command, String> {
     match command {
         "generate" => Ok(Command::Generate),
-        "check" => Ok(Command::Check),
         "check-fresh" => Ok(Command::CheckFresh),
         _ => Err(format!(
-            "remove unknown command `{command}`; expected generate, check, or check-fresh"
+            "remove unknown command `{command}`; expected generate or check-fresh"
         )),
     }
 }
 
 fn usage() -> String {
-    "usage: veln-repo-mcp-standard-library-docs [REPOSITORY_ROOT] <generate|check|check-fresh>"
+    "usage: veln-repo-mcp-standard-library-docs [REPOSITORY_ROOT] <generate|check-fresh>"
         .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_command, usage};
+
+    #[test]
+    fn check_is_not_a_supported_command() {
+        assert!(parse_command("check").is_err());
+        assert!(!usage().contains("|check|"));
+    }
 }
