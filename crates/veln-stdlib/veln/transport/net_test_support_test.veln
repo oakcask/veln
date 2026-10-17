@@ -59,6 +59,164 @@ fn network_reply(status: String, value: String, bytes: ByteChunk, resolved_endpo
 	{ status: status, value: value, local: value, peer: value, bytes: bytes, resolved_endpoints: resolved_endpoints, bytes_committed: bytes_committed, category: category, phase: "during_operation", input_committed: 0, output_committed: if status == "error" bytes_committed else 0 end, ownership_committed: 0, cause: cause }
 end
 
+fn failure(operation: String, message: String) -> net::NetError
+	net::NetError(operation, Some(net::Tcp4), Some("192.0.2.1:443"), net::ConnectionReset, message)
+end
+
+fn stream_matches(actual: net::Stream, expected: net::Stream) -> Bool
+	actual == expected
+end
+
+pub handler owning_scripted_io(mode: String, expected: { tx : Sender<Option<net::Stream>>, rx : Receiver<Option<net::Stream>> }, phase: { tx : Sender<String>, rx : Receiver<String> }, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) for net::IO effects [net, time, concurrency]
+	resolve(address) => unexpected_endpoints(trace, "resolve")
+	listen(address) => unexpected_listener(trace, "listen")
+	connect(address, deadline, token) => owning_connect(address, deadline, token, expected, phase, trace)
+	accept(listener, deadline, token) => unexpected_stream(trace, "accept")
+	listener_address(listener) => unexpected_endpoint(trace, "listener-address")
+	close_listener(listener) => unexpected_unit(trace, "close-listener")
+	read(stream, deadline, token) => owning_read(stream, expected, mode, trace)
+	write(stream, bytes, deadline, token) => owning_write(stream, expected, mode, bytes, trace)
+	local_address(stream) => unexpected_endpoint(trace, "local-address")
+	peer_address(stream) => unexpected_endpoint(trace, "peer-address")
+	shutdown_read(stream) => unexpected_unit(trace, "shutdown-read")
+	shutdown_write(stream) => unexpected_unit(trace, "shutdown-write")
+	close_stream(stream) => owning_close(stream, phase, trace)
+end
+
+pub handler lifecycle_network(mode: String, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => lifecycle_network_reply(mode, trace, operation, subject, bytes)
+end
+
+fn lifecycle_network_reply(mode: String, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String, subject: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+	let _ = trace_push(trace, string::concat("host:", operation))
+	scripted_network_reply(mode, trace, operation, subject, bytes)
+end
+
+fn owning_connect(address: net::Address, deadline: Option<Deadline>, token: Option<CancelToken>, expected: { tx : Sender<Option<net::Stream>>, rx : Receiver<Option<net::Stream>> }, phase: { tx : Sender<String>, rx : Receiver<String> }, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<net::Stream, net::NetError> effects [net, time, concurrency]
+	let current_phase: String = option_unwrap_or(channel::recv(phase.rx), "adapter")
+	let _ = channel::send(phase.tx, current_phase)
+	if current_phase == "setup"
+		match prelude_builtin::net_system_connect(address, deadline, token)
+			Ok(stream) => begin
+				let captured: Option<net::Stream> = option_unwrap_or(channel::recv(expected.rx), None)
+				let retained: Option<net::Stream> = match captured None => Some(stream) Some(value) => Some(value) end
+				let _ = channel::send(expected.tx, retained)
+				Ok(stream)
+			end
+			Err(error) => Err(error)
+		end
+	else
+		unexpected_stream(trace, "connect")
+	end
+end
+
+fn captured_stream(expected: { tx : Sender<Option<net::Stream>>, rx : Receiver<Option<net::Stream>> }) -> Option<net::Stream> effects [concurrency]
+	let captured: Option<net::Stream> = option_unwrap_or(channel::recv(expected.rx), None)
+	let _ = channel::send(expected.tx, captured)
+	captured
+end
+
+fn owning_read(stream: net::Stream, expected: { tx : Sender<Option<net::Stream>>, rx : Receiver<Option<net::Stream>> }, mode: String, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<net::ReadOutcome, net::NetError> effects [concurrency]
+	match captured_stream(expected)
+		Some(captured) => scripted_read(stream, captured, mode, trace)
+		None => begin
+			let _ = trace_push(trace, "read:uncaptured")
+			Err(failure("uncaptured-stream", "adapter read before resource setup"))
+		end
+	end
+end
+
+fn owning_write(stream: net::Stream, expected: { tx : Sender<Option<net::Stream>>, rx : Receiver<Option<net::Stream>> }, mode: String, bytes: ByteChunk, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> net::WriteOutcome effects [concurrency]
+	match captured_stream(expected)
+		Some(captured) => scripted_write(stream, captured, mode, bytes, trace)
+		None => begin
+			let _ = trace_push(trace, "write:uncaptured")
+			net::WriteFailed(net::ByteCount(0), failure("uncaptured-stream", "adapter write before resource setup"))
+		end
+	end
+end
+
+fn owning_close(stream: net::Stream, phase: { tx : Sender<String>, rx : Receiver<String> }, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<(), net::NetError> effects [net, concurrency]
+	let current_phase: String = option_unwrap_or(channel::recv(phase.rx), "adapter")
+	let _ = channel::send(phase.tx, current_phase)
+	if current_phase == "cleanup"
+		prelude_builtin::net_system_close_stream(stream)
+	else
+		unexpected_unit(trace, "close-stream")
+	end
+end
+
+fn unexpected_endpoints(trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String) -> Result<List<net::Endpoint>, net::NetError> effects [concurrency]
+	let _ = trace_push(trace, operation)
+	Err(failure(string::concat("unexpected-", operation), "adapter performed a connection or lifecycle operation"))
+end
+
+fn unexpected_listener(trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String) -> Result<net::Listener, net::NetError> effects [concurrency]
+	let _ = trace_push(trace, operation)
+	Err(failure(string::concat("unexpected-", operation), "adapter performed a connection or lifecycle operation"))
+end
+
+fn unexpected_stream(trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String) -> Result<net::Stream, net::NetError> effects [concurrency]
+	let _ = trace_push(trace, operation)
+	Err(failure(string::concat("unexpected-", operation), "adapter performed a connection or lifecycle operation"))
+end
+
+fn unexpected_endpoint(trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String) -> Result<net::Endpoint, net::NetError> effects [concurrency]
+	let _ = trace_push(trace, operation)
+	Err(failure(string::concat("unexpected-", operation), "adapter performed a connection or lifecycle operation"))
+end
+
+fn unexpected_unit(trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String) -> Result<(), net::NetError> effects [concurrency]
+	let _ = trace_push(trace, operation)
+	Err(failure(string::concat("unexpected-", operation), "adapter performed a connection or lifecycle operation"))
+end
+
+fn scripted_read(stream: net::Stream, expected: net::Stream, mode: String, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<net::ReadOutcome, net::NetError> effects [concurrency]
+	let operation = if stream_matches(stream, expected)
+		"read:captured"
+	else
+		"read:other"
+	end
+	let _ = trace_push(trace, operation)
+	if not stream_matches(stream, expected)
+		Err(failure("wrong-stream", "read used a stream other than the captured stream"))
+	else if mode == "data"
+		match byte_chunk_from_visible_ascii_string("data")
+			Ok(bytes) => Ok(net::ReadChunk(bytes))
+			Err(message) => Err(failure("fixture", message))
+		end
+	else if mode == "end"
+		Ok(net::ReadEnd)
+	else if mode == "empty"
+		Ok(net::ReadChunk(byte_chunk([])))
+	else
+		Err(failure("scripted-read", "read failed"))
+	end
+end
+
+fn scripted_write(stream: net::Stream, expected: net::Stream, mode: String, bytes: ByteChunk, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> net::WriteOutcome effects [concurrency]
+	if not stream_matches(stream, expected)
+		begin
+			let _ = trace_push(trace, "write:other")
+			net::WriteFailed(net::ByteCount(0), failure("wrong-stream", "write used a stream other than the captured stream"))
+		end
+	else
+		match byte_chunk_to_visible_ascii_string(bytes)
+			Err(message) => net::WriteFailed(net::ByteCount(0), failure("fixture", message))
+			Ok(text) => begin
+				let _ = trace_push(trace, string::concat("write:", text))
+				if mode == "write-failure"
+					net::WriteFailed(net::ByteCount(1), failure("scripted-write", "write failed"))
+				else if text == "abc"
+					net::Written(net::ByteCount(1))
+				else
+					net::Written(byte_chunk_count(bytes))
+				end
+			end
+		end
+	end
+end
+
 fn read_chunk() -> Result<Option<ByteChunk>, net::NetError> effects [transport::DuplexStream]
 	perform transport::DuplexStream::read_chunk()
 end
@@ -67,61 +225,132 @@ fn write_chunks(chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [t
 	perform transport::DuplexStream::write_chunks(chunks)
 end
 
-fn run_read(mode: String) -> Result<{ result : Result<Option<ByteChunk>, net::NetError>, trace : List<String> }, String> effects [net, time, concurrency]
-	let trace = channel::bounded<List<String>>(1)
-	let _ = channel::send(trace.tx, list_nil())
-	handle handle run_read_with_resources(mode, trace) with net::system() with scripted_network(mode, trace)
+fn read_with_network_adapter(stream: net::Stream) -> Result<Option<ByteChunk>, net::NetError> effects [net::IO]
+	transport::network::read_stream_chunk(stream)
 end
 
-fn run_read_with_resources(mode: String, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<{ result : Result<Option<ByteChunk>, net::NetError>, trace : List<String> }, String> effects [net::IO, concurrency]
-	let seed = transport::net_resource_test_support_test::stream_or_message("captured")?
-	let other = transport::net_resource_test_support_test::stream_or_message("other")?
-	let _ = other
-	let result = handle read_chunk() with transport::network::net_stream(seed)
+fn write_with_network_adapter(stream: net::Stream, chunks: List<ByteChunk>) -> Result<(), net::NetError> effects [net::IO]
+	transport::network::write_stream_chunks(stream, chunks)
+end
+
+fn run_owned_read(mode: String) -> Result<{ result : Result<Option<ByteChunk>, net::NetError>, trace : List<String> }, String> effects [net, time, concurrency]
+	let trace = channel::bounded<List<String>>(1)
+	let _ = channel::send(trace.tx, list_nil())
+	let result = handle handle run_owned_read_with_resources() with net::system() with lifecycle_network(mode, trace)
 	let observed: List<String> = option_unwrap_or(channel::recv(trace.rx), list_nil())
 	Ok({ result: result, trace: observed })
 end
 
-pub fn read_result(mode: String) -> Result<{ result : Result<Option<ByteChunk>, net::NetError>, trace : List<String> }, String> effects [net, time, concurrency]
-	run_read(mode)
+fn run_owned_read_with_resources() -> Result<Option<ByteChunk>, net::NetError> effects [net::IO]
+	match transport::net_resource_test_support_test::stream("captured")
+		Ok(seed) => handle read_chunk() with transport::network::net_stream(seed)
+		Err(error) => Err(error)
+	end
 end
 
-pub fn read_failure_matches(result: Result<Option<ByteChunk>, net::NetError>, operation: String) -> Bool
+pub fn owned_read_result(mode: String) -> Result<{ result : Result<Option<ByteChunk>, net::NetError>, trace : List<String> }, String> effects [net, time, concurrency]
+	run_owned_read(mode)
+end
+
+fn trace_count(trace: List<String>, expected: String) -> Int
+	match trace
+		Nil => 0
+		Cons(operation, tail) => if operation == expected 1 + trace_count(tail, expected) else trace_count(tail, expected) end
+	end
+end
+
+fn trace_length(trace: List<String>) -> Int
+	match trace
+		Nil => 0
+		Cons(_, tail) => 1 + trace_length(tail)
+	end
+end
+
+pub fn owned_read_trace_matches(trace: List<String>) -> Bool
+	trace_length(trace) == 5 and trace_count(trace, "host:resolve_tcp4") == 1 and trace_count(trace, "host:connect") == 1 and trace_count(trace, "host:read") == 1 and trace_count(trace, "read:captured") == 1 and trace_count(trace, "host:close_stream") == 1
+end
+
+fn run_direct_read(mode: String) -> Result<{ result : Result<Option<ByteChunk>, net::NetError>, trace : List<String> }, String> effects [net, time, concurrency]
+	let resource_trace = channel::bounded<List<String>>(1)
+	let _ = channel::send(resource_trace.tx, list_nil())
+	let expected = channel::bounded<Option<Stream>>(1)
+	let empty_expected: Option<net::Stream> = None
+	let _ = channel::send(expected.tx, empty_expected)
+	let phase = channel::bounded<String>(1)
+	let _ = channel::send(phase.tx, "setup")
+	let trace = channel::bounded<List<String>>(1)
+	let _ = channel::send(trace.tx, list_nil())
+	handle handle run_direct_read_with_resources(mode, expected, phase, trace) with owning_scripted_io(mode, expected, phase, trace) with scripted_network("resources", resource_trace)
+end
+
+fn run_direct_read_with_resources(mode: String, expected: { tx : Sender<Option<net::Stream>>, rx : Receiver<Option<net::Stream>> }, phase: { tx : Sender<String>, rx : Receiver<String> }, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<{ result : Result<Option<ByteChunk>, net::NetError>, trace : List<String> }, String> effects [net::IO, concurrency]
+	let seed = transport::net_resource_test_support_test::stream_or_message("captured")?
+	let other = transport::net_resource_test_support_test::stream_or_message("other")?
+	let _ = channel::recv(phase.rx)
+	let _ = channel::send(phase.tx, "adapter")
+	let result = read_with_network_adapter(seed)
+	let observed: List<String> = option_unwrap_or(channel::recv(trace.rx), list_nil())
+	let _ = channel::send(trace.tx, list_nil())
+	let _ = channel::recv(phase.rx)
+	let _ = channel::send(phase.tx, "cleanup")
+	let _ = net::close_stream(other)
+	let _ = net::close_stream(seed)
+	Ok({ result: result, trace: observed })
+end
+
+pub fn direct_read_result(mode: String) -> Result<{ result : Result<Option<ByteChunk>, net::NetError>, trace : List<String> }, String> effects [net, time, concurrency]
+	run_direct_read(mode)
+end
+
+pub fn read_failure_matches(result: Result<Option<ByteChunk>, net::NetError>, operation: String, message: String) -> Bool
 	match result
-		Err(net::NetError(observed_operation, None, Some("captured:443"), net::ConnectionReset, _)) => observed_operation == operation
+		Err(net::NetError(observed_operation, Some(net::Tcp4), Some("192.0.2.1:443"), net::ConnectionReset, observed_message)) => observed_operation == operation and observed_message == message
 		_ => false
 	end
 end
 
 pub fn empty_read_failure_matches(result: Result<Option<ByteChunk>, net::NetError>) -> Bool
 	match result
-		Err(net::NetError("read", _, _, net::Other, _)) => true
+		Err(net::NetError("read", None, None, net::Other, "read returned an empty chunk without reaching end-of-stream")) => true
 		_ => false
 	end
 end
 
-fn run_write(mode: String, chunks: List<ByteChunk>) -> Result<{ result : Result<(), net::NetError>, trace : List<String> }, String> effects [net, time, concurrency]
+fn run_direct_write(mode: String, chunks: List<ByteChunk>) -> Result<{ result : Result<(), net::NetError>, trace : List<String> }, String> effects [net, time, concurrency]
+	let resource_trace = channel::bounded<List<String>>(1)
+	let _ = channel::send(resource_trace.tx, list_nil())
+	let expected = channel::bounded<Option<Stream>>(1)
+	let empty_expected: Option<net::Stream> = None
+	let _ = channel::send(expected.tx, empty_expected)
+	let phase = channel::bounded<String>(1)
+	let _ = channel::send(phase.tx, "setup")
 	let trace = channel::bounded<List<String>>(1)
 	let _ = channel::send(trace.tx, list_nil())
-	handle handle run_write_with_resources(chunks, trace) with net::system() with scripted_network(mode, trace)
+	handle handle run_direct_write_with_resources(mode, chunks, phase, trace) with owning_scripted_io(mode, expected, phase, trace) with scripted_network("resources", resource_trace)
 end
 
-fn run_write_with_resources(chunks: List<ByteChunk>, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<{ result : Result<(), net::NetError>, trace : List<String> }, String> effects [net::IO, concurrency]
+fn run_direct_write_with_resources(mode: String, chunks: List<ByteChunk>, phase: { tx : Sender<String>, rx : Receiver<String> }, trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<{ result : Result<(), net::NetError>, trace : List<String> }, String> effects [net::IO, concurrency]
 	let seed = transport::net_resource_test_support_test::stream_or_message("captured")?
 	let other = transport::net_resource_test_support_test::stream_or_message("other")?
-	let _ = other
-	let result = handle write_chunks(chunks) with transport::network::net_stream(seed)
+	let _ = channel::recv(phase.rx)
+	let _ = channel::send(phase.tx, "adapter")
+	let result = write_with_network_adapter(seed, chunks)
 	let observed: List<String> = option_unwrap_or(channel::recv(trace.rx), list_nil())
+	let _ = channel::send(trace.tx, list_nil())
+	let _ = channel::recv(phase.rx)
+	let _ = channel::send(phase.tx, "cleanup")
+	let _ = net::close_stream(other)
+	let _ = net::close_stream(seed)
 	Ok({ result: result, trace: observed })
 end
 
-pub fn write_result(mode: String, chunks: List<ByteChunk>) -> Result<{ result : Result<(), net::NetError>, trace : List<String> }, String> effects [net, time, concurrency]
-	run_write(mode, chunks)
+pub fn direct_write_result(mode: String, chunks: List<ByteChunk>) -> Result<{ result : Result<(), net::NetError>, trace : List<String> }, String> effects [net, time, concurrency]
+	run_direct_write(mode, chunks)
 end
 
-pub fn write_failure_matches(result: Result<(), net::NetError>, operation: String) -> Bool
+pub fn write_failure_matches(result: Result<(), net::NetError>, operation: String, message: String) -> Bool
 	match result
-		Err(net::NetError(observed_operation, None, Some("captured:443"), net::ConnectionReset, _)) => observed_operation == operation
+		Err(net::NetError(observed_operation, Some(net::Tcp4), Some("192.0.2.1:443"), net::ConnectionReset, observed_message)) => observed_operation == operation and observed_message == message
 		_ => false
 	end
 end
