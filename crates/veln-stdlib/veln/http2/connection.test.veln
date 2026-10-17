@@ -145,7 +145,7 @@ fn service_network_failure_matches(result: Result<(), Http2ServiceFailure>, acce
 	match result
 		Err(failure) => if http2::connection::service_failure_kind(failure) == "network" and http2::connection::service_failure_id(failure) == "http2.service.network_failure" and http2::connection::service_failure_accepted(failure) == accepted
 			match failure
-				Http2ServiceFailure::Http2ServiceNetworkFailure(observed_accepted, net::NetError(observed_operation, None, Some(observed_address), net::ConnectionReset, _)) => observed_accepted == accepted and observed_operation == operation and observed_address == service_network_failure_address(operation)
+				Http2ServiceFailure::Http2ServiceNetworkFailure(observed_accepted, net::NetError(observed_operation, None, Some(observed_address), net::ConnectionReset, observed_message)) => observed_accepted == accepted and observed_operation == operation and observed_address == service_network_failure_address(operation) and http2::connection::service_failure_reason(failure) == observed_message
 				_ => false
 			end
 		else
@@ -605,7 +605,7 @@ end
 fn client_network_failure_matches(failure: Http2ClientServiceFailure, completed: Int, operation: String) -> Bool
 	if http2::connection::client_service_failure_kind(failure) == "network" and http2::connection::client_service_failure_id(failure) == "http2.client_service.network_failure" and http2::connection::client_service_failure_completed(failure) == completed
 		match failure
-			Http2ClientServiceFailure::Http2ClientServiceNetworkFailure(observed_completed, net::NetError(observed_operation, observed_network, observed_address, net::ConnectionReset, _)) => observed_completed == completed and observed_operation == operation and client_network_failure_context_matches(observed_network, observed_address, operation)
+			Http2ClientServiceFailure::Http2ClientServiceNetworkFailure(observed_completed, net::NetError(observed_operation, observed_network, observed_address, net::ConnectionReset, observed_message)) => observed_completed == completed and observed_operation == operation and client_network_failure_context_matches(observed_network, observed_address, operation) and http2::connection::client_service_failure_reason(failure) == observed_message
 			_ => false
 		end
 	else
