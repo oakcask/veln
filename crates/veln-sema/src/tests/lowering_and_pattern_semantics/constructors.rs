@@ -321,6 +321,32 @@ fn conflicting_payload_constructor_type_arguments_report_mismatch() {
 }
 
 #[test]
+fn inferred_nested_payload_type_constrains_later_constructor_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Envelope<A>\n",
+            "  Envelope(values: List<A>, fallback: A)\n",
+            "end\n",
+            "fn main(values: List<Int>) -> Int\n",
+            "  let envelope = Envelope(values, \"bad\")\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(diagnostics[0].message, "expected `Int`, but found `String`");
+    assert_diagnostic_span(&diagnostics[0], 5, 35, 5, 40);
+}
+
+#[test]
 fn non_constructor_expected_type_still_reports_outer_mismatch() {
     let source = SourceFile::new(
         "main.veln",

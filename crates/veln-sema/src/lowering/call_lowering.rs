@@ -1,5 +1,50 @@
 use super::*;
 
+enum ConstructorTypeContext<'a> {
+    Expected(&'a CoreType),
+    Inferred(Vec<CoreType>),
+}
+
+impl<'a> ConstructorTypeContext<'a> {
+    fn new(expected: Option<&'a CoreType>, constructor: AdtConstructor<'_>) -> Self {
+        match expected {
+            Some(expected) if unification::adt_args(expected, constructor.descriptor).is_some() => {
+                Self::Expected(expected)
+            }
+            _ => Self::Inferred(vec![
+                CoreType::Unknown;
+                constructor.descriptor.type_parameters.len()
+            ]),
+        }
+    }
+
+    fn payload_type(&self, constructor: AdtConstructor<'_>, index: usize) -> CoreType {
+        let resolved = match self {
+            Self::Expected(expected) => adt::core_payload_type(expected, constructor, index),
+            Self::Inferred(args) => adt::core_payload_type_with_args(constructor, args, index),
+        };
+        resolved.unwrap_or(CoreType::Unknown)
+    }
+
+    fn observe_payload(
+        &mut self,
+        constructor: AdtConstructor<'_>,
+        index: usize,
+        actual: &CoreType,
+    ) {
+        if let Self::Inferred(args) = self {
+            adt::merge_core_type_args_from_payload(args, constructor, index, actual);
+        }
+    }
+
+    fn into_constructed_type(self, constructor: AdtConstructor<'_>) -> CoreType {
+        match self {
+            Self::Expected(expected) => expected.clone(),
+            Self::Inferred(args) => adt::core_constructed_type_from_args(constructor, &args),
+        }
+    }
+}
+
 impl<'a> CoreLowerer<'a> {
     pub(super) fn lower_call(
         &mut self,
@@ -624,15 +669,36 @@ impl<'a> CoreLowerer<'a> {
         expected: Option<&CoreType>,
         constructor: AdtConstructor,
     ) -> CoreExpr {
+        self.report_constructor_arity_mismatch(expr, args.len(), constructor);
+        let mut type_context = ConstructorTypeContext::new(expected, constructor);
+        let lowered_args =
+            self.lower_constructor_payloads(expr, args, constructor, &mut type_context);
+        let ty = type_context.into_constructed_type(constructor);
         let expected_count = constructor.variant.payload_fields.len();
-        if args.len() != expected_count {
+        for arg in args.iter().skip(expected_count) {
+            self.lower_expr(arg, None);
+        }
+        self.core_expr(
+            expr,
+            ty,
+            core_payload_constructor_kind(constructor, lowered_args),
+        )
+    }
+
+    fn report_constructor_arity_mismatch(
+        &mut self,
+        expr: &Expr,
+        actual_count: usize,
+        constructor: AdtConstructor<'_>,
+    ) {
+        let expected_count = constructor.variant.payload_fields.len();
+        if actual_count != expected_count {
             self.unsupported_expression(
                 expr,
                 constructor_arity_reason(constructor),
                 format!(
                     "{} constructor expects {expected_count} argument, but got {}",
-                    constructor.descriptor.diagnostic_name,
-                    args.len()
+                    constructor.descriptor.diagnostic_name, actual_count
                 ),
                 Some(JsonValue::object([
                     (
@@ -641,25 +707,23 @@ impl<'a> CoreLowerer<'a> {
                     ),
                     (
                         "actual_argument_count",
-                        JsonValue::Number(args.len() as i64),
+                        JsonValue::Number(actual_count as i64),
                     ),
                 ])),
             );
         }
-        let expected_constructor_type = expected
-            .and_then(|expected| unification::adt_args(expected, constructor.descriptor))
-            .is_some();
-        let mut inferred_type_args =
-            vec![CoreType::Unknown; constructor.descriptor.type_parameters.len()];
-        let mut lowered_args = Vec::new();
+    }
+
+    fn lower_constructor_payloads(
+        &mut self,
+        expr: &Expr,
+        args: &[Expr],
+        constructor: AdtConstructor<'_>,
+        type_context: &mut ConstructorTypeContext<'_>,
+    ) -> Vec<CoreExpr> {
+        let mut lowered_args = Vec::with_capacity(constructor.variant.payload_fields.len());
         for (index, _) in constructor.variant.payload_fields.iter().enumerate() {
-            let payload_type = expected
-                .filter(|_| expected_constructor_type)
-                .and_then(|expected| adt::core_payload_type(expected, constructor, index))
-                .or_else(|| {
-                    adt::core_payload_type_with_args(constructor, &inferred_type_args, index)
-                })
-                .unwrap_or(CoreType::Unknown);
+            let payload_type = type_context.payload_type(constructor, index);
             let lowered = args
                 .get(index)
                 .map(|arg| self.lower_expr(arg, Some(&payload_type)))
@@ -671,28 +735,9 @@ impl<'a> CoreLowerer<'a> {
                     );
                     self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
                 });
-            if !expected_constructor_type {
-                adt::merge_core_type_args_from_payload(
-                    &mut inferred_type_args,
-                    constructor,
-                    index,
-                    &lowered.ty,
-                );
-            }
+            type_context.observe_payload(constructor, index, &lowered.ty);
             lowered_args.push(lowered);
         }
-        let ty = if expected_constructor_type {
-            expected.cloned().unwrap_or(CoreType::Unknown)
-        } else {
-            adt::core_constructed_type_from_args(constructor, &inferred_type_args)
-        };
-        for arg in args.iter().skip(expected_count) {
-            self.lower_expr(arg, None);
-        }
-        self.core_expr(
-            expr,
-            ty,
-            core_payload_constructor_kind(constructor, lowered_args),
-        )
+        lowered_args
     }
 }
