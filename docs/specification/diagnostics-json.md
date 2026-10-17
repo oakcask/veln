@@ -152,11 +152,13 @@ exactly `written_type`,
 Each traversed field then contributes `kind: "record_field"` and its `name`.
 Separate and nested fields therefore retain distinct deterministic paths.
 
-For an alias-qualified failure, the primary span selects the outermost alias
-identifier and `written_type` retains the source-written refinement. Related
-entries identify each `type_alias_declaration` from outermost to innermost,
-then the `private_type_declaration` or `private_variant_declaration`, and then
-the `public_parameter_boundary` or `public_result_boundary`. A private
+For an alias-qualified failure at a root annotation, the primary span selects
+the outermost alias identifier. At a record field, the complete refinement or
+refinement-union span remains primary. In both positions, `written_type`
+retains the source-written refinement. Related entries identify each
+`type_alias_declaration` from outermost to innermost, then the
+`private_type_declaration` or `private_variant_declaration`, and then the
+`public_parameter_boundary` or `public_result_boundary`. A private
 declaration entry uses the declaration span
 from the selected ADT descriptor, including its generic arity. Another
 same-module ADT with the same type and variant names but a different arity does
@@ -194,8 +196,11 @@ require an instantiated base remain suppressed.
 An invalid annotation in a nested type argument or sibling alternative of the
 same root union also precedes but does not suppress an independently provable
 privacy diagnostic. Record-field traversal retains this recovery. It does not
-extend visibility checking into other structural type positions. Cyclic or
-ambiguous aliases do not manufacture a visibility identity. Distinct written
+extend visibility checking into other structural type positions. In
+particular, it skips a function-typed field and refinements inside that
+function type. An effect row on the skipped field does not stop traversal of a
+later sibling record field. Cyclic or ambiguous aliases do not manufacture a
+visibility identity. Distinct written
 alias paths to one terminal variant
 produce distinct diagnostics, while an exact repeated path retains its first
 occurrence. Exact test-companion access does not change public-signature
