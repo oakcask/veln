@@ -334,8 +334,9 @@ server service boundary. It exposes state creation failure, network failure
 with the unchanged `net::NetError` and accepted-connection count, application
 boundary failure with accepted-connection count, and task join failure with
 accepted-connection count. A network failure has kind `"network"` and id
-`"http2.service.network_failure"`. Projection helpers expose service failure
-kind, id, reason, accepted count, and stream id.
+`"http2.service.network_failure"`, and its reason is the message from the
+unchanged `net::NetError`. Projection helpers expose service failure kind, id,
+reason, accepted count, and stream id.
 
 `http2::connection::serve_connection(handler)` creates a server connection
 state and drives one caller-owned duplex stream through
@@ -903,18 +904,22 @@ Projections expose chunk count, indexed chunks, and concatenated bytes.
 ## Verification references
 
 The public implementations are under `crates/veln-stdlib/veln/http2/`.
-Adjacent companion tests and their separate Veln handler support exercise
-source-visible return values, unchanged direct transport errors, and failure
-projections. The `connection.test.veln` companion covers TCP service accept,
+Adjacent companion tests create opaque listeners and streams through the
+exported `net` module inside `net::system()`. Separate scoped host-network
+handlers supply deterministic results, so the companions exercise the public
+`net::IO` resource boundary without compiler-known network lookup. The
+production system handler translates the scripted host outcomes before the
+HTTP/2 assertions observe transport errors and failure projections. The
+`connection.test.veln` companion covers TCP service accept,
 stream I/O, stream-close, and listener-close failures on first and later
 accepted connections, cumulative accepted counts, cleanup precedence, and
-bounded iteration across thousands of completed connections with the separate
-`connection_service_test_support_test.veln` handler.
+bounded iteration across thousands of completed connections with
+`connection_service_test_support_test.veln`.
 The same companion covers client connect, stream I/O, and cleanup network
 failures, completed-request counts, exact connection-preface, SETTINGS, and
 request writes in operation order, and cleanup precedence including after the
-first write fails. It uses the separate scoped
-`connection_client_test_support_test.veln` handler.
+first write fails. `connection_client_test_support_test.veln` supplies the
+client-side host-network script.
 The checked
 [`http2-client-service-effect-row`](../../examples/specification/check/http2-client-service-effect-row/)
 case covers the public client effect boundary. The

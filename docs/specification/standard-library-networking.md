@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#usage; behavior=#network-operation-boundary; limits=#limits-and-errors
-update-when: The exported std net values, functions, system handler, duplex adapter, resource lifecycle, host-port behavior, effect boundary, or executable network examples change.
+update-when: The exported std net values, functions, system handler, duplex adapter, resource lifecycle, host-port behavior, effect boundary, or executable network evidence changes.
 ---
 
 # Standard-library Networking
@@ -346,9 +346,14 @@ The adapter implementations are in
 `crates/veln-stdlib/veln/transport/net.veln` and
 `crates/veln-stdlib/veln/transport/network.veln`. Their companion evidence is
 in `crates/veln-stdlib/veln/transport/net.test.veln` and the adjacent separate
-Veln test-support modules. It covers both import paths, typed reads,
-non-progress, complete ordered writes, captured-resource identity, and the
-absence of lifecycle or connection-management operations.
+Veln test-support modules. The companion invokes both adapter modules directly.
+Its host-backed path creates opaque streams through the exported `net` module,
+retains the host effects of `net::system()`, and observes provider-owned setup,
+I/O, and cleanup. Its separately traced `net::IO` fake establishes the adapter
+conversion for an empty successful read, unchanged typed read and write
+failures, complete ordered writes, empty-list behavior, captured-resource
+identity, and the absence of address, connection, shutdown, or lifecycle
+operations during adapter I/O.
 The JVM backend effect-injection tests use separate Veln test support to
 exercise the facade with opaque listener and stream resources and to check
 resource, option, byte, and result preservation. Checked command-level examples

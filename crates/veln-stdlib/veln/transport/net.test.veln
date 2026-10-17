@@ -1,6 +1,7 @@
 use prelude
 use transport
 use transport::net
+use net
 use transport::net_test_support_test
 use transport::net_resource_test_support_test
 
@@ -8,27 +9,31 @@ fn canonical_read() -> Result<Option<ByteChunk>, std::net::NetError> effects [tr
 	perform transport::DuplexStream::read_chunk()
 end
 
-fn canonical_read_result(mode: String) -> Result<{ result : Result<Option<ByteChunk>, std::net::NetError>, trace : List<String> }, String> effects [net, concurrency]
-	let seed = transport::net_resource_test_support_test::stream("captured")
+fn canonical_read_result(mode: String) -> Result<{ result : Result<Option<ByteChunk>, std::net::NetError>, trace : List<String> }, String> effects [net, time, concurrency]
 	let trace = channel::bounded<List<String>>(1)
 	let _ = channel::send(trace.tx, list_nil())
-	let result: Result<Option<ByteChunk>, std::net::NetError> = handle handle canonical_read() with transport::net::net_stream(seed) with transport::net_test_support_test::scripted_io(seed, mode, trace)
+	handle handle canonical_read_result_with_resources(trace) with net::system() with transport::net_test_support_test::scripted_network(mode, trace)
+end
+
+fn canonical_read_result_with_resources(trace: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) -> Result<{ result : Result<Option<ByteChunk>, std::net::NetError>, trace : List<String> }, String> effects [net::IO, concurrency]
+	let seed = transport::net_resource_test_support_test::stream_or_message("captured")?
+	let result: Result<Option<ByteChunk>, std::net::NetError> = handle canonical_read() with transport::net::net_stream(seed)
 	let observed: List<String> = option_unwrap_or(channel::recv(trace.rx), list_nil())
 	Ok({ result: result, trace: observed })
 end
 
-test adapter_read_preserves_data_on_captured_stream_only() -> Result<(), String> effects [net, concurrency]
-	match transport::net_test_support_test::read_result("data")?
-		{ result: Ok(Some(bytes)), trace: Cons("read:captured", Nil) } => if byte_chunk_to_visible_ascii_string(bytes)? == "data"
+test host_backed_adapter_preserves_data_on_captured_stream_only() -> Result<(), String> effects [net, time, concurrency]
+	match transport::net_test_support_test::owned_read_result("data")?
+		{ result: Ok(Some(bytes)), trace: trace } => if byte_chunk_to_visible_ascii_string(bytes)? == "data" and transport::net_test_support_test::owned_read_trace_matches(trace)
 			Ok(())
 		else
-			Err("adapter changed the read bytes")
+			Err("host-backed adapter changed the read bytes or owner lifecycle")
 		end
-		_ => Err("adapter did not return data from exactly one read of the captured stream")
+		_ => Err("host-backed adapter did not preserve its owned stream result")
 	end
 end
 
-test canonical_adapter_preserves_the_documented_read_boundary() -> Result<(), String> effects [net, concurrency]
+test canonical_adapter_preserves_the_documented_read_boundary() -> Result<(), String> effects [net, time, concurrency]
 	match canonical_read_result("data")?
 		{ result: Ok(Some(bytes)), trace: Cons("read:captured", Nil) } => if byte_chunk_to_visible_ascii_string(bytes)? == "data"
 			Ok(())
@@ -39,15 +44,15 @@ test canonical_adapter_preserves_the_documented_read_boundary() -> Result<(), St
 	end
 end
 
-test adapter_read_preserves_clean_end_on_captured_stream_only() -> Result<(), String> effects [net, concurrency]
-	match transport::net_test_support_test::read_result("end")?
+test adapter_read_preserves_clean_end_on_captured_stream_only() -> Result<(), String> effects [net, time, concurrency]
+	match transport::net_test_support_test::direct_read_result("end")?
 		{ result: Ok(None), trace: Cons("read:captured", Nil) } => Ok(())
 		_ => Err("adapter did not preserve clean end from exactly one read of the captured stream")
 	end
 end
 
-test adapter_read_preserves_network_failure_on_captured_stream_only() -> Result<(), String> effects [net, concurrency]
-	match transport::net_test_support_test::read_result("failure")?
+test adapter_read_preserves_network_failure_on_captured_stream_only() -> Result<(), String> effects [net, time, concurrency]
+	match transport::net_test_support_test::direct_read_result("failure")?
 		{ result: result, trace: Cons("read:captured", Nil) } => if transport::net_test_support_test::read_failure_matches(result, "scripted-read", "read failed")
 			Ok(())
 		else
@@ -57,8 +62,8 @@ test adapter_read_preserves_network_failure_on_captured_stream_only() -> Result<
 	end
 end
 
-test adapter_rejects_successful_empty_read_as_typed_non_progress() -> Result<(), String> effects [net, concurrency]
-	match transport::net_test_support_test::read_result("empty")?
+test adapter_rejects_successful_empty_read_as_typed_non_progress() -> Result<(), String> effects [net, time, concurrency]
+	match transport::net_test_support_test::direct_read_result("empty")?
 		{ result: result, trace: Cons("read:captured", Nil) } => if transport::net_test_support_test::empty_read_failure_matches(result)
 			Ok(())
 		else
@@ -68,24 +73,24 @@ test adapter_rejects_successful_empty_read_as_typed_non_progress() -> Result<(),
 	end
 end
 
-test adapter_writes_chunks_in_order_and_completes_partial_writes() -> Result<(), String> effects [net, concurrency]
+test adapter_writes_chunks_in_order_and_completes_partial_writes() -> Result<(), String> effects [net, time, concurrency]
 	let chunks = list_cons(byte_chunk_from_visible_ascii_string("abc")?, list_cons(byte_chunk_from_visible_ascii_string("xy")?, list_nil()))
-	match transport::net_test_support_test::write_result("ordered", chunks)?
+	match transport::net_test_support_test::direct_write_result("ordered", chunks)?
 		{ result: Ok(()), trace: Cons("write:xy", Cons("write:bc", Cons("write:abc", Nil))) } => Ok(())
 		_ => Err("adapter did not complete chunks in list order")
 	end
 end
 
-test adapter_empty_write_performs_no_io() -> Result<(), String> effects [net, concurrency]
-	match transport::net_test_support_test::write_result("ordered", list_nil())?
+test adapter_empty_write_performs_no_io() -> Result<(), String> effects [net, time, concurrency]
+	match transport::net_test_support_test::direct_write_result("ordered", list_nil())?
 		{ result: Ok(()), trace: Nil } => Ok(())
 		_ => Err("adapter performed I/O for an empty chunk list")
 	end
 end
 
-test adapter_returns_first_write_failure_unchanged() -> Result<(), String> effects [net, concurrency]
+test adapter_returns_first_write_failure_unchanged() -> Result<(), String> effects [net, time, concurrency]
 	let chunks = list_cons(byte_chunk_from_visible_ascii_string("bad")?, list_cons(byte_chunk_from_visible_ascii_string("later")?, list_nil()))
-	match transport::net_test_support_test::write_result("write-failure", chunks)?
+	match transport::net_test_support_test::direct_write_result("write-failure", chunks)?
 		{ result: result, trace: Cons("write:bad", Nil) } => if transport::net_test_support_test::write_failure_matches(result, "scripted-write", "write failed")
 			Ok(())
 		else
