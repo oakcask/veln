@@ -773,15 +773,18 @@ diagnostics interleaved around the base failures, and structurally separate
 sibling type positions.
 
 A refinement that is the complete parameter or result annotation of a public
-function can expose only a public terminal ADT and public selected variants.
+function, or that is reached by recursively entering record fields from that
+annotation, can expose only a public terminal ADT and public selected variants.
 The written base can name the ADT directly or resolve through a finite chain of
-local or imported transparent type aliases. A direct private ADT fails at the
-final identifier of the written base type, excluding any preceding module
-qualifiers. For example, `main::Secret::One` selects `Secret`, not
-`main::Secret`. A direct public base with a private selected variant fails at
-the final variant segment. An alias-qualified failure instead selects the
-outermost written alias identifier for both terminal failure kinds and retains
-the complete source-written refinement in `written_type`.
+local or imported transparent type aliases. At a root annotation, a direct
+private ADT fails at the final identifier of the written base type, excluding
+any preceding module qualifiers. For example, `main::Secret::One` selects
+`Secret`, not `main::Secret`. A direct public base with a private selected
+variant fails at the final variant segment. An alias-qualified root failure
+instead selects the outermost written alias identifier for both terminal
+failure kinds. A record-field failure selects the complete written refinement
+or refinement union at that field. Every form retains each source-written
+alternative in `written_type`.
 
 Alias traversal terminates without a visibility identity when a cycle or an
 ambiguous alias prevents unique resolution. For a resolved chain, diagnostics
@@ -790,10 +793,11 @@ then the inaccessible terminal declaration and public boundary. Exact test
 companion access can use a private target in test code but does not make the
 same target publishable through a public function signature. A same-ADT union
 reports each distinct inaccessible direct or alias exposure path in written
-order and does not repeat an exact path. Distinct aliases to the same terminal
-variant remain distinct paths. Public refinements remain valid when the
-terminal base and selected variants are public. The same private refinements
-remain valid on private functions.
+order and does not repeat an exact path. Separate and nested record fields
+remain distinct paths, including when they expose the same terminal variant.
+Distinct aliases to the same terminal variant remain distinct paths. Public
+refinements remain valid when the terminal base and selected variants are
+public. The same private refinements remain valid on private functions.
 
 An alias declaration does not replace or upgrade the terminal declaration's
 visibility. An imported or reusable public alias, including an implicit
@@ -829,10 +833,10 @@ location belongs to the selected ADT descriptor, including its generic arity.
 A same-module declaration with the same type and variant names but a different
 arity cannot replace that related location.
 
-This visibility check applies only when the refinement is the root annotation.
-It does not traverse a record, named type argument, function type, ADT payload,
-or another structural position. A visibility failure leaves an all-`unknown`
-signature only as internal same-module recovery state. The failed function is
+The visibility check traverses nested record fields from a parameter or result
+annotation. It does not traverse a named type argument, function type, ADT
+payload, or another structural position. A visibility failure leaves an
+all-`unknown` signature only as internal same-module recovery state. The failed function is
 absent from the callable facts inherited by another module. A public function
 alias can publish only a function that is present in those callable facts, so
 an alias cannot republish the failed function directly or through another
@@ -849,7 +853,13 @@ cases verify source order, primary spans, related declarations and public
 boundaries, and structured details. The focused semantic tests in
 `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/public_visibility.rs`
 verify duplicate exact names, declaration-order independence, and continued
-checking of another union alternative. The alias-qualified
+checking of another union alternative. The record-field
+[`human`](../../examples/specification/check/adt-variant-refinement-record-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-record-visibility-json/)
+cases verify nested and separate field paths, union order, alias context,
+accepted public refinements, and the named-argument and function-type limits.
+The alias-qualified
 [`human`](../../examples/specification/check/adt-variant-refinement-alias-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-alias-visibility-json/)

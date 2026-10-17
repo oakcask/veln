@@ -1,4 +1,7 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use veln_ast::{Function, Param, TypePathSegments, VariantRefinementType, Visibility};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
@@ -113,6 +116,7 @@ fn root_exposures<'a>(
     exposures.retain(|exposure| {
         record_visibility_work(1);
         seen.insert((
+            exposure.record_fields.clone(),
             exposure.descriptor.identity(),
             exposure.variant.name.clone(),
             exposure.alternative_identity.clone(),
@@ -171,13 +175,165 @@ fn root_exposure_candidates(
         return Vec::new();
     };
     record_visibility_root_classification(annotation_text.len());
+    if annotation_text.trim_start().starts_with('{') {
+        return record_exposure_candidates(annotation_text, refinements);
+    }
     if matches!(
         parse_type_annotation(annotation_text),
-        Ok(Type::Record(_) | Type::Function { .. })
+        Ok(Type::Function { .. })
     ) {
         return Vec::new();
     }
     recovered_root_exposure_candidates(annotation_span, annotation_text, refinements, paths)
+}
+
+fn record_exposure_candidates(
+    annotation_text: &str,
+    refinements: &[VariantRefinementType],
+) -> Vec<RefinementExposureCandidate> {
+    let compact_annotation = compact_type_text(annotation_text);
+    let mut search_start = 0;
+    let mut positions = Vec::with_capacity(refinements.len());
+    for refinement in refinements {
+        let written_refinement = render_refinement(refinement);
+        let compact_refinement = compact_type_text(&written_refinement);
+        let Some(relative_start) = compact_annotation[search_start..].find(&compact_refinement)
+        else {
+            positions.push(None);
+            continue;
+        };
+        let target = search_start + relative_start;
+        search_start = target + compact_refinement.len();
+        positions.push(Some(target));
+    }
+    let targets = positions
+        .iter()
+        .enumerate()
+        .filter_map(|(index, position)| position.map(|position| (position, index)))
+        .collect::<HashMap<_, _>>();
+    let mut paths = vec![None; refinements.len()];
+    collect_record_field_paths(
+        compact_annotation.as_bytes(),
+        0,
+        &mut Vec::new(),
+        &targets,
+        &mut paths,
+    );
+
+    let mut candidates = Vec::new();
+    for (refinement, record_fields) in refinements.iter().zip(paths) {
+        let Some(record_fields) = record_fields else {
+            continue;
+        };
+        record_visibility_candidate_construction(refinement.alternatives.len());
+        candidates.extend(refinement.alternatives.iter().map(|alternative| {
+            let mut candidate = refinement_candidate(alternative);
+            candidate.record_fields = record_fields.clone();
+            candidate.structural_span = Some(refinement.span.clone());
+            candidate
+        }));
+    }
+    candidates
+}
+
+fn collect_record_field_paths(
+    text: &[u8],
+    record_start: usize,
+    path: &mut Vec<String>,
+    targets: &HashMap<usize, usize>,
+    paths: &mut [Option<Vec<String>>],
+) {
+    if text.get(record_start) != Some(&b'{') {
+        return;
+    }
+    let mut cursor = record_start + 1;
+    loop {
+        skip_ascii_whitespace(text, &mut cursor);
+        if text.get(cursor) == Some(&b'}') {
+            return;
+        }
+        let name_start = cursor;
+        while text
+            .get(cursor)
+            .is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+        {
+            cursor += 1;
+        }
+        if cursor == name_start {
+            return;
+        }
+        let Ok(field) = std::str::from_utf8(&text[name_start..cursor]) else {
+            return;
+        };
+        skip_ascii_whitespace(text, &mut cursor);
+        if text.get(cursor) != Some(&b':') {
+            return;
+        }
+        cursor += 1;
+        skip_ascii_whitespace(text, &mut cursor);
+        let field_start = cursor;
+        let function_field = text[field_start..].starts_with(b"fn(");
+        path.push(field.to_string());
+        let mut angle_depth = 0usize;
+        let mut paren_depth = 0usize;
+        while cursor < text.len() {
+            if !function_field
+                && angle_depth == 0
+                && paren_depth == 0
+                && let Some(index) = targets.get(&cursor)
+            {
+                paths[*index] = Some(path.clone());
+            }
+            match text[cursor] {
+                b'{' if angle_depth == 0 && paren_depth == 0 => {
+                    collect_record_field_paths(text, cursor, path, targets, paths);
+                    let Some(nested_end) = matching_brace(text, cursor) else {
+                        path.pop();
+                        return;
+                    };
+                    cursor = nested_end - 1;
+                }
+                b'<' => angle_depth += 1,
+                b'>' if angle_depth > 0 => angle_depth -= 1,
+                b'(' => paren_depth += 1,
+                b')' if paren_depth > 0 => paren_depth -= 1,
+                b',' | b'}' if angle_depth == 0 && paren_depth == 0 => {
+                    let end = text[cursor];
+                    cursor += 1;
+                    path.pop();
+                    if end == b'}' {
+                        return;
+                    }
+                    break;
+                }
+                _ => {}
+            }
+            cursor += 1;
+        }
+    }
+}
+
+fn matching_brace(text: &[u8], start: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (offset, byte) in text[start..].iter().enumerate() {
+        match byte {
+            b'{' => depth += 1,
+            b'}' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    return Some(start + offset + 1);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn skip_ascii_whitespace(text: &[u8], cursor: &mut usize) {
+    while text.get(*cursor).is_some_and(u8::is_ascii_whitespace) {
+        *cursor += 1;
+    }
 }
 
 fn recovered_root_exposure_candidates(
@@ -260,6 +416,8 @@ fn recovered_type_path_candidates(
             base_span: path.segment_spans[variant_index - 1].clone(),
             variant_span: path.segment_spans[variant_index].clone(),
             occurrence_span: path.application_span.clone(),
+            record_fields: Vec::new(),
+            structural_span: None,
         });
     }
     candidates
@@ -311,6 +469,8 @@ fn refinement_candidate(
             .clone(),
         variant_span: alternative.variant_span.clone(),
         occurrence_span: alternative.span.clone(),
+        record_fields: Vec::new(),
+        structural_span: None,
     }
 }
 
@@ -390,6 +550,8 @@ struct RefinementExposureCandidate {
     base_span: SourceSpan,
     variant_span: SourceSpan,
     occurrence_span: SourceSpan,
+    record_fields: Vec<String>,
+    structural_span: Option<SourceSpan>,
 }
 
 fn private_exposure<'a>(
@@ -434,6 +596,8 @@ fn private_exposure<'a>(
         private_base,
         alternative_identity,
         alias_declarations,
+        record_fields: candidate.record_fields,
+        structural_span: candidate.structural_span,
     })
 }
 
@@ -676,6 +840,8 @@ struct PrivateExposure<'a> {
     private_base: bool,
     alternative_identity: RefinementAlternativeIdentity,
     alias_declarations: Option<TypeAliasExposurePath<'a>>,
+    record_fields: Vec<String>,
+    structural_span: Option<SourceSpan>,
 }
 
 impl PrivateExposure<'_> {
@@ -693,7 +859,7 @@ impl PrivateExposure<'_> {
                 ("base_type", JsonValue::string(base_type)),
                 ("variant", JsonValue::string(self.variant.name.clone())),
                 ("boundary", JsonValue::string(boundary.name())),
-                ("exposure_path", boundary.exposure_path()),
+                ("exposure_path", boundary.exposure_path(&self.record_fields)),
             ]),
         );
         if let Some(path) = &self.alias_declarations {
@@ -732,6 +898,34 @@ impl PrivateExposure<'_> {
 
     fn primary_context(&self) -> (SourceSpan, String, &'static str, String) {
         let base_type = self.descriptor.identity();
+        if let Some(span) = &self.structural_span {
+            let declaration_kind = if self.private_base {
+                "private_type_declaration"
+            } else {
+                "private_variant_declaration"
+            };
+            let declaration_message = if self.private_base {
+                format!("Private type `{base_type}` is declared here.")
+            } else {
+                format!(
+                    "Private variant `{}::{}` is declared here.",
+                    base_type, self.variant.name
+                )
+            };
+            return (
+                span.clone(),
+                if self.private_base {
+                    format!("public refinement exposes private type `{base_type}`")
+                } else {
+                    format!(
+                        "public refinement exposes private variant `{}::{}`",
+                        base_type, self.variant.name
+                    )
+                },
+                declaration_kind,
+                declaration_message,
+            );
+        }
         if self.alias_declarations.is_some() {
             let declaration_kind = if self.private_base {
                 "private_type_declaration"
@@ -798,16 +992,21 @@ impl PublicBoundary<'_> {
         }
     }
 
-    fn exposure_path(self) -> JsonValue {
-        match self {
-            Self::Parameter(param) => JsonValue::array([JsonValue::object([
+    fn exposure_path(self, record_fields: &[String]) -> JsonValue {
+        let mut segments = match self {
+            Self::Parameter(param) => vec![JsonValue::object([
                 ("kind", JsonValue::string("parameter")),
                 ("name", JsonValue::string(param.name.clone())),
-            ])]),
-            Self::Result(_) => {
-                JsonValue::array([JsonValue::object([("kind", JsonValue::string("result"))])])
-            }
-        }
+            ])],
+            Self::Result(_) => vec![JsonValue::object([("kind", JsonValue::string("result"))])],
+        };
+        segments.extend(record_fields.iter().map(|field| {
+            JsonValue::object([
+                ("kind", JsonValue::string("record_field")),
+                ("name", JsonValue::string(field.clone())),
+            ])
+        }));
+        JsonValue::array(segments)
     }
 
     fn related_kind(self) -> &'static str {

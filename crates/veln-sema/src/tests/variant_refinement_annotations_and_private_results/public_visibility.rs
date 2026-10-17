@@ -58,6 +58,85 @@ fn public_parameters_and_results_reject_private_refinement_declarations() {
 }
 
 #[test]
+fn record_fields_report_distinct_nested_paths_and_alias_hops() {
+    let diagnostics = visibility_diagnostics(concat!(
+        "type Secret\n",
+        "  pub Hidden\n",
+        "end\n",
+        "pub type State\n",
+        "  Hidden\n",
+        "  pub Ready\n",
+        "end\n",
+        "pub type Inner = State\n",
+        "pub type Outer = Inner\n",
+        "pub fn expose(value: {first: State::Hidden, nested: {second: Outer::Hidden | State::Hidden}}) -> {result: Secret::Hidden}\n",
+        "  {result: Secret::Hidden}\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 4, "{diagnostics:#?}");
+    let observed = diagnostics
+        .iter()
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    assert!(observed[0].contains(concat!(
+        "\"exposure_path\":[{\"kind\":\"parameter\",\"name\":\"value\"},",
+        "{\"kind\":\"record_field\",\"name\":\"first\"}]"
+    )));
+    assert!(observed[1].contains(concat!(
+        "\"exposure_path\":[{\"kind\":\"parameter\",\"name\":\"value\"},",
+        "{\"kind\":\"record_field\",\"name\":\"nested\"},",
+        "{\"kind\":\"record_field\",\"name\":\"second\"}]"
+    )));
+    assert!(observed[1].contains("\"kind\":\"type_alias_declaration\""));
+    assert_eq!(observed[1].matches("type_alias_declaration").count(), 2);
+    assert!(observed[2].contains("\"written_type\":\"State::Hidden\""));
+    assert!(observed[3].contains(concat!(
+        "\"exposure_path\":[{\"kind\":\"result\"},",
+        "{\"kind\":\"record_field\",\"name\":\"result\"}]"
+    )));
+
+    let primary_text = diagnostics
+        .iter()
+        .map(|diagnostic| {
+            let span = diagnostic.span.as_ref().expect("visibility span");
+            (span.start.column, span.end.column)
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(primary_text, [(30, 43), (62, 91), (62, 91), (107, 121)]);
+}
+
+#[test]
+fn public_record_refinements_and_private_function_records_remain_valid() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type State\n",
+            "  Hidden\n",
+            "  pub Ready\n",
+            "end\n",
+            "pub fn accepted(value: {state: State::Ready}) -> {state: State::Ready}\n",
+            "  value\n",
+            "end\n",
+            "fn private_allowed(value: {state: State::Hidden}) -> {state: State::Hidden}\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.variant_refinement_private"),
+        "{diagnostics:#?}"
+    );
+    assert!(TypeEnvironment::from_module(&module).function_is_published_for_test("accepted"));
+}
+
+#[test]
 fn unique_casing_recovery_retains_direct_visibility_identity() {
     let diagnostics = diagnostics_for(concat!(
         "type Secret\n",

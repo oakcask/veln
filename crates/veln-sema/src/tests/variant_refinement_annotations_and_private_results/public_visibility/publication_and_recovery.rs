@@ -321,7 +321,7 @@ fn mixed_annotation_errors_retain_independent_root_visibility_failures() {
 }
 
 #[test]
-fn malformed_nested_annotations_do_not_expand_direct_root_visibility() {
+fn malformed_record_annotations_keep_independent_visibility_checks() {
     let diagnostics = diagnostics_for(concat!(
         "mod main\n",
         "pub type Arg\n",
@@ -357,7 +357,7 @@ fn malformed_nested_annotations_do_not_expand_direct_root_visibility() {
             .iter()
             .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
             .count(),
-        1,
+        2,
         "{diagnostics:#?}"
     );
 }
@@ -789,7 +789,7 @@ fn inherited_private_declaration_provenance_is_retained() {
 }
 
 #[test]
-fn nested_refinements_remain_out_of_scope_while_root_aliases_are_checked() {
+fn record_refinements_are_checked_while_named_arguments_remain_out_of_scope() {
     let diagnostics = diagnostics_for(concat!(
         "pub type State\n",
         "  Hidden\n",
@@ -814,7 +814,7 @@ fn nested_refinements_remain_out_of_scope_while_root_aliases_are_checked() {
             .iter()
             .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
             .count(),
-        1,
+        2,
         "{diagnostics:#?}"
     );
 }
@@ -1011,6 +1011,61 @@ fn visibility_failure_quarantines_the_signature_and_blocks_lowering() {
         lowered.ir.is_none(),
         "invalid declaration must not produce IR"
     );
+}
+
+#[test]
+fn record_visibility_failure_quarantines_aliases_imports_and_checked_output() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\n",
+            "pub type State\n",
+            "  Hidden\n",
+            "end\n",
+            "pub type Alias = State\n",
+            "pub fn exposed(value: {nested: {state: Alias::Hidden}}, sibling: Int) -> {state: State::Hidden}\n",
+            "  {state: State::Hidden}\n",
+            "end\n",
+            "pub fn exposed_alias = exposed\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    let signature = environment.function("exposed").expect("recovery signature");
+    assert_eq!(signature.params, [Type::Unknown, Type::Unknown]);
+    assert_eq!(signature.return_type, Type::Unknown);
+    assert!(!environment.function_is_published_for_test("exposed"));
+    assert!(environment.function("exposed_alias").is_none());
+
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "consumer.veln",
+            "mod consumer\nuse main\n",
+        ))
+        .tree,
+    );
+    let consumer_environment =
+        TypeEnvironment::from_module_with_base_for_test(&consumer, &environment);
+    for name in ["exposed", "exposed_alias"] {
+        assert!(
+            consumer_environment
+                .function_path(&["main".to_string(), name.to_string()], Some("consumer"))
+                .is_none(),
+            "{name} must not be inherited"
+        );
+        assert!(
+            consumer_environment
+                .unqualified_function_import_candidates(name, Some("consumer"))
+                .is_empty(),
+            "{name} must not be imported"
+        );
+    }
+
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.core.is_none());
+    assert!(lowered.ir.is_none());
 }
 
 #[test]

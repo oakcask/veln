@@ -374,7 +374,7 @@ fn wide_structural_visibility_work(count: usize, boundary: &str) -> usize {
     crate::analysis::reset_visibility_work();
     let environment = TypeEnvironment::from_module(&module);
     assert!(
-        environment.function_is_published_for_test("expose"),
+        !environment.function_is_published_for_test("expose"),
         "boundary={boundary} count={count}"
     );
     let diagnostics = analyze_surface_module(&module);
@@ -383,7 +383,9 @@ fn wide_structural_visibility_work(count: usize, boundary: &str) -> usize {
     assert!(
         diagnostics
             .iter()
-            .all(|diagnostic| diagnostic.id != "type.variant_refinement_private"),
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .count()
+            == count,
         "boundary={boundary} count={count} diagnostics={diagnostics:#?}"
     );
     assert!(
@@ -391,8 +393,9 @@ fn wide_structural_visibility_work(count: usize, boundary: &str) -> usize {
         "an empty exposure result must still account for root classification: {candidate_work:?}"
     );
     assert!(
-        candidate_work.candidate_construction == 0,
-        "structural roots must be rejected before candidate construction: {candidate_work:?}"
+        candidate_work.candidate_construction >= count
+            && candidate_work.candidate_construction % count == 0,
+        "each visibility pass must construct one candidate per structural field: {candidate_work:?}"
     );
     assert!(
         candidate_work.occurrence_lookup == 0,

@@ -25,7 +25,7 @@ also states it.
   exported standard module:
   [network-compatibility-removal.md](network-compatibility-removal.md).
 - Remaining ADT variant-refinement support for structural visibility beyond
-  root alias-qualified public function annotations, qualified immutable values
+  public-function root and record-field annotations, qualified immutable values
   after a separate source-surface prerequisite, schema boundaries,
   package-documentation catalog signatures,
   remaining LSP diagnostics and invalid-refinement recovery, and MCP
