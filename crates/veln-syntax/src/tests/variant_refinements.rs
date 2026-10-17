@@ -62,6 +62,23 @@ fn parses_variant_refinements_across_nested_type_forms() {
     assert_eq!(function.params[2].ty_refinements.len(), 2);
     assert_eq!(function.params[3].ty_refinements[0].alternatives.len(), 2);
     assert_eq!(
+        function.params[3].ty_refinements[0].record_field_path,
+        Some(RecordFieldPath {
+            shared_prefix_len: 0,
+            suffix: vec!["state".to_string()],
+        })
+    );
+    assert!(
+        function.params[1].ty_refinements[0]
+            .record_field_path
+            .is_none()
+    );
+    assert!(
+        function.params[2].ty_refinements[0]
+            .record_field_path
+            .is_none()
+    );
+    assert_eq!(
         function.return_type_refinements[0].alternatives[0].variant,
         "Ok"
     );
@@ -81,6 +98,141 @@ fn parses_variant_refinements_across_nested_type_forms() {
         annotation_refinements[0].alternatives[1].variant,
         "Connected"
     );
+}
+
+#[test]
+fn record_field_paths_use_source_tokens_when_function_text_shares_a_prefix() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn expose(value: {callback: fn() -> State::Hidden<Int>, direct: State::Hidden}) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    assert_eq!(function.params[0].ty_refinements.len(), 1);
+    assert_eq!(
+        function.params[0].ty_refinements[0].record_field_path,
+        Some(RecordFieldPath {
+            shared_prefix_len: 0,
+            suffix: vec!["direct".to_string()],
+        })
+    );
+}
+
+#[test]
+fn record_field_paths_exclude_refinements_nested_in_square_brackets() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn expose(value: {wrapped: [{inside: State::Hidden}], direct: State::Hidden}) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    let function = first_function(&output);
+    assert_eq!(function.params[0].ty_refinements.len(), 2);
+    assert!(
+        function.params[0].ty_refinements[0]
+            .record_field_path
+            .is_none()
+    );
+    assert_eq!(
+        function.params[0].ty_refinements[1].record_field_path,
+        Some(RecordFieldPath {
+            shared_prefix_len: 0,
+            suffix: vec!["direct".to_string()],
+        })
+    );
+}
+
+#[test]
+fn formats_deep_record_without_refinements_on_bounded_stack() {
+    format_deep_record_on_bounded_stack("Int");
+}
+
+#[test]
+fn formats_deep_record_with_leaf_refinement_on_bounded_stack() {
+    format_deep_record_on_bounded_stack("State::Hidden");
+}
+
+#[test]
+fn nested_record_field_path_storage_has_constant_adjacent_growth() {
+    let measurements = [64, 65, 66].map(|depth| {
+        let source = nested_record_with_refinement_siblings(depth);
+        let parsed = parse(&SourceFile::new("main.veln", source));
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let function = first_function(&parsed);
+        let refinements = &function.params[0].ty_refinements;
+        assert_eq!(refinements.len(), depth);
+        refinements
+            .iter()
+            .map(|refinement| {
+                let path = refinement
+                    .record_field_path
+                    .as_ref()
+                    .expect("record refinement path delta");
+                1 + path.suffix.len() + path.suffix.iter().map(String::len).sum::<usize>()
+            })
+            .sum::<usize>()
+    });
+    assert!(measurements[0] > 0);
+    assert_eq!(
+        measurements[1] - measurements[0],
+        measurements[2] - measurements[1],
+        "adjacent record depths must retain a constant amount of new syntax path data: {measurements:?}"
+    );
+}
+
+fn format_deep_record_on_bounded_stack(leaf: &'static str) {
+    const DEPTH: usize = 2_000;
+    std::thread::Builder::new()
+        .stack_size(256 * 1024)
+        .spawn(move || {
+            let mut annotation = String::with_capacity(DEPTH * 10 + leaf.len());
+            for _ in 0..DEPTH {
+                annotation.push_str("{next: ");
+            }
+            annotation.push_str(leaf);
+            for _ in 0..DEPTH {
+                annotation.push('}');
+            }
+            let source = SourceFile::new(
+                "main.veln",
+                format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n"),
+            );
+            let parsed = parse(&source);
+            assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+            let formatted = format_tree(&parsed.tree);
+            let reparsed = parse(&SourceFile::new("main.veln", formatted.clone()));
+            assert!(
+                reparsed.diagnostics.is_empty(),
+                "{:#?}",
+                reparsed.diagnostics
+            );
+            assert_eq!(format_tree(&reparsed.tree), formatted);
+        })
+        .expect("bounded-stack syntax worker")
+        .join()
+        .expect("deep record syntax path should not overflow the bounded stack");
+}
+
+fn nested_record_with_refinement_siblings(depth: usize) -> String {
+    let mut annotation = String::with_capacity(depth * 38 + 3);
+    for _ in 0..depth {
+        annotation.push_str("{state: State::Hidden, next: ");
+    }
+    annotation.push_str("Int");
+    for _ in 0..depth {
+        annotation.push('}');
+    }
+    format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n")
 }
 
 #[test]

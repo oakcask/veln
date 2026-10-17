@@ -4,6 +4,10 @@ use super::generic_type_syntax::{
 use super::type_paths::{is_type_path_segment, skip_effect_clause};
 use super::*;
 
+mod record_field_paths;
+
+use record_field_paths::assign_record_field_paths;
+
 pub(super) fn build_variant_refinements(
     source: &SourceFile,
     tokens: &[Token],
@@ -12,7 +16,10 @@ pub(super) fn build_variant_refinements(
     let raw_candidates = refinement_alternatives(tokens, &generic_syntax);
     let depths = refinement_candidate_depths(tokens, &raw_candidates);
     let hierarchy = refinement_hierarchy(tokens, &generic_syntax, &raw_candidates, &depths);
-    materialize_refinements(source, tokens, &generic_syntax, &raw_candidates, hierarchy)
+    let (mut refinements, consumed_pipes) =
+        materialize_refinements(source, tokens, &generic_syntax, &raw_candidates, hierarchy);
+    assign_record_field_paths(tokens, &mut refinements);
+    (refinements, consumed_pipes)
 }
 
 struct RefinementHierarchy {
@@ -355,6 +362,7 @@ fn materialize_refinement_group(
             .iter()
             .map(|index| source.span(tokens[*index].range))
             .collect(),
+        record_field_path: None,
         span,
     }
 }

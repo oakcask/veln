@@ -36,6 +36,25 @@ fn surface_wire_round_trip_preserves_variant_refinement_structure_and_spans() {
     assert_eq!(encode_surface_module(&decoded), encoded);
 }
 
+#[test]
+fn surface_wire_round_trip_preserves_record_refinement_paths() {
+    let module = lower_source(
+        "fn expose(value: {outer: {state: State::Ready | State::Closed}}) -> ()\n  ()\nend\n",
+    );
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+
+    let path = &decoded.functions[0].params[0].ty_refinements[0].record_field_path;
+    assert_eq!(
+        path,
+        &Some(RecordFieldPath {
+            shared_prefix_len: 0,
+            suffix: vec!["outer".to_string(), "state".to_string()],
+        })
+    );
+    assert_eq!(encode_surface_module(&decoded), encoded);
+}
+
 fn assert_refinement_spans_round_trip(lowered: &SurfaceModule, decoded: &SurfaceModule) {
     let lowered_advance = advance_function(lowered);
     let decoded_advance = advance_function(decoded);
@@ -53,6 +72,10 @@ fn assert_refinement_spans_round_trip(lowered: &SurfaceModule, decoded: &Surface
 fn assert_refinement_span_tree(lowered: &VariantRefinementType, decoded: &VariantRefinementType) {
     assert_eq!(decoded.span, lowered.span, "whole-refinement span");
     assert_eq!(decoded.pipe_spans, lowered.pipe_spans, "pipe spans");
+    assert_eq!(
+        decoded.record_field_path, lowered.record_field_path,
+        "record-field path"
+    );
     assert_eq!(decoded.alternatives.len(), lowered.alternatives.len());
 
     for (lowered_alternative, decoded_alternative) in
@@ -274,6 +297,7 @@ fn surface_wire_rejects_refinement_nesting_beyond_the_parser_limit() {
                 span: template.span.clone(),
             }],
             pipe_spans: Vec::new(),
+            record_field_path: None,
             span: template.span.clone(),
         }];
     }
@@ -284,6 +308,60 @@ fn surface_wire_rejects_refinement_nesting_beyond_the_parser_limit() {
         error,
         "surface module variant refinements are nested too deeply"
     );
+}
+
+#[test]
+fn nested_record_field_path_storage_and_wire_size_have_constant_adjacent_growth() {
+    let measurements = [64, 65, 66].map(nested_record_path_measurement);
+    for adjacent in measurements.windows(2) {
+        assert_eq!(
+            adjacent[1].0 - adjacent[0].0,
+            measurements[1].0 - measurements[0].0,
+            "lowered path storage must have constant adjacent growth: {measurements:?}"
+        );
+        assert_eq!(
+            adjacent[1].1 - adjacent[0].1,
+            measurements[1].1 - measurements[0].1,
+            "encoded path storage must have constant adjacent growth: {measurements:?}"
+        );
+    }
+}
+
+fn nested_record_path_measurement(depth: usize) -> (usize, usize) {
+    let mut annotation = String::with_capacity(depth * 38 + 3);
+    for _ in 0..depth {
+        annotation.push_str("{state: State::Hidden, next: ");
+    }
+    annotation.push_str("Int");
+    for _ in 0..depth {
+        annotation.push('}');
+    }
+    let source = format!("fn nested(value: {annotation}) -> ()\n  ()\nend\n");
+    let module = lower_source(&source);
+    let refinements = &module.functions[0].params[0].ty_refinements;
+    assert_eq!(refinements.len(), depth);
+    let retained = refinements
+        .iter()
+        .map(|refinement| {
+            let path = refinement
+                .record_field_path
+                .as_ref()
+                .expect("lowered record refinement path delta");
+            1 + path.suffix.len() + path.suffix.iter().map(String::len).sum::<usize>()
+        })
+        .sum();
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("nested record wire round trip");
+    assert_eq!(
+        decoded.functions[0].params[0]
+            .ty_refinements
+            .iter()
+            .filter(|refinement| refinement.record_field_path.is_some())
+            .count(),
+        depth
+    );
+    assert_eq!(encode_surface_module(&decoded), encoded);
+    (retained, encoded.len())
 }
 
 fn refinement_wire_size(depth: usize) -> usize {

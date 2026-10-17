@@ -1,0 +1,35 @@
+type Secret
+	pub Hidden
+end
+
+pub type State
+	Hidden
+	pub Ready
+end
+
+pub type Box<A>
+	pub Boxed(A)
+end
+
+pub type Inner = State
+pub type Outer = Inner
+
+pub fn expose(value: {first: State::Hidden, nested: {second: Outer::Hidden | State::Hidden}}) -> {result: Secret::Hidden}
+	{result: Secret::Hidden}
+end
+
+pub fn accepted(value: {state: State::Ready}) -> {state: State::Ready}
+	value
+end
+
+fn private_allowed(value: {state: State::Hidden}) -> {state: State::Hidden}
+	value
+end
+
+pub fn named_boundary(value: Box<State::Hidden>) -> ()
+	()
+end
+
+pub fn function_boundary(value: {callback: fn(State::Hidden) -> {state: State::Hidden, nested: {again: State::Hidden}}, sibling: Int}) -> ()
+	()
+end

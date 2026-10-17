@@ -106,6 +106,10 @@ impl Writer {
     fn variant_refinement(&mut self, value: &VariantRefinementType) {
         self.vec(&value.alternatives, Self::variant_refinement_alternative);
         self.vec(&value.pipe_spans, Self::span);
+        self.option(&value.record_field_path, |writer, path| {
+            writer.usize(path.shared_prefix_len);
+            writer.vec(&path.suffix, |writer, field| writer.string(field));
+        });
         self.span(&value.span);
     }
 

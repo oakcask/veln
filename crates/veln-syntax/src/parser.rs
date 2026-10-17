@@ -9,7 +9,7 @@ use crate::{
     EffectBinder, EffectDecl, EffectOperationDecl, Expr, ExprKind, FunctionDecl, FunctionKind,
     HandlerDecl, HandlerOperationClauseDecl, IfBranch, MatchArm, ModuleDecl, Param, Pattern,
     PatternField, PatternKind, PredicateRemainder, PrefixOp, PublicAliasDecl, PublicAliasKind,
-    RecordField, SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause,
+    RecordField, RecordFieldPath, SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause,
     SchemaFormatClause, SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl,
     TypePathSegments, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl,
     UsePackage, VariantRefinementAlternative, VariantRefinementType, VariantRefinementTypeArgument,

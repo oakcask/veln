@@ -199,20 +199,21 @@ Bare names resolve to local bindings. Function calls resolve to:
 - implicit standard prelude helper imports by bare name or `prelude::function`
   form
 
-A public function whose root variant-refinement visibility check fails can
-retain an all-`unknown` signature for same-module recovery without publishing a
-callable signature. This includes a root whose written base directly names its
-ADT and a root whose written base resolves through a finite transparent
-type-alias chain. A public alias of that function is not a qualified call target
-or an unqualified import candidate, and another module cannot republish it
-through a further alias. An alias of a valid public function remains available
-through each supported alias chain. This publication rule does not change
-invalid-name function recovery, whose callable-signature behavior is defined by
-the [type-checking contract](types.md#compatibility-and-limits).
+A public function whose variant-refinement visibility check fails at a
+signature root or in a recursively nested record field can retain an
+all-`unknown` signature for same-module recovery without publishing a callable
+signature. This includes a written base that directly names its ADT or resolves
+through a finite transparent type-alias chain. A public alias of that function
+is not a qualified call target or an unqualified import candidate, and another
+module cannot republish it through a further alias. An alias of a valid public
+function remains available through each supported alias chain. This publication
+rule does not change invalid-name function recovery, whose callable-signature
+behavior is defined by the
+[type-checking contract](types.md#compatibility-and-limits).
 
 When a public alias uses a bare target name, a same-module function shadows an
 imported function with that name before publication eligibility is checked. If
-the local function is unpublished because its root refinement visibility
+the local function is unpublished because its signature refinement visibility
 check failed, the alias is also unpublished; resolution does not fall back to
 the imported namesake. The imported function remains available through its
 qualified module path.
@@ -361,13 +362,13 @@ span, and segment index. If changing only an invalid-cased base leaf selects
 exactly one type, casing analysis retains that type classification. It reports
 `name.invalid_case` and still checks the recovered base's independent
 variant-refinement eligibility. For a refinement used as the complete
-annotation of a public function parameter or result, that unique recovered
-terminal ADT identity also participates in the root visibility check when the
-written base names it directly or reaches it through a finite transparent
-type-alias chain, and when the written final segment starts with an ASCII
-uppercase letter and resolves exactly to one constructor of that ADT. A
-lowercase final segment is a parse failure and does not reach casing or root
-visibility analysis. The privacy diagnostic
+annotation of a public function parameter or result, or reached through its
+record fields, that unique recovered terminal ADT identity also participates
+in the visibility check when the written base names it directly or reaches it
+through a finite transparent type-alias chain, and when the written final
+segment starts with an ASCII uppercase letter and resolves exactly to one
+constructor of that ADT. A lowercase final segment is a parse failure and does
+not reach casing or visibility analysis. The privacy diagnostic
 retains the written base casing. Ambiguous or unresolved base recovery, or an
 ambiguous or missing exact final segment, does not manufacture a privacy
 diagnostic. This includes a source-less base

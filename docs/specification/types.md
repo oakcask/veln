@@ -694,12 +694,14 @@ eligibility and diagnostic provenance. When the written base is a public type
 alias or a finite alias chain, `not_adt` eligibility and declaration provenance
 come from the canonical target declaration; the diagnostic still preserves the
 outer written alias as `written_type`. A base with invalid generic arity
-retains the existing `type.invalid_annotation` failure. For a public-function
-root refinement, a uniquely resolved direct ADT or transparent type-alias chain
-and final constructor also retain an independently provable private-base or
+retains the existing `type.invalid_annotation` failure. For a refinement at a
+public-function signature root or in a recursively nested record field, a
+uniquely resolved direct ADT or transparent type-alias chain and final
+constructor also retain an independently provable private-base or
 private-variant failure. An invalid nested type argument or sibling union
-alternative does not suppress that root visibility failure. Visibility
-checking does not use this recovery to traverse a structural type position.
+alternative does not suppress that visibility failure. Visibility checking
+uses this recovery while traversing record fields, but it does not traverse
+named type arguments, function types, or other structural positions.
 Union comparison and assignability remain suppressed because they require a
 valid instantiation. Exact and uniquely casing-recovered source-backed or
 source-less type paths use the same arity rule. A failed refinement does not
@@ -773,15 +775,18 @@ diagnostics interleaved around the base failures, and structurally separate
 sibling type positions.
 
 A refinement that is the complete parameter or result annotation of a public
-function can expose only a public terminal ADT and public selected variants.
+function, or that is reached by recursively entering record fields from that
+annotation, can expose only a public terminal ADT and public selected variants.
 The written base can name the ADT directly or resolve through a finite chain of
-local or imported transparent type aliases. A direct private ADT fails at the
-final identifier of the written base type, excluding any preceding module
-qualifiers. For example, `main::Secret::One` selects `Secret`, not
-`main::Secret`. A direct public base with a private selected variant fails at
-the final variant segment. An alias-qualified failure instead selects the
-outermost written alias identifier for both terminal failure kinds and retains
-the complete source-written refinement in `written_type`.
+local or imported transparent type aliases. At a root annotation, a direct
+private ADT fails at the final identifier of the written base type, excluding
+any preceding module qualifiers. For example, `main::Secret::One` selects
+`Secret`, not `main::Secret`. A direct public base with a private selected
+variant fails at the final variant segment. An alias-qualified root failure
+instead selects the outermost written alias identifier for both terminal
+failure kinds. A record-field failure selects the complete written refinement
+or refinement union at that field. Every form retains each source-written
+alternative in `written_type`.
 
 Alias traversal terminates without a visibility identity when a cycle or an
 ambiguous alias prevents unique resolution. For a resolved chain, diagnostics
@@ -790,19 +795,20 @@ then the inaccessible terminal declaration and public boundary. Exact test
 companion access can use a private target in test code but does not make the
 same target publishable through a public function signature. A same-ADT union
 reports each distinct inaccessible direct or alias exposure path in written
-order and does not repeat an exact path. Distinct aliases to the same terminal
-variant remain distinct paths. Public refinements remain valid when the
-terminal base and selected variants are public. The same private refinements
-remain valid on private functions.
+order and does not repeat an exact path. Separate and nested record fields
+remain distinct paths, including when they expose the same terminal variant.
+Distinct aliases to the same terminal variant remain distinct paths. Public
+refinements remain valid when the terminal base and selected variants are
+public. The same private refinements remain valid on private functions.
 
 An alias declaration does not replace or upgrade the terminal declaration's
 visibility. An imported or reusable public alias, including an implicit
 standard-prelude alias, still exposes a private terminal type or variant when
-it is used as a public-function root refinement. The diagnostic retains the
-terminal identity and declaration location through each local and imported
-alias hop.
+it is used at a checked public-function signature root or within its record
+fields. The diagnostic retains the terminal identity and declaration location
+through each local and imported alias hop.
 
-The root check selects the base identity by unique exact lookup or
+The visibility check selects the base identity by unique exact lookup or
 initial-only casing recovery. The written uppercase final constructor must
 resolve exactly to one declaration. When the selected ADT contains multiple declarations with the
 exact written variant name, that alternative has no visibility identity. It
@@ -814,8 +820,9 @@ exactly one base ADT. A recovered base keeps its written spelling in diagnostic
 details. Its `name.invalid_case` diagnostic precedes the independently provable
 visibility failure. Ambiguous or unresolved base recovery does not manufacture
 a visibility identity or a privacy diagnostic. The check treats alternatives
-as direct roots only when they occupy the complete annotation; paths nested
-inside another type shape do not become direct roots through recovery.
+as direct roots only when they occupy the complete annotation. Record-field
+traversal identifies its own candidates; paths nested inside other type shapes
+do not become direct roots through recovery.
 Exact qualified lookup binds the base to the written module or import identity
 before it checks arity and uniqueness. An imported `State` therefore remains
 the base of `imported::State<Int>::Hidden` when the current module also declares
@@ -829,10 +836,17 @@ location belongs to the selected ADT descriptor, including its generic arity.
 A same-module declaration with the same type and variant names but a different
 arity cannot replace that related location.
 
-This visibility check applies only when the refinement is the root annotation.
-It does not traverse a record, named type argument, function type, ADT payload,
-or another structural position. A visibility failure leaves an all-`unknown`
-signature only as internal same-module recovery state. The failed function is
+The visibility check traverses nested record fields from a parameter or result
+annotation. It does not traverse a named type argument, function type, ADT
+payload, or another structural position. Skipping a function-typed field also
+skips refinements inside that function type, including its result, but an
+effect row on that field does not hide a later sibling record field from the
+record traversal. An invalid square-bracket type position likewise does not
+make a record nested inside the brackets part of the traversal. Its
+`type.invalid_annotation` diagnostic precedes an independently provable
+visibility failure in a later direct sibling field. A visibility failure leaves
+an all-`unknown` signature only as internal same-module recovery state. The
+failed function is
 absent from the callable facts inherited by another module. A public function
 alias can publish only a function that is present in those callable facts, so
 an alias cannot republish the failed function directly or through another
@@ -849,7 +863,13 @@ cases verify source order, primary spans, related declarations and public
 boundaries, and structured details. The focused semantic tests in
 `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/public_visibility.rs`
 verify duplicate exact names, declaration-order independence, and continued
-checking of another union alternative. The alias-qualified
+checking of another union alternative. The record-field
+[`human`](../../examples/specification/check/adt-variant-refinement-record-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-record-visibility-json/)
+cases verify nested and separate field paths, union order, alias context,
+accepted public refinements, and the named-argument and function-type limits.
+The alias-qualified
 [`human`](../../examples/specification/check/adt-variant-refinement-alias-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-alias-visibility-json/)
@@ -882,10 +902,10 @@ double in publication quarantine, diagnostic collection, and checked lowering.
 The measurement counts inspected path bytes instead of elapsed time, so runner
 timing noise does not affect the bound.
 
-Wide record annotations on public function parameters and results remain
-outside the direct visibility boundary. The checker rejects those structural
-roots without constructing direct-refinement candidates. Nested generic paths
-remain excluded from the direct-root check.
+Wide record annotations on public function parameters and results check each
+refinement occurrence in their record fields. Each private occurrence rejects
+publication, and analysis work grows linearly with the written occurrences.
+Nested generic paths remain excluded from the visibility traversal.
 The checked
 [`generic alias boundaries`](../../examples/specification/check/adt-variant-refinement-generic-alias-boundaries/)
 case also verifies that imported alias-qualified constructor context supplies
@@ -1037,9 +1057,9 @@ Variant-refinement semantic-token classifications are specified in
 [editor-support.md](editor-support.md#token-classes), and its navigation and
 rename behavior is specified by
 [editor support](editor-support.md#lsp-navigation-formatting-and-rename) and
-[MCP](mcp.md#saved-workspace-navigation). Structural public/private exposure
-paths, including aliases nested in those positions,
-qualified-value control-flow refinement, schema boundaries,
+[MCP](mcp.md#saved-workspace-navigation). Public/private exposure through
+structural positions other than record fields, including aliases nested in
+those positions, qualified-value control-flow refinement, schema boundaries,
 package-documentation catalog signatures, remaining LSP diagnostics and
 recovery, and remaining MCP invalid-refinement recovery, package-signature,
 and saved-state behavior remain proposal work.

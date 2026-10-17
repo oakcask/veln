@@ -604,6 +604,12 @@ impl AstBuilder {
                     })
                     .collect(),
                 pipe_spans: refinement.pipe_spans.clone(),
+                record_field_path: refinement.record_field_path.as_ref().map(|path| {
+                    crate::RecordFieldPath {
+                        shared_prefix_len: path.shared_prefix_len,
+                        suffix: path.suffix.clone(),
+                    }
+                }),
                 span: refinement.span.clone(),
             })
             .collect()

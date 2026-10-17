@@ -132,27 +132,33 @@ record, and function positions.
 | `not_adt` | The resolved named type has no finite ADT variants. | A source-backed type uses `base_type_declaration` with the canonical target's `resolved_identity` and declaration span, including when the written base is a public alias or alias chain. A source-less type published by the type-syntax provider uses spanless `base_type_origin` with `resolved_identity` and `provider: "type_syntax"`. |
 | `opaque` | The resolved compiler-known type intentionally hides its variants. | A spanless `base_type_origin` contains `resolved_identity` and `provider: "adt"`. |
 
-A root variant refinement in a public function parameter or result reports
+A variant refinement at the root of a public function parameter or result, or
+reached by recursively entering record fields from that root, reports
 `type.variant_refinement_private` when its uniquely resolved terminal ADT is
 private or a selected variant is private. The written base can name the ADT
-directly or resolve through a finite local or imported type-alias chain.
-Refinements in structural positions remain outside this check. For a direct
-private base, the primary span selects the final identifier of the written base
-type and excludes preceding module qualifiers. For example,
-`main::Secret::One` selects `Secret`, not `main::Secret`. For a private variant
-of a public base, the primary span selects the final variant segment. The closed
-details contain exactly `written_type`,
+directly or resolve through a finite local or imported type-alias chain. Named
+type arguments, function types, and other structural positions remain outside
+this check. At a root annotation, a direct private base has a primary span on
+the final identifier of the written base type and excludes preceding module
+qualifiers. For example, `main::Secret::One` selects `Secret`, not
+`main::Secret`. For a private variant of a public base, the primary span selects
+the final variant segment. A record-field failure selects the complete written
+refinement or refinement union at that field. The closed details contain
+exactly `written_type`,
 `base_type`, `variant`, `boundary`, and `exposure_path`. `boundary` is
 `public_parameter` or `public_result`.
-`exposure_path` is an array with one object. A parameter path contains
-`kind: "parameter"` and its `name`; a result path contains only
-`kind: "result"`.
+`exposure_path` starts with the boundary object. A parameter path contains
+`kind: "parameter"` and its `name`; a result path contains `kind: "result"`.
+Each traversed field then contributes `kind: "record_field"` and its `name`.
+Separate and nested fields therefore retain distinct deterministic paths.
 
-For an alias-qualified failure, the primary span selects the outermost alias
-identifier and `written_type` retains the source-written refinement. Related
-entries identify each `type_alias_declaration` from outermost to innermost,
-then the `private_type_declaration` or `private_variant_declaration`, and then
-the `public_parameter_boundary` or `public_result_boundary`. A private
+For an alias-qualified failure at a root annotation, the primary span selects
+the outermost alias identifier. At a record field, the complete refinement or
+refinement-union span remains primary. In both positions, `written_type`
+retains the source-written refinement. Related entries identify each
+`type_alias_declaration` from outermost to innermost, then the
+`private_type_declaration` or `private_variant_declaration`, and then the
+`public_parameter_boundary` or `public_result_boundary`. A private
 declaration entry uses the declaration span
 from the selected ADT descriptor, including its generic arity. Another
 same-module ADT with the same type and variant names but a different arity does
@@ -189,9 +195,18 @@ privacy diagnostic. Union comparison and assignability diagnostics that
 require an instantiated base remain suppressed.
 An invalid annotation in a nested type argument or sibling alternative of the
 same root union also precedes but does not suppress an independently provable
-privacy diagnostic. This recovery does not extend visibility checking into
-structural type positions. Cyclic or ambiguous aliases do not manufacture a
-visibility identity. Distinct written alias paths to one terminal variant
+privacy diagnostic. Record-field traversal retains this recovery. It does not
+extend visibility checking into other structural type positions. In
+particular, it skips a function-typed field and refinements inside that
+function type. An effect row on the skipped field does not stop traversal of a
+later sibling record field. An invalid square-bracket type position reports
+`type.invalid_annotation` and does not make a record nested inside the brackets
+a visibility path. A later direct record field still reports its independently
+provable privacy diagnostic with its own `exposure_path`. A named type in a
+skipped field can share a source-text prefix with a later refinement, but the
+later refinement keeps its own primary span, `written_type`, and record-field
+`exposure_path`. Cyclic or ambiguous aliases do not manufacture a visibility
+identity. Distinct written alias paths to one terminal variant
 produce distinct diagnostics, while an exact repeated path retains its first
 occurrence. Exact test-companion access does not change public-signature
 eligibility. The checked
@@ -199,7 +214,12 @@ eligibility. The checked
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-public-visibility-json/)
 cases fix the human messages, half-open spans, details, related context, and
-ordering. The alias-qualified
+ordering. The record-field
+[`human`](../../examples/specification/check/adt-variant-refinement-record-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-record-visibility-json/)
+cases fix nested paths, union ordering, alias notes, and accepted structural
+boundaries. The alias-qualified
 [`human`](../../examples/specification/check/adt-variant-refinement-alias-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-alias-visibility-json/)
