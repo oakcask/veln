@@ -46,7 +46,8 @@ impl ProtocolDiagnosticContext<'_> {
 
     pub(super) fn project_peer_limit_rule(&self) -> Option<Diagnostic> {
         self.project_peer_size_limit_rule()
-            .or_else(|| self.project_peer_flow_limit_rule())
+            .or_else(|| self.project_peer_flow_control_limit_rule())
+            .or_else(|| self.project_peer_concurrent_stream_limit_rule())
             .or_else(|| self.project_peer_settings_limit_rule())
     }
 
@@ -88,55 +89,57 @@ impl ProtocolDiagnosticContext<'_> {
         }
     }
 
-    fn project_peer_flow_limit_rule(&self) -> Option<Diagnostic> {
-        match self.id.as_str() {
-            "http2.peer_limit.flow_control_window_exceeded" => {
-                let observed_length = self.number("observed_payload_length")?;
-                let allowed_credit = self.number("allowed_window_credit")?;
-                let frame_kind = self.number("frame_kind")?;
-                let frame = self.frame_ref()?;
-                let mut diagnostic = self.diagnostic(format!(
-                    "flow-control window exceeded at byte offset {}",
-                    self.byte_offset
-                ));
-                diagnostic.related.push(note_json(format!(
-                    "Frame kind {frame_kind} on {} {} declared {observed_length} byte(s); available receive window credit is {allowed_credit} byte(s).",
-                    frame.stream_ref, frame.stream_id
-                )));
-                self.push_preview_state_and_provenance(&mut diagnostic)?;
-                Some(diagnostic)
-            }
-            "http2.peer_limit.concurrent_streams_exceeded" => {
-                let frame = self.frame_ref()?;
-                let current_count = self.number("current_open_peer_created_stream_count")?;
-                let attempted_count = self.number("attempted_concurrent_stream_count")?;
-                let allowed_count = self.number("allowed_concurrent_stream_count")?;
-                let endpoint_role = self.string("endpoint_role")?;
-                let limit_provenance = self.string("receive_limit_provenance")?;
-                let rule_provenance = self.string("rule_provenance")?;
-                let mut diagnostic = self.diagnostic(format!(
-                    "concurrent stream receive limit exceeded at byte offset {}",
-                    self.byte_offset
-                ));
-                diagnostic.related.push(note_json(format!(
-                    "Opening {} {} would make {attempted_count} concurrent peer-created stream(s); {current_count} peer-created stream(s) are currently open and the active receive limit is {allowed_count}.",
-                    frame.stream_ref, frame.stream_id
-                )));
-                push_byte_preview_note(&mut diagnostic, self.entries);
-                self.push_active_state(&mut diagnostic)?;
-                diagnostic
-                    .related
-                    .push(note_json(format!("Endpoint role: {endpoint_role}.")));
-                diagnostic.related.push(note_json(format!(
-                    "Receive limit provenance: {limit_provenance}."
-                )));
-                diagnostic
-                    .related
-                    .push(note_json(format!("Rule provenance: {rule_provenance}.")));
-                Some(diagnostic)
-            }
-            _ => None,
+    fn project_peer_flow_control_limit_rule(&self) -> Option<Diagnostic> {
+        if self.id != "http2.peer_limit.flow_control_window_exceeded" {
+            return None;
         }
+        let observed_length = self.number("observed_payload_length")?;
+        let allowed_credit = self.number("allowed_window_credit")?;
+        let frame_kind = self.number("frame_kind")?;
+        let frame = self.frame_ref()?;
+        let mut diagnostic = self.diagnostic(format!(
+            "flow-control window exceeded at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "Frame kind {frame_kind} on {} {} declared {observed_length} byte(s); available receive window credit is {allowed_credit} byte(s).",
+            frame.stream_ref, frame.stream_id
+        )));
+        self.push_preview_state_and_provenance(&mut diagnostic)?;
+        Some(diagnostic)
+    }
+
+    fn project_peer_concurrent_stream_limit_rule(&self) -> Option<Diagnostic> {
+        if self.id != "http2.peer_limit.concurrent_streams_exceeded" {
+            return None;
+        }
+        let frame = self.frame_ref()?;
+        let current_count = self.number("current_open_peer_created_stream_count")?;
+        let attempted_count = self.number("attempted_concurrent_stream_count")?;
+        let allowed_count = self.number("allowed_concurrent_stream_count")?;
+        let endpoint_role = self.string("endpoint_role")?;
+        let limit_provenance = self.string("receive_limit_provenance")?;
+        let rule_provenance = self.string("rule_provenance")?;
+        let mut diagnostic = self.diagnostic(format!(
+            "concurrent stream receive limit exceeded at byte offset {}",
+            self.byte_offset
+        ));
+        diagnostic.related.push(note_json(format!(
+            "Opening {} {} would make {attempted_count} concurrent peer-created stream(s); {current_count} peer-created stream(s) are currently open and the active receive limit is {allowed_count}.",
+            frame.stream_ref, frame.stream_id
+        )));
+        push_byte_preview_note(&mut diagnostic, self.entries);
+        self.push_active_state(&mut diagnostic)?;
+        diagnostic
+            .related
+            .push(note_json(format!("Endpoint role: {endpoint_role}.")));
+        diagnostic.related.push(note_json(format!(
+            "Receive limit provenance: {limit_provenance}."
+        )));
+        diagnostic
+            .related
+            .push(note_json(format!("Rule provenance: {rule_provenance}.")));
+        Some(diagnostic)
     }
 
     fn project_peer_settings_limit_rule(&self) -> Option<Diagnostic> {

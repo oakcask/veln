@@ -377,6 +377,51 @@ fn protocol_result_failure_diagnostic_projects_concurrent_stream_context() {
 }
 
 #[test]
+fn protocol_result_failure_diagnostic_does_not_mix_peer_limit_contexts() {
+    let protocol_diagnostic = JsonValue::object([
+        ("kind", JsonValue::string("protocol_diagnostic")),
+        (
+            "id",
+            JsonValue::string("http2.peer_limit.flow_control_window_exceeded"),
+        ),
+        (
+            "byte_offset",
+            JsonValue::object([
+                ("kind", JsonValue::string("ByteOffset")),
+                ("value", JsonValue::Number(9)),
+            ]),
+        ),
+        ("stream_id", JsonValue::Number(3)),
+        ("stream_ref", JsonValue::string("stream")),
+        (
+            "current_open_peer_created_stream_count",
+            JsonValue::Number(1),
+        ),
+        ("attempted_concurrent_stream_count", JsonValue::Number(2)),
+        ("allowed_concurrent_stream_count", JsonValue::Number(1)),
+        ("endpoint_role", JsonValue::string("server")),
+        ("active_state", JsonValue::string("open-stream")),
+        (
+            "receive_limit_provenance",
+            JsonValue::string("local_configuration"),
+        ),
+        (
+            "rule_provenance",
+            JsonValue::string("peer_created_stream_receive_limit"),
+        ),
+        ("byte_preview", byte_preview("0000000104000000")),
+    ]);
+    let failure = TestFailure::result_with_details(
+        "HTTP/2 flow-control window exceeded at byte offset 9".to_string(),
+        None,
+        None,
+        Some(protocol_diagnostic),
+    );
+
+    assert!(protocol_result_failure_diagnostic(&failure).is_none());
+}
+
+#[test]
 fn protocol_result_failure_diagnostic_projects_settings_value_context() {
     let protocol_diagnostic = JsonValue::object([
         ("kind", JsonValue::string("protocol_diagnostic")),
