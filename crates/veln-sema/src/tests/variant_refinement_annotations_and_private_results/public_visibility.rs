@@ -169,17 +169,30 @@ fn public_record_refinements_and_private_function_records_remain_valid() {
 }
 
 #[test]
-fn square_bracket_nesting_does_not_extend_record_visibility() {
-    let diagnostics = visibility_diagnostics(concat!(
+fn square_bracket_nested_records_do_not_extend_record_visibility() {
+    let diagnostics = diagnostics_for(concat!(
         "pub type State\n",
         "  Hidden\n",
         "end\n",
-        "pub fn boundary(value: {wrapped: [State::Hidden]}) -> ()\n",
+        "pub fn boundary(value: {wrapped: [{inside: State::Hidden}], direct: State::Hidden}) -> ()\n",
         "  ()\n",
         "end\n",
     ));
 
-    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["type.invalid_annotation", "type.variant_refinement_private"],
+        "{diagnostics:#?}"
+    );
+    let visibility = veln_diagnostics::diagnostic_to_json(&diagnostics[1]).to_json();
+    assert!(visibility.contains("\"written_type\":\"State::Hidden\""));
+    assert!(visibility.contains(concat!(
+        "\"exposure_path\":[{\"kind\":\"parameter\",\"name\":\"value\"},",
+        "{\"kind\":\"record_field\",\"name\":\"direct\"}]"
+    )));
 }
 
 #[test]

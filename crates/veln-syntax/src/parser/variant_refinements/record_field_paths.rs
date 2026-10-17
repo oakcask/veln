@@ -146,7 +146,10 @@ impl<'a> RecordPathCollector<'a> {
     fn advance_field(&mut self, kind: TokenKind, field: &mut RecordFieldState) {
         match kind {
             TokenKind::LBrace
-                if !field.function_field && field.angle_depth == 0 && field.paren_depth == 0 =>
+                if !field.function_field
+                    && field.angle_depth == 0
+                    && field.paren_depth == 0
+                    && field.square_depth == 0 =>
             {
                 self.cursor += 1;
                 self.states

@@ -129,7 +129,7 @@ fn record_field_paths_exclude_refinements_nested_in_square_brackets() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn expose(value: {wrapped: [State::Hidden], direct: State::Hidden}) -> ()\n",
+            "fn expose(value: {wrapped: [{inside: State::Hidden}], direct: State::Hidden}) -> ()\n",
             "  ()\n",
             "end\n",
         ),
