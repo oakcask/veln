@@ -90,10 +90,21 @@ pub handler recording(recording: Recording) for Observe effects [time, concurren
 			match channel::recv(state.rx)
 				Some(RecordingBuffer(next_identity, entries)) => match request
 					SpanRequest(name, Some(RecordingSpan(trace_id, parent_span_id))) => begin
-						let span_id = string::concat(string::concat(prefix, "-"), int_to_string(next_identity))
-						let entry = SpanStarted(name, trace_id, span_id, Some(parent_span_id), monotonic_ms)
-						let _ = channel::send(state.tx, RecordingBuffer(next_identity + 1, list_cons(entry, entries)))
-						RecordingSpan(trace_id, span_id)
+						let candidate = string::concat(string::concat(prefix, "-"), int_to_string(next_identity))
+						if candidate == parent_span_id
+							begin
+								let span_id = string::concat(string::concat(prefix, "-"), int_to_string(next_identity + 1))
+								let entry = SpanStarted(name, trace_id, span_id, Some(parent_span_id), monotonic_ms)
+								let _ = channel::send(state.tx, RecordingBuffer(next_identity + 2, list_cons(entry, entries)))
+								RecordingSpan(trace_id, span_id)
+							end
+						else
+							begin
+								let entry = SpanStarted(name, trace_id, candidate, Some(parent_span_id), monotonic_ms)
+								let _ = channel::send(state.tx, RecordingBuffer(next_identity + 1, list_cons(entry, entries)))
+								RecordingSpan(trace_id, candidate)
+							end
+						end
 					end
 					SpanRequest(name, _) => begin
 						let trace_id = string::concat(string::concat(prefix, "-"), int_to_string(next_identity))

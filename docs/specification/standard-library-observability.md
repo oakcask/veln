@@ -114,7 +114,12 @@ A root span receives a trace identity and a span identity from its recording.
 A child request retains the parent's trace identity, records the parent's span
 identity, and receives a distinct span identity. Each recording allocates
 identities in order from its caller-supplied prefix and retains state in its own
-channel-backed scope.
+channel-backed scope. A recording handler accepts an opaque parent returned by
+another recording. If both recordings use the same prefix, child allocation
+skips a candidate that equals the supplied parent identity. Children accepted
+by one recording therefore remain distinct from their parent and siblings.
+This local guarantee does not make identities globally unique across unrelated
+recordings or processes.
 
 `trace::in_span` registers the matching finish immediately after start. The
 finish runs exactly once after a normal `Ok` return, after an `Err` result that

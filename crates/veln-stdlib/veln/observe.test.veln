@@ -75,6 +75,18 @@ test recorded_is_a_non_consuming_sequential_snapshot() -> Result<(), String> eff
 	end
 end
 
+test recording_children_do_not_collide_with_a_parent_from_another_recording() -> Result<(), String> effects [time, concurrency]
+	let parent_recording = observe::new_recording("shared")
+	let child_recording = observe::new_recording("shared")
+	let parent = handle perform observe::Observe::start_span(observe::SpanRequest("parent", None)) with observe::recording(parent_recording)
+	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("first", Some(parent))) with observe::recording(child_recording)
+	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("second", Some(parent))) with observe::recording(child_recording)
+	match observe::recorded(child_recording)
+		Cons(observe::SpanStarted("first", "shared-0", "shared-0", Some("shared-1"), _), Cons(observe::SpanStarted("second", "shared-0", "shared-2", Some("shared-1"), _), Nil)) => Ok(())
+		_ => Err("cross-recording children changed trace, parent, sibling, or allocation identities")
+	end
+end
+
 fn callsite_location() -> SourceLocation callsite
 	callsite
 end
