@@ -28,7 +28,7 @@ experimental project.
 
 | Input or event | Required observation | Intended evidence |
 | --- | --- | --- |
-| The checked standard library or an executable example still uses compiler-known network lookup | The remaining use is migrated to the exported `net` module and the `net::IO` handler boundary before fallback removal | checked-source search and existing network companion or integration coverage |
+| A checked compiler or backend test fixture, or an executable example, still uses compiler-known network lookup | The remaining use is migrated to the exported `net` module and the `net::IO` handler boundary before fallback removal | checked-source search and existing network companion or integration coverage |
 | Source uses a legacy compiler-known `net::...` spelling after checked-source migration | The fallback does not resolve, and the diagnostic identifies the import, effect, and handler migration | check and diagnostic cases |
 
 The current [source-less lookup specification](../specification/source-less-lookup.md)

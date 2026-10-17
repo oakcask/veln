@@ -1,5 +1,6 @@
 use prelude
 use net
+use host_effects
 
 fn failure(operation: String, message: String) -> net::NetError
 	net::NetError(operation, Some(net::Tcp4), Some("192.0.2.20:443"), net::ConnectionReset, message)
@@ -16,6 +17,73 @@ fn trace_contains(trace: List<{operation:String, bytes:ByteChunk}>, operation: S
 		Nil => false
 		Cons(head, tail) => head.operation == operation or trace_contains(tail, operation)
 	end
+end
+
+pub handler scripted_network(mode: String, responses: { tx : Sender<List<ByteChunk>>, rx : Receiver<List<ByteChunk>> }, trace: { tx : Sender<List<{operation:String, bytes:ByteChunk}>>, rx : Receiver<List<{operation:String, bytes:ByteChunk}>> }) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => scripted_network_reply(mode, responses, trace, operation, subject, bytes)
+end
+
+fn scripted_network_reply(mode: String, responses: { tx : Sender<List<ByteChunk>>, rx : Receiver<List<ByteChunk>> }, trace: { tx : Sender<List<{operation:String, bytes:ByteChunk}>>, rx : Receiver<List<{operation:String, bytes:ByteChunk}>> }, operation: String, subject: String, bytes: ByteChunk) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } effects [concurrency]
+	if operation == "resolve_tcp4"
+		client_network_reply("ok", "", byte_chunk([]), list_cons({ network: "tcp4", address: "192.0.2.20" }, list_nil()), 0, "", 0, "")
+	else if operation == "connect"
+		begin
+			let observed = trace_push(trace, "connect", byte_chunk([]))
+			if mode == "connect-failure" or mode == "later-connect-failure" and trace_contains(observed, "connect")
+				client_network_reply("error", "", byte_chunk([]), list_nil(), 0, "connection_reset", 0, "scripted client connect failure")
+			else
+				client_network_reply("ok", "client-stream", byte_chunk([]), list_nil(), 0, "", 0, "")
+			end
+		end
+	else if operation == "read"
+		begin
+			let observed = trace_push(trace, "read", byte_chunk([]))
+			if subject != "client-stream"
+				client_network_reply("error", "", byte_chunk([]), list_nil(), 0, "connection_reset", 0, "client used the wrong stream")
+			else if mode == "read-failure" or mode == "read-close-failure" or (mode == "later-read-failure" or mode == "later-read-close-failure") and trace_contains(observed, "read")
+				client_network_reply("error", "", byte_chunk([]), list_nil(), 0, "connection_reset", 0, "scripted client read failure")
+			else
+				match option_unwrap_or(channel::recv(responses.rx), list_nil())
+					Nil => begin
+						let _ = channel::send(responses.tx, list_nil())
+						client_network_reply("end", "", byte_chunk([]), list_nil(), 0, "", 0, "")
+					end
+					Cons(chunk, tail) => begin
+						let _ = channel::send(responses.tx, tail)
+						client_network_reply("ok", "", chunk, list_nil(), 0, "", 0, "")
+					end
+				end
+			end
+		end
+	else if operation == "write"
+		begin
+			let observed = trace_push(trace, "write", bytes)
+			if subject != "client-stream"
+				client_network_reply("error", "", byte_chunk([]), list_nil(), 0, "connection_reset", 0, "client used the wrong stream")
+			else if mode == "write-failure" or mode == "write-close-failure" or (mode == "later-write-failure" or mode == "later-write-close-failure") and trace_contains(observed, "read")
+				client_network_reply("error", "", byte_chunk([]), list_nil(), 0, "connection_reset", 0, "scripted client write failure")
+			else
+				client_network_reply("ok", "", byte_chunk([]), list_nil(), byte_count_to_int(byte_chunk_count(bytes)), "", 0, "")
+			end
+		end
+	else if operation == "close_stream"
+		begin
+			let _ = trace_push(trace, "close", byte_chunk([]))
+			if subject != "client-stream"
+				client_network_reply("error", "", byte_chunk([]), list_nil(), 0, "connection_reset", 1, "client used the wrong stream")
+			else if mode == "success-close-failure" or mode == "callback-close-failure" or mode == "read-close-failure" or mode == "write-close-failure" or mode == "replacement-close-failure" or mode == "later-read-close-failure" or mode == "later-write-close-failure"
+				client_network_reply("error", "", byte_chunk([]), list_nil(), 0, "connection_reset", 1, "scripted client close failure")
+			else
+				client_network_reply("ok", "", byte_chunk([]), list_nil(), 0, "", 0, "")
+			end
+		end
+	else
+		client_network_reply("error", "", byte_chunk([]), list_nil(), 0, "connection_reset", 0, "unexpected client network operation")
+	end
+end
+
+fn client_network_reply(status: String, value: String, bytes: ByteChunk, resolved_endpoints: List<{ network : String, address : String }>, bytes_committed: Int, category: String, ownership_committed: Int, cause: String) -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: status, value: value, local: "192.0.2.21:50000", peer: "192.0.2.20:443", bytes: bytes, resolved_endpoints: resolved_endpoints, bytes_committed: bytes_committed, category: category, phase: "during_operation", input_committed: 0, output_committed: if status == "error" bytes_committed else 0 end, ownership_committed: ownership_committed, cause: cause }
 end
 
 fn same_stream(actual: net::Stream, expected: net::Stream) -> Bool
