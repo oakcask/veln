@@ -20,8 +20,9 @@ also states it.
   propagation, production exporters, JSON Lines, exporter health, and exporter
   lifecycle behavior:
   [observability.md](observability.md).
-- Legacy compiler-known network compatibility removal after checked sources
-  migrate to the exported standard module:
+- Legacy compiler-known network compatibility removal after the remaining
+  compiler and backend fixtures and executable examples migrate to the
+  exported standard module:
   [network-compatibility-removal.md](network-compatibility-removal.md).
 - Remaining ADT variant-refinement support for structural visibility beyond
   root alias-qualified public function annotations, qualified immutable values

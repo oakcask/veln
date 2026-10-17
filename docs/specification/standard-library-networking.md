@@ -346,9 +346,12 @@ The adapter implementations are in
 `crates/veln-stdlib/veln/transport/net.veln` and
 `crates/veln-stdlib/veln/transport/network.veln`. Their companion evidence is
 in `crates/veln-stdlib/veln/transport/net.test.veln` and the adjacent separate
-Veln test-support modules. It covers both import paths, typed reads,
-non-progress, complete ordered writes, captured-resource identity, and the
-absence of lifecycle or connection-management operations.
+Veln test-support modules. The companion creates opaque streams through the
+exported `net` module inside `net::system()` while a scoped host-network fake
+supplies deterministic results. It covers the `transport::network` path,
+typed read results, system-handler rejection of an empty successful read,
+complete ordered writes, and captured-resource identity. Checked executable
+examples cover the equivalent `transport::net` import path.
 The JVM backend effect-injection tests use separate Veln test support to
 exercise the facade with opaque listener and stream resources and to check
 resource, option, byte, and result preservation. Checked command-level examples
