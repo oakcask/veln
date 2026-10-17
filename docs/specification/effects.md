@@ -223,6 +223,10 @@ effect set, `[std::net::IO, concurrency, ...E]`, for the TCP client. Its
 spawned request tasks inherit the active `std::net::IO` handler. Their
 `transport::network::net_stream` handlers adapt owned streams without
 installing a host provider or consuming callback effects.
+`http2::connection::request_endpoint_sequence_tcp<effect E>` installs
+`net::system()` around that service. Its public effect set is
+`[net, time, concurrency, ...E]`; the handler removes `std::net::IO`, exposes
+the two host effects, and leaves task and callback effects unchanged.
 
 ## Stdio Calls
 

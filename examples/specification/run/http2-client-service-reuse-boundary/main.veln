@@ -61,11 +61,11 @@ fn print_failure(failure: Http2ClientServiceFailure) -> Result<(), String> effec
 	Ok(())
 end
 
-fn fixture_body() -> Result<(), String> effects [net::IO, concurrency, stdio]
-	print_result(http2::connection::request_endpoint_sequence(net::Address(net::Tcp4, "127.0.0.1", 0), requests()?, observe))
+fn fixture_body() -> Result<(), String> effects [net, time, concurrency, stdio]
+	print_result(http2::connection::request_endpoint_sequence_tcp(net::Address(net::Tcp4, "127.0.0.1", 0), requests()?, observe))
 end
 
 pub fn main() -> Result<(), String> effects [concurrency, fs, net, time, stdio]
 	let state = fixture_effects::create_fixture()
-	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
 end

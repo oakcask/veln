@@ -52,10 +52,11 @@ The public routes are:
 - `http2::connection`: the `drive_server`, `drive_client`, and
   `drive_server_application` duplex-stream connection drivers,
   `serve_connection` and `serve_tcp` server service boundaries,
-  `request_endpoint_sequence` client service boundary, typed protocol-owned
-  connection failures, immutable application response actions, typed
-  application-boundary failures for one caller-owned stream, immutable client
-  request and response observations, and typed service failures for
+  `request_endpoint_sequence` handler-polymorphic client service and
+  `request_endpoint_sequence_tcp` production client boundaries, typed
+  protocol-owned connection failures, immutable application response actions,
+  typed application-boundary failures for one caller-owned stream, immutable
+  client request and response observations, and typed service failures for
   service-owned listeners, client streams, tasks, and streams.
 
 Nested implementation modules below `http2::hpack` and `http2::core` are not
@@ -418,6 +419,16 @@ its completed count. The service keeps ownership of connected streams; the
 duplex adapter does not close them. A pure response handler leaves only
 `net::IO` and `concurrency` on the service expression. A handler with callback
 effects adds that callback row to the same expression.
+
+Applications that want the host TCP implementation call
+`http2::connection::request_endpoint_sequence_tcp(endpoint, requests,
+handler)`. It preserves the same request sequence, response callback, result,
+failure, reuse, and cleanup behavior. It installs `net::system()` for the
+owned client scope, so callers do not supply a `net::IO` handler. A pure
+response handler leaves the host `net`, `time`, and `concurrency` effects on
+the expression. Callback effects are added to that set. The direct client
+service, connection drivers, duplex adapter, and TCP server remain
+handler-polymorphic and do not select a host network provider.
 
 ## Shutdown
 
