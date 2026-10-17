@@ -807,6 +807,9 @@ fn record_refinements_are_checked_while_named_arguments_remain_out_of_scope() {
         "pub fn named_nested(value: Box<State::Hidden>) -> ()\n",
         "  ()\n",
         "end\n",
+        "pub fn record_named_nested(value: {item: Box<State::Hidden>}) -> ()\n",
+        "  ()\n",
+        "end\n",
     ));
 
     assert_eq!(
