@@ -1069,6 +1069,55 @@ fn record_visibility_failure_quarantines_aliases_imports_and_checked_output() {
 }
 
 #[test]
+fn record_prefix_collision_quarantines_function_and_transitive_aliases() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\n",
+            "pub type State\n",
+            "  Hidden\n",
+            "end\n",
+            "pub fn exposed(value: {callback: fn() -> State::Hidden<Int>, direct: State::Hidden}) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "pub fn direct_alias = exposed\n",
+            "pub fn transitive_alias = direct_alias\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    assert!(!environment.function_is_published_for_test("exposed"));
+    assert!(environment.function("direct_alias").is_none());
+    assert!(environment.function("transitive_alias").is_none());
+
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "consumer.veln",
+            "mod consumer\nuse main\n",
+        ))
+        .tree,
+    );
+    let consumer_environment =
+        TypeEnvironment::from_module_with_base_for_test(&consumer, &environment);
+    for name in ["exposed", "direct_alias", "transitive_alias"] {
+        assert!(
+            consumer_environment
+                .function_path(&["main".to_string(), name.to_string()], Some("consumer"))
+                .is_none(),
+            "{name} must not be inherited"
+        );
+        assert!(
+            consumer_environment
+                .unqualified_function_import_candidates(name, Some("consumer"))
+                .is_empty(),
+            "{name} must not be imported"
+        );
+    }
+}
+
+#[test]
 fn recovered_visibility_failure_quarantines_aliases_and_checked_output() {
     let source = SourceFile::new(
         "main.veln",

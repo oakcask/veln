@@ -164,6 +164,65 @@ fn function_field_effect_rows_do_not_hide_later_record_refinements() {
 }
 
 #[test]
+fn function_field_non_refinement_prefix_does_not_capture_later_record_refinement() {
+    fn direct_visibility(source: &str) -> (Vec<Diagnostic>, veln_source::SourceSpan) {
+        let source = SourceFile::new("main.veln", source);
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+        let direct_span = module.functions[0].params[0].ty_refinements[0].span.clone();
+        let diagnostics = analyze_surface_module(&module)
+            .into_iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .collect();
+        (diagnostics, direct_span)
+    }
+
+    let prefix = concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub fn expose(value: {callback: fn() -> State::Hidden<Int>, direct: State::Hidden}) -> ()\n",
+        "  ()\n",
+        "end\n",
+    );
+    let control = concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub fn expose(value: {callback: fn() -> Int, direct: State::Hidden}) -> ()\n",
+        "  ()\n",
+        "end\n",
+    );
+
+    let (prefix_diagnostics, prefix_direct_span) = direct_visibility(prefix);
+    let (control_diagnostics, control_direct_span) = direct_visibility(control);
+    assert_eq!(prefix_diagnostics.len(), 1, "{prefix_diagnostics:#?}");
+    assert_eq!(control_diagnostics.len(), 1, "{control_diagnostics:#?}");
+    assert_eq!(
+        prefix_diagnostics[0].span.as_ref(),
+        Some(&prefix_direct_span)
+    );
+    assert_eq!(
+        control_diagnostics[0].span.as_ref(),
+        Some(&control_direct_span)
+    );
+
+    for diagnostic in [&prefix_diagnostics[0], &control_diagnostics[0]] {
+        let observed = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(observed.contains("\"written_type\":\"State::Hidden\""));
+        assert!(observed.contains(concat!(
+            "\"exposure_path\":[{\"kind\":\"parameter\",\"name\":\"value\"},",
+            "{\"kind\":\"record_field\",\"name\":\"direct\"}]"
+        )));
+    }
+
+    let prefix_module = lower_surface_ast(&parse(&SourceFile::new("main.veln", prefix)).tree);
+    let lowered = lower_checked_surface_module(&prefix_module);
+    assert!(lowered.core.is_none());
+    assert!(lowered.ir.is_none());
+}
+
+#[test]
 fn unique_casing_recovery_retains_direct_visibility_identity() {
     let diagnostics = diagnostics_for(concat!(
         "type Secret\n",

@@ -62,6 +62,20 @@ fn parses_variant_refinements_across_nested_type_forms() {
     assert_eq!(function.params[2].ty_refinements.len(), 2);
     assert_eq!(function.params[3].ty_refinements[0].alternatives.len(), 2);
     assert_eq!(
+        function.params[3].ty_refinements[0].record_field_path,
+        Some(vec!["state".to_string()])
+    );
+    assert!(
+        function.params[1].ty_refinements[0]
+            .record_field_path
+            .is_none()
+    );
+    assert!(
+        function.params[2].ty_refinements[0]
+            .record_field_path
+            .is_none()
+    );
+    assert_eq!(
         function.return_type_refinements[0].alternatives[0].variant,
         "Ok"
     );
@@ -80,6 +94,27 @@ fn parses_variant_refinements_across_nested_type_forms() {
     assert_eq!(
         annotation_refinements[0].alternatives[1].variant,
         "Connected"
+    );
+}
+
+#[test]
+fn record_field_paths_use_source_tokens_when_function_text_shares_a_prefix() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn expose(value: {callback: fn() -> State::Hidden<Int>, direct: State::Hidden}) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    assert_eq!(function.params[0].ty_refinements.len(), 1);
+    assert_eq!(
+        function.params[0].ty_refinements[0].record_field_path,
+        Some(vec!["direct".to_string()])
     );
 }
 

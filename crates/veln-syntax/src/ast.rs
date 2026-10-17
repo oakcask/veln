@@ -320,6 +320,7 @@ pub struct TypePathSegments {
 pub struct VariantRefinementType {
     pub alternatives: Vec<VariantRefinementAlternative>,
     pub pipe_spans: Vec<SourceSpan>,
+    pub record_field_path: Option<Vec<String>>,
     pub span: SourceSpan,
 }
 

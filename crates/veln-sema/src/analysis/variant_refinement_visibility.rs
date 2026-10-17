@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashSet, sync::Arc};
 
 use veln_ast::{Function, Param, TypePathSegments, VariantRefinementType, Visibility};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
@@ -176,7 +173,7 @@ fn root_exposure_candidates(
     };
     record_visibility_root_classification(annotation_text.len());
     if annotation_text.trim_start().starts_with('{') {
-        return record_exposure_candidates(annotation_text, refinements);
+        return record_exposure_candidates(refinements);
     }
     if matches!(
         parse_type_annotation(annotation_text),
@@ -188,153 +185,22 @@ fn root_exposure_candidates(
 }
 
 fn record_exposure_candidates(
-    annotation_text: &str,
     refinements: &[VariantRefinementType],
 ) -> Vec<RefinementExposureCandidate> {
-    let compact_annotation = compact_type_text(annotation_text);
-    let mut search_start = 0;
-    let mut positions = Vec::with_capacity(refinements.len());
-    for refinement in refinements {
-        let written_refinement = render_refinement(refinement);
-        let compact_refinement = compact_type_text(&written_refinement);
-        let Some(relative_start) = compact_annotation[search_start..].find(&compact_refinement)
-        else {
-            positions.push(None);
-            continue;
-        };
-        let target = search_start + relative_start;
-        search_start = target + compact_refinement.len();
-        positions.push(Some(target));
-    }
-    let targets = positions
-        .iter()
-        .enumerate()
-        .filter_map(|(index, position)| position.map(|position| (position, index)))
-        .collect::<HashMap<_, _>>();
-    let mut paths = vec![None; refinements.len()];
-    let _ = collect_record_field_paths(
-        compact_annotation.as_bytes(),
-        0,
-        &mut Vec::new(),
-        &targets,
-        &mut paths,
-    );
-
     let mut candidates = Vec::new();
-    for (refinement, record_fields) in refinements.iter().zip(paths) {
-        let Some(record_fields) = record_fields else {
+    for refinement in refinements {
+        let Some(record_fields) = &refinement.record_field_path else {
             continue;
         };
         record_visibility_candidate_construction(refinement.alternatives.len());
         candidates.extend(refinement.alternatives.iter().map(|alternative| {
             let mut candidate = refinement_candidate(alternative);
-            candidate.record_fields = record_fields.clone();
+            candidate.record_fields.clone_from(record_fields);
             candidate.structural_span = Some(refinement.span.clone());
             candidate
         }));
     }
     candidates
-}
-
-fn collect_record_field_paths(
-    text: &[u8],
-    record_start: usize,
-    path: &mut Vec<String>,
-    targets: &HashMap<usize, usize>,
-    paths: &mut [Option<Vec<String>>],
-) -> Option<usize> {
-    if text.get(record_start) != Some(&b'{') {
-        return None;
-    }
-    let mut cursor = record_start + 1;
-    loop {
-        skip_ascii_whitespace(text, &mut cursor);
-        if text.get(cursor) == Some(&b'}') {
-            return Some(cursor + 1);
-        }
-        let name_start = cursor;
-        while text
-            .get(cursor)
-            .is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
-        {
-            cursor += 1;
-        }
-        if cursor == name_start {
-            return None;
-        }
-        let Ok(field) = std::str::from_utf8(&text[name_start..cursor]) else {
-            return None;
-        };
-        skip_ascii_whitespace(text, &mut cursor);
-        if text.get(cursor) != Some(&b':') {
-            return None;
-        }
-        cursor += 1;
-        skip_ascii_whitespace(text, &mut cursor);
-        let field_start = cursor;
-        let function_field = text[field_start..].starts_with(b"fn(");
-        path.push(field.to_string());
-        let mut angle_depth = 0usize;
-        let mut paren_depth = 0usize;
-        let mut square_depth = 0usize;
-        let mut skipped_brace_depth = 0usize;
-        while cursor < text.len() {
-            if !function_field
-                && angle_depth == 0
-                && paren_depth == 0
-                && let Some(index) = targets.get(&cursor)
-            {
-                paths[*index] = Some(path.clone());
-            }
-            match text[cursor] {
-                b'{' if !function_field && angle_depth == 0 && paren_depth == 0 => {
-                    let Some(nested_end) =
-                        collect_record_field_paths(text, cursor, path, targets, paths)
-                    else {
-                        path.pop();
-                        return None;
-                    };
-                    cursor = nested_end - 1;
-                }
-                b'{' if function_field => skipped_brace_depth += 1,
-                b'}' if function_field && skipped_brace_depth > 0 => {
-                    skipped_brace_depth -= 1;
-                }
-                b'<' => angle_depth += 1,
-                b'>' if angle_depth > 0 => angle_depth -= 1,
-                b'(' => paren_depth += 1,
-                b')' if paren_depth > 0 => paren_depth -= 1,
-                b'[' => square_depth += 1,
-                b']' if square_depth > 0 => square_depth -= 1,
-                b',' | b'}'
-                    if angle_depth == 0
-                        && paren_depth == 0
-                        && square_depth == 0
-                        && skipped_brace_depth == 0 =>
-                {
-                    let end = text[cursor];
-                    cursor += 1;
-                    path.pop();
-                    if end == b'}' {
-                        return Some(cursor);
-                    }
-                    break;
-                }
-                _ => {}
-            }
-            cursor += 1;
-        }
-        if cursor == text.len() {
-            path.pop();
-            return None;
-        }
-    }
-}
-
-fn skip_ascii_whitespace(text: &[u8], cursor: &mut usize) {
-    while text.get(*cursor).is_some_and(u8::is_ascii_whitespace) {
-        *cursor += 1;
-    }
 }
 
 fn recovered_root_exposure_candidates(

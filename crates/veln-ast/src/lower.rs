@@ -604,6 +604,7 @@ impl AstBuilder {
                     })
                     .collect(),
                 pipe_spans: refinement.pipe_spans.clone(),
+                record_field_path: refinement.record_field_path.clone(),
                 span: refinement.span.clone(),
             })
             .collect()

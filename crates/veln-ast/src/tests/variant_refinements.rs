@@ -36,6 +36,19 @@ fn surface_wire_round_trip_preserves_variant_refinement_structure_and_spans() {
     assert_eq!(encode_surface_module(&decoded), encoded);
 }
 
+#[test]
+fn surface_wire_round_trip_preserves_record_refinement_paths() {
+    let module = lower_source(
+        "fn expose(value: {outer: {state: State::Ready | State::Closed}}) -> ()\n  ()\nend\n",
+    );
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+
+    let path = &decoded.functions[0].params[0].ty_refinements[0].record_field_path;
+    assert_eq!(path, &Some(vec!["outer".to_string(), "state".to_string()]));
+    assert_eq!(encode_surface_module(&decoded), encoded);
+}
+
 fn assert_refinement_spans_round_trip(lowered: &SurfaceModule, decoded: &SurfaceModule) {
     let lowered_advance = advance_function(lowered);
     let decoded_advance = advance_function(decoded);
@@ -53,6 +66,10 @@ fn assert_refinement_spans_round_trip(lowered: &SurfaceModule, decoded: &Surface
 fn assert_refinement_span_tree(lowered: &VariantRefinementType, decoded: &VariantRefinementType) {
     assert_eq!(decoded.span, lowered.span, "whole-refinement span");
     assert_eq!(decoded.pipe_spans, lowered.pipe_spans, "pipe spans");
+    assert_eq!(
+        decoded.record_field_path, lowered.record_field_path,
+        "record-field path"
+    );
     assert_eq!(decoded.alternatives.len(), lowered.alternatives.len());
 
     for (lowered_alternative, decoded_alternative) in
@@ -274,6 +291,7 @@ fn surface_wire_rejects_refinement_nesting_beyond_the_parser_limit() {
                 span: template.span.clone(),
             }],
             pipe_spans: Vec::new(),
+            record_field_path: None,
             span: template.span.clone(),
         }];
     }

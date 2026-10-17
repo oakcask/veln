@@ -12,7 +12,132 @@ pub(super) fn build_variant_refinements(
     let raw_candidates = refinement_alternatives(tokens, &generic_syntax);
     let depths = refinement_candidate_depths(tokens, &raw_candidates);
     let hierarchy = refinement_hierarchy(tokens, &generic_syntax, &raw_candidates, &depths);
-    materialize_refinements(source, tokens, &generic_syntax, &raw_candidates, hierarchy)
+    let (mut refinements, consumed_pipes) =
+        materialize_refinements(source, tokens, &generic_syntax, &raw_candidates, hierarchy);
+    assign_record_field_paths(tokens, &mut refinements);
+    (refinements, consumed_pipes)
+}
+
+fn assign_record_field_paths(tokens: &[Token], refinements: &mut [VariantRefinementType]) {
+    if tokens.first().map(|token| token.kind) != Some(TokenKind::LBrace) {
+        return;
+    }
+    let token_indexes = tokens
+        .iter()
+        .enumerate()
+        .map(|(index, token)| (token.range.start, index))
+        .collect::<std::collections::HashMap<_, _>>();
+    let targets = refinements
+        .iter()
+        .enumerate()
+        .filter_map(|(index, refinement)| {
+            token_indexes
+                .get(&refinement.span.start.offset)
+                .copied()
+                .map(|token_index| (token_index, index))
+        })
+        .collect::<std::collections::HashMap<_, _>>();
+    let mut paths = vec![None; refinements.len()];
+    let _ = collect_record_field_paths(tokens, 0, &mut Vec::new(), &targets, &mut paths);
+    for (refinement, path) in refinements.iter_mut().zip(paths) {
+        refinement.record_field_path = path;
+    }
+}
+
+fn collect_record_field_paths(
+    tokens: &[Token],
+    record_start: usize,
+    path: &mut Vec<String>,
+    targets: &std::collections::HashMap<usize, usize>,
+    paths: &mut [Option<Vec<String>>],
+) -> Option<usize> {
+    if tokens.get(record_start).map(|token| token.kind) != Some(TokenKind::LBrace) {
+        return None;
+    }
+    let mut cursor = record_start + 1;
+    loop {
+        skip_type_trivia(tokens, &mut cursor);
+        if tokens.get(cursor).map(|token| token.kind) == Some(TokenKind::RBrace) {
+            return Some(cursor + 1);
+        }
+        let field = tokens.get(cursor)?.text.clone();
+        cursor += 1;
+        skip_type_trivia(tokens, &mut cursor);
+        if tokens.get(cursor).map(|token| token.kind) != Some(TokenKind::Colon) {
+            return None;
+        }
+        cursor += 1;
+        skip_type_trivia(tokens, &mut cursor);
+        let function_field = tokens.get(cursor).map(|token| token.kind) == Some(TokenKind::Fn);
+        path.push(field);
+        let mut angle_depth = 0usize;
+        let mut paren_depth = 0usize;
+        let mut square_depth = 0usize;
+        let mut skipped_brace_depth = 0usize;
+        while cursor < tokens.len() {
+            if !function_field
+                && angle_depth == 0
+                && paren_depth == 0
+                && let Some(index) = targets.get(&cursor)
+            {
+                paths[*index] = Some(path.clone());
+            }
+            let kind = tokens[cursor].kind;
+            match kind {
+                TokenKind::LBrace if !function_field && angle_depth == 0 && paren_depth == 0 => {
+                    let Some(nested_end) =
+                        collect_record_field_paths(tokens, cursor, path, targets, paths)
+                    else {
+                        path.pop();
+                        return None;
+                    };
+                    cursor = nested_end - 1;
+                }
+                TokenKind::LBrace if function_field => skipped_brace_depth += 1,
+                TokenKind::RBrace if function_field && skipped_brace_depth > 0 => {
+                    skipped_brace_depth -= 1;
+                }
+                TokenKind::Less => angle_depth += 1,
+                TokenKind::Greater | TokenKind::ShiftRight | TokenKind::ShiftRightLogical => {
+                    angle_depth = angle_depth.saturating_sub(closing_angle_count(kind));
+                }
+                TokenKind::LParen => paren_depth += 1,
+                TokenKind::RParen if paren_depth > 0 => paren_depth -= 1,
+                TokenKind::LBracket => square_depth += 1,
+                TokenKind::RBracket if square_depth > 0 => square_depth -= 1,
+                TokenKind::Comma | TokenKind::RBrace
+                    if angle_depth == 0
+                        && paren_depth == 0
+                        && square_depth == 0
+                        && skipped_brace_depth == 0 =>
+                {
+                    cursor += 1;
+                    path.pop();
+                    if kind == TokenKind::RBrace {
+                        return Some(cursor);
+                    }
+                    break;
+                }
+                _ => {}
+            }
+            cursor += 1;
+        }
+        if cursor == tokens.len() {
+            path.pop();
+            return None;
+        }
+    }
+}
+
+fn skip_type_trivia(tokens: &[Token], cursor: &mut usize) {
+    while tokens.get(*cursor).is_some_and(|token| {
+        matches!(
+            token.kind,
+            TokenKind::Whitespace | TokenKind::Comment | TokenKind::Newline
+        )
+    }) {
+        *cursor += 1;
+    }
 }
 
 struct RefinementHierarchy {
@@ -355,6 +480,7 @@ fn materialize_refinement_group(
             .iter()
             .map(|index| source.span(tokens[*index].range))
             .collect(),
+        record_field_path: None,
         span,
     }
 }
