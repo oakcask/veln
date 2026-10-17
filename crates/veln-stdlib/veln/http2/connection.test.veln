@@ -3,11 +3,13 @@ use transport
 use net
 use http2::connection_test_support_test
 use http2::connection_client_test_support_test
+use http2::connection_client_system_test_support_test
 use http2::connection_service_test_support_test
 use http2::connection
 use http2::core
 use http2::hpack
 use transport::net_resource_test_support_test
+use test_clock
 
 fn ascii_header(name: String, value: String) -> Result<HeaderField, String>
 	Ok(http2::hpack::header_field(name, byte_chunk_from_visible_ascii_string(value)?))
@@ -27,6 +29,34 @@ end
 
 fn client_one_request() -> Result<List<Http2ClientRequest>, String>
 	Ok(list_cons(http2::connection::client_bodyless_request(client_request_headers()?), list_nil()))
+end
+
+fn observe_client_response_with_db(response: Http2ClientResponse) -> Result<(), String> effects [db]
+	let _ = http2::connection::client_response_stream_id(response)
+	Ok(())
+end
+
+test production_client_installs_system_handler_and_preserves_callback_effects() -> Result<(), String> effects [net, time, concurrency, db]
+	let calls = channel::bounded<List<String>>(1)
+	let _ = channel::send(calls.tx, list_nil())
+	let result = handle handle http2::connection::request_endpoint_sequence_tcp(net::Address(net::Tcp4, "production-client.test", 443), client_one_request()?, observe_client_response_with_db) with http2::connection_client_system_test_support_test::failing_resolution(calls) with test_clock::clock(0, 0, 0, 0, 0)
+	let observed: List<String> = option_unwrap_or(channel::recv(calls.rx), list_nil())
+	match result
+		Err(Http2ClientServiceFailure::Http2ClientServiceNetworkFailure(completed, net::NetError(_, _, _, net::NameNotFound, _))) => if completed == 0
+			match observed
+				Cons(operation, Nil) => if operation == "resolve_tcp4"
+					Ok(())
+				else
+					Err("HTTP/2 production client used an unexpected host network operation")
+				end
+				_ => Err("HTTP/2 production client did not perform exactly one host resolution")
+			end
+		else
+			Err("HTTP/2 production client changed the completed request count")
+		end
+		Err(_) => Err("HTTP/2 production client did not preserve the system handler failure")
+		Ok(_) => Err("HTTP/2 production client ignored the system handler failure")
+	end
 end
 
 fn application_request_chunk() -> Result<ByteChunk, String>

@@ -1,0 +1,22 @@
+use host_effects from "std"
+
+fn failure() -> { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String }
+	{ status: "error", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "name_not_found", phase: "before_operation", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "scripted production client resolution failure" }
+end
+
+fn record(calls: { tx : Sender<List<String>>, rx : Receiver<List<String>> }, operation: String) -> () effects [concurrency]
+	let observed: List<String> = option_unwrap_or(channel::recv(calls.rx), list_nil())
+	let _ = channel::send(calls.tx, list_cons(operation, observed))
+	()
+end
+
+pub handler failing_resolution(calls: { tx : Sender<List<String>>, rx : Receiver<List<String>> }) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => begin
+		let _ = subject
+		let _ = bytes
+		let _ = remaining_ms
+		let _ = cancelled
+		let _ = record(calls, operation)
+		failure()
+	end
+end

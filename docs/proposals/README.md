@@ -23,8 +23,6 @@ also states it.
 - Legacy compiler-known network compatibility removal after checked sources
   migrate to the exported standard module:
   [network-compatibility-removal.md](network-compatibility-removal.md).
-- HTTP/2 production TCP client entry point with a `net::system()` boundary:
-  [http2-tcp-network-failure-boundaries.md](http2-tcp-network-failure-boundaries.md).
 - Remaining ADT variant-refinement support for structural visibility beyond
   root alias-qualified public function annotations, qualified immutable values
   after a separate source-surface prerequisite, schema boundaries,

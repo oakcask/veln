@@ -236,6 +236,11 @@ connect, stream I/O, and stream-cleanup failures are typed network failures
 that retain the originating `NetError` and completed-request count. A cleanup
 failure replaces an earlier client outcome without changing that count. The
 client and its spawned tasks use the caller's `net::IO` handler.
+`request_endpoint_sequence_tcp` preserves that service contract and installs
+`net::system()` for its client scope. Its callers supply host `net`, `time`,
+and `concurrency` effects instead of a `net::IO` handler. Direct protocol
+drivers, the duplex adapter, the lower client service, and `serve_tcp` do not
+install that production client boundary.
 
 ## Binary schemas
 
