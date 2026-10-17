@@ -100,8 +100,9 @@ discovery guidance; the linked subject pages own behavior and evidence.
   stream adapter:
   [standard-library-networking.md](standard-library-networking.md).
 - Standard-library observation effect, public no-op and recording handlers,
-  typed attributes, trace context, scoped span lifecycle, and call-site-aware
-  structured logs at debug, info, warning, and error severities:
+  typed attributes, trace context, scoped span lifecycle, explicit child-task
+  context propagation, and call-site-aware structured logs at debug, info,
+  warning, and error severities:
   [standard-library-observability.md](standard-library-observability.md).
 - JVM execution behavior, values, calls, control flow, and host boundaries:
   [execution.md](execution.md).

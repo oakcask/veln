@@ -1,0 +1,15 @@
+# This case checks the compiler/JVM boundary for a public standard-package
+# effect-polymorphic wrapper: exact stdout detects lost child-task handler
+# inheritance, supplied context, or nested callback and join results.
+command = ["run", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "text"
+equals_file = "case-text/stdout.txt"
+
+[stderr]
+format = "empty"

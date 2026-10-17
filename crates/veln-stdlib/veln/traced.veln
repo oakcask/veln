@@ -1,0 +1,5 @@
+use observe
+
+pub fn spawn<effect E>(context: TraceContext, callback: fn(TraceContext) -> Result<(), String> effects [...E]) -> Task<Result<(), String>> effects [concurrency, ...E]
+	task::spawn_with<Result<(), String>, TraceContext>(callback, context)
+end
