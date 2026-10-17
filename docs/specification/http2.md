@@ -334,8 +334,9 @@ server service boundary. It exposes state creation failure, network failure
 with the unchanged `net::NetError` and accepted-connection count, application
 boundary failure with accepted-connection count, and task join failure with
 accepted-connection count. A network failure has kind `"network"` and id
-`"http2.service.network_failure"`. Projection helpers expose service failure
-kind, id, reason, accepted count, and stream id.
+`"http2.service.network_failure"`, and its reason is the message from the
+unchanged `net::NetError`. Projection helpers expose service failure kind, id,
+reason, accepted count, and stream id.
 
 `http2::connection::serve_connection(handler)` creates a server connection
 state and drives one caller-owned duplex stream through
@@ -908,8 +909,7 @@ exported `net` module inside `net::system()`. Separate scoped host-network
 handlers supply deterministic results, so the companions exercise the public
 `net::IO` resource boundary without compiler-known network lookup. The
 production system handler translates the scripted host outcomes before the
-HTTP/2 assertions compare every retained network-error field with its expected
-shape and require each public failure reason to equal the retained message. The
+HTTP/2 assertions observe transport errors and failure projections. The
 `connection.test.veln` companion covers TCP service accept,
 stream I/O, stream-close, and listener-close failures on first and later
 accepted connections, cumulative accepted counts, cleanup precedence, and
