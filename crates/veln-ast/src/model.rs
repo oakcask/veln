@@ -243,6 +243,7 @@ pub struct TypeVariantField {
     pub node_id: NodeId,
     pub name: String,
     pub ty: String,
+    pub ty_span: SourceSpan,
     pub ty_paths: Vec<TypePathSegments>,
     pub ty_refinements: Vec<VariantRefinementType>,
     pub span: SourceSpan,

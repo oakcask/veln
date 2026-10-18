@@ -467,6 +467,59 @@ fn public_result_structural_visibility_work_has_bounded_growth() {
     assert!(second_growth <= first_growth * 3, "work={work:?}");
 }
 
+fn wide_named_argument_visibility_work(count: usize, public: bool, variant: &str) -> usize {
+    let fields = (0..count)
+        .map(|index| format!("field{index}: Box<State::{variant}>"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let visibility = if public { "pub " } else { "" };
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "pub type State\n  Hidden\n  pub Ready\nend\n\
+             pub type Box<A>\n  pub Boxed(A)\nend\n\
+             {visibility}fn expose(value: {{{fields}}}) -> ()\n  ()\nend\n"
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    crate::analysis::reset_visibility_work();
+    let started = std::time::Instant::now();
+    let diagnostics = analyze_surface_module(&module);
+    let elapsed = started.elapsed();
+    let candidate_work = crate::analysis::take_visibility_candidate_work();
+    let visibility_work = crate::analysis::take_visibility_work();
+    let expected = usize::from(public && variant == "Hidden") * count;
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .count(),
+        expected,
+        "public={public} variant={variant} count={count}"
+    );
+    eprintln!(
+        "nested named visibility: fields={count} public={public} variant={variant} elapsed={elapsed:?}"
+    );
+    candidate_work.root_classification
+        + candidate_work.candidate_construction
+        + candidate_work.occurrence_lookup
+        + candidate_work.record_path_nodes
+        + visibility_work
+}
+
+#[test]
+fn nested_named_argument_visibility_indexing_has_affine_wide_growth() {
+    for (public, variant) in [(true, "Hidden"), (true, "Ready"), (false, "Hidden")] {
+        let work = [500, 750, 1_000]
+            .map(|count| wide_named_argument_visibility_work(count, public, variant));
+        assert_eq!(
+            work[1] - work[0],
+            work[2] - work[1],
+            "public={public} variant={variant} work={work:?}"
+        );
+    }
+}
+
 #[test]
 fn public_visibility_work_is_linear_for_many_declarations() {
     let work = [16, 32, 64].map(|count| {

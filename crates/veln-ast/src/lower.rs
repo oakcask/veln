@@ -246,6 +246,7 @@ impl AstBuilder {
                             node_id: self.alloc(),
                             name: field.name.clone(),
                             ty: field.ty.clone(),
+                            ty_span: field.ty_span.clone(),
                             ty_paths: self.lower_type_paths(&field.ty_paths),
                             ty_refinements: self.lower_variant_refinements(&field.ty_refinements),
                             span: field.span.clone(),

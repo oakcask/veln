@@ -381,10 +381,12 @@ diagnostic contract routed by [diagnostics-json.md](diagnostics-json.md),
 including span-less `toolchain.invalid_symbol_case` entries with diagnostic
 kind `toolchain` and details for `provider`, `name`, `name_class`, and
 `required_initial`.
-When analysis returns an error diagnostic, `check_project` returns those
-diagnostics but does not admit the captured dependency snapshot. Previously
-retained dependency source, package-documentation, search, and exact-read state
-remains unchanged. Stable-capture failure preserves the same state.
+When analysis returns `type.variant_refinement_private`, `check_project`
+returns the diagnostic but does not admit the captured dependency snapshot.
+Previously retained dependency source, package-documentation, search, and
+exact-read state remains unchanged. Stable-capture failure preserves the same
+state. Other language diagnostics do not imply this visibility-specific
+admission rule.
 If dependency resource admission exceeds retained package capacity after
 analysis succeeds, `check_project` returns `resource_capacity` and publishes no
 partial diagnostics, summary, or analysis metadata.

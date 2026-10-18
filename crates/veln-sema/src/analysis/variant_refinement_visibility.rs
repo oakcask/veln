@@ -65,10 +65,9 @@ pub(crate) fn check_public_adt_variant_refinement_visibility(
         .filter(|variant| variant.visibility == Visibility::Public)
     {
         for field in &variant.fields {
-            let annotation_span = payload_type_span(field);
             collect_root_exposures(
                 RootAnnotation::new(
-                    Some(&annotation_span),
+                    Some(&field.ty_span),
                     Some(&field.ty),
                     &field.ty_refinements,
                     &field.ty_paths,
@@ -98,10 +97,9 @@ pub(crate) fn adt_has_private_variant_refinement_exposure(
             .filter(|variant| variant.visibility == Visibility::Public)
             .flat_map(|variant| &variant.fields)
             .any(|field| {
-                let annotation_span = payload_type_span(field);
                 root_exposures(
                     RootAnnotation::new(
-                        Some(&annotation_span),
+                        Some(&field.ty_span),
                         Some(&field.ty),
                         &field.ty_refinements,
                         &field.ty_paths,
@@ -112,18 +110,6 @@ pub(crate) fn adt_has_private_variant_refinement_exposure(
                 .next()
                 .is_some()
             })
-}
-
-fn payload_type_span(field: &TypeVariantField) -> SourceSpan {
-    let byte_len = field.ty.len();
-    let column_len = field.ty.chars().count();
-    let mut span = field.span.clone();
-    span.start = veln_source::LineCol {
-        line: span.end.line,
-        column: span.end.column.saturating_sub(column_len),
-        offset: span.end.offset.saturating_sub(byte_len),
-    };
-    span
 }
 
 pub(crate) fn function_has_private_variant_refinement_exposure(
@@ -190,12 +176,19 @@ fn root_exposures<'a>(
     let mut seen = HashSet::new();
     exposures.retain(|exposure| {
         record_visibility_work(1);
+        let mut structural_path = exposure.structural_path.clone();
+        if matches!(
+            structural_path.last(),
+            Some(StructuralExposureSegment::UnionAlternative(_))
+        ) {
+            structural_path.pop();
+        }
         seen.insert((
             exposure
                 .record_path
                 .as_ref()
                 .map(RecordFieldPathRef::node_identity),
-            exposure.structural_path.clone(),
+            structural_path,
             exposure.descriptor.identity(),
             exposure.variant.name.clone(),
             exposure.alternative_identity.clone(),
@@ -239,17 +232,6 @@ fn root_exposure_candidates(
     refinements: &[VariantRefinementType],
     paths: &[TypePathSegments],
 ) -> Vec<RefinementExposureCandidate> {
-    if let Some(refinement) = refinements
-        .iter()
-        .find(|refinement| refinement.span == *annotation_span)
-    {
-        record_visibility_candidate_construction(refinement.alternatives.len());
-        return refinement
-            .alternatives
-            .iter()
-            .map(refinement_candidate)
-            .collect();
-    }
     let Some(annotation_text) = annotation_text else {
         return Vec::new();
     };
@@ -260,33 +242,28 @@ fn root_exposure_candidates(
     {
         return record_exposure_candidates(refinements);
     }
-    let recovered =
-        recovered_root_exposure_candidates(annotation_span, annotation_text, refinements, paths);
-    if !recovered.is_empty() {
-        return recovered;
-    }
-    let mut candidates = if annotation_text.trim_start().starts_with('{') {
-        record_exposure_candidates(refinements)
-    } else {
-        Vec::new()
+    let Ok(ty) = parse_type_annotation(annotation_text) else {
+        let recovered = recovered_root_exposure_candidates(
+            annotation_span,
+            annotation_text,
+            refinements,
+            paths,
+        );
+        if !recovered.is_empty() {
+            return recovered;
+        }
+        return if annotation_text.trim_start().starts_with('{') {
+            record_exposure_candidates(refinements)
+        } else {
+            Vec::new()
+        };
     };
-    candidates.extend(
-        structural_exposure_candidates(annotation_span, annotation_text, refinements, paths)
-            .into_iter()
-            .filter(|candidate| {
-                !candidate.structural_path.is_empty()
-                    && (!annotation_text.trim_start().starts_with('{')
-                        || candidate.structural_path.iter().any(|segment| {
-                            matches!(
-                                segment,
-                                StructuralExposureSegment::TypeArgument(_)
-                                    | StructuralExposureSegment::FunctionParameter(_)
-                                    | StructuralExposureSegment::FunctionResult
-                            )
-                        }))
-            }),
-    );
-    candidates
+    let candidates = structured_exposure_candidates(annotation_span, &ty, refinements, paths);
+    if candidates.is_empty() {
+        recovered_root_exposure_candidates(annotation_span, annotation_text, refinements, paths)
+    } else {
+        candidates
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -298,301 +275,261 @@ enum StructuralExposureSegment {
     UnionAlternative(usize),
 }
 
-fn structural_exposure_candidates(
+fn structured_exposure_candidates(
     annotation_span: &SourceSpan,
-    annotation_text: &str,
+    ty: &Type,
     refinements: &[VariantRefinementType],
     paths: &[TypePathSegments],
 ) -> Vec<RefinementExposureCandidate> {
     let mut candidates = Vec::new();
-    collect_structural_refinements(
+    let mut refinements = refinements.iter().peekable();
+    collect_type_exposures(
         annotation_span,
-        annotation_text,
-        refinements,
-        paths,
+        ty,
+        &mut refinements,
+        false,
         &[],
         &mut candidates,
     );
     candidates.sort_by_key(|candidate| candidate.occurrence_span.start.offset);
+    assign_outer_structural_spans(annotation_span, paths, &mut candidates);
     candidates
 }
 
-fn collect_structural_refinements(
+fn collect_type_exposures<'a>(
     annotation_span: &SourceSpan,
-    annotation_text: &str,
-    refinements: &[VariantRefinementType],
-    paths: &[TypePathSegments],
-    inherited: &[StructuralExposureSegment],
+    ty: &Type,
+    refinements: &mut std::iter::Peekable<std::slice::Iter<'a, VariantRefinementType>>,
+    placeholders: bool,
+    path: &[StructuralExposureSegment],
     candidates: &mut Vec<RefinementExposureCandidate>,
 ) {
-    for refinement in refinements {
-        let mut structural_path = inherited.to_vec();
-        if inherited.is_empty() {
-            structural_path.extend(structural_path_for_occurrence(
-                annotation_span,
-                annotation_text,
-                &refinement.span,
-                paths,
-            ));
-            if let Some(record_path) = &refinement.record_field_path {
-                let mut fields = Vec::new();
-                let mut prefix = Vec::new();
-                // The parser stores record paths as deltas between adjacent refinements.
-                // Rebuild the path from the source text when this is the first occurrence;
-                // later record-only cases continue through the established arena path below.
-                if record_path.shared_prefix_len == 0 {
-                    prefix.extend(record_path.suffix.iter().cloned());
-                    fields = prefix;
-                }
-                structural_path.extend(
-                    fields
-                        .into_iter()
-                        .map(StructuralExposureSegment::RecordField),
-                );
+    match ty {
+        Type::Named { name, args, .. } => {
+            let is_refinement = refinements.peek().is_some_and(|refinement| {
+                placeholders && name == "Placeholder::Variant"
+                    || args.is_empty()
+                        && plain_refinement_name(refinement).as_deref() == Some(name.as_str())
+            });
+            if is_refinement {
+                let refinement = refinements.next().expect("peeked refinement");
+                collect_refinement_exposures(annotation_span, refinement, path, candidates);
+                return;
             }
-        }
-        if structural_path.is_empty() && refinement.record_field_path.is_none() {
-            continue;
-        }
-        record_visibility_candidate_construction(refinement.alternatives.len());
-        for (alternative_index, alternative) in refinement.alternatives.iter().enumerate() {
-            let mut candidate = refinement_candidate(alternative);
-            candidate.structural_span =
-                outer_structural_span(annotation_span, &refinement.span, paths, &structural_path);
-            candidate.structural_path = structural_path.clone();
-            if refinement.alternatives.len() > 1 {
-                candidate
-                    .structural_path
-                    .push(StructuralExposureSegment::UnionAlternative(
-                        alternative_index,
-                    ));
-            }
-            candidates.push(candidate);
-            for (argument_index, argument) in alternative.type_arguments.iter().enumerate() {
-                let mut nested = structural_path.clone();
-                if refinement.alternatives.len() > 1 {
-                    nested.push(StructuralExposureSegment::UnionAlternative(
-                        alternative_index,
-                    ));
-                }
-                nested.push(StructuralExposureSegment::TypeArgument(argument_index));
-                collect_structural_refinements(
+            for (index, argument) in args.iter().enumerate() {
+                record_visibility_work(path.len() + 1);
+                let mut nested = path.to_vec();
+                nested.push(StructuralExposureSegment::TypeArgument(index));
+                collect_type_exposures(
                     annotation_span,
-                    annotation_text,
-                    &argument.ty_refinements,
-                    &argument.ty_paths,
+                    argument,
+                    refinements,
+                    placeholders,
                     &nested,
                     candidates,
                 );
             }
         }
+        Type::Record(fields) => {
+            for (name, field) in fields {
+                record_visibility_work(path.len() + 1);
+                let mut nested = path.to_vec();
+                nested.push(StructuralExposureSegment::RecordField(name.clone()));
+                collect_type_exposures(
+                    annotation_span,
+                    field,
+                    refinements,
+                    placeholders,
+                    &nested,
+                    candidates,
+                );
+            }
+        }
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            for (index, parameter) in params.iter().enumerate() {
+                record_visibility_work(path.len() + 1);
+                let mut nested = path.to_vec();
+                nested.push(StructuralExposureSegment::FunctionParameter(index));
+                collect_type_exposures(
+                    annotation_span,
+                    parameter,
+                    refinements,
+                    placeholders,
+                    &nested,
+                    candidates,
+                );
+            }
+            if let Some(variadic) = variadic {
+                record_visibility_work(path.len() + 1);
+                let mut nested = path.to_vec();
+                nested.push(StructuralExposureSegment::FunctionParameter(params.len()));
+                collect_type_exposures(
+                    annotation_span,
+                    variadic,
+                    refinements,
+                    placeholders,
+                    &nested,
+                    candidates,
+                );
+            }
+            record_visibility_work(path.len() + 1);
+            let mut nested = path.to_vec();
+            nested.push(StructuralExposureSegment::FunctionResult);
+            collect_type_exposures(
+                annotation_span,
+                return_type,
+                refinements,
+                placeholders,
+                &nested,
+                candidates,
+            );
+        }
+        Type::VariantRefinement { .. } => {
+            let Some(refinement) = refinements.next() else {
+                return;
+            };
+            collect_refinement_exposures(annotation_span, refinement, path, candidates);
+        }
+        Type::Unknown => {}
     }
 }
 
-fn outer_structural_span(
-    annotation_span: &SourceSpan,
-    occurrence: &SourceSpan,
-    paths: &[TypePathSegments],
-    structural_path: &[StructuralExposureSegment],
-) -> Option<SourceSpan> {
-    if structural_path.iter().any(|segment| {
-        matches!(
-            segment,
-            StructuralExposureSegment::FunctionParameter(_)
-                | StructuralExposureSegment::FunctionResult
-        )
-    }) {
-        return Some(annotation_span.clone());
-    }
-    paths
-        .iter()
-        .map(|path| &path.application_span)
-        .filter(|span| {
-            span.start.offset < occurrence.start.offset && span.end.offset >= occurrence.end.offset
-        })
-        .max_by_key(|span| span.end.offset.saturating_sub(span.start.offset))
-        .cloned()
-        .or_else(|| Some(occurrence.clone()))
-}
-
-fn structural_path_for_occurrence(
-    annotation_span: &SourceSpan,
-    annotation_text: &str,
-    occurrence: &SourceSpan,
-    paths: &[TypePathSegments],
-) -> Vec<StructuralExposureSegment> {
-    let Some(start) = occurrence
-        .start
-        .offset
-        .checked_sub(annotation_span.start.offset)
-    else {
-        return Vec::new();
-    };
-    let Some(end) = occurrence
-        .end
-        .offset
-        .checked_sub(annotation_span.start.offset)
-    else {
-        return Vec::new();
-    };
-    let mut containers = paths
-        .iter()
-        .filter(|path| {
-            path.type_argument_count > 0
-                && path.application_span.start.offset < occurrence.start.offset
-                && path.application_span.end.offset >= occurrence.end.offset
-        })
-        .filter_map(|path| {
-            let application_start = path
-                .application_span
-                .start
-                .offset
-                .checked_sub(annotation_span.start.offset)?;
-            let application_end = path
-                .application_span
-                .end
-                .offset
-                .checked_sub(annotation_span.start.offset)?;
-            let index = enclosing_argument_index(
-                annotation_text,
-                application_start,
-                application_end,
-                start,
-                end,
-            )?;
-            Some((
-                application_start,
-                application_end,
-                StructuralExposureSegment::TypeArgument(index),
-            ))
-        })
-        .collect::<Vec<_>>();
-    containers.extend(function_position_containers(annotation_text, start, end));
-    containers.sort_by_key(|(container_start, container_end, _)| {
-        (*container_start, usize::MAX - *container_end)
-    });
-    containers
-        .into_iter()
-        .map(|(_, _, segment)| segment)
-        .collect()
-}
-
-fn enclosing_argument_index(
-    text: &str,
-    application_start: usize,
-    application_end: usize,
-    occurrence_start: usize,
-    occurrence_end: usize,
-) -> Option<usize> {
-    let slice = text.get(application_start..application_end)?;
-    let open = slice.find('<')? + application_start;
-    let close = matching_delimiter(text, open, '<', '>')?;
-    if occurrence_start <= open || occurrence_end > close {
+fn plain_refinement_name(refinement: &VariantRefinementType) -> Option<String> {
+    let alternative = refinement.alternatives.first()?;
+    if refinement.alternatives.len() != 1 || !alternative.type_arguments.is_empty() {
         return None;
     }
-    Some(top_level_item_index(text, open + 1, occurrence_start))
+    let mut name = alternative.base.segments.join("::");
+    name.push_str("::");
+    name.push_str(&alternative.variant);
+    Some(name)
 }
 
-fn function_position_containers(
-    text: &str,
-    occurrence_start: usize,
-    occurrence_end: usize,
-) -> Vec<(usize, usize, StructuralExposureSegment)> {
-    let mut containers = Vec::new();
-    let bytes = text.as_bytes();
-    let mut cursor = 0;
-    while cursor + 2 <= bytes.len() {
-        if &bytes[cursor..cursor + 2] != b"fn" {
-            cursor += 1;
-            continue;
+fn collect_refinement_exposures(
+    annotation_span: &SourceSpan,
+    refinement: &VariantRefinementType,
+    path: &[StructuralExposureSegment],
+    candidates: &mut Vec<RefinementExposureCandidate>,
+) {
+    record_visibility_candidate_construction(refinement.alternatives.len());
+    let mut alternative_paths = std::collections::HashMap::<String, usize>::new();
+    for (alternative_index, alternative) in refinement.alternatives.iter().enumerate() {
+        let mut candidate = refinement_candidate(alternative);
+        record_visibility_work(path.len() + 1);
+        let mut alternative_path = path.to_vec();
+        if refinement.alternatives.len() > 1 {
+            let path_index = *alternative_paths
+                .entry(candidate.written_type.clone())
+                .or_insert(alternative_index);
+            alternative_path.push(StructuralExposureSegment::UnionAlternative(path_index));
         }
-        let mut open = cursor + 2;
-        while bytes.get(open).is_some_and(u8::is_ascii_whitespace) {
-            open += 1;
+        candidate.structural_path = alternative_path.clone();
+        if path
+            .iter()
+            .any(|segment| matches!(segment, StructuralExposureSegment::RecordField(_)))
+        {
+            candidate.structural_span = Some(refinement.span.clone());
         }
-        if bytes.get(open) != Some(&b'(') {
-            cursor += 2;
-            continue;
-        }
-        let Some(close) = matching_delimiter(text, open, '(', ')') else {
-            break;
-        };
-        let mut arrow = close + 1;
-        while bytes.get(arrow).is_some_and(u8::is_ascii_whitespace) {
-            arrow += 1;
-        }
-        if bytes.get(arrow..arrow + 2) != Some(b"->") {
-            cursor = close + 1;
-            continue;
-        }
-        let function_end = enclosing_type_end(text, arrow + 2);
-        if occurrence_start > open && occurrence_end <= close {
-            containers.push((
-                cursor,
-                function_end,
-                StructuralExposureSegment::FunctionParameter(top_level_item_index(
-                    text,
-                    open + 1,
-                    occurrence_start,
-                )),
-            ));
-        } else if occurrence_start >= arrow + 2 && occurrence_end <= function_end {
-            containers.push((
-                cursor,
-                function_end,
-                StructuralExposureSegment::FunctionResult,
-            ));
-        }
-        cursor += 2;
-    }
-    containers
-}
-
-fn matching_delimiter(text: &str, open: usize, left: char, right: char) -> Option<usize> {
-    let mut depth = 0usize;
-    for (offset, character) in text.get(open..)?.char_indices() {
-        if character == left {
-            depth += 1;
-        } else if character == right {
-            depth = depth.checked_sub(1)?;
-            if depth == 0 {
-                return Some(open + offset);
+        candidates.push(candidate);
+        for (argument_index, argument) in alternative.type_arguments.iter().enumerate() {
+            record_visibility_work(alternative_path.len() + 1);
+            let mut nested = alternative_path.clone();
+            nested.push(StructuralExposureSegment::TypeArgument(argument_index));
+            let skeleton = type_argument_skeleton(argument);
+            if let Ok(ty) = parse_type_annotation(&skeleton) {
+                let mut child_refinements = argument.ty_refinements.iter().peekable();
+                collect_type_exposures(
+                    annotation_span,
+                    &ty,
+                    &mut child_refinements,
+                    true,
+                    &nested,
+                    candidates,
+                );
+            } else {
+                for child in &argument.ty_refinements {
+                    collect_refinement_exposures(annotation_span, child, &nested, candidates);
+                }
             }
         }
     }
-    None
 }
 
-fn top_level_item_index(text: &str, start: usize, target: usize) -> usize {
-    let mut index = 0;
-    let mut delimiters = Vec::new();
-    for character in text[start..target].chars() {
-        match character {
-            '<' | '(' | '{' | '[' => delimiters.push(character),
-            '>' | ')' | '}' | ']' => {
-                delimiters.pop();
-            }
-            ',' if delimiters.is_empty() => index += 1,
-            _ => {}
+fn type_argument_skeleton(argument: &veln_ast::VariantRefinementTypeArgument) -> String {
+    let mut text = String::new();
+    for (index, fragment) in argument.ty_fragments.iter().enumerate() {
+        record_visibility_work(fragment.len());
+        text.push_str(fragment);
+        if index < argument.ty_refinements.len() {
+            text.push_str("Placeholder::Variant");
         }
     }
-    index
+    text
 }
 
-fn enclosing_type_end(text: &str, start: usize) -> usize {
-    let mut delimiters = Vec::new();
-    for (offset, character) in text[start..].char_indices() {
-        match character {
-            '<' | '(' | '{' | '[' => delimiters.push(character),
-            '>' | ')' | '}' | ']' if delimiters.is_empty() => return start + offset,
-            '>' | ')' | '}' | ']' => {
-                delimiters.pop();
+fn assign_outer_structural_spans(
+    annotation_span: &SourceSpan,
+    paths: &[TypePathSegments],
+    candidates: &mut [RefinementExposureCandidate],
+) {
+    let mut containers = paths
+        .iter()
+        .filter(|path| path.type_argument_count > 0)
+        .map(|path| &path.application_span)
+        .collect::<Vec<_>>();
+    containers.sort_by_key(|span| (span.start.offset, usize::MAX - span.end.offset));
+    let mut next = 0;
+    let mut active = Vec::<&SourceSpan>::new();
+    for candidate in candidates {
+        if candidate.structural_path.iter().any(|segment| {
+            matches!(
+                segment,
+                StructuralExposureSegment::FunctionParameter(_)
+                    | StructuralExposureSegment::FunctionResult
+            )
+        }) {
+            candidate.structural_span = Some(annotation_span.clone());
+            continue;
+        }
+        if !candidate
+            .structural_path
+            .iter()
+            .any(|segment| matches!(segment, StructuralExposureSegment::TypeArgument(_)))
+        {
+            if candidate.structural_span.is_none()
+                && candidate
+                    .structural_path
+                    .iter()
+                    .any(|segment| matches!(segment, StructuralExposureSegment::RecordField(_)))
+            {
+                candidate.structural_span = Some(candidate.occurrence_span.clone());
             }
-            ',' | '|' if delimiters.is_empty() => return start + offset,
-            _ => {}
+            continue;
+        }
+        while containers
+            .get(next)
+            .is_some_and(|span| span.start.offset < candidate.occurrence_span.start.offset)
+        {
+            record_visibility_work(1);
+            active.push(containers[next]);
+            next += 1;
+        }
+        active.retain(|span| {
+            record_visibility_work(1);
+            span.end.offset >= candidate.occurrence_span.end.offset
+        });
+        if let Some(span) = active
+            .iter()
+            .max_by_key(|span| span.end.offset.saturating_sub(span.start.offset))
+        {
+            candidate.structural_span = Some((*span).clone());
         }
     }
-    text.len()
 }
 
 fn record_exposure_candidates(
@@ -621,9 +558,16 @@ fn record_exposure_candidates(
         }
         let record_path_tail = record_path.last().copied();
         record_visibility_candidate_construction(refinement.alternatives.len());
-        for alternative in &refinement.alternatives {
+        for (alternative_index, alternative) in refinement.alternatives.iter().enumerate() {
             let mut candidate = refinement_candidate(alternative);
             candidate.structural_span = Some(refinement.span.clone());
+            if refinement.alternatives.len() > 1 {
+                candidate
+                    .structural_path
+                    .push(StructuralExposureSegment::UnionAlternative(
+                        alternative_index,
+                    ));
+            }
             candidates.push(candidate);
             candidate_tails.push(record_path_tail);
         }

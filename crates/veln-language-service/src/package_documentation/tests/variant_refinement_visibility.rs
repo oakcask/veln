@@ -58,7 +58,13 @@ fn package_catalog_rejects_private_structural_refinement_exposure_atomically() {
                 "pub type Envelope\n",
                 "  pub Wrapped(value: Box<State::Hidden>)\n",
                 "end\n",
+                "pub type RootEnvelope\n",
+                "  pub Wrapped(value: Option< State::Hidden >::Some)\n",
+                "end\n",
                 "pub fn expose(value: Box<State::Hidden>) -> ()\n",
+                "  ()\n",
+                "end\n",
+                "pub fn expose_root(value: Option<State::Hidden>::Some) -> ()\n",
                 "  ()\n",
                 "end\n",
             ),
@@ -76,6 +82,8 @@ fn package_catalog_rejects_private_structural_refinement_exposure_atomically() {
         [
             ("semantic_visibility", "type.variant_refinement_private"),
             ("semantic_visibility", "type.variant_refinement_private"),
+            ("semantic_visibility", "type.variant_refinement_private"),
+            ("semantic_visibility", "type.variant_refinement_private"),
         ]
     );
     assert!(
@@ -86,6 +94,16 @@ fn package_catalog_rejects_private_structural_refinement_exposure_atomically() {
     assert!(
         result
             .declaration_uri_for("main", "function", "expose")
+            .is_none()
+    );
+    assert!(
+        result
+            .declaration_uri_for("main", "type", "RootEnvelope")
+            .is_none()
+    );
+    assert!(
+        result
+            .declaration_uri_for("main", "function", "expose_root")
             .is_none()
     );
 }

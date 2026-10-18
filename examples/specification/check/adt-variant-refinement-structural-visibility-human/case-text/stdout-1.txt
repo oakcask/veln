@@ -15,3 +15,15 @@ main.veln:17:21: error[type.variant_refinement_private]: public refinement expos
 main.veln:17:21: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
   note: main.veln:3:2: Private variant `main::State::Hidden` is declared here.
   note: main.veln:17:14: Public payload `value` of variant `Envelope::Wrapped` exposes this refinement.
+main.veln:18:33: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:3:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:18:11: Public payload `value` of variant `Envelope::Root` exposes this refinement.
+main.veln:21:41: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:3:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:21:20: Public parameter `value` of function `expose_root` exposes this refinement.
+main.veln:25:39: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:3:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:25:24: Public parameter `value` of function `expose_siblings` exposes this refinement.
+main.veln:25:67: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:3:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:25:24: Public parameter `value` of function `expose_siblings` exposes this refinement.

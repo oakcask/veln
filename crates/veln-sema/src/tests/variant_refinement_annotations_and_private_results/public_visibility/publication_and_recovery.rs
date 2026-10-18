@@ -817,7 +817,7 @@ fn record_and_named_argument_refinements_are_checked() {
             .iter()
             .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
             .count(),
-        3,
+        4,
         "{diagnostics:#?}"
     );
 }

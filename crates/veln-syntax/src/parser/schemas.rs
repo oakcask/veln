@@ -444,7 +444,7 @@ impl<'a> Parser<'a> {
         let mut positional_index = 0usize;
         while !self.at(close) && !self.at(TokenKind::Eof) {
             let start = self.current().range;
-            let (name, ty, ty_paths, ty_refinements) =
+            let (name, ty, ty_span, ty_paths, ty_refinements) =
                 if matches!(self.current().kind, TokenKind::Ident | TokenKind::Callsite)
                     && self.peek_at(TokenKind::Colon)
                 {
@@ -452,24 +452,41 @@ impl<'a> Parser<'a> {
                         .expect_ident("type_variant", "variant field name")
                         .unwrap_or_default();
                     self.expect(TokenKind::Colon, "type_variant", vec![":"]);
+                    let ty_start = self.current().range;
                     let (ty, ty_paths, ty_refinements) =
                         self.collect_type_paths_until("type_variant", &[TokenKind::Comma, close]);
-                    (name, ty, ty_paths, ty_refinements)
+                    let ty_end = self.previous().map_or(ty_start, |token| token.range);
+                    (
+                        name,
+                        ty,
+                        self.source.span(ty_start.cover(ty_end)),
+                        ty_paths,
+                        ty_refinements,
+                    )
                 } else {
                     let name = if positional_index == 0 {
                         "value".to_string()
                     } else {
                         format!("_{positional_index}")
                     };
+                    let ty_start = self.current().range;
                     let (ty, ty_paths, ty_refinements) =
                         self.collect_type_paths_until("type_variant", &[TokenKind::Comma, close]);
                     positional_index += 1;
-                    (name, ty, ty_paths, ty_refinements)
+                    let ty_end = self.previous().map_or(ty_start, |token| token.range);
+                    (
+                        name,
+                        ty,
+                        self.source.span(ty_start.cover(ty_end)),
+                        ty_paths,
+                        ty_refinements,
+                    )
                 };
             let end = self.previous().map_or(start, |token| token.range);
             fields.push(TypeVariantField {
                 name,
                 ty,
+                ty_span,
                 ty_paths,
                 ty_refinements,
                 span: self.source.span(start.cover(end)),

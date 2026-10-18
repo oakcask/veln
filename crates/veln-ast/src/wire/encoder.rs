@@ -282,6 +282,7 @@ impl Writer {
         self.node_id(value.node_id);
         self.string(&value.name);
         self.string(&value.ty);
+        self.span(&value.ty_span);
         self.vec(&value.ty_paths, Self::type_path_segments);
         self.vec(&value.ty_refinements, Self::variant_refinement);
         self.span(&value.span);

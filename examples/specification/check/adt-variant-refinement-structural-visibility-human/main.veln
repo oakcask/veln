@@ -15,4 +15,13 @@ end
 
 pub type Envelope
 	pub Wrapped(value: Box<Alias::Hidden | State::Hidden>)
+	pub Root(value: Option< State::Hidden >::Some)
+end
+
+pub fn expose_root(value: Option<State::Hidden>::Some) -> ()
+	()
+end
+
+pub fn expose_siblings(value: {first: Box<State::Hidden>, second: Box< State::Hidden >}) -> ()
+	()
 end
