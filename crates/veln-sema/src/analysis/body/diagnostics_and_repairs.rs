@@ -207,62 +207,10 @@ impl<'a> FunctionChecker<'a> {
         symbol: &str,
         namespace: &'static str,
     ) {
-        if matches!(namespace, "value" | "contract_predicate")
-            && symbol == "callsite"
-            && self.function.callsite.is_none()
-            && self.supports_callsite_modifier
-        {
-            let mut diagnostic = Diagnostic::new(
-                "name.callsite_requires_modifier",
-                Severity::Error,
-                DiagnosticKind::Name,
-                "unresolved `callsite`; the function is missing the `callsite` modifier",
-                Some(span.clone()),
-                JsonValue::object([
-                    ("phase", JsonValue::string("name")),
-                    ("node_id", JsonValue::string(node_id.display("name"))),
-                    ("symbol", JsonValue::string(symbol)),
-                    ("namespace", JsonValue::string(namespace)),
-                    ("resolution_status", JsonValue::string("missing_modifier")),
-                ]),
-            );
-            diagnostic.related.push(JsonValue::object([
-                ("kind", JsonValue::string("repair_hint")),
-                (
-                    "message",
-                    JsonValue::string(
-                        "Add `callsite` after the function's optional effects clause.",
-                    ),
-                ),
-                ("span", span_json(&self.function.span)),
-            ]));
-            self.diagnostics.push(diagnostic);
+        if self.push_missing_callsite_modifier(node_id, &span, symbol, namespace) {
             return;
         }
-        if namespace == "value"
-            && let Some(primitive) = exact_width_binary_primitive_name(symbol)
-        {
-            self.diagnostics
-                .push(exact_width_schema_primitive_diagnostic(
-                    primitive,
-                    None,
-                    None,
-                    node_id.display("name"),
-                    span,
-                    "value_position",
-                ));
-            return;
-        }
-        if namespace == "value" && lowercase_schema_primitive(symbol).is_some() {
-            self.diagnostics
-                .push(lowercase_schema_primitive_position_diagnostic(
-                    symbol,
-                    None,
-                    None,
-                    node_id.display("name"),
-                    span,
-                    "value_position",
-                ));
+        if self.push_schema_primitive_position(node_id, &span, symbol, namespace) {
             return;
         }
         let mut diagnostic = Diagnostic::new(
@@ -280,34 +228,121 @@ impl<'a> FunctionChecker<'a> {
                 ("candidates", JsonValue::array([])),
             ]),
         );
-        if namespace == "call_target"
-            && removed_legacy_network_call(symbol)
-            && !self.environment.uses.iter().any(|use_decl| {
-                use_decl.module_name.as_deref() == self.function.module_name.as_deref()
-                    && use_decl.alias == "net"
-            })
-        {
-            for (kind, message) in [
-                (
-                    "network_import_migration",
-                    "Import the exported network module with `use net from \"std\"`.",
-                ),
-                (
-                    "network_effect_migration",
-                    "Declare the nominal `net::IO` effect for functions that use network operations.",
-                ),
-                (
-                    "network_handler_migration",
-                    "At the application boundary, handle `net::IO` with `net::system()`.",
-                ),
-            ] {
-                diagnostic.related.push(JsonValue::object([
-                    ("kind", JsonValue::string(kind)),
-                    ("message", JsonValue::string(message)),
-                ]));
-            }
-        }
+        self.add_legacy_network_migration_notes(&mut diagnostic, symbol, namespace);
         self.diagnostics.push(diagnostic);
+    }
+
+    fn push_missing_callsite_modifier(
+        &mut self,
+        node_id: NodeId,
+        span: &SourceSpan,
+        symbol: &str,
+        namespace: &'static str,
+    ) -> bool {
+        if !matches!(namespace, "value" | "contract_predicate")
+            || symbol != "callsite"
+            || self.function.callsite.is_some()
+            || !self.supports_callsite_modifier
+        {
+            return false;
+        }
+        let mut diagnostic = Diagnostic::new(
+            "name.callsite_requires_modifier",
+            Severity::Error,
+            DiagnosticKind::Name,
+            "unresolved `callsite`; the function is missing the `callsite` modifier",
+            Some(span.clone()),
+            JsonValue::object([
+                ("phase", JsonValue::string("name")),
+                ("node_id", JsonValue::string(node_id.display("name"))),
+                ("symbol", JsonValue::string(symbol)),
+                ("namespace", JsonValue::string(namespace)),
+                ("resolution_status", JsonValue::string("missing_modifier")),
+            ]),
+        );
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("repair_hint")),
+            (
+                "message",
+                JsonValue::string("Add `callsite` after the function's optional effects clause."),
+            ),
+            ("span", span_json(&self.function.span)),
+        ]));
+        self.diagnostics.push(diagnostic);
+        true
+    }
+
+    fn push_schema_primitive_position(
+        &mut self,
+        node_id: NodeId,
+        span: &SourceSpan,
+        symbol: &str,
+        namespace: &str,
+    ) -> bool {
+        if namespace != "value" {
+            return false;
+        }
+        if let Some(primitive) = exact_width_binary_primitive_name(symbol) {
+            self.diagnostics
+                .push(exact_width_schema_primitive_diagnostic(
+                    primitive,
+                    None,
+                    None,
+                    node_id.display("name"),
+                    span.clone(),
+                    "value_position",
+                ));
+            return true;
+        }
+        if lowercase_schema_primitive(symbol).is_none() {
+            return false;
+        }
+        self.diagnostics
+            .push(lowercase_schema_primitive_position_diagnostic(
+                symbol,
+                None,
+                None,
+                node_id.display("name"),
+                span.clone(),
+                "value_position",
+            ));
+        true
+    }
+
+    fn add_legacy_network_migration_notes(
+        &self,
+        diagnostic: &mut Diagnostic,
+        symbol: &str,
+        namespace: &str,
+    ) {
+        if namespace != "call_target" || !removed_legacy_network_call(symbol) {
+            return;
+        }
+        if self.environment.uses.iter().any(|use_decl| {
+            use_decl.module_name.as_deref() == self.function.module_name.as_deref()
+                && use_decl.alias == "net"
+        }) {
+            return;
+        }
+        for (kind, message) in [
+            (
+                "network_import_migration",
+                "Import the exported network module with `use net from \"std\"`.",
+            ),
+            (
+                "network_effect_migration",
+                "Declare the nominal `net::IO` effect for functions that use network operations.",
+            ),
+            (
+                "network_handler_migration",
+                "At the application boundary, handle `net::IO` with `net::system()`.",
+            ),
+        ] {
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string(kind)),
+                ("message", JsonValue::string(message)),
+            ]));
+        }
     }
 
     pub(super) fn push_ambiguous_name(
