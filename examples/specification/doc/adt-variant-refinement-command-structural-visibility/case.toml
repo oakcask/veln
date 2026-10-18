@@ -1,0 +1,14 @@
+command = ["doc", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = [
+  "error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`",
+  "Public parameter `value` of function `expose` exposes this refinement.",
+]
+not_contains = ["# Veln Project", "##### fn expose"]

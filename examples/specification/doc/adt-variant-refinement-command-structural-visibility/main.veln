@@ -1,0 +1,12 @@
+pub type State
+	pub Ready
+	Hidden
+end
+
+pub type Box<A>
+	pub Boxed(value: A)
+end
+
+pub fn expose(value: Box<State::Hidden>) -> ()
+	()
+end

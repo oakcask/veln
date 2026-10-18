@@ -246,8 +246,11 @@ named-argument positions is fixed by the focused
 [`JSON overlap case`](../../examples/specification/check/adt-variant-refinement-structural-visibility-invalid-arity-overlap/).
 The publication-closure
 [`human`](../../examples/specification/check/adt-variant-refinement-publication-closure-human/)
-case fixes a single causal diagnostic while ordinary payload, alias, parameter,
-and result dependencies remain unpublished. The alias-qualified
+case fixes a single causal diagnostic and failed command output. Focused
+semantic tests in
+`crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/public_visibility.rs`
+and its `publication_and_recovery.rs` support verify that the ordinary payload,
+alias, parameter, and result dependencies remain unpublished. The alias-qualified
 [`human`](../../examples/specification/check/adt-variant-refinement-alias-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-alias-visibility-json/)

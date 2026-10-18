@@ -899,8 +899,12 @@ case verifies that invalid named-type arity in either order does not hide a
 private refinement in a sibling function or named-argument position.
 The publication-closure
 [`human`](../../examples/specification/check/adt-variant-refinement-publication-closure-human/)
-case verifies one causal privacy diagnostic across ordinary named payload,
-alias, function-parameter, and function-result dependencies.
+case verifies one causal privacy diagnostic and failed command output across
+ordinary named payload, alias, function-parameter, and function-result
+dependencies. The focused semantic tests in
+`crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/public_visibility.rs`
+and its `publication_and_recovery.rs` support verify their unpublished
+environment identities.
 The alias-qualified
 [`human`](../../examples/specification/check/adt-variant-refinement-alias-visibility-human/)
 and

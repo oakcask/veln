@@ -75,9 +75,9 @@ The command has no JSON output mode.
 
 Implementation: `crates/veln-cli/src/commands/doc.rs`. Documentation selection
 and metadata behavior is covered under `examples/specification/doc/`.
-The refinement-specific examples cover
-accepted canonical signatures, rejection, and recovery under
-`examples/specification/doc/adt-variant-refinement-command-*/`. Structural
-visibility and publication-closure diagnostics are covered by the matching
-`examples/specification/check/adt-variant-refinement-structural-visibility-*`
-and `adt-variant-refinement-publication-closure-human` cases.
+The refinement-specific examples under
+`examples/specification/doc/adt-variant-refinement-command-*/` cover accepted
+canonical signatures, rejection, recovery, nested structural visibility, and
+transitive publication closure. The structural-visibility and
+publication-closure command cases require empty standard output, a causal
+privacy diagnostic, and no generated document content.

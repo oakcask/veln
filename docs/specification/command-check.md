@@ -65,7 +65,10 @@ publication and checked-output gate. The
 spans, related context, and JSON `exposure_path` segments.
 The checked
 [`publication-closure`](../../examples/specification/check/adt-variant-refinement-publication-closure-human/)
-case verifies that one causal diagnostic blocks success while ordinary
+case verifies that one causal diagnostic blocks command success. Focused
+semantic publication tests in
+`crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/public_visibility.rs`
+and its `publication_and_recovery.rs` support verify that the ordinary
 dependent declarations remain unpublished.
 A selected documentation source that cannot form a canonical virtual doctest
 path reports `module.invalid_source_path` against the original source. Analysis
