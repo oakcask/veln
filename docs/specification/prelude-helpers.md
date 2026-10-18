@@ -32,11 +32,13 @@ labels, lowering identity, and stability class for the descriptor-backed
 subset.
 
 The descriptor-backed subset covers stdio effect metadata, concurrency effect
-metadata, minimal `fs`, `net`, `time`, and `process` intrinsics, and opaque
-`NetListener` and `NetStream` resource type identities. The resource
-descriptors have no constructors and allow exported standard-package aliases
-to name host resources without exposing their representation. Compiler-known
-ADT descriptors classify their variant-refinement availability.
+metadata, minimal `fs`, `time`, and `process` intrinsics, private network host
+adapters, and opaque `NetListener` and `NetStream` resource type identities.
+Public network operations are ordinary declarations in the exported
+`std::net` module, not compiler-known descriptors. The resource descriptors
+have no constructors and allow exported standard-package aliases to name host
+resources without exposing their representation. Compiler-known ADT
+descriptors classify their variant-refinement availability.
 Constructor-bearing descriptors such as `Option`, `Result`, and `List` expose
 a finite set, while the two resource descriptors are opaque. The
 [type](types.md#compatibility-and-limits) and
