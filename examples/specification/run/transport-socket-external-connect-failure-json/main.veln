@@ -1,5 +1,7 @@
+use net from "std"
+
 # External socket connect failures do not synthesize an in-memory stream.
-pub fn main() -> Result<(), String> effects [net]
-	let _ = net::connect("127.0.0.1:0")
+pub fn main() -> Result<(), net::NetError> effects [net, time]
+	let _ = handle net::connect(net::Address(net::Tcp4, "127.0.0.1", 0)) with net::system()?
 	Ok(())
 end

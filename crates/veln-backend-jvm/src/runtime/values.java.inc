@@ -346,6 +346,7 @@
         final ByteDiagnostic byteDiagnostic;
         final ValueDiagnostic valueDiagnostic;
         final ProtocolDiagnostic protocolDiagnostic;
+        final TransportFailure transportFailure;
 
         DiagnosticResultValue(
             Object value,
@@ -354,11 +355,30 @@
             ValueDiagnostic valueDiagnostic,
             ProtocolDiagnostic protocolDiagnostic
         ) {
+            this(
+                value,
+                fixtureHexDiagnostic,
+                byteDiagnostic,
+                valueDiagnostic,
+                protocolDiagnostic,
+                null
+            );
+        }
+
+        DiagnosticResultValue(
+            Object value,
+            FixtureHexDiagnostic fixtureHexDiagnostic,
+            ByteDiagnostic byteDiagnostic,
+            ValueDiagnostic valueDiagnostic,
+            ProtocolDiagnostic protocolDiagnostic,
+            TransportFailure transportFailure
+        ) {
             this.value = freezeValue(value);
             this.fixtureHexDiagnostic = fixtureHexDiagnostic;
             this.byteDiagnostic = byteDiagnostic;
             this.valueDiagnostic = valueDiagnostic;
             this.protocolDiagnostic = protocolDiagnostic;
+            this.transportFailure = transportFailure;
         }
 
         @Override

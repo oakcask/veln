@@ -269,6 +269,10 @@
         return value == null ? "-" : hex(value);
     }
 
+    private static String transportFailurePath() {
+        return System.getenv("VELN_TRANSPORT_ERRORS");
+    }
+
     private static void recordTransportFailure(
         String operation,
         String category,
@@ -282,7 +286,7 @@
         Boolean ownershipCommitted,
         String platformCause
     ) {
-        String path = System.getenv("VELN_TRANSPORT_ERRORS");
+        String path = transportFailurePath();
         if (path == null || path.isEmpty()) {
             return;
         }
@@ -309,6 +313,11 @@
         } catch (java.io.IOException ignored) {
             // The original transport failure remains authoritative.
         }
+    }
+
+    private static boolean transportFailureRecordingEnabled() {
+        String path = transportFailurePath();
+        return path != null && !path.isEmpty();
     }
 
     public static void setProcessArgs(String[] args) {
@@ -1124,7 +1133,20 @@
         });
     }
     private static Object netSystemFailure(String operation, Object network, String address, Throwable failure) {
+        return netSystemFailure(operation, network, address, address, failure);
+    }
+    private static Object netSystemFailure(
+        String operation,
+        Object network,
+        String address,
+        String diagnosticAddress,
+        Throwable failure
+    ) {
         if (failure instanceof TaskCancellationFailure) throw (TaskCancellationFailure) failure;
+        TransportFailure transportDiagnostic = failure instanceof TransportFailure
+            ? (TransportFailure) failure
+            : null;
+        Object error;
         if (failure instanceof TransportFailure) {
             String category = ((TransportFailure) failure).category;
             String kind = category.equals("timed_out") ? "TimedOut"
@@ -1137,7 +1159,8 @@
                 : category.equals("name_not_found") ? "NameNotFound"
                 : category.equals("invalid_endpoint") || category.equals("invalid_input") ? "InvalidAddress"
                 : null;
-            return netSystemError(operation, network, address, kind == null ? "Other" : kind, failure.getMessage());
+            error = netSystemError(operation, network, address, kind == null ? "Other" : kind, failure.getMessage());
+            return new DiagnosticResultValue(error, null, null, null, null, transportDiagnostic);
         }
         if (failure instanceof RuntimeFailure) throw (RuntimeFailure) failure;
         if (failure instanceof Error) throw (Error) failure;
@@ -1164,7 +1187,26 @@
             if (cause instanceof RuntimeException) throw (RuntimeException) cause;
             throw new RuntimeFailure("unexpected network host failure", cause);
         }
-        return netSystemError(operation, network, address, kind, cause.getMessage());
+        error = netSystemError(operation, network, address, kind, cause.getMessage());
+        String category = transportIoCategory(
+            cause,
+            operation.equals("listen") ? diagnosticAddress : null
+        );
+        transportDiagnostic = transportFailure(
+            operation,
+            category,
+            operation.equals("listen") ? diagnosticAddress : null,
+            operation.equals("connect") ? diagnosticAddress : null,
+            null,
+            null,
+            "during_operation",
+            Boolean.FALSE,
+            Boolean.FALSE,
+            Boolean.FALSE,
+            platformCause("production socket failed", cause),
+            cause
+        );
+        return new DiagnosticResultValue(error, null, null, null, null, transportDiagnostic);
     }
     private static void netSystemRejectUnexpectedFailure(Throwable failure) {
         netSystemFailure("host", null, null, failure);
@@ -1180,7 +1222,7 @@
         return netSystemError(operation, null, null, "InvalidResource", "resource belongs to another or expired system handler");
     }
     private static boolean netSystemFailureKeepsResourceOpen(Object error) {
-        Adt netError = (Adt) error;
+        Adt netError = (Adt) diagnosticResultValue(error);
         Object kind = netError.payloads[3];
         return isAdt(kind, "NetErrorKind::TimedOut") || isAdt(kind, "NetErrorKind::Cancelled");
     }
@@ -1492,8 +1534,10 @@
     ) {
         Object network = netSystemAddressNetwork(address);
         Throwable last = null;
+        String lastSubject = netSystemAddressHost(address);
         for (NetSystemResolvedEndpoint endpoint : resolved) {
             String subject = netSystemJoinHostPort(endpoint.address, netSystemAddressPort(address));
+            lastSubject = subject;
             try {
                 NetStream stream = netSystemConnectEndpoint(subject, deadline, token);
                 if (!netSystemPublishResource(owner, stream)) {
@@ -1513,7 +1557,13 @@
             }
         }
         if (last == null) return err(netSystemError("connect", network, netSystemAddressHost(address), "NameNotFound", "no endpoint matched the requested network"));
-        return err(netSystemFailure("connect", network, netSystemAddressHost(address), last));
+        return err(netSystemFailure(
+            "connect",
+            network,
+            netSystemAddressHost(address),
+            lastSubject,
+            last
+        ));
     }
     public static Object netSystemConnect(Object address, Object deadlineOption, Object tokenOption) {
         HandlerFrame owner = netSystemOwner();

@@ -13,6 +13,7 @@ use super::{cleanup_related_failures, read_trace};
 
 pub(in crate::commands) struct RunHumanTraceFiles {
     result_error: PathBuf,
+    transport_error: PathBuf,
     cleanup_error: PathBuf,
 }
 
@@ -20,13 +21,15 @@ impl RunHumanTraceFiles {
     pub(in crate::commands) fn new(build_dir: &Path) -> Self {
         Self {
             result_error: build_dir.join("result-errors.tsv"),
+            transport_error: build_dir.join("transport-errors.tsv"),
             cleanup_error: build_dir.join("cleanup-errors.tsv"),
         }
     }
 
-    pub(in crate::commands) fn event_env(&self) -> [(&'static str, &OsStr); 2] {
+    pub(in crate::commands) fn event_env(&self) -> [(&'static str, &OsStr); 3] {
         [
             ("VELN_RESULT_ERRORS", self.result_error.as_os_str()),
+            ("VELN_TRANSPORT_ERRORS", self.transport_error.as_os_str()),
             ("VELN_CLEANUP_ERRORS", self.cleanup_error.as_os_str()),
         ]
     }

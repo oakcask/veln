@@ -181,8 +181,12 @@
         if (resultValue instanceof JoinErrorValue) {
             recordCleanupFailures(((JoinErrorValue) resultValue).relatedFailures);
         }
-        String value = format(resultValue);
         DiagnosticResultValue carriedDiagnostic = carriedDiagnosticValue(resultValue);
+        if (transportResultFailureEnabled(carriedDiagnostic)) {
+            carriedDiagnostic.transportFailure.record();
+            return;
+        }
+        String value = format(resultValue);
         FixtureHexDiagnostic fixtureHex = carriedDiagnostic == null
             ? null
             : carriedDiagnostic.fixtureHexDiagnostic;
@@ -248,6 +252,22 @@
         } catch (java.io.IOException ioError) {
             throw new RuntimeException("failed to record result error", ioError);
         }
+    }
+
+    public static String formatResultFailure(Object result) {
+        Object resultValue = asResult(result).value();
+        DiagnosticResultValue carriedDiagnostic = carriedDiagnosticValue(resultValue);
+        if (transportResultFailureEnabled(carriedDiagnostic)) {
+            return carriedDiagnostic.transportFailure.getMessage();
+        }
+        return format(result);
+    }
+
+    private static boolean transportResultFailureEnabled(DiagnosticResultValue diagnostic) {
+        if (diagnostic == null || diagnostic.transportFailure == null) {
+            return false;
+        }
+        return transportFailureRecordingEnabled();
     }
 
     private static DiagnosticResultValue carriedDiagnosticValue(Object value) {
