@@ -321,6 +321,116 @@ fn mixed_annotation_errors_retain_independent_root_visibility_failures() {
 }
 
 #[test]
+fn invalid_arity_siblings_preserve_structural_visibility_and_quarantine() {
+    let source_text = concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub type Pair<A, B>\n",
+        "  pub Both(first: A, second: B)\n",
+        "end\n",
+        "pub fn accepted(value: Int) -> Int\n",
+        "  value\n",
+        "end\n",
+        "pub fn function_invalid_first(value: fn(Option<Int, Int>) -> State::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub fn function_private_first(value: fn(State::Hidden) -> Option<Int, Int>) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub fn wrapper_invalid_first(value: Pair<Option<Int, Int>, State::Hidden>) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub fn wrapper_private_first(value: Pair<State::Hidden, Option<Int, Int>>) -> ()\n",
+        "  ()\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "type.invalid_annotation"
+                || diagnostic.id == "type.variant_refinement_private"
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "type.invalid_annotation",
+            "type.variant_refinement_private",
+            "type.invalid_annotation",
+            "type.variant_refinement_private",
+            "type.invalid_annotation",
+            "type.variant_refinement_private",
+            "type.invalid_annotation",
+            "type.variant_refinement_private",
+        ],
+        "{diagnostics:#?}"
+    );
+    let expected = [
+        (
+            "fn(Option<Int, Int>) -> State::Hidden",
+            "{\"kind\":\"function_result\"}",
+        ),
+        (
+            "fn(State::Hidden) -> Option<Int, Int>",
+            "{\"kind\":\"function_parameter\",\"index\":0}",
+        ),
+        (
+            "Pair<Option<Int, Int>, State::Hidden>",
+            "{\"kind\":\"type_argument\",\"index\":1}",
+        ),
+        (
+            "Pair<State::Hidden, Option<Int, Int>>",
+            "{\"kind\":\"type_argument\",\"index\":0}",
+        ),
+    ];
+    for (diagnostic, (outer_annotation, path_tail)) in
+        diagnostics.iter().skip(1).step_by(2).zip(expected)
+    {
+        let span = diagnostic.span.as_ref().expect("visibility span");
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert_eq!(
+            &source_text[span.start.offset..span.end.offset],
+            outer_annotation,
+            "{json}"
+        );
+        assert!(
+            json.contains(&format!(
+                "\"exposure_path\":[{{\"kind\":\"parameter\",\"name\":\"value\"}},{path_tail}]"
+            )),
+            "{json}"
+        );
+        assert!(json.contains("\"kind\":\"private_variant_declaration\""));
+        assert!(json.contains("\"kind\":\"public_parameter_boundary\""));
+    }
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert!(environment.function_is_published_for_test("accepted"));
+    for name in [
+        "function_invalid_first",
+        "function_private_first",
+        "wrapper_invalid_first",
+        "wrapper_private_first",
+    ] {
+        assert!(
+            !environment.function_is_published_for_test(name),
+            "{name} must remain quarantined"
+        );
+    }
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.core.is_none());
+    assert!(lowered.ir.is_none());
+}
+
+#[test]
 fn malformed_record_annotations_keep_independent_visibility_checks() {
     let diagnostics = diagnostics_for(concat!(
         "mod main\n",

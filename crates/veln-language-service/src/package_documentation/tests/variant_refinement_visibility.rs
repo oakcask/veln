@@ -513,3 +513,56 @@ fn package_catalog_rejects_private_structural_refinement_exposure_atomically() {
             .is_none()
     );
 }
+
+#[test]
+fn package_catalog_rejects_invalid_arity_siblings_with_private_refinements_atomically() {
+    let result = generate(
+        MANIFEST,
+        &[(
+            "main.veln",
+            concat!(
+                "pub type State\n",
+                "  Hidden\n",
+                "end\n",
+                "pub type Pair<A, B>\n",
+                "  pub Both(first: A, second: B)\n",
+                "end\n",
+                "pub fn accepted(value: Int) -> Int\n",
+                "  value\n",
+                "end\n",
+                "pub fn function_overlap(value: fn(Option<Int, Int>) -> State::Hidden) -> ()\n",
+                "  ()\n",
+                "end\n",
+                "pub fn wrapper_overlap(value: Pair<State::Hidden, Option<Int, Int>>) -> ()\n",
+                "  ()\n",
+                "end\n",
+            ),
+        )],
+    );
+
+    assert!(result.catalog().is_none());
+    assert_eq!(
+        result
+            .status()
+            .diagnostics
+            .iter()
+            .map(|diagnostic| (diagnostic.gate.as_str(), diagnostic.code.as_str()))
+            .collect::<Vec<_>>(),
+        [
+            ("semantic_visibility", "type.variant_refinement_private"),
+            ("semantic_visibility", "type.variant_refinement_private"),
+        ]
+    );
+    for (kind, name) in [
+        ("type", "State"),
+        ("type", "Pair"),
+        ("function", "accepted"),
+        ("function", "function_overlap"),
+        ("function", "wrapper_overlap"),
+    ] {
+        assert!(
+            result.declaration_uri_for("main", kind, name).is_none(),
+            "atomic failure must hide {name}"
+        );
+    }
+}

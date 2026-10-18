@@ -200,9 +200,10 @@ If the base has invalid generic arity but its ADT and final constructor
 identities are unique, the existing arity diagnostic precedes the independent
 privacy diagnostic. Union comparison and assignability diagnostics that
 require an instantiated base remain suppressed.
-An invalid annotation in a nested type argument or sibling alternative of the
-same root union also precedes but does not suppress an independently provable
-privacy diagnostic. Structural traversal retains this recovery. An effect row
+An invalid annotation in a sibling named-type argument, function parameter or
+result, nested type argument, or sibling alternative of the same root union
+also precedes but does not suppress an independently provable privacy
+diagnostic. Structural traversal retains this recovery. An effect row
 does not stop traversal of a later structural child. An invalid square-bracket type position reports
 `type.invalid_annotation` and does not make a record nested inside the brackets
 a visibility path. A later direct record field still reports its independently
@@ -240,7 +241,10 @@ boundaries. The structural visibility
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-structural-visibility-json/)
 cases fix named arguments, function positions, ADT payloads, union path
-segments, and outer structural spans. The publication-closure
+segments, and outer structural spans. Invalid-arity overlap in function and
+named-argument positions is fixed by the focused
+[`JSON overlap case`](../../examples/specification/check/adt-variant-refinement-structural-visibility-invalid-arity-overlap/).
+The publication-closure
 [`human`](../../examples/specification/check/adt-variant-refinement-publication-closure-human/)
 case fixes a single causal diagnostic while ordinary payload, alias, parameter,
 and result dependencies remain unpublished. The alias-qualified

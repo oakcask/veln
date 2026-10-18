@@ -11,7 +11,7 @@ use crate::adt::descriptors::{AdtDescriptor, AdtVariantDescriptor};
 use crate::adt::registry::TypeAliasExposurePath;
 use crate::diagnostics::span_json;
 use crate::semantic_model::Type;
-use crate::type_syntax::parse_type_annotation;
+use crate::type_syntax::{parse_type_annotation, parse_type_annotation_structure};
 use crate::types::TypeEnvironment;
 
 pub(crate) fn check_public_variant_refinement_visibility(
@@ -351,23 +351,35 @@ fn root_exposure_candidates(
         );
     }
     record_visibility_structural_parse();
-    let Ok(ty) = parse_type_annotation(annotation_text) else {
-        let recovered = recovered_root_exposure_candidates(
-            annotation_span,
-            annotation_text,
-            refinements,
-            paths,
-        );
-        if !recovered.is_empty() {
-            return recovered;
+    let (ty, used_structure_only_parse) = match parse_type_annotation(annotation_text) {
+        Ok(ty) => (ty, false),
+        Err(_) => {
+            let recovered = recovered_root_exposure_candidates(
+                annotation_span,
+                annotation_text,
+                refinements,
+                paths,
+            );
+            if !recovered.is_empty() {
+                return recovered;
+            }
+            let Ok(ty) = parse_type_annotation_structure(annotation_text) else {
+                return if annotation_text.trim_start().starts_with('{') {
+                    record_exposure_candidates(refinements)
+                } else {
+                    Vec::new()
+                };
+            };
+            (ty, true)
         }
-        return if annotation_text.trim_start().starts_with('{') {
-            record_exposure_candidates(refinements)
-        } else {
-            Vec::new()
-        };
     };
-    let candidates = structured_exposure_candidates(annotation_span, &ty, refinements, paths);
+    let candidates = structured_exposure_candidates(
+        annotation_span,
+        &ty,
+        refinements,
+        paths,
+        used_structure_only_parse,
+    );
     if candidates.is_empty() {
         recovered_root_exposure_candidates(annotation_span, annotation_text, refinements, paths)
     } else {
@@ -449,6 +461,7 @@ fn structured_exposure_candidates(
     ty: &Type,
     refinements: &[VariantRefinementType],
     paths: &[TypePathSegments],
+    used_structure_only_parse: bool,
 ) -> Vec<RefinementExposureCandidate> {
     let mut candidates = Vec::new();
     let mut refinements = refinements.iter().peekable();
@@ -475,7 +488,12 @@ fn structured_exposure_candidates(
                 });
     }
     candidates.sort_by_key(|candidate| candidate.occurrence_span.start.offset);
-    assign_outer_structural_spans(annotation_span, paths, &mut candidates);
+    assign_outer_structural_spans(
+        annotation_span,
+        paths,
+        used_structure_only_parse,
+        &mut candidates,
+    );
     candidates
 }
 
@@ -708,7 +726,7 @@ fn collect_type_argument_exposures(
         enclosing_structural_span: context.enclosing_structural_span.or(Some(&refinement.span)),
     };
     let skeleton = type_argument_skeleton(argument);
-    if let Ok(ty) = parse_type_annotation(&skeleton) {
+    if let Ok(ty) = parse_type_annotation_structure(&skeleton) {
         let mut child_refinements = argument.ty_refinements.iter().peekable();
         collect_type_exposures(child_context, &ty, &mut child_refinements, path, candidates);
         path.pop();
@@ -735,6 +753,7 @@ fn type_argument_skeleton(argument: &veln_ast::VariantRefinementTypeArgument) ->
 fn assign_outer_structural_spans(
     annotation_span: &SourceSpan,
     paths: &[TypePathSegments],
+    used_structure_only_parse: bool,
     candidates: &mut [RefinementExposureCandidate],
 ) {
     let mut containers = paths
@@ -747,6 +766,15 @@ fn assign_outer_structural_spans(
     let mut oldest = 0;
     for candidate in candidates {
         if candidate.has_function_position {
+            candidate.structural_span = Some(annotation_span.clone());
+            continue;
+        }
+        if used_structure_only_parse
+            && candidate
+                .structural_path
+                .as_ref()
+                .is_some_and(structural_path_starts_with_type_argument)
+        {
             candidate.structural_span = Some(annotation_span.clone());
             continue;
         }
@@ -778,6 +806,17 @@ fn assign_outer_structural_spans(
             candidate.structural_span = Some(containers[oldest].clone());
         }
     }
+}
+
+fn structural_path_starts_with_type_argument(path: &StructuralExposurePathRef) -> bool {
+    let mut node = path.tail;
+    while let Some(parent) = path.arena[node].parent {
+        node = parent;
+    }
+    matches!(
+        path.arena[node].segment,
+        StructuralExposureSegment::TypeArgument(_)
+    )
 }
 
 fn record_exposure_candidates(
