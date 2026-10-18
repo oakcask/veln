@@ -236,7 +236,7 @@ process or machine termination can prevent it from running.
   [`log.test.veln`](../../crates/veln-stdlib/veln/log.test.veln), plus scoped
   span lifecycle coverage in
   [`trace.test.veln`](../../crates/veln-stdlib/veln/trace.test.veln) and explicit
-  task-context coverage in
+  task- and channel-value-context coverage in
   [`traced.test.veln`](../../crates/veln-stdlib/veln/traced.test.veln).
 - Public task-context execution evidence:
   [`observability-traced-task-context`](../../examples/specification/run/observability-traced-task-context/).
