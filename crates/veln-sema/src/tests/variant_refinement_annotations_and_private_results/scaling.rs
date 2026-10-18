@@ -451,9 +451,12 @@ fn wide_structural_visibility_work(count: usize, boundary: &str) -> usize {
          candidate_work={candidate_work:?} visibility_work={visibility_work}"
     );
     candidate_work.root_classification
+        + candidate_work.structural_parses
         + candidate_work.candidate_construction
         + candidate_work.occurrence_lookup
         + candidate_work.record_path_nodes
+        + candidate_work.structural_path_nodes
+        + candidate_work.materialized_structural_path_segments
         + visibility_work
 }
 
@@ -546,9 +549,12 @@ fn wide_named_argument_visibility_work(count: usize, public: bool, variant: &str
         "nested named visibility: fields={count} public={public} variant={variant} elapsed={elapsed:?}"
     );
     candidate_work.root_classification
+        + candidate_work.structural_parses
         + candidate_work.candidate_construction
         + candidate_work.occurrence_lookup
         + candidate_work.record_path_nodes
+        + candidate_work.structural_path_nodes
+        + candidate_work.materialized_structural_path_segments
         + visibility_work
 }
 
@@ -563,6 +569,180 @@ fn nested_named_argument_visibility_indexing_has_affine_wide_growth() {
             "public={public} variant={variant} work={work:?}"
         );
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct NamedDepthVisibilityMeasurement {
+    work: usize,
+    peak_path_depth: usize,
+    structural_parses: usize,
+    structural_path_nodes: usize,
+    materialized_path_segments: usize,
+    private_diagnostics: usize,
+}
+
+fn nested_named_annotation(depth: usize, leaf: &str) -> String {
+    let mut annotation = String::with_capacity(depth * 5 + leaf.len());
+    for _ in 0..depth {
+        annotation.push_str("Box<");
+    }
+    annotation.push_str(leaf);
+    for _ in 0..depth {
+        annotation.push('>');
+    }
+    annotation
+}
+
+fn named_depth_visibility_measurement(
+    depth: usize,
+    leaf: &str,
+    public: bool,
+) -> NamedDepthVisibilityMeasurement {
+    let visibility = if public { "pub " } else { "" };
+    let annotation = nested_named_annotation(depth, leaf);
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "pub type State\n  Hidden\n  pub Ready\nend\n\
+             pub type Box<A>\n  pub Boxed(A)\nend\n\
+             {visibility}fn expose(value: {annotation}) -> ()\n  ()\nend\n"
+        ),
+    );
+    let parse_started = std::time::Instant::now();
+    let parsed = parse(&source);
+    let parse_elapsed = parse_started.elapsed();
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let lower_started = std::time::Instant::now();
+    let module = lower_surface_ast(&parsed.tree);
+    let lower_elapsed = lower_started.elapsed();
+
+    crate::analysis::reset_visibility_work();
+    let analyze_started = std::time::Instant::now();
+    let diagnostics = analyze_surface_module(&module);
+    let analyze_elapsed = analyze_started.elapsed();
+    let candidate_work = crate::analysis::take_visibility_candidate_work();
+    let visibility_work = crate::analysis::take_visibility_work();
+    let private_diagnostics = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .count();
+    let work = candidate_work.root_classification
+        + candidate_work.structural_parses
+        + candidate_work.candidate_construction
+        + candidate_work.occurrence_lookup
+        + candidate_work.record_path_nodes
+        + candidate_work.structural_path_nodes
+        + candidate_work.materialized_structural_path_segments
+        + visibility_work;
+    eprintln!(
+        "named visibility depth: depth={depth} leaf={leaf} public={public} \
+         parse={parse_elapsed:?} lower={lower_elapsed:?} analyze={analyze_elapsed:?} \
+         candidate_work={candidate_work:?} visibility_work={visibility_work} work={work}"
+    );
+    NamedDepthVisibilityMeasurement {
+        work,
+        peak_path_depth: candidate_work.peak_structural_path_depth,
+        structural_parses: candidate_work.structural_parses,
+        structural_path_nodes: candidate_work.structural_path_nodes,
+        materialized_path_segments: candidate_work.materialized_structural_path_segments,
+        private_diagnostics,
+    }
+}
+
+#[test]
+fn named_visibility_depth_work_is_linear_with_fixed_candidates() {
+    for leaf in ["State::Ready", "State::Hidden"] {
+        let measurements =
+            [64, 128, 256].map(|depth| named_depth_visibility_measurement(depth, leaf, true));
+        for (measurement, depth) in measurements.iter().zip([64, 128, 256]) {
+            assert_eq!(
+                measurement.private_diagnostics,
+                usize::from(leaf == "State::Hidden"),
+                "leaf={leaf} measurements={measurements:?}"
+            );
+            assert!(
+                measurement.peak_path_depth >= depth,
+                "leaf={leaf} measurements={measurements:?}"
+            );
+            assert!(
+                measurement.structural_path_nodes >= depth,
+                "leaf={leaf} measurements={measurements:?}"
+            );
+            if leaf == "State::Hidden" {
+                assert!(
+                    measurement.materialized_path_segments >= depth
+                        && measurement.materialized_path_segments.is_multiple_of(depth),
+                    "leaf={leaf} measurements={measurements:?}"
+                );
+            } else {
+                assert_eq!(
+                    measurement.materialized_path_segments, 0,
+                    "leaf={leaf} measurements={measurements:?}"
+                );
+            }
+        }
+        assert!(
+            measurements[1].work <= measurements[0].work * 2 + 32
+                && measurements[2].work <= measurements[1].work * 2 + 32,
+            "leaf={leaf} measurements={measurements:?}"
+        );
+    }
+
+    let private = named_depth_visibility_measurement(256, "State::Hidden", false);
+    assert_eq!(private.private_diagnostics, 0, "{private:?}");
+    assert_eq!(private.structural_parses, 0, "{private:?}");
+    assert_eq!(private.structural_path_nodes, 0, "{private:?}");
+    assert_eq!(private.materialized_path_segments, 0, "{private:?}");
+    assert_eq!(private.peak_path_depth, 0, "{private:?}");
+}
+
+#[test]
+fn refinement_free_named_depth_bypasses_structural_visibility_walk() {
+    let measurements =
+        [128, 256, 512].map(|depth| named_depth_visibility_measurement(depth, "Int", true));
+    for measurement in measurements {
+        assert_eq!(measurement.private_diagnostics, 0, "{measurement:?}");
+        assert_eq!(measurement.structural_parses, 0, "{measurement:?}");
+        assert_eq!(measurement.peak_path_depth, 0, "{measurement:?}");
+    }
+    assert!(
+        measurements[1].work <= measurements[0].work * 2 + 32
+            && measurements[2].work <= measurements[1].work * 2 + 32,
+        "measurements={measurements:?}"
+    );
+}
+
+#[test]
+fn maximum_supported_refinement_depth_completes_visibility_analysis() {
+    let depth = veln_syntax::MAX_VARIANT_REFINEMENT_NESTING;
+    let mut annotation = "State::Ready".to_string();
+    for _ in 0..depth {
+        annotation = format!("Layer<{annotation}>::Wrapped");
+    }
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "pub type State\n  pub Ready\nend\n\
+             pub type Layer<A>\n  pub Wrapped(A)\nend\n\
+             pub fn expose(value: {annotation}) -> ()\n  ()\nend\n"
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    crate::analysis::reset_visibility_work();
+    let diagnostics = analyze_surface_module(&module);
+    let candidate_work = crate::analysis::take_visibility_candidate_work();
+    let visibility_work = crate::analysis::take_visibility_work();
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert!(
+        candidate_work.peak_structural_path_depth >= depth,
+        "depth={depth} work={candidate_work:?}"
+    );
+    eprintln!(
+        "maximum refinement visibility depth: depth={depth} \
+         candidate_work={candidate_work:?} visibility_work={visibility_work}"
+    );
 }
 
 #[test]
