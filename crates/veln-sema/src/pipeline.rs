@@ -62,6 +62,8 @@ pub struct PublicationDiagnosticCause {
     pub span: veln_source::SourceSpan,
 }
 
+type FunctionPublicationIdentity = (Option<String>, String);
+
 impl Hash for PublicationDiagnosticCause {
     fn hash<Hasher>(&self, state: &mut Hasher)
     where
@@ -1060,7 +1062,7 @@ fn function_publication_diagnostic_causes(
     environment: &TypeEnvironment,
     diagnostics: &[Diagnostic],
     type_causes: &HashMap<String, Vec<PublicationDiagnosticCause>>,
-) -> HashMap<(Option<String>, String), Vec<PublicationDiagnosticCause>> {
+) -> HashMap<FunctionPublicationIdentity, Vec<PublicationDiagnosticCause>> {
     let mut causes = HashMap::new();
     let mut declaration_order = Vec::new();
     for function in module.functions.iter().filter(|function| {
@@ -1089,8 +1091,10 @@ fn function_publication_diagnostic_causes(
         declaration_order.push(key.clone());
         causes.insert(key, declaration_causes);
     }
-    let mut reverse_dependencies: HashMap<(Option<String>, String), Vec<(Option<String>, String)>> =
-        HashMap::new();
+    let mut reverse_dependencies: HashMap<
+        FunctionPublicationIdentity,
+        Vec<FunctionPublicationIdentity>,
+    > = HashMap::new();
     for alias in module
         .aliases
         .iter()
