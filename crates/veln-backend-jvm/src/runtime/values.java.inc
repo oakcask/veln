@@ -445,8 +445,8 @@
         private final Object[] context;
         private volatile boolean networkSystemClosed;
         private int networkSystemProducers;
-        private final java.util.Set<Object> networkResources =
-            java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Object, Boolean>());
+        private final java.util.List<Object> networkResources =
+            new java.util.ArrayList<Object>();
 
         private HandlerFrame(String effect, java.util.Map<String, Fn> providers, Object[] context) {
             this.effect = effect;

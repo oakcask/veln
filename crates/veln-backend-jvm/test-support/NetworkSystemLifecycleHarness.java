@@ -189,8 +189,46 @@ public final class NetworkSystemLifecycleHarness {
     }
 
     @SuppressWarnings("unchecked")
-    private static java.util.Set<Object> resources(Object owner) throws Exception {
-        return (java.util.Set<Object>) NETWORK_RESOURCES.get(owner);
+    private static java.util.List<Object> resources(Object owner) throws Exception {
+        return (java.util.List<Object>) NETWORK_RESOURCES.get(owner);
+    }
+
+    private static void verifyCleanupUsesReversePublicationOrder() throws Exception {
+        java.util.List<String> closes = new java.util.ArrayList<String>();
+        VelnRuntime.Fn provider = new VelnRuntime.Fn() {
+            public Object call(Object... args) {
+                String operation = (String) args[0];
+                if (operation.equals("close_stream") || operation.equals("close_listener")) {
+                    closes.add(operation);
+                    return closeReply("ok", 1L);
+                }
+                throw new AssertionError("unexpected cleanup operation " + operation);
+            }
+        };
+        VelnRuntime.pushHandler(
+            "std::host_effects::Network",
+            new Object[] { "request" },
+            new Object[] { provider },
+            new Object[0]
+        );
+        Object adapter = topHandler();
+        Object owner = newOwner();
+        Object listener = LISTENER_CONSTRUCTOR.newInstance(
+            "127.0.0.1:1", "127.0.0.1:1", null, adapter
+        );
+        Object stream = STREAM_CONSTRUCTOR.newInstance(
+            "stream", "127.0.0.1:1", "127.0.0.1:2", null, adapter
+        );
+        try {
+            registerListener(owner, listener);
+            register(owner, stream);
+            CLEANUP.invoke(null, owner);
+            if (!closes.equals(java.util.Arrays.asList("close_stream", "close_listener"))) {
+                throw new AssertionError("cleanup did not reverse publication order: " + closes);
+            }
+        } finally {
+            VelnRuntime.popHandler();
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -1453,6 +1491,7 @@ public final class NetworkSystemLifecycleHarness {
         verifyDirectBindFailureClassification();
         verifyDirectHostFailureClassification();
         verifyIdentityLedgerExplicitCloseAndDetach();
+        verifyCleanupUsesReversePublicationOrder();
         verifyInheritedChildRegistrationIsCleaned();
         verifyAtomicResourcePublication();
         verifyBufferedInputIsDiscardedByShutdownRead();

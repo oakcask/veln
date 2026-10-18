@@ -23,6 +23,8 @@ closed to resource publication before cleanup starts. A child operation that
 finishes creating a listener or stream after that transition cleans the new
 resource according to its reported commit state and returns `InvalidResource`
 instead of publishing it through the closed frame.
+The frame closes retained resources in reverse publication order. A stream
+accepted from a retained listener is therefore closed before that listener.
 The [standard-library networking specification](standard-library-networking.md#network-operation-boundary)
 owns the resolver controls, connection commit point, exact write-progress,
 concurrent-operation, and resource state transitions for this handler. Task

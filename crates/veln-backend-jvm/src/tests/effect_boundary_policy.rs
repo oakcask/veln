@@ -122,7 +122,8 @@ fn network_system_cleanup_uses_one_identity_ledger_without_activation_races() {
     let values = include_str!("../runtime/values.java.inc");
     let effects = include_str!("../runtime/effects.java.inc");
 
-    assert!(values.contains("new java.util.IdentityHashMap<Object, Boolean>()"));
+    assert!(values.contains("java.util.List<Object> networkResources"));
+    assert!(values.contains("new java.util.ArrayList<Object>()"));
     assert!(values.contains("cleanupNetworkSystem(frame);"));
     assert!(values.contains("networkSystemProducers"));
     assert!(!values.contains("if (frame.networkSystem)"));
@@ -135,6 +136,7 @@ fn network_system_cleanup_uses_one_identity_ledger_without_activation_races() {
     assert!(effects.contains("netSystemBeginProducer(HandlerFrame owner)"));
     assert!(effects.contains("owner.networkSystemProducers == 0"));
     assert!(effects.contains("attempts < 3"));
+    assert!(effects.contains("resources.size() - 1; index >= 0; index -= 1"));
     assert!(effects.contains("netSystemCleanupResource(owner, resource);"));
     assert!(!effects.contains("owner.networkResources.clear();"));
 }

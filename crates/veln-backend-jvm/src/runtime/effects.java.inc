@@ -1295,9 +1295,20 @@
         netSystemCleanupResourceUntilSettled(owner, resource);
         return false;
     }
+    private static boolean netSystemHasResource(HandlerFrame owner, Object resource) {
+        for (Object retained : owner.networkResources) {
+            if (retained == resource) return true;
+        }
+        return false;
+    }
     private static void netSystemReleaseResource(HandlerFrame owner, Object resource) {
         synchronized (owner.networkResources) {
-            owner.networkResources.remove(resource);
+            for (int index = 0; index < owner.networkResources.size(); index += 1) {
+                if (owner.networkResources.get(index) == resource) {
+                    owner.networkResources.remove(index);
+                    return;
+                }
+            }
         }
     }
     private static Object netSystemOptionValue(Object option) {
@@ -1887,7 +1898,7 @@
         for (int attempt = 0; attempt < 3; attempt += 1) {
             netSystemCleanupResource(owner, resource);
             synchronized (owner.networkResources) {
-                if (!owner.networkResources.contains(resource)) return;
+                if (!netSystemHasResource(owner, resource)) return;
             }
         }
         throw new RuntimeFailure("network system cleanup could not confirm resource closure");
@@ -1905,8 +1916,8 @@
                 resources = new java.util.ArrayList<Object>(owner.networkResources);
             }
             if (!resources.isEmpty() && attempts < 3) {
-                for (Object resource : resources) {
-                    netSystemCleanupResource(owner, resource);
+                for (int index = resources.size() - 1; index >= 0; index -= 1) {
+                    netSystemCleanupResource(owner, resources.get(index));
                 }
                 attempts += 1;
                 continue;
