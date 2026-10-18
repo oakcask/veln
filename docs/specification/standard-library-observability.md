@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The standard-library Observe effect, observation handlers, scoped span helpers, explicit task or channel-value context propagation, structured logging, or observation data model changes.
+update-when: The standard-library Observe effect, observation handlers, scoped span helpers, explicit task or channel-value context propagation, structured logging, named domain events, or observation data model changes.
 specification-coverage: usage=#usage; behavior=#behavior; limits=#limits
 ---
 
