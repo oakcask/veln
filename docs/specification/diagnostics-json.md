@@ -215,13 +215,17 @@ terminal variant produce distinct diagnostics, while an exact repeated path
 retains its first occurrence. Exact test-companion access does not change
 public-signature eligibility.
 
-Public-ADT publication quarantine is transitive. If a public payload refinement
-selects a variant of a public ADT that this check has quarantined, that dependent
-payload reports `type.variant_refinement_private` at its own written refinement
-and the dependent ADT is quarantined too. The same rule repeats through direct
-and transparent-alias dependencies, regardless of declaration order. The
-diagnostics remain in source-span order, and an unrelated valid public ADT does
-not acquire a diagnostic. The checked
+Public-ADT publication quarantine is transitive over every resolved named ADT
+dependency in a public payload. This includes ordinary named types, refinement
+bases, named type arguments, and dependencies reached through transparent
+aliases. If a dependent payload itself refines a quarantined ADT, it reports
+`type.variant_refinement_private` at that written refinement. An ordinary named
+reference extends the quarantine without producing another privacy diagnostic.
+The closure is independent of declaration order, terminates for recursive type
+graphs, and leaves an unrelated valid public ADT published. A public function
+whose parameter or result contains an ADT in the closure is unpublished without
+an additional privacy diagnostic at the ordinary reference. Existing
+diagnostics remain in source-span order. The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-public-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-public-visibility-json/)
@@ -236,7 +240,10 @@ boundaries. The structural visibility
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-structural-visibility-json/)
 cases fix named arguments, function positions, ADT payloads, union path
-segments, and outer structural spans. The alias-qualified
+segments, and outer structural spans. The publication-closure
+[`human`](../../examples/specification/check/adt-variant-refinement-publication-closure-human/)
+case fixes a single causal diagnostic while ordinary payload, alias, parameter,
+and result dependencies remain unpublished. The alias-qualified
 [`human`](../../examples/specification/check/adt-variant-refinement-alias-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-alias-visibility-json/)

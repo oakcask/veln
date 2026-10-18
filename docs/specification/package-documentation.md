@@ -127,8 +127,11 @@ package-atomic failure result contains no catalog, declaration URI, or
 partially published signature.
 Publication dependency closure also rejects an exported public function or ADT
 whose signature contains an ordinary named reference to a quarantined ADT,
-including a reference through a transparent alias. The gate reports the causal
-privacy diagnostic once instead of copying it to each ordinary reference.
+including a reference through a transparent alias. The gate does not synthesize
+a privacy diagnostic at each ordinary reference. If this closure makes any
+manifest-exported declaration unavailable, retained causal privacy diagnostics
+are eligible for the package-atomic failure even when their primary spans are
+in non-exported sources.
 
 The catalog excludes non-exported modules, private declarations, handler
 operation clauses and bodies, exact test companions, integration-test sources,
@@ -177,9 +180,10 @@ The implemented gates are:
   uses every retained package source, including non-exported modules needed by
   imports and transparent aliases. A diagnostic rooted only in a retained
   non-exported declaration is non-blocking unless an exported public
-  declaration depends on the quarantined ADT through its resolved signature.
-  When that dependency exists, the causal diagnostic is admitted even when its
-  primary exposure span is in the non-exported source. Related base, alias, and
+  declaration depends on a quarantined ADT through its resolved signature.
+  When the closure makes any exported declaration unavailable, retained
+  `type.variant_refinement_private` diagnostics are admitted even when their
+  primary exposure spans are in non-exported sources. Related base, alias, and
   variant declarations may also be in a non-exported module. A failure uses
   `gate: "semantic_visibility"`, reports
   `type.variant_refinement_private`, and publishes no declaration identity or

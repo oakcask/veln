@@ -18,8 +18,10 @@ visibility. The current
 owns publication of accepted written signatures and package-atomic rejection
 of visibility-invalid declarations. That current gate resolves imports and
 transparent aliases through retained non-exported modules. A diagnostic rooted
-only in a retained source remains non-blocking unless an exported declaration's
-resolved signature depends on the quarantined ADT.
+only in a retained source remains non-blocking while every exported declaration
+is publishable. If dependency closure makes an exported declaration
+unavailable, retained privacy diagnostics participate in the package-atomic
+failure.
 
 This proposal retains only the unfinished work: qualified-value match
 refinement, schema boundaries, remaining LSP diagnostics and
