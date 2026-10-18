@@ -100,6 +100,17 @@ name.
 
 ## Runtime failures
 
+A `net::system()` scope that cannot confirm closure of all retained resources
+produces a generic runtime failure when the body otherwise completes or returns
+an `Err` for propagation. Its `error.kind` is `"runtime"`, its only
+cleanup-specific detail is `phase: "runtime"`, and its message is
+`network system cleanup could not confirm closure of N resource(s) with M producer(s) still active`,
+where `N` and `M` are the retained-resource and active-producer counts after
+the bounded cleanup attempts. It does not project the operation, resource id,
+lifecycle phase, or commit facts from an individual close attempt. When a
+contract failure, another runtime failure, or cancellation is already primary,
+the same cleanup failure is instead appended to `related` as described above.
+
 A contract failure has `error.kind: "contract"` and details:
 
 | Field | Values |

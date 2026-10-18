@@ -25,6 +25,13 @@ resource according to its reported commit state and returns `InvalidResource`
 instead of publishing it through the closed frame.
 The frame closes retained resources in reverse publication order. A stream
 accepted from a retained listener is therefore closed before that listener.
+For the JVM lifecycle workload of distinct retained streams whose close
+operations succeed, resource-release lookup work scales linearly with the
+number of retained streams. The deterministic lifecycle harness counts
+resource-identity equality checks instead of elapsed time. It compares 4,000
+and 8,000 retained streams, permits at most four checks per stream, and requires
+the larger workload to use no more than three times the smaller workload's
+checks.
 The [standard-library networking specification](standard-library-networking.md#network-operation-boundary)
 owns the resolver controls, connection commit point, exact write-progress,
 concurrent-operation, and resource state transitions for this handler. Task
