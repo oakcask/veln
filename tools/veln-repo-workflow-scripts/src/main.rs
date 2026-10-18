@@ -7,9 +7,18 @@ use std::process::{Command, ExitCode, Stdio};
 use veln_repo_workflow_scripts::{
     CommandResult, check_memory_guards, check_memory_guards_with_workers,
     download_prior_nextest_reports, escape_annotation_message, plan_shards,
-    read_nextest_elapsed_seconds, render_duplication_summary, render_shard_summary,
-    shard_numbers_json,
+    read_nextest_elapsed_seconds, render_duplication_summary, render_shard_outputs,
+    render_shard_summary,
 };
+
+struct NextestShardConfig {
+    target_seconds: u64,
+    fallback_shards: u64,
+    max_shards: u64,
+    runner_temp: PathBuf,
+    output_path: PathBuf,
+    summary_path: Option<PathBuf>,
+}
 
 fn main() -> ExitCode {
     match run(env::args().skip(1).collect()) {
@@ -70,20 +79,40 @@ fn plan_nextest_shards_command(args: &[String]) -> Result<ExitCode, String> {
     if !args.is_empty() {
         return Err("usage: veln-repo-workflow-scripts plan-nextest-shards".to_owned());
     }
-    let target_seconds = positive_environment_integer("NEXTEST_TARGET_SECONDS")?;
-    let fallback_shards = positive_environment_integer("NEXTEST_FALLBACK_SHARDS")?;
-    let max_shards = positive_environment_integer("NEXTEST_MAX_SHARDS")?;
-    let runner_temp = required_environment_path(
-        "RUNNER_TEMP",
-        "Run shard planning on a GitHub Actions runner so prior reports have a workspace.",
-    )?;
-    let output_path = required_environment_path(
-        "GITHUB_OUTPUT",
-        "Run shard planning as a GitHub Actions step so its matrix outputs can be published.",
-    )?;
 
+    let config = nextest_shard_config()?;
+    let report_root = prior_nextest_report_root(&config.runner_temp)?;
+    let elapsed = read_nextest_elapsed_seconds(&report_root).map_err(|error| error.to_string())?;
+    let plan = plan_shards(
+        &elapsed,
+        config.target_seconds,
+        config.fallback_shards,
+        config.max_shards,
+    );
+    publish_nextest_shard_plan(&config, &plan)?;
+    Ok(ExitCode::SUCCESS)
+}
+
+fn nextest_shard_config() -> Result<NextestShardConfig, String> {
+    Ok(NextestShardConfig {
+        target_seconds: positive_environment_integer("NEXTEST_TARGET_SECONDS")?,
+        fallback_shards: positive_environment_integer("NEXTEST_FALLBACK_SHARDS")?,
+        max_shards: positive_environment_integer("NEXTEST_MAX_SHARDS")?,
+        runner_temp: required_environment_path(
+            "RUNNER_TEMP",
+            "Run shard planning on a GitHub Actions runner so prior reports have a workspace.",
+        )?,
+        output_path: required_environment_path(
+            "GITHUB_OUTPUT",
+            "Run shard planning as a GitHub Actions step so its matrix outputs can be published.",
+        )?,
+        summary_path: optional_environment_path("GITHUB_STEP_SUMMARY"),
+    })
+}
+
+fn prior_nextest_report_root(runner_temp: &Path) -> Result<PathBuf, String> {
     let report_root = download_prior_nextest_reports(
-        &runner_temp,
+        runner_temp,
         |args| {
             let output = Command::new("gh")
                 .args(args)
@@ -99,20 +128,20 @@ fn plan_nextest_shards_command(args: &[String]) -> Result<ExitCode, String> {
     )
     .map_err(|error| error.to_string())?
     .unwrap_or_else(|| runner_temp.join("nextest-history"));
-    let elapsed = read_nextest_elapsed_seconds(&report_root).map_err(|error| error.to_string())?;
-    let plan = plan_shards(&elapsed, target_seconds, fallback_shards, max_shards);
+    Ok(report_root)
+}
 
-    append_line(&output_path, &format!("shard_count={}", plan.shard_count))?;
-    append_line(
-        &output_path,
-        &format!("shards={}", shard_numbers_json(&plan)),
-    )?;
-    let summary = render_shard_summary(&plan, target_seconds, max_shards);
+fn publish_nextest_shard_plan(
+    config: &NextestShardConfig,
+    plan: &veln_repo_workflow_scripts::ShardPlan,
+) -> Result<(), String> {
+    append_text(&config.output_path, &render_shard_outputs(plan))?;
+    let summary = render_shard_summary(plan, config.target_seconds, config.max_shards);
     println!("{summary}");
-    if let Some(path) = optional_environment_path("GITHUB_STEP_SUMMARY") {
-        append_line(&path, &summary)?;
+    if let Some(path) = &config.summary_path {
+        append_line(path, &summary)?;
     }
-    Ok(ExitCode::SUCCESS)
+    Ok(())
 }
 
 fn positive_environment_integer(name: &str) -> Result<u64, String> {
@@ -137,12 +166,17 @@ fn optional_environment_path(name: &str) -> Option<PathBuf> {
 }
 
 fn append_line(path: &Path, line: &str) -> Result<(), String> {
+    append_text(path, &format!("{line}\n"))
+}
+
+fn append_text(path: &Path, text: &str) -> Result<(), String> {
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)
         .open(path)
         .map_err(|error| error.to_string())?;
-    writeln!(file, "{line}").map_err(|error| error.to_string())
+    file.write_all(text.as_bytes())
+        .map_err(|error| error.to_string())
 }
 
 fn summarize_duplication_command(args: &[String]) -> Result<ExitCode, String> {
@@ -184,4 +218,49 @@ fn summarize_duplication(args: &[String]) -> Result<(), String> {
         println!("{summary}");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn renders_github_outputs_for_the_planned_shards() {
+        let plan = plan_shards(&[191.0], 90, 4, 16);
+        assert_eq!(
+            render_shard_outputs(&plan),
+            "shard_count=3\nshards=[1,2,3]\n"
+        );
+    }
+
+    #[test]
+    fn publishes_github_outputs_and_step_summary() {
+        let root = env::temp_dir().join(format!(
+            "veln-workflow-shard-publish-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir(&root).unwrap();
+        let config = NextestShardConfig {
+            target_seconds: 90,
+            fallback_shards: 4,
+            max_shards: 16,
+            runner_temp: root.clone(),
+            output_path: root.join("output"),
+            summary_path: Some(root.join("summary")),
+        };
+        let plan = plan_shards(&[191.0], 90, 4, 16);
+
+        publish_nextest_shard_plan(&config, &plan).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(&config.output_path).unwrap(),
+            "shard_count=3\nshards=[1,2,3]\n"
+        );
+        assert_eq!(
+            fs::read_to_string(config.summary_path.as_ref().unwrap()).unwrap(),
+            format!("{}\n", render_shard_summary(&plan, 90, 16))
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
 }

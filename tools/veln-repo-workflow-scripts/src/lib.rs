@@ -315,6 +315,14 @@ pub fn shard_numbers_json(plan: &ShardPlan) -> Value {
     Value::Array((1..=plan.shard_count).map(Value::from).collect())
 }
 
+pub fn render_shard_outputs(plan: &ShardPlan) -> String {
+    format!(
+        "shard_count={}\nshards={}\n",
+        plan.shard_count,
+        shard_numbers_json(plan)
+    )
+}
+
 pub fn render_shard_summary(plan: &ShardPlan, target_seconds: u64, max_shards: u64) -> String {
     let Some(measured_seconds) = plan.measured_seconds else {
         return format!(
