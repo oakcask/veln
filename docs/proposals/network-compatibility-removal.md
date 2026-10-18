@@ -7,24 +7,15 @@ update-when: Legacy compiler-known network lookup or the standard network import
 
 ## Outcome
 
-The compiler will stop recognizing legacy `net::...` spellings when source has
-not imported the exported standard `net` module. Checked standard-library
-sources must first import their own exported `net` module, and checked external
-sources must use `use net from "std"`. An explicit standard import already
-selects the nominal `net::IO` boundary.
+Remaining checked compiler and backend fixtures and executable examples must
+replace compiler-known source-less `net::...` lookup with an explicit import
+of the exported standard `net` module and the nominal `net::IO` handler
+boundary. After that migration, the compiler fallback for source-less network
+lookup will be removed.
 
-The standard library now uses the exported module for typed duplex I/O, the
-HTTP/2 transport-failure surface, and the HTTP/2 TCP service and client. Their
-connect, accept, stream I/O, stream-close, and listener-close operations use
-`net::IO`. The external connect- and listen-failure command cases also use an
-explicit standard import and `net::system()` while checking human and JSON
-host-failure reporting. The fallback remains required until all remaining
-checked sources use explicit standard imports.
-
-After migration, an unresolved legacy spelling will produce one diagnostic
-that identifies the standard import, the `net::IO` effect, and the
-`net::system()` application boundary. Compatibility is not required for this
-experimental project.
+An unresolved legacy spelling must then produce one diagnostic that identifies
+the standard import, the `net::IO` effect, and the `net::system()` application
+boundary. Compatibility is not required for this experimental project.
 
 ## Acceptance model
 

@@ -19,6 +19,10 @@ path = "stderr"
 equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
+path = "stdout"
+equals = ""
+
+[[json_assert]]
 path = "error.details.operation"
 equals = "connect"
 
