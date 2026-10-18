@@ -846,8 +846,9 @@ The diagnostic path starts with the public parameter, result, or ADT payload
 boundary, then records `type_argument`, `function_parameter`,
 `function_result`, `record_field`, and `union_alternative` segments in
 structural order. Each distinct ordered exposure path produces one diagnostic.
-The primary span is the outer written structural type occurrence. Alias,
-private declaration, and public boundary notes retain their established order.
+For a refinement nested in a named type argument or function position, the
+primary span is the outer written structural type occurrence. Alias, private
+declaration, and public boundary notes retain their established order.
 
 An invalid square-bracket type position does not
 make a record nested inside the brackets part of the traversal. Its
