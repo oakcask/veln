@@ -102,8 +102,8 @@ discovery guidance; the linked subject pages own behavior and evidence.
 - Standard-library observation effect, public no-op and recording handlers,
   typed attributes, trace context, scoped span lifecycle, explicit child-task
   context propagation, explicit channel-value context attachment, and
-  call-site-aware structured logs at debug, info, warning, and error
-  severities:
+  call-site-aware structured logs, named domain events, counter increments,
+  and histogram samples:
   [standard-library-observability.md](standard-library-observability.md).
 - JVM execution behavior, values, calls, control flow, and host boundaries:
   [execution.md](execution.md).
