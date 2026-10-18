@@ -3,12 +3,7 @@ exit = 1
 
 [stdout]
 format = "text"
-contains = [
-  "error[name.unresolved]: unresolved call_target `net::connect`",
-  'note: Import the exported network module with `use net from "std"`.',
-  "note: Declare the nominal `net::IO` effect for functions that use network operations.",
-  "note: At the application boundary, handle `net::IO` with `net::system()`.",
-]
+equals_file = "case-text/stdout-1.txt"
 
 [stderr]
 format = "empty"
