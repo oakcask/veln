@@ -295,6 +295,7 @@ impl<'a> PackageDocBuilder<'a> {
                 root: ".".into(),
                 files: parsed_sources
                     .iter()
+                    .filter(|source| source.exported)
                     .map(|source| source.source.clone())
                     .collect(),
                 manifest: None,

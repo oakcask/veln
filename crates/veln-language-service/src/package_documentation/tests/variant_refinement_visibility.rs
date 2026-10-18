@@ -54,6 +54,48 @@ fn package_catalog_preserves_valid_structural_refinement_signatures() {
 }
 
 #[test]
+fn package_catalog_ignores_private_refinement_exposure_in_non_exported_modules() {
+    let result = generate(
+        MANIFEST,
+        &[
+            (
+                "main.veln",
+                concat!("pub fn answer() -> Int\n", "  42\n", "end\n",),
+            ),
+            (
+                "internal.veln",
+                concat!(
+                    "pub type State\n",
+                    "  Hidden\n",
+                    "end\n",
+                    "pub type Box<A>\n",
+                    "  pub Boxed(value: A)\n",
+                    "end\n",
+                    "pub fn expose(value: Box<State::Hidden>) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                ),
+            ),
+        ],
+    );
+
+    let catalog = catalog_or_panic(&result);
+    assert_eq!(catalog.modules.len(), 1);
+    assert_eq!(catalog.modules[0].name, "main");
+    assert!(
+        catalog.modules[0]
+            .declarations
+            .iter()
+            .any(|declaration| declaration.name == "answer")
+    );
+    assert!(
+        result
+            .declaration_uri_for("internal", "function", "expose")
+            .is_none()
+    );
+}
+
+#[test]
 fn package_catalog_rejects_alias_function_and_recursive_exposure_paths() {
     let result = generate(
         MANIFEST,
