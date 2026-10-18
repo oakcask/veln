@@ -26,11 +26,11 @@ equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error.kind"
-equals = "runtime"
+equals = "result"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport read failed: forced_failure"
+equals = "runtime result failure: Err(transport read failed: forced_failure)"
 
 [[json_assert]]
 path = "error.details.phase"

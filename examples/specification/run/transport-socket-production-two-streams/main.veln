@@ -1,26 +1,31 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 # Production loopback listener accepts two independent streams and then ends.
 use stdio
 
-fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
-	match net::accept_or_end(listener)
-		Some(stream) => Ok(stream)
-		None => Err("missing production stream")
+fn accept_next(listener: net::Listener) -> Result<net::Stream, net::NetError> effects [net::IO]
+	net::accept(listener)
+end
+
+fn read_bytes(outcome: net::ReadOutcome) -> ByteChunk
+	match outcome
+		net::ReadChunk(bytes) => bytes
+		net::ReadEnd => byte_chunk([])
 	end
 end
 
-fn round_trip_stream(stream: NetStream) -> Int effects [net]
-	let incoming = net::read_chunk(stream)
-	net::write_chunk(stream, incoming)
-	net::close_stream(stream)
-	byte_count_to_int(byte_chunk_count(incoming))
+fn round_trip_stream(stream: net::Stream) -> Result<Int, net::NetError> effects [net::IO]
+	let incoming = read_bytes(net::read(stream)?)
+	let _ = net::write_all(stream, incoming, None, None)?
+	let _ = net::close_stream(stream)?
+	Ok(byte_count_to_int(byte_chunk_count(incoming)))
 end
 
-fn listener_ended(listener: NetListener) -> Bool effects [net]
-	match net::accept_or_end(listener)
-		Some(_) => false
-		None => true
+fn listener_ended(listener: net::Listener) -> Bool effects [net::IO]
+	match net::accept(listener)
+		Ok(_) => false
+		Err(_) => true
 	end
 end
 
@@ -32,12 +37,12 @@ fn bool_text(value: Bool) -> String
 	end
 end
 
-fn fixture_body() -> Result<(), String> effects [net, stdio]
-	let listener = net::listen("127.0.0.1:0")
+fn fixture_body() -> Result<(), net::NetError> effects [net::IO, stdio]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
 	let first = accept_next(listener)?
-	let first_count = round_trip_stream(first)
+	let first_count = round_trip_stream(first)?
 	let second = accept_next(listener)?
-	let second_count = round_trip_stream(second)
+	let second_count = round_trip_stream(second)?
 	let clean_end = listener_ended(listener)
 	stdio::print("first ")
 	stdio::print(int_to_string(first_count))
@@ -48,7 +53,7 @@ fn fixture_body() -> Result<(), String> effects [net, stdio]
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+pub fn main() -> Result<(), net::NetError> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

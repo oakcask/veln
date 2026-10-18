@@ -1,5 +1,6 @@
-# Public transport-boundary functions must declare inferred net and time effects.
-pub fn receive_host_chunk() -> ByteChunk effects [time]
-	time::timeout_ms(0)
-	net::receive_chunk()
+use net from "std"
+
+# Compiler integration contract: a standard network read contributes nominal net::IO.
+pub fn receive_host_chunk(stream: net::Stream) -> Result<net::ReadOutcome, net::NetError> effects [time]
+	net::read(stream)
 end

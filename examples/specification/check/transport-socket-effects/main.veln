@@ -1,10 +1,6 @@
-# Socket-boundary calls infer net for public effect checking.
-pub fn socket_boundary() -> ByteChunk
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = net::accept(listener)
-	let optional_stream: Option<NetStream> = net::accept_or_end(listener)
-	let chunk: ByteChunk = net::read_chunk(stream)
-	let optional_chunk: Option<ByteChunk> = net::read_chunk_or_end(stream)
-	net::write_chunk(stream, chunk)
-	chunk
+use net from "std"
+
+# Compiler integration contract: an unhandled standard network facade call contributes nominal net::IO.
+pub fn socket_boundary(address: net::Address) -> Result<net::Stream, net::NetError>
+	net::connect(address)
 end

@@ -1,24 +1,32 @@
+use net from "std"
 use fake_effects
 use fixture_effects
 
-fn read_fresh_sequence() -> Result<(), String> effects [net]
-	let stream = net::connect("fixture")
-	let first = net::read_chunk(stream)
-	let second = net::read_chunk(stream)
-	net::close_stream(stream)
-	if byte_count_to_int(byte_chunk_count(first)) == 1 and byte_count_to_int(byte_chunk_count(second)) == 2
-		Ok(())
-	else
-		Err("effect handler state leaked between test executions")
+fn chunk_count(outcome: net::ReadOutcome) -> Int
+	match outcome
+		net::ReadChunk(bytes) => byte_count_to_int(byte_chunk_count(bytes))
+		net::ReadEnd => 0
 	end
 end
 
-test first_execution() -> Result<(), String> effects [net, concurrency, fs]
-	let state = fixture_effects::create_fixture()
-	handle read_fresh_sequence() with fake_effects::network(state)
+fn read_fresh_sequence() -> Result<(), net::NetError> effects [net::IO]
+	let stream = net::connect(net::Address(net::Tcp4, "fixture", 0))?
+	let first = net::read(stream)?
+	let second = net::read(stream)?
+	let _ = net::close_stream(stream)?
+	if chunk_count(first) == 1 and chunk_count(second) == 2
+		Ok(())
+	else
+		Err(net::NetError("read", None, None, net::Other, "effect handler state leaked between test executions"))
+	end
 end
 
-test second_execution() -> Result<(), String> effects [net, concurrency, fs]
+test first_execution() -> Result<(), net::NetError> effects [net, concurrency, fs, time]
 	let state = fixture_effects::create_fixture()
-	handle read_fresh_sequence() with fake_effects::network(state)
+	handle handle read_fresh_sequence() with net::system() with fake_effects::network(state)
+end
+
+test second_execution() -> Result<(), net::NetError> effects [net, concurrency, fs, time]
+	let state = fixture_effects::create_fixture()
+	handle handle read_fresh_sequence() with net::system() with fake_effects::network(state)
 end

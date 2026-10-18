@@ -26,11 +26,11 @@ equals_file = "case-text/json-assert-equals-2.txt"
 
 [[json_assert]]
 path = "error.kind"
-equals = "runtime"
+equals = "result"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport accept failed: closed"
+equals = "runtime result failure: Err(NetError(accept, None, Some(127.0.0.1:0), Closed, listener is closed))"
 
 [[json_assert]]
 path = "error.details.phase"

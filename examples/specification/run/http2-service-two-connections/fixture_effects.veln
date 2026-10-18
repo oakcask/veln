@@ -1,7 +1,9 @@
 use fake_effects
+use net from "std"
 
-pub fn resources() -> { listener : NetListener, stream : NetStream } effects [net]
-	{ listener: net::listen("127.0.0.1:0"), stream: net::connect("127.0.0.1:0") }
+pub fn resources() -> Result<{ listener : net::Listener }, net::NetError> effects [net::IO]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	Ok({ listener: listener })
 end
 
 pub fn create_fixture() -> { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> } effects [concurrency]

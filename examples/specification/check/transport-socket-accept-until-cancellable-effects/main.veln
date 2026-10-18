@@ -1,8 +1,11 @@
-# Cancellable deadline-aware socket accepts require both net and time effects.
-pub fn accept_until_cancellable_missing_time(listener: NetListener, deadline: Deadline, token: CancelToken) -> AcceptOutcome effects [net]
-	net::accept_until_cancellable(listener, deadline, token)
+use net from "std"
+
+# Compiler integration contract: cancellable accept keeps time and nominal IO effects distinct.
+pub fn accept_until_cancellable_missing_time(listener: net::Listener, deadline: Deadline, token: CancelToken) -> Result<net::Stream, net::NetError> effects [net::IO]
+	time::wait_until(deadline)
+	net::accept_with(listener, Some(deadline), Some(token))
 end
 
-pub fn accept_until_cancellable_missing_net(listener: NetListener, deadline: Deadline, token: CancelToken) -> AcceptOutcome effects [time]
-	net::accept_until_cancellable(listener, deadline, token)
+pub fn accept_until_cancellable_missing_net(listener: net::Listener, deadline: Deadline, token: CancelToken) -> Result<net::Stream, net::NetError> effects [time]
+	net::accept_with(listener, Some(deadline), Some(token))
 end

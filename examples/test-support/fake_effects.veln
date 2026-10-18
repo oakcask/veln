@@ -1,15 +1,4 @@
 use host_effects from "std"
-use transport from "std"
-
-pub handler legacy_duplex(stream: NetStream) for transport::DuplexStream effects [net]
-	read_chunk() => Ok(net::read_chunk_or_end(stream))
-	write_chunks(chunks) => legacy_write_chunks(stream, chunks)
-end
-
-fn legacy_write_chunks(stream: NetStream, chunks: List<ByteChunk>) -> Result<(), std::net::NetError> effects [net]
-	net::write_chunks(stream, chunks)
-	Ok(())
-end
 
 pub fn create_state(configuration: Dict<String, String>) -> { tx : Sender<Dict<String, String>>, rx : Receiver<Dict<String, String>> } effects [concurrency]
 	let state = channel::bounded<Dict<String, String>>(1)
@@ -384,10 +373,15 @@ end
 
 fn resolve(state: Dict<String, String>, operation: String, subject: String) -> { state : Dict<String, String>, result : { status : String, value : String, local : String, peer : String, bytes : ByteChunk, resolved_endpoints : List<{ network : String, address : String }>, bytes_committed : Int, category : String, phase : String, input_committed : Int, output_committed : Int, ownership_committed : Int, cause : String } } effects [fs]
 	let network = if operation == "resolve_tcp6" "tcp6" else "tcp4" end
-	if production(state) and event(state, join(["resolve-production ", subject]))
-		transition(state, { status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_cons({ network: network, address: subject }, list_nil()), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" })
+	let resolved = { status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_cons({ network: network, address: subject }, list_nil()), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+	if production(state)
+		if event(state, join(["resolve-production ", subject]))
+			transition(state, resolved)
+		else
+			transition(state, failure("", "", "", "unsupported", "before_operation", 0, 0, 0, "injected resolver is unavailable"))
+		end
 	else
-		transition(state, failure("", "", "", "unsupported", "before_operation", 0, 0, 0, "injected resolver is unavailable"))
+		transition(state, resolved)
 	end
 end
 

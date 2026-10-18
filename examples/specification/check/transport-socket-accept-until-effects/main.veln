@@ -1,8 +1,11 @@
-# Deadline-aware socket accepts infer both net and time for public effect checking.
-pub fn accept_until_missing_time(listener: NetListener, deadline: Deadline) -> Option<NetStream> effects [net]
-	net::accept_until(listener, deadline)
+use net from "std"
+
+# Compiler integration contract: controlled accept keeps time and nominal IO effects distinct.
+pub fn accept_until_missing_time(listener: net::Listener, deadline: Deadline) -> Result<net::Stream, net::NetError> effects [net::IO]
+	time::wait_until(deadline)
+	net::accept_with(listener, Some(deadline), None)
 end
 
-pub fn accept_until_missing_net(listener: NetListener, deadline: Deadline) -> Option<NetStream> effects [time]
-	net::accept_until(listener, deadline)
+pub fn accept_until_missing_net(listener: net::Listener, deadline: Deadline) -> Result<net::Stream, net::NetError> effects [time]
+	net::accept_with(listener, Some(deadline), None)
 end

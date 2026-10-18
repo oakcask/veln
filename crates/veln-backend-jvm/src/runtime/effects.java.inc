@@ -1289,15 +1289,18 @@
         synchronized (owner.networkResources) {
             if (resource instanceof NetListener) ((NetListener) resource).systemOwner = owner;
             else ((NetStream) resource).systemOwner = owner;
-            owner.networkResources.add(resource);
+            owner.networkResources.put(new NetworkResourceIdentity(owner, resource), resource);
             if (!owner.networkSystemClosed) return true;
         }
         netSystemCleanupResourceUntilSettled(owner, resource);
         return false;
     }
+    private static boolean netSystemHasResource(HandlerFrame owner, Object resource) {
+        return owner.networkResources.containsKey(new NetworkResourceIdentity(owner, resource));
+    }
     private static void netSystemReleaseResource(HandlerFrame owner, Object resource) {
         synchronized (owner.networkResources) {
-            owner.networkResources.remove(resource);
+            owner.networkResources.remove(new NetworkResourceIdentity(owner, resource));
         }
     }
     private static Object netSystemOptionValue(Object option) {
@@ -1887,7 +1890,7 @@
         for (int attempt = 0; attempt < 3; attempt += 1) {
             netSystemCleanupResource(owner, resource);
             synchronized (owner.networkResources) {
-                if (!owner.networkResources.contains(resource)) return;
+                if (!netSystemHasResource(owner, resource)) return;
             }
         }
         throw new RuntimeFailure("network system cleanup could not confirm resource closure");
@@ -1902,11 +1905,11 @@
             java.util.List<Object> resources;
             synchronized (owner.networkResources) {
                 if (owner.networkResources.isEmpty() && owner.networkSystemProducers == 0) return;
-                resources = new java.util.ArrayList<Object>(owner.networkResources);
+                resources = new java.util.ArrayList<Object>(owner.networkResources.values());
             }
             if (!resources.isEmpty() && attempts < 3) {
-                for (Object resource : resources) {
-                    netSystemCleanupResource(owner, resource);
+                for (int index = resources.size() - 1; index >= 0; index -= 1) {
+                    netSystemCleanupResource(owner, resources.get(index));
                 }
                 attempts += 1;
                 continue;

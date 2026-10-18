@@ -20,6 +20,7 @@ public final class NetworkSystemLifecycleHarness {
     private static final java.lang.reflect.Field INVOKED_HANDLER;
     private static final java.lang.reflect.Field HANDLERS;
     private static final java.lang.reflect.Field NETWORK_RESOURCES;
+    private static final java.lang.reflect.Field NETWORK_RESOURCE_RELEASE_WORK;
     private static final java.lang.reflect.Field SYSTEM_OWNER;
     private static final java.lang.reflect.Field READING;
     private static final java.lang.reflect.Field WRITING;
@@ -115,6 +116,9 @@ public final class NetworkSystemLifecycleHarness {
             INVOKED_HANDLER = VelnRuntime.class.getDeclaredField("INVOKED_HANDLER");
             HANDLERS = VelnRuntime.class.getDeclaredField("HANDLERS");
             NETWORK_RESOURCES = HANDLER_FRAME.getDeclaredField("networkResources");
+            NETWORK_RESOURCE_RELEASE_WORK = HANDLER_FRAME.getDeclaredField(
+                "networkResourceReleaseWork"
+            );
             SYSTEM_OWNER = NET_STREAM.getDeclaredField("systemOwner");
             READING = NET_STREAM.getDeclaredField("reading");
             WRITING = NET_STREAM.getDeclaredField("writing");
@@ -146,6 +150,7 @@ public final class NetworkSystemLifecycleHarness {
                 INVOKED_HANDLER,
                 HANDLERS,
                 NETWORK_RESOURCES,
+                NETWORK_RESOURCE_RELEASE_WORK,
                 SYSTEM_OWNER,
                 READING,
                 WRITING,
@@ -189,8 +194,116 @@ public final class NetworkSystemLifecycleHarness {
     }
 
     @SuppressWarnings("unchecked")
-    private static java.util.Set<Object> resources(Object owner) throws Exception {
-        return (java.util.Set<Object>) NETWORK_RESOURCES.get(owner);
+    private static java.util.Map<Object, Object> resources(Object owner) throws Exception {
+        return (java.util.Map<Object, Object>) NETWORK_RESOURCES.get(owner);
+    }
+
+    private static void verifyCleanupUsesReversePublicationOrder() throws Exception {
+        java.util.List<String> closes = new java.util.ArrayList<String>();
+        VelnRuntime.Fn provider = new VelnRuntime.Fn() {
+            public Object call(Object... args) {
+                String operation = (String) args[0];
+                if (operation.equals("close_stream") || operation.equals("close_listener")) {
+                    closes.add(operation);
+                    return closeReply("ok", 1L);
+                }
+                throw new AssertionError("unexpected cleanup operation " + operation);
+            }
+        };
+        VelnRuntime.pushHandler(
+            "std::host_effects::Network",
+            new Object[] { "request" },
+            new Object[] { provider },
+            new Object[0]
+        );
+        Object adapter = topHandler();
+        Object owner = newOwner();
+        Object listener = LISTENER_CONSTRUCTOR.newInstance(
+            "127.0.0.1:1", "127.0.0.1:1", null, adapter
+        );
+        Object stream = STREAM_CONSTRUCTOR.newInstance(
+            "stream", "127.0.0.1:1", "127.0.0.1:2", null, adapter
+        );
+        try {
+            registerListener(owner, listener);
+            register(owner, stream);
+            CLEANUP.invoke(null, owner);
+            if (!closes.equals(java.util.Arrays.asList("close_stream", "close_listener"))) {
+                throw new AssertionError("cleanup did not reverse publication order: " + closes);
+            }
+        } finally {
+            VelnRuntime.popHandler();
+        }
+    }
+
+    private static long cleanupWorkForRetainedStreams(int count) throws Exception {
+        java.util.concurrent.atomic.AtomicInteger closes =
+            new java.util.concurrent.atomic.AtomicInteger();
+        VelnRuntime.Fn provider = new VelnRuntime.Fn() {
+            public Object call(Object... args) {
+                String operation = (String) args[0];
+                if (!operation.equals("close_stream")) {
+                    throw new AssertionError("unexpected cleanup operation " + operation);
+                }
+                closes.incrementAndGet();
+                return closeReply("ok", 1L);
+            }
+        };
+        VelnRuntime.pushHandler(
+            "std::host_effects::Network",
+            new Object[] { "request" },
+            new Object[] { provider },
+            new Object[0]
+        );
+        Object owner = null;
+        boolean ownerPopped = false;
+        try {
+            Object adapter = topHandler();
+            VelnRuntime.pushHandler(
+                "std::net::IO",
+                new Object[0],
+                new Object[0],
+                new Object[0]
+            );
+            owner = topHandler();
+            for (int index = 0; index < count; index += 1) {
+                Object stream = STREAM_CONSTRUCTOR.newInstance(
+                    "retained-" + Integer.toString(index),
+                    "127.0.0.1:1",
+                    "127.0.0.1:2",
+                    null,
+                    adapter
+                );
+                register(owner, stream);
+            }
+            long before = NETWORK_RESOURCE_RELEASE_WORK.getLong(owner);
+            VelnRuntime.popHandler();
+            ownerPopped = true;
+            if (closes.get() != count || !resources(owner).isEmpty()) {
+                throw new AssertionError("retained resource cleanup did not close every stream");
+            }
+            return NETWORK_RESOURCE_RELEASE_WORK.getLong(owner) - before;
+        } finally {
+            if (!ownerPopped && owner != null) VelnRuntime.popHandler();
+            VelnRuntime.popHandler();
+        }
+    }
+
+    private static void verifyRetainedResourceCleanupWorkScalesLinearly() throws Exception {
+        int smallerCount = 4000;
+        int largerCount = 8000;
+        long smallerWork = cleanupWorkForRetainedStreams(smallerCount);
+        long largerWork = cleanupWorkForRetainedStreams(largerCount);
+        if (smallerWork <= 0L
+            || smallerWork > 4L * smallerCount
+            || largerWork > 4L * largerCount
+            || largerWork > 3L * smallerWork) {
+            throw new AssertionError(
+                "retained cleanup work was not linear: "
+                    + smallerCount + "=" + smallerWork + ", "
+                    + largerCount + "=" + largerWork
+            );
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -1453,6 +1566,8 @@ public final class NetworkSystemLifecycleHarness {
         verifyDirectBindFailureClassification();
         verifyDirectHostFailureClassification();
         verifyIdentityLedgerExplicitCloseAndDetach();
+        verifyCleanupUsesReversePublicationOrder();
+        verifyRetainedResourceCleanupWorkScalesLinearly();
         verifyInheritedChildRegistrationIsCleaned();
         verifyAtomicResourcePublication();
         verifyBufferedInputIsDiscardedByShutdownRead();

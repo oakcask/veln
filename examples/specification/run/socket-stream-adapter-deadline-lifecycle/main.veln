@@ -1,3 +1,4 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 # Deadline-aware socket lifecycle keeps handlers on ordinary stream values.
@@ -52,10 +53,11 @@ fn end_count(actions: List<ResponseAction>) -> Int
 	end
 end
 
-fn read_stream_input_until(stream: NetStream, deadline: Deadline) -> StreamInput effects [net, time]
-	match net::read_chunk_until(stream, deadline)
-		Some(bytes) => Chunk(bytes)
-		None => End
+fn read_stream_input_until(stream: net::Stream, deadline: Deadline) -> StreamInput effects [net::IO, time]
+	match net::read_with(stream, Some(deadline), None)
+		Ok(net::ReadChunk(bytes)) => Chunk(bytes)
+		Ok(net::ReadEnd) => End
+		Err(_) => End
 	end
 end
 
@@ -67,7 +69,7 @@ fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, 
 	end
 end
 
-fn collect_stream_actions_until(stream: NetStream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, time, concurrency]
+fn collect_stream_actions_until(stream: net::Stream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, time, concurrency]
 	let route = channel::bounded<StreamInput>(1)
 	let first_deadline = time::deadline_after_ms(100)
 	let first = handle_stream_input(route_input(route, read_stream_input_until(stream, first_deadline)), state)
@@ -78,7 +80,7 @@ fn collect_stream_actions_until(stream: NetStream, state: { chunks : Int, ended 
 	{ actions: append_actions(first.actions, append_actions(second.actions, stopped.actions)), next_state: stopped.next_state }
 end
 
-fn apply_response_actions(stream: NetStream, actions: List<ResponseAction>) -> () effects [net]
+fn apply_response_actions(stream: net::Stream, actions: List<ResponseAction>) -> () effects [net::IO]
 	match actions
 		Nil => ()
 		Cons(action, tail) => match action
@@ -89,23 +91,23 @@ fn apply_response_actions(stream: NetStream, actions: List<ResponseAction>) -> (
 	end
 end
 
-fn write_then_apply(stream: NetStream, bytes: ByteChunk, tail: List<ResponseAction>) -> () effects [net]
-	net::write_chunk(stream, bytes)
+fn write_then_apply(stream: net::Stream, bytes: ByteChunk, tail: List<ResponseAction>) -> () effects [net::IO]
+	write_chunk_value(stream, bytes)
 	apply_response_actions(stream, tail)
 end
 
-fn accepted_lifecycle_until(stream: NetStream) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net, time, concurrency]
+fn accepted_lifecycle_until(stream: net::Stream) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net::IO, time, concurrency]
 	let routed = collect_stream_actions_until(stream, { chunks: 0, ended: false })
 	apply_response_actions(stream, routed.actions)
 	Ok(routed)
 end
 
-fn lifecycle_result(address: String) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net, time, concurrency]
-	let listener = net::listen(address)
+fn lifecycle_result(address: String) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net::IO, time, concurrency]
+	let listener = open_listener(address)?
 	let accept_deadline = time::deadline_after_ms(100)
-	match net::accept_until(listener, accept_deadline)
-		Some(stream) => accepted_lifecycle_until(stream)
-		None => Ok({ actions: list_cons(Ignore, list_nil()), next_state: { chunks: 0, ended: true } })
+	match net::accept_with(listener, Some(accept_deadline), None)
+		Ok(stream) => accepted_lifecycle_until(stream)
+		Err(_) => Ok({ actions: list_cons(Ignore, list_nil()), next_state: { chunks: 0, ended: true } })
 	end
 end
 
@@ -117,7 +119,7 @@ fn bool_text(value: Bool) -> String
 	end
 end
 
-fn fixture_body() -> Result<(), String> effects [net, time, concurrency, stdio]
+fn fixture_body() -> Result<(), String> effects [net::IO, time, concurrency, stdio]
 	let routed = lifecycle_result("127.0.0.1:0")?
 	stdio::print("actions ")
 	stdio::print(int_to_string(action_count(routed.actions)))
@@ -134,5 +136,53 @@ end
 
 pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
+end
+
+fn fixture_network_error(error: net::NetError) -> String
+	match error
+		net::NetError(_, _, _, _, message) => match string_split_once(message, "\n")
+			Some(parts) => parts.left
+			None => message
+		end
+	end
+end
+
+fn fixture_address(text: String) -> Result<net::Address, String>
+	match net::split_host_port(text)
+		Ok(parts) => Ok(net::Address(net::Tcp4, parts.host, parts.port))
+		Err(error) => Err(fixture_network_error(error))
+	end
+end
+
+fn write_chunk_value(stream: net::Stream, bytes: ByteChunk) -> () effects [net::IO]
+	let _ = net::write(stream, bytes)
+	()
+end
+
+fn open_listener(text: String) -> Result<net::Listener, String> effects [net::IO]
+	match fixture_address(text)
+		Ok(address) => match net::listen(address)
+			Ok(listener) => Ok(listener)
+			Err(error) => Err(fixture_network_error(error))
+		end
+		Err(message) => Err(message)
+	end
+end
+
+fn open_stream(text: String) -> Result<net::Stream, String> effects [net::IO]
+	match fixture_address(text)
+		Ok(address) => match net::connect(address)
+			Ok(stream) => Ok(stream)
+			Err(error) => Err(fixture_network_error(error))
+		end
+		Err(message) => Err(message)
+	end
+end
+
+fn accept_stream(listener: net::Listener) -> Result<net::Stream, String> effects [net::IO]
+	match net::accept(listener)
+		Ok(stream) => Ok(stream)
+		Err(error) => Err(fixture_network_error(error))
+	end
 end

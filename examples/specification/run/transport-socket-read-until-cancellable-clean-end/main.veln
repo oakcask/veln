@@ -1,26 +1,33 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 
 # Cancellable deadline-aware socket read reports clean stream end as a value.
-fn emit_read_outcome(outcome: StreamReadOutcome) -> () effects [stdio]
+fn emit_read_outcome(outcome: Result<net::ReadOutcome, net::NetError>) -> Result<(), net::NetError> effects [stdio]
 	match outcome
-		ReadChunk(_) => stdio::println("chunk")
-		ReadEnd => stdio::println("end")
-		ReadDeadlineExpired => stdio::println("deadline")
-		ReadCancelled => stdio::println("cancelled")
+		Ok(net::ReadChunk(_)) => printed("chunk")
+		Ok(net::ReadEnd) => printed("end")
+		Err(net::NetError(_, _, _, net::TimedOut, _)) => printed("deadline")
+		Err(net::NetError(_, _, _, net::Cancelled, _)) => printed("cancelled")
+		Err(error) => Err(error)
 	end
 end
 
-fn fixture_body() -> Result<(), String> effects [net, time, stdio]
-	let listener = net::listen("127.0.0.1:0")
-	let stream = net::accept(listener)
-	let deadline = time::deadline_after_ms(100)
-	let token = time::cancel_token()
-	emit_read_outcome(net::read_chunk_until_cancellable(stream, deadline, token))
+fn printed(text: String) -> Result<(), net::NetError> effects [stdio]
+	stdio::println(text)
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
+fn fixture_body() -> Result<(), net::NetError> effects [net::IO, time, stdio]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	let stream = net::accept(listener)?
+	let deadline = time::deadline_after_ms(100)
+	let token = time::cancel_token()
+	let _ = emit_read_outcome(net::read_with(stream, Some(deadline), Some(token)))?
+	Ok(())
+end
+
+pub fn main() -> Result<(), net::NetError> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

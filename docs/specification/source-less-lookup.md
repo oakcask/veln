@@ -96,6 +96,10 @@ Private compiler adapters, including the `net_system_*` operations used by
 `prelude_builtin::name` keys. Bare prelude lookup does not publish those names.
 This keeps the host adapters out of the public prelude surface while allowing
 embedded standard-package source to resolve the reserved qualified route.
+Public `net::...` calls have no source-less lookup route. Application source
+must import `net` from `std`; its operations retain the nominal `net::IO`
+effect until an application boundary installs `net::system()` or another
+handler.
 
 ## Limits
 

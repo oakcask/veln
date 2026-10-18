@@ -1,3 +1,5 @@
+use net from "std"
+
 # Cancellable receiver-list selection keeps handlers pure and adapter effects explicit.
 type ResponseAction
 	SendBytes {stream_id: Int, bytes: ByteChunk}
@@ -48,8 +50,8 @@ fn route_with_cancellable_channel_first(receivers: List<Receiver<StreamInput>>, 
 	handle_route_outcome(route_outcome(channel::select_many_timeout_cancellable(receivers, 25, token)), state)
 end
 
-fn socket_route_with_cancellable_channel_first(stream: NetStream, receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, time, concurrency]
-	let _ = net::read_chunk(stream)
+fn socket_route_with_cancellable_channel_first(stream: net::Stream, receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, time, concurrency]
+	let _ = read_stream_chunk(stream)
 	route_with_cancellable_channel_first(receivers, state, token)
 end
 
@@ -65,6 +67,13 @@ pub fn adapter_missing_concurrency(receivers: List<Receiver<StreamInput>>, state
 	route_with_cancellable_channel_first(receivers, state, token)
 end
 
-pub fn socket_adapter_missing_net(stream: NetStream, receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time, concurrency]
+pub fn socket_adapter_missing_net(stream: net::Stream, receivers: List<Receiver<StreamInput>>, state: { chunks : Int, ended : Bool }, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time, concurrency]
 	socket_route_with_cancellable_channel_first(stream, receivers, state, token)
+end
+
+fn read_stream_chunk(stream: net::Stream) -> ByteChunk effects [net::IO]
+	match net::read(stream)
+		Ok(net::ReadChunk(bytes)) => bytes
+		_ => byte_chunk([])
+	end
 end

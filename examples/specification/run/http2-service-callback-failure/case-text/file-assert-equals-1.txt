@@ -1,3 +1,4 @@
+resolve-production 127.0.0.1
 listen-production 127.0.0.1:0
 accept-production 127.0.0.1:0 production-stream
 write-production production-stream ByteChunk([Byte(0), Byte(0), Byte(0), Byte(4), Byte(0), Byte(0), Byte(0), Byte(0), Byte(0)])

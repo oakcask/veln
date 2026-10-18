@@ -1,3 +1,4 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 
@@ -6,11 +7,19 @@ fn protocol_failure() -> Result<(), RuntimeDiagnostic>
 	Err(RuntimeDiagnostic("http2.protocol.invalid_request_header_list", "HTTP/2 extended CONNECT contains empty :protocol at byte offset 12", RuntimeHttp2Diagnostic(RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic(12, 1, 1, "protocol_value_empty", ":protocol", ":method,:protocol,:scheme,:path,:authority", "request-headers", "rfc8441_extended_connect_pseudo_headers", byte_chunk([])))))
 end
 
-fn fixture_body() -> Result<(), RuntimeDiagnostic> effects [net]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = net::accept(listener)
-	let local: String = net::stream_local_addr(stream)
-	let peer: String = net::stream_peer_addr(stream)
+fn fixture_body() -> Result<(), RuntimeDiagnostic> effects [net::IO]
+	match open_listener("127.0.0.1:0")
+		Err(_) => protocol_failure()
+		Ok(listener) => match accept_stream(listener)
+			Err(_) => protocol_failure()
+			Ok(stream) => inspect_stream_then_fail(stream)
+		end
+	end
+end
+
+fn inspect_stream_then_fail(stream: net::Stream) -> Result<(), RuntimeDiagnostic> effects [net::IO]
+	let local: String = stream_local_text(stream)
+	let peer: String = stream_peer_text(stream)
 	if local == peer
 		protocol_failure()
 	else
@@ -18,7 +27,64 @@ fn fixture_body() -> Result<(), RuntimeDiagnostic> effects [net]
 	end
 end
 
-pub fn main() -> Result<(), RuntimeDiagnostic> effects [concurrency, fs, net]
+pub fn main() -> Result<(), RuntimeDiagnostic> effects [time, concurrency, fs, net]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
+end
+
+fn fixture_network_error(error: net::NetError) -> String
+	match error
+		net::NetError(_, _, _, _, message) => match string_split_once(message, "\n")
+			Some(parts) => parts.left
+			None => message
+		end
+	end
+end
+
+fn fixture_address(text: String) -> Result<net::Address, String>
+	match net::split_host_port(text)
+		Ok(parts) => Ok(net::Address(net::Tcp4, parts.host, parts.port))
+		Err(error) => Err(fixture_network_error(error))
+	end
+end
+
+fn stream_local_text(stream: net::Stream) -> String effects [net::IO]
+	match net::local_address(stream)
+		Ok(net::Endpoint(_, text)) => text
+		Err(_) => ""
+	end
+end
+
+fn stream_peer_text(stream: net::Stream) -> String effects [net::IO]
+	match net::peer_address(stream)
+		Ok(net::Endpoint(_, text)) => text
+		Err(_) => ""
+	end
+end
+
+fn open_listener(text: String) -> Result<net::Listener, String> effects [net::IO]
+	match fixture_address(text)
+		Ok(address) => match net::listen(address)
+			Ok(listener) => Ok(listener)
+			Err(error) => Err(fixture_network_error(error))
+		end
+		Err(message) => Err(message)
+	end
+end
+
+fn open_stream(text: String) -> Result<net::Stream, String> effects [net::IO]
+	match fixture_address(text)
+		Ok(address) => match net::connect(address)
+			Ok(stream) => Ok(stream)
+			Err(error) => Err(fixture_network_error(error))
+		end
+		Err(message) => Err(message)
+	end
+end
+
+fn accept_stream(listener: net::Listener) -> Result<net::Stream, String> effects [net::IO]
+	match net::accept(listener)
+		Ok(stream) => Ok(stream)
+		Err(error) => Err(fixture_network_error(error))
+	end
 end

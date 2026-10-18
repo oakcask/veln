@@ -1,5 +1,7 @@
 use fixture_effects
 use fake_effects
+use net from "std"
+use transport::network from "std"
 use stdio
 
 schema Http2FrameHeaderWire
@@ -265,14 +267,18 @@ fn count_rejected(tail: List<ResponseAction>, context: Http2SendContext) -> Resu
 	end
 end
 
-fn write_projected_chunks(stream: NetStream, chunks: List<ByteChunk>) -> () effects [net]
+fn write_projected_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> () effects [net::IO]
 	match chunks
 		Nil => ()
-		Cons(_, _) => net::write_chunks(stream, chunks)
+		Cons(_, _) => ignore_projected_write(transport::network::write_stream_chunks(stream, chunks))
 	end
 end
 
-fn run_adapter(stream: NetStream, actions: List<ResponseAction>) -> Result<AdapterProjection, String> effects [net]
+fn ignore_projected_write(result: Result<(), net::NetError>) -> ()
+	()
+end
+
+fn run_adapter(stream: net::Stream, actions: List<ResponseAction>) -> Result<AdapterProjection, String> effects [net::IO]
 	let initial_context = SendContext(2, OpenSendStream(1, 4, 4))
 	let projection = project_actions(actions, initial_context)?
 	let ignored_write = match projection
@@ -303,15 +309,30 @@ fn print_projection_fields(accepted: Int, rejected: Int, context: Http2SendConte
 	stdio::println(final_state_label(context))
 end
 
-fn fixture_body() -> Result<(), String> effects [net, stdio]
-	let listener = net::listen("127.0.0.1:0")
-	let stream = net::accept(listener)
+fn open_listener() -> Result<net::Listener, String> effects [net::IO]
+	match net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))
+		Ok(listener) => Ok(listener)
+		Err(_) => Err("missing listener")
+	end
+end
+
+fn accept_next(listener: net::Listener) -> Result<net::Stream, String> effects [net::IO]
+	match net::accept(listener)
+		Ok(stream) => Ok(stream)
+		Err(_) => Err("missing stream")
+	end
+end
+
+
+fn fixture_body() -> Result<(), String> effects [net::IO, stdio]
+	let listener = open_listener()?
+	let stream = accept_next(listener)?
 	let projection = run_adapter(stream, handler_response()?)?
 	print_projection(projection)
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, time, stdio]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

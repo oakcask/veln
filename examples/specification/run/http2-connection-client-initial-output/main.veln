@@ -2,18 +2,26 @@ use fixture_effects
 use fake_effects
 use http2::connection from "std"
 use http2::core from "std"
+use net from "std"
 use transport::net from "std"
 use stdio
 
-fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
-	match net::accept_or_end(listener)
-		Some(stream) => Ok(stream)
-		None => Err("missing stream")
+fn open_listener() -> Result<net::Listener, String> effects [net::IO]
+	match net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))
+		Ok(listener) => Ok(listener)
+		Err(_) => Err("missing listener")
 	end
 end
 
-fn run_client(stream: NetStream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [net]
-	handle http2::connection::drive_client(state) with fake_effects::legacy_duplex(stream)
+fn accept_next(listener: net::Listener) -> Result<net::Stream, String> effects [net::IO]
+	match net::accept(listener)
+		Ok(stream) => Ok(stream)
+		Err(_) => Err("missing stream")
+	end
+end
+
+fn run_client(stream: net::Stream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [net::IO]
+	handle http2::connection::drive_client(state) with transport::net::net_stream(stream)
 end
 
 fn print_result(result: Result<CoreConnectionState, Http2ConnectionFailure>) -> Result<(), String> effects [stdio]
@@ -39,17 +47,17 @@ fn print_failure(failure: Http2ConnectionFailure) -> Result<(), String> effects 
 	Ok(())
 end
 
-fn fixture_body() -> Result<(), String> effects [net, stdio]
-	let listener = net::listen("127.0.0.1:0")
+fn fixture_body() -> Result<(), String> effects [net::IO, stdio]
+	let listener = open_listener()?
 	let stream = accept_next(listener)?
 	let state = http2::core::client_connection_state(0)?
 	let result = run_client(stream, state)
 	let _ = print_result(result)?
-	net::close_stream(stream)
+	let _ = net::close_stream(stream)
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+pub fn main() -> Result<(), String> effects [concurrency, fs, net, time, stdio]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

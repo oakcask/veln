@@ -95,6 +95,7 @@ pub(crate) enum StandardType {
     Unit,
     Named(&'static str),
     Vec(&'static StandardType),
+    #[allow(dead_code)]
     List(&'static StandardType),
     Option(&'static StandardType),
     Result(&'static StandardType, &'static StandardType),
@@ -111,8 +112,6 @@ const STDIO_EFFECTS: &[&str] = &["stdio"];
 const CONCURRENCY_EFFECTS: &[&str] = &["concurrency"];
 const TIME_CONCURRENCY_EFFECTS: &[&str] = &["time", "concurrency"];
 const FS_EFFECTS: &[&str] = &["fs"];
-const NET_EFFECTS: &[&str] = &["net"];
-const NET_TIME_EFFECTS: &[&str] = &["net", "time"];
 const PROCESS_EFFECTS: &[&str] = &["process"];
 const TIME_EFFECTS: &[&str] = &["time"];
 const PURE_EFFECTS: &[&str] = &[];
@@ -126,11 +125,6 @@ const WALL_TIME_TYPE: StandardType = StandardType::Record(&[
     ("unix_seconds", StandardType::Int),
     ("nanosecond", StandardType::Int),
 ]);
-const BYTE_CHUNK_TYPE: StandardType = StandardType::Named("ByteChunk");
-const NET_STREAM_TYPE: StandardType = StandardType::Named("NetStream");
-const ACCEPT_OUTCOME_TYPE: StandardType = StandardType::Named("AcceptOutcome");
-const STREAM_READ_OUTCOME_TYPE: StandardType = StandardType::Named("StreamReadOutcome");
-const STREAM_WRITE_OUTCOME_TYPE: StandardType = StandardType::Named("StreamWriteOutcome");
 const RESULT_STRING_FS_ERROR_TYPE: StandardType =
     StandardType::Result(&STRING_TYPE, &FS_ERROR_TYPE);
 const RESULT_UNIT_FS_ERROR_TYPE: StandardType = StandardType::Result(&UNIT_TYPE, &FS_ERROR_TYPE);
@@ -138,65 +132,13 @@ const RESULT_BOOL_FS_ERROR_TYPE: StandardType = StandardType::Result(&BOOL_TYPE,
 const VEC_PATH_TYPE: StandardType = StandardType::Vec(&PATH_TYPE);
 const RESULT_VEC_PATH_FS_ERROR_TYPE: StandardType =
     StandardType::Result(&VEC_PATH_TYPE, &FS_ERROR_TYPE);
-const OPTION_NET_STREAM_TYPE: StandardType = StandardType::Option(&NET_STREAM_TYPE);
-const OPTION_BYTE_CHUNK_TYPE: StandardType = StandardType::Option(&BYTE_CHUNK_TYPE);
-const LIST_BYTE_CHUNK_TYPE: StandardType = StandardType::List(&BYTE_CHUNK_TYPE);
 const VEC_STRING_TYPE: StandardType = StandardType::Vec(&STRING_TYPE);
 const OPTION_STRING_TYPE: StandardType = StandardType::Option(&STRING_TYPE);
 const RESULT_PATH_PROCESS_ERROR_TYPE: StandardType =
     StandardType::Result(&PATH_TYPE, &PROCESS_ERROR_TYPE);
 const PARAM_PATH: &[StandardType] = &[StandardType::Named("Path")];
 const PARAM_PATH_STRING: &[StandardType] = &[StandardType::Named("Path"), StandardType::String];
-const PARAM_BYTE_CHUNK: &[StandardType] = &[StandardType::Named("ByteChunk")];
 const PARAM_STRING: &[StandardType] = &[StandardType::String];
-const PARAM_NET_LISTENER: &[StandardType] = &[StandardType::Named("NetListener")];
-const PARAM_NET_LISTENER_DEADLINE: &[StandardType] = &[
-    StandardType::Named("NetListener"),
-    StandardType::Named("Deadline"),
-];
-const PARAM_NET_LISTENER_DEADLINE_CANCEL_TOKEN: &[StandardType] = &[
-    StandardType::Named("NetListener"),
-    StandardType::Named("Deadline"),
-    StandardType::Named("CancelToken"),
-];
-const PARAM_NET_STREAM: &[StandardType] = &[StandardType::Named("NetStream")];
-const PARAM_NET_STREAM_DEADLINE: &[StandardType] = &[
-    StandardType::Named("NetStream"),
-    StandardType::Named("Deadline"),
-];
-const PARAM_NET_STREAM_DEADLINE_CANCEL_TOKEN: &[StandardType] = &[
-    StandardType::Named("NetStream"),
-    StandardType::Named("Deadline"),
-    StandardType::Named("CancelToken"),
-];
-const PARAM_NET_STREAM_BYTE_CHUNK: &[StandardType] = &[
-    StandardType::Named("NetStream"),
-    StandardType::Named("ByteChunk"),
-];
-const PARAM_NET_STREAM_BYTE_CHUNK_DEADLINE: &[StandardType] = &[
-    StandardType::Named("NetStream"),
-    StandardType::Named("ByteChunk"),
-    StandardType::Named("Deadline"),
-];
-const PARAM_NET_STREAM_BYTE_CHUNK_DEADLINE_CANCEL_TOKEN: &[StandardType] = &[
-    StandardType::Named("NetStream"),
-    StandardType::Named("ByteChunk"),
-    StandardType::Named("Deadline"),
-    StandardType::Named("CancelToken"),
-];
-const PARAM_NET_STREAM_BYTE_CHUNKS: &[StandardType] =
-    &[StandardType::Named("NetStream"), LIST_BYTE_CHUNK_TYPE];
-const PARAM_NET_STREAM_BYTE_CHUNKS_DEADLINE: &[StandardType] = &[
-    StandardType::Named("NetStream"),
-    LIST_BYTE_CHUNK_TYPE,
-    StandardType::Named("Deadline"),
-];
-const PARAM_NET_STREAM_BYTE_CHUNKS_DEADLINE_CANCEL_TOKEN: &[StandardType] = &[
-    StandardType::Named("NetStream"),
-    LIST_BYTE_CHUNK_TYPE,
-    StandardType::Named("Deadline"),
-    StandardType::Named("CancelToken"),
-];
 const PARAM_INT: &[StandardType] = &[StandardType::Int];
 const PARAM_DEADLINE: &[StandardType] = &[StandardType::Named("Deadline")];
 const PARAM_CANCEL_OWNER: &[StandardType] = &[StandardType::Named("CancelOwner")];

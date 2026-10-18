@@ -1,4 +1,6 @@
-# Optional clean-end socket reads infer net for public effect checking.
-pub fn socket_clean_end(stream: NetStream) -> Option<ByteChunk>
-	net::read_chunk_or_end(stream)
+use net from "std"
+
+# Compiler integration contract: standard network reads require the nominal IO effect.
+pub fn socket_clean_end(stream: net::Stream) -> Result<net::ReadOutcome, net::NetError>
+	net::read(stream)
 end

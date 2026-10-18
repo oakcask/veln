@@ -1,8 +1,11 @@
-# Cancellable deadline-aware socket chunk-list writes require both net and time effects.
-pub fn write_chunks_until_cancellable_missing_time(stream: NetStream, chunks: List<ByteChunk>, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [net]
-	net::write_chunks_until_cancellable(stream, chunks, deadline, token)
+use net from "std"
+
+# Compiler integration contract: cancellable complete writes keep time and nominal IO effects distinct.
+pub fn write_chunks_until_cancellable_missing_time(stream: net::Stream, chunk: ByteChunk, deadline: Deadline, token: CancelToken) -> Result<(), net::NetError> effects [net::IO]
+	time::wait_until(deadline)
+	net::write_all(stream, chunk, Some(deadline), Some(token))
 end
 
-pub fn write_chunks_until_cancellable_missing_net(stream: NetStream, chunks: List<ByteChunk>, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [time]
-	net::write_chunks_until_cancellable(stream, chunks, deadline, token)
+pub fn write_chunks_until_cancellable_missing_net(stream: net::Stream, chunk: ByteChunk, deadline: Deadline, token: CancelToken) -> Result<(), net::NetError> effects [time]
+	net::write_all(stream, chunk, Some(deadline), Some(token))
 end

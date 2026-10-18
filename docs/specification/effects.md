@@ -249,11 +249,9 @@ follows direct bare function calls and `use` alias qualified function calls
 until a fixed point. Public function aliases carry the referenced function's
 signature and effects. Calls through a local binding with a function type infer
 the effects written in that function type.
-When a resolved imported source function and a compiler-known qualified call
-share one spelling, inference uses the source function signature. A call to
-the exported `std::net` facade through its `net` import therefore contributes
-the declared nominal `net::IO` effect rather than the coarse host `net` effect
-of a compiler-known fallback.
+Calls to the exported `std::net` facade through an explicit `net` import
+contribute the declared nominal `net::IO` effect. The compiler does not supply
+a source-less `net::` fallback.
 
 ## File System Calls
 
@@ -289,49 +287,20 @@ runtime error text.
 
 ## Network And Time Boundary Calls
 
-The exported `std::net` module supplies `net::system()` as a handler for
-`net::IO`. Its clauses retain the host `net` and `time` effects. A handle
-expression using `net::system()` therefore removes `std::net::IO` and adds
-those two host effects. The handler frame owns its created network resources;
-the execution boundary closes those resources before that frame is restored.
-The handler converts expected host failures into typed `NetError` results.
-For a failed host `listen` or `connect`, it retains transport diagnostic
-provenance across ordinary result propagation. Returning that failure from a
-run entry preserves the operation and pre-commit facts for command reporting
-without exposing extra fields in the source-level value.
+Source must import the exported network module with `use net from "std"`.
+Network operations retain the nominal `net::IO` effect until a lexical handler
+discharges it. The exported `net::system()` handler discharges `net::IO` and
+retains the coarse host `net` and `time` effects. Its frame owns the resources
+created within the handled scope and closes remaining resources before the
+frame is restored. Expected host failures become typed `net::NetError` values;
+failed `listen` and `connect` results retain command-diagnostic provenance
+through ordinary result propagation. The complete source API and its limits
+are specified by
+[Standard Library Networking](standard-library-networking.md).
 
-The checker recognizes these minimal transport-boundary call targets through
-the standard symbol table:
+The compiler-known time boundary remains source-less:
 
 ```veln
-net::receive_chunk() -> ByteChunk effects [net]
-net::send_chunk(bytes: ByteChunk) -> () effects [net]
-net::listen(address: String) -> NetListener effects [net]
-net::connect(address: String) -> NetStream effects [net]
-net::accept(listener: NetListener) -> NetStream effects [net]
-net::accept_or_end(listener: NetListener) -> Option<NetStream> effects [net]
-net::accept_until(listener: NetListener, deadline: Deadline) -> Option<NetStream> effects [net, time]
-net::accept_until_cancellable(listener: NetListener, deadline: Deadline, token: CancelToken) -> AcceptOutcome effects [net, time]
-net::listener_local_addr(listener: NetListener) -> String effects [net]
-net::read_chunk(stream: NetStream) -> ByteChunk effects [net]
-net::stream_local_addr(stream: NetStream) -> String effects [net]
-net::stream_peer_addr(stream: NetStream) -> String effects [net]
-net::stream_can_read(stream: NetStream) -> Bool effects [net]
-net::stream_can_write(stream: NetStream) -> Bool effects [net]
-net::stream_is_closed(stream: NetStream) -> Bool effects [net]
-net::read_chunk_until(stream: NetStream, deadline: Deadline) -> Option<ByteChunk> effects [net, time]
-net::read_chunk_until_cancellable(stream: NetStream, deadline: Deadline, token: CancelToken) -> StreamReadOutcome effects [net, time]
-net::read_chunk_or_end(stream: NetStream) -> Option<ByteChunk> effects [net]
-net::write_chunk(stream: NetStream, bytes: ByteChunk) -> () effects [net]
-net::write_chunk_until(stream: NetStream, bytes: ByteChunk, deadline: Deadline) -> StreamWriteOutcome effects [net, time]
-net::write_chunk_until_cancellable(stream: NetStream, bytes: ByteChunk, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [net, time]
-net::write_chunks(stream: NetStream, chunks: List<ByteChunk>) -> () effects [net]
-net::write_chunks_until(stream: NetStream, chunks: List<ByteChunk>, deadline: Deadline) -> StreamWriteOutcome effects [net, time]
-net::write_chunks_until_cancellable(stream: NetStream, chunks: List<ByteChunk>, deadline: Deadline, token: CancelToken) -> StreamWriteOutcome effects [net, time]
-net::shutdown_write(stream: NetStream) -> () effects [net]
-net::shutdown_read(stream: NetStream) -> () effects [net]
-net::close_stream(stream: NetStream) -> () effects [net]
-net::close_listener(listener: NetListener) -> () effects [net]
 time::monotonic_ms() -> Int effects [time]
 time::wall_time() -> WallTime effects [time]
 time::timeout_ms(milliseconds: Int) -> () effects [time]
@@ -349,283 +318,15 @@ time::wait_until_cancellable(deadline: Deadline, token: CancelToken) -> () effec
 time::wait_until_cancellable_outcome(deadline: Deadline, token: CancelToken) -> CancellableWaitOutcome effects [time]
 ```
 
-The following `net::` call behavior is the compiler-known compatibility
-boundary used when no resolved source import owns `net`. An explicit
-`use net from "std"` selects the source declarations specified by
-[standard-library networking](standard-library-networking.md) instead.
-
-Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
-effect. Direct calls to `net::listen`, `net::connect`, `net::accept`,
-`net::accept_or_end`, `net::listener_local_addr`, `net::read_chunk`,
-`net::stream_local_addr`, `net::stream_peer_addr`,
-`net::stream_can_read`, `net::stream_can_write`,
-`net::stream_is_closed`, `net::read_chunk_or_end`, and
-`net::write_chunk`, `net::write_chunks`, `net::shutdown_write`,
-`net::shutdown_read`, `net::close_stream`, and `net::close_listener` also
-infer the same coarse `net` effect. Direct calls
-to `net::accept_until`,
-`net::read_chunk_until`, and
-`net::read_chunk_until_cancellable`,
-`net::write_chunk_until`,
-`net::write_chunk_until_cancellable`,
-`net::write_chunks_until`, and
-`net::write_chunks_until_cancellable` infer both `net` and `time` because
-the adapter-owned accept, read, or write attempt observes a `Deadline` or
-`CancelToken`.
-Direct calls to
-`stream_adapter_drain_actions_until_cancellable` infer `net`, `time`, and
-`concurrency` because the helper owns stream I/O, deadline/cancellation
-observation, and channel routing.
-Direct calls to `time::timeout_ms`,
-`time::monotonic_ms`, `time::wall_time`, `time::deadline_after_ms`,
-`time::deadline_at_ms`, `time::wait_until`,
-`time::cancel_token`,
-`time::cancel_owner`, `time::cancel_token_from`,
-`time::cancel_owned`,
-`time::cancel`, `time::is_cancelled`, `time::is_cancelled_owner`, and
-`time::wait_until_cancellable`,
-`time::wait_until_cancellable_outcome` infer the `time` effect. A public
-function or test that calls one of them directly or through a private helper
-must declare each matching non-empty effect in its `effects [...]` list.
-
-This boundary is intentionally narrow. `net::receive_chunk`
-returns an immutable `ByteChunk` read from host standard input;
-`net::send_chunk` writes outgoing raw bytes to host standard output;
-an injected network handler can supply these chunk operations instead.
-`net::listen` returns a source-visible
-`NetListener`; `net::connect` and `net::accept` return distinct
-source-visible `NetStream` handles.
-The default runtime path uses real host sockets: `net::connect(address)`
-opens a client connection and returns an owned stream whose peer
-endpoint text is the requested address; `net::accept_or_end`
-returns `Some(stream)` for an accepted stream and `None` when the
-listener reaches a clean end; `net::accept_until`
-returns `Some(stream)` when an accept completes before the deadline and `None`
-when the deadline has already expired or the adapter reports deadline expiry
-before accepting; `net::read_chunk`
-reads one immutable `ByteChunk` from that stream;
-`net::read_chunk_until` returns `Some(bytes)` when the adapter stream yields
-a chunk before the deadline and `None` when the deadline has already expired,
-the adapter reports deadline expiry before a chunk is read, or the adapter
-stream reaches a clean end before a chunk is read;
-`net::read_chunk_until_cancellable` returns `ReadChunk(bytes)` when the
-adapter stream yields a chunk before the deadline and before cancellation,
-`ReadEnd` for clean stream end, `ReadDeadlineExpired` for supplied or
-adapter-reported read deadline expiry, and `ReadCancelled` when the supplied
-`CancelToken` has been cancelled;
-`net::read_chunk_or_end` returns `Some(bytes)` for a successful stream read
-and `None` when the adapter stream reaches a clean end; and `net::write_chunk`
-writes one immutable `ByteChunk` to that stream.
-`net::write_chunk_until` returns `WriteCompleted` after writing one immutable
-`ByteChunk` before the deadline and `WriteDeadlineExpired` for supplied or
-adapter-reported write deadline expiry.
-`net::write_chunk_until_cancellable` returns `WriteCompleted` after writing
-one immutable `ByteChunk` before the deadline and before cancellation,
-`WriteDeadlineExpired` for supplied or adapter-reported write deadline expiry,
-and `WriteCancelled` when the supplied `CancelToken` has been cancelled.
-`net::write_chunks` writes a
-source-owned `List<ByteChunk>` to the same stream in list order.
-`net::write_chunks_until` writes that list in source order, returns
-`WriteCompleted` after every chunk is written before the deadline, and returns
-`WriteDeadlineExpired` when deadline expiry wins before the list is fully
-written.
-`net::write_chunks_until_cancellable` writes that list in source order,
-returns `WriteCompleted` after every chunk is written before the deadline and
-before cancellation, returns `WriteDeadlineExpired` when deadline expiry wins
-before the list is fully written, and returns `WriteCancelled` when the
-supplied `CancelToken` wins before the list is fully written.
-`net::shutdown_write` records adapter-owned write-side
-shutdown, returns `()`, and leaves clean read end on the existing
-`net::read_chunk_or_end` path. Later writes on the same stream fail as runtime
-transport failures.
-`net::shutdown_read` records adapter-owned read-side shutdown,
-returns `()`, and makes later optional stream reads observe clean end while
-leaving the write side owned by the same `NetStream`.
-`net::close_stream` records adapter-owned stream cleanup and
-returns `()`. `net::close_listener` records adapter-owned
-listener cleanup and returns `()`; after that close, `net::accept`,
-`net::accept_or_end`, `net::accept_until`, and
-`net::accept_until_cancellable` fail as runtime transport failures instead of
-reporting clean end, deadline expiry, or cancellation.
-Connected and accepted streams expose endpoint text through
-`net::stream_local_addr` and `net::stream_peer_addr`, expose read-capable,
-write-capable, and closed status through `net::stream_can_read`,
-`net::stream_can_write`, and `net::stream_is_closed`, and use the same read,
-write, write-side shutdown, read-side shutdown, and close helpers. State
-inspection returns `Bool` values without consuming stream ownership. Connection failure remains a runtime transport failure.
-Listeners expose their local endpoint text through
-`net::listener_local_addr` before accept work without exposing host socket
-handles, closing the listener, or changing later accepted streams.
-Without an injected handler, `net::listen` binds a real host listener and
-`net::connect` opens a real host connection. Listening does not start a
-synthetic client. Accepted and connected host sockets remain encapsulated by
-`NetListener` and `NetStream`. Source code uses the same endpoint inspection,
-read, write, shutdown, deadline, cancellation, and close calls for loopback
-and remote connections. Bind and connection failures retain the structured
-transport payload and do not create source-visible handles.
-
-`net::close_listener` closes its listener without closing already accepted
-streams. A later accept through the closed listener fails. Each accepted or
-connected stream has independent ownership and must be closed by its owner.
-Socket reads follow available host bytes and do not preserve peer write
-boundaries. Adapter source can route each read through channels and tasks,
-produce ordered response actions, and drain streams until clean end.
-
-`time::timeout_ms` waits at the runtime boundary; `time::deadline_after_ms`
-creates a relative `Deadline`; `time::deadline_at_ms` creates a `Deadline`
-from an absolute monotonic millisecond value in the same host-owned clock
-domain returned by `time::monotonic_ms`; `time::monotonic_ms` returns a
-host-owned monotonic millisecond counter for elapsed-time measurement without
-exposing wall-clock dates; `time::wait_until` waits until that deadline
-expires;
-`time::wall_time` returns a normalized value with the structural `WallTime`
-record type. Its `unix_seconds` field counts UTC seconds relative to the Unix
-epoch, and its `nanosecond` field is an `Int` in the inclusive range
-`0..999999999`. Instants before the epoch use the same normalization, so one
-nanosecond before the epoch is represented as `unix_seconds = -1` and
-`nanosecond = 999999999`. The host defines the clock resolution. Successive
-values can be equal or move backwards after a clock correction.
-
-`WallTime` has no nominal constructor or pattern. It names a structural record
-shape with `unix_seconds: Int` and `nanosecond: Int` fields. A record literal
-that supplies those fields is therefore assignable to `WallTime`, and a
-`WallTime` value is assignable to an anonymous record that requires them. The
-compiler does not normalize or range-check independently constructed record
-literals; the normalization guarantee applies only to values returned by
-`time::wall_time`, including values supplied through its handler bridge. Bare
-`WallTime`, `prelude::WallTime`, and public type aliases that target either
-spelling denote this standard record. A user-defined algebraic data type also
-named `WallTime`, and aliases that target it, remain distinct nominal types and
-do not acquire the standard record fields. Programs must continue to use
-`time::monotonic_ms` and
-`Deadline` for durations, ordering, and timeouts;
-`time::cancel_token` returns a source-visible cancellation handle;
-`time::cancel_owner` returns a source-visible cancellation owner;
-`time::cancel_token_from` exposes an observer `CancelToken` from that owner
-for existing cancellable wait, channel, and socket calls;
-`time::cancel_owned` requests cancellation through the owner while preserving
-the observer token API;
-`time::cancel` requests cancellation through a direct token created by
-`time::cancel_token`; attempting to cancel an owner-derived observer token
-through `time::cancel` is a runtime failure; `time::is_cancelled`
-observes token state as `Bool` without waiting, cancelling, allocating a new
-handle, or reporting a runtime transport failure; `time::is_cancelled_owner`
-observes owner state through the same underlying cancellation state without
-waiting, cancelling, allocating a new observer token, or changing direct-token
-compatibility; and
-`time::wait_until_cancellable` waits until a deadline expires unless the
-handle is cancelled first.
-`time::wait_until_cancellable_outcome` uses the same deadline and token values
-and returns `WaitCompleted`, `WaitDeadlineExpired`, or `WaitCancelled` as an
-ordinary `CancellableWaitOutcome` value for adapter-owned branching. Host
-I/O failures and failures returned by injected adapters remain transport
-runtime failures, not schema, codec, or peer protocol diagnostics.
-`net::accept_until_cancellable` returns
-`AcceptStream(stream)` for an accepted stream, `AcceptEnd` for clean listener
-end, `AcceptDeadlineExpired` for accept deadline expiry, and `AcceptCancelled`
-for token cancellation. Accept failure through `net::accept_until`
-or `net::accept_until_cancellable`
-and read failure through `net::read_chunk_until` or
-`net::read_chunk_until_cancellable` remain runtime failures; only deadline
-expiry reported by those optional paths becomes `None` or
-`ReadDeadlineExpired`, and token cancellation through the cancellable read
-path becomes `ReadCancelled`.
-These calls do not define stream routing, richer timer handles beyond
-`Deadline` and `CancelToken`, TLS, ALPN, or an HTTP application framework.
-The stream adapter uses `time::wait_until_cancellable_outcome` before returning
-ordinary response action values from channel-routed `StreamInput` handling. A
-receiver-list cancellable channel-first adapter uses
-`channel::select_many_timeout_cancellable` over a
-`List<Receiver<StreamInput>>`, translating `Ok(Some(selected))`,
-`Ok(None)`, and `Err(SelectError)` into routed, timed-out, and cancelled
-source outcome values before producing adapter actions. The adapter declares
-both `time` and `concurrency`; a socket-owning wrapper around the same helper
-declares `net`, `time`, and `concurrency`; and the pure handler it calls
-remains free of transport effects.
-The cancellation-owner lifecycle uses `time::cancel_owner`,
-`time::cancel_token_from`, and `time::cancel_owned` so adapter cleanup keeps
-the cancellation owner while routing and socket code receive only the
-observer `CancelToken`. After cleanup requests cancellation through the owner,
-`time::wait_until_cancellable_outcome` returns `WaitCancelled` and
-`net::read_chunk_until_cancellable` returns `ReadCancelled` as ordinary
-adapter-observable outcome values under the same `net`, `time`, and
-`concurrency` boundary. The observer-only runtime path keeps direct
-`time::cancel` from taking authority through an owner-derived token.
-
-Socket stream adapters compose multiple reads and ordered writes with standard
-channel and task calls. `net::read_chunk_or_end` lets adapter-owned source
-translate `None` into `StreamInput.End` for a pure handler boundary. The
-optional read surface can
-turn more than one host-owned read chunk from one accepted stream into
-ordinary `StreamInput.Chunk` values before clean end, then writes only ordered
-`SendBytes` response actions through `net::write_chunks`. A companion
-multi-event adapter task-helper path sends each routed event through an
-adapter-owned task helper using `task::spawn_with<Result, Context>` with
-adapter-owned route and trace metadata, preserving trace identity and sequence
-across multiple events from the same accepted stream while the pure handler
-stays outside the task and channel effect boundary. A per-stream
-handler-failure companion path returns `Err` from that task-owned handler,
-converts it to an ordinary source-visible adapter action, performs
-adapter-owned stream cleanup, and skips response-byte projection for the
-failed stream. The effect boundary rejects adapter paths that omit either
-`net` or `concurrency` while leaving the handler boundary effect-free. Forced
-read failure on the same
-optional-read routing path remains a runtime transport failure before any
-ordinary `StreamInput.Chunk` is routed or response bytes are written.
-The standard helper `stream_adapter_drain_actions` exposes this adapter-level
-shape as a reusable boundary over one accepted `NetStream`: it drains optional
-stream reads through a channel-routed `StreamInput` boundary, calls a pure
-`fn(StreamInput) -> List<StreamAdapterAction>` handler, preserves ordered
-handler actions, and writes only `SendBytes` chunks through
-`net::write_chunks` under `net` and `concurrency`.
-The cancellable helper `stream_adapter_drain_actions_until_cancellable`
-exposes the same adapter-level drain, route, and pure handler boundary, then
-projects only ordered `SendBytes` chunks through
-`net::write_chunks_until_cancellable`. It returns `WriteCompleted`,
-`WriteDeadlineExpired`, or `WriteCancelled` as ordinary
-`StreamWriteOutcome` values, preserves host write failures as runtime
-transport failures, and requires `net`, `time`, and `concurrency`.
-The owned-lifecycle path accepts a listener with `net::accept_or_end`, owns the
-accepted stream through repeated optional reads, routes ordinary stream values
-through a channel, calls the plain handler without exposing socket handles, and
-projects `SendBytes` actions back into ordered `net::write_chunk` calls. The
-deadline-aware lifecycle path accepts with `net::accept_until`, owns the
-accepted stream through repeated `net::read_chunk_until` attempts, translates
-deadline expiry into the ordinary stream boundary value before calling the
-plain handler, and projects only `SendBytes` actions to ordered writes. The
-cancellable deadline-aware lifecycle path accepts with
-`net::accept_until_cancellable`, owns the accepted stream in adapter code,
-reads through `net::read_chunk_until_cancellable`, translates accept and read
-clean-end, deadline, and cancellation outcomes into adapter decisions or
-ordinary response actions, and projects only `SendBytes` actions to ordered
-writes. The
-matching owned-lifecycle effect check rejects adapter paths that omit either
-`net` or `concurrency`; the matching cancellable deadline-aware lifecycle
-effect check rejects adapter paths that omit `net`, `time`, or
-`concurrency`. The non-deadline adapter functions declare both `net` and
-`concurrency`; the deadline-aware lifecycle adapter declares `net`, `time`,
-and `concurrency`, and the cancellable deadline-aware lifecycle adapter
-declares the same three effects.
-The plain handlers they call remain free of socket handles and `net` calls.
-This composition does not add any effect label beyond the existing coarse
-labels or any compiler-known routing symbol beyond the socket, channel, task,
-and deadline calls listed here.
-
-The channel-first stream routing examples route ordinary `StreamInput` values
-through typed channel routes, select a ready route with existing channel
-selection, and then invoke a plain handler with explicit per-stream state. The
-general receiver-list helper example accepts a non-empty
-`List<Receiver<StreamInput>>`, exercises more than four routes, and returns
-the selected route index plus value. The receiver-list priority routes use
-`channel::select_many_priority` on a non-empty
-`List<Receiver<StreamInput>>` and preserve supplied list order as priority
-order. The timeout route uses `channel::select_many_timeout` with the same
-list priority and returns `None` when no receiver is ready before the timeout.
-The routing adapter declares `concurrency`; the cancellable channel-first
-adapter calls `channel::select_many_timeout_cancellable` and declares both
-`time` and `concurrency`; and socket wrappers around cancellable routing
-declare `net`, `time`, and `concurrency`. The handler itself remains free of
-transport effects.
+These calls infer `time`. `time::wall_time` returns a normalized structural
+`WallTime` record whose `unix_seconds` counts UTC seconds relative to the Unix
+epoch and whose `nanosecond` is in `0..999999999`; host clock resolution and
+clock correction remain observable. `Deadline` and `time::monotonic_ms` own
+duration and ordering behavior. Cancellation owners can create observer tokens
+with `time::cancel_token_from`; only the owner can cancel such a token through
+`time::cancel_owned`. Direct tokens remain cancellable through `time::cancel`.
+The cancellable wait outcome reports `WaitCompleted`, `WaitDeadlineExpired`,
+or `WaitCancelled` as an ordinary value.
 
 ## Scoped host adapters
 

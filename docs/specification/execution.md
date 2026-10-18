@@ -23,6 +23,15 @@ closed to resource publication before cleanup starts. A child operation that
 finishes creating a listener or stream after that transition cleans the new
 resource according to its reported commit state and returns `InvalidResource`
 instead of publishing it through the closed frame.
+The frame closes retained resources in reverse publication order. A stream
+accepted from a retained listener is therefore closed before that listener.
+For the JVM lifecycle workload of distinct retained streams whose close
+operations succeed, resource-release lookup work scales linearly with the
+number of retained streams. The deterministic lifecycle harness counts
+resource-identity equality checks instead of elapsed time. It compares 4,000
+and 8,000 retained streams, permits at most four checks per stream, and requires
+the larger workload to use no more than three times the smaller workload's
+checks.
 The [standard-library networking specification](standard-library-networking.md#network-operation-boundary)
 owns the resolver controls, connection commit point, exact write-progress,
 concurrent-operation, and resource state transitions for this handler. Task
@@ -167,22 +176,27 @@ time can move backwards and is not used for deadline ordering. The
 normalization guarantee belongs to the boundary result, not to independently
 constructed records that have the same structural fields. A handler result
 whose normalization would exceed the `Int` seconds range is a runtime failure.
-`NetListener` exposes local
-endpoint text through `net::listener_local_addr`; `NetStream` exposes local and
-peer endpoint text through `net::stream_local_addr` and
-`net::stream_peer_addr`. These queries do not transfer host handles, close
-resources, or change ownership.
+The exported `std::net` module exposes opaque `net::Listener` and `net::Stream`
+aliases for the host resources. `net::listener_address` returns a typed
+`net::Endpoint` for a listener. `net::local_address` and `net::peer_address`
+return typed endpoints for a stream. These queries do not transfer host
+handles, close resources, or change ownership.
 
 A listener accepts streams until clean listener end or a host failure.
-`net::read_chunk_or_end` returns a chunk or clean end. Injected network handlers can return separate chunks; default host socket
-reads follow the bytes available from the socket and do not preserve peer
-write boundaries. A write
-preserves list order. Stream close and listener close are explicit ownership
-operations. Read shutdown preserves write ownership and makes later optional
-reads clean end; write shutdown makes later writes transport failures. A
-closed handle remains invalid, and operations through it return transport
-failures without reopening the resource. Loopback and remote connections use the same source-visible result shapes.
-The default transport binds and connects real host sockets.
+`net::read` returns a typed `net::ReadOutcome` or `net::NetError`. Injected
+network handlers can return separate chunks; default host socket reads follow
+the bytes available from the socket and do not preserve peer write boundaries.
+`net::write_all` preserves the bytes in one chunk and retries uncommitted
+suffixes until completion or the first typed failure. Stream close and
+listener close are explicit ownership operations. Read shutdown preserves
+write ownership and makes blocked or later reads return `Closed`; write
+shutdown makes blocked or later writes return `Closed`. A closed handle remains
+invalid, and operations through it return typed failures without reopening the
+resource. Loopback and remote
+connections use the same source-visible result shapes. The default transport
+binds and connects real host sockets. The complete source-level operation and
+failure contract is specified by
+[Standard-library Networking](standard-library-networking.md).
 
 Host listen, connect, accept, read, write, shutdown, stream-close, and
 listener-close failures expose one structured transport payload. It retains
@@ -194,9 +208,10 @@ close, and through a stale handle remain distinguishable.
 The cancellable receiver-list adapter observes routed, timed-out, and
 cancelled outcomes before producing adapter actions. It uses channel-routed
 `StreamInput` values and preserves adapter trace identity and event order.
-`stream_adapter_drain_actions` drains one accepted stream, emits only
-`SendBytes` actions through `net::write_chunks`, and leaves stream and listener
-closure to its caller. `stream_adapter_accept_loop` accepts, drains, writes,
+`stream_adapter_drain_actions` drains one accepted stream and writes only
+`SendBytes` payloads in list order through its private host-network
+adapter, and leaves stream and listener closure to its caller.
+`stream_adapter_accept_loop` accepts, drains, writes,
 closes each stream once, and closes the listener after clean end.
 `stream_adapter_drain_actions_until_cancellable` uses the supplied `Deadline`
 and `CancelToken`; deadline and cancellation are ordinary outcome values,

@@ -1,26 +1,41 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 
-# Transport-boundary calls expose host-fed chunks, outgoing chunks, and timeouts.
-fn receive_host_chunk() -> ByteChunk effects [net]
-	net::receive_chunk()
+# Transport-boundary calls expose socket chunks, outgoing chunks, and timeouts.
+fn read_chunk(stream: net::Stream) -> Result<ByteChunk, net::NetError> effects [net::IO]
+	match net::read(stream)?
+		net::ReadChunk(bytes) => Ok(bytes)
+		net::ReadEnd => Ok(byte_chunk([]))
+	end
 end
 
-fn fixture_body() -> Result<(), String> effects [net, time, stdio]
-	let incoming = receive_host_chunk()
-	let outgoing = byte_chunk_from_hex("0a0b")?
+fn bytes(text: String) -> Result<ByteChunk, net::NetError>
+	match byte_chunk_from_hex(text)
+		Ok(value) => Ok(value)
+		Err(message) => Err(net::NetError("fixture_bytes", None, None, net::Other, message))
+	end
+end
+
+fn fixture_body() -> Result<(), net::NetError> effects [net::IO, time, stdio]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	let stream = net::accept(listener)?
+	let incoming = read_chunk(stream)?
+	let outgoing = bytes("0a0b")?
 	let deadline = time::deadline_after_ms(0)
-	net::send_chunk(outgoing)
+	let _ = net::write_all(stream, outgoing, None, None)?
 	time::timeout_ms(0)
 	time::wait_until(deadline)
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(outgoing))))
 	stdio::println("timeout")
 	stdio::println("deadline")
+	let _ = net::close_stream(stream)?
+	let _ = net::close_listener(listener)?
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
+pub fn main() -> Result<(), net::NetError> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

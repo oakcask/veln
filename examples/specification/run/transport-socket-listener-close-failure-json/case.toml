@@ -30,27 +30,11 @@ equals = "runtime"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport listener close failed: forced_failure"
+equals = "network system cleanup could not confirm closure of 1 resource(s) with 0 producer(s) still active"
 
 [[json_assert]]
 path = "error.details.phase"
 equals = "runtime"
-
-[[json_assert]]
-path = "error.details.operation"
-equals = "listener_close"
-
-[[json_assert]]
-path = "error.details.listener_id"
-equals = "127.0.0.1:0"
-
-[[json_assert]]
-path = "error.details.lifecycle_phase"
-equals = "before_operation"
-
-[[json_assert]]
-path = "error.details.ownership_committed"
-equals = false
 
 [[file_assert]]
 path = "net-events.log"

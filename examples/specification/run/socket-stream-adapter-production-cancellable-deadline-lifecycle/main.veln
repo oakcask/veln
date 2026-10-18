@@ -1,7 +1,41 @@
+use net from "std"
 use fixture_effects
 use fake_effects
-# Production loopback cancellable deadline lifecycle owns transport handles in the adapter.
 use stdio
+
+type FixtureReadOutcome
+	FixtureReadChunk(bytes: ByteChunk)
+	FixtureReadEnd
+	FixtureReadDeadlineExpired
+	FixtureReadCancelled
+end
+
+type FixtureAcceptOutcome
+	FixtureAcceptStream(stream: net::Stream)
+	FixtureAcceptEnd
+	FixtureAcceptDeadlineExpired
+	FixtureAcceptCancelled
+end
+
+fn fixture_read_with(stream: net::Stream, deadline: Deadline, token: CancelToken) -> FixtureReadOutcome effects [net::IO]
+	match net::read_with(stream, Some(deadline), Some(token))
+		Ok(net::ReadChunk(bytes)) => FixtureReadChunk(bytes)
+		Ok(net::ReadEnd) => FixtureReadEnd
+		Err(net::NetError(_, _, _, net::TimedOut, _)) => FixtureReadDeadlineExpired
+		Err(net::NetError(_, _, _, net::Cancelled, _)) => FixtureReadCancelled
+		Err(_) => FixtureReadEnd
+	end
+end
+
+fn fixture_accept_with(listener: net::Listener, deadline: Deadline, token: CancelToken) -> FixtureAcceptOutcome effects [net::IO]
+	match net::accept_with(listener, Some(deadline), Some(token))
+		Ok(stream) => FixtureAcceptStream(stream)
+		Err(net::NetError(_, _, _, net::TimedOut, _)) => FixtureAcceptDeadlineExpired
+		Err(net::NetError(_, _, _, net::Cancelled, _)) => FixtureAcceptCancelled
+		Err(_) => FixtureAcceptEnd
+	end
+end
+# Production loopback cancellable deadline lifecycle owns transport handles in the adapter.
 
 type ResponseAction
 	SendBytes(bytes: ByteChunk)
@@ -96,12 +130,12 @@ fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, 
 	end
 end
 
-fn read_response(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, outcome: StreamReadOutcome, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
+fn read_response(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, outcome: FixtureReadOutcome, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
 	match outcome
-		ReadChunk(bytes) => handle_stream_input(route_input(route, Chunk(bytes)), state)
-		ReadEnd => handle_stream_input(route_input(route, End), state)
-		ReadDeadlineExpired => { actions: list_cons(RetryAfterDeadline, list_nil()), next_state: state }
-		ReadCancelled => { actions: list_cons(CleanupAfterCancel, list_nil()), next_state: state }
+		FixtureReadChunk(bytes) => handle_stream_input(route_input(route, Chunk(bytes)), state)
+		FixtureReadEnd => handle_stream_input(route_input(route, End), state)
+		FixtureReadDeadlineExpired => { actions: list_cons(RetryAfterDeadline, list_nil()), next_state: state }
+		FixtureReadCancelled => { actions: list_cons(CleanupAfterCancel, list_nil()), next_state: state }
 	end
 end
 
@@ -109,23 +143,23 @@ fn append_collected_actions(left: { actions : List<ResponseAction>, next_state :
 	{ actions: append_actions(left.actions, right.actions), next_state: right.next_state }
 end
 
-fn collect_stream_actions_until_end(stream: NetStream, route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, time, concurrency]
-	let outcome = net::read_chunk_until_cancellable(stream, deadline, token)
+fn collect_stream_actions_until_end(stream: net::Stream, route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, time, concurrency]
+	let outcome = fixture_read_with(stream, deadline, token)
 	let handled = read_response(route, outcome, state)
 	match outcome
-		ReadChunk(_) => append_collected_actions(handled, collect_stream_actions_until_end(stream, route, handled.next_state, deadline, token))
-		ReadEnd => handled
-		ReadDeadlineExpired => handled
-		ReadCancelled => handled
+		FixtureReadChunk(_) => append_collected_actions(handled, collect_stream_actions_until_end(stream, route, handled.next_state, deadline, token))
+		FixtureReadEnd => handled
+		FixtureReadDeadlineExpired => handled
+		FixtureReadCancelled => handled
 	end
 end
 
-fn collect_stream_actions(stream: NetStream, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, time, concurrency]
+fn collect_stream_actions(stream: net::Stream, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, time, concurrency]
 	let route = channel::bounded<StreamInput>(1)
 	collect_stream_actions_until_end(stream, route, { chunks: 0, ended: false }, deadline, token)
 end
 
-fn apply_response_actions(stream: NetStream, actions: List<ResponseAction>) -> () effects [net]
+fn apply_response_actions(stream: net::Stream, actions: List<ResponseAction>) -> () effects [net::IO]
 	match actions
 		Nil => ()
 		Cons(action, tail) => match action
@@ -137,17 +171,17 @@ fn apply_response_actions(stream: NetStream, actions: List<ResponseAction>) -> (
 	end
 end
 
-fn write_then_apply(stream: NetStream, bytes: ByteChunk, tail: List<ResponseAction>) -> () effects [net]
-	net::write_chunk(stream, bytes)
+fn write_then_apply(stream: net::Stream, bytes: ByteChunk, tail: List<ResponseAction>) -> () effects [net::IO]
+	write_chunk_value(stream, bytes)
 	apply_response_actions(stream, tail)
 end
 
-fn close_after_apply(stream: NetStream, actions: List<ResponseAction>) -> () effects [net]
+fn close_after_apply(stream: net::Stream, actions: List<ResponseAction>) -> () effects [net::IO]
 	apply_response_actions(stream, actions)
-	net::close_stream(stream)
+	close_stream_value(stream)
 end
 
-fn accepted_lifecycle(stream: NetStream, deadline: Deadline, token: CancelToken) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net, time, concurrency]
+fn accepted_lifecycle(stream: net::Stream, deadline: Deadline, token: CancelToken) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } }, String> effects [net::IO, time, concurrency]
 	let routed = collect_stream_actions(stream, deadline, token)
 	close_after_apply(stream, routed.actions)
 	Ok(routed)
@@ -161,17 +195,17 @@ fn finish_summary(summary: { streams : Int, chunks : Int, ended : Int, writes : 
 	{ streams: summary.streams, chunks: summary.chunks, ended: summary.ended, writes: summary.writes, end_actions: summary.end_actions, retries: summary.retries, cleanup: summary.cleanup, clean_end: true }
 end
 
-fn drain_listener(listener: NetListener, summary: { streams : Int, chunks : Int, ended : Int, writes : Int, end_actions : Int, retries : Int, cleanup : Int, clean_end : Bool }, deadline: Deadline, token: CancelToken) -> Result<{ streams : Int, chunks : Int, ended : Int, writes : Int, end_actions : Int, retries : Int, cleanup : Int, clean_end : Bool }, String> effects [net, time, concurrency]
-	match net::accept_until_cancellable(listener, deadline, token)
-		AcceptStream(stream) => drain_listener(listener, add_stream_summary(summary, accepted_lifecycle(stream, deadline, token)?), deadline, token)
-		AcceptEnd => close_listener_then_finish(listener, summary)
-		AcceptDeadlineExpired => Ok(summary)
-		AcceptCancelled => Ok(summary)
+fn drain_listener(listener: net::Listener, summary: { streams : Int, chunks : Int, ended : Int, writes : Int, end_actions : Int, retries : Int, cleanup : Int, clean_end : Bool }, deadline: Deadline, token: CancelToken) -> Result<{ streams : Int, chunks : Int, ended : Int, writes : Int, end_actions : Int, retries : Int, cleanup : Int, clean_end : Bool }, String> effects [net::IO, time, concurrency]
+	match fixture_accept_with(listener, deadline, token)
+		FixtureAcceptStream(stream) => drain_listener(listener, add_stream_summary(summary, accepted_lifecycle(stream, deadline, token)?), deadline, token)
+		FixtureAcceptEnd => close_listener_then_finish(listener, summary)
+		FixtureAcceptDeadlineExpired => Ok(summary)
+		FixtureAcceptCancelled => Ok(summary)
 	end
 end
 
-fn close_listener_then_finish(listener: NetListener, summary: { streams : Int, chunks : Int, ended : Int, writes : Int, end_actions : Int, retries : Int, cleanup : Int, clean_end : Bool }) -> Result<{ streams : Int, chunks : Int, ended : Int, writes : Int, end_actions : Int, retries : Int, cleanup : Int, clean_end : Bool }, String> effects [net]
-	net::close_listener(listener)
+fn close_listener_then_finish(listener: net::Listener, summary: { streams : Int, chunks : Int, ended : Int, writes : Int, end_actions : Int, retries : Int, cleanup : Int, clean_end : Bool }) -> Result<{ streams : Int, chunks : Int, ended : Int, writes : Int, end_actions : Int, retries : Int, cleanup : Int, clean_end : Bool }, String> effects [net::IO]
+	close_listener_value(listener)
 	Ok(finish_summary(summary))
 end
 
@@ -179,8 +213,8 @@ fn empty_summary() -> { streams : Int, chunks : Int, ended : Int, writes : Int, 
 	{ streams: 0, chunks: 0, ended: 0, writes: 0, end_actions: 0, retries: 0, cleanup: 0, clean_end: false }
 end
 
-fn fixture_body() -> Result<(), String> effects [net, time, concurrency, stdio]
-	let listener = net::listen("127.0.0.1:0")
+fn fixture_body() -> Result<(), String> effects [net::IO, time, concurrency, stdio]
+	let listener = open_listener("127.0.0.1:0")?
 	let deadline = time::deadline_after_ms(100)
 	let token = time::cancel_token()
 	let summary = drain_listener(listener, empty_summary(), deadline, token)?
@@ -205,5 +239,63 @@ end
 
 pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
+end
+
+fn fixture_network_error(error: net::NetError) -> String
+	match error
+		net::NetError(_, _, _, _, message) => match string_split_once(message, "\n")
+			Some(parts) => parts.left
+			None => message
+		end
+	end
+end
+
+fn fixture_address(text: String) -> Result<net::Address, String>
+	match net::split_host_port(text)
+		Ok(parts) => Ok(net::Address(net::Tcp4, parts.host, parts.port))
+		Err(error) => Err(fixture_network_error(error))
+	end
+end
+
+fn close_listener_value(listener: net::Listener) -> () effects [net::IO]
+	let _ = net::close_listener(listener)
+	()
+end
+
+fn close_stream_value(stream: net::Stream) -> () effects [net::IO]
+	let _ = net::close_stream(stream)
+	()
+end
+
+fn write_chunk_value(stream: net::Stream, bytes: ByteChunk) -> () effects [net::IO]
+	let _ = net::write(stream, bytes)
+	()
+end
+
+fn open_listener(text: String) -> Result<net::Listener, String> effects [net::IO]
+	match fixture_address(text)
+		Ok(address) => match net::listen(address)
+			Ok(listener) => Ok(listener)
+			Err(error) => Err(fixture_network_error(error))
+		end
+		Err(message) => Err(message)
+	end
+end
+
+fn open_stream(text: String) -> Result<net::Stream, String> effects [net::IO]
+	match fixture_address(text)
+		Ok(address) => match net::connect(address)
+			Ok(stream) => Ok(stream)
+			Err(error) => Err(fixture_network_error(error))
+		end
+		Err(message) => Err(message)
+	end
+end
+
+fn accept_stream(listener: net::Listener) -> Result<net::Stream, String> effects [net::IO]
+	match net::accept(listener)
+		Ok(stream) => Ok(stream)
+		Err(error) => Err(fixture_network_error(error))
+	end
 end

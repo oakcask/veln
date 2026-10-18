@@ -1,4 +1,6 @@
-# Stream state inspection is a net boundary operation.
-pub fn missing_net(stream: NetStream) -> Bool
-	net::stream_can_read(stream)
+use net from "std"
+
+# Compiler integration contract: stream endpoint lookup contributes nominal net::IO.
+pub fn missing_net(stream: net::Stream) -> Result<net::Endpoint, net::NetError>
+	net::local_address(stream)
 end

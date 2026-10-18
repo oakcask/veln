@@ -1,17 +1,43 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 
 # Deadline-aware socket write host failures stay runtime failures.
-fn fixture_body() -> Result<(), String> effects [net, time]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = net::accept(listener)
+fn fixture_body() -> Result<(), String> effects [net::IO, time]
+	let listener: net::Listener = open_listener("127.0.0.1:0")?
+	let stream: net::Stream = accept_stream(listener)?
 	let outgoing: ByteChunk = byte_chunk_from_hex("0a0b")?
 	let deadline: Deadline = time::deadline_after_ms(100)
-	let outcome: StreamWriteOutcome = net::write_chunk_until(stream, outgoing, deadline)
-	Ok(())
+	match net::write_with(stream, outgoing, Some(deadline), None)
+		net::Written(_) => Ok(())
+		net::WriteFailed(_, error) => Err(fixture_network_error(error))
+	end
+end
+
+fn fixture_network_error(error: net::NetError) -> String
+	match error
+		net::NetError(_, _, _, _, message) => match string_split_once(message, "\n")
+			Some(parts) => parts.left
+			None => message
+		end
+	end
+end
+
+fn open_listener(text: String) -> Result<net::Listener, String> effects [net::IO]
+	match net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))
+		Ok(listener) => Ok(listener)
+		Err(error) => Err(fixture_network_error(error))
+	end
+end
+
+fn accept_stream(listener: net::Listener) -> Result<net::Stream, String> effects [net::IO]
+	match net::accept(listener)
+		Ok(stream) => Ok(stream)
+		Err(error) => Err(fixture_network_error(error))
+	end
 end
 
 pub fn main() -> Result<(), String> effects [concurrency, fs, net, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

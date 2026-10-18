@@ -1,3 +1,5 @@
 listen 127.0.0.1:0
 accept 127.0.0.1:0 fixture-stream
 write-deadline fixture-stream
+close fixture-stream
+close-listener 127.0.0.1:0

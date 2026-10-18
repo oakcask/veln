@@ -1,4 +1,6 @@
-# Optional socket accepts infer net for public effect checking.
-pub fn socket_optional_accept(listener: NetListener) -> Option<NetStream>
-	net::accept_or_end(listener)
+use net from "std"
+
+# Compiler integration contract: standard network accepts require the nominal IO effect.
+pub fn socket_optional_accept(listener: net::Listener) -> Result<net::Stream, net::NetError>
+	net::accept(listener)
 end

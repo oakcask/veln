@@ -1,1 +1,1 @@
-transport stream close failed: forced_failure
+network system cleanup could not confirm closure of 2 resource(s) with 0 producer(s) still active

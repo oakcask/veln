@@ -1,21 +1,47 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 # Client connect returns a stream handle with the ordinary socket lifecycle.
 use stdio
 
-fn open_client_stream(address: String) -> NetStream effects [net]
-	net::connect(address)
+fn address(text: String) -> Result<net::Address, net::NetError>
+	let parts = net::split_host_port(text)?
+	Ok(net::Address(net::Tcp4, parts.host, parts.port))
 end
 
-fn fixture_body() -> Result<(), String> effects [net, stdio]
-	let stream = open_client_stream("127.0.0.1:443")
-	let local = net::stream_local_addr(stream)
-	let peer = net::stream_peer_addr(stream)
-	let outgoing = byte_chunk_from_hex("0a0b")?
-	net::write_chunk(stream, outgoing)
-	let incoming = net::read_chunk(stream)
-	net::shutdown_write(stream)
-	net::close_stream(stream)
+fn bytes(text: String) -> Result<ByteChunk, net::NetError>
+	match byte_chunk_from_hex(text)
+		Ok(value) => Ok(value)
+		Err(message) => Err(net::NetError("fixture_bytes", None, None, net::Other, message))
+	end
+end
+
+fn endpoint_text(endpoint: net::Endpoint) -> String
+	match endpoint
+		net::Endpoint(_, text) => text
+	end
+end
+
+fn read_bytes(outcome: net::ReadOutcome) -> ByteChunk
+	match outcome
+		net::ReadChunk(value) => value
+		net::ReadEnd => byte_chunk([])
+	end
+end
+
+fn open_client_stream(address_text: String) -> Result<net::Stream, net::NetError> effects [net::IO]
+	net::connect(address(address_text)?)
+end
+
+fn fixture_body() -> Result<(), net::NetError> effects [net::IO, stdio]
+	let stream = open_client_stream("127.0.0.1:443")?
+	let local = endpoint_text(net::local_address(stream)?)
+	let peer = endpoint_text(net::peer_address(stream)?)
+	let outgoing = bytes("0a0b")?
+	let _ = net::write_all(stream, outgoing, None, None)?
+	let incoming = read_bytes(net::read(stream)?)
+	let _ = net::shutdown_write(stream)?
+	let _ = net::close_stream(stream)?
 	stdio::print("local ")
 	stdio::print(local)
 	stdio::print(" peer ")
@@ -27,7 +53,7 @@ fn fixture_body() -> Result<(), String> effects [net, stdio]
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+pub fn main() -> Result<(), net::NetError> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

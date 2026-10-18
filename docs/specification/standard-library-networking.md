@@ -339,8 +339,8 @@ listen, accept, connect, inspect addresses, shut down, or close a resource.
 The system handler supports TCP streams only. It does not provide UDP,
 Unix-domain sockets, TLS, HTTP, proxies, packet APIs, file-descriptor conversion,
 or platform-specific socket options. Prompt peer-visible cleanup still requires
-an explicit close; scope cleanup is a safety net. Removing the legacy
-compiler-known network compatibility surface remains proposal work.
+an explicit close; scope cleanup is a safety net. The compiler does not provide
+a source-less public `net::...` compatibility surface.
 
 ## References
 
@@ -385,6 +385,9 @@ failure, and runtime unwind. Same-direction `Busy` observations establish that
 the interrupted accept, read, and backpressured write operations are in flight.
 The JVM lifecycle harness also checks that resource creation racing with scope
 cleanup cannot publish a listener or stream after its owner closes and that an
-uncommitted retry does not clear earlier lifecycle uncertainty. The focused
+uncommitted retry does not clear earlier lifecycle uncertainty. It also counts
+resource-identity equality checks while successfully closing 4,000 and 8,000
+retained streams, establishing bounded linear release work without wall-clock
+timing. The focused
 effect-injection case checks that a cleanup failure during propagated-result
 unwind still runs enclosing deferred cleanup and restores enclosing handlers.

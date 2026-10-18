@@ -47,6 +47,23 @@ consumers must preserve diagnostic and related-note order.
 
 ## Diagnostic families
 
+An unresolved call target that uses one of the
+[removed compiler-known network spellings](name-resolution.md#removed-network-call-spellings)
+reports one `name.unresolved` diagnostic. The primary message and `details`
+retain the ordinary unresolved-call shape. When the source module has no
+explicit import whose alias is `net`, the diagnostic adds these spanless
+related entries in order:
+
+| `kind` | `message` |
+| --- | --- |
+| `network_import_migration` | ``Import the exported network module with `use net from "std"`.`` |
+| `network_effect_migration` | ``Declare the nominal `net::IO` effect for functions that use network operations.`` |
+| `network_handler_migration` | ``At the application boundary, handle `net::IO` with `net::system()`.`` |
+
+An unknown `net::...` spelling outside the removed set, an unresolved value,
+or a module that already has a `net` import does not receive these migration
+entries. The related context does not add a second diagnostic.
+
 `veln check --json` reports an over-limit cleanup form as
 `parse.cleanup_nesting_limit`; the parser error makes the envelope status
 `error`. A `defer` token used where an expression is required reports

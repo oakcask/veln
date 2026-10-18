@@ -54,6 +54,13 @@ fn compiler_adapter_descriptors_carry_pure_metadata() {
 }
 
 #[test]
+fn public_network_lookup_is_removed_but_private_system_adapter_remains() {
+    assert_eq!(qualified_symbol(&path("net", "connect")), None);
+    assert!(compiler_adapter_symbol("net_system_connect").is_some());
+    assert_eq!(prelude_symbol("net_system_connect"), None);
+}
+
+#[test]
 fn source_lookup_registry_accepts_current_generated_tables() {
     crate::source_less_lookup::with_standard_symbol_registry(|registry| {
         assert_eq!(registry.qualified.len(), QUALIFIED_SYMBOLS.len());

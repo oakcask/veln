@@ -230,16 +230,58 @@ check failed, the alias is also unpublished; resolution does not fall back to
 the imported namesake. The imported function remains available through its
 qualified module path.
 
-A qualified function declared by a resolved source import takes precedence
-over a compiler-known qualified fallback with the same spelling. For example,
-after `use net from "std"`, `net::connect` selects the exported `std::net`
-function declaration. Its source signature, effects, and package definition
-location remain authoritative instead of being replaced by a synthetic
-compiler-known call target.
+After `use net from "std"`, `net::connect` selects the exported `std::net`
+function declaration. Its source signature, nominal `net::IO` effect, and
+package definition location are authoritative. There is no compiler-known
+public network fallback.
 
 Unresolved values and call targets produce `name.unresolved` diagnostics. A
 qualified call does not fall back to a bare function with the same final
 segment when no matching import alias exists.
+
+#### Removed network call spellings
+
+The following call targets are the closed set of spellings removed from the
+compiler-known network surface:
+
+- `net::receive_chunk`
+- `net::send_chunk`
+- `net::listen`
+- `net::connect`
+- `net::accept`
+- `net::accept_or_end`
+- `net::accept_until`
+- `net::accept_until_cancellable`
+- `net::listener_local_addr`
+- `net::read_chunk`
+- `net::stream_local_addr`
+- `net::stream_peer_addr`
+- `net::stream_can_read`
+- `net::stream_can_write`
+- `net::stream_is_closed`
+- `net::read_chunk_until`
+- `net::read_chunk_until_cancellable`
+- `net::read_chunk_or_end`
+- `net::write_chunk`
+- `net::write_chunk_until`
+- `net::write_chunk_until_cancellable`
+- `net::write_chunks`
+- `net::write_chunks_until`
+- `net::write_chunks_until_cancellable`
+- `net::shutdown_write`
+- `net::shutdown_read`
+- `net::close_stream`
+- `net::close_listener`
+
+An unimported call target in this set produces one `name.unresolved`
+diagnostic. Its primary message names only the unresolved call target. Three
+related notes identify the required `use net from "std"` import, the nominal
+`net::IO` effect, and the `net::system()` application handler. An unknown
+`net::...` call target outside this set retains the ordinary unresolved-name
+shape without those migration notes. The notes also remain absent when a
+removed spelling appears in a value position or the source module declares an
+explicit import whose alias is `net`.
+
 In a match, an unresolved constructor path also produces `name.unresolved`
 when the scrutinee has a singleton or finite variant-refinement type and is an
 immutable binding written as a bare name or with redundant parentheses. The

@@ -1,4 +1,6 @@
+resolve-production 127.0.0.1
 listen-production 127.0.0.1:0
+resolve-production 127.0.0.1
 connect-production 127.0.0.1:0 production-client-stream
 accept-production 127.0.0.1:0 production-stream
 write-production production-client-stream ByteChunk([Byte(127)])

@@ -1,3 +1,5 @@
+use net from "std"
+
 # Three-route channel-first routing keeps handlers pure and adapter effects explicit.
 type ResponseAction
 	SendBytes {stream_id: Int, bytes: ByteChunk}
@@ -45,10 +47,10 @@ fn route_selected_stream_input(first_input: StreamInput, second_input: StreamInp
 	end
 end
 
-fn read_socket_then_route(stream: NetStream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, concurrency]
-	let first: ByteChunk = net::read_chunk(stream)
-	let second: Option<ByteChunk> = net::read_chunk_or_end(stream)
-	let third: Option<ByteChunk> = net::read_chunk_or_end(stream)
+fn read_socket_then_route(stream: net::Stream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, concurrency]
+	let first: ByteChunk = read_stream_chunk(stream)
+	let second: Option<ByteChunk> = read_stream_chunk_or_end(stream)
+	let third: Option<ByteChunk> = read_stream_chunk_or_end(stream)
 	let second_input = match second
 		Some(bytes) => Chunk(bytes)
 		None => End
@@ -60,7 +62,7 @@ fn read_socket_then_route(stream: NetStream, state: { chunks : Int, ended : Bool
 	route_selected_stream_input(Chunk(first), second_input, third_input, state)
 end
 
-fn write_response_actions(stream: NetStream, actions: List<ResponseAction>) -> () effects [net]
+fn write_response_actions(stream: net::Stream, actions: List<ResponseAction>) -> () effects [net::IO]
 	match actions
 		Nil => ()
 		Cons(action, tail) => match action
@@ -71,8 +73,8 @@ fn write_response_actions(stream: NetStream, actions: List<ResponseAction>) -> (
 	end
 end
 
-fn write_then_continue(stream: NetStream, bytes: ByteChunk, tail: List<ResponseAction>) -> () effects [net]
-	net::write_chunk(stream, bytes)
+fn write_then_continue(stream: net::Stream, bytes: ByteChunk, tail: List<ResponseAction>) -> () effects [net::IO]
+	write_stream_chunk(stream, bytes)
 	write_response_actions(stream, tail)
 end
 
@@ -84,11 +86,30 @@ pub fn adapter_missing_concurrency(first: StreamInput, second: StreamInput, thir
 	route_selected_stream_input(first, second, third, state)
 end
 
-pub fn socket_wrapper_missing_concurrency(stream: NetStream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net]
+pub fn socket_wrapper_missing_concurrency(stream: net::Stream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO]
 	read_socket_then_route(stream, state)
 end
 
-pub fn socket_wrapper_missing_net(stream: NetStream, state: { chunks : Int, ended : Bool }) -> () effects [concurrency]
+pub fn socket_wrapper_missing_net(stream: net::Stream, state: { chunks : Int, ended : Bool }) -> () effects [concurrency]
 	let routed = read_socket_then_route(stream, state)
 	write_response_actions(stream, routed.actions)
+end
+
+fn read_stream_chunk(stream: net::Stream) -> ByteChunk effects [net::IO]
+	match net::read(stream)
+		Ok(net::ReadChunk(bytes)) => bytes
+		_ => byte_chunk([])
+	end
+end
+
+fn read_stream_chunk_or_end(stream: net::Stream) -> Option<ByteChunk> effects [net::IO]
+	match net::read(stream)
+		Ok(net::ReadChunk(bytes)) => Some(bytes)
+		_ => None
+	end
+end
+
+fn write_stream_chunk(stream: net::Stream, bytes: ByteChunk) -> () effects [net::IO]
+	let _ = net::write(stream, bytes)
+	()
 end

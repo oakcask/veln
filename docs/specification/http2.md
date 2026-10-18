@@ -909,8 +909,13 @@ exported `net` module inside `net::system()`. Separate scoped host-network
 handlers supply deterministic results, so the companions exercise the public
 `net::IO` resource boundary without compiler-known network lookup. The
 production system handler translates the scripted host outcomes before the
-HTTP/2 assertions observe transport errors and failure projections. The
-`connection.test.veln` companion covers TCP service accept,
+HTTP/2 assertions observe transport errors and failure projections.
+Checked HTTP/2 examples that exercise network boundaries use the same explicit
+`net` import, opaque `net::Listener` and `net::Stream` values, and nominal
+`net::IO` boundary. Their deterministic network cases install `net::system()`
+inside the scoped host-network fixture; no checked HTTP/2 example depends on
+source-less public network calls.
+The `connection.test.veln` companion covers TCP service accept,
 stream I/O, stream-close, and listener-close failures on first and later
 accepted connections, cumulative accepted counts, cleanup precedence, and
 bounded iteration across thousands of completed connections with

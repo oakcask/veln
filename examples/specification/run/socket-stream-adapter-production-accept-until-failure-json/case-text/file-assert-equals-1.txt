@@ -1,1 +1,3 @@
+resolve-production 127.0.0.1
 listen-production 127.0.0.1:0
+close-listener-production 127.0.0.1:0

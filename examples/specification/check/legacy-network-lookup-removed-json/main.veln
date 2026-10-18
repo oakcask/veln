@@ -1,0 +1,6 @@
+# Compiler integration contract: structured output retains one primary
+# unresolved-name diagnostic and exposes migration context as related notes.
+fn main() -> ()
+	net::connect("127.0.0.1:0")
+	()
+end
