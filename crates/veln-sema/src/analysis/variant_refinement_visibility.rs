@@ -279,6 +279,7 @@ enum StructuralExposureSegment {
 struct ExposureTraversalContext<'a> {
     annotation_span: &'a SourceSpan,
     placeholders: bool,
+    enclosing_structural_span: Option<&'a SourceSpan>,
 }
 
 fn structured_exposure_candidates(
@@ -293,6 +294,7 @@ fn structured_exposure_candidates(
         ExposureTraversalContext {
             annotation_span,
             placeholders: false,
+            enclosing_structural_span: None,
         },
         ty,
         &mut refinements,
@@ -347,7 +349,7 @@ fn collect_type_exposures<'a>(
             let Some(refinement) = refinements.next() else {
                 return;
             };
-            collect_refinement_exposures(context.annotation_span, refinement, path, candidates);
+            collect_refinement_exposures(context, refinement, path, candidates);
         }
         Type::Unknown => {}
     }
@@ -367,7 +369,7 @@ fn collect_named_type_exposures<'a>(
     });
     if is_refinement {
         let refinement = refinements.next().expect("peeked refinement");
-        collect_refinement_exposures(context.annotation_span, refinement, path, candidates);
+        collect_refinement_exposures(context, refinement, path, candidates);
         return;
     }
     for (index, argument) in args.iter().enumerate() {
@@ -447,7 +449,7 @@ fn plain_refinement_name(refinement: &VariantRefinementType) -> Option<String> {
 }
 
 fn collect_refinement_exposures(
-    annotation_span: &SourceSpan,
+    context: ExposureTraversalContext<'_>,
     refinement: &VariantRefinementType,
     path: &[StructuralExposureSegment],
     candidates: &mut Vec<RefinementExposureCandidate>,
@@ -465,9 +467,11 @@ fn collect_refinement_exposures(
             alternative_path.push(StructuralExposureSegment::UnionAlternative(path_index));
         }
         candidate.structural_path = alternative_path.clone();
-        if path
-            .iter()
-            .any(|segment| matches!(segment, StructuralExposureSegment::RecordField(_)))
+        candidate.structural_span = context.enclosing_structural_span.cloned();
+        if candidate.structural_span.is_none()
+            && path
+                .iter()
+                .any(|segment| matches!(segment, StructuralExposureSegment::RecordField(_)))
         {
             candidate.structural_span = Some(refinement.span.clone());
         }
@@ -481,8 +485,11 @@ fn collect_refinement_exposures(
                 let mut child_refinements = argument.ty_refinements.iter().peekable();
                 collect_type_exposures(
                     ExposureTraversalContext {
-                        annotation_span,
+                        annotation_span: context.annotation_span,
                         placeholders: true,
+                        enclosing_structural_span: context
+                            .enclosing_structural_span
+                            .or(Some(&refinement.span)),
                     },
                     &ty,
                     &mut child_refinements,
@@ -491,7 +498,18 @@ fn collect_refinement_exposures(
                 );
             } else {
                 for child in &argument.ty_refinements {
-                    collect_refinement_exposures(annotation_span, child, &nested, candidates);
+                    collect_refinement_exposures(
+                        ExposureTraversalContext {
+                            annotation_span: context.annotation_span,
+                            placeholders: true,
+                            enclosing_structural_span: context
+                                .enclosing_structural_span
+                                .or(Some(&refinement.span)),
+                        },
+                        child,
+                        &nested,
+                        candidates,
+                    );
                 }
             }
         }

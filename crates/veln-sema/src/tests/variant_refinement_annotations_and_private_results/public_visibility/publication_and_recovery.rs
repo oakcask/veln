@@ -790,7 +790,7 @@ fn inherited_private_declaration_provenance_is_retained() {
 
 #[test]
 fn record_and_named_argument_refinements_are_checked() {
-    let diagnostics = diagnostics_for(concat!(
+    let source = concat!(
         "pub type State\n",
         "  Hidden\n",
         "end\n",
@@ -810,16 +810,38 @@ fn record_and_named_argument_refinements_are_checked() {
         "pub fn record_named_nested(value: {item: Box<State::Hidden>}) -> ()\n",
         "  ()\n",
         "end\n",
-    ));
-
-    assert_eq!(
-        diagnostics
-            .iter()
-            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
-            .count(),
-        4,
-        "{diagnostics:#?}"
+        "pub type Envelope\n",
+        "  pub Root(value: Option< State::Hidden >::Some)\n",
+        "end\n",
+        "pub fn root_refinement(value: Option<State::Hidden>::Some) -> ()\n",
+        "  ()\n",
+        "end\n",
     );
+    let diagnostics = diagnostics_for(source);
+    let visibility = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+
+    assert_eq!(visibility.len(), 6, "{diagnostics:#?}");
+    for (diagnostic, written) in [
+        (visibility[4], "Option< State::Hidden >::Some"),
+        (visibility[5], "Option<State::Hidden>::Some"),
+    ] {
+        let start = source.find(written).expect("written root refinement");
+        let span = diagnostic.span.as_ref().expect("visibility span");
+        assert_eq!(span.start.offset, start, "{diagnostic:#?}");
+        assert_eq!(span.end.offset, start + written.len(), "{diagnostic:#?}");
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(
+            json.contains("\"written_type\":\"State::Hidden\""),
+            "{json}"
+        );
+        assert!(
+            json.contains("\"kind\":\"type_argument\",\"index\":0"),
+            "{json}"
+        );
+    }
 }
 
 #[test]

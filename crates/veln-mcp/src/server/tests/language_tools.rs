@@ -857,6 +857,10 @@ fn package_search_uses_catalog_field_tiers_and_retains_distinct_snapshots() {
 fn package_tool_state_is_preserved_across_capacity_and_capture_failures() {
     assert_package_tool_state_preserved_across_capacity_failure();
     assert_package_tool_state_preserved_across_capture_failure();
+}
+
+#[test]
+fn package_surfaces_are_preserved_across_variant_refinement_analysis_failure() {
     assert_package_tool_state_preserved_across_analysis_failure();
 }
 
@@ -864,7 +868,7 @@ fn assert_package_tool_state_preserved_across_capacity_failure() {
     let workspace = TempWorkspace::new("package-tool-failure-state");
     write_documented_workspace(&workspace);
     let mut server = initialized_server_with_embedded_resources(&workspace);
-    let before_capacity = package_tool_state(&mut server, "std", "std");
+    let before_capacity = package_publication_state(&mut server, "std", "std");
 
     let boundary = (0..255)
         .map(|index| synthetic_dependency_project(&format!("example/full{index}"), "body"))
@@ -873,7 +877,7 @@ fn assert_package_tool_state_preserved_across_capacity_failure() {
         .language_resources
         .admit_dependencies(&boundary)
         .unwrap();
-    let after_boundary = package_tool_state(&mut server, "std", "std");
+    let after_boundary = package_publication_state(&mut server, "std", "std");
     assert_eq!(after_boundary, before_capacity);
 
     let capacity = server
@@ -887,7 +891,7 @@ fn assert_package_tool_state_preserved_across_capacity_failure() {
         crate::language_resources::ResourceCapacityError
     );
     assert_eq!(
-        package_tool_state(&mut server, "std", "std"),
+        package_publication_state(&mut server, "std", "std"),
         before_capacity
     );
     let rejected = search(
@@ -906,7 +910,7 @@ fn assert_package_tool_state_preserved_across_capture_failure() {
         false
     );
     let before_capture =
-        package_tool_state(&mut capture_server, "example/dep", "stable catalog text");
+        package_publication_state(&mut capture_server, "example/dep", "stable catalog text");
     fs::remove_dir_all(capture_workspace.path("vendor/dep")).unwrap();
     write_dependency(&capture_workspace, "capture rejected text");
     refresh_workspace(&mut capture_server);
@@ -932,7 +936,7 @@ fn assert_package_tool_state_preserved_across_capture_failure() {
     assert_eq!(capture["isError"], true, "{capture:#}");
     assert_eq!(capture["structuredContent"]["code"], "snapshot_changed");
     assert_eq!(
-        package_tool_state(&mut capture_server, "example/dep", "stable catalog text"),
+        package_publication_state(&mut capture_server, "example/dep", "stable catalog text"),
         before_capture
     );
     let rejected = search(
@@ -950,25 +954,33 @@ fn assert_package_tool_state_preserved_across_analysis_failure() {
         server.check_project_tool(&json!({"project":"."}))["isError"],
         false
     );
-    let before = package_tool_state(&mut server, "example/dep", "stable catalog text");
-    workspace.write(
-        "vendor/dep/api.veln",
-        concat!(
-            "pub type State\n",
-            "  Hidden\n",
-            "end\n",
-            "pub type Box<A>\n",
-            "  pub Boxed(value: A)\n",
-            "end\n",
-            "pub type InvalidEnvelope\n",
-            "  pub Wrapped(value: Box<State::Hidden>)\n",
-            "end\n",
-            "## analysis rejected text\n",
-            "pub fn answer() -> Int\n",
-            "  1\n",
-            "end\n",
-        ),
+    let before = package_publication_state(&mut server, "example/dep", "stable catalog text");
+    let before_sources = before["source_resources"].as_array().unwrap();
+    assert_eq!(before_sources.len(), 1, "{before:#}");
+    let accepted_source_uri = before_sources[0]["metadata"]["uri"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let accepted_source = before_sources[0]["read"]["text"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let rejected_source = concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub type Box<A>\n",
+        "  pub Boxed(value: A)\n",
+        "end\n",
+        "pub type InvalidEnvelope\n",
+        "  pub Wrapped(value: Box<State::Hidden>)\n",
+        "end\n",
+        "## analysis rejected text\n",
+        "pub fn answer() -> Int\n",
+        "  1\n",
+        "end\n",
     );
+    workspace.write("vendor/dep/api.veln", rejected_source);
     refresh_workspace(&mut server);
     let failed = server.check_project_tool(&json!({"project":"."}));
     assert_eq!(failed["isError"], false, "{failed:#}");
@@ -980,10 +992,20 @@ fn assert_package_tool_state_preserved_across_analysis_failure() {
             .any(|diagnostic| diagnostic["id"] == "type.variant_refinement_private"),
         "{failed:#}"
     );
-    assert_eq!(
-        package_tool_state(&mut server, "example/dep", "stable catalog text"),
-        before
+    let after = package_publication_state(&mut server, "example/dep", "stable catalog text");
+    assert_eq!(after, before);
+    let after_sources = after["source_resources"].as_array().unwrap();
+    assert!(after_sources.iter().any(|source| {
+        source["metadata"]["uri"] == accepted_source_uri
+            && source["read"]["text"] == accepted_source
+    }));
+    assert!(
+        after_sources
+            .iter()
+            .all(|source| source["read"]["text"] != rejected_source)
     );
+    let accepted_read = read_resource_contents(&mut server, &accepted_source_uri);
+    assert_eq!(accepted_read["text"], accepted_source);
     assert_eq!(
         search(
             &mut server,
@@ -1002,13 +1024,13 @@ fn package_tool_state_preserves_exact_reads_across_refresh_and_replacement() {
         server.check_project_tool(&json!({"project":"."}))["isError"],
         false
     );
-    let before = package_tool_state(&mut server, "example/dep", "stable catalog text");
+    let before = package_publication_state(&mut server, "example/dep", "stable catalog text");
 
     fs::remove_dir_all(workspace.path("vendor/dep")).unwrap();
     write_dependency(&workspace, "changed catalog text");
     refresh_workspace(&mut server);
     assert_eq!(
-        package_tool_state(&mut server, "example/dep", "stable catalog text"),
+        package_publication_state(&mut server, "example/dep", "stable catalog text"),
         before
     );
 
@@ -1019,20 +1041,32 @@ fn package_tool_state_preserves_exact_reads_across_refresh_and_replacement() {
             &mut server,
             json!({"query": "stable catalog text", "scope": "package", "limit": 50}),
         )["structuredContent"],
-        before["search"]
+        before["package_search"]
     );
     let after_reads = package_doc_exact_reads(&mut server, "example/dep");
-    for read in before["reads"].as_array().unwrap() {
+    for read in before["documentation_reads"].as_array().unwrap() {
         assert!(after_reads.iter().any(|after| after == read), "{read:#}");
     }
-    let changed = package_tool_state(&mut server, "example/dep", "changed catalog text");
-    assert_eq!(changed["search"]["results"].as_array().unwrap().len(), 1);
-    assert!(changed["reads"].as_array().unwrap().iter().any(|read| {
-        read["text"]
-            .as_str()
+    let changed = package_publication_state(&mut server, "example/dep", "changed catalog text");
+    assert_eq!(
+        changed["package_search"]["results"]
+            .as_array()
             .unwrap()
-            .contains("changed catalog text")
-    }));
+            .len(),
+        1
+    );
+    assert!(
+        changed["documentation_reads"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|read| {
+                read["text"]
+                    .as_str()
+                    .unwrap()
+                    .contains("changed catalog text")
+            })
+    );
 }
 
 #[test]
@@ -1044,7 +1078,7 @@ fn read_doc_accepts_exact_package_documentation_reads_and_rejects_boundaries() {
         server.check_project_tool(&json!({"project":"."}))["isError"],
         false
     );
-    let before = package_tool_state(&mut server, "example/dep", "stable catalog text");
+    let before = package_publication_state(&mut server, "example/dep", "stable catalog text");
 
     let index_uri = package_search_uri(&mut server, "package", "example/dep");
     let index = assert_doc_tool_equals_resource(&mut server, &index_uri);
@@ -1116,7 +1150,7 @@ fn read_doc_accepts_exact_package_documentation_reads_and_rejects_boundaries() {
         assert_read_doc_resource_not_found(&mut server, case, &uri);
     }
     assert_eq!(
-        package_tool_state(&mut server, "example/dep", "stable catalog text"),
+        package_publication_state(&mut server, "example/dep", "stable catalog text"),
         before
     );
 }
@@ -1267,14 +1301,50 @@ fn assert_read_doc_resource_not_found(server: &mut Server, case: &str, uri: &str
     );
 }
 
-fn package_tool_state(server: &mut Server, identity: &str, query: &str) -> Value {
-    let search = search(
+fn package_publication_state(server: &mut Server, identity: &str, query: &str) -> Value {
+    let source_resources = dependency_source_resource_state(server, identity);
+    let package_search = search(
         server,
         json!({"query": query, "scope": "package", "limit": 50}),
     )["structuredContent"]
         .clone();
-    let exact_reads = package_doc_exact_reads(server, identity);
-    json!({"search": search, "reads": exact_reads})
+    let documentation_reads = package_doc_exact_reads(server, identity);
+    json!({
+        "source_resources": source_resources,
+        "package_search": package_search,
+        "documentation_reads": documentation_reads,
+    })
+}
+
+fn dependency_source_resource_state(server: &mut Server, identity: &str) -> Vec<Value> {
+    let prefix = format!("veln-pkg:///{}/snapshot/", identity.replace('/', "%2F"));
+    let resources = server
+        .handle_request(
+            json!({"jsonrpc":"2.0","id":"package-source-state-list","method":"resources/list"}),
+        )
+        .unwrap()["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|resource| resource["uri"].as_str().unwrap().starts_with(&prefix))
+        .cloned()
+        .collect::<Vec<_>>();
+    resources
+        .into_iter()
+        .map(|metadata| {
+            let read = read_resource_contents(server, metadata["uri"].as_str().unwrap());
+            json!({"metadata": metadata, "read": read})
+        })
+        .collect()
+}
+
+fn read_resource_contents(server: &mut Server, uri: &str) -> Value {
+    server
+        .handle_request(
+            json!({"jsonrpc":"2.0","id":"package-source-state-read","method":"resources/read","params":{"uri":uri}}),
+        )
+        .unwrap()["result"]["contents"][0]
+        .clone()
 }
 
 fn package_doc_exact_reads(server: &mut Server, identity: &str) -> Vec<Value> {
