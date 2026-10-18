@@ -343,13 +343,13 @@ fn function_field_effect_rows_do_not_hide_later_record_refinements() {
     ));
 
     assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
-    let observed = veln_diagnostics::diagnostic_to_json(&diagnostics[0]).to_json();
+    let nested = veln_diagnostics::diagnostic_to_json(&diagnostics[0]).to_json();
+    assert!(nested.contains("\"kind\":\"function_result\""), "{nested}");
+    let observed = veln_diagnostics::diagnostic_to_json(&diagnostics[1]).to_json();
     assert!(observed.contains(concat!(
         "\"exposure_path\":[{\"kind\":\"parameter\",\"name\":\"value\"},",
         "{\"kind\":\"record_field\",\"name\":\"state\"}]"
     )));
-    let nested = veln_diagnostics::diagnostic_to_json(&diagnostics[1]).to_json();
-    assert!(nested.contains("\"kind\":\"function_result\""), "{nested}");
     assert!(observed.contains("\"written_type\":\"State::Hidden\""));
 }
 
