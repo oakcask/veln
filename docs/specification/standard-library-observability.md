@@ -10,16 +10,16 @@ specification-coverage: usage=#usage; behavior=#behavior; limits=#limits
 The standard library provides a substitutable observation effect, scoped span
 lifecycle, explicit child-task context propagation, an inspectable recording
 handler, explicit channel-value context attachment, and call-site-aware
-structured log helpers for four severities.
+structured log helpers for four severities and named domain events.
 Programs choose a lexical handler for the effect; the library does not select
 an exporter implicitly.
 
 ## Usage
 
-Import `observe`, `log`, and `traced` from the standard package. Supply optional
-trace context, a message, and an ordered list of typed attributes to
-`log::debug`, `log::info`, `log::warning`, or `log::error`. Run the call inside
-a lexical `Observe` handler:
+Import `observe`, `log`, `event`, and `traced` from the standard package.
+Supply optional trace context, a message, and an ordered list of typed
+attributes to `log::debug`, `log::info`, `log::warning`, or `log::error`. Run
+the call inside a lexical `Observe` handler:
 
 ```veln
 use log from "std"
@@ -27,6 +27,19 @@ use observe from "std"
 
 fn report() -> () effects [observe::Observe] callsite
 	log::info(None, "ready", list_cons(observe::Attribute("attempt", observe::IntValue(1)), list_nil()))
+end
+```
+
+Use `event::emit` for a named domain event. Supply optional trace context, a
+stable event name, and an ordered list of typed attributes. The helper uses the
+same `Observe` effect and lexical handlers as logging:
+
+```veln
+use event from "std"
+use observe from "std"
+
+fn completed() -> () effects [observe::Observe] callsite
+	event::emit(None, "checkout.completed", list_cons(observe::Attribute("attempt", observe::IntValue(1)), list_nil()))
 end
 ```
 
@@ -117,6 +130,21 @@ The receiver chooses how to use the attached context. An observation helper
 receives it only when the program passes it explicitly.
 
 ## Behavior
+
+### Named domain events
+
+`event::emit` performs exactly one `emit` operation. The emitted
+`Observation::Event` contains an `EventRecord` with the supplied stable name,
+the supplied attributes in order, the supplied optional `TraceContext`, and
+one `SourceLocation`. The attribute values have the same typed scalar forms as
+log attributes. Empty attributes and absent context are preserved as `Nil` and
+`None`.
+
+The helper is call-site-aware. An ordinary caller records the complete span of
+its call expression. A call-site-aware wrapper forwards its hidden source
+location, so the event identifies the outer user call rather than the helper
+implementation. The source path follows the canonical relative-source rules
+of [Call-site Declarations](call-site-declarations.md).
 
 ### Structured log records
 
@@ -213,7 +241,7 @@ infer ambient context, or apply a context to later observations.
 
 ## Limits
 
-Events, metrics, fan-in links, carrier propagation, production exporters,
+Metrics, fan-in links, carrier propagation, production exporters,
 wall-time or resource enrichment, exporter health, and shutdown flushing are
 not available. The no-op handler does not record,
 enrich, buffer, export, or report observations. `trace::in_span` currently
@@ -233,7 +261,9 @@ process or machine termination can prevent it from running.
 
 - Standard-library API coverage:
   [`observe.test.veln`](../../crates/veln-stdlib/veln/observe.test.veln) and
-  [`log.test.veln`](../../crates/veln-stdlib/veln/log.test.veln), plus scoped
+  [`log.test.veln`](../../crates/veln-stdlib/veln/log.test.veln), named event
+  coverage in
+  [`event.test.veln`](../../crates/veln-stdlib/veln/event.test.veln), plus scoped
   span lifecycle coverage in
   [`trace.test.veln`](../../crates/veln-stdlib/veln/trace.test.veln) and explicit
   task- and channel-value-context coverage in
@@ -243,7 +273,9 @@ process or machine termination can prevent it from running.
 - Public channel-value context execution evidence:
   [`observability-traced-channel-context`](../../examples/specification/run/observability-traced-channel-context/).
 - Call-site and effect-dispatch execution evidence:
-  [`observability-log-severities`](../../examples/specification/run/observability-log-severities/).
+  [`observability-log-severities`](../../examples/specification/run/observability-log-severities/)
+  and
+  [`observability-event-callsite`](../../examples/specification/run/observability-event-callsite/).
 - Public no-op handler execution evidence:
   [`observability-noop-handler`](../../examples/specification/run/observability-noop-handler/).
 - Runtime-failure cleanup and primary-failure evidence:
