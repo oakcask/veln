@@ -1,5 +1,17 @@
 use super::*;
 
+fn matching_segment_index(
+    invalid: &InvalidName,
+    segment_spans: &[veln_source::SourceSpan],
+) -> Option<usize> {
+    let index = invalid.segment_index?;
+    let span = segment_spans.get(index)?;
+    (span.file == invalid.span.file
+        && span.start.offset == invalid.span.start.offset
+        && span.end.offset == invalid.span.end.offset)
+        .then_some(index)
+}
+
 pub(super) fn invalid_function_segment_lacks_function_role(
     invalid: &InvalidName,
     occurrences: &QualifiedPathOccurrenceIndex,
@@ -33,19 +45,10 @@ pub(super) fn invalid_function_segment_lacks_function_role_for_path(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
 ) -> bool {
-    let Some(index) = invalid.segment_index else {
+    let Some(index) = matching_segment_index(invalid, segment_spans) else {
         return false;
     };
     if index + 1 != segments.len() {
-        return false;
-    }
-    let Some(span) = segment_spans.get(index) else {
-        return false;
-    };
-    if span.file != invalid.span.file
-        || span.start.offset != invalid.span.start.offset
-        || span.end.offset != invalid.span.end.offset
-    {
         return false;
     }
     environment
@@ -82,16 +85,7 @@ pub(super) fn invalid_value_segment_lacks_value_role_for_path(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
 ) -> bool {
-    let Some(index) = invalid.segment_index else {
-        return false;
-    };
-    let Some(span) = segment_spans.get(index) else {
-        return false;
-    };
-    if span.file != invalid.span.file
-        || span.start.offset != invalid.span.start.offset
-        || span.end.offset != invalid.span.end.offset
-    {
+    if matching_segment_index(invalid, segment_spans).is_none() {
         return false;
     }
     if invalid.class == NameClass::Module {
@@ -268,19 +262,10 @@ pub(super) fn invalid_constructor_segment_has_function_role_for_path(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
 ) -> bool {
-    let Some(index) = invalid.segment_index else {
+    let Some(index) = matching_segment_index(invalid, segment_spans) else {
         return false;
     };
     if index + 1 != segments.len() {
-        return false;
-    }
-    let Some(span) = segment_spans.get(index) else {
-        return false;
-    };
-    if span.file != invalid.span.file
-        || span.start.offset != invalid.span.start.offset
-        || span.end.offset != invalid.span.end.offset
-    {
         return false;
     }
     let mut corrected = segments.to_vec();
@@ -307,19 +292,10 @@ pub(super) fn invalid_constructor_segment_lacks_constructor_role_for_path(
     environment: &TypeEnvironment,
     pattern_role: bool,
 ) -> bool {
-    let Some(index) = invalid.segment_index else {
+    let Some(index) = matching_segment_index(invalid, segment_spans) else {
         return false;
     };
     if index + 1 != segments.len() {
-        return false;
-    }
-    let Some(span) = segment_spans.get(index) else {
-        return false;
-    };
-    if span.file != invalid.span.file
-        || span.start.offset != invalid.span.start.offset
-        || span.end.offset != invalid.span.end.offset
-    {
         return false;
     }
     match invalid.class {
@@ -410,17 +386,10 @@ pub(super) fn invalid_type_segment_has_module_role_for_path(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
 ) -> bool {
-    let Some(index) = invalid.segment_index else {
+    let Some(index) = matching_segment_index(invalid, segment_spans) else {
         return false;
     };
-    let Some(span) = segment_spans.get(index) else {
-        return false;
-    };
-    if span.file != invalid.span.file
-        || span.start.offset != invalid.span.start.offset
-        || span.end.offset != invalid.span.end.offset
-        || index + 1 >= segments.len()
-    {
+    if index + 1 >= segments.len() {
         return false;
     }
     let mut corrected = segments.to_vec();
@@ -440,18 +409,9 @@ pub(super) fn invalid_type_segment_lacks_constructor_role_for_path(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
 ) -> bool {
-    let Some(index) = invalid.segment_index else {
+    let Some(index) = matching_segment_index(invalid, segment_spans) else {
         return false;
     };
-    let Some(span) = segment_spans.get(index) else {
-        return false;
-    };
-    if span.file != invalid.span.file
-        || span.start.offset != invalid.span.start.offset
-        || span.end.offset != invalid.span.end.offset
-    {
-        return false;
-    }
     if path_resolves_as_constructor(segments, current_module, environment) {
         return true;
     }
