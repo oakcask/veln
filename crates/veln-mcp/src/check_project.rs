@@ -84,9 +84,7 @@ pub(crate) fn check_project(
         "diagnostics": diagnostics,
         "summary": summary(&diagnostics),
     });
-    if !visibility_failed
-        && let Err(error) = language_resources.admit_dependencies(&dependencies)
-    {
+    if !visibility_failed && let Err(error) = language_resources.admit_dependencies(&dependencies) {
         return error.into();
     }
     ToolOutcome::Success(structured)
