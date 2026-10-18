@@ -134,7 +134,16 @@ fn merge_surface_module(merged: &mut SurfaceModule, module: SurfaceModule) {
 }
 
 fn lower_deferred_cleanup_foundation_to_ir(text: &str) -> TypedProgram {
-    lower_with_standard_modules_to_ir(text)
+    lower_to_ir(text)
+}
+
+#[test]
+fn deferred_cleanup_foundation_lowering_only_keeps_the_fixture_program() {
+    let ir = lower_deferred_cleanup_foundation_to_ir(
+        "pub fn main() -> ()\n  defer\n    ()\n  end\n  ()\nend\n",
+    );
+
+    assert_eq!(ir.functions.len(), 1);
 }
 
 fn temp_dir(name: &str) -> std::path::PathBuf {

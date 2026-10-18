@@ -301,7 +301,7 @@ fn task_cancellation_interrupts_cancellable_host_time_wait_before_join() {
 
 #[test]
 fn task_cancellation_unblocks_host_accept_before_join() {
-    let ir = lower_deferred_cleanup_foundation_to_ir(concat!(
+    let ir = lower_with_standard_modules_to_ir(concat!(
         "use net from \"std\"\n",
         "fn worker(context: { ready : Sender<String>, listener : net::Listener }) -> () effects [concurrency, net::IO, stdio]\n",
         "  defer\n",
