@@ -121,9 +121,10 @@ An effect is one declaration in the catalog; its operations are represented in
 that declaration's canonical signature rather than as separate declarations.
 Public function and ADT signatures preserve source-written variant-refinement
 annotations, including refinements inside named arguments and function types.
-A private refinement exposure in a public function signature or public ADT
-payload fails the semantic-visibility gate. The package-atomic failure result
-contains no catalog, declaration URI, or partially published signature.
+A private refinement exposure in a public function signature or a public
+variant payload of a public source ADT fails the semantic-visibility gate. The
+package-atomic failure result contains no catalog, declaration URI, or
+partially published signature.
 
 The catalog excludes non-exported modules, private declarations, handler
 operation clauses and bodies, exact test companions, integration-test sources,
@@ -166,9 +167,9 @@ The implemented gates are:
   is published;
 - export: every exported source must exist in the captured snapshot and each
   export path can appear at most once;
-- semantic visibility: a public function signature or public source-ADT
-  payload must not expose a private variant-refinement base or selected
-  variant through any structural type position. A failure reports
+- semantic visibility: a public function signature or a public variant payload
+  of a public source ADT must not expose a private variant-refinement base or
+  selected variant through any structural type position. A failure reports
   `type.variant_refinement_private` and publishes no declaration identity or
   signature;
 - documentation reference: `{@schema ...}` references in documentation

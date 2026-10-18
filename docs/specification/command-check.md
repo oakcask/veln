@@ -52,9 +52,9 @@ qualified calls from analyzed files participate in the same analysis path as
 expressions and call or constructor arity mismatches. Parse-clean, semantically
 valid `begin` and `defer` forms pass checked-core readiness.
 A private variant refinement anywhere in a public-function parameter or
-result, or in a public source-ADT payload, is a semantic error, so `check`
-emits no success report. This includes refinements nested in named type
-arguments, function parameters and results, record fields, and refinement
+result, or in a public variant payload of a public source ADT, is a semantic
+error, so `check` emits no success report. This includes refinements nested in
+named type arguments, function parameters and results, record fields, and refinement
 unions. The [type rules](types.md#compatibility-and-limits) define the
 publication and checked-output gate. The
 [diagnostic contract](diagnostics-json.md#diagnostic-families) defines human

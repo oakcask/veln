@@ -48,9 +48,10 @@ expressions, constructor or call arity failures, and recognized concurrency
 blockers prevent execution.
 
 A variant-refinement visibility failure anywhere in a public function
-parameter or result, or in a public source-ADT payload, is also a checked-core
-and typed-IR blocker. This applies when the written base names the terminal ADT
-directly or resolves to it through a finite transparent type-alias chain. The
+parameter or result, or in a public variant payload of a public source ADT, is
+also a checked-core and typed-IR blocker. This applies when the written base
+names the terminal ADT directly or resolves to it through a finite transparent
+type-alias chain. The
 failed function publishes no callable signature, and the failed ADT publishes
 no imported public type fact. A direct or chained function alias cannot restore
 execution readiness for a failed function. The

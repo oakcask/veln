@@ -842,7 +842,8 @@ fn private_exposure<'a>(
     record_visibility_work(1);
     let variant =
         environment.variant_refinement_variant_identity(descriptor, &candidate.written_variant)?;
-    let private_base = descriptor.visibility == Visibility::Private;
+    let private_base = written_descriptor.visibility == Visibility::Private
+        || descriptor.visibility == Visibility::Private;
     if !private_base && variant.visibility == Visibility::Public {
         return None;
     }

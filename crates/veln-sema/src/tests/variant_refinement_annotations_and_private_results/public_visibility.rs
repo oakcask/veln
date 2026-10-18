@@ -190,6 +190,34 @@ fn invalid_public_adt_keeps_local_identity_but_is_not_importable() {
 }
 
 #[test]
+fn quarantined_public_adt_cannot_be_reexposed_through_an_alias_refinement() {
+    let diagnostics = visibility_diagnostics(concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub type Box<A>\n",
+        "  pub Boxed(value: A)\n",
+        "end\n",
+        "pub type Envelope\n",
+        "  pub Wrapped(value: Box<State::Hidden>)\n",
+        "end\n",
+        "pub type Alias = Envelope\n",
+        "pub fn expose(value: Alias::Wrapped) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    let observed = diagnostics
+        .iter()
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    assert!(observed[0].contains("\"type\":\"Envelope\",\"variant\":\"Wrapped\""));
+    assert!(observed[1].contains("\"written_type\":\"Alias::Wrapped\""));
+    assert!(observed[1].contains("\"kind\":\"type_alias_declaration\""));
+}
+
+#[test]
 fn record_fields_report_distinct_nested_paths_and_alias_hops() {
     let diagnostics = visibility_diagnostics(concat!(
         "type Secret\n",

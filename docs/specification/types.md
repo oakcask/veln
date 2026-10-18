@@ -807,9 +807,9 @@ public. The same private refinements remain valid on private functions.
 An alias declaration does not replace or upgrade the terminal declaration's
 visibility. An imported or reusable public alias, including an implicit
 standard-prelude alias, still exposes a private terminal type or variant when
-it is used anywhere in a checked public-function signature or public
-source-ADT payload. The diagnostic retains the terminal identity and
-declaration location through each local and imported alias hop.
+it is used anywhere in a checked public-function signature or public variant
+payload of a public source ADT. The diagnostic retains the terminal identity
+and declaration location through each local and imported alias hop.
 
 The visibility check selects the base identity by unique exact lookup or
 initial-only casing recovery. The written uppercase final constructor must
