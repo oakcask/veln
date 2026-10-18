@@ -869,10 +869,11 @@ alias can publish only a function that is present in those callable facts, so
 an alias cannot republish the failed function directly or through another
 module. Qualified lookup and unqualified import-candidate lookup both exclude
 the failed function and every alias derived from it. This environment lookup is
-the compiler's concrete package-signature publication boundary because the
-repository has no independent package-signature artifact. The failure also
-prevents creation of the checked declaration collection in core and prevents
-IR output. The checked
+the compiler's semantic publication boundary. The
+[package-documentation catalog](package-documentation.md#published-boundary)
+applies its separate package-atomic semantic-visibility gate to exported
+signatures. The failure also prevents creation of the checked declaration
+collection in core and prevents IR output. The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-public-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-public-visibility-json/)
