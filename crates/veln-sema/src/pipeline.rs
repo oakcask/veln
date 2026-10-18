@@ -940,28 +940,23 @@ fn unpublished_public_declarations(
         .collect::<Vec<_>>();
     declarations.extend(module.aliases.iter().filter_map(|alias| {
         let name = alias.name.as_ref()?;
-        let unpublished = match alias.kind {
-            PublicAliasKind::Type => environment
-                .adts
-                .descriptor_for_type_path_including_quarantined(
+        let type_descriptor = (alias.kind == PublicAliasKind::Type)
+            .then(|| {
+                environment.adts.unique_descriptor_for_type_path_any_arity(
                     name,
-                    0,
                     alias.module_name.as_deref(),
                     &environment.uses,
                 )
+            })
+            .flatten();
+        let unpublished = match alias.kind {
+            PublicAliasKind::Type => type_descriptor
                 .is_some_and(|descriptor| environment.adts.descriptor_is_quarantined(descriptor)),
             PublicAliasKind::Function => environment.function(name).is_none(),
             _ => false,
         };
         let causal_diagnostics = match alias.kind {
-            PublicAliasKind::Type => environment
-                .adts
-                .descriptor_for_type_path_including_quarantined(
-                    name,
-                    0,
-                    alias.module_name.as_deref(),
-                    &environment.uses,
-                )
+            PublicAliasKind::Type => type_descriptor
                 .map(|descriptor| {
                     environment
                         .adts

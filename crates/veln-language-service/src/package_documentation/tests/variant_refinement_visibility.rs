@@ -143,6 +143,54 @@ fn package_catalog_rejects_function_with_ordinary_quarantined_adt_dependency() {
 }
 
 #[test]
+fn package_catalog_rejects_generic_quarantined_adt_alias() {
+    let result = generate(
+        MANIFEST,
+        &[
+            (
+                "main.veln",
+                concat!("use internal\n", "pub type Facade = internal::Broken\n",),
+            ),
+            (
+                "internal.veln",
+                concat!(
+                    "pub type State\n",
+                    "  Hidden\n",
+                    "end\n",
+                    "pub type Broken<A>\n",
+                    "  pub Wrapped(value: A, hidden: State::Hidden)\n",
+                    "end\n",
+                ),
+            ),
+        ],
+    );
+
+    assert!(result.catalog().is_none());
+    assert_eq!(
+        result
+            .status()
+            .diagnostics
+            .iter()
+            .map(|diagnostic| (diagnostic.gate.as_str(), diagnostic.code.as_str()))
+            .collect::<Vec<_>>(),
+        [("semantic_visibility", "type.variant_refinement_private")]
+    );
+    let span = result.status().diagnostics[0]
+        .span
+        .as_ref()
+        .expect("causal visibility diagnostic span");
+    assert_eq!(
+        span.source_uri,
+        source_uri("demo", result.snapshot_digest(), "internal.veln")
+    );
+    assert!(
+        result
+            .declaration_uri_for("main", "alias", "Facade")
+            .is_none()
+    );
+}
+
+#[test]
 fn package_catalog_reports_only_causal_non_exported_privacy_diagnostics() {
     let result = generate(
         MANIFEST,
