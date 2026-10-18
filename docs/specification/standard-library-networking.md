@@ -362,10 +362,16 @@ conversion for an empty successful read, unchanged typed read and write
 failures, complete ordered writes, empty-list behavior, captured-resource
 identity, and the absence of address, connection, shutdown, or lifecycle
 operations during adapter I/O.
-The JVM backend effect-injection tests use separate Veln test support to
-exercise the facade with opaque listener and stream resources and to check
-resource, option, byte, and result preservation. Checked command-level examples
-under `examples/specification/check/` and `examples/specification/run/` cover
+The JVM backend network tests compile their checked programs with the exported
+standard modules. Separate Veln test support checks value operations and
+foreign-resource rejection at `net::IO`. Owned-resource cases run through
+`net::system()` and a scoped host fake to check creating-provider retention,
+host-operation order, option and byte forwarding, complete failure
+translation, retry state, complete writes, and cleanup-failure unwind.
+Host-backed client, listener, and cancellation cases use the same explicit
+module and nominal handler boundary while checking real socket I/O and
+interruption. Checked command-level examples under
+`examples/specification/check/` and `examples/specification/run/` cover
 the explicit standard-module identity, nominal effect requirement, and
 unhandled runner boundary. The HTTP/2 production client example also checks
 that the public wrapper installs `net::system()` and that a spawned client

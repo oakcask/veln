@@ -7,10 +7,10 @@ update-when: Legacy compiler-known network lookup or the standard network import
 
 ## Outcome
 
-Remaining checked compiler and backend fixtures and executable examples must
-replace compiler-known source-less `net::...` lookup with an explicit import
-of the exported standard `net` module and the nominal `net::IO` handler
-boundary. After that migration, the compiler fallback for source-less network
+Remaining checked compiler fixtures and executable examples must replace
+compiler-known source-less `net::...` lookup with an explicit import of the
+exported standard `net` module and the nominal `net::IO` handler boundary.
+After the remaining migration, the compiler fallback for source-less network
 lookup will be removed.
 
 An unresolved legacy spelling must then produce one diagnostic that identifies
@@ -21,7 +21,7 @@ boundary. Compatibility is not required for this experimental project.
 
 | Input or event | Required observation | Intended evidence |
 | --- | --- | --- |
-| A checked compiler or backend test fixture, or an executable example, still uses compiler-known network lookup | The remaining use is migrated to the exported `net` module and the `net::IO` handler boundary before fallback removal | checked-source search and existing network companion or integration coverage |
+| A checked compiler test fixture or executable example still uses compiler-known network lookup | The remaining use is migrated to the exported `net` module and the `net::IO` handler boundary before fallback removal | checked-source search and existing network companion or integration coverage |
 | Source uses a legacy compiler-known `net::...` spelling after checked-source migration | The fallback does not resolve, and the diagnostic identifies the import, effect, and handler migration | check and diagnostic cases |
 
 The current [source-less lookup specification](../specification/source-less-lookup.md)

@@ -19,30 +19,30 @@ handler failing_cleanup_network(listens: { tx : Sender<Int>, rx : Receiver<Int> 
 	end
 end
 
-fn acquire_listener() -> Result<Listener, String> effects [IO]
-	match listen(Address(Tcp4, "127.0.0.1", 0))
+fn acquire_listener() -> Result<net::Listener, String> effects [net::IO]
+	match net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))
 		Ok(listener) => Ok(listener)
 		Err(_) => Err("listener setup failed")
 	end
 end
 
-fn fail_with_inner_resource() -> Result<(), String> effects [IO]
+fn fail_with_inner_resource() -> Result<(), String> effects [net::IO]
 	let _ = acquire_listener()?
 	Err("propagated body failure")
 end
 
-fn outer_body() -> Result<(), String> effects [IO, net, time, stdio]
+fn outer_body() -> Result<(), String> effects [net::IO, net, time, stdio]
 	let _ = acquire_listener()?
 	defer
 		stdio::println("outer deferred")
 	end
-	let _ = handle fail_with_inner_resource()? with system()
+	let _ = handle fail_with_inner_resource()? with net::system()
 	Ok(())
 end
 
 pub fn main() -> Result<(), String> effects [net, time, concurrency, stdio]
 	let listens = channel::bounded<Int>(1)
 	let _ = channel::send(listens.tx, 0)
-	let _ = handle handle outer_body()? with system() with failing_cleanup_network(listens)
+	let _ = handle handle outer_body()? with net::system() with failing_cleanup_network(listens)
 	Ok(())
 end

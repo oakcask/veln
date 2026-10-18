@@ -21,8 +21,8 @@ also states it.
   behavior:
   [observability.md](observability.md).
 - Legacy compiler-known network compatibility removal after the remaining
-  compiler and backend fixtures and executable examples migrate to the
-  exported standard module:
+  compiler fixtures and executable examples migrate to the exported standard
+  module:
   [network-compatibility-removal.md](network-compatibility-removal.md).
 - Remaining ADT variant-refinement support for qualified immutable values
   after a separate source-surface prerequisite, schema boundaries,

@@ -1,0 +1,180 @@
+# These observations target JVM nominal-handler dispatch, opaque resource
+# ownership, and host reply translation. API value permutations belong in
+# the standard net companion tests.
+fn boundary_reply(status: String, value: String, bytes: ByteChunk, committed: Int) -> { status: String, value: String, local: String, peer: String, bytes: ByteChunk, resolved_endpoints: List<{ network: String, address: String }>, bytes_committed: Int, category: String, phase: String, input_committed: Int, output_committed: Int, ownership_committed: Int, cause: String }
+	{ status: status, value: value, local: "127.0.0.1:8002", peer: "192.0.2.1:443", bytes: bytes,
+	  resolved_endpoints: list_cons({ network: "tcp4", address: "192.0.2.1" }, list_nil()), bytes_committed: committed,
+	  category: "permission_denied", phase: "during_operation", input_committed: 0, output_committed: 0,
+	  ownership_committed: 0, cause: "scripted boundary failure" }
+end
+
+fn boundary_event_matches(step: Int, operation: String, subject: String, remaining: Int, cancelled: Bool, bytes: ByteChunk) -> Bool
+	if step == 0
+		operation == "resolve_tcp4" and subject == "boundary.test" and remaining == -1 and not cancelled
+	else if step == 1
+		operation == "connect" and subject == "192.0.2.1:443" and remaining == -1 and not cancelled
+	else if step == 2
+		operation == "resolve_tcp4" and subject == "127.0.0.1" and remaining == -1 and not cancelled
+	else if step == 3
+		operation == "listen" and subject == "192.0.2.1:8002" and remaining == -1 and not cancelled
+	else if step == 4
+		operation == "accept" and subject == "listener" and remaining == -1 and not cancelled
+	else if step == 5
+		operation == "accept" and subject == "listener" and remaining == 41 and cancelled
+	else if step == 6
+		operation == "listener_local_addr" and subject == "listener" and remaining == -1 and not cancelled
+	else if step == 7
+		operation == "read" and subject == "accepted" and remaining == -1 and not cancelled
+	else if step == 8
+		operation == "read" and subject == "accepted" and remaining == 43 and cancelled
+	else if step == 9
+		operation == "write" and subject == "accepted" and remaining == -1 and not cancelled and facade_bytes_match(bytes, "short")
+	else if step == 10
+		operation == "write" and subject == "accepted" and remaining == 47 and not cancelled and facade_bytes_match(bytes, "with")
+	else if step == 11
+		operation == "stream_local_addr" and subject == "accepted" and remaining == -1 and not cancelled
+	else if step == 12
+		operation == "stream_peer_addr" and subject == "accepted" and remaining == -1 and not cancelled
+	else if step == 13
+		operation == "shutdown_read" and subject == "accepted" and remaining == -1 and not cancelled
+	else if step == 14 or step == 15
+		operation == "shutdown_write" and subject == "accepted" and remaining == -1 and not cancelled
+	else if step == 16 or step == 17
+		operation == "close_stream" and subject == "accepted" and remaining == -1 and not cancelled
+	else if step == 18
+		operation == "close_stream" and subject == "connected" and remaining == -1 and not cancelled
+	else if step == 19 or step == 20
+		operation == "close_listener" and subject == "listener" and remaining == -1 and not cancelled
+	else
+		false
+	end
+end
+
+fn boundary_step_reply(step: Int) -> { status: String, value: String, local: String, peer: String, bytes: ByteChunk, resolved_endpoints: List<{ network: String, address: String }>, bytes_committed: Int, category: String, phase: String, input_committed: Int, output_committed: Int, ownership_committed: Int, cause: String }
+	if step == 1
+		boundary_reply("ok", "connected", byte_chunk([]), 0)
+	else if step == 3
+		boundary_reply("ok", "listener", byte_chunk([]), 0)
+	else if step == 4
+		boundary_reply("ok", "accepted", byte_chunk([]), 0)
+	else if step == 5 or step == 8
+		boundary_reply("cancelled", "", byte_chunk([]), 0)
+	else if step == 6 or step == 11
+		boundary_reply("ok", "127.0.0.1:8002", byte_chunk([]), 0)
+	else if step == 7
+		boundary_reply("ok", "", boundary_read_bytes(), 0)
+	else if step == 9
+		boundary_reply("ok", "", byte_chunk([]), 5)
+	else if step == 10
+		boundary_reply("deadline", "", byte_chunk([]), 2)
+	else if step == 12
+		boundary_reply("ok", "192.0.2.1:443", byte_chunk([]), 0)
+	else if step == 14 or step == 16 or step == 19
+		boundary_reply("error", "", byte_chunk([]), 0)
+	else
+		boundary_reply("ok", "", byte_chunk([]), 0)
+	end
+end
+
+fn boundary_read_bytes() -> ByteChunk
+	match byte_chunk_from_visible_ascii_string("read")
+		Ok(bytes) => bytes
+		Err(_) => byte_chunk([])
+	end
+end
+
+handler observed_system_boundary(state: { tx: Sender<Int>, rx: Receiver<Int> }) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => match channel::recv(state.rx)
+		Some(step) => begin
+			let valid = boundary_event_matches(step, operation, subject, remaining_ms, cancelled, bytes)
+			let _ = channel::send(state.tx, if valid step + 1 else -100 end)
+			if valid boundary_step_reply(step) else boundary_reply("error", "", byte_chunk([]), 0) end
+		end
+		None => boundary_reply("error", "", byte_chunk([]), 0)
+	end
+end
+
+fn boundary_expect_failure(result: Result<(), net::NetError>, operation: String) -> Result<(), String>
+	match result
+		Err(net::NetError(observed, _, _, net::PermissionDenied, message)) => facade_expect(observed == operation and message != "", "host failure changed its operation or lost its explanation")
+		_ => Err("host failure changed its result")
+	end
+end
+
+fn exercise_owned_network_boundary() -> Result<(), String> effects [net::IO, time]
+	let connected = facade_expect_stream(net::connect(net::Address(net::Tcp4, "boundary.test", 443)))?
+	let listener = facade_expect_listener(net::listen(net::Address(net::Tcp4, "127.0.0.1", 8002)))?
+	let accepted = facade_expect_stream(net::accept(listener))?
+	let token = time::cancel_token()
+	time::cancel(token)
+	let accept_deadline = time::deadline_after_ms(41)
+	let _ = facade_expect(match net::accept_with(listener, Some(accept_deadline), Some(token))
+		Err(net::NetError("accept", _, _, net::Cancelled, _)) => true
+		_ => false
+	end, "accept controls changed across the host boundary")?
+	let _ = facade_expect(match net::listener_address(listener)
+		Ok(net::Endpoint(net::Tcp4, "127.0.0.1:8002")) => true
+		_ => false
+	end, "listener endpoint changed across the host boundary")?
+	let _ = facade_expect(match net::read(accepted)
+		Ok(net::ReadChunk(bytes)) => facade_bytes_match(bytes, "read")
+		_ => false
+	end, "read bytes changed across the host boundary")?
+	let read_deadline = time::deadline_after_ms(43)
+	let _ = facade_expect(match net::read_with(accepted, Some(read_deadline), Some(token))
+		Err(net::NetError("read", _, _, net::Cancelled, _)) => true
+		_ => false
+	end, "read controls changed across the host boundary")?
+	let _ = facade_expect(match net::write(accepted, byte_chunk_from_visible_ascii_string("short")?)
+		net::Written(count) => byte_count_to_int(count) == 5
+		_ => false
+	end, "write progress changed across the host boundary")?
+	let write_deadline = time::deadline_after_ms(47)
+	let _ = facade_expect(match net::write_with(accepted, byte_chunk_from_visible_ascii_string("with")?, Some(write_deadline), Some(time::cancel_token()))
+		net::WriteFailed(count, net::NetError("write", _, _, net::TimedOut, _)) => byte_count_to_int(count) == 2
+		_ => false
+	end, "write controls or failed prefix changed across the host boundary")?
+	let _ = facade_expect(match net::local_address(accepted)
+		Ok(net::Endpoint(net::Tcp4, "127.0.0.1:8002")) => true
+		_ => false
+	end, "local endpoint changed across the host boundary")?
+	let _ = facade_expect(match net::peer_address(accepted)
+		Ok(net::Endpoint(net::Tcp4, "192.0.2.1:443")) => true
+		_ => false
+	end, "peer endpoint changed across the host boundary")?
+	let _ = match net::shutdown_read(accepted) Ok(()) => Ok(()) Err(_) => Err("read shutdown failed") end?
+	let _ = boundary_expect_failure(net::shutdown_write(accepted), "shutdown_write")?
+	let _ = match net::shutdown_write(accepted) Ok(()) => Ok(()) Err(_) => Err("write shutdown retry failed") end?
+	let _ = boundary_expect_failure(net::close_stream(accepted), "close_stream")?
+	let _ = match net::close_stream(accepted) Ok(()) => Ok(()) Err(_) => Err("stream close retry failed") end?
+	let _ = match net::close_stream(connected) Ok(()) => Ok(()) Err(_) => Err("connected close failed") end?
+	let _ = boundary_expect_failure(net::close_listener(listener), "close_listener")?
+	match net::close_listener(listener) Ok(()) => Ok(()) Err(_) => Err("listener close retry failed") end
+end
+
+pub fn verify_owned_network_boundary() -> Result<(), String> effects [net, time, concurrency]
+	let state = channel::bounded<Int>(1)
+	let _ = channel::send(state.tx, 0)
+	let result = handle handle handle exercise_owned_network_boundary() with net::system() with observed_system_boundary(state) with stable_network_clock(1000)
+	let _ = result?
+	expect_write_all_calls(state, 21, "host operation order, resource identity, or options changed")
+end
+
+fn write_all_with_original_token(token: CancelToken) -> Result<(), String> effects [net::IO, time]
+	let stream = facade_expect_stream(net::connect(net::Address(net::Tcp4, "write-all", 1)))?
+	let deadline = time::deadline_after_ms(47)
+	match net::write_all(stream, byte_chunk_from_visible_ascii_string("abcdef")?, Some(deadline), Some(token))
+		Err(net::NetError("write", _, _, net::Cancelled, _)) => Ok(())
+		_ => Err("write_all replaced its token after a partial host write")
+	end
+end
+
+pub fn verify_write_all_token_identity() -> Result<(), String> effects [net, time, concurrency]
+	let state = channel::bounded<Int>(1)
+	let _ = channel::send(state.tx, 0)
+	let token = time::cancel_token()
+	let result = handle handle handle write_all_with_original_token(token) with net::system() with scripted_system_write_network(state, Some(token)) with stable_network_clock(1000)
+	let _ = result?
+	let _ = facade_expect(time::is_cancelled(token), "the host fake did not cancel the original token")?
+	expect_write_all_calls(state, 1, "write_all performed host I/O after its original token was cancelled")
+end
