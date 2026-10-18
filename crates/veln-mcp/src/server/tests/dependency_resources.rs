@@ -364,7 +364,8 @@ fn dependency_resource_capacity_is_atomic() {
 
 fn single_dependency_over_capacity_is_atomic() {
     let mut resources = LanguageResources::checked().unwrap();
-    let boundary = (0..255)
+    resources.set_test_remaining_package_capacity(2);
+    let boundary = (0..2)
         .map(|index| synthetic_dependency_project(&format!("example/dep{index}"), "body"))
         .collect::<Vec<_>>();
     resources.admit_dependencies(&boundary).unwrap();
@@ -378,7 +379,8 @@ fn single_dependency_over_capacity_is_atomic() {
 
 fn multiple_dependency_over_capacity_is_atomic() {
     let mut resources = LanguageResources::checked().unwrap();
-    let boundary = (0..254)
+    resources.set_test_remaining_package_capacity(2);
+    let boundary = (0..1)
         .map(|index| synthetic_dependency_project(&format!("example/multi{index}"), "body"))
         .collect::<Vec<_>>();
     resources.admit_dependencies(&boundary).unwrap();
@@ -431,7 +433,10 @@ fn saved_project_capacity_failures_match_advertised_result_schemas() {
         let workspace = TempWorkspace::new(case.name);
         write_workspace_with_dependency(&workspace, "overflow");
         let mut server = initialized_server_with_embedded_resources(&workspace);
-        let boundary = (0..255)
+        server
+            .language_resources
+            .set_test_remaining_package_capacity(2);
+        let boundary = (0..2)
             .map(|index| synthetic_dependency_project(&format!("example/full{index}"), "body"))
             .collect::<Vec<_>>();
         server
@@ -484,17 +489,21 @@ fn references_capacity_failure_preserves_a_prior_live_cursor() {
 }
 
 fn fill_dependency_resource_capacity(server: &mut Server) {
-    let boundary = (0..255)
-        .map(|index| synthetic_dependency_project(&format!("example/full{index}"), "body"))
-        .collect::<Vec<_>>();
     server
         .language_resources
-        .admit_dependencies(&boundary[..254])
+        .set_test_remaining_package_capacity(1);
+    let boundary = [synthetic_dependency_project("example/full", "body")];
+    server
+        .language_resources
+        .admit_dependencies(&boundary)
         .unwrap();
 }
 
 pub(super) fn fill_dependency_resource_capacity_completely(server: &mut Server) {
-    let boundary = (0..255)
+    server
+        .language_resources
+        .set_test_remaining_package_capacity(2);
+    let boundary = (0..2)
         .map(|index| synthetic_dependency_project(&format!("example/rename-full{index}"), "body"))
         .collect::<Vec<_>>();
     server
