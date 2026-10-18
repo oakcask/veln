@@ -1,8 +1,8 @@
 use std::{collections::HashSet, sync::Arc};
 
 use veln_ast::{
-    Function, Param, TypeDecl, TypePathSegments, TypeVariantDecl, TypeVariantField,
-    VariantRefinementType, Visibility,
+    Function, Param, RecordFieldPath, TypeDecl, TypePathSegments, TypeVariantDecl,
+    TypeVariantField, VariantRefinementType, Visibility,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
@@ -831,35 +831,16 @@ fn record_exposure_candidates(
         let Some(path) = &refinement.record_field_path else {
             continue;
         };
-        if path.shared_prefix_len > record_path.len() {
-            record_path.clear();
+        if !extend_record_path(path, &mut record_path, &mut path_nodes) {
             continue;
         }
-        record_path.truncate(path.shared_prefix_len);
-        for field in &path.suffix {
-            record_visibility_path_node_construction(1);
-            path_nodes.push(RecordFieldPathNode {
-                parent: record_path.last().copied(),
-                field: field.clone(),
-            });
-            record_path.push(path_nodes.len() - 1);
-        }
-        let record_path_tail = record_path.last().copied();
-        record_visibility_candidate_construction(refinement.alternatives.len());
-        for (alternative_index, alternative) in refinement.alternatives.iter().enumerate() {
-            let mut candidate = refinement_candidate(alternative);
-            candidate.structural_span = Some(refinement.span.clone());
-            if refinement.alternatives.len() > 1 {
-                candidate.structural_path_tail = Some(structural_path_nodes.len());
-                structural_path_nodes.push(StructuralExposurePathNode {
-                    parent: None,
-                    segment: StructuralExposureSegment::UnionAlternative(alternative_index),
-                });
-                record_visibility_structural_path_node();
-            }
-            candidates.push(candidate);
-            candidate_tails.push(record_path_tail);
-        }
+        append_record_refinement_candidates(
+            refinement,
+            record_path.last().copied(),
+            &mut candidates,
+            &mut candidate_tails,
+            &mut structural_path_nodes,
+        );
     }
     let arena = Arc::<[RecordFieldPathNode]>::from(path_nodes);
     let structural_arena = Arc::<[StructuralExposurePathNode]>::from(structural_path_nodes);
@@ -877,6 +858,52 @@ fn record_exposure_candidates(
                 });
     }
     candidates
+}
+
+fn extend_record_path(
+    path: &RecordFieldPath,
+    record_path: &mut Vec<usize>,
+    path_nodes: &mut Vec<RecordFieldPathNode>,
+) -> bool {
+    if path.shared_prefix_len > record_path.len() {
+        record_path.clear();
+        return false;
+    }
+    record_path.truncate(path.shared_prefix_len);
+    for field in &path.suffix {
+        record_visibility_path_node_construction(1);
+        path_nodes.push(RecordFieldPathNode {
+            parent: record_path.last().copied(),
+            field: field.clone(),
+        });
+        record_path.push(path_nodes.len() - 1);
+    }
+    true
+}
+
+fn append_record_refinement_candidates(
+    refinement: &VariantRefinementType,
+    record_path_tail: Option<usize>,
+    candidates: &mut Vec<RefinementExposureCandidate>,
+    candidate_tails: &mut Vec<Option<usize>>,
+    structural_path_nodes: &mut Vec<StructuralExposurePathNode>,
+) {
+    let has_union = refinement.alternatives.len() > 1;
+    record_visibility_candidate_construction(refinement.alternatives.len());
+    for (alternative_index, alternative) in refinement.alternatives.iter().enumerate() {
+        let mut candidate = refinement_candidate(alternative);
+        candidate.structural_span = Some(refinement.span.clone());
+        if has_union {
+            candidate.structural_path_tail = Some(structural_path_nodes.len());
+            structural_path_nodes.push(StructuralExposurePathNode {
+                parent: None,
+                segment: StructuralExposureSegment::UnionAlternative(alternative_index),
+            });
+            record_visibility_structural_path_node();
+        }
+        candidates.push(candidate);
+        candidate_tails.push(record_path_tail);
+    }
 }
 
 fn recovered_root_exposure_candidates(
@@ -1711,19 +1738,29 @@ impl<'a> PublicBoundary<'a> {
         record_fields: &[String],
         structural_path: &[StructuralExposureSegment],
     ) -> JsonValue {
-        let mut segments = match self {
-            Self::Parameter { param, .. } => vec![JsonValue::object([
+        let mut segments = vec![self.exposure_root()];
+        segments.extend(record_fields.iter().map(|field| {
+            JsonValue::object([
+                ("kind", JsonValue::string("record_field")),
+                ("name", JsonValue::string(field.clone())),
+            ])
+        }));
+        segments.extend(structural_path.iter().map(structural_exposure_segment_json));
+        JsonValue::array(segments)
+    }
+
+    fn exposure_root(self) -> JsonValue {
+        match self {
+            Self::Parameter { param, .. } => JsonValue::object([
                 ("kind", JsonValue::string("parameter")),
                 ("name", JsonValue::string(param.name.clone())),
-            ])],
-            Self::Result { .. } => {
-                vec![JsonValue::object([("kind", JsonValue::string("result"))])]
-            }
+            ]),
+            Self::Result { .. } => JsonValue::object([("kind", JsonValue::string("result"))]),
             Self::AdtPayload {
                 declaration,
                 variant,
                 field,
-            } => vec![JsonValue::object([
+            } => JsonValue::object([
                 ("kind", JsonValue::string("adt_payload")),
                 (
                     "type",
@@ -1734,36 +1771,8 @@ impl<'a> PublicBoundary<'a> {
                     JsonValue::string(variant.name.clone().unwrap_or_default()),
                 ),
                 ("field", JsonValue::string(field.name.clone())),
-            ])],
-        };
-        segments.extend(record_fields.iter().map(|field| {
-            JsonValue::object([
-                ("kind", JsonValue::string("record_field")),
-                ("name", JsonValue::string(field.clone())),
-            ])
-        }));
-        segments.extend(structural_path.iter().map(|segment| match segment {
-            StructuralExposureSegment::TypeArgument(index) => JsonValue::object([
-                ("kind", JsonValue::string("type_argument")),
-                ("index", JsonValue::Number(*index as i64)),
             ]),
-            StructuralExposureSegment::FunctionParameter(index) => JsonValue::object([
-                ("kind", JsonValue::string("function_parameter")),
-                ("index", JsonValue::Number(*index as i64)),
-            ]),
-            StructuralExposureSegment::FunctionResult => {
-                JsonValue::object([("kind", JsonValue::string("function_result"))])
-            }
-            StructuralExposureSegment::RecordField(field) => JsonValue::object([
-                ("kind", JsonValue::string("record_field")),
-                ("name", JsonValue::string(field.clone())),
-            ]),
-            StructuralExposureSegment::UnionAlternative(index) => JsonValue::object([
-                ("kind", JsonValue::string("union_alternative")),
-                ("index", JsonValue::Number(*index as i64)),
-            ]),
-        }));
-        JsonValue::array(segments)
+        }
     }
 
     fn related_kind(self) -> &'static str {
@@ -1807,5 +1816,29 @@ impl<'a> PublicBoundary<'a> {
             Self::Result { function, .. } => &function.span,
             Self::AdtPayload { field, .. } => &field.span,
         }
+    }
+}
+
+fn structural_exposure_segment_json(segment: &StructuralExposureSegment) -> JsonValue {
+    match segment {
+        StructuralExposureSegment::TypeArgument(index) => JsonValue::object([
+            ("kind", JsonValue::string("type_argument")),
+            ("index", JsonValue::Number(*index as i64)),
+        ]),
+        StructuralExposureSegment::FunctionParameter(index) => JsonValue::object([
+            ("kind", JsonValue::string("function_parameter")),
+            ("index", JsonValue::Number(*index as i64)),
+        ]),
+        StructuralExposureSegment::FunctionResult => {
+            JsonValue::object([("kind", JsonValue::string("function_result"))])
+        }
+        StructuralExposureSegment::RecordField(field) => JsonValue::object([
+            ("kind", JsonValue::string("record_field")),
+            ("name", JsonValue::string(field.clone())),
+        ]),
+        StructuralExposureSegment::UnionAlternative(index) => JsonValue::object([
+            ("kind", JsonValue::string("union_alternative")),
+            ("index", JsonValue::Number(*index as i64)),
+        ]),
     }
 }
