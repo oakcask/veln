@@ -7,10 +7,12 @@ pub type Box<A>
 	pub Boxed(value: A)
 end
 
-pub type Envelope
-	pub Wrapped(value: Box<State::Hidden | State::Hidden>)
+pub type Alias = State
+
+pub fn expose(value: Box<Alias::Hidden>, callback: fn(State::Hidden) -> Box<State::Hidden>) -> ()
+	()
 end
 
-pub fn expose(value: Box<State::Hidden>, callback: fn(State::Hidden) -> Box<State::Hidden>) -> ()
-	()
+pub type Envelope
+	pub Wrapped(value: Box<Alias::Hidden | State::Hidden>)
 end

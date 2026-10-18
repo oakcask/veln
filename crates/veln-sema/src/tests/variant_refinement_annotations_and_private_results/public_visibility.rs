@@ -99,6 +99,52 @@ fn structural_positions_and_public_adt_payloads_reject_private_refinements() {
 }
 
 #[test]
+fn function_and_adt_visibility_diagnostics_follow_source_order() {
+    let diagnostics = visibility_diagnostics(concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub fn expose(value: State::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub type Envelope\n",
+        "  pub Wrapped(value: State::Hidden)\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    let boundaries = diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.details.to_json())
+        .collect::<Vec<_>>();
+    assert!(boundaries[0].contains("\"boundary\":\"public_parameter\""));
+    assert!(boundaries[1].contains("\"boundary\":\"public_adt_payload\""));
+}
+
+#[test]
+fn recursive_public_adt_visibility_terminates_and_reports_nested_alias_exposure() {
+    let diagnostics = visibility_diagnostics(concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub type Alias = State\n",
+        "pub type Box<A>\n",
+        "  pub Boxed(value: A)\n",
+        "end\n",
+        "pub type Recursive\n",
+        "  pub Next(value: Recursive)\n",
+        "  pub Leak(value: Box<Alias::Hidden>)\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let observed = veln_diagnostics::diagnostic_to_json(&diagnostics[0]).to_json();
+    assert!(observed.contains("\"kind\":\"type_argument\",\"index\":0"));
+    assert!(observed.contains("\"kind\":\"type_alias_declaration\""));
+    assert!(observed.contains("\"type\":\"Recursive\",\"variant\":\"Leak\""));
+}
+
+#[test]
 fn invalid_public_adt_keeps_local_identity_but_is_not_importable() {
     let source = SourceFile::new(
         "api.veln",

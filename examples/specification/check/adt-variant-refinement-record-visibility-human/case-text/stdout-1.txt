@@ -12,3 +12,9 @@ main.veln:17:62: error[type.variant_refinement_private]: public refinement expos
 main.veln:17:107: error[type.variant_refinement_private]: public refinement exposes private type `main::Secret`
   note: main.veln:1:1: Private type `main::Secret` is declared here.
   note: main.veln:17:98: Public result of function `expose` exposes this refinement.
+main.veln:29:30: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:6:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:29:23: Public parameter `value` of function `named_boundary` exposes this refinement.
+main.veln:33:33: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:6:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:33:26: Public parameter `value` of function `function_boundary` exposes this refinement.

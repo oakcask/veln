@@ -185,12 +185,103 @@ fn analyze_surface_module_with_environment(
         ));
     }
 
+    order_variant_refinement_visibility_diagnostics(&mut diagnostics);
+
     merge_variant_refinement_base_diagnostics(
         &mut diagnostics,
         check_variant_refinement_bases(module, environment),
     );
 
     diagnostics
+}
+
+fn order_variant_refinement_visibility_diagnostics(diagnostics: &mut [Diagnostic]) {
+    let slots = diagnostics
+        .iter()
+        .enumerate()
+        .filter_map(|(index, diagnostic)| {
+            (diagnostic.id == "type.variant_refinement_private").then_some(index)
+        })
+        .collect::<Vec<_>>();
+    if slots.len() < 2 {
+        return;
+    }
+
+    let mut indices_by_file = HashMap::<SourcePath, Vec<usize>>::new();
+    let mut file_order = Vec::new();
+    let mut ordered_indices = Vec::with_capacity(slots.len());
+    for &index in &slots {
+        let Some(span) = diagnostics[index].span.as_ref() else {
+            ordered_indices.push(index);
+            continue;
+        };
+        match indices_by_file.entry(span.file.clone()) {
+            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().push(index);
+            }
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                file_order.push(span.file.clone());
+                entry.insert(vec![index]);
+            }
+        }
+    }
+    for file in file_order {
+        let indices = indices_by_file
+            .get_mut(&file)
+            .expect("visibility diagnostic file was indexed");
+        radix_sort_diagnostic_indices(indices, diagnostics);
+        ordered_indices.extend(indices.iter().copied());
+    }
+
+    let ordered = ordered_indices
+        .into_iter()
+        .map(|index| diagnostics[index].clone())
+        .collect::<Vec<_>>();
+    for (slot, diagnostic) in slots.into_iter().zip(ordered) {
+        diagnostics[slot] = diagnostic;
+    }
+}
+
+fn radix_sort_diagnostic_indices(indices: &mut Vec<usize>, diagnostics: &[Diagnostic]) {
+    let mut scratch = vec![0; indices.len()];
+    for use_end in [true, false] {
+        for shift in (0..usize::BITS).step_by(8) {
+            let mut counts = [0usize; 256];
+            for &index in indices.iter() {
+                let span = diagnostics[index]
+                    .span
+                    .as_ref()
+                    .expect("indexed diagnostic has a source span");
+                let key = if use_end {
+                    span.end.offset
+                } else {
+                    span.start.offset
+                };
+                counts[(key >> shift) as u8 as usize] += 1;
+            }
+            let mut next = 0;
+            for count in &mut counts {
+                let start = next;
+                next += *count;
+                *count = start;
+            }
+            for &index in indices.iter() {
+                let span = diagnostics[index]
+                    .span
+                    .as_ref()
+                    .expect("indexed diagnostic has a source span");
+                let key = if use_end {
+                    span.end.offset
+                } else {
+                    span.start.offset
+                };
+                let bucket = (key >> shift) as u8 as usize;
+                scratch[counts[bucket]] = index;
+                counts[bucket] += 1;
+            }
+            std::mem::swap(indices, &mut scratch);
+        }
+    }
 }
 
 fn merge_variant_refinement_base_diagnostics(
