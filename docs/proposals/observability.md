@@ -12,8 +12,9 @@ core must not prescribe an exporter or an external telemetry protocol.
 The public observation effect, no-op and recording handlers, non-consuming
 recording snapshots, typed scalar attributes, optional trace context,
 effect-polymorphic scoped span lifecycle, and call-site-aware structured log
-records at debug, info, warning, and error severities, plus explicit direct
-child-task and channel-value context propagation, are implemented in the
+records at debug, info, warning, and error severities, named domain events,
+plus explicit direct child-task and channel-value context propagation, are
+implemented in the
 [current observability specification](../specification/standard-library-observability.md).
 This proposal covers only the remaining facilities described below.
 
@@ -46,8 +47,8 @@ support for the library and do not define a global ambient observability API.
 
 ## Observation Effect Remainder
 
-Extend the current `Observation` model with domain events, counter increments,
-and histogram samples. Add trace-context operations that inject and extract
+Extend the current `Observation` model with counter increments and histogram
+samples. Add trace-context operations that inject and extract
 context at process boundaries. Export handlers add wall time, resource
 identity, sequence information, and exporter-specific encoding.
 
@@ -55,11 +56,8 @@ identity, sequence information, and exporter-specific encoding.
 
 The remaining standard-library work supplies these groups:
 
-- `event`: named domain events;
 - `metric`: counter increments and histogram samples;
 - `observe`: JSON Lines and configured export handlers.
-
-Future event helpers follow the current call-site-aware logging contract.
 
 ## Context Propagation
 
@@ -129,8 +127,8 @@ invent a version before a checked schema exists.
 
 ## Verification and Promotion
 
-The next implementation work starts with events, metrics, fan-in links, and
-carrier propagation. The JSON Lines schema and fixtures then
+The next implementation work starts with metrics, fan-in links, and carrier
+propagation. The JSON Lines schema and fixtures then
 establish the machine-readable contract. An external protocol adapter is
 verified against that protocol's conformance fixtures and remains replaceable.
 

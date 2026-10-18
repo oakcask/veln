@@ -1,3 +1,5 @@
+use event
+use log
 use observe
 
 test noop_preserves_a_handled_body_result() -> Result<(), String>
@@ -47,6 +49,29 @@ test recording_exposes_ordered_start_emit_and_finish_entries() -> Result<(), Str
 	match observe::recorded(recording)
 		Cons(observe::SpanStarted("request", "recording-0", "recording-1", None, _), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "message", Nil, None, _))), Cons(observe::SpanFinished("recording-0", "recording-1", _), Nil))) => Ok(())
 		_ => Err("recording did not preserve lifecycle order or identities")
+	end
+end
+
+test recording_snapshots_preserve_mixed_log_and_event_order() -> Result<(), String> effects [time, concurrency]
+	let recording = observe::new_recording("mixed-observations")
+	let result = handle begin
+		log::info(None, "before", list_nil())
+		event::emit(Some(observe::TraceContext("trace-event", "span-event")), "checkout.completed", list_cons(observe::Attribute("attempt", observe::IntValue(3)), list_nil()))
+		log::error(None, "after", list_nil())
+		91
+	end with observe::recording(recording)
+	let first = observe::recorded(recording)
+	let second = observe::recorded(recording)
+	if result == 91
+		match first
+			Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "before", Nil, None, _))), Cons(observe::Emitted(observe::Event(observe::EventRecord("checkout.completed", Cons(observe::Attribute("attempt", observe::IntValue(3)), Nil), Some(observe::TraceContext("trace-event", "span-event")), _))), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Error, "after", Nil, None, _))), Nil))) => match second
+				Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "before", Nil, None, _))), Cons(observe::Emitted(observe::Event(observe::EventRecord("checkout.completed", Cons(observe::Attribute("attempt", observe::IntValue(3)), Nil), Some(observe::TraceContext("trace-event", "span-event")), _))), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Error, "after", Nil, None, _))), Nil))) => Ok(())
+				_ => Err("second snapshot consumed or reordered mixed observations")
+			end
+			_ => Err("recording changed mixed log and event order or values")
+		end
+	else
+		Err("recording changed the mixed observation body result")
 	end
 end
 

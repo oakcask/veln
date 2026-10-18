@@ -52,8 +52,13 @@ pub type LogRecord
 	pub LogRecord(name: String, severity: Severity, message: String, attributes: List<Attribute>, context: Option<TraceContext>, source: SourceLocation)
 end
 
+pub type EventRecord
+	pub EventRecord(name: String, attributes: List<Attribute>, context: Option<TraceContext>, source: SourceLocation)
+end
+
 pub type Observation
 	pub Log(record: LogRecord)
+	pub Event(record: EventRecord)
 end
 
 pub effect Observe

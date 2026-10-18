@@ -1,0 +1,30 @@
+use observe from "std"
+use recording
+use wrapper
+
+# This case checks that the standard event module is independently importable
+# and that JVM effect dispatch forwards the user call-site through a wrapper;
+# companion coverage owns the event field-preservation contract.
+pub fn main() -> () effects [stdio, concurrency]
+	let records = recording::records(2)
+	let _ = handle wrapper::emit_checkout() with recording::recording(records.tx)
+	channel::close(records.tx)
+	match channel::recv(records.rx)
+		Some(observe::Event(observe::EventRecord("checkout.completed", Cons(observe::Attribute("attempt", observe::IntValue(3)), Nil), Some(observe::TraceContext("trace-1", "span-2")), source))) => begin
+			stdio::println(source.package)
+			stdio::println(source.module)
+			stdio::println(source.file)
+			stdio::println(int_to_string(source.start_line))
+			stdio::println(int_to_string(source.start_column))
+			stdio::println(int_to_string(source.start_offset))
+			stdio::println(int_to_string(source.end_line))
+			stdio::println(int_to_string(source.end_column))
+			stdio::println(int_to_string(source.end_offset))
+		end
+		_ => stdio::println("unexpected-event")
+	end
+	match channel::recv(records.rx)
+		None => stdio::println("exactly-one")
+		Some(_) => stdio::println("extra-event")
+	end
+end

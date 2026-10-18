@@ -1,0 +1,6 @@
+use observe
+use prelude
+
+pub fn emit(context: Option<observe::TraceContext>, name: String, attributes: List<observe::Attribute>) -> () effects [observe::Observe] callsite
+	perform observe::Observe::emit(observe::Event(observe::EventRecord(name, attributes, context, callsite)))
+end

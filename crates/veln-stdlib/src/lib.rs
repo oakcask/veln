@@ -58,6 +58,7 @@ mod tests {
                 "trace.veln",
                 "traced.veln",
                 "log.veln",
+                "event.veln",
                 "http2/frame.veln",
                 "http2/diagnostic.veln",
                 "http2/hpack.veln",
