@@ -86,9 +86,9 @@ pub(crate) use variant_refinement_bases::{
     independent_annotation_errors,
 };
 pub(crate) use variant_refinement_visibility::{
-    adt_has_private_variant_refinement_exposure, adt_variant_refinement_dependency_identities,
+    adt_has_private_variant_refinement_exposure, adt_publication_dependency_identities,
     check_public_adt_variant_refinement_visibility, check_public_variant_refinement_visibility,
-    function_has_private_variant_refinement_exposure,
+    function_depends_on_quarantined_adt, function_has_private_variant_refinement_exposure,
 };
 #[cfg(test)]
 pub(crate) use variant_refinement_visibility::{

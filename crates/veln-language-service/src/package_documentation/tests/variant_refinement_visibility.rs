@@ -95,6 +95,103 @@ fn package_catalog_ignores_private_refinement_exposure_in_non_exported_modules()
     );
 }
 
+const INTERNAL_BROKEN_ADT: &str = concat!(
+    "pub type State\n",
+    "  Hidden\n",
+    "end\n",
+    "pub type Box<A>\n",
+    "  pub Boxed(value: A)\n",
+    "end\n",
+    "pub type Broken\n",
+    "  pub Wrapped(value: Box<State::Hidden>)\n",
+    "end\n",
+);
+
+#[test]
+fn package_catalog_rejects_function_with_ordinary_quarantined_adt_dependency() {
+    let result = generate(
+        MANIFEST,
+        &[
+            (
+                "main.veln",
+                concat!(
+                    "use internal\n",
+                    "pub fn expose(value: internal::Broken) -> internal::Broken\n",
+                    "  value\n",
+                    "end\n",
+                ),
+            ),
+            ("internal.veln", INTERNAL_BROKEN_ADT),
+        ],
+    );
+
+    assert!(result.catalog().is_none());
+    assert_eq!(
+        result
+            .status()
+            .diagnostics
+            .iter()
+            .map(|diagnostic| (diagnostic.gate.as_str(), diagnostic.code.as_str()))
+            .collect::<Vec<_>>(),
+        [("semantic_visibility", "type.variant_refinement_private")]
+    );
+    assert!(
+        result
+            .declaration_uri_for("main", "function", "expose")
+            .is_none()
+    );
+}
+
+#[test]
+fn package_catalog_rejects_adt_payload_with_ordinary_quarantined_dependency() {
+    let result = generate(
+        MANIFEST,
+        &[
+            (
+                "main.veln",
+                concat!(
+                    "use internal\n",
+                    "pub type Envelope\n",
+                    "  pub Wrapped(value: internal::Broken)\n",
+                    "end\n",
+                ),
+            ),
+            ("internal.veln", INTERNAL_BROKEN_ADT),
+        ],
+    );
+
+    assert!(result.catalog().is_none());
+    assert_eq!(result.status().diagnostics.len(), 1);
+    assert!(
+        result
+            .declaration_uri_for("main", "type", "Envelope")
+            .is_none()
+    );
+}
+
+#[test]
+fn unrelated_non_exported_quarantined_adt_does_not_block_package_catalog() {
+    let result = generate(
+        MANIFEST,
+        &[
+            (
+                "main.veln",
+                concat!("pub fn answer() -> Int\n", "  42\n", "end\n",),
+            ),
+            ("internal.veln", INTERNAL_BROKEN_ADT),
+        ],
+    );
+
+    let catalog = catalog_or_panic(&result);
+    assert!(
+        catalog.modules[0]
+            .declarations
+            .iter()
+            .any(|declaration| declaration.name == "answer")
+    );
+    assert!(result.status().diagnostics.is_empty());
+}
+
 #[test]
 fn package_catalog_rejects_direct_private_refinement_from_non_exported_module() {
     let result = generate(

@@ -17,9 +17,9 @@ visibility. The current
 [package-documentation specification](../specification/package-documentation.md)
 owns publication of accepted written signatures and package-atomic rejection
 of visibility-invalid declarations. That current gate resolves imports and
-transparent aliases through retained non-exported modules, while only an
-exposure whose primary span is in a manifest-exported source can reject
-publication.
+transparent aliases through retained non-exported modules. A diagnostic rooted
+only in a retained source remains non-blocking unless an exported declaration's
+resolved signature depends on the quarantined ADT.
 
 This proposal retains only the unfinished work: qualified-value match
 refinement, schema boundaries, remaining LSP diagnostics and

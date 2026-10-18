@@ -112,14 +112,14 @@ pub(crate) fn adt_has_private_variant_refinement_exposure(
             })
 }
 
-pub(crate) fn adt_variant_refinement_dependency_identities(
+pub(crate) fn adt_publication_dependency_identities(
     declaration: &TypeDecl,
     environment: &TypeEnvironment,
 ) -> HashSet<String> {
     if declaration.visibility != Visibility::Public {
         return HashSet::new();
     }
-    declaration
+    let mut dependencies = declaration
         .variants
         .iter()
         .filter(|variant| variant.visibility == Visibility::Public)
@@ -150,7 +150,66 @@ pub(crate) fn adt_variant_refinement_dependency_identities(
                 .variant_refinement_variant_identity(descriptor, &candidate.written_variant)?;
             Some(descriptor.identity())
         })
-        .collect()
+        .collect::<HashSet<_>>();
+    for path in declaration
+        .variants
+        .iter()
+        .filter(|variant| variant.visibility == Visibility::Public)
+        .flat_map(|variant| &variant.fields)
+        .flat_map(|field| &field.ty_paths)
+    {
+        if let Some(identity) =
+            named_type_dependency_identity(path, declaration.module_name.as_deref(), environment)
+        {
+            dependencies.insert(identity);
+        }
+    }
+    dependencies
+}
+
+fn named_type_dependency_identity(
+    path: &TypePathSegments,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> Option<String> {
+    let name = path.segments.join("::");
+    let written = environment
+        .adts
+        .descriptor_for_type_path_including_quarantined(
+            &name,
+            path.type_argument_count,
+            current_module,
+            &environment.uses,
+        )?;
+    let terminal = environment
+        .adts
+        .terminal_descriptor_for_alias(written)
+        .unwrap_or_else(|| environment.adts.canonical_descriptor_for(written));
+    Some(terminal.identity())
+}
+
+pub(crate) fn function_depends_on_quarantined_adt(
+    function: &Function,
+    environment: &TypeEnvironment,
+) -> bool {
+    function.visibility == Visibility::Public
+        && function
+            .params
+            .iter()
+            .flat_map(|param| &param.ty_paths)
+            .chain(function.return_type_paths.iter())
+            .filter_map(|path| {
+                let name = path.segments.join("::");
+                environment
+                    .adts
+                    .descriptor_for_type_path_including_quarantined(
+                        &name,
+                        path.type_argument_count,
+                        function.module_name.as_deref(),
+                        &environment.uses,
+                    )
+            })
+            .any(|descriptor| environment.adts.descriptor_is_quarantined(descriptor))
 }
 
 pub(crate) fn function_has_private_variant_refinement_exposure(
@@ -685,7 +744,7 @@ fn assign_outer_structural_spans(
         .collect::<Vec<_>>();
     containers.sort_by_key(|span| (span.start.offset, usize::MAX - span.end.offset));
     let mut next = 0;
-    let mut active = Vec::<&SourceSpan>::new();
+    let mut oldest = 0;
     for candidate in candidates {
         if candidate.has_function_position {
             candidate.structural_span = Some(annotation_span.clone());
@@ -697,23 +756,26 @@ fn assign_outer_structural_spans(
             }
             continue;
         }
-        while containers
-            .get(next)
-            .is_some_and(|span| span.start.offset < candidate.occurrence_span.start.offset)
-        {
-            record_visibility_work(1);
-            active.push(containers[next]);
+        record_outer_span_selection_work(1);
+        while let Some(span) = containers.get(next) {
+            record_outer_span_selection_work(1);
+            if span.start.offset >= candidate.occurrence_span.start.offset {
+                break;
+            }
             next += 1;
         }
-        active.retain(|span| {
-            record_visibility_work(1);
-            span.end.offset >= candidate.occurrence_span.end.offset
-        });
-        if let Some(span) = active
-            .iter()
-            .max_by_key(|span| span.end.offset.saturating_sub(span.start.offset))
-        {
-            candidate.structural_span = Some((*span).clone());
+        while oldest < next {
+            record_outer_span_selection_work(1);
+            if containers[oldest].end.offset >= candidate.occurrence_span.end.offset {
+                break;
+            }
+            oldest += 1;
+        }
+        // Type application spans are laminar. The earliest activated span that
+        // still contains this occurrence is therefore its outermost container.
+        record_outer_span_selection_work(1);
+        if oldest < next {
+            candidate.structural_span = Some(containers[oldest].clone());
         }
     }
 }
@@ -1272,6 +1334,7 @@ pub(crate) struct VisibilityCandidateWork {
     pub(crate) record_path_nodes: usize,
     pub(crate) structural_path_nodes: usize,
     pub(crate) materialized_structural_path_segments: usize,
+    pub(crate) outer_span_selection: usize,
     pub(crate) peak_structural_path_depth: usize,
 }
 
@@ -1286,6 +1349,7 @@ impl VisibilityCandidateWork {
             record_path_nodes: 0,
             structural_path_nodes: 0,
             materialized_structural_path_segments: 0,
+            outer_span_selection: 0,
             peak_structural_path_depth: 0,
         }
     }
@@ -1355,6 +1419,18 @@ fn record_visibility_structural_path_materialization(amount: usize) {
 
 #[cfg(not(test))]
 fn record_visibility_structural_path_materialization(_amount: usize) {}
+
+#[cfg(test)]
+fn record_outer_span_selection_work(amount: usize) {
+    VISIBILITY_CANDIDATE_WORK.with(|work| {
+        let mut next = work.get();
+        next.outer_span_selection += amount;
+        work.set(next);
+    });
+}
+
+#[cfg(not(test))]
+fn record_outer_span_selection_work(_amount: usize) {}
 
 #[cfg(test)]
 fn record_visibility_candidate_construction(amount: usize) {

@@ -1,0 +1,3 @@
+main.veln:10:21: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:2:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:10:14: Public payload `value` of variant `Broken::Wrapped` exposes this refinement.

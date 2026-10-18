@@ -125,6 +125,10 @@ A private refinement exposure in a public function signature or a public
 variant payload of a public source ADT fails the semantic-visibility gate. The
 package-atomic failure result contains no catalog, declaration URI, or
 partially published signature.
+Publication dependency closure also rejects an exported public function or ADT
+whose signature contains an ordinary named reference to a quarantined ADT,
+including a reference through a transparent alias. The gate reports the causal
+privacy diagnostic once instead of copying it to each ordinary reference.
 
 The catalog excludes non-exported modules, private declarations, handler
 operation clauses and bodies, exact test companions, integration-test sources,
@@ -171,9 +175,12 @@ The implemented gates are:
   of a public source ADT must not expose a private variant-refinement base or
   selected variant through any structural type position. Semantic resolution
   uses every retained package source, including non-exported modules needed by
-  imports and transparent aliases. Gate admission uses only diagnostics whose
-  primary exposure span is in a manifest-exported source; related base, alias,
-  and variant declarations may be in a non-exported module. A failure uses
+  imports and transparent aliases. A diagnostic rooted only in a retained
+  non-exported declaration is non-blocking unless an exported public
+  declaration depends on the quarantined ADT through its resolved signature.
+  When that dependency exists, the causal diagnostic is admitted even when its
+  primary exposure span is in the non-exported source. Related base, alias, and
+  variant declarations may also be in a non-exported module. A failure uses
   `gate: "semantic_visibility"`, reports
   `type.variant_refinement_private`, and publishes no declaration identity or
   signature;

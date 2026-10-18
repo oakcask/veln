@@ -856,11 +856,15 @@ an all-`unknown` signature only as internal same-module recovery state. The
 failed function is absent from the callable facts inherited by another module.
 A visibility-invalid public ADT retains its unambiguous same-module source
 identity but is absent from imported public type facts. Publication quarantine
-also follows public payload refinements transitively: if a public ADT selects a
-variant of a quarantined public ADT, it is quarantined too. This closure follows
-transparent aliases, is independent of declaration order, and continues until
+also follows every resolved named ADT dependency in a public payload. This
+includes an ordinary named type, a refinement base, a named type argument, and
+a dependency reached through a transparent alias. The closure is independent
+of declaration order, terminates on recursive type graphs, and continues until
 no additional public ADT depends on a quarantined ADT. A valid neighboring ADT
-remains published. A public function
+remains published. A public function whose parameter or result contains a
+quarantined ADT is absent from callable facts even when that function writes
+only the ordinary base type. The ordinary use does not repeat the causal
+privacy diagnostic. A public function
 alias can publish only a function that is present in those callable facts, so
 an alias cannot republish the failed function directly or through another
 module. Qualified lookup and unqualified import-candidate lookup both exclude
@@ -887,6 +891,10 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-structural-visibility-json/)
 cases verify named arguments, function positions, public ADT payloads, union
 paths, outer structural spans, and deterministic related context.
+The publication-closure
+[`human`](../../examples/specification/check/adt-variant-refinement-publication-closure-human/)
+case verifies one causal privacy diagnostic across ordinary named payload,
+alias, function-parameter, and function-result dependencies.
 The alias-qualified
 [`human`](../../examples/specification/check/adt-variant-refinement-alias-visibility-human/)
 and
@@ -937,6 +945,12 @@ the bound.
 Wide record annotations on public function parameters and results check each
 refinement occurrence in their record fields. Each private occurrence rejects
 publication, and analysis work grows linearly with the written occurrences.
+For a depth-`D` named wrapper around a width-`M` record, traversal and outer
+structural-span selection grow with `D + M`. A rejected private refinement in
+each field must still materialize `M` complete depth-`D` diagnostic paths, so
+that required diagnostic output can grow with `D * M`; the span-selection walk
+does not add another depth-by-width scan. Deterministic work counters separate
+these two costs from wall-clock timing.
 The checked
 [`generic alias boundaries`](../../examples/specification/check/adt-variant-refinement-generic-alias-boundaries/)
 case also verifies that imported alias-qualified constructor context supplies

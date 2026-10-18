@@ -39,6 +39,7 @@ pub(crate) struct AdtRegistry {
         HashMap<(Option<String>, String), Vec<QualifiedRecoveryModules>>,
     imported_descriptors_by_type: HashMap<(Option<String>, String), Option<usize>>,
     imported_descriptors_by_type_arity: HashMap<(Option<String>, String, usize), Option<usize>>,
+    quarantined_type_identities: HashSet<String>,
     source_import_indexes_ready: bool,
     local_descriptor_start: usize,
 }
@@ -265,6 +266,19 @@ impl AdtRegistry {
                 descriptor.visibility = Visibility::Private;
             }
         }
+        self.quarantined_type_identities.extend(invalid_identities);
+    }
+
+    pub(crate) fn descriptor_is_quarantined(&self, descriptor: &AdtDescriptor) -> bool {
+        let terminal = self
+            .terminal_descriptor_for_alias(descriptor)
+            .unwrap_or_else(|| self.canonical_descriptor_for(descriptor));
+        self.quarantined_type_identities
+            .contains(&terminal.identity())
+    }
+
+    pub(crate) fn quarantined_type_identities(&self) -> impl Iterator<Item = &String> {
+        self.quarantined_type_identities.iter()
     }
 
     pub(crate) fn quarantine_source_variant_payload_types(

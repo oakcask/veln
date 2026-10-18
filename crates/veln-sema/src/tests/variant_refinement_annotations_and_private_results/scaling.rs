@@ -696,6 +696,93 @@ fn named_visibility_depth_work_is_linear_with_fixed_candidates() {
     assert_eq!(private.peak_path_depth, 0, "{private:?}");
 }
 
+#[derive(Clone, Copy, Debug)]
+struct CombinedDepthWidthVisibilityMeasurement {
+    outer_span_selection: usize,
+    materialized_path_segments: usize,
+    private_diagnostics: usize,
+}
+
+fn combined_depth_width_visibility_measurement(
+    depth: usize,
+    width: usize,
+    variant: &str,
+) -> CombinedDepthWidthVisibilityMeasurement {
+    let fields = (0..width)
+        .map(|index| format!("field{index}: State::{variant}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let annotation = nested_named_annotation(depth, &format!("{{{fields}}}"));
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "pub type State\n  Hidden\n  pub Ready\nend\n\
+             pub type Box<A>\n  pub Boxed(A)\nend\n\
+             pub fn expose(value: {annotation}) -> ()\n  ()\nend\n"
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    crate::analysis::reset_visibility_work();
+    let diagnostics = analyze_surface_module(&module);
+    let work = crate::analysis::take_visibility_candidate_work();
+    let private_diagnostics = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .count();
+    let measurement = CombinedDepthWidthVisibilityMeasurement {
+        outer_span_selection: work.outer_span_selection,
+        materialized_path_segments: work.materialized_structural_path_segments,
+        private_diagnostics,
+    };
+    eprintln!(
+        "combined refinement visibility: depth={depth} width={width} variant={variant} \
+         measurement={measurement:?}"
+    );
+    measurement
+}
+
+#[test]
+fn outer_structural_span_selection_is_linear_when_depth_and_width_grow_together() {
+    for variant in ["Ready", "Hidden"] {
+        let measurements = [16, 32, 64]
+            .map(|size| combined_depth_width_visibility_measurement(size, size, variant));
+        assert_eq!(
+            measurements.map(|measurement| measurement.private_diagnostics),
+            if variant == "Hidden" {
+                [16, 32, 64]
+            } else {
+                [0, 0, 0]
+            },
+            "variant={variant} measurements={measurements:?}"
+        );
+        for (measurement, size) in measurements.iter().zip([16, 32, 64]) {
+            assert!(
+                measurement.outer_span_selection <= 20 * (size + size) + 64,
+                "outer-span selection must stay linear in depth plus width: \
+                 variant={variant} measurements={measurements:?}"
+            );
+        }
+        if variant == "Hidden" {
+            for (measurement, size) in measurements.iter().zip([16, 32, 64]) {
+                assert!(
+                    measurement.materialized_path_segments >= size * size,
+                    "required diagnostic paths must remain complete: \
+                     variant={variant} measurements={measurements:?}"
+                );
+            }
+        } else {
+            assert_eq!(
+                measurements.map(|measurement| measurement.materialized_path_segments),
+                [0, 0, 0],
+                "variant={variant} measurements={measurements:?}"
+            );
+        }
+    }
+}
+
 #[test]
 fn refinement_free_named_depth_bypasses_structural_visibility_walk() {
     let measurements =

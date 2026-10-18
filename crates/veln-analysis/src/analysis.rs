@@ -386,6 +386,10 @@ impl ProjectAnalysis {
         self.reconcile_doctest_failures(diagnostics)
     }
 
+    pub fn unpublished_declarations(&self) -> &[veln_sema::UnpublishedDeclaration] {
+        &self.checked.unpublished_declarations
+    }
+
     pub fn lower_reachable_entry(
         &self,
         entry: &str,
@@ -469,6 +473,7 @@ fn lowered_internal_failure(diagnostic: Diagnostic) -> LoweredSurfaceModule {
         diagnostics: vec![diagnostic],
         core: None,
         ir: None,
+        unpublished_declarations: Vec::new(),
     }
 }
 

@@ -48,7 +48,11 @@ pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
         .collect::<HashSet<_>>();
 
     let mut dependent_types = HashMap::<String, Vec<((Option<String>, String), String)>>::new();
-    let mut invalid_identities = VecDeque::new();
+    let mut invalid_identities = environment
+        .adts
+        .quarantined_type_identities()
+        .cloned()
+        .collect::<VecDeque<_>>();
     for declaration in &module.types {
         let Some(name) = declaration.name.as_ref() else {
             continue;
@@ -67,7 +71,7 @@ pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
             invalid_identities.push_back(identity.clone());
         }
         for dependency in
-            crate::analysis::adt_variant_refinement_dependency_identities(declaration, environment)
+            crate::analysis::adt_publication_dependency_identities(declaration, environment)
         {
             dependent_types
                 .entry(dependency)
@@ -168,6 +172,7 @@ pub(super) fn function_has_invalid_variant_refinement(
 ) -> bool {
     function_has_base_failure(function, environment)
         || crate::analysis::function_has_private_variant_refinement_exposure(function, environment)
+        || crate::analysis::function_depends_on_quarantined_adt(function, environment)
 }
 
 fn quarantine_invalid_variant_refinement_effect_types(

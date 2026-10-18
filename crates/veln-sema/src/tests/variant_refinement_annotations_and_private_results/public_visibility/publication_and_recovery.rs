@@ -1301,6 +1301,109 @@ fn visibility_failure_is_not_published_to_a_consumer_environment() {
 }
 
 #[test]
+fn inherited_quarantine_closes_over_ordinary_function_and_adt_dependencies() {
+    let dependency = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "internal.veln",
+            concat!(
+                "mod internal\n",
+                "pub type State\n",
+                "  Hidden\n",
+                "end\n",
+                "pub type Box<A>\n",
+                "  pub Boxed(value: A)\n",
+                "end\n",
+                "pub type Broken\n",
+                "  pub Wrapped(value: Box<State::Hidden>)\n",
+                "end\n",
+                "pub type BrokenAlias = Broken\n",
+            ),
+        ))
+        .tree,
+    );
+    let dependency_diagnostics = analyze_surface_module(&dependency);
+    assert_eq!(
+        dependency_diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .count(),
+        1,
+        "{dependency_diagnostics:#?}"
+    );
+    let dependency_environment = TypeEnvironment::from_module(&dependency);
+
+    let application = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "main.veln",
+            concat!(
+                "mod main\n",
+                "use internal\n",
+                "pub type Envelope\n",
+                "  pub Wrapped(value: internal::BrokenAlias)\n",
+                "end\n",
+                "pub fn expose(value: internal::BrokenAlias) -> internal::Broken\n",
+                "  value\n",
+                "end\n",
+                "pub fn expose_alias = expose\n",
+            ),
+        ))
+        .tree,
+    );
+    let application_diagnostics =
+        analyze_surface_module_with_base_for_test(&application, &dependency_environment);
+    assert!(
+        application_diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.variant_refinement_private"),
+        "ordinary uses must not repeat the dependency diagnostic: {application_diagnostics:#?}"
+    );
+    let application_environment =
+        TypeEnvironment::from_module_with_base_for_test(&application, &dependency_environment);
+    let expose = application_environment
+        .function("expose")
+        .expect("same-module recovery signature");
+    assert_eq!(expose.params, [Type::Unknown]);
+    assert_eq!(expose.return_type, Type::Unknown);
+    assert!(!application_environment.function_is_published_for_test("expose"));
+    assert!(application_environment.function("expose_alias").is_none());
+
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "consumer.veln",
+            "mod consumer\nuse main\n",
+        ))
+        .tree,
+    );
+    let consumer_environment =
+        TypeEnvironment::from_module_with_base_for_test(&consumer, &application_environment);
+    assert!(
+        consumer_environment
+            .adts
+            .descriptor_for_type_path(
+                "main::Envelope",
+                0,
+                Some("consumer"),
+                &consumer_environment.uses,
+            )
+            .is_none(),
+        "an ADT with an inherited ordinary quarantined dependency must not be importable"
+    );
+    assert!(
+        consumer_environment
+            .function_path(
+                &["main".to_string(), "expose".to_string()],
+                Some("consumer"),
+            )
+            .is_none(),
+        "a function with an inherited ordinary quarantined dependency must not be callable"
+    );
+    let (_, lowered) =
+        check_project_surface_module_with_base_for_test(&application, &dependency_environment);
+    assert!(lowered.core.is_none());
+    assert!(lowered.ir.is_none());
+}
+
+#[test]
 fn visibility_failure_is_not_republished_through_function_aliases() {
     let dependency = lower_surface_ast(
         &parse(&SourceFile::new(

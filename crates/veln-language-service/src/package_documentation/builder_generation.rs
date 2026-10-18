@@ -295,7 +295,7 @@ impl<'a> PackageDocBuilder<'a> {
             .filter(|source| source.exported)
             .map(|source| source.source.path().as_str())
             .collect::<BTreeSet<_>>();
-        let diagnostics = analyze_project(
+        let analysis = analyze_project(
             Project {
                 root: ".".into(),
                 files: parsed_sources
@@ -305,15 +305,19 @@ impl<'a> PackageDocBuilder<'a> {
                 manifest: None,
             },
             DoctestMode::Exclude,
-        )
-        .checked_diagnostics();
+        );
+        let exported_publication_is_unavailable = analysis
+            .unpublished_declarations()
+            .iter()
+            .any(|declaration| exported_paths.contains(declaration.span.file.as_str()));
+        let diagnostics = analysis.checked_diagnostics();
         for diagnostic in diagnostics.into_iter().filter(|diagnostic| {
             diagnostic.severity == Severity::Error
                 && diagnostic.id == "type.variant_refinement_private"
-                && diagnostic
-                    .span
-                    .as_ref()
-                    .is_some_and(|span| exported_paths.contains(span.file.as_str()))
+                && diagnostic.span.as_ref().is_some_and(|span| {
+                    exported_publication_is_unavailable
+                        || exported_paths.contains(span.file.as_str())
+                })
         }) {
             self.diagnostics
                 .push(self.project_diagnostic("semantic_visibility", diagnostic));

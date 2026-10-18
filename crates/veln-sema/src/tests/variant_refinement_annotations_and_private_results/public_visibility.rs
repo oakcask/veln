@@ -284,6 +284,106 @@ fn public_adt_quarantine_closes_over_dependent_refinements_in_any_declaration_or
 }
 
 #[test]
+fn publication_quarantine_closes_over_ordinary_named_types_aliases_and_cycles() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod api\n",
+            "pub type State\n",
+            "  Hidden\n",
+            "end\n",
+            "pub type Box<A>\n",
+            "  pub Boxed(value: A)\n",
+            "end\n",
+            "pub type Broken\n",
+            "  pub Wrapped(value: Box<State::Hidden>)\n",
+            "end\n",
+            "pub type BrokenAlias = Broken\n",
+            "pub type CycleA\n",
+            "  pub Next(value: CycleB)\n",
+            "end\n",
+            "pub type CycleB\n",
+            "  pub Next(value: CycleA, broken: BrokenAlias)\n",
+            "end\n",
+            "pub type Healthy\n",
+            "  pub Ready\n",
+            "end\n",
+            "pub fn expose(value: BrokenAlias) -> CycleA\n",
+            "  panic(\"unreachable\")\n",
+            "end\n",
+            "pub fn expose_alias = expose\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .count(),
+        1,
+        "ordinary uses must not duplicate the causal privacy diagnostic: {diagnostics:#?}"
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    let expose = environment.function("expose").expect("recovery signature");
+    assert_eq!(expose.params, [Type::Unknown]);
+    assert_eq!(expose.return_type, Type::Unknown);
+    assert!(!environment.function_is_published_for_test("expose"));
+    assert!(environment.function("expose_alias").is_none());
+
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new("consumer.veln", "mod consumer\nuse api\n")).tree,
+    );
+    let consumer_environment =
+        TypeEnvironment::from_module_with_base_for_test(&consumer, &environment);
+    for name in ["Broken", "BrokenAlias", "CycleA", "CycleB"] {
+        assert!(
+            consumer_environment
+                .adts
+                .descriptor_for_type_path(
+                    &format!("api::{name}"),
+                    0,
+                    Some("consumer"),
+                    &consumer_environment.uses,
+                )
+                .is_none(),
+            "{name} must stay outside imported public type facts"
+        );
+    }
+    assert!(
+        consumer_environment
+            .adts
+            .descriptor_for_type_path(
+                "api::Healthy",
+                0,
+                Some("consumer"),
+                &consumer_environment.uses,
+            )
+            .is_some(),
+        "an unrelated public ADT must remain published"
+    );
+    assert!(
+        consumer_environment
+            .function_path(&["api".to_string(), "expose".to_string()], Some("consumer"),)
+            .is_none(),
+        "ordinary unavailable dependencies must remove inherited callable facts"
+    );
+
+    let lowered = lower_checked_surface_module(&module);
+    assert!(
+        lowered.core.is_none(),
+        "ordinary unavailable dependencies must not enter checked core"
+    );
+    assert!(
+        lowered.ir.is_none(),
+        "ordinary unavailable dependencies must not enter IR"
+    );
+}
+
+#[test]
 fn quarantined_public_adt_cannot_be_reexposed_through_an_alias_refinement() {
     let diagnostics = visibility_diagnostics(concat!(
         "pub type State\n",

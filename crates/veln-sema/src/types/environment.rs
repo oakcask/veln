@@ -250,6 +250,12 @@ impl TypeEnvironment {
         })
     }
 
+    pub(crate) fn function_is_published(&self, function: &Function) -> bool {
+        !self
+            .unpublished_functions
+            .contains(&source_function_publication_key(function))
+    }
+
     pub(crate) fn local_function_value_recovery(
         &self,
         name: &str,

@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, HashMap};
 
-use veln_ast::{FunctionKind, SurfaceModule, Visibility};
+use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, Visibility};
 use veln_core::CheckedProgram;
 use veln_diagnostics::{Diagnostic, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
@@ -43,6 +43,15 @@ pub struct LoweredSurfaceModule {
     pub diagnostics: Vec<Diagnostic>,
     pub core: Option<CheckedProgram>,
     pub ir: Option<TypedProgram>,
+    pub unpublished_declarations: Vec<UnpublishedDeclaration>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnpublishedDeclaration {
+    pub kind: &'static str,
+    pub module_name: Option<String>,
+    pub name: String,
+    pub span: veln_source::SourceSpan,
 }
 
 pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
@@ -742,6 +751,7 @@ fn lowered_internal_failure(diagnostics: Vec<Diagnostic>) -> LoweredSurfaceModul
         diagnostics,
         core: None,
         ir: None,
+        unpublished_declarations: Vec::new(),
     }
 }
 
@@ -751,6 +761,7 @@ fn lower_analyzed_surface_module_with_environment(
     environment: &TypeEnvironment,
     mode: SurfaceLoweringMode,
 ) -> LoweredSurfaceModule {
+    let unpublished_declarations = unpublished_public_declarations(module, environment);
     if diagnostics
         .iter()
         .any(|diagnostic| diagnostic.severity == Severity::Error)
@@ -759,6 +770,7 @@ fn lower_analyzed_surface_module_with_environment(
             diagnostics,
             core: None,
             ir: None,
+            unpublished_declarations,
         };
     }
 
@@ -790,5 +802,82 @@ fn lower_analyzed_surface_module_with_environment(
         diagnostics,
         core: Some(lowered_core.program),
         ir,
+        unpublished_declarations,
     }
+}
+
+fn unpublished_public_declarations(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> Vec<UnpublishedDeclaration> {
+    let mut declarations = module
+        .types
+        .iter()
+        .filter(|declaration| declaration.visibility == Visibility::Public)
+        .filter_map(|declaration| {
+            let name = declaration.name.as_ref()?;
+            let descriptor = environment
+                .adts
+                .descriptor_for_type_path_including_quarantined(
+                    name,
+                    declaration.params.len(),
+                    declaration.module_name.as_deref(),
+                    &environment.uses,
+                )?;
+            environment
+                .adts
+                .descriptor_is_quarantined(descriptor)
+                .then(|| UnpublishedDeclaration {
+                    kind: "type",
+                    module_name: declaration.module_name.clone(),
+                    name: name.clone(),
+                    span: declaration.span.clone(),
+                })
+        })
+        .chain(
+            module
+                .functions
+                .iter()
+                .filter(|function| {
+                    function.kind == FunctionKind::Function
+                        && function.visibility == Visibility::Public
+                        && !environment.function_is_published(function)
+                })
+                .filter_map(|function| {
+                    Some(UnpublishedDeclaration {
+                        kind: "function",
+                        module_name: function.module_name.clone(),
+                        name: function.name.clone()?,
+                        span: function.span.clone(),
+                    })
+                }),
+        )
+        .collect::<Vec<_>>();
+    declarations.extend(module.aliases.iter().filter_map(|alias| {
+        let name = alias.name.as_ref()?;
+        let unpublished = match alias.kind {
+            PublicAliasKind::Type => environment
+                .adts
+                .descriptor_for_type_path_including_quarantined(
+                    name,
+                    0,
+                    alias.module_name.as_deref(),
+                    &environment.uses,
+                )
+                .is_some_and(|descriptor| environment.adts.descriptor_is_quarantined(descriptor)),
+            PublicAliasKind::Function => environment.function(name).is_none(),
+            _ => false,
+        };
+        unpublished.then(|| UnpublishedDeclaration {
+            kind: match alias.kind {
+                PublicAliasKind::Type => "type_alias",
+                PublicAliasKind::Function => "function_alias",
+                _ => "alias",
+            },
+            module_name: alias.module_name.clone(),
+            name: name.clone(),
+            span: alias.span.clone(),
+        })
+    }));
+    declarations
 }
