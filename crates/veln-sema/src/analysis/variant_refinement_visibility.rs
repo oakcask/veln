@@ -275,6 +275,12 @@ enum StructuralExposureSegment {
     UnionAlternative(usize),
 }
 
+#[derive(Clone, Copy)]
+struct ExposureTraversalContext<'a> {
+    annotation_span: &'a SourceSpan,
+    placeholders: bool,
+}
+
 fn structured_exposure_candidates(
     annotation_span: &SourceSpan,
     ty: &Type,
@@ -284,10 +290,12 @@ fn structured_exposure_candidates(
     let mut candidates = Vec::new();
     let mut refinements = refinements.iter().peekable();
     collect_type_exposures(
-        annotation_span,
+        ExposureTraversalContext {
+            annotation_span,
+            placeholders: false,
+        },
         ty,
         &mut refinements,
-        false,
         &[],
         &mut candidates,
     );
@@ -297,50 +305,24 @@ fn structured_exposure_candidates(
 }
 
 fn collect_type_exposures<'a>(
-    annotation_span: &SourceSpan,
+    context: ExposureTraversalContext<'_>,
     ty: &Type,
     refinements: &mut std::iter::Peekable<std::slice::Iter<'a, VariantRefinementType>>,
-    placeholders: bool,
     path: &[StructuralExposureSegment],
     candidates: &mut Vec<RefinementExposureCandidate>,
 ) {
     match ty {
         Type::Named { name, args, .. } => {
-            let is_refinement = refinements.peek().is_some_and(|refinement| {
-                placeholders && name == "Placeholder::Variant"
-                    || args.is_empty()
-                        && plain_refinement_name(refinement).as_deref() == Some(name.as_str())
-            });
-            if is_refinement {
-                let refinement = refinements.next().expect("peeked refinement");
-                collect_refinement_exposures(annotation_span, refinement, path, candidates);
-                return;
-            }
-            for (index, argument) in args.iter().enumerate() {
-                record_visibility_work(path.len() + 1);
-                let mut nested = path.to_vec();
-                nested.push(StructuralExposureSegment::TypeArgument(index));
-                collect_type_exposures(
-                    annotation_span,
-                    argument,
-                    refinements,
-                    placeholders,
-                    &nested,
-                    candidates,
-                );
-            }
+            collect_named_type_exposures(context, name, args, refinements, path, candidates);
         }
         Type::Record(fields) => {
             for (name, field) in fields {
-                record_visibility_work(path.len() + 1);
-                let mut nested = path.to_vec();
-                nested.push(StructuralExposureSegment::RecordField(name.clone()));
-                collect_type_exposures(
-                    annotation_span,
+                collect_nested_type_exposures(
+                    context,
                     field,
                     refinements,
-                    placeholders,
-                    &nested,
+                    path,
+                    StructuralExposureSegment::RecordField(name.clone()),
                     candidates,
                 );
             }
@@ -351,41 +333,13 @@ fn collect_type_exposures<'a>(
             return_type,
             ..
         } => {
-            for (index, parameter) in params.iter().enumerate() {
-                record_visibility_work(path.len() + 1);
-                let mut nested = path.to_vec();
-                nested.push(StructuralExposureSegment::FunctionParameter(index));
-                collect_type_exposures(
-                    annotation_span,
-                    parameter,
-                    refinements,
-                    placeholders,
-                    &nested,
-                    candidates,
-                );
-            }
-            if let Some(variadic) = variadic {
-                record_visibility_work(path.len() + 1);
-                let mut nested = path.to_vec();
-                nested.push(StructuralExposureSegment::FunctionParameter(params.len()));
-                collect_type_exposures(
-                    annotation_span,
-                    variadic,
-                    refinements,
-                    placeholders,
-                    &nested,
-                    candidates,
-                );
-            }
-            record_visibility_work(path.len() + 1);
-            let mut nested = path.to_vec();
-            nested.push(StructuralExposureSegment::FunctionResult);
-            collect_type_exposures(
-                annotation_span,
+            collect_function_type_exposures(
+                context,
+                params,
+                variadic.as_deref(),
                 return_type,
                 refinements,
-                placeholders,
-                &nested,
+                path,
                 candidates,
             );
         }
@@ -393,10 +347,92 @@ fn collect_type_exposures<'a>(
             let Some(refinement) = refinements.next() else {
                 return;
             };
-            collect_refinement_exposures(annotation_span, refinement, path, candidates);
+            collect_refinement_exposures(context.annotation_span, refinement, path, candidates);
         }
         Type::Unknown => {}
     }
+}
+
+fn collect_named_type_exposures<'a>(
+    context: ExposureTraversalContext<'_>,
+    name: &str,
+    args: &[Type],
+    refinements: &mut std::iter::Peekable<std::slice::Iter<'a, VariantRefinementType>>,
+    path: &[StructuralExposureSegment],
+    candidates: &mut Vec<RefinementExposureCandidate>,
+) {
+    let is_refinement = refinements.peek().is_some_and(|refinement| {
+        context.placeholders && name == "Placeholder::Variant"
+            || args.is_empty() && plain_refinement_name(refinement).as_deref() == Some(name)
+    });
+    if is_refinement {
+        let refinement = refinements.next().expect("peeked refinement");
+        collect_refinement_exposures(context.annotation_span, refinement, path, candidates);
+        return;
+    }
+    for (index, argument) in args.iter().enumerate() {
+        collect_nested_type_exposures(
+            context,
+            argument,
+            refinements,
+            path,
+            StructuralExposureSegment::TypeArgument(index),
+            candidates,
+        );
+    }
+}
+
+fn collect_function_type_exposures<'a>(
+    context: ExposureTraversalContext<'_>,
+    params: &[Type],
+    variadic: Option<&Type>,
+    return_type: &Type,
+    refinements: &mut std::iter::Peekable<std::slice::Iter<'a, VariantRefinementType>>,
+    path: &[StructuralExposureSegment],
+    candidates: &mut Vec<RefinementExposureCandidate>,
+) {
+    for (index, parameter) in params.iter().enumerate() {
+        collect_nested_type_exposures(
+            context,
+            parameter,
+            refinements,
+            path,
+            StructuralExposureSegment::FunctionParameter(index),
+            candidates,
+        );
+    }
+    if let Some(variadic) = variadic {
+        collect_nested_type_exposures(
+            context,
+            variadic,
+            refinements,
+            path,
+            StructuralExposureSegment::FunctionParameter(params.len()),
+            candidates,
+        );
+    }
+    collect_nested_type_exposures(
+        context,
+        return_type,
+        refinements,
+        path,
+        StructuralExposureSegment::FunctionResult,
+        candidates,
+    );
+}
+
+fn collect_nested_type_exposures<'a>(
+    context: ExposureTraversalContext<'_>,
+    ty: &Type,
+    refinements: &mut std::iter::Peekable<std::slice::Iter<'a, VariantRefinementType>>,
+    path: &[StructuralExposureSegment],
+    segment: StructuralExposureSegment,
+    candidates: &mut Vec<RefinementExposureCandidate>,
+) {
+    record_visibility_work(path.len() + 1);
+    let mut nested = path.to_vec();
+    nested.push(segment);
+    collect_type_exposures(context, ty, refinements, &nested, candidates);
 }
 
 fn plain_refinement_name(refinement: &VariantRefinementType) -> Option<String> {
@@ -444,10 +480,12 @@ fn collect_refinement_exposures(
             if let Ok(ty) = parse_type_annotation(&skeleton) {
                 let mut child_refinements = argument.ty_refinements.iter().peekable();
                 collect_type_exposures(
-                    annotation_span,
+                    ExposureTraversalContext {
+                        annotation_span,
+                        placeholders: true,
+                    },
                     &ty,
                     &mut child_refinements,
-                    true,
                     &nested,
                     candidates,
                 );
