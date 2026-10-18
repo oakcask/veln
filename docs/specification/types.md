@@ -698,7 +698,8 @@ retains the existing `type.invalid_annotation` failure. For a refinement
 anywhere in a public-function parameter or result, or in a public source-ADT
 payload, a uniquely resolved direct ADT or transparent type-alias chain and
 final constructor also retain an independently provable private-base or
-private-variant failure. An invalid nested type argument or sibling union
+private-variant failure. An invalid annotation in a sibling named-type
+argument, function parameter or result, nested type argument, or sibling union
 alternative does not suppress that visibility failure. Visibility checking
 uses this recovery while traversing named type arguments, function parameters
 and results, record fields, and refinement unions.
@@ -892,6 +893,10 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-structural-visibility-json/)
 cases verify named arguments, function positions, public ADT payloads, union
 paths, outer structural spans, and deterministic related context.
+The focused
+[`invalid-arity overlap`](../../examples/specification/check/adt-variant-refinement-structural-visibility-invalid-arity-overlap/)
+case verifies that invalid named-type arity in either order does not hide a
+private refinement in a sibling function or named-argument position.
 The publication-closure
 [`human`](../../examples/specification/check/adt-variant-refinement-publication-closure-human/)
 case verifies one causal privacy diagnostic across ordinary named payload,

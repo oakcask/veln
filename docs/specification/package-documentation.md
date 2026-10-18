@@ -124,7 +124,9 @@ annotations, including refinements inside named arguments and function types.
 A private refinement exposure in a public function signature or a public
 variant payload of a public source ADT fails the semantic-visibility gate. The
 package-atomic failure result contains no catalog, declaration URI, or
-partially published signature.
+partially published signature. The gate still discovers a private refinement
+in a function or named-type position when a sibling position has invalid
+generic arity; that visibility failure rejects the complete catalog.
 Publication dependency closure also rejects an exported public function or ADT
 whose signature contains an ordinary named reference to a quarantined ADT,
 including a reference through a transparent alias. The gate does not synthesize
