@@ -41,7 +41,7 @@ pub(super) fn lower_with_clock(text: &str) -> TypedProgram {
     ))
 }
 
-fn lower_with_network_facade(text: &str) -> TypedProgram {
+pub(super) fn lower_with_network_facade(text: &str) -> TypedProgram {
     let facade = include_str!("../../../veln-stdlib/veln/net.veln")
         .strip_prefix("use prelude\n")
         .expect("network facade should import the standard prelude")

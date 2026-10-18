@@ -957,6 +957,116 @@ public final class NetworkSystemLifecycleHarness {
         }
     }
 
+    private static void verifyRealWriteFailureRetainsCommittedPrefix() throws Exception {
+        Object owner = newOwner();
+        java.nio.channels.ServerSocketChannel listener = java.nio.channels.ServerSocketChannel.open();
+        java.nio.channels.SocketChannel client = java.nio.channels.SocketChannel.open();
+        java.nio.channels.SocketChannel peer = null;
+        Thread resetter = null;
+        java.util.concurrent.atomic.AtomicReference<Throwable> resetFailure =
+            new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        selectOwner(owner);
+        try {
+            listener.configureBlocking(false);
+            listener.bind(new java.net.InetSocketAddress(
+                java.net.InetAddress.getByName("127.0.0.1"),
+                0
+            ));
+            client.socket().setSendBufferSize(1024);
+            client.configureBlocking(false);
+            client.connect((java.net.InetSocketAddress) listener.getLocalAddress());
+            peer = awaitConnectedPeer(listener, client);
+            Object stream = newStream(client, 7250);
+            register(owner, stream);
+
+            java.nio.channels.SocketChannel resettingPeer = peer;
+            resetter = new Thread(() -> {
+                try {
+                    java.nio.ByteBuffer first = java.nio.ByteBuffer.allocate(1);
+                    long deadline = System.nanoTime()
+                        + java.util.concurrent.TimeUnit.SECONDS.toNanos(5L);
+                    while (first.hasRemaining()) {
+                        int read = resettingPeer.read(first);
+                        if (read < 0) throw new java.io.EOFException("writer ended before committing output");
+                        if (read == 0 && System.nanoTime() >= deadline) {
+                            throw new java.net.SocketTimeoutException("writer did not commit output");
+                        }
+                        if (read == 0) Thread.yield();
+                    }
+                    resettingPeer.socket().setSoLinger(true, 0);
+                    resettingPeer.close();
+                } catch (Throwable failure) {
+                    resetFailure.set(failure);
+                }
+            });
+            resetter.start();
+
+            Object byteValue = ((VelnRuntime.Result) VelnRuntime.byteValue(Long.valueOf(1))).value();
+            java.util.ArrayList<Object> values = new java.util.ArrayList<Object>(2_000_000);
+            for (int index = 0; index < 2_000_000; index += 1) values.add(byteValue);
+            Object chunk = VelnRuntime.byteChunk(values);
+            Object outcome = VelnRuntime.netSystemWrite(
+                stream,
+                chunk,
+                VelnRuntime.none(),
+                VelnRuntime.none()
+            );
+            resetter.join(java.util.concurrent.TimeUnit.SECONDS.toMillis(5L));
+            if (resetter.isAlive()) {
+                resetter.interrupt();
+                throw new AssertionError("resetting peer did not finish");
+            }
+            if (resetFailure.get() != null) {
+                throw new AssertionError("resetting peer failed", resetFailure.get());
+            }
+            String rendered = outcome.toString();
+            java.util.regex.Matcher committed = java.util.regex.Pattern.compile(
+                "WriteFailed\\(ByteCount\\(([1-9][0-9]*)\\), NetError\\(write,"
+            ).matcher(rendered);
+            if (!committed.find()) {
+                throw new AssertionError(
+                    "real write failure did not retain its committed prefix: " + rendered
+                );
+            }
+
+            Object selectedResult = VelnProgram.fn_write_all_selected(stream, chunk, outcome);
+            if (((VelnRuntime.Result) selectedResult).isOk()) {
+                throw new AssertionError("write_all discarded the real partial-write failure");
+            }
+            VelnRuntime.recordResultFailure(selectedResult);
+            String formatted = VelnRuntime.formatResultFailure(selectedResult);
+            if (!formatted.contains("NetError(write")) {
+                throw new AssertionError(
+                    "selected result did not retain the typed write failure: " + formatted
+                );
+            }
+            java.nio.file.Path resultTrace = java.nio.file.Paths.get(
+                System.getenv("VELN_RESULT_ERRORS")
+            );
+            java.nio.file.Path transportTrace = java.nio.file.Paths.get(
+                System.getenv("VELN_TRANSPORT_ERRORS")
+            );
+            if (!java.nio.file.Files.exists(resultTrace)
+                || !java.nio.file.Files.readString(resultTrace).startsWith("result\t")) {
+                throw new AssertionError("selected write failure did not produce a result record");
+            }
+            if (java.nio.file.Files.exists(transportTrace)
+                && !java.nio.file.Files.readString(transportTrace).isEmpty()) {
+                throw new AssertionError(
+                    "selected write failure fabricated transport commit facts: "
+                        + java.nio.file.Files.readString(transportTrace)
+                );
+            }
+        } finally {
+            if (resetter != null && resetter.isAlive()) resetter.interrupt();
+            CLEANUP.invoke(null, owner);
+            clearOwner();
+            if (peer != null) peer.close();
+            client.close();
+            listener.close();
+        }
+    }
+
     @SuppressWarnings("unchecked")
     private static void verifyResolverCapacityAndHandlerDetachment() throws Exception {
         java.util.concurrent.ThreadPoolExecutor resolvers =
@@ -1347,6 +1457,7 @@ public final class NetworkSystemLifecycleHarness {
         verifyAtomicResourcePublication();
         verifyBufferedInputIsDiscardedByShutdownRead();
         verifySuccessfulCloseClosesHostResources();
+        verifyRealWriteFailureRetainsCommittedPrefix();
         verifyResolverCapacityAndHandlerDetachment();
         verifyResolverWaitObservesTaskCancellation();
         verifyConnectTimeoutStopsEndpointFallback();

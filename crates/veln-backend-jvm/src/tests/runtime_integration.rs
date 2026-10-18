@@ -6,6 +6,16 @@ fn run_java_runtime_harness(
     source: &str,
     program: &JvmProgram,
 ) -> std::process::Output {
+    run_java_runtime_harness_with_env(name, source_name, source, program, &[])
+}
+
+fn run_java_runtime_harness_with_env(
+    name: &str,
+    source_name: &str,
+    source: &str,
+    program: &JvmProgram,
+    env: &[(&str, &str)],
+) -> std::process::Output {
     let root = temp_dir(name);
     write_jvm_program(&root, program);
     fs::write(root.join(source_name), source).expect("Java harness should be written");
@@ -32,6 +42,9 @@ fn run_java_runtime_harness(
         .current_dir(&root)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    for (key, value) in env {
+        command.env(key, value);
+    }
     let child = command.spawn().expect("Java harness should run");
     let output = wait_for_test_child(child, name, std::time::Duration::from_secs(30));
     let _ = fs::remove_dir_all(&root);
@@ -97,13 +110,23 @@ fn jvm_runtime_preserves_network_system_commit_and_ownership_invariants_when_jav
     {
         return;
     }
-    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let ir = super::effect_injection::lower_with_network_facade(
+        r#"
+pub fn main() -> ()
+    ()
+end
+"#,
+    );
     let program = generate_classfiles_with_entry(&ir, "main");
-    let output = run_java_runtime_harness(
+    let output = run_java_runtime_harness_with_env(
         "runtime-network-system-lifecycle",
         "NetworkSystemLifecycleHarness.java",
         include_str!("../../test-support/NetworkSystemLifecycleHarness.java"),
         &program,
+        &[
+            ("VELN_RESULT_ERRORS", "result-errors.tsv"),
+            ("VELN_TRANSPORT_ERRORS", "transport-errors.tsv"),
+        ],
     );
     assert!(
         output.status.success(),

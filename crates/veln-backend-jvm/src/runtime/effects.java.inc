@@ -1188,6 +1188,9 @@
             throw new RuntimeFailure("unexpected network host failure", cause);
         }
         error = netSystemError(operation, network, address, kind, cause.getMessage());
+        if (!operation.equals("listen") && !operation.equals("connect")) {
+            return error;
+        }
         String category = transportIoCategory(
             cause,
             operation.equals("listen") ? diagnosticAddress : null

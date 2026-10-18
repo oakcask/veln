@@ -494,11 +494,11 @@ transition source, byte offset, frame kind and stream where known, active-state
 label, rule provenance, and preview or related cause. Human rendering keeps the
 primary failed fact at its span; structured context belongs in related details.
 Runtime transport failures remain transport failures and are not converted to
-protocol or application failures. When `net::system()` converts a host socket
-failure into a typed `NetError`, the JVM carries the original transport facts
-with the value. If that error becomes the selected entry result, command
-reporting observes the transport failure rather than degrading it to a generic
-rendered result value.
+protocol or application failures. When `net::system()` converts a failed host
+`listen` or `connect` into a typed `NetError`, the JVM carries the transport
+facts for that pre-commit attempt with the value. If that error becomes the
+selected entry result, command reporting observes the transport failure rather
+than degrading it to a generic rendered result value.
 
 ## References
 
