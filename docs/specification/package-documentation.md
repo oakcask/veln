@@ -169,8 +169,9 @@ The implemented gates are:
   export path can appear at most once;
 - semantic visibility: a public function signature or a public variant payload
   of a public source ADT must not expose a private variant-refinement base or
-  selected variant through any structural type position. A failure reports
-  `type.variant_refinement_private` and publishes no declaration identity or
+  selected variant through any structural type position. A failure uses
+  `gate: "semantic_visibility"`, reports
+  `type.variant_refinement_private`, and publishes no declaration identity or
   signature;
 - documentation reference: `{@schema ...}` references in documentation
   blocks that attach to exported public declarations or exported public type

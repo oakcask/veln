@@ -207,13 +207,13 @@ does not stop traversal of a later structural child. An invalid square-bracket t
 `type.invalid_annotation` and does not make a record nested inside the brackets
 a visibility path. A later direct record field still reports its independently
 provable privacy diagnostic with its own `exposure_path`. A named type in a
-skipped field can share a source-text prefix with a later refinement, but the
-later refinement keeps its own primary span, `written_type`, and record-field
-`exposure_path`. Cyclic or ambiguous aliases do not manufacture a visibility
-identity. Distinct written alias paths to one terminal variant
-produce distinct diagnostics, while an exact repeated path retains its first
-occurrence. Exact test-companion access does not change public-signature
-eligibility. The checked
+field that does not form refinement syntax can share a source-text prefix with
+a later refinement, but the later refinement keeps its own primary span,
+`written_type`, and record-field `exposure_path`. Cyclic or ambiguous aliases
+do not manufacture a visibility identity. Distinct written alias paths to one
+terminal variant produce distinct diagnostics, while an exact repeated path
+retains its first occurrence. Exact test-companion access does not change
+public-signature eligibility. The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-public-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-public-visibility-json/)
