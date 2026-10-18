@@ -112,6 +112,47 @@ pub(crate) fn adt_has_private_variant_refinement_exposure(
             })
 }
 
+pub(crate) fn adt_variant_refinement_dependency_identities(
+    declaration: &TypeDecl,
+    environment: &TypeEnvironment,
+) -> HashSet<String> {
+    if declaration.visibility != Visibility::Public {
+        return HashSet::new();
+    }
+    declaration
+        .variants
+        .iter()
+        .filter(|variant| variant.visibility == Visibility::Public)
+        .flat_map(|variant| &variant.fields)
+        .flat_map(|field| {
+            root_exposure_candidates(
+                &field.ty_span,
+                Some(&field.ty),
+                &field.ty_refinements,
+                &field.ty_paths,
+            )
+        })
+        .filter_map(|candidate| {
+            let written_descriptor = environment.variant_refinement_descriptor_identity(
+                &candidate.written_base,
+                candidate.type_argument_count,
+                declaration.module_name.as_deref(),
+            )?;
+            let descriptor = environment
+                .adts
+                .terminal_descriptor_for_alias(written_descriptor)
+                .unwrap_or_else(|| {
+                    environment
+                        .adts
+                        .canonical_descriptor_for(written_descriptor)
+                });
+            environment
+                .variant_refinement_variant_identity(descriptor, &candidate.written_variant)?;
+            Some(descriptor.identity())
+        })
+        .collect()
+}
+
 pub(crate) fn function_has_private_variant_refinement_exposure(
     function: &Function,
     environment: &TypeEnvironment,

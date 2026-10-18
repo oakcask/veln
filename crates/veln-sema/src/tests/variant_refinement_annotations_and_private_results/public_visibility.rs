@@ -190,6 +190,100 @@ fn invalid_public_adt_keeps_local_identity_but_is_not_importable() {
 }
 
 #[test]
+fn public_adt_quarantine_closes_over_dependent_refinements_in_any_declaration_order() {
+    fn assert_quarantine(source: &str) {
+        let diagnostics = visibility_diagnostics(source);
+        assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+        let observed = diagnostics
+            .iter()
+            .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+            .collect::<Vec<_>>();
+        assert!(
+            observed.iter().any(
+                |diagnostic| diagnostic.contains("\"type\":\"Broken\",\"variant\":\"Wrapped\"")
+            )
+        );
+        assert!(
+            observed
+                .iter()
+                .any(|diagnostic| diagnostic.contains("\"type\":\"Leak\",\"variant\":\"Exposed\""))
+        );
+
+        let source = SourceFile::new("api.veln", source);
+        let module = lower_surface_ast(&parse(&source).tree);
+        let environment = TypeEnvironment::from_module(&module);
+        for name in ["Broken", "BrokenAlias", "Leak"] {
+            assert!(
+                environment
+                    .adts
+                    .descriptor_for_type_path(name, 0, Some("api"), &environment.uses)
+                    .is_some(),
+                "same-module recovery must retain {name}"
+            );
+        }
+
+        let consumer = lower_surface_ast(
+            &parse(&SourceFile::new("consumer.veln", "mod consumer\nuse api\n")).tree,
+        );
+        let consumer_environment =
+            TypeEnvironment::from_module_with_base_for_test(&consumer, &environment);
+        for name in ["Broken", "BrokenAlias", "Leak"] {
+            for path in [name.to_string(), format!("api::{name}")] {
+                assert!(
+                    consumer_environment
+                        .adts
+                        .descriptor_for_type_path(
+                            &path,
+                            0,
+                            Some("consumer"),
+                            &consumer_environment.uses,
+                        )
+                        .is_none(),
+                    "visibility-invalid {path} must not be importable"
+                );
+            }
+        }
+        assert!(
+            consumer_environment
+                .adts
+                .descriptor_for_type_path(
+                    "api::Healthy",
+                    0,
+                    Some("consumer"),
+                    &consumer_environment.uses,
+                )
+                .is_some(),
+            "a valid neighboring ADT must remain published"
+        );
+    }
+
+    let prefix = concat!(
+        "mod api\n",
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub type Box<A>\n",
+        "  pub Boxed(value: A)\n",
+        "end\n",
+    );
+    let broken = concat!(
+        "pub type Broken\n",
+        "  pub Wrapped(value: Box<State::Hidden>)\n",
+        "end\n",
+    );
+    let alias = "pub type BrokenAlias = Broken\n";
+    let leak = concat!(
+        "pub type Leak\n",
+        "  pub Exposed(value: BrokenAlias::Wrapped)\n",
+        "end\n",
+    );
+    let healthy = concat!("pub type Healthy\n", "  pub Ready\n", "end\n",);
+
+    assert_quarantine(&format!("{prefix}{broken}{alias}{leak}{healthy}"));
+    assert_quarantine(&format!("{prefix}{leak}{healthy}{alias}{broken}"));
+}
+
+#[test]
 fn quarantined_public_adt_cannot_be_reexposed_through_an_alias_refinement() {
     let diagnostics = visibility_diagnostics(concat!(
         "pub type State\n",

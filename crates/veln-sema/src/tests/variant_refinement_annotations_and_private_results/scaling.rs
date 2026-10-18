@@ -306,6 +306,51 @@ fn declaration_quarantine_work_is_linear_across_consumers() {
 }
 
 #[test]
+fn dependent_public_adt_quarantine_work_grows_linearly() {
+    let work = [16, 32, 64].map(|count| {
+        let mut source = String::from("pub type State\n  Hidden\nend\n");
+        for index in 0..count {
+            let dependency = if index == 0 {
+                "State".to_string()
+            } else {
+                format!("Link{}", index - 1)
+            };
+            source.push_str(&format!(
+                "pub type Link{index}\n  pub Wrapped(value: {dependency}::Wrapped)\nend\n"
+            ));
+        }
+        source = source.replacen("State::Wrapped", "State::Hidden", 1);
+
+        crate::analysis::reset_visibility_work();
+        crate::adt::registry::descriptor_lookup_counters::reset();
+        crate::adt::registry::variant_lookup_counters::reset();
+        let diagnostics = diagnostics_for(&source);
+        let visibility_work = crate::analysis::take_visibility_work();
+        let descriptor_work = crate::adt::registry::descriptor_lookup_counters::candidate_scans();
+        let variant_work = crate::adt::registry::variant_lookup_counters::index_lookups();
+        let work = visibility_work + descriptor_work + variant_work;
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+                .count(),
+            count,
+            "count={count} diagnostics={diagnostics:#?}"
+        );
+        eprintln!(
+            "dependent public ADT quarantine: declarations={count} \
+             visibility_work={visibility_work} descriptor_work={descriptor_work} \
+             variant_work={variant_work} work={work}"
+        );
+        work
+    });
+
+    let first_growth = work[1] - work[0];
+    let second_growth = work[2] - work[1];
+    assert_eq!(second_growth, first_growth * 2, "work={work:?}");
+}
+
+#[test]
 fn public_visibility_work_is_linear_for_wide_unions() {
     let work = [16, 32, 64].map(|count| {
         let mut source = String::from("pub type State\n");

@@ -1,5 +1,5 @@
 use super::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 pub(super) fn quarantine_invalid_variant_refinement_signatures(
     module: &SurfaceModule,
@@ -36,7 +36,7 @@ pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
 ) {
     quarantine_invalid_variant_refinement_effect_types(module, environment, effects);
     quarantine_invalid_variant_refinement_adt_payload_types(module, environment, adts);
-    let invalid_types = module
+    let mut invalid_types = module
         .types
         .iter()
         .filter(|declaration| {
@@ -46,6 +46,45 @@ pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
             Some((declaration.module_name.clone(), declaration.name.clone()?))
         })
         .collect::<HashSet<_>>();
+
+    let mut dependent_types = HashMap::<String, Vec<((Option<String>, String), String)>>::new();
+    let mut invalid_identities = VecDeque::new();
+    for declaration in &module.types {
+        let Some(name) = declaration.name.as_ref() else {
+            continue;
+        };
+        let Some(descriptor) = environment.adts.descriptor_for_type_path(
+            name,
+            declaration.params.len(),
+            declaration.module_name.as_deref(),
+            &environment.uses,
+        ) else {
+            continue;
+        };
+        let key = (declaration.module_name.clone(), name.clone());
+        let identity = descriptor.identity();
+        if invalid_types.contains(&key) {
+            invalid_identities.push_back(identity.clone());
+        }
+        for dependency in
+            crate::analysis::adt_variant_refinement_dependency_identities(declaration, environment)
+        {
+            dependent_types
+                .entry(dependency)
+                .or_default()
+                .push((key.clone(), identity.clone()));
+        }
+    }
+    while let Some(identity) = invalid_identities.pop_front() {
+        let Some(dependents) = dependent_types.get(&identity) else {
+            continue;
+        };
+        for (key, dependent_identity) in dependents {
+            if invalid_types.insert(key.clone()) {
+                invalid_identities.push_back(dependent_identity.clone());
+            }
+        }
+    }
     adts.quarantine_public_source_types(&invalid_types);
 }
 
