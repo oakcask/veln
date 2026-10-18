@@ -1289,26 +1289,18 @@
         synchronized (owner.networkResources) {
             if (resource instanceof NetListener) ((NetListener) resource).systemOwner = owner;
             else ((NetStream) resource).systemOwner = owner;
-            owner.networkResources.add(resource);
+            owner.networkResources.put(new NetworkResourceIdentity(owner, resource), resource);
             if (!owner.networkSystemClosed) return true;
         }
         netSystemCleanupResourceUntilSettled(owner, resource);
         return false;
     }
     private static boolean netSystemHasResource(HandlerFrame owner, Object resource) {
-        for (Object retained : owner.networkResources) {
-            if (retained == resource) return true;
-        }
-        return false;
+        return owner.networkResources.containsKey(new NetworkResourceIdentity(owner, resource));
     }
     private static void netSystemReleaseResource(HandlerFrame owner, Object resource) {
         synchronized (owner.networkResources) {
-            for (int index = 0; index < owner.networkResources.size(); index += 1) {
-                if (owner.networkResources.get(index) == resource) {
-                    owner.networkResources.remove(index);
-                    return;
-                }
-            }
+            owner.networkResources.remove(new NetworkResourceIdentity(owner, resource));
         }
     }
     private static Object netSystemOptionValue(Object option) {
@@ -1913,7 +1905,7 @@
             java.util.List<Object> resources;
             synchronized (owner.networkResources) {
                 if (owner.networkResources.isEmpty() && owner.networkSystemProducers == 0) return;
-                resources = new java.util.ArrayList<Object>(owner.networkResources);
+                resources = new java.util.ArrayList<Object>(owner.networkResources.values());
             }
             if (!resources.isEmpty() && attempts < 3) {
                 for (int index = resources.size() - 1; index >= 0; index -= 1) {

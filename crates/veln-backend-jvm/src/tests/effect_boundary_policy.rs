@@ -118,20 +118,27 @@ fn concurrent_task_cancellation_uses_one_atomic_initiation_claim() {
 }
 
 #[test]
-fn network_system_cleanup_uses_one_identity_ledger_without_activation_races() {
+fn network_system_cleanup_uses_one_ordered_identity_ledger_without_activation_races() {
     let values = include_str!("../runtime/values.java.inc");
     let effects = include_str!("../runtime/effects.java.inc");
 
-    assert!(values.contains("java.util.List<Object> networkResources"));
-    assert!(values.contains("new java.util.ArrayList<Object>()"));
+    assert!(values.contains("class NetworkResourceIdentity"));
+    assert!(values.contains("System.identityHashCode(resource)"));
+    assert!(values.contains("resource == ((NetworkResourceIdentity) other).resource"));
+    assert!(values.contains("java.util.Map<NetworkResourceIdentity, Object> networkResources"));
+    assert!(values.contains("new java.util.LinkedHashMap<NetworkResourceIdentity, Object>()"));
     assert!(values.contains("cleanupNetworkSystem(frame);"));
     assert!(values.contains("networkSystemProducers"));
     assert!(!values.contains("if (frame.networkSystem)"));
     assert!(!values.contains("networkListeners"));
     assert!(!values.contains("networkStreams"));
     assert!(
-        effects.contains("resources = new java.util.ArrayList<Object>(owner.networkResources);")
+        effects.contains(
+            "resources = new java.util.ArrayList<Object>(owner.networkResources.values());"
+        )
     );
+    assert!(effects.contains("owner.networkResources.remove(new NetworkResourceIdentity"));
+    assert!(!effects.contains("owner.networkResources.get(index) == resource"));
     assert!(effects.contains("netSystemPublishResource(HandlerFrame owner, Object resource)"));
     assert!(effects.contains("netSystemBeginProducer(HandlerFrame owner)"));
     assert!(effects.contains("owner.networkSystemProducers == 0"));

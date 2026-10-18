@@ -439,14 +439,39 @@
     private static final ThreadLocal<HandlerFrame> INVOKED_HANDLER =
         new ThreadLocal<HandlerFrame>();
 
+    private static final class NetworkResourceIdentity {
+        private final HandlerFrame owner;
+        private final Object resource;
+        private final int hash;
+
+        private NetworkResourceIdentity(HandlerFrame owner, Object resource) {
+            this.owner = owner;
+            this.resource = resource;
+            this.hash = System.identityHashCode(resource);
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            owner.networkResourceReleaseWork += 1L;
+            return other instanceof NetworkResourceIdentity
+                && resource == ((NetworkResourceIdentity) other).resource;
+        }
+    }
+
     private static final class HandlerFrame {
         private final String effect;
         private final java.util.Map<String, Fn> providers;
         private final Object[] context;
         private volatile boolean networkSystemClosed;
         private int networkSystemProducers;
-        private final java.util.List<Object> networkResources =
-            new java.util.ArrayList<Object>();
+        private long networkResourceReleaseWork;
+        private final java.util.Map<NetworkResourceIdentity, Object> networkResources =
+            new java.util.LinkedHashMap<NetworkResourceIdentity, Object>();
 
         private HandlerFrame(String effect, java.util.Map<String, Fn> providers, Object[] context) {
             this.effect = effect;
