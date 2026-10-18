@@ -13,7 +13,8 @@ The public observation effect, no-op and recording handlers, non-consuming
 recording snapshots, typed scalar attributes, optional trace context,
 effect-polymorphic scoped span lifecycle, and call-site-aware structured log
 records at debug, info, warning, and error severities, named domain events,
-plus explicit direct child-task and channel-value context propagation, are
+counter increments and histogram samples with recording and no-op handler
+support, plus explicit direct child-task and channel-value context propagation, are
 implemented in the
 [current observability specification](../specification/standard-library-observability.md).
 This proposal covers only the remaining facilities described below.
@@ -47,16 +48,14 @@ support for the library and do not define a global ambient observability API.
 
 ## Observation Effect Remainder
 
-Extend the current `Observation` model with counter increments and histogram
-samples. Add trace-context operations that inject and extract
-context at process boundaries. Export handlers add wall time, resource
+Add trace-context operations that inject and extract context at process
+boundaries. Export handlers add wall time, resource
 identity, sequence information, and exporter-specific encoding.
 
 ## Library Surface
 
-The remaining standard-library work supplies these groups:
+The remaining standard-library work supplies this group:
 
-- `metric`: counter increments and histogram samples;
 - `observe`: JSON Lines and configured export handlers.
 
 ## Context Propagation
@@ -120,15 +119,15 @@ invent a version before a checked schema exists.
 | --- | --- | --- | --- |
 | O8 | Several producers feed one consumer. | The selected parent and additional links match the consumer's explicit choice. | Fan-in case. |
 | O9 | An exporter rejects or drops a record. | The application result is unchanged and bounded health facts reflect the failure. | Forced-export-failure case. |
-| O10 | Counter and histogram records use the same name and attributes. | The handler preserves metric kind and values and applies configured cardinality limits. | Table-driven recording-handler cases. |
+| O10 | Metric input exceeds a configured production cardinality limit. | The production handler applies the limit without changing the application result and reports bounded drop facts. | Table-driven cardinality and drop cases. |
 | O11 | A trace crosses a carrier boundary. | Injection followed by extraction preserves valid trace identity and sampling state; malformed input produces no forged valid context. | Carrier conformance cases. |
 | O12 | JSON Lines export is enabled. | Each line validates against the checked schema and contains no machine-specific absolute source path. | Schema and relocation cases. |
 | O14 | Handler shutdown follows buffered emission. | Accepted records are flushed or counted as dropped before shutdown returns. | Deterministic exporter lifecycle case. |
 
 ## Verification and Promotion
 
-The next implementation work starts with metrics, fan-in links, and carrier
-propagation. The JSON Lines schema and fixtures then
+The next implementation work starts with fan-in links, carrier propagation,
+and production metric-cardinality policy. The JSON Lines schema and fixtures then
 establish the machine-readable contract. An external protocol adapter is
 verified against that protocol's conformance fixtures and remains replaceable.
 
@@ -144,5 +143,5 @@ schema. This proposal and its catalog entry must then be removed.
 - The core language does not depend on OpenTelemetry or another telemetry
   protocol.
 - Observability does not provide durable audit guarantees.
-- The initial metrics surface does not include asynchronous callbacks or a
-  query language.
+- This proposal does not add asynchronous metric callbacks or a metric query
+  language.

@@ -10,13 +10,14 @@ specification-coverage: usage=#usage; behavior=#behavior; limits=#limits
 The standard library provides a substitutable observation effect, scoped span
 lifecycle, explicit child-task context propagation, an inspectable recording
 handler, explicit channel-value context attachment, and call-site-aware
-structured log helpers for four severities and named domain events.
+structured log helpers for four severities, named domain events, counter
+increments, and histogram samples.
 Programs choose a lexical handler for the effect; the library does not select
 an exporter implicitly.
 
 ## Usage
 
-Import `observe`, `log`, `event`, and `traced` from the standard package.
+Import `observe`, `log`, `event`, `metric`, and `traced` from the standard package.
 Supply optional trace context, a message, and an ordered list of typed
 attributes to `log::debug`, `log::info`, `log::warning`, or `log::error`. Run
 the call inside a lexical `Observe` handler:
@@ -40,6 +41,22 @@ use observe from "std"
 
 fn completed() -> () effects [observe::Observe] callsite
 	event::emit(None, "checkout.completed", list_cons(observe::Attribute("attempt", observe::IntValue(1)), list_nil()))
+end
+```
+
+Use `metric::counter_increment` to record an integer increment and
+`metric::histogram_sample` to record an integer sample. Supply optional trace
+context, a stable metric name, the integer value, and an ordered list of typed
+attributes:
+
+```veln
+use metric from "std"
+use observe from "std"
+
+fn measured() -> () effects [observe::Observe] callsite
+	let attributes = list_cons(observe::Attribute("route", observe::StringValue("checkout")), list_nil())
+	metric::counter_increment(None, "request.count", 1, attributes)
+	metric::histogram_sample(None, "request.duration_ms", 17, attributes)
 end
 ```
 
@@ -131,6 +148,22 @@ receives it only when the program passes it explicitly.
 
 ## Behavior
 
+### Metrics
+
+Each metric helper performs exactly one `emit` operation. A counter increment
+produces `Observation::CounterIncrement` with a `CounterIncrementRecord`; a
+histogram sample produces `Observation::HistogramSample` with a
+`HistogramSampleRecord`. Both records preserve the supplied name, integer
+value, attributes in order, and optional `TraceContext`. The distinct
+observation variants preserve metric kind even when two records have the same
+name and attributes.
+
+Both helpers are call-site-aware. An ordinary call records the complete span
+of its call expression. A call-site-aware wrapper forwards the outer caller's
+location. The recording handler stores metric records in the same operation
+order as log, event, and span entries. Repeated snapshots retain earlier
+metric entries without consuming them.
+
 ### Named domain events
 
 `event::emit` performs exactly one `emit` operation. The emitted
@@ -178,6 +211,7 @@ effect. It discards each emitted observation and each span finish. A span start
 returns an opaque span value, so the operation is total even though programs
 cannot construct or inspect that value through the public API. Installing the
 handler preserves the handled program's result and opens no output destination.
+Counter increments and histogram samples follow the same discard rule.
 
 ### Span lifecycle and recording
 
@@ -241,9 +275,10 @@ infer ambient context, or apply a context to later observations.
 
 ## Limits
 
-Metrics, fan-in links, carrier propagation, production exporters,
-wall-time or resource enrichment, exporter health, and shutdown flushing are
-not available. The no-op handler does not record,
+Metric-cardinality enforcement, metric query APIs, asynchronous metric
+callbacks, fan-in links, carrier propagation, production exporters, wall-time
+or resource enrichment, exporter health, and shutdown flushing are not
+available. The no-op handler does not record,
 enrich, buffer, export, or report observations. `trace::in_span` currently
 accepts only a body returning `Result<(), String>`, while forwarding that
 body's effect row; it does not define rescue or exception recovery.
@@ -263,7 +298,9 @@ process or machine termination can prevent it from running.
   [`observe.test.veln`](../../crates/veln-stdlib/veln/observe.test.veln) and
   [`log.test.veln`](../../crates/veln-stdlib/veln/log.test.veln), named event
   coverage in
-  [`event.test.veln`](../../crates/veln-stdlib/veln/event.test.veln), plus scoped
+  [`event.test.veln`](../../crates/veln-stdlib/veln/event.test.veln), metric
+  coverage in
+  [`metric.test.veln`](../../crates/veln-stdlib/veln/metric.test.veln), plus scoped
   span lifecycle coverage in
   [`trace.test.veln`](../../crates/veln-stdlib/veln/trace.test.veln) and explicit
   task- and channel-value-context coverage in
@@ -276,6 +313,8 @@ process or machine termination can prevent it from running.
   [`observability-log-severities`](../../examples/specification/run/observability-log-severities/)
   and
   [`observability-event-callsite`](../../examples/specification/run/observability-event-callsite/).
+- Public metric-module and recording-handler execution evidence:
+  [`observability-metric-recording`](../../examples/specification/run/observability-metric-recording/).
 - Public no-op handler execution evidence:
   [`observability-noop-handler`](../../examples/specification/run/observability-noop-handler/).
 - Runtime-failure cleanup and primary-failure evidence:

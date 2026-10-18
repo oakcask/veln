@@ -16,7 +16,7 @@ also states it.
 
 ## Ready
 
-- Standard-library metrics, fan-in links, carrier context propagation,
+- Metric-cardinality limits, fan-in links, carrier context propagation,
   production exporters, JSON Lines, exporter health, and exporter lifecycle
   behavior:
   [observability.md](observability.md).

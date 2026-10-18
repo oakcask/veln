@@ -56,9 +56,19 @@ pub type EventRecord
 	pub EventRecord(name: String, attributes: List<Attribute>, context: Option<TraceContext>, source: SourceLocation)
 end
 
+pub type CounterIncrementRecord
+	pub CounterIncrementRecord(name: String, value: Int, attributes: List<Attribute>, context: Option<TraceContext>, source: SourceLocation)
+end
+
+pub type HistogramSampleRecord
+	pub HistogramSampleRecord(name: String, value: Int, attributes: List<Attribute>, context: Option<TraceContext>, source: SourceLocation)
+end
+
 pub type Observation
 	pub Log(record: LogRecord)
 	pub Event(record: EventRecord)
+	pub CounterIncrement(record: CounterIncrementRecord)
+	pub HistogramSample(record: HistogramSampleRecord)
 end
 
 pub effect Observe
