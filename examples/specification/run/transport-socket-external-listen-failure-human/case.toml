@@ -1,3 +1,5 @@
+# CLI/JVM host-integration contract: an explicitly imported standard network
+# operation reaches the real socket backend and preserves its human failure.
 command = ["run", "main", "main.veln"]
 exit = 1
 

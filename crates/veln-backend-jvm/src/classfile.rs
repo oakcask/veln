@@ -550,7 +550,7 @@ impl<'a> ClassfileEmitter<'a> {
         code.aload(local);
         code.invokestatic(
             &self.options.runtime_class,
-            "format",
+            "formatResultFailure",
             "(Ljava/lang/Object;)Ljava/lang/String;",
         );
         code.invokevirtual("java/io/PrintStream", "println", "(Ljava/lang/String;)V");

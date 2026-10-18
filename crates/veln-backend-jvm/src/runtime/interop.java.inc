@@ -27,7 +27,8 @@
                 diagnostic.fixtureHexDiagnostic,
                 diagnostic.byteDiagnostic,
                 diagnostic.valueDiagnostic,
-                diagnostic.protocolDiagnostic
+                diagnostic.protocolDiagnostic,
+                diagnostic.transportFailure
             );
         }
         if (value instanceof java.util.List) {
@@ -68,7 +69,8 @@
                 diagnostic.fixtureHexDiagnostic,
                 diagnostic.byteDiagnostic,
                 diagnostic.valueDiagnostic,
-                diagnostic.protocolDiagnostic
+                diagnostic.protocolDiagnostic,
+                diagnostic.transportFailure
             );
         }
         if (isByteViewValue(value)) {

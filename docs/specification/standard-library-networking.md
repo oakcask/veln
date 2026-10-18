@@ -195,6 +195,14 @@ Resource ownership failures use `InvalidResource`. A bind failure is
 bind to an unavailable local address uses the `Other` fallback rather than
 claiming that a port collision occurred.
 
+When the system handler converts a failed host `listen` or `connect` into
+`NetError`, it retains the transport operation, category, endpoint, pre-commit
+facts, and platform cause with that typed failure. Propagating the failure
+through `?` and returning it from a `veln run` entry preserves those facts for
+the command report. This diagnostic provenance does not add fields to the
+`NetError` value available to Veln source. Other raw host failures do not
+acquire the failed `listen` or `connect` commit facts.
+
 System reads return non-empty `ReadChunk` values. They return `ReadEnd` after
 the peer write half ends and buffered bytes have been consumed; later reads
 remain `ReadEnd`. A write reports the bytes committed by that attempt, including

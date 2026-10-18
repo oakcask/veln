@@ -1,5 +1,7 @@
+use net from "std"
+
 # External socket bind failures do not create an in-memory listener.
-pub fn main() -> Result<(), String> effects [net]
-	let _ = net::listen("192.0.2.1:1")
+pub fn main() -> Result<(), net::NetError> effects [net, time]
+	let _ = handle net::listen(net::Address(net::Tcp4, "192.0.2.1", 1)) with net::system()?
 	Ok(())
 end
