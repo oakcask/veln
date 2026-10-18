@@ -458,61 +458,89 @@ fn collect_refinement_exposures(
     let mut alternative_paths = std::collections::HashMap::<String, usize>::new();
     for (alternative_index, alternative) in refinement.alternatives.iter().enumerate() {
         let mut candidate = refinement_candidate(alternative);
-        record_visibility_work(path.len() + 1);
-        let mut alternative_path = path.to_vec();
-        if refinement.alternatives.len() > 1 {
-            let path_index = *alternative_paths
-                .entry(candidate.written_type.clone())
-                .or_insert(alternative_index);
-            alternative_path.push(StructuralExposureSegment::UnionAlternative(path_index));
-        }
+        let alternative_path = refinement_alternative_path(
+            refinement,
+            path,
+            alternative_index,
+            &candidate.written_type,
+            &mut alternative_paths,
+        );
         candidate.structural_path = alternative_path.clone();
-        candidate.structural_span = context.enclosing_structural_span.cloned();
-        if candidate.structural_span.is_none()
-            && path
-                .iter()
-                .any(|segment| matches!(segment, StructuralExposureSegment::RecordField(_)))
-        {
-            candidate.structural_span = Some(refinement.span.clone());
-        }
+        candidate.structural_span = refinement_structural_span(context, refinement, path);
         candidates.push(candidate);
         for (argument_index, argument) in alternative.type_arguments.iter().enumerate() {
-            record_visibility_work(alternative_path.len() + 1);
-            let mut nested = alternative_path.clone();
-            nested.push(StructuralExposureSegment::TypeArgument(argument_index));
-            let skeleton = type_argument_skeleton(argument);
-            if let Ok(ty) = parse_type_annotation(&skeleton) {
-                let mut child_refinements = argument.ty_refinements.iter().peekable();
-                collect_type_exposures(
-                    ExposureTraversalContext {
-                        annotation_span: context.annotation_span,
-                        placeholders: true,
-                        enclosing_structural_span: context
-                            .enclosing_structural_span
-                            .or(Some(&refinement.span)),
-                    },
-                    &ty,
-                    &mut child_refinements,
-                    &nested,
-                    candidates,
-                );
-            } else {
-                for child in &argument.ty_refinements {
-                    collect_refinement_exposures(
-                        ExposureTraversalContext {
-                            annotation_span: context.annotation_span,
-                            placeholders: true,
-                            enclosing_structural_span: context
-                                .enclosing_structural_span
-                                .or(Some(&refinement.span)),
-                        },
-                        child,
-                        &nested,
-                        candidates,
-                    );
-                }
-            }
+            collect_type_argument_exposures(
+                context,
+                refinement,
+                argument,
+                argument_index,
+                &alternative_path,
+                candidates,
+            );
         }
+    }
+}
+
+fn refinement_alternative_path(
+    refinement: &VariantRefinementType,
+    path: &[StructuralExposureSegment],
+    alternative_index: usize,
+    written_type: &str,
+    alternative_paths: &mut std::collections::HashMap<String, usize>,
+) -> Vec<StructuralExposureSegment> {
+    record_visibility_work(path.len() + 1);
+    let mut alternative_path = path.to_vec();
+    if refinement.alternatives.len() > 1 {
+        let path_index = *alternative_paths
+            .entry(written_type.to_string())
+            .or_insert(alternative_index);
+        alternative_path.push(StructuralExposureSegment::UnionAlternative(path_index));
+    }
+    alternative_path
+}
+
+fn refinement_structural_span(
+    context: ExposureTraversalContext<'_>,
+    refinement: &VariantRefinementType,
+    path: &[StructuralExposureSegment],
+) -> Option<SourceSpan> {
+    context.enclosing_structural_span.cloned().or_else(|| {
+        path.iter()
+            .any(|segment| matches!(segment, StructuralExposureSegment::RecordField(_)))
+            .then(|| refinement.span.clone())
+    })
+}
+
+fn collect_type_argument_exposures(
+    context: ExposureTraversalContext<'_>,
+    refinement: &VariantRefinementType,
+    argument: &veln_ast::VariantRefinementTypeArgument,
+    argument_index: usize,
+    alternative_path: &[StructuralExposureSegment],
+    candidates: &mut Vec<RefinementExposureCandidate>,
+) {
+    record_visibility_work(alternative_path.len() + 1);
+    let mut nested = alternative_path.to_vec();
+    nested.push(StructuralExposureSegment::TypeArgument(argument_index));
+    let child_context = ExposureTraversalContext {
+        annotation_span: context.annotation_span,
+        placeholders: true,
+        enclosing_structural_span: context.enclosing_structural_span.or(Some(&refinement.span)),
+    };
+    let skeleton = type_argument_skeleton(argument);
+    if let Ok(ty) = parse_type_annotation(&skeleton) {
+        let mut child_refinements = argument.ty_refinements.iter().peekable();
+        collect_type_exposures(
+            child_context,
+            &ty,
+            &mut child_refinements,
+            &nested,
+            candidates,
+        );
+        return;
+    }
+    for child in &argument.ty_refinements {
+        collect_refinement_exposures(child_context, child, &nested, candidates);
     }
 }
 

@@ -584,89 +584,8 @@ fn package_search_covers_all_package_fields_and_exclusion_boundaries() {
     );
     let declaration_id = declaration_uri.rsplit('/').next().unwrap().to_string();
 
-    struct FieldCase {
-        query: String,
-        title: &'static str,
-    }
-
-    let cases = [
-        FieldCase {
-            query: "example/ranking".to_string(),
-            title: "Veln package documentation: example/ranking",
-        },
-        FieldCase {
-            query: "rankmodule".to_string(),
-            title: "Veln package module: rankmodule",
-        },
-        FieldCase {
-            query: module_id,
-            title: "Veln package module: rankmodule",
-        },
-        FieldCase {
-            query: "rankthree".to_string(),
-            title: "Veln package declaration: function rankthree",
-        },
-        FieldCase {
-            query: declaration_id,
-            title: "Veln package declaration: function rankthree",
-        },
-        FieldCase {
-            query: "pkg-keyword-token".to_string(),
-            title: "Veln package declaration: function prefix_best",
-        },
-        FieldCase {
-            query: "ranking package description token".to_string(),
-            title: "Veln package documentation: example/ranking",
-        },
-        FieldCase {
-            query: "signatureonly".to_string(),
-            title: "Veln package declaration: function signature_best",
-        },
-        FieldCase {
-            query: "module-doc-token".to_string(),
-            title: "Veln package module: rankmodule",
-        },
-        FieldCase {
-            query: "declaration-doc-only".to_string(),
-            title: "Veln package declaration: function docs_only",
-        },
-        FieldCase {
-            query: "constructor-doc-token".to_string(),
-            title: "Veln package declaration: type FixtureEnvelope",
-        },
-        FieldCase {
-            query: "value >= 7".to_string(),
-            title: "Veln package declaration: function contract_best",
-        },
-    ];
-
-    for case in cases {
-        let result = search(
-            &mut server,
-            json!({"query": case.query, "scope": "package", "limit": 20}),
-        );
-        assert_eq!(
-            result["structuredContent"]["results"][0]["title"], case.title,
-            "{result:#}"
-        );
-    }
-
-    for excluded in [
-        "source-only-token",
-        "doctest_only_token",
-        "output-only-token",
-        "workspace-package-doc-token",
-    ] {
-        let result = search(
-            &mut server,
-            json!({"query": excluded, "scope": "all", "limit": 50}),
-        );
-        assert_eq!(
-            result["structuredContent"]["results"],
-            json!([]),
-            "{excluded}: {result:#}"
-        );
-    }
+    assert_package_search_field_coverage(&mut server, &module_id, &declaration_id);
+    assert_package_search_exclusions(&mut server);
 
     write_workspace_with_failed_dependency_documentation(&workspace);
     refresh_workspace(&mut server);
@@ -684,6 +603,80 @@ fn package_search_covers_all_package_fields_and_exclusion_boundaries() {
         json!({"query": "DiagnosticOnlyToken", "scope": "package"}),
     );
     assert_eq!(diagnostic_text["structuredContent"]["results"], json!([]));
+}
+
+fn assert_package_search_field_coverage(
+    server: &mut Server,
+    module_id: &str,
+    declaration_id: &str,
+) {
+    let cases = [
+        (
+            "example/ranking",
+            "Veln package documentation: example/ranking",
+        ),
+        ("rankmodule", "Veln package module: rankmodule"),
+        (module_id, "Veln package module: rankmodule"),
+        ("rankthree", "Veln package declaration: function rankthree"),
+        (
+            declaration_id,
+            "Veln package declaration: function rankthree",
+        ),
+        (
+            "pkg-keyword-token",
+            "Veln package declaration: function prefix_best",
+        ),
+        (
+            "ranking package description token",
+            "Veln package documentation: example/ranking",
+        ),
+        (
+            "signatureonly",
+            "Veln package declaration: function signature_best",
+        ),
+        ("module-doc-token", "Veln package module: rankmodule"),
+        (
+            "declaration-doc-only",
+            "Veln package declaration: function docs_only",
+        ),
+        (
+            "constructor-doc-token",
+            "Veln package declaration: type FixtureEnvelope",
+        ),
+        (
+            "value >= 7",
+            "Veln package declaration: function contract_best",
+        ),
+    ];
+    for (query, title) in cases {
+        let result = search(
+            server,
+            json!({"query": query, "scope": "package", "limit": 20}),
+        );
+        assert_eq!(
+            result["structuredContent"]["results"][0]["title"], title,
+            "{result:#}"
+        );
+    }
+}
+
+fn assert_package_search_exclusions(server: &mut Server) {
+    for excluded in [
+        "source-only-token",
+        "doctest_only_token",
+        "output-only-token",
+        "workspace-package-doc-token",
+    ] {
+        let result = search(
+            server,
+            json!({"query": excluded, "scope": "all", "limit": 50}),
+        );
+        assert_eq!(
+            result["structuredContent"]["results"],
+            json!([]),
+            "{excluded}: {result:#}"
+        );
+    }
 }
 
 #[test]
@@ -1080,33 +1073,51 @@ fn read_doc_accepts_exact_package_documentation_reads_and_rejects_boundaries() {
     );
     let before = package_publication_state(&mut server, "example/dep", "stable catalog text");
 
-    let index_uri = package_search_uri(&mut server, "package", "example/dep");
-    let index = assert_doc_tool_equals_resource(&mut server, &index_uri);
-    let module_uri = linked_package_doc_uri(index["text"].as_str().unwrap(), "/module/");
-    let module = assert_doc_tool_equals_resource(&mut server, &module_uri);
-    let declaration_uri = linked_package_doc_uri(module["text"].as_str().unwrap(), "/declaration/");
-    assert_doc_tool_equals_resource(&mut server, &declaration_uri);
+    let (index_uri, module_uri, declaration_uri) = accepted_package_doc_uris(&mut server);
+    assert_dependency_source_is_not_a_document(&mut server);
+    for (case, uri) in package_doc_rejection_cases(&index_uri, &module_uri, &declaration_uri) {
+        assert_read_doc_resource_not_found(&mut server, case, &uri);
+    }
+    assert_eq!(
+        package_publication_state(&mut server, "example/dep", "stable catalog text"),
+        before
+    );
+}
 
-    let source_uri = listed_dependency_source_uri(&mut server);
-    let source_read = read_doc(&mut server, &source_uri);
+fn accepted_package_doc_uris(server: &mut Server) -> (String, String, String) {
+    let index_uri = package_search_uri(server, "package", "example/dep");
+    let index = assert_doc_tool_equals_resource(server, &index_uri);
+    let module_uri = linked_package_doc_uri(index["text"].as_str().unwrap(), "/module/");
+    let module = assert_doc_tool_equals_resource(server, &module_uri);
+    let declaration_uri = linked_package_doc_uri(module["text"].as_str().unwrap(), "/declaration/");
+    assert_doc_tool_equals_resource(server, &declaration_uri);
+    (index_uri, module_uri, declaration_uri)
+}
+
+fn assert_dependency_source_is_not_a_document(server: &mut Server) {
+    let source_uri = listed_dependency_source_uri(server);
+    let source_read = read_doc(server, &source_uri);
     assert_eq!(source_read["isError"], true);
     assert_eq!(
         source_read["structuredContent"]["code"],
         "resource_not_found"
     );
+}
 
-    let (snapshot_digest, doc_digest) = package_documentation_uri_digests(&index_uri);
-    let wrong_digest = index_uri.replace(
-        index_uri
-            .split("/documentation/")
-            .nth(1)
-            .unwrap()
-            .split('/')
-            .next()
-            .unwrap(),
-        WRONG_DIGEST,
-    );
-    let rejection_cases = [
+fn package_doc_rejection_cases(
+    index_uri: &str,
+    module_uri: &str,
+    declaration_uri: &str,
+) -> Vec<(&'static str, String)> {
+    let (snapshot_digest, doc_digest) = package_documentation_uri_digests(index_uri);
+    let selected_doc_digest = index_uri
+        .split("/documentation/")
+        .nth(1)
+        .unwrap()
+        .split('/')
+        .next()
+        .unwrap();
+    vec![
         (
             "unknown",
             format!(
@@ -1122,7 +1133,10 @@ fn read_doc_accepts_exact_package_documentation_reads_and_rejects_boundaries() {
             "wrong-snapshot",
             index_uri.replace(snapshot_digest, WRONG_DIGEST),
         ),
-        ("wrong-documentation-digest", wrong_digest),
+        (
+            "wrong-documentation-digest",
+            index_uri.replace(selected_doc_digest, WRONG_DIGEST),
+        ),
         (
             "missing-module",
             format!(
@@ -1145,14 +1159,7 @@ fn read_doc_accepts_exact_package_documentation_reads_and_rejects_boundaries() {
             declaration_uri.replace("/declaration/", "/declaration/missing-"),
         ),
         ("query-bearing", format!("{index_uri}?x=1")),
-    ];
-    for (case, uri) in rejection_cases {
-        assert_read_doc_resource_not_found(&mut server, case, &uri);
-    }
-    assert_eq!(
-        package_publication_state(&mut server, "example/dep", "stable catalog text"),
-        before
-    );
+    ]
 }
 
 #[test]
@@ -1348,11 +1355,28 @@ fn read_resource_contents(server: &mut Server, uri: &str) -> Value {
 }
 
 fn package_doc_exact_reads(server: &mut Server, identity: &str) -> Vec<Value> {
+    let mut uris = listed_package_doc_uris(server, identity);
+    let index_linked = linked_package_doc_uris(server, uris.iter(), |uri| {
+        uri.contains("/module/") || uri.contains("/declaration/")
+    });
+    uris.extend(index_linked);
+    let module_linked = linked_package_doc_uris(
+        server,
+        uris.iter().filter(|uri| uri.contains("/module/")),
+        |uri| uri.contains("/declaration/"),
+    );
+    uris.extend(module_linked);
+    uris.into_iter()
+        .map(|uri| assert_doc_tool_equals_resource(server, &uri))
+        .collect()
+}
+
+fn listed_package_doc_uris(server: &mut Server, identity: &str) -> BTreeSet<String> {
     let prefix = format!(
         "veln-doc:///package/{}/snapshot/",
         identity.replace('/', "%2F")
     );
-    let mut uris = server
+    server
         .handle_request(
             json!({"jsonrpc":"2.0","id":"package-doc-state-list","method":"resources/list"}),
         )
@@ -1364,30 +1388,24 @@ fn package_doc_exact_reads(server: &mut Server, identity: &str) -> Vec<Value> {
             let uri = resource["uri"].as_str().unwrap();
             uri.starts_with(&prefix).then(|| uri.to_string())
         })
-        .collect::<BTreeSet<_>>();
-    let mut index_linked = Vec::new();
-    for uri in &uris {
-        let read = assert_doc_tool_equals_resource(server, uri);
-        index_linked.extend(
-            extract_package_doc_uris(read["text"].as_str().unwrap())
-                .into_iter()
-                .filter(|uri| uri.contains("/module/") || uri.contains("/declaration/")),
-        );
-    }
-    uris.extend(index_linked);
-    let mut module_linked = Vec::new();
-    for uri in uris.iter().filter(|uri| uri.contains("/module/")) {
-        let read = assert_doc_tool_equals_resource(server, uri);
-        module_linked.extend(
-            extract_package_doc_uris(read["text"].as_str().unwrap())
-                .into_iter()
-                .filter(|uri| uri.contains("/declaration/")),
-        );
-    }
-    uris.extend(module_linked);
-    uris.into_iter()
-        .map(|uri| assert_doc_tool_equals_resource(server, &uri))
         .collect()
+}
+
+fn linked_package_doc_uris<'a>(
+    server: &mut Server,
+    source_uris: impl Iterator<Item = &'a String>,
+    include: impl Fn(&str) -> bool,
+) -> Vec<String> {
+    let mut linked = Vec::new();
+    for uri in source_uris {
+        let read = assert_doc_tool_equals_resource(server, uri);
+        linked.extend(
+            extract_package_doc_uris(read["text"].as_str().unwrap())
+                .into_iter()
+                .filter(|uri| include(uri)),
+        );
+    }
+    linked
 }
 
 fn package_documentation_uri_digests(index_uri: &str) -> (&str, &str) {
