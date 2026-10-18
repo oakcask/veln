@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The standard-library Observe effect, observation handlers, scoped span helpers, explicit task-context propagation, structured logging, or observation data model changes.
+update-when: The standard-library Observe effect, observation handlers, scoped span helpers, explicit task or channel-value context propagation, structured logging, or observation data model changes.
 specification-coverage: usage=#usage; behavior=#behavior; limits=#limits
 ---
 
@@ -9,7 +9,8 @@ specification-coverage: usage=#usage; behavior=#behavior; limits=#limits
 
 The standard library provides a substitutable observation effect, scoped span
 lifecycle, explicit child-task context propagation, an inspectable recording
-handler, and call-site-aware structured log helpers for four severities.
+handler, explicit channel-value context attachment, and call-site-aware
+structured log helpers for four severities.
 Programs choose a lexical handler for the effect; the library does not select
 an exporter implicitly.
 
@@ -98,6 +99,23 @@ The helper returns the ordinary task handle. `task::join` therefore returns
 result, while the outer result retains ordinary task join and cancellation
 behavior.
 
+Use the public generic `Traced<A>` value when one channel must carry a payload
+with an explicit trace context. After `use traced from "std"`, construct
+`Traced(payload, context)`, send it through an ordinary channel, and match the
+same constructor after receipt:
+
+```veln
+let values = channel::bounded<Traced<String>>(1)
+let _ = channel::send(values.tx, Traced("work", context))
+match channel::recv(values.rx)
+	Some(Traced(payload, attached)) => log::info(Some(attached), payload, list_nil())
+	None => ()
+end
+```
+
+The receiver chooses how to use the attached context. An observation helper
+receives it only when the program passes it explicitly.
+
 ## Behavior
 
 ### Structured log records
@@ -179,16 +197,31 @@ operations do not attach observation context implicitly. A program can pass a
 `task::spawn_with`; `traced::spawn` provides the named observability helper for
 that pattern.
 
+### Explicit channel-value context
+
+`Traced<A>` is an ordinary public generic value with one public constructor,
+`Traced(value: A, context: TraceContext)`. Construction preserves the payload
+and context unchanged. Matching the constructor returns those same two values.
+The wrapper performs no effect and does not alter channel ordering, closure,
+blocking, or failure behavior.
+
+A long-lived worker can receive several `Traced<A>` values and select the
+context attached to each value independently. Receiving or sending an
+unwrapped `A` does not add a context, even when the task inherited an active
+observation handler. Raw channel and task operations do not inspect payloads,
+infer ambient context, or apply a context to later observations.
+
 ## Limits
 
-Events, metrics, channel propagation helpers, carrier propagation,
-production exporters, wall-time or resource enrichment, exporter health, and
-shutdown flushing are not available. The no-op handler does not record,
+Events, metrics, fan-in links, carrier propagation, production exporters,
+wall-time or resource enrichment, exporter health, and shutdown flushing are
+not available. The no-op handler does not record,
 enrich, buffer, export, or report observations. `trace::in_span` currently
 accepts only a body returning `Result<(), String>`, while forwarding that
 body's effect row; it does not define rescue or exception recovery.
-`traced::spawn` has the same callback-result restriction. It does not wrap
-channel values or propagate context through raw task or channel operations.
+`traced::spawn` has the same callback-result restriction. `Traced<A>` does not
+provide send, receive, fan-in, or context-selection helpers and does not
+propagate context through raw task or channel operations.
 
 An unhandled `Observe` effect follows the ordinary nominal-effect runnable
 boundary in [Effects](effects.md): a runnable entry must handle it before
@@ -207,6 +240,8 @@ process or machine termination can prevent it from running.
   [`traced.test.veln`](../../crates/veln-stdlib/veln/traced.test.veln).
 - Public task-context execution evidence:
   [`observability-traced-task-context`](../../examples/specification/run/observability-traced-task-context/).
+- Public channel-value context execution evidence:
+  [`observability-traced-channel-context`](../../examples/specification/run/observability-traced-channel-context/).
 - Call-site and effect-dispatch execution evidence:
   [`observability-log-severities`](../../examples/specification/run/observability-log-severities/).
 - Public no-op handler execution evidence:

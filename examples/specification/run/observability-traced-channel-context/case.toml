@@ -1,0 +1,16 @@
+# This case checks the compiler/JVM integration for a public generic standard-
+# package value crossing a channel into one long-lived task. Exact stdout
+# detects constructor or pattern loss, per-value context replacement, handler
+# inheritance failure, or implicit context on the raw channel value.
+command = ["run", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "text"
+equals_file = "case-text/stdout.txt"
+
+[stderr]
+format = "empty"
