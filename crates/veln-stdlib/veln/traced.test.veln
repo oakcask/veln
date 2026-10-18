@@ -12,6 +12,36 @@ fn raw_child() -> String effects [observe::Observe]
 	"raw-joined"
 end
 
+fn log_traced(value: Traced<String>) -> () effects [observe::Observe]
+	match value
+		Traced(message, context) => log::info(Some(context), message, list_nil())
+	end
+end
+
+fn traced_channel_worker(values: Receiver<Traced<String>>) -> Result<(), String> effects [observe::Observe, concurrency]
+	let first: Traced<String> = match channel::recv(values)
+		Some(value) => value
+		None => Err("traced channel closed before the first value")?
+	end
+	let second: Traced<String> = match channel::recv(values)
+		Some(value) => value
+		None => Err("traced channel closed before the second value")?
+	end
+	log_traced(first)
+	log_traced(second)
+	Ok(())
+end
+
+fn raw_channel_worker(values: Receiver<String>) -> Result<(), String> effects [observe::Observe, concurrency]
+	match channel::recv(values)
+		Some(message) => begin
+			log::info(None, message, list_nil())
+			Ok(())
+		end
+		None => Err("raw channel closed before the value")
+	end
+end
+
 test spawn_passes_the_supplied_context_and_preserves_join_result() -> Result<(), String> effects [time, concurrency]
 	let recording = observe::new_recording("traced-task")
 	let context = observe::TraceContext("supplied-trace", "supplied-span")
@@ -36,5 +66,34 @@ test raw_spawn_does_not_add_observation_context() -> Result<(), String> effects 
 			_ => Err("raw spawn added observation context")
 		end
 		_ => Err("raw spawn changed its task result or join behavior")
+	end
+end
+
+test channel_values_preserve_their_explicit_contexts() -> Result<(), String> effects [time, concurrency]
+	let recording = observe::new_recording("traced-channel")
+	let values = channel::bounded<Traced<String>>(2)
+	let worker = handle task::spawn_with<Result<(), String>, Receiver<Traced<String>>>(traced_channel_worker, values.rx) with observe::recording(recording)
+	let _ = channel::send(values.tx, Traced("first", observe::TraceContext("trace-first", "span-first")))
+	let _ = channel::send(values.tx, Traced("second", observe::TraceContext("trace-second", "span-second")))
+	match task::join(worker)
+		Ok(Ok(())) => match observe::recorded(recording)
+			Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "first", Nil, Some(observe::TraceContext("trace-first", "span-first")), _))), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "second", Nil, Some(observe::TraceContext("trace-second", "span-second")), _))), Nil)) => Ok(())
+			_ => Err("channel values did not preserve their attached contexts in receive order")
+		end
+		_ => Err("traced channel worker did not complete successfully")
+	end
+end
+
+test raw_channel_values_do_not_gain_observation_context() -> Result<(), String> effects [time, concurrency]
+	let recording = observe::new_recording("raw-channel")
+	let values = channel::bounded<String>(1)
+	let worker = handle task::spawn_with<Result<(), String>, Receiver<String>>(raw_channel_worker, values.rx) with observe::recording(recording)
+	let _ = channel::send(values.tx, "raw-channel")
+	match task::join(worker)
+		Ok(Ok(())) => match observe::recorded(recording)
+			Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "raw-channel", Nil, None, _))), Nil) => Ok(())
+			_ => Err("raw channel value gained observation context")
+		end
+		_ => Err("raw channel worker did not complete successfully")
 	end
 end

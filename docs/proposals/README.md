@@ -16,9 +16,9 @@ also states it.
 
 ## Ready
 
-- Standard-library events, metrics, explicit channel and carrier context
-  propagation, production exporters, JSON Lines, exporter health, and exporter
-  lifecycle behavior:
+- Standard-library events, metrics, fan-in links, carrier context propagation,
+  production exporters, JSON Lines, exporter health, and exporter lifecycle
+  behavior:
   [observability.md](observability.md).
 - Legacy compiler-known network compatibility removal after the remaining
   compiler and backend fixtures and executable examples migrate to the

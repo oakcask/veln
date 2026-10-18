@@ -1,0 +1,85 @@
+use log from "std"
+use observe from "std"
+use traced from "std"
+
+fn log_traced(value: Traced<String>) -> () effects [observe::Observe]
+	match value
+		Traced(message, context) => log::info(Some(context), message, list_nil())
+	end
+end
+
+fn traced_worker(values: Receiver<Traced<String>>) -> Result<(), String> effects [observe::Observe, concurrency]
+	let first: Traced<String> = match channel::recv(values)
+		Some(value) => value
+		None => Err("missing first traced value")?
+	end
+	let second: Traced<String> = match channel::recv(values)
+		Some(value) => value
+		None => Err("missing second traced value")?
+	end
+	log_traced(first)
+	log_traced(second)
+	Ok(())
+end
+
+fn raw_worker(values: Receiver<String>) -> Result<(), String> effects [observe::Observe, concurrency]
+	match channel::recv(values)
+		Some(message) => begin
+			log::info(None, message, list_nil())
+			Ok(())
+		end
+		None => Err("missing raw value")
+	end
+end
+
+fn print_traced_records(recording: Recording) -> () effects [stdio, concurrency]
+	match observe::recorded(recording)
+		Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, first, Nil, Some(observe::TraceContext(first_trace, first_span)), _))), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, second, Nil, Some(observe::TraceContext(second_trace, second_span)), _))), Nil)) => begin
+			stdio::println(first)
+			stdio::println(first_trace)
+			stdio::println(first_span)
+			stdio::println(second)
+			stdio::println(second_trace)
+			stdio::println(second_span)
+		end
+		_ => stdio::println("unexpected-traced-records")
+	end
+end
+
+fn print_raw_record(recording: Recording) -> () effects [stdio, concurrency]
+	match observe::recorded(recording)
+		Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, message, Nil, None, _))), Nil) => begin
+			stdio::println(message)
+			stdio::println("none")
+		end
+		_ => stdio::println("unexpected-raw-record")
+	end
+end
+
+fn run_traced(recording: Recording) -> () effects [observe::Observe, stdio, concurrency]
+	let values = channel::bounded<Traced<String>>(2)
+	let worker = task::spawn_with<Result<(), String>, Receiver<Traced<String>>>(traced_worker, values.rx)
+	let _ = channel::send(values.tx, Traced("first", observe::TraceContext("trace-first", "span-first")))
+	let _ = channel::send(values.tx, Traced("second", observe::TraceContext("trace-second", "span-second")))
+	match task::join(worker)
+		Ok(Ok(_)) => print_traced_records(recording)
+		_ => stdio::println("unexpected-traced-worker-result")
+	end
+end
+
+fn run_raw(recording: Recording) -> () effects [observe::Observe, stdio, concurrency]
+	let values = channel::bounded<String>(1)
+	let worker = task::spawn_with<Result<(), String>, Receiver<String>>(raw_worker, values.rx)
+	let _ = channel::send(values.tx, "raw")
+	match task::join(worker)
+		Ok(Ok(_)) => print_raw_record(recording)
+		_ => stdio::println("unexpected-raw-worker-result")
+	end
+end
+
+pub fn main() -> () effects [stdio, time, concurrency]
+	let traced_recording = observe::new_recording("traced-channel")
+	let _ = handle run_traced(traced_recording) with observe::recording(traced_recording)
+	let raw_recording = observe::new_recording("raw-channel")
+	handle run_raw(raw_recording) with observe::recording(raw_recording)
+end
