@@ -16,8 +16,10 @@ selects the nominal `net::IO` boundary.
 The standard library now uses the exported module for typed duplex I/O, the
 HTTP/2 transport-failure surface, and the HTTP/2 TCP service and client. Their
 connect, accept, stream I/O, stream-close, and listener-close operations use
-`net::IO`. The fallback remains required until all remaining checked sources
-use explicit standard imports.
+`net::IO`. The external connect- and listen-failure command cases also use an
+explicit standard import and `net::system()` while checking human and JSON
+host-failure reporting. The fallback remains required until all remaining
+checked sources use explicit standard imports.
 
 After migration, an unresolved legacy spelling will produce one diagnostic
 that identifies the standard import, the `net::IO` effect, and the

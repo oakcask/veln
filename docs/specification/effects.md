@@ -294,6 +294,11 @@ The exported `std::net` module supplies `net::system()` as a handler for
 expression using `net::system()` therefore removes `std::net::IO` and adds
 those two host effects. The handler frame owns its created network resources;
 the execution boundary closes those resources before that frame is restored.
+The handler converts expected host failures into typed `NetError` results and
+retains their transport diagnostic provenance across ordinary result
+propagation. Returning such a failure from a run entry therefore preserves the
+host operation and commit facts for command reporting without exposing extra
+fields in the source-level value.
 
 The checker recognizes these minimal transport-boundary call targets through
 the standard symbol table:

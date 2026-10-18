@@ -150,6 +150,14 @@ individual failure record; the category set is therefore not closed. The
 [`net::system()` translation table](standard-library-networking.md#host-failure-translation)
 defines how its typed handler converts host categories to `NetErrorKind`.
 
+A host socket failure converted by `net::system()` retains this transport
+record with its typed `NetError`. If `?` propagates that error to the selected
+entry result, the report still uses `error.kind: "runtime"` and
+`details.id: "runtime.transport_failure"`; it does not replace the record with
+an `error.kind: "result"` projection. A failed external `listen` or `connect`
+reports false input, output, and ownership commit facts and includes the
+platform cause when the host supplies one.
+
 An invalid dynamic shift count uses
 `details.id: "runtime.invalid_shift_count"` with `operator`,
 `actual_count`, `minimum_count`, and `maximum_count`. Other host failures
@@ -170,8 +178,9 @@ failure record.
 An entry returning `Err(value)` has `error.kind: "result"` and details
 `kind: "result"`, `phase: "runtime"`, and the rendered returned value in
 `value`. The rendered value is retained even when typed details are projected
-from it. A plain value without a recognized diagnostic form does not acquire
-typed fields.
+from it. A carried host transport record instead uses the runtime transport
+projection described above. A plain value without a recognized diagnostic
+form does not acquire typed fields.
 
 ### Compact hexadecimal details
 

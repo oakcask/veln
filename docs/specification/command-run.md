@@ -108,6 +108,12 @@ schema, byte-write, and protocol failures use the diagnostic shapes routed by
 printed after the primary message in cleanup execution order. Runtime trace
 files remain isolated to this invocation.
 
+If `net::system()` returns a host socket failure and the selected entry returns
+that `Err`, human mode prints the stable transport failure message instead of
+the rendered `NetError` value. The message retains the failed operation and
+transport category. A plain `Err` without carried diagnostic provenance keeps
+the ordinary rendered-result behavior.
+
 A computed zero remainder divisor fails with `runtime.remainder_by_zero` and
 the message `remainder divisor is zero` at the divisor location. A related note
 identifies the complete remainder operation. Output produced before the
