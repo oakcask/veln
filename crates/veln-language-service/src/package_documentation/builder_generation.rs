@@ -290,12 +290,16 @@ impl<'a> PackageDocBuilder<'a> {
         &mut self,
         parsed_sources: &[ParsedPackageSource],
     ) {
+        let exported_paths = parsed_sources
+            .iter()
+            .filter(|source| source.exported)
+            .map(|source| source.source.path().as_str())
+            .collect::<BTreeSet<_>>();
         let diagnostics = analyze_project(
             Project {
                 root: ".".into(),
                 files: parsed_sources
                     .iter()
-                    .filter(|source| source.exported)
                     .map(|source| source.source.clone())
                     .collect(),
                 manifest: None,
@@ -306,6 +310,10 @@ impl<'a> PackageDocBuilder<'a> {
         for diagnostic in diagnostics.into_iter().filter(|diagnostic| {
             diagnostic.severity == Severity::Error
                 && diagnostic.id == "type.variant_refinement_private"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| exported_paths.contains(span.file.as_str()))
         }) {
             self.diagnostics
                 .push(self.project_diagnostic("semantic_visibility", diagnostic));

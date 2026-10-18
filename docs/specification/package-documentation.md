@@ -169,7 +169,11 @@ The implemented gates are:
   export path can appear at most once;
 - semantic visibility: a public function signature or a public variant payload
   of a public source ADT must not expose a private variant-refinement base or
-  selected variant through any structural type position. A failure uses
+  selected variant through any structural type position. Semantic resolution
+  uses every retained package source, including non-exported modules needed by
+  imports and transparent aliases. Gate admission uses only diagnostics whose
+  primary exposure span is in a manifest-exported source; related base, alias,
+  and variant declarations may be in a non-exported module. A failure uses
   `gate: "semantic_visibility"`, reports
   `type.variant_refinement_private`, and publishes no declaration identity or
   signature;

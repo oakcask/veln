@@ -96,6 +96,183 @@ fn package_catalog_ignores_private_refinement_exposure_in_non_exported_modules()
 }
 
 #[test]
+fn package_catalog_rejects_direct_private_refinement_from_non_exported_module() {
+    let result = generate(
+        MANIFEST,
+        &[
+            (
+                "main.veln",
+                concat!(
+                    "use internal\n",
+                    "pub fn expose(value: internal::State::Hidden) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                ),
+            ),
+            (
+                "internal.veln",
+                concat!("pub type State\n", "  pub Ready\n", "  Hidden\n", "end\n",),
+            ),
+        ],
+    );
+
+    assert_exported_consumer_rejected(&result, 2, 39, "function", "expose");
+}
+
+#[test]
+fn package_catalog_rejects_nested_private_refinement_from_non_exported_module() {
+    let result = generate(
+        MANIFEST,
+        &[
+            (
+                "main.veln",
+                concat!(
+                    "use internal\n",
+                    "pub fn expose(value: internal::Box<internal::State::Hidden>) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                ),
+            ),
+            (
+                "internal.veln",
+                concat!(
+                    "pub type State\n",
+                    "  pub Ready\n",
+                    "  Hidden\n",
+                    "end\n",
+                    "pub type Box<A>\n",
+                    "  pub Boxed(value: A)\n",
+                    "end\n",
+                ),
+            ),
+        ],
+    );
+
+    assert_exported_consumer_rejected(&result, 2, 22, "function", "expose");
+}
+
+#[test]
+fn package_catalog_rejects_private_refinement_through_non_exported_alias() {
+    let result = generate(
+        MANIFEST,
+        &[
+            (
+                "main.veln",
+                concat!(
+                    "use internal\n",
+                    "pub fn expose(value: internal::Alias::Hidden) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                ),
+            ),
+            (
+                "internal.veln",
+                concat!(
+                    "pub type State\n",
+                    "  pub Ready\n",
+                    "  Hidden\n",
+                    "end\n",
+                    "pub type Alias = State\n",
+                ),
+            ),
+        ],
+    );
+
+    assert_exported_consumer_rejected(&result, 2, 32, "function", "expose");
+}
+
+#[test]
+fn package_catalog_rejects_public_adt_payload_from_non_exported_module() {
+    let result = generate(
+        MANIFEST,
+        &[
+            (
+                "main.veln",
+                concat!(
+                    "use internal\n",
+                    "pub type Envelope\n",
+                    "  pub Wrapped(value: internal::State::Hidden)\n",
+                    "end\n",
+                ),
+            ),
+            (
+                "internal.veln",
+                concat!("pub type State\n", "  pub Ready\n", "  Hidden\n", "end\n",),
+            ),
+        ],
+    );
+
+    assert_exported_consumer_rejected(&result, 3, 39, "type", "Envelope");
+}
+
+#[test]
+fn package_catalog_preserves_public_refinement_from_non_exported_module() {
+    let result = generate(
+        MANIFEST,
+        &[
+            (
+                "main.veln",
+                concat!(
+                    "use internal\n",
+                    "pub fn expose(value: internal::State::Ready) -> internal::State::Ready\n",
+                    "  value\n",
+                    "end\n",
+                ),
+            ),
+            (
+                "internal.veln",
+                concat!("pub type State\n", "  pub Ready\n", "end\n",),
+            ),
+        ],
+    );
+
+    let catalog = catalog_or_panic(&result);
+    let expose = catalog.modules[0]
+        .declarations
+        .iter()
+        .find(|declaration| declaration.name == "expose")
+        .expect("published function declaration");
+    assert_eq!(
+        expose.signature,
+        "fn expose(value: internal::State::Ready) -> internal::State::Ready"
+    );
+    assert!(
+        result
+            .declaration_uri_for("internal", "type", "State")
+            .is_none()
+    );
+}
+
+fn assert_exported_consumer_rejected(
+    result: &PackageDocResult,
+    line: usize,
+    column: usize,
+    declaration_kind: &str,
+    declaration_name: &str,
+) {
+    assert!(result.catalog().is_none());
+    let diagnostics = &result.status().diagnostics;
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic.gate, "semantic_visibility");
+    assert_eq!(diagnostic.code, "type.variant_refinement_private");
+    let span = diagnostic
+        .span
+        .as_ref()
+        .expect("visibility diagnostic span");
+    assert_eq!(
+        span.source_uri,
+        source_uri("demo", result.snapshot_digest(), "main.veln")
+    );
+    assert_eq!((span.line, span.column), (line, column));
+    assert!(
+        result
+            .declaration_uri_for("main", declaration_kind, declaration_name)
+            .is_none()
+    );
+}
+
+#[test]
 fn package_catalog_rejects_alias_function_and_recursive_exposure_paths() {
     let result = generate(
         MANIFEST,
