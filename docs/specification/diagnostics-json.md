@@ -244,6 +244,9 @@ cases fix named arguments, function positions, ADT payloads, union path
 segments, and outer structural spans. Invalid-arity overlap in function and
 named-argument positions is fixed by the focused
 [`JSON overlap case`](../../examples/specification/check/adt-variant-refinement-structural-visibility-invalid-arity-overlap/).
+Invalid-arity recovery at a direct union root retains each written alternative
+index, as fixed by the focused
+[`root-union JSON case`](../../examples/specification/check/adt-variant-refinement-invalid-arity-root-union-json/).
 The publication-closure
 [`human`](../../examples/specification/check/adt-variant-refinement-publication-closure-human/)
 case fixes a single causal diagnostic and failed command output. Focused

@@ -431,6 +431,65 @@ fn invalid_arity_siblings_preserve_structural_visibility_and_quarantine() {
 }
 
 #[test]
+fn invalid_arity_root_union_preserves_indexed_visibility_paths_and_quarantine() {
+    let source_text = concat!(
+        "pub type State<A>\n",
+        "  Hidden(A)\n",
+        "end\n",
+        "pub fn expose(value: State<Option<Int, Int>>::Hidden | State<Int>::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "type.invalid_annotation"
+                || diagnostic.id == "type.variant_refinement_private"
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "type.invalid_annotation",
+            "type.variant_refinement_private",
+            "type.variant_refinement_private",
+        ],
+        "{diagnostics:#?}"
+    );
+    let expected = [
+        ("State<Option<Int, Int>>::Hidden", 0),
+        ("State<Int>::Hidden", 1),
+    ];
+    for (diagnostic, (written_type, alternative_index)) in diagnostics.iter().skip(1).zip(expected)
+    {
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(
+            json.contains(&format!("\"written_type\":\"{written_type}\"")),
+            "{json}"
+        );
+        assert!(
+            json.contains(&format!(
+                "\"exposure_path\":[{{\"kind\":\"parameter\",\"name\":\"value\"}},{{\"kind\":\"union_alternative\",\"index\":{alternative_index}}}]"
+            )),
+            "{json}"
+        );
+        assert!(json.contains("\"kind\":\"private_variant_declaration\""));
+        assert!(json.contains("\"kind\":\"public_parameter_boundary\""));
+    }
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert!(!environment.function_is_published_for_test("expose"));
+}
+
+#[test]
 fn malformed_record_annotations_keep_independent_visibility_checks() {
     let diagnostics = diagnostics_for(concat!(
         "mod main\n",

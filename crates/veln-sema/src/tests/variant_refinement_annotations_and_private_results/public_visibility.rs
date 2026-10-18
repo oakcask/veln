@@ -1233,3 +1233,4 @@ fn colliding_qualified_refinement_project(imported_first: bool) -> SurfaceModule
 mod union_visibility;
 
 mod publication_and_recovery;
+mod publication_worklist;

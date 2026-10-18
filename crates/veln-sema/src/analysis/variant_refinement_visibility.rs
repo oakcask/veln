@@ -372,20 +372,17 @@ fn root_exposure_candidates(
     let (ty, used_structure_only_parse) = match parse_type_annotation(annotation_text) {
         Ok(ty) => (ty, false),
         Err(_) => {
-            let recovered = recovered_root_exposure_candidates(
-                annotation_span,
-                annotation_text,
-                refinements,
-                paths,
-            );
-            if !recovered.is_empty() {
-                return recovered;
-            }
             let Ok(ty) = parse_type_annotation_structure(annotation_text) else {
-                return if annotation_text.trim_start().starts_with('{') {
+                let recovered = recovered_root_exposure_candidates(
+                    annotation_span,
+                    annotation_text,
+                    refinements,
+                    paths,
+                );
+                return if recovered.is_empty() && annotation_text.trim_start().starts_with('{') {
                     record_exposure_candidates(refinements)
                 } else {
-                    Vec::new()
+                    recovered
                 };
             };
             (ty, true)

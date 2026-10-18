@@ -1,4 +1,5 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::hash::Hash;
 
 use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, Visibility};
 use veln_core::CheckedProgram;
@@ -59,6 +60,68 @@ pub struct UnpublishedDeclaration {
 pub struct PublicationDiagnosticCause {
     pub diagnostic_id: String,
     pub span: veln_source::SourceSpan,
+}
+
+impl Hash for PublicationDiagnosticCause {
+    fn hash<Hasher>(&self, state: &mut Hasher)
+    where
+        Hasher: std::hash::Hasher,
+    {
+        self.diagnostic_id.hash(state);
+        self.span.file.hash(state);
+        self.span.start.line.hash(state);
+        self.span.start.column.hash(state);
+        self.span.start.offset.hash(state);
+        self.span.end.line.hash(state);
+        self.span.end.column.hash(state);
+        self.span.end.offset.hash(state);
+        self.span.original_path().hash(state);
+        self.span
+            .original_start()
+            .map(|position| (position.line, position.column, position.offset))
+            .hash(state);
+        self.span
+            .original_end()
+            .map(|position| (position.line, position.column, position.offset))
+            .hash(state);
+    }
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct PublicationPropagationWork {
+    pub reverse_edges: usize,
+    pub admitted_cause_pairs: usize,
+    pub propagation_attempts: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    static PUBLICATION_PROPAGATION_WORK: std::cell::Cell<PublicationPropagationWork> =
+        const { std::cell::Cell::new(PublicationPropagationWork {
+            reverse_edges: 0,
+            admitted_cause_pairs: 0,
+            propagation_attempts: 0,
+        }) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_publication_propagation_work() {
+    PUBLICATION_PROPAGATION_WORK.set(PublicationPropagationWork::default());
+}
+
+#[cfg(test)]
+pub(crate) fn publication_propagation_work() -> PublicationPropagationWork {
+    PUBLICATION_PROPAGATION_WORK.get()
+}
+
+#[cfg(test)]
+fn record_publication_propagation_work(update: impl FnOnce(&mut PublicationPropagationWork)) {
+    PUBLICATION_PROPAGATION_WORK.set({
+        let mut work = PUBLICATION_PROPAGATION_WORK.get();
+        update(&mut work);
+        work
+    });
 }
 
 pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
@@ -975,23 +1038,20 @@ fn type_publication_diagnostic_causes(
         });
     }
 
-    loop {
-        let mut changed = false;
-        for entry in &entries {
-            let inherited = entry
-                .dependencies
-                .iter()
-                .flat_map(|dependency| causes.get(dependency).cloned().unwrap_or_default())
-                .collect::<Vec<_>>();
-            let current = causes.entry(entry.identity.clone()).or_default();
-            for cause in inherited {
-                changed |= push_unique_cause(current, cause);
-            }
-        }
-        if !changed {
-            break;
+    let mut reverse_dependencies: HashMap<String, Vec<String>> = HashMap::new();
+    let mut declaration_order = Vec::with_capacity(entries.len());
+    for entry in entries {
+        declaration_order.push(entry.identity.clone());
+        for dependency in entry.dependencies {
+            reverse_dependencies
+                .entry(dependency)
+                .or_default()
+                .push(entry.identity.clone());
+            #[cfg(test)]
+            record_publication_propagation_work(|work| work.reverse_edges += 1);
         }
     }
+    propagate_publication_causes(&declaration_order, &reverse_dependencies, &mut causes);
     causes
 }
 
@@ -1002,6 +1062,7 @@ fn function_publication_diagnostic_causes(
     type_causes: &HashMap<String, Vec<PublicationDiagnosticCause>>,
 ) -> HashMap<(Option<String>, String), Vec<PublicationDiagnosticCause>> {
     let mut causes = HashMap::new();
+    let mut declaration_order = Vec::new();
     for function in module.functions.iter().filter(|function| {
         function.kind == FunctionKind::Function && function.visibility == Visibility::Public
     }) {
@@ -1015,43 +1076,86 @@ fn function_publication_diagnostic_causes(
                 .collect::<BTreeSet<_>>()
                 .into_iter()
                 .collect::<Vec<_>>();
+        let mut admitted_causes = declaration_causes.iter().cloned().collect::<HashSet<_>>();
         for cause in dependencies
             .iter()
             .flat_map(|dependency| type_causes.get(dependency).cloned().unwrap_or_default())
         {
-            push_unique_cause(&mut declaration_causes, cause);
-        }
-        causes.insert(
-            (function.module_name.clone(), name.clone()),
-            declaration_causes,
-        );
-    }
-    loop {
-        let mut changed = false;
-        for alias in module
-            .aliases
-            .iter()
-            .filter(|alias| alias.kind == PublicAliasKind::Function)
-        {
-            let Some(name) = alias.name.as_ref() else {
-                continue;
-            };
-            let Some(target) = function_alias_target_key(module, alias) else {
-                continue;
-            };
-            let inherited = causes.get(&target).cloned().unwrap_or_default();
-            let current = causes
-                .entry((alias.module_name.clone(), name.clone()))
-                .or_default();
-            for cause in inherited {
-                changed |= push_unique_cause(current, cause);
+            if admitted_causes.insert(cause.clone()) {
+                declaration_causes.push(cause);
             }
         }
-        if !changed {
-            break;
+        let key = (function.module_name.clone(), name.clone());
+        declaration_order.push(key.clone());
+        causes.insert(key, declaration_causes);
+    }
+    let mut reverse_dependencies: HashMap<(Option<String>, String), Vec<(Option<String>, String)>> =
+        HashMap::new();
+    for alias in module
+        .aliases
+        .iter()
+        .filter(|alias| alias.kind == PublicAliasKind::Function)
+    {
+        let Some(name) = alias.name.as_ref() else {
+            continue;
+        };
+        let key = (alias.module_name.clone(), name.clone());
+        declaration_order.push(key.clone());
+        causes.entry(key.clone()).or_default();
+        let Some(target) = function_alias_target_key(module, alias) else {
+            continue;
+        };
+        reverse_dependencies.entry(target).or_default().push(key);
+        #[cfg(test)]
+        record_publication_propagation_work(|work| work.reverse_edges += 1);
+    }
+    propagate_publication_causes(&declaration_order, &reverse_dependencies, &mut causes);
+    causes
+}
+
+fn propagate_publication_causes<Key>(
+    declaration_order: &[Key],
+    reverse_dependencies: &HashMap<Key, Vec<Key>>,
+    causes: &mut HashMap<Key, Vec<PublicationDiagnosticCause>>,
+) where
+    Key: Clone + Eq + Hash,
+{
+    let mut admitted = HashMap::<Key, HashSet<PublicationDiagnosticCause>>::new();
+    let mut worklist = VecDeque::new();
+    for declaration in declaration_order {
+        let declaration_causes = causes.get(declaration).cloned().unwrap_or_default();
+        let declaration_admitted = admitted.entry(declaration.clone()).or_default();
+        for cause in declaration_causes {
+            if declaration_admitted.insert(cause.clone()) {
+                worklist.push_back((declaration.clone(), cause));
+                #[cfg(test)]
+                record_publication_propagation_work(|work| work.admitted_cause_pairs += 1);
+            }
         }
     }
-    causes
+
+    while let Some((dependency, cause)) = worklist.pop_front() {
+        let Some(dependents) = reverse_dependencies.get(&dependency) else {
+            continue;
+        };
+        for dependent in dependents {
+            #[cfg(test)]
+            record_publication_propagation_work(|work| work.propagation_attempts += 1);
+            if admitted
+                .entry(dependent.clone())
+                .or_default()
+                .insert(cause.clone())
+            {
+                causes
+                    .entry(dependent.clone())
+                    .or_default()
+                    .push(cause.clone());
+                worklist.push_back((dependent.clone(), cause.clone()));
+                #[cfg(test)]
+                record_publication_propagation_work(|work| work.admitted_cause_pairs += 1);
+            }
+        }
+    }
 }
 
 fn function_alias_target_key(
@@ -1097,16 +1201,4 @@ fn diagnostic_causes_within(
                 })
         })
         .collect()
-}
-
-fn push_unique_cause(
-    causes: &mut Vec<PublicationDiagnosticCause>,
-    cause: PublicationDiagnosticCause,
-) -> bool {
-    if causes.contains(&cause) {
-        false
-    } else {
-        causes.push(cause);
-        true
-    }
 }

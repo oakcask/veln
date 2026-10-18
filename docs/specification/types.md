@@ -897,6 +897,10 @@ The focused
 [`invalid-arity overlap`](../../examples/specification/check/adt-variant-refinement-structural-visibility-invalid-arity-overlap/)
 case verifies that invalid named-type arity in either order does not hide a
 private refinement in a sibling function or named-argument position.
+The focused
+[`invalid-arity root union`](../../examples/specification/check/adt-variant-refinement-invalid-arity-root-union-json/)
+case verifies that recovery retains the written union-alternative indices and
+reports each private refinement before the declaration is quarantined.
 The publication-closure
 [`human`](../../examples/specification/check/adt-variant-refinement-publication-closure-human/)
 case verifies one causal privacy diagnostic and failed command output across
