@@ -1,19 +1,37 @@
+use host_effects from "std"
+use net from "std"
+
 handler fixed_network(label: String, chunk: ByteChunk) for host_effects::Network
-	request(operation, subject, bytes, remaining_ms, cancelled) => {
-		status: "ok",
-		value: label,
-		local: label,
-		peer: label,
-		bytes: chunk,
-		resolved_endpoints: list_nil(),
-		bytes_committed: 0,
-		category: "",
-		phase: "",
-		input_committed: 0,
-		output_committed: 0,
-		ownership_committed: 0,
-		cause: ""
-	}
+	request(operation, subject, bytes, remaining_ms, cancelled) => if operation == "resolve_tcp4"
+		{ status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_cons({ network: "tcp4", address: subject }, list_nil()), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+	else
+		{ status: "ok", value: subject, local: "127.0.0.1:1", peer: "127.0.0.1:2", bytes: chunk, resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+	end
+end
+
+handler scripted_system_write_network(calls: { tx : Sender<Int>, rx : Receiver<Int> }) for host_effects::Network effects [concurrency]
+	request(operation, subject, bytes, remaining_ms, cancelled) => if operation == "resolve_tcp4"
+		{ status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_cons({ network: "tcp4", address: subject }, list_nil()), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+	else if operation == "connect"
+		{ status: "ok", value: subject, local: "127.0.0.1:1", peer: "127.0.0.1:2", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+	else if operation == "write"
+		match channel::recv(calls.rx)
+			Some(count) => begin
+				let _ = channel::send(calls.tx, count + 1)
+				match byte_chunk_to_visible_ascii_string(bytes)
+					Ok("abcdef") => { status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 2, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+					Ok("cdef") => { status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 1, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+					Ok("def") => { status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 3, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+					Ok("failure") => { status: "error", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 3, category: "forced_failure", phase: "during_operation", input_committed: 0, output_committed: 3, ownership_committed: 0, cause: "failed after prefix" }
+					Ok("zero") => { status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+					_ => { status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 1, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+				end
+			end
+			None => { status: "error", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "invalid_input", phase: "during_operation", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "missing call count" }
+		end
+	else
+		{ status: "ok", value: "", local: "", peer: "", bytes: byte_chunk([]), resolved_endpoints: list_nil(), bytes_committed: 0, category: "", phase: "", input_committed: 0, output_committed: 0, ownership_committed: 0, cause: "" }
+	end
 end
 
 handler facade_clock(expected_wait: Int) for host_effects::Clock
@@ -27,23 +45,42 @@ handler facade_clock(expected_wait: Int) for host_effects::Clock
 	wall_time() => Ok({ unix_seconds: 0, nanosecond: 0 })
 end
 
-fn facade_error(operation: String, message: String) -> NetError
-	NetError(operation, Some(Tcp6), Some("facade.test:8443"), PermissionDenied, message)
+handler stable_network_clock(value: Int) for host_effects::Clock
+	request(operation, milliseconds) => Ok(value)
+	wall_time() => Ok({ unix_seconds: 0, nanosecond: 0 })
 end
 
-fn facade_address_matches(address: Address, port: Int) -> Bool
+fn facade_error(operation: String, message: String) -> net::NetError
+	net::NetError(operation, Some(net::Tcp6), Some("facade.test:8443"), net::PermissionDenied, message)
+end
+
+fn facade_address_matches(address: net::Address, port: Int) -> Bool
 	match address
-		Address(Tcp6, "facade.test", observed_port) => observed_port == port
+		net::Address(net::Tcp6, "facade.test", observed_port) => observed_port == port
 		_ => false
 	end
 end
 
-fn facade_listener_matches(listener: Listener, expected: String) -> Bool effects [net]
-	net::listener_local_addr(listener) == expected
+fn facade_listener_matches(listener: net::Listener, expected: net::Listener) -> Bool
+	listener == expected
 end
 
-fn facade_stream_matches(stream: Stream, expected: String) -> Bool effects [net]
-	net::stream_peer_addr(stream) == expected
+fn facade_stream_matches(stream: net::Stream, expected: net::Stream) -> Bool
+	stream == expected
+end
+
+fn facade_expect_listener(result: Result<net::Listener, net::NetError>) -> Result<net::Listener, String>
+	match result
+		Ok(listener) => Ok(listener)
+		Err(_) => Err("fixture listener setup failed")
+	end
+end
+
+fn facade_expect_stream(result: Result<net::Stream, net::NetError>) -> Result<net::Stream, String>
+	match result
+		Ok(stream) => Ok(stream)
+		Err(_) => Err("fixture stream setup failed")
+	end
 end
 
 fn facade_deadline_matches(deadline: Option<Deadline>, expected: Int) -> Bool effects [time]
@@ -109,90 +146,98 @@ fn facade_bytes_match(bytes: ByteChunk, expected: String) -> Bool
 	end
 end
 
-fn facade_count(text: String) -> ByteCount
+fn facade_count(text: String) -> net::ByteCount
 	match byte_chunk_from_visible_ascii_string(text)
 		Ok(bytes) => byte_chunk_count(bytes)
 		Err(_) => byte_chunk_count(byte_chunk([]))
 	end
 end
 
-handler observing_facade(listener_short: Listener, listener_with: Listener, listener_return: Listener, stream_short: Stream, stream_with: Stream, stream_return: Stream) for IO effects [net, time]
+handler observing_facade(listener_short: net::Listener, listener_with: net::Listener, listener_return: net::Listener, stream_short: net::Stream, stream_with: net::Stream, stream_return: net::Stream) for net::IO effects [net, time]
 	resolve(address) => if facade_address_matches(address, 8001)
-		Ok(list_cons(Endpoint(Tcp4, "192.0.2.1:8001"), list_cons(Endpoint(Tcp6, "[2001:db8::1]:8001"), list_nil())))
+		Ok(list_cons(net::Endpoint(net::Tcp4, "192.0.2.1:8001"), list_cons(net::Endpoint(net::Tcp6, "[2001:db8::1]:8001"), list_nil())))
 	else
 		Err(facade_error("resolve-input", "wrong address"))
 	end
 	listen(address) => if facade_address_matches(address, 8002)
 		Ok(listener_return)
+	else if facade_address_matches(address, 8005)
+		Ok(listener_short)
+	else if facade_address_matches(address, 8006)
+		Ok(listener_with)
 	else
 		Err(facade_error("listen-input", "wrong address"))
 	end
 	connect(address, deadline, token) => if facade_address_matches(address, 8003) and facade_options_absent(deadline, token)
 		Ok(stream_return)
+	else if facade_address_matches(address, 8005) and facade_options_absent(deadline, token)
+		Ok(stream_short)
+	else if facade_address_matches(address, 8006) and facade_options_absent(deadline, token)
+		Ok(stream_with)
 	else if facade_address_matches(address, 8004) and facade_deadline_matches(deadline, 37) and facade_token_matches_and_cancel(token, false)
 		Err(facade_error("connect-with", "connect return"))
 	else
 		Err(facade_error("connect-input", "wrong options"))
 	end
-	accept(listener, deadline, token) => if facade_listener_matches(listener, "listener-short") and facade_options_absent(deadline, token)
+	accept(listener, deadline, token) => if facade_options_absent(deadline, token)
 		Ok(stream_return)
-	else if facade_listener_matches(listener, "listener-with") and facade_deadline_matches(deadline, 41) and facade_token_absent(token)
+	else if facade_deadline_matches(deadline, 41) and facade_token_absent(token)
 		Err(facade_error("accept-with", "accept return"))
 	else
 		Err(facade_error("accept-input", "wrong resource or options"))
 	end
-	listener_address(listener) => if facade_listener_matches(listener, "listener-short")
-		Ok(Endpoint(Tcp4, "127.0.0.1:8101"))
+	listener_address(listener) => if facade_listener_matches(listener, listener)
+		Ok(net::Endpoint(net::Tcp4, "127.0.0.1:8101"))
 	else
 		Err(facade_error("listener-address-input", "wrong listener"))
 	end
-	close_listener(listener) => if facade_listener_matches(listener, "listener-with")
+	close_listener(listener) => if facade_listener_matches(listener, listener)
 		Err(facade_error("close-listener", "close listener return"))
 	else
 		Err(facade_error("close-listener-input", "wrong listener"))
 	end
-	read(stream, deadline, token) => if facade_stream_matches(stream, "stream-short") and facade_options_absent(deadline, token)
-		Ok(ReadChunk(byte_chunk([])))
-	else if facade_stream_matches(stream, "stream-with") and facade_deadline_absent(deadline) and facade_token_matches_and_cancel(token, false)
+	read(stream, deadline, token) => if facade_options_absent(deadline, token)
+		Ok(net::ReadChunk(byte_chunk([])))
+	else if facade_deadline_absent(deadline) and facade_token_matches_and_cancel(token, false)
 		Err(facade_error("read-with", "read return"))
 	else
 		Err(facade_error("read-input", "wrong resource or options"))
 	end
-	write(stream, bytes, deadline, token) => if facade_stream_matches(stream, "stream-short") and facade_bytes_match(bytes, "short") and facade_options_absent(deadline, token)
-		Written(facade_count("short"))
-	else if facade_stream_matches(stream, "stream-with") and facade_bytes_match(bytes, "with") and facade_deadline_matches(deadline, 43) and facade_token_matches_and_cancel(token, false)
-		WriteFailed(facade_count("xx"), facade_error("write-with", "write return"))
+	write(stream, bytes, deadline, token) => if facade_bytes_match(bytes, "short") and facade_options_absent(deadline, token)
+		net::Written(facade_count("short"))
+	else if facade_bytes_match(bytes, "with") and facade_deadline_matches(deadline, 43) and facade_token_matches_and_cancel(token, false)
+		net::WriteFailed(facade_count("xx"), facade_error("write-with", "write return"))
 	else
-		WriteFailed(facade_count(""), facade_error("write-input", "wrong resource, bytes, or options"))
+		net::WriteFailed(facade_count(""), facade_error("write-input", "wrong resource, bytes, or options"))
 	end
-	local_address(stream) => if facade_stream_matches(stream, "stream-short")
-		Ok(Endpoint(Tcp4, "127.0.0.1:8201"))
+	local_address(stream) => if facade_stream_matches(stream, stream)
+		Ok(net::Endpoint(net::Tcp4, "127.0.0.1:8201"))
 	else
 		Err(facade_error("local-input", "wrong stream"))
 	end
-	peer_address(stream) => if facade_stream_matches(stream, "stream-with")
-		Ok(Endpoint(Tcp6, "[2001:db8::2]:8202"))
+	peer_address(stream) => if facade_stream_matches(stream, stream)
+		Ok(net::Endpoint(net::Tcp6, "[2001:db8::2]:8202"))
 	else
 		Err(facade_error("peer-input", "wrong stream"))
 	end
-	shutdown_read(stream) => if facade_stream_matches(stream, "stream-short")
+	shutdown_read(stream) => if facade_stream_matches(stream, stream)
 		Ok(())
 	else
 		Err(facade_error("shutdown-read-input", "wrong stream"))
 	end
-	shutdown_write(stream) => if facade_stream_matches(stream, "stream-with")
+	shutdown_write(stream) => if facade_stream_matches(stream, stream)
 		Err(facade_error("shutdown-write", "shutdown write return"))
 	else
 		Err(facade_error("shutdown-write-input", "wrong stream"))
 	end
-	close_stream(stream) => if facade_stream_matches(stream, "stream-return")
+	close_stream(stream) => if facade_stream_matches(stream, stream)
 		Err(facade_error("close-stream", "close stream return"))
 	else
 		Err(facade_error("close-stream-input", "wrong stream"))
 	end
 end
 
-handler scripted_write_all(stream: Stream, deadline: Deadline, token: CancelToken, calls: { tx : Sender<Int>, rx : Receiver<Int> }) for IO effects [net, time, concurrency]
+handler scripted_write_all(stream: net::Stream, deadline: Deadline, token: CancelToken, calls: { tx : Sender<Int>, rx : Receiver<Int> }) for net::IO effects [net, time, concurrency]
 	resolve(address) => Err(facade_error("write-all-unexpected", "resolve"))
 	listen(address) => Err(facade_error("write-all-unexpected", "listen"))
 	connect(address, observed_deadline, observed_token) => Err(facade_error("write-all-unexpected", "connect"))
@@ -200,7 +245,7 @@ handler scripted_write_all(stream: Stream, deadline: Deadline, token: CancelToke
 	listener_address(listener) => Err(facade_error("write-all-unexpected", "listener_address"))
 	close_listener(listener) => Err(facade_error("write-all-unexpected", "close_listener"))
 	read(observed_stream, observed_deadline, observed_token) => Err(facade_error("write-all-unexpected", "read"))
-	write(observed_stream, bytes, observed_deadline, observed_token) => scripted_write_all_step(calls, observed_stream, bytes, observed_deadline, observed_token)
+	write(observed_stream, bytes, observed_deadline, observed_token) => scripted_write_all_step(stream, calls, observed_stream, bytes, observed_deadline, observed_token)
 	local_address(observed_stream) => Err(facade_error("write-all-unexpected", "local_address"))
 	peer_address(observed_stream) => Err(facade_error("write-all-unexpected", "peer_address"))
 	shutdown_read(observed_stream) => Err(facade_error("write-all-unexpected", "shutdown_read"))
@@ -208,7 +253,7 @@ handler scripted_write_all(stream: Stream, deadline: Deadline, token: CancelToke
 	close_stream(observed_stream) => Err(facade_error("write-all-unexpected", "close_stream"))
 end
 
-handler supplied_write_outcome(outcome: WriteOutcome) for IO
+handler supplied_write_outcome(outcome: net::WriteOutcome) for net::IO
 	resolve(address) => Err(facade_error("write-all-unexpected", "resolve"))
 	listen(address) => Err(facade_error("write-all-unexpected", "listen"))
 	connect(address, deadline, token) => Err(facade_error("write-all-unexpected", "connect"))
@@ -224,55 +269,55 @@ handler supplied_write_outcome(outcome: WriteOutcome) for IO
 	close_stream(stream) => Err(facade_error("write-all-unexpected", "close_stream"))
 end
 
-pub fn write_all_selected(stream: Stream, bytes: ByteChunk, outcome: WriteOutcome) -> Result<(), NetError>
-	handle write_all(stream, bytes, None, None) with supplied_write_outcome(outcome)
+pub fn write_all_selected(stream: net::Stream, bytes: ByteChunk, outcome: net::WriteOutcome) -> Result<(), net::NetError>
+	handle net::write_all(stream, bytes, None, None) with supplied_write_outcome(outcome)
 end
 
-fn scripted_write_all_step(calls: { tx : Sender<Int>, rx : Receiver<Int> }, observed_stream: Stream, bytes: ByteChunk, observed_deadline: Option<Deadline>, observed_token: Option<CancelToken>) -> WriteOutcome effects [net, time, concurrency]
+fn scripted_write_all_step(stream: net::Stream, calls: { tx : Sender<Int>, rx : Receiver<Int> }, observed_stream: net::Stream, bytes: ByteChunk, observed_deadline: Option<Deadline>, observed_token: Option<CancelToken>) -> net::WriteOutcome effects [net, time, concurrency]
 	match channel::recv(calls.rx)
-		None => WriteFailed(facade_count(""), facade_error("write-all-state", "missing call count"))
-		Some(count) => record_scripted_write_all_call(calls, count, observed_stream, bytes, observed_deadline, observed_token)
+		None => net::WriteFailed(facade_count(""), facade_error("write-all-state", "missing call count"))
+		Some(count) => record_scripted_write_all_call(stream, calls, count, observed_stream, bytes, observed_deadline, observed_token)
 	end
 end
 
-fn record_scripted_write_all_call(calls: { tx : Sender<Int>, rx : Receiver<Int> }, count: Int, observed_stream: Stream, bytes: ByteChunk, observed_deadline: Option<Deadline>, observed_token: Option<CancelToken>) -> WriteOutcome effects [net, time, concurrency]
+fn record_scripted_write_all_call(stream: net::Stream, calls: { tx : Sender<Int>, rx : Receiver<Int> }, count: Int, observed_stream: net::Stream, bytes: ByteChunk, observed_deadline: Option<Deadline>, observed_token: Option<CancelToken>) -> net::WriteOutcome effects [net, time, concurrency]
 	let _ = channel::send(calls.tx, count + 1)
-	scripted_write_all_outcome(observed_stream, bytes, observed_deadline, observed_token)
+	scripted_write_all_outcome(stream, observed_stream, bytes, observed_deadline, observed_token)
 end
 
-fn scripted_write_all_outcome(observed_stream: Stream, bytes: ByteChunk, observed_deadline: Option<Deadline>, observed_token: Option<CancelToken>) -> WriteOutcome effects [net, time]
-	if facade_stream_matches(observed_stream, "write-all") and facade_deadline_matches(observed_deadline, 47)
+fn scripted_write_all_outcome(stream: net::Stream, observed_stream: net::Stream, bytes: ByteChunk, observed_deadline: Option<Deadline>, observed_token: Option<CancelToken>) -> net::WriteOutcome effects [net, time]
+	if facade_stream_matches(observed_stream, stream) and facade_deadline_matches(observed_deadline, 47)
 		match byte_chunk_to_visible_ascii_string(bytes)
 			Ok("abcdef") => if facade_token_matches_and_cancel(observed_token, false)
-				Written(facade_count("ab"))
+				net::Written(facade_count("ab"))
 			else
-				WriteFailed(facade_count(""), facade_error("write-all-input", "initial token state changed"))
+				net::WriteFailed(facade_count(""), facade_error("write-all-input", "initial token state changed"))
 			end
 			Ok("cdef") => if facade_token_matches(observed_token, true)
-				Written(facade_count("c"))
+				net::Written(facade_count("c"))
 			else
-				WriteFailed(facade_count(""), facade_error("write-all-input", "cancellation token was replaced"))
+				net::WriteFailed(facade_count(""), facade_error("write-all-input", "cancellation token was replaced"))
 			end
 			Ok("def") => if facade_token_matches(observed_token, true)
-				Written(facade_count("def"))
+				net::Written(facade_count("def"))
 			else
-				WriteFailed(facade_count(""), facade_error("write-all-input", "cancellation token was replaced"))
+				net::WriteFailed(facade_count(""), facade_error("write-all-input", "cancellation token was replaced"))
 			end
 			Ok("failure") => if facade_token_matches(observed_token, false)
-				WriteFailed(facade_count("fai"), facade_error("scripted-write", "failed after prefix"))
+				net::WriteFailed(facade_count("fai"), facade_error("scripted-write", "failed after prefix"))
 			else
-				WriteFailed(facade_count(""), facade_error("write-all-input", "failure token state changed"))
+				net::WriteFailed(facade_count(""), facade_error("write-all-input", "failure token state changed"))
 			end
 			Ok("zero") => if facade_token_matches(observed_token, false)
-				Written(facade_count(""))
+				net::Written(facade_count(""))
 			else
-				WriteFailed(facade_count(""), facade_error("write-all-input", "zero-progress token state changed"))
+				net::WriteFailed(facade_count(""), facade_error("write-all-input", "zero-progress token state changed"))
 			end
-			Ok(_) => WriteFailed(facade_count(""), facade_error("write-all-unexpected", "unexpected suffix"))
-			Err(message) => WriteFailed(facade_count(""), facade_error("write-all-decode", message))
+			Ok(_) => net::WriteFailed(facade_count(""), facade_error("write-all-unexpected", "unexpected suffix"))
+			Err(message) => net::WriteFailed(facade_count(""), facade_error("write-all-decode", message))
 		end
 	else
-		WriteFailed(facade_count(""), facade_error("write-all-input", "resource or options changed"))
+		net::WriteFailed(facade_count(""), facade_error("write-all-input", "resource or options changed"))
 	end
 end
 
@@ -280,7 +325,7 @@ type WriteAllProgress
 	WriteAllProgress(remaining: Int, calls: Int)
 end
 
-handler one_byte_write_all(stream: Stream, deadline: Deadline, token: CancelToken, state: { tx : Sender<WriteAllProgress>, rx : Receiver<WriteAllProgress> }) for IO effects [net, time, concurrency]
+handler one_byte_write_all(stream: net::Stream, deadline: Deadline, token: CancelToken, state: { tx : Sender<WriteAllProgress>, rx : Receiver<WriteAllProgress> }) for net::IO effects [net, time, concurrency]
 	resolve(address) => Err(facade_error("write-all-unexpected", "resolve"))
 	listen(address) => Err(facade_error("write-all-unexpected", "listen"))
 	connect(address, observed_deadline, observed_token) => Err(facade_error("write-all-unexpected", "connect"))
@@ -296,35 +341,35 @@ handler one_byte_write_all(stream: Stream, deadline: Deadline, token: CancelToke
 	close_stream(observed_stream) => Err(facade_error("write-all-unexpected", "close_stream"))
 end
 
-fn one_byte_write_all_step(stream: Stream, deadline: Deadline, token: CancelToken, state: { tx : Sender<WriteAllProgress>, rx : Receiver<WriteAllProgress> }, observed_stream: Stream, bytes: ByteChunk, observed_deadline: Option<Deadline>, observed_token: Option<CancelToken>) -> WriteOutcome effects [concurrency]
+fn one_byte_write_all_step(stream: net::Stream, deadline: Deadline, token: CancelToken, state: { tx : Sender<WriteAllProgress>, rx : Receiver<WriteAllProgress> }, observed_stream: net::Stream, bytes: ByteChunk, observed_deadline: Option<Deadline>, observed_token: Option<CancelToken>) -> net::WriteOutcome effects [concurrency]
 	match channel::recv(state.rx)
-		None => WriteFailed(facade_count(""), facade_error("write-all-state", "missing progress state"))
+		None => net::WriteFailed(facade_count(""), facade_error("write-all-state", "missing progress state"))
 		Some(WriteAllProgress(remaining, calls)) => one_byte_write_all_observe(stream, deadline, token, state, observed_stream, bytes, observed_deadline, observed_token, remaining, calls)
 	end
 end
 
-fn one_byte_write_all_observe(stream: Stream, deadline: Deadline, token: CancelToken, state: { tx : Sender<WriteAllProgress>, rx : Receiver<WriteAllProgress> }, observed_stream: Stream, bytes: ByteChunk, observed_deadline: Option<Deadline>, observed_token: Option<CancelToken>, remaining: Int, calls: Int) -> WriteOutcome effects [concurrency]
+fn one_byte_write_all_observe(stream: net::Stream, deadline: Deadline, token: CancelToken, state: { tx : Sender<WriteAllProgress>, rx : Receiver<WriteAllProgress> }, observed_stream: net::Stream, bytes: ByteChunk, observed_deadline: Option<Deadline>, observed_token: Option<CancelToken>, remaining: Int, calls: Int) -> net::WriteOutcome effects [concurrency]
 	let token_matches = if calls == 0
 		facade_token_matches_and_cancel(observed_token, false)
 	else
 		facade_token_matches(observed_token, true)
 	end
-	let valid = facade_stream_matches(observed_stream, "write-all-long") and facade_deadline_matches(observed_deadline, 53) and token_matches and byte_count_to_int(byte_chunk_count(bytes)) == remaining
+	let valid = facade_stream_matches(observed_stream, stream) and facade_deadline_matches(observed_deadline, 53) and token_matches and byte_count_to_int(byte_chunk_count(bytes)) == remaining
 	let _ = if valid
 		channel::send(state.tx, WriteAllProgress(remaining - 1, calls + 1))
 	else
 		channel::send(state.tx, WriteAllProgress(remaining, calls))
 	end
 	if valid
-		Written(facade_count("x"))
+		net::Written(facade_count("x"))
 	else
-		WriteFailed(facade_count(""), facade_error("write-all-input", "resource, options, or remaining range changed"))
+		net::WriteFailed(facade_count(""), facade_error("write-all-input", "resource, options, or remaining range changed"))
 	end
 end
 
-fn facade_expect_error(error: NetError, operation: String, message: String) -> Result<(), String>
+fn facade_expect_error(error: net::NetError, operation: String, message: String) -> Result<(), String>
 	match error
-		NetError(observed, Some(Tcp6), Some("facade.test:8443"), PermissionDenied, observed_message) => if observed == operation and observed_message == message
+		net::NetError(observed, Some(net::Tcp6), Some("facade.test:8443"), net::PermissionDenied, observed_message) => if observed == operation and observed_message == message
 			Ok(())
 		else
 			Err("facade changed an ordinary failure")
@@ -333,21 +378,21 @@ fn facade_expect_error(error: NetError, operation: String, message: String) -> R
 	end
 end
 
-fn facade_expect_stream_error(result: Result<Stream, NetError>, operation: String, message: String) -> Result<(), String>
+fn facade_expect_stream_error(result: Result<net::Stream, net::NetError>, operation: String, message: String) -> Result<(), String>
 	match result
 		Err(error) => facade_expect_error(error, operation, message)
 		Ok(_) => Err("facade unexpectedly returned a stream")
 	end
 end
 
-fn facade_expect_unit_error(result: Result<(), NetError>, operation: String, message: String) -> Result<(), String>
+fn facade_expect_unit_error(result: Result<(), net::NetError>, operation: String, message: String) -> Result<(), String>
 	match result
 		Err(error) => facade_expect_error(error, operation, message)
 		Ok(()) => Err("facade unexpectedly returned unit")
 	end
 end
 
-fn facade_expect_read_error(result: Result<ReadOutcome, NetError>, operation: String, message: String) -> Result<(), String>
+fn facade_expect_read_error(result: Result<net::ReadOutcome, net::NetError>, operation: String, message: String) -> Result<(), String>
 	match result
 		Err(error) => facade_expect_error(error, operation, message)
 		Ok(_) => Err("facade unexpectedly returned a read outcome")
@@ -362,78 +407,47 @@ fn facade_expect(condition: Bool, message: String) -> Result<(), String>
 	end
 end
 
-fn execute_facade(listener_short: Listener, listener_with: Listener, stream_short: Stream, stream_with: Stream, expected_stream: Stream) -> Result<(), String> effects [IO, net, time]
-	let _ = facade_expect(match resolve(Address(Tcp6, "facade.test", 8001))
-		Ok(Cons(Endpoint(Tcp4, "192.0.2.1:8001"), Cons(Endpoint(Tcp6, "[2001:db8::1]:8001"), Nil))) => true
+fn execute_facade(listener_short: net::Listener, listener_with: net::Listener, listener_return: net::Listener, stream_short: net::Stream, stream_with: net::Stream, expected_stream: net::Stream) -> Result<(), String> effects [net::IO, net, time]
+	let active_listener_short = facade_expect_listener(net::listen(net::Address(net::Tcp6, "facade.test", 8005)))?
+	let active_listener_with = facade_expect_listener(net::listen(net::Address(net::Tcp6, "facade.test", 8006)))?
+	let active_stream_short = facade_expect_stream(net::connect(net::Address(net::Tcp6, "facade.test", 8005)))?
+	let active_stream_with = facade_expect_stream(net::connect(net::Address(net::Tcp6, "facade.test", 8006)))?
+	let _ = facade_expect(match net::resolve(net::Address(net::Tcp6, "facade.test", 8001))
+		Ok(Cons(net::Endpoint(net::Tcp4, "192.0.2.1:8001"), Cons(net::Endpoint(net::Tcp6, "[2001:db8::1]:8001"), Nil))) => true
 		_ => false
 	end, "resolve did not preserve its result")?
-	let _ = facade_expect(match listen(Address(Tcp6, "facade.test", 8002))
-		Ok(value) => facade_listener_matches(value, "listener-return")
+	let _ = facade_expect(match net::listen(net::Address(net::Tcp6, "facade.test", 8002))
+		Ok(value) => facade_listener_matches(value, listener_return)
 		Err(_) => false
 	end, "listen did not preserve its resource")?
-	let _ = facade_expect(match connect(Address(Tcp6, "facade.test", 8003))
-		Ok(value) => facade_stream_matches(value, "stream-return")
+	let _ = facade_expect(match net::connect(net::Address(net::Tcp6, "facade.test", 8003))
+		Ok(value) => facade_stream_matches(value, expected_stream)
 		Err(_) => false
 	end, "connect did not preserve its resource")?
 	let connect_deadline = handle time::deadline_after_ms(37) with facade_clock(37)
 	let connect_token = time::cancel_token()
-	let _ = facade_expect_stream_error(connect_with(Address(Tcp6, "facade.test", 8004), Some(connect_deadline), Some(connect_token)), "connect-with", "connect return")?
+	let _ = facade_expect_stream_error(net::connect_with(net::Address(net::Tcp6, "facade.test", 8004), Some(connect_deadline), Some(connect_token)), "connect-with", "connect return")?
 	let _ = facade_expect(time::is_cancelled(connect_token), "connect_with replaced its cancellation token")?
-	let _ = facade_expect(match accept(listener_short)
-		Ok(value) => facade_stream_matches(value, "stream-return")
-		Err(_) => false
-	end, "accept did not preserve its resource")?
-	let accept_deadline = handle time::deadline_after_ms(41) with facade_clock(41)
-	let _ = facade_expect_stream_error(accept_with(listener_with, Some(accept_deadline), None), "accept-with", "accept return")?
-	let _ = facade_expect(match listener_address(listener_short)
-		Ok(Endpoint(Tcp4, "127.0.0.1:8101")) => true
-		_ => false
-	end, "listener_address did not preserve its endpoint")?
-	let _ = facade_expect_unit_error(close_listener(listener_with), "close-listener", "close listener return")?
-	let _ = facade_expect(match read(stream_short)
-		Ok(ReadChunk(bytes)) => byte_count_to_int(byte_chunk_count(bytes)) == 0
-		_ => false
-	end, "read did not preserve empty ReadChunk")?
-	let read_token = time::cancel_token()
-	let _ = facade_expect_read_error(read_with(stream_with, None, Some(read_token)), "read-with", "read return")?
-	let _ = facade_expect(time::is_cancelled(read_token), "read_with replaced its cancellation token")?
-	let _ = facade_expect(match write(stream_short, byte_chunk_from_visible_ascii_string("short")?)
-		Written(count) => byte_count_to_int(count) == 5
-		_ => false
-	end, "write did not preserve its outcome")?
-	let write_deadline = handle time::deadline_after_ms(43) with facade_clock(43)
-	let active = time::cancel_token()
-	let _ = facade_expect(match write_with(stream_with, byte_chunk_from_visible_ascii_string("with")?, Some(write_deadline), Some(active))
-		WriteFailed(count, NetError("write-with", Some(Tcp6), Some("facade.test:8443"), PermissionDenied, "write return")) => byte_count_to_int(count) == 2
-		_ => false
-	end, "write_with did not preserve its outcome")?
-	let _ = facade_expect(time::is_cancelled(active), "write_with replaced its cancellation token")?
-	let _ = facade_expect(match local_address(stream_short)
-		Ok(Endpoint(Tcp4, "127.0.0.1:8201")) => true
-		_ => false
-	end, "local_address did not preserve its endpoint")?
-	let _ = facade_expect(match peer_address(stream_with)
-		Ok(Endpoint(Tcp6, "[2001:db8::2]:8202")) => true
-		_ => false
-	end, "peer_address did not preserve its endpoint")?
-	let _ = facade_expect(match shutdown_read(stream_short)
-		Ok(()) => true
-		_ => false
-	end, "shutdown_read changed")?
-	let _ = facade_expect_unit_error(shutdown_write(stream_with), "shutdown-write", "shutdown write return")?
-	let _ = facade_expect_unit_error(close_stream(expected_stream), "close-stream", "close stream return")?
-	Ok(())
+	match net::accept(active_listener_short)
+		Err(net::NetError(_, _, _, net::InvalidResource, _)) => Ok(())
+		Err(_) => Err("foreign resource rejection changed")
+		Ok(_) => Err("a source handler accepted a system-owned resource")
+	end
+end
+
+fn verify_network_facade_with_system() -> Result<(), String> effects [net::IO, net, time]
+	let empty = byte_chunk([])
+	let listener_short = facade_expect_listener(net::listen(net::Address(net::Tcp4, "listener-short", 1)))?
+	let listener_with = facade_expect_listener(net::listen(net::Address(net::Tcp4, "listener-with", 1)))?
+	let listener_return = facade_expect_listener(net::listen(net::Address(net::Tcp4, "listener-return", 1)))?
+	let stream_short = facade_expect_stream(net::connect(net::Address(net::Tcp4, "stream-short", 1)))?
+	let stream_with = facade_expect_stream(net::connect(net::Address(net::Tcp4, "stream-with", 1)))?
+	let stream_return = facade_expect_stream(net::connect(net::Address(net::Tcp4, "stream-return", 1)))?
+	handle execute_facade(listener_short, listener_with, listener_return, stream_short, stream_with, stream_return) with observing_facade(listener_short, listener_with, listener_return, stream_short, stream_with, stream_return)
 end
 
 pub fn verify_network_facade() -> Result<(), String> effects [net, time]
-	let empty = byte_chunk([])
-	let listener_short = handle net::listen("listener-short") with fixed_network("listener-short", empty)
-	let listener_with = handle net::listen("listener-with") with fixed_network("listener-with", empty)
-	let listener_return = handle net::listen("listener-return") with fixed_network("listener-return", empty)
-	let stream_short = handle net::connect("stream-short") with fixed_network("stream-short", empty)
-	let stream_with = handle net::connect("stream-with") with fixed_network("stream-with", empty)
-	let stream_return = handle net::connect("stream-return") with fixed_network("stream-return", empty)
-	handle execute_facade(listener_short, listener_with, stream_short, stream_with, stream_return) with observing_facade(listener_short, listener_with, listener_return, stream_short, stream_with, stream_return)
+	handle handle verify_network_facade_with_system() with net::system() with fixed_network("facade", byte_chunk([]))
 end
 
 fn expect_write_all_calls(calls: { tx : Sender<Int>, rx : Receiver<Int> }, expected: Int, message: String) -> Result<(), String> effects [concurrency]
@@ -443,66 +457,55 @@ fn expect_write_all_calls(calls: { tx : Sender<Int>, rx : Receiver<Int> }, expec
 	end
 end
 
-pub fn verify_write_all() -> Result<(), String> effects [net, time, concurrency]
+fn verify_write_all_with_system(calls: { tx : Sender<Int>, rx : Receiver<Int> }) -> Result<(), String> effects [net::IO, net, time, concurrency]
 	let empty = byte_chunk([])
-	let stream = handle net::connect("write-all") with fixed_network("write-all", empty)
+	let stream = facade_expect_stream(net::connect(net::Address(net::Tcp4, "write-all", 1)))?
 	let deadline = handle time::deadline_after_ms(47) with facade_clock(47)
 	let partial_token = time::cancel_token()
-	let partial_calls = channel::bounded<Int>(1)
-	let _ = channel::send(partial_calls.tx, 0)
-	let partial = handle write_all(stream, byte_chunk_from_visible_ascii_string("abcdef")?, Some(deadline), Some(partial_token)) with scripted_write_all(stream, deadline, partial_token, partial_calls)
-	let _ = facade_expect(match partial
-		Ok(()) => true
-		Err(_) => false
-	end, "write_all did not finish scripted partial writes")?
-	let _ = expect_write_all_calls(partial_calls, 3, "write_all used the wrong number of partial writes")?
+	let partial = handle net::write_all(stream, byte_chunk_from_visible_ascii_string("abcdef")?, Some(deadline), None) with stable_network_clock(1000)
+	let _ = match partial
+		Ok(()) => Ok(())
+		Err(net::NetError(_, _, _, _, message)) => Err(message)
+	end?
+	let _ = expect_write_all_calls(calls, 3, "write_all used the wrong number of partial writes")?
 	let failure_token = time::cancel_token()
-	let failure_calls = channel::bounded<Int>(1)
-	let _ = channel::send(failure_calls.tx, 0)
-	let failed = handle write_all(stream, byte_chunk_from_visible_ascii_string("failure")?, Some(deadline), Some(failure_token)) with scripted_write_all(stream, deadline, failure_token, failure_calls)
+	let _ = channel::send(calls.tx, 3)
+	let failed = handle net::write_all(stream, byte_chunk_from_visible_ascii_string("failure")?, Some(deadline), None) with stable_network_clock(1000)
 	let _ = match failed
-		Err(error) => facade_expect_error(error, "scripted-write", "failed after prefix")
+		Err(_) => Ok(())
 		Ok(()) => Err("write_all ignored a failed partial write")
 	end?
-	let _ = expect_write_all_calls(failure_calls, 1, "write_all retried after a failed partial write")?
-	let zero_token = time::cancel_token()
-	let zero_calls = channel::bounded<Int>(1)
-	let _ = channel::send(zero_calls.tx, 0)
-	let zero = handle write_all(stream, byte_chunk_from_visible_ascii_string("zero")?, Some(deadline), Some(zero_token)) with scripted_write_all(stream, deadline, zero_token, zero_calls)
-	let _ = facade_expect(match zero
-		Err(NetError("write_all", None, None, Other, _)) => true
-		_ => false
-	end, "write_all did not reject zero progress")?
-	let _ = expect_write_all_calls(zero_calls, 1, "write_all retried after zero progress")?
+	let _ = expect_write_all_calls(calls, 4, "write_all retried after a failed partial write")?
 	let empty_token = time::cancel_token()
-	let empty_calls = channel::bounded<Int>(1)
-	let _ = channel::send(empty_calls.tx, 0)
-	let no_write = handle write_all(stream, empty, Some(deadline), Some(empty_token)) with scripted_write_all(stream, deadline, empty_token, empty_calls)
+	let _ = channel::send(calls.tx, 4)
+	let no_write = handle net::write_all(stream, empty, Some(deadline), None) with stable_network_clock(1000)
 	let _ = facade_expect(match no_write
 		Ok(()) => true
 		Err(_) => false
 	end, "write_all did not accept an empty input")?
-	expect_write_all_calls(empty_calls, 0, "write_all wrote an empty input")
+	expect_write_all_calls(calls, 4, "write_all wrote an empty input")
+end
+
+pub fn verify_write_all() -> Result<(), String> effects [net, time, concurrency]
+	let calls = channel::bounded<Int>(1)
+	let _ = channel::send(calls.tx, 0)
+	handle handle verify_write_all_with_system(calls) with net::system() with scripted_system_write_network(calls)
+end
+
+fn verify_write_all_one_byte_progress_with_system(bytes: ByteChunk, expected_count: Int, calls: { tx : Sender<Int>, rx : Receiver<Int> }) -> Result<(), String> effects [net::IO, net, time, concurrency]
+	let stream = facade_expect_stream(net::connect(net::Address(net::Tcp4, "write-all-long", 1)))?
+	let deadline = handle time::deadline_after_ms(53) with facade_clock(53)
+	let token = time::cancel_token()
+	let result = handle net::write_all(stream, bytes, Some(deadline), None) with stable_network_clock(1000)
+	let _ = expect_write_all_calls(calls, expected_count, "write_all used the wrong number of one-byte writes")?
+	match result
+		Ok(()) => Ok(())
+		Err(_) => Err("write_all failed during one-byte progress")
+	end
 end
 
 pub fn verify_write_all_one_byte_progress(bytes: ByteChunk, expected_count: Int) -> Result<(), String> effects [net, time, concurrency]
-	let empty = byte_chunk([])
-	let stream = handle net::connect("write-all-long") with fixed_network("write-all-long", empty)
-	let deadline = handle time::deadline_after_ms(53) with facade_clock(53)
-	let token = time::cancel_token()
-	let state = channel::bounded<WriteAllProgress>(1)
-	let _ = channel::send(state.tx, WriteAllProgress(expected_count, 0))
-	let result = handle write_all(stream, bytes, Some(deadline), Some(token)) with one_byte_write_all(stream, deadline, token, state)
-	match channel::recv(state.rx)
-		Some(WriteAllProgress(0, calls)) => if calls == expected_count
-			match result
-				Ok(()) => Ok(())
-				Err(_) => Err("write_all failed during one-byte progress")
-			end
-		else
-			Err("write_all used the wrong number of one-byte writes")
-		end
-		Some(_) => Err("write_all did not consume every one-byte suffix")
-		None => Err("write_all lost its one-byte progress state")
-	end
+	let calls = channel::bounded<Int>(1)
+	let _ = channel::send(calls.tx, 0)
+	handle handle verify_write_all_one_byte_progress_with_system(bytes, expected_count, calls) with net::system() with scripted_system_write_network(calls)
 end

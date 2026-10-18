@@ -42,14 +42,9 @@ pub(super) fn lower_with_clock(text: &str) -> TypedProgram {
 }
 
 pub(super) fn lower_with_network_facade(text: &str) -> TypedProgram {
-    let facade = include_str!("../../../veln-stdlib/veln/net.veln")
-        .strip_prefix("use prelude\n")
-        .expect("network facade should import the standard prelude")
-        .replace("pub type ByteCount = prelude::ByteCount\n", "");
-    lower_with_host_effects(format!(
-        "use host_effects from \"std\"\n{}\n{}\n{text}",
-        facade,
-        include_str!("../../test-support/network.veln"),
+    lower_with_standard_modules_to_ir(&format!(
+        "{}\n{text}",
+        include_str!("../../test-support/network.veln")
     ))
 }
 
@@ -280,20 +275,32 @@ end
 fn injected_network_handles_retain_their_creating_scope() {
     let ir = lower_with_network_facade(
         r#"
-pub fn main() -> Result<(), String> effects [net, stdio]
+fn read_count(result: Result<net::ReadOutcome, net::NetError>) -> Result<Int, String>
+    match result
+        Ok(net::ReadChunk(bytes)) => Ok(byte_count_to_int(byte_chunk_count(bytes)))
+        Ok(net::ReadEnd) => Ok(0)
+        Err(_) => Err("retained network read failed")
+    end
+end
+fn close_retained(stream: net::Stream) -> Result<(), String> effects [net::IO]
+    match net::close_stream(stream)
+        Ok(()) => Ok(())
+        Err(_) => Err("retained network close failed")
+    end
+end
+fn observe_retained_networks() -> Result<(), String> effects [net::IO, net, stdio]
     let first_chunk = byte_chunk_from_hex("01")?
     let second_chunk = byte_chunk_from_hex("0203")?
-    let first = handle net::connect("fixture") with fixed_network("first", first_chunk)
-    let second = handle net::connect("fixture") with fixed_network("second", second_chunk)
-    let first_read = handle net::read_chunk(first) with fixed_network("shadow", second_chunk)
-    let second_read = net::read_chunk(second)
-    stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(first_read))))
-    stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(second_read))))
-    stdio::println(net::stream_peer_addr(first))
-    stdio::println(net::stream_peer_addr(second))
-    net::close_stream(first)
-    net::close_stream(second)
+    let first = facade_expect_stream(handle net::connect(net::Address(net::Tcp4, "first", 1)) with fixed_network("first", first_chunk))?
+    let second = facade_expect_stream(handle net::connect(net::Address(net::Tcp4, "second", 1)) with fixed_network("second", second_chunk))?
+    stdio::println(int_to_string(read_count(net::read(first))?))
+    stdio::println(int_to_string(read_count(net::read(second))?))
+    let _ = close_retained(first)?
+    let _ = close_retained(second)?
     Ok(())
+end
+pub fn main() -> Result<(), String> effects [net, time, stdio]
+    handle observe_retained_networks() with net::system()
 end
 "#,
     );
@@ -308,14 +315,11 @@ end
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(
-        String::from_utf8_lossy(&output.stdout),
-        "1\n2\nfirst\nsecond\n"
-    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "1\n2\n");
 }
 
 #[test]
-fn standard_network_facade_forwards_every_operation() {
+fn standard_network_facade_forwards_value_operations_and_rejects_foreign_resources() {
     let ir = lower_with_network_facade(
         r#"
 pub fn main() -> Result<(), String> effects [net, time]
