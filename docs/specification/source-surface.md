@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#usage-and-declaration-forms; behavior=#schemas; limits=#diagnostics
-update-when: Veln declarations, expressions, literals, schema syntax, companion sources, or executable source grammar changes.
+update-when: Veln declarations, expressions, literals, schema syntax, companion sources, executable source grammar, syntax-tree or lowered-AST structural preservation, or the AST wire layout changes.
 ---
 
 # Source Surface
