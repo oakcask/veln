@@ -863,7 +863,10 @@ fn assert_package_tool_state_preserved_across_capacity_failure() {
     let mut server = initialized_server_with_embedded_resources(&workspace);
     let before_capacity = package_publication_state(&mut server, "std", "std");
 
-    let boundary = (0..255)
+    server
+        .language_resources
+        .set_test_remaining_package_capacity(2);
+    let boundary = (0..2)
         .map(|index| synthetic_dependency_project(&format!("example/full{index}"), "body"))
         .collect::<Vec<_>>();
     server

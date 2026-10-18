@@ -67,6 +67,8 @@ pub(crate) struct LanguageResources {
     combined_resources: Vec<PublishedResource>,
     combined_by_uri: BTreeMap<String, PublishedResource>,
     retained_package_keys: BTreeSet<RetainedPackageKey>,
+    #[cfg(test)]
+    retained_package_capacity: usize,
     package_docs: BTreeMap<RetainedPackageKey, PackageDocumentation>,
     #[cfg(test)]
     standard_library_snapshot: Option<DirectDependencySnapshot>,
@@ -224,6 +226,8 @@ impl LanguageResources {
             combined_resources,
             combined_by_uri,
             retained_package_keys: retained_package_keys.into_iter().collect(),
+            #[cfg(test)]
+            retained_package_capacity: RETAINED_PACKAGE_CAPACITY,
             package_docs: package_docs.into_iter().collect(),
             #[cfg(test)]
             standard_library_snapshot,
@@ -237,6 +241,25 @@ impl LanguageResources {
 
     pub(crate) fn reference_pagination(&mut self) -> &mut ReferencePagination {
         &mut self.reference_pagination
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_test_remaining_package_capacity(&mut self, remaining: usize) {
+        self.retained_package_capacity = self
+            .retained_package_keys
+            .len()
+            .checked_add(remaining)
+            .expect("test package capacity should fit usize");
+    }
+
+    #[cfg(test)]
+    fn retained_package_capacity(&self) -> usize {
+        self.retained_package_capacity
+    }
+
+    #[cfg(not(test))]
+    fn retained_package_capacity(&self) -> usize {
+        RETAINED_PACKAGE_CAPACITY
     }
 
     pub(crate) fn admit_dependencies(
@@ -253,7 +276,7 @@ impl LanguageResources {
             .map(|snapshot| snapshot.key.clone())
             .filter(|key| !self.retained_package_keys.contains(key))
             .collect::<BTreeSet<_>>();
-        if self.retained_package_keys.len() + new_keys.len() > RETAINED_PACKAGE_CAPACITY {
+        if self.retained_package_keys.len() + new_keys.len() > self.retained_package_capacity() {
             return Err(ResourceCapacityError);
         }
         let mut navigation_snapshots = Vec::with_capacity(new_snapshots.len());

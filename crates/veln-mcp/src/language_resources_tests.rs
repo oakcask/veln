@@ -1,6 +1,13 @@
 use super::*;
 
 #[test]
+fn checked_resources_use_the_default_retained_package_capacity() {
+    let resources = LanguageResources::checked().unwrap();
+
+    assert_eq!(resources.retained_package_capacity(), 256);
+}
+
+#[test]
 fn checked_resources_retain_the_validated_standard_library_snapshot() {
     let resources = LanguageResources::checked().unwrap();
 
