@@ -1,0 +1,21 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"type.invalid_annotation\"",
+  "\"id\":\"type.variant_refinement_private\"",
+  "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":9,\"column\":38",
+  "\"exposure_path\":[{\"kind\":\"parameter\",\"name\":\"value\"},{\"kind\":\"function_result\"}]",
+  "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":13,\"column\":38",
+  "\"exposure_path\":[{\"kind\":\"parameter\",\"name\":\"value\"},{\"kind\":\"function_parameter\",\"index\":0}]",
+  "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":17,\"column\":37",
+  "\"exposure_path\":[{\"kind\":\"parameter\",\"name\":\"value\"},{\"kind\":\"type_argument\",\"index\":1}]",
+  "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":21,\"column\":37",
+  "\"exposure_path\":[{\"kind\":\"parameter\",\"name\":\"value\"},{\"kind\":\"type_argument\",\"index\":0}]",
+  "\"diagnostic_count\":8"
+]
+
+[stderr]
+format = "empty"

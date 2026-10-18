@@ -694,14 +694,15 @@ eligibility and diagnostic provenance. When the written base is a public type
 alias or a finite alias chain, `not_adt` eligibility and declaration provenance
 come from the canonical target declaration; the diagnostic still preserves the
 outer written alias as `written_type`. A base with invalid generic arity
-retains the existing `type.invalid_annotation` failure. For a refinement at a
-public-function signature root or in a recursively nested record field, a
-uniquely resolved direct ADT or transparent type-alias chain and final
-constructor also retain an independently provable private-base or
-private-variant failure. An invalid nested type argument or sibling union
+retains the existing `type.invalid_annotation` failure. For a refinement
+anywhere in a public-function parameter or result, or in a public source-ADT
+payload, a uniquely resolved direct ADT or transparent type-alias chain and
+final constructor also retain an independently provable private-base or
+private-variant failure. An invalid annotation in a sibling named-type
+argument, function parameter or result, nested type argument, or sibling union
 alternative does not suppress that visibility failure. Visibility checking
-uses this recovery while traversing record fields, but it does not traverse
-named type arguments, function types, or other structural positions.
+uses this recovery while traversing named type arguments, function parameters
+and results, record fields, and refinement unions.
 Union comparison and assignability remain suppressed because they require a
 valid instantiation. Exact and uniquely casing-recovered source-backed or
 source-less type paths use the same arity rule. A failed refinement does not
@@ -774,9 +775,12 @@ source occurrences it examines. This includes invalid-cased bases, unrelated
 diagnostics interleaved around the base failures, and structurally separate
 sibling type positions.
 
-A refinement that is the complete parameter or result annotation of a public
-function, or that is reached by recursively entering record fields from that
-annotation, can expose only a public terminal ADT and public selected variants.
+A refinement anywhere inside a public function parameter or result annotation,
+or inside a payload of a public variant of a public source ADT, can expose only
+a public terminal ADT and public selected variants. The traversal enters named
+type arguments, function parameters and results, record fields, and refinement
+union alternatives. It checks a named public ADT at its declaration and does
+not expand that ADT again at every use.
 The written base can name the ADT directly or resolve through a finite chain of
 local or imported transparent type aliases. At a root annotation, a direct
 private ADT fails at the final identifier of the written base type, excluding
@@ -804,9 +808,9 @@ public. The same private refinements remain valid on private functions.
 An alias declaration does not replace or upgrade the terminal declaration's
 visibility. An imported or reusable public alias, including an implicit
 standard-prelude alias, still exposes a private terminal type or variant when
-it is used at a checked public-function signature root or within its record
-fields. The diagnostic retains the terminal identity and declaration location
-through each local and imported alias hop.
+it is used anywhere in a checked public-function signature or public variant
+payload of a public source ADT. The diagnostic retains the terminal identity
+and declaration location through each local and imported alias hop.
 
 The visibility check selects the base identity by unique exact lookup or
 initial-only casing recovery. The written uppercase final constructor must
@@ -836,26 +840,42 @@ location belongs to the selected ADT descriptor, including its generic arity.
 A same-module declaration with the same type and variant names but a different
 arity cannot replace that related location.
 
-The visibility check traverses nested record fields from a parameter or result
-annotation. It does not traverse a named type argument, function type, ADT
-payload, or another structural position. Skipping a function-typed field also
-skips refinements inside that function type, including its result, but an
-effect row on that field does not hide a later sibling record field from the
-record traversal. An invalid square-bracket type position likewise does not
+The visibility check follows transparent aliases with cycle-safe resolution.
+An inaccessible refinement reached before a repeated declaration still fails.
+The diagnostic path starts with the public parameter, result, or ADT payload
+boundary, then records `type_argument`, `function_parameter`,
+`function_result`, `record_field`, and `union_alternative` segments in
+structural order. Each distinct ordered exposure path produces one diagnostic.
+For a refinement nested in a named type argument or function position, the
+primary span is the outer written structural type occurrence. Alias, private
+declaration, and public boundary notes retain their established order.
+
+An invalid square-bracket type position does not
 make a record nested inside the brackets part of the traversal. Its
 `type.invalid_annotation` diagnostic precedes an independently provable
 visibility failure in a later direct sibling field. A visibility failure leaves
 an all-`unknown` signature only as internal same-module recovery state. The
-failed function is
-absent from the callable facts inherited by another module. A public function
+failed function is absent from the callable facts inherited by another module.
+A visibility-invalid public ADT retains its unambiguous same-module source
+identity but is absent from imported public type facts. Publication quarantine
+also follows every resolved named ADT dependency in a public payload. This
+includes an ordinary named type, a refinement base, a named type argument, and
+a dependency reached through a transparent alias. The closure is independent
+of declaration order, terminates on recursive type graphs, and continues until
+no additional public ADT depends on a quarantined ADT. A valid neighboring ADT
+remains published. A public function whose parameter or result contains a
+quarantined ADT is absent from callable facts even when that function writes
+only the ordinary base type. The ordinary use does not repeat the causal
+privacy diagnostic. A public function
 alias can publish only a function that is present in those callable facts, so
 an alias cannot republish the failed function directly or through another
 module. Qualified lookup and unqualified import-candidate lookup both exclude
 the failed function and every alias derived from it. This environment lookup is
-the compiler's concrete package-signature publication boundary because the
-repository has no independent package-signature artifact. The failure also
-prevents creation of the checked declaration collection in core and prevents
-IR output. The checked
+the compiler's semantic publication boundary. The
+[package-documentation catalog](package-documentation.md#published-boundary)
+applies its separate package-atomic semantic-visibility gate to exported
+signatures. The failure also prevents creation of the checked declaration
+collection in core and prevents IR output. The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-public-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-public-visibility-json/)
@@ -867,8 +887,29 @@ checking of another union alternative. The record-field
 [`human`](../../examples/specification/check/adt-variant-refinement-record-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-record-visibility-json/)
-cases verify nested and separate field paths, union order, alias context,
-accepted public refinements, and the named-argument and function-type limits.
+cases verify nested and separate field paths, union order, and alias context.
+The structural visibility
+[`human`](../../examples/specification/check/adt-variant-refinement-structural-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-structural-visibility-json/)
+cases verify named arguments, function positions, public ADT payloads, union
+paths, outer structural spans, and deterministic related context.
+The focused
+[`invalid-arity overlap`](../../examples/specification/check/adt-variant-refinement-structural-visibility-invalid-arity-overlap/)
+case verifies that invalid named-type arity in either order does not hide a
+private refinement in a sibling function or named-argument position.
+The focused
+[`invalid-arity root union`](../../examples/specification/check/adt-variant-refinement-invalid-arity-root-union-json/)
+case verifies that recovery retains the written union-alternative indices and
+reports each private refinement before the declaration is quarantined.
+The publication-closure
+[`human`](../../examples/specification/check/adt-variant-refinement-publication-closure-human/)
+case verifies one causal privacy diagnostic and failed command output across
+ordinary named payload, alias, function-parameter, and function-result
+dependencies. The focused semantic tests in
+`crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/public_visibility.rs`
+and its `publication_and_recovery.rs` support verify their unpublished
+environment identities.
 The alias-qualified
 [`human`](../../examples/specification/check/adt-variant-refinement-alias-visibility-human/)
 and
@@ -892,7 +933,9 @@ from a reusable or dependency environment. Direct visibility analysis grows
 linearly with the relevant source occurrences for wide refinement unions, many
 public declarations, parse-clean recovered bases, and qualified imports. This
 bound includes casing recovery, same-named imported ADTs, and unrelated
-declarations.
+declarations. Publication quarantine over a chain of dependent public ADTs also
+grows linearly with the declarations and payload-refinement dependencies it
+examines.
 
 For one direct refinement whose qualified base requires initial-only casing
 recovery, increasing the qualifier depth adds linear path-normalization and
@@ -902,10 +945,27 @@ double in publication quarantine, diagnostic collection, and checked lowering.
 The measurement counts inspected path bytes instead of elapsed time, so runner
 timing noise does not affect the bound.
 
+For one refinement nested through named type arguments in a public function
+parameter, increasing the nesting depth adds linear structural-visibility work
+when the candidate count stays fixed. This applies both to an accepted public
+variant and to one rejected private variant. The deterministic scaling check
+compares depths 64, 128, and 256 and bounds the combined traversal counters at
+twice the preceding measurement plus a fixed allowance. A refinement-free
+annotation does not enter the structural-visibility walk, and a private
+function does not perform public-signature visibility traversal. The maximum
+supported refinement nesting depth completes the same analysis. The check uses
+work counters rather than elapsed time, so runner timing noise does not affect
+the bound.
+
 Wide record annotations on public function parameters and results check each
 refinement occurrence in their record fields. Each private occurrence rejects
 publication, and analysis work grows linearly with the written occurrences.
-Nested generic paths remain excluded from the visibility traversal.
+For a depth-`D` named wrapper around a width-`M` record, traversal and outer
+structural-span selection grow with `D + M`. A rejected private refinement in
+each field must still materialize `M` complete depth-`D` diagnostic paths, so
+that required diagnostic output can grow with `D * M`; the span-selection walk
+does not add another depth-by-width scan. Deterministic work counters separate
+these two costs from wall-clock timing.
 The checked
 [`generic alias boundaries`](../../examples/specification/check/adt-variant-refinement-generic-alias-boundaries/)
 case also verifies that imported alias-qualified constructor context supplies
@@ -1057,12 +1117,10 @@ Variant-refinement semantic-token classifications are specified in
 [editor-support.md](editor-support.md#token-classes), and its navigation and
 rename behavior is specified by
 [editor support](editor-support.md#lsp-navigation-formatting-and-rename) and
-[MCP](mcp.md#saved-workspace-navigation). Public/private exposure through
-structural positions other than record fields, including aliases nested in
-those positions, qualified-value control-flow refinement, schema boundaries,
-package-documentation catalog signatures, remaining LSP diagnostics and
-recovery, and remaining MCP invalid-refinement recovery, package-signature,
-and saved-state behavior remain proposal work.
+[MCP](mcp.md#saved-workspace-navigation). Qualified-value control-flow
+refinement, schema boundaries, remaining LSP diagnostics and recovery, and
+remaining MCP invalid-refinement recovery, including the saved-state behavior
+of those remaining requests, remain proposal work.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record

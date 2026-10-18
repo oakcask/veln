@@ -116,9 +116,11 @@ declaration URI forms with Markdown media type. Clients obtain exact readable
 module and declaration URIs from index and module Markdown; template variables
 are not a URI normalization or discovery surface.
 
-Successful `check_project`, `definition`, and `references` calls on a selected
-manifest project atomically admit every valid direct-dependency package
-snapshot captured by the same stable saved-project operation. A valid snapshot
+Successful `check_project` analysis with no
+`type.variant_refinement_private` diagnostic and successful `definition` and
+`references` calls on a selected manifest project atomically admit every valid
+direct-dependency package snapshot captured by the same stable saved-project
+operation. A valid snapshot
 has a manifest package name that equals the dependency table key and a captured
 package distribution snapshot. The server generates the existing
 transport-independent package-documentation result from that retained snapshot
@@ -381,6 +383,12 @@ diagnostic contract routed by [diagnostics-json.md](diagnostics-json.md),
 including span-less `toolchain.invalid_symbol_case` entries with diagnostic
 kind `toolchain` and details for `provider`, `name`, `name_class`, and
 `required_initial`.
+When analysis returns `type.variant_refinement_private`, `check_project`
+returns the diagnostic but does not admit the captured dependency snapshot.
+Previously retained dependency source, package-documentation, search, and
+exact-read state remains unchanged. Stable-capture failure preserves the same
+state. Other language diagnostics do not imply this visibility-specific
+admission rule.
 If dependency resource admission exceeds retained package capacity after
 analysis succeeds, `check_project` returns `resource_capacity` and publishes no
 partial diagnostics, summary, or analysis metadata.

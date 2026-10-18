@@ -41,6 +41,10 @@ pub(crate) fn parse_type_annotation(text: &str) -> Result<Type, String> {
     })
 }
 
+pub(crate) fn parse_type_annotation_structure(text: &str) -> Result<Type, String> {
+    parse_type_annotation_with_arity(text, &|_| Ok(None))
+}
+
 fn collect_type_reference_paths(ty: &Type, paths: &mut Vec<Vec<String>>) {
     match ty {
         Type::Named { name, args, .. } => {

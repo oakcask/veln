@@ -426,9 +426,13 @@ fn checked_types_topic_renders_the_variant_refinement_contract_and_examples() {
         "A public type-alias chain whose resolved target is an ADT can qualify a refinement",
         "conflicting alias preferences make the result use the target name",
         "complete refinement union collapses to the base ADT",
+        "must expose a visible base ADT and visible selected variants",
+        "Publication quarantine propagates through public ADT payload dependencies",
         "ADT variant-refinement call typing",
         "ADT variant-refinement control-flow result joins",
         "ADT variant-refinement alias identity and presentation",
+        "ADT variant-refinement structural visibility",
+        "ADT variant-refinement publication quarantine",
     ] {
         assert!(
             topic.text.contains(expected),

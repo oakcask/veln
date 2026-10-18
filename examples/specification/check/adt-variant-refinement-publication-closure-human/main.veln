@@ -1,0 +1,23 @@
+pub type State
+	Hidden
+end
+
+pub type Box<A>
+	pub Boxed(value: A)
+end
+
+pub type Broken
+	pub Wrapped(value: Box<State::Hidden>)
+end
+
+pub type BrokenAlias = Broken
+
+pub type Envelope
+	pub Wrapped(value: BrokenAlias)
+end
+
+pub fn expose(value: BrokenAlias) -> Envelope
+	Wrapped(value)
+end
+
+pub fn expose_alias = expose

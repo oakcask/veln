@@ -51,12 +51,25 @@ qualified calls from analyzed files participate in the same analysis path as
 `run` and `test`. Lowering reports checked-core blockers such as missing
 expressions and call or constructor arity mismatches. Parse-clean, semantically
 valid `begin` and `defer` forms pass checked-core readiness.
-A private variant refinement at a public-function signature root or within its
-recursively nested record fields is a semantic error, so `check` emits no
-success report. The [type rules](types.md#compatibility-and-limits) define the
+A private variant refinement anywhere in a public-function parameter or
+result, or in a public variant payload of a public source ADT, is a semantic
+error, so `check` emits no success report. This includes refinements nested in
+named type arguments, function parameters and results, record fields, and refinement
+unions. Publication quarantine closes over ordinary named ADT dependencies in
+public payloads and over quarantined ADTs in public-function parameters and
+results. Those ordinary references do not duplicate the causal privacy
+diagnostic, but they remain checked-core and typed-IR blockers. The
+[type rules](types.md#compatibility-and-limits) define the
 publication and checked-output gate. The
 [diagnostic contract](diagnostics-json.md#diagnostic-families) defines human
 spans, related context, and JSON `exposure_path` segments.
+The checked
+[`publication-closure`](../../examples/specification/check/adt-variant-refinement-publication-closure-human/)
+case verifies that one causal diagnostic blocks command success. Focused
+semantic publication tests in
+`crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/public_visibility.rs`
+and its `publication_and_recovery.rs` support verify that the ordinary
+dependent declarations remain unpublished.
 A selected documentation source that cannot form a canonical virtual doctest
 path reports `module.invalid_source_path` against the original source. Analysis
 continues for other selected sources, and JSON output includes the rejected

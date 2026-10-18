@@ -39,6 +39,7 @@ pub(crate) struct AdtRegistry {
         HashMap<(Option<String>, String), Vec<QualifiedRecoveryModules>>,
     imported_descriptors_by_type: HashMap<(Option<String>, String), Option<usize>>,
     imported_descriptors_by_type_arity: HashMap<(Option<String>, String, usize), Option<usize>>,
+    quarantined_type_identities: HashSet<String>,
     source_import_indexes_ready: bool,
     local_descriptor_start: usize,
 }
@@ -240,6 +241,46 @@ impl ConstructorShape {
 }
 
 impl AdtRegistry {
+    pub(crate) fn quarantine_public_source_types(
+        &mut self,
+        invalid: &HashSet<(Option<String>, String)>,
+    ) {
+        let invalid_identities = self
+            .descriptors
+            .iter()
+            .filter(|descriptor| {
+                invalid.contains(&(descriptor.module_name.clone(), descriptor.type_name.clone()))
+            })
+            .map(AdtDescriptor::identity)
+            .collect::<HashSet<_>>();
+        let invalid_aliases = self
+            .type_alias_exposure_paths
+            .iter()
+            .filter(|(_, path)| invalid_identities.contains(&path.terminal.identity()))
+            .map(|(key, _)| key.clone())
+            .collect::<HashSet<_>>();
+        for descriptor in &mut self.descriptors {
+            if invalid_identities.contains(&descriptor.identity())
+                || invalid_aliases.contains(&DescriptorKey::new(descriptor))
+            {
+                descriptor.visibility = Visibility::Private;
+            }
+        }
+        self.quarantined_type_identities.extend(invalid_identities);
+    }
+
+    pub(crate) fn descriptor_is_quarantined(&self, descriptor: &AdtDescriptor) -> bool {
+        let terminal = self
+            .terminal_descriptor_for_alias(descriptor)
+            .unwrap_or_else(|| self.canonical_descriptor_for(descriptor));
+        self.quarantined_type_identities
+            .contains(&terminal.identity())
+    }
+
+    pub(crate) fn quarantined_type_identities(&self) -> impl Iterator<Item = &String> {
+        self.quarantined_type_identities.iter()
+    }
+
     pub(crate) fn quarantine_source_variant_payload_types(
         &mut self,
         invalid: &HashSet<(Option<String>, String, String)>,

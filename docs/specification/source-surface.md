@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#usage-and-declaration-forms; behavior=#schemas; limits=#diagnostics
-update-when: Veln declarations, expressions, literals, schema syntax, companion sources, or executable source grammar changes.
+update-when: Veln declarations, expressions, literals, schema syntax, companion sources, executable source grammar, syntax-tree or lowered-AST structural preservation, or the AST wire layout changes.
 ---
 
 # Source Surface
@@ -128,6 +128,12 @@ call type arguments. The syntax tree and lowered AST preserve the written base
 paths, type arguments, final segments, alternative order, duplicates, and
 source spans. Encoding and decoding the lowered AST through its wire format
 preserves that structure and those spans.
+
+For each named or positional ADT payload field, the syntax tree and lowered
+AST preserve a type span that selects only the written type text. The complete
+field span remains separate. The current wire layout serializes both spans and
+rejects the preceding layout header instead of decoding bytes with the older
+field shape.
 
 Type arguments belong before the final segment. Each side of `|` must be a
 complete structural alternative, and `|>` remains the pipeline token rather

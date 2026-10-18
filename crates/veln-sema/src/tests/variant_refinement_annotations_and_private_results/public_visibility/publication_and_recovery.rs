@@ -321,6 +321,175 @@ fn mixed_annotation_errors_retain_independent_root_visibility_failures() {
 }
 
 #[test]
+fn invalid_arity_siblings_preserve_structural_visibility_and_quarantine() {
+    let source_text = concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub type Pair<A, B>\n",
+        "  pub Both(first: A, second: B)\n",
+        "end\n",
+        "pub fn accepted(value: Int) -> Int\n",
+        "  value\n",
+        "end\n",
+        "pub fn function_invalid_first(value: fn(Option<Int, Int>) -> State::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub fn function_private_first(value: fn(State::Hidden) -> Option<Int, Int>) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub fn wrapper_invalid_first(value: Pair<Option<Int, Int>, State::Hidden>) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub fn wrapper_private_first(value: Pair<State::Hidden, Option<Int, Int>>) -> ()\n",
+        "  ()\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "type.invalid_annotation"
+                || diagnostic.id == "type.variant_refinement_private"
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "type.invalid_annotation",
+            "type.variant_refinement_private",
+            "type.invalid_annotation",
+            "type.variant_refinement_private",
+            "type.invalid_annotation",
+            "type.variant_refinement_private",
+            "type.invalid_annotation",
+            "type.variant_refinement_private",
+        ],
+        "{diagnostics:#?}"
+    );
+    let expected = [
+        (
+            "fn(Option<Int, Int>) -> State::Hidden",
+            "{\"kind\":\"function_result\"}",
+        ),
+        (
+            "fn(State::Hidden) -> Option<Int, Int>",
+            "{\"kind\":\"function_parameter\",\"index\":0}",
+        ),
+        (
+            "Pair<Option<Int, Int>, State::Hidden>",
+            "{\"kind\":\"type_argument\",\"index\":1}",
+        ),
+        (
+            "Pair<State::Hidden, Option<Int, Int>>",
+            "{\"kind\":\"type_argument\",\"index\":0}",
+        ),
+    ];
+    for (diagnostic, (outer_annotation, path_tail)) in
+        diagnostics.iter().skip(1).step_by(2).zip(expected)
+    {
+        let span = diagnostic.span.as_ref().expect("visibility span");
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert_eq!(
+            &source_text[span.start.offset..span.end.offset],
+            outer_annotation,
+            "{json}"
+        );
+        assert!(
+            json.contains(&format!(
+                "\"exposure_path\":[{{\"kind\":\"parameter\",\"name\":\"value\"}},{path_tail}]"
+            )),
+            "{json}"
+        );
+        assert!(json.contains("\"kind\":\"private_variant_declaration\""));
+        assert!(json.contains("\"kind\":\"public_parameter_boundary\""));
+    }
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert!(environment.function_is_published_for_test("accepted"));
+    for name in [
+        "function_invalid_first",
+        "function_private_first",
+        "wrapper_invalid_first",
+        "wrapper_private_first",
+    ] {
+        assert!(
+            !environment.function_is_published_for_test(name),
+            "{name} must remain quarantined"
+        );
+    }
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.core.is_none());
+    assert!(lowered.ir.is_none());
+}
+
+#[test]
+fn invalid_arity_root_union_preserves_indexed_visibility_paths_and_quarantine() {
+    let source_text = concat!(
+        "pub type State<A>\n",
+        "  Hidden(A)\n",
+        "end\n",
+        "pub fn expose(value: State<Option<Int, Int>>::Hidden | State<Int>::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+    );
+    let source = SourceFile::new("main.veln", source_text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "type.invalid_annotation"
+                || diagnostic.id == "type.variant_refinement_private"
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "type.invalid_annotation",
+            "type.variant_refinement_private",
+            "type.variant_refinement_private",
+        ],
+        "{diagnostics:#?}"
+    );
+    let expected = [
+        ("State<Option<Int, Int>>::Hidden", 0),
+        ("State<Int>::Hidden", 1),
+    ];
+    for (diagnostic, (written_type, alternative_index)) in diagnostics.iter().skip(1).zip(expected)
+    {
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(
+            json.contains(&format!("\"written_type\":\"{written_type}\"")),
+            "{json}"
+        );
+        assert!(
+            json.contains(&format!(
+                "\"exposure_path\":[{{\"kind\":\"parameter\",\"name\":\"value\"}},{{\"kind\":\"union_alternative\",\"index\":{alternative_index}}}]"
+            )),
+            "{json}"
+        );
+        assert!(json.contains("\"kind\":\"private_variant_declaration\""));
+        assert!(json.contains("\"kind\":\"public_parameter_boundary\""));
+    }
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert!(!environment.function_is_published_for_test("expose"));
+}
+
+#[test]
 fn malformed_record_annotations_keep_independent_visibility_checks() {
     let diagnostics = diagnostics_for(concat!(
         "mod main\n",
@@ -357,7 +526,7 @@ fn malformed_record_annotations_keep_independent_visibility_checks() {
             .iter()
             .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
             .count(),
-        2,
+        3,
         "{diagnostics:#?}"
     );
 }
@@ -789,8 +958,8 @@ fn inherited_private_declaration_provenance_is_retained() {
 }
 
 #[test]
-fn record_refinements_are_checked_while_named_arguments_remain_out_of_scope() {
-    let diagnostics = diagnostics_for(concat!(
+fn record_and_named_argument_refinements_are_checked() {
+    let source = concat!(
         "pub type State\n",
         "  Hidden\n",
         "end\n",
@@ -810,16 +979,38 @@ fn record_refinements_are_checked_while_named_arguments_remain_out_of_scope() {
         "pub fn record_named_nested(value: {item: Box<State::Hidden>}) -> ()\n",
         "  ()\n",
         "end\n",
-    ));
-
-    assert_eq!(
-        diagnostics
-            .iter()
-            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
-            .count(),
-        2,
-        "{diagnostics:#?}"
+        "pub type Envelope\n",
+        "  pub Root(value: Option< State::Hidden >::Some)\n",
+        "end\n",
+        "pub fn root_refinement(value: Option<State::Hidden>::Some) -> ()\n",
+        "  ()\n",
+        "end\n",
     );
+    let diagnostics = diagnostics_for(source);
+    let visibility = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+
+    assert_eq!(visibility.len(), 6, "{diagnostics:#?}");
+    for (diagnostic, written) in [
+        (visibility[4], "Option< State::Hidden >::Some"),
+        (visibility[5], "Option<State::Hidden>::Some"),
+    ] {
+        let start = source.find(written).expect("written root refinement");
+        let span = diagnostic.span.as_ref().expect("visibility span");
+        assert_eq!(span.start.offset, start, "{diagnostic:#?}");
+        assert_eq!(span.end.offset, start + written.len(), "{diagnostic:#?}");
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(
+            json.contains("\"written_type\":\"State::Hidden\""),
+            "{json}"
+        );
+        assert!(
+            json.contains("\"kind\":\"type_argument\",\"index\":0"),
+            "{json}"
+        );
+    }
 }
 
 #[test]
@@ -1276,6 +1467,109 @@ fn visibility_failure_is_not_published_to_a_consumer_environment() {
             .unqualified_function_import_candidates("exposed", Some("main"))
             .is_empty()
     );
+}
+
+#[test]
+fn inherited_quarantine_closes_over_ordinary_function_and_adt_dependencies() {
+    let dependency = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "internal.veln",
+            concat!(
+                "mod internal\n",
+                "pub type State\n",
+                "  Hidden\n",
+                "end\n",
+                "pub type Box<A>\n",
+                "  pub Boxed(value: A)\n",
+                "end\n",
+                "pub type Broken\n",
+                "  pub Wrapped(value: Box<State::Hidden>)\n",
+                "end\n",
+                "pub type BrokenAlias = Broken\n",
+            ),
+        ))
+        .tree,
+    );
+    let dependency_diagnostics = analyze_surface_module(&dependency);
+    assert_eq!(
+        dependency_diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .count(),
+        1,
+        "{dependency_diagnostics:#?}"
+    );
+    let dependency_environment = TypeEnvironment::from_module(&dependency);
+
+    let application = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "main.veln",
+            concat!(
+                "mod main\n",
+                "use internal\n",
+                "pub type Envelope\n",
+                "  pub Wrapped(value: internal::BrokenAlias)\n",
+                "end\n",
+                "pub fn expose(value: internal::BrokenAlias) -> internal::Broken\n",
+                "  value\n",
+                "end\n",
+                "pub fn expose_alias = expose\n",
+            ),
+        ))
+        .tree,
+    );
+    let application_diagnostics =
+        analyze_surface_module_with_base_for_test(&application, &dependency_environment);
+    assert!(
+        application_diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.variant_refinement_private"),
+        "ordinary uses must not repeat the dependency diagnostic: {application_diagnostics:#?}"
+    );
+    let application_environment =
+        TypeEnvironment::from_module_with_base_for_test(&application, &dependency_environment);
+    let expose = application_environment
+        .function("expose")
+        .expect("same-module recovery signature");
+    assert_eq!(expose.params, [Type::Unknown]);
+    assert_eq!(expose.return_type, Type::Unknown);
+    assert!(!application_environment.function_is_published_for_test("expose"));
+    assert!(application_environment.function("expose_alias").is_none());
+
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "consumer.veln",
+            "mod consumer\nuse main\n",
+        ))
+        .tree,
+    );
+    let consumer_environment =
+        TypeEnvironment::from_module_with_base_for_test(&consumer, &application_environment);
+    assert!(
+        consumer_environment
+            .adts
+            .descriptor_for_type_path(
+                "main::Envelope",
+                0,
+                Some("consumer"),
+                &consumer_environment.uses,
+            )
+            .is_none(),
+        "an ADT with an inherited ordinary quarantined dependency must not be importable"
+    );
+    assert!(
+        consumer_environment
+            .function_path(
+                &["main".to_string(), "expose".to_string()],
+                Some("consumer"),
+            )
+            .is_none(),
+        "a function with an inherited ordinary quarantined dependency must not be callable"
+    );
+    let (_, lowered) =
+        check_project_surface_module_with_base_for_test(&application, &dependency_environment);
+    assert!(lowered.core.is_none());
+    assert!(lowered.ir.is_none());
 }
 
 #[test]

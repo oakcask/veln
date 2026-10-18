@@ -58,6 +58,360 @@ fn public_parameters_and_results_reject_private_refinement_declarations() {
 }
 
 #[test]
+fn structural_positions_and_public_adt_payloads_reject_private_refinements() {
+    let diagnostics = visibility_diagnostics(concat!(
+        "pub type State\n",
+        "  pub Ready\n",
+        "  Hidden\n",
+        "end\n",
+        "pub type Box<A>\n",
+        "  pub Boxed(value: A)\n",
+        "end\n",
+        "pub type Alias = State\n",
+        "pub type Envelope\n",
+        "  pub Wrapped(value: Box<State::Hidden | State::Hidden>)\n",
+        "  pub Callback(value: fn(State::Hidden) -> Box<State::Hidden>)\n",
+        "end\n",
+        "pub fn expose(value: Box<Alias::Hidden>) -> fn(State::Hidden) -> Box<State::Hidden>\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 6, "{diagnostics:#?}");
+    let observed = diagnostics
+        .iter()
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    assert!(observed[0].contains("\"boundary\":\"public_adt_payload\""));
+    assert!(observed[0].contains("\"kind\":\"adt_payload\""));
+    assert!(observed[0].contains("\"kind\":\"type_argument\",\"index\":0"));
+    assert!(observed[0].contains("\"kind\":\"union_alternative\",\"index\":0"));
+    assert!(observed[1].contains("\"boundary\":\"public_adt_payload\""));
+    assert!(observed[1].contains("\"kind\":\"function_parameter\",\"index\":0"));
+    assert!(observed[2].contains("\"kind\":\"function_result\""));
+    assert!(observed[3].contains("\"boundary\":\"public_parameter\""));
+    assert!(observed[3].contains("\"kind\":\"type_argument\",\"index\":0"));
+    assert!(observed[3].contains("\"kind\":\"type_alias_declaration\""));
+    assert!(observed[4].contains("\"kind\":\"function_parameter\",\"index\":0"));
+    assert!(observed[5].contains("\"kind\":\"function_result\""));
+    assert!(observed[5].contains("\"kind\":\"type_argument\",\"index\":0"));
+}
+
+#[test]
+fn function_and_adt_visibility_diagnostics_follow_source_order() {
+    let diagnostics = visibility_diagnostics(concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub fn expose(value: State::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub type Envelope\n",
+        "  pub Wrapped(value: State::Hidden)\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    let boundaries = diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.details.to_json())
+        .collect::<Vec<_>>();
+    assert!(boundaries[0].contains("\"boundary\":\"public_parameter\""));
+    assert!(boundaries[1].contains("\"boundary\":\"public_adt_payload\""));
+}
+
+#[test]
+fn recursive_public_adt_visibility_terminates_and_reports_nested_alias_exposure() {
+    let diagnostics = visibility_diagnostics(concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub type Alias = State\n",
+        "pub type Box<A>\n",
+        "  pub Boxed(value: A)\n",
+        "end\n",
+        "pub type Recursive\n",
+        "  pub Next(value: Recursive)\n",
+        "  pub Leak(value: Box<Alias::Hidden>)\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let observed = veln_diagnostics::diagnostic_to_json(&diagnostics[0]).to_json();
+    assert!(observed.contains("\"kind\":\"type_argument\",\"index\":0"));
+    assert!(observed.contains("\"kind\":\"type_alias_declaration\""));
+    assert!(observed.contains("\"type\":\"Recursive\",\"variant\":\"Leak\""));
+}
+
+#[test]
+fn invalid_public_adt_keeps_local_identity_but_is_not_importable() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod api\n",
+            "pub type State\n",
+            "  Hidden\n",
+            "end\n",
+            "pub type Box<A>\n",
+            "  pub Boxed(value: A)\n",
+            "end\n",
+            "pub type Envelope\n",
+            "  pub Wrapped(value: Box<State::Hidden>)\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let environment = TypeEnvironment::from_module(&module);
+    assert!(
+        environment
+            .adts
+            .descriptor_for_type_path("Envelope", 0, Some("api"), &environment.uses)
+            .is_some(),
+        "same-module recovery keeps the unambiguous source identity"
+    );
+
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new("consumer.veln", "mod consumer\nuse api\n")).tree,
+    );
+    let consumer_environment =
+        TypeEnvironment::from_module_with_base_for_test(&consumer, &environment);
+    assert!(
+        consumer_environment
+            .adts
+            .descriptor_for_type_path(
+                "api::Envelope",
+                0,
+                Some("consumer"),
+                &consumer_environment.uses,
+            )
+            .is_none(),
+        "visibility-invalid ADT must not enter an imported public signature"
+    );
+}
+
+#[test]
+fn public_adt_quarantine_closes_over_dependent_refinements_in_any_declaration_order() {
+    fn assert_quarantine(source: &str) {
+        let diagnostics = visibility_diagnostics(source);
+        assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+        let observed = diagnostics
+            .iter()
+            .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+            .collect::<Vec<_>>();
+        assert!(
+            observed.iter().any(
+                |diagnostic| diagnostic.contains("\"type\":\"Broken\",\"variant\":\"Wrapped\"")
+            )
+        );
+        assert!(
+            observed
+                .iter()
+                .any(|diagnostic| diagnostic.contains("\"type\":\"Leak\",\"variant\":\"Exposed\""))
+        );
+
+        let source = SourceFile::new("api.veln", source);
+        let module = lower_surface_ast(&parse(&source).tree);
+        let environment = TypeEnvironment::from_module(&module);
+        for name in ["Broken", "BrokenAlias", "Leak"] {
+            assert!(
+                environment
+                    .adts
+                    .descriptor_for_type_path(name, 0, Some("api"), &environment.uses)
+                    .is_some(),
+                "same-module recovery must retain {name}"
+            );
+        }
+
+        let consumer = lower_surface_ast(
+            &parse(&SourceFile::new("consumer.veln", "mod consumer\nuse api\n")).tree,
+        );
+        let consumer_environment =
+            TypeEnvironment::from_module_with_base_for_test(&consumer, &environment);
+        for name in ["Broken", "BrokenAlias", "Leak"] {
+            for path in [name.to_string(), format!("api::{name}")] {
+                assert!(
+                    consumer_environment
+                        .adts
+                        .descriptor_for_type_path(
+                            &path,
+                            0,
+                            Some("consumer"),
+                            &consumer_environment.uses,
+                        )
+                        .is_none(),
+                    "visibility-invalid {path} must not be importable"
+                );
+            }
+        }
+        assert!(
+            consumer_environment
+                .adts
+                .descriptor_for_type_path(
+                    "api::Healthy",
+                    0,
+                    Some("consumer"),
+                    &consumer_environment.uses,
+                )
+                .is_some(),
+            "a valid neighboring ADT must remain published"
+        );
+    }
+
+    let prefix = concat!(
+        "mod api\n",
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub type Box<A>\n",
+        "  pub Boxed(value: A)\n",
+        "end\n",
+    );
+    let broken = concat!(
+        "pub type Broken\n",
+        "  pub Wrapped(value: Box<State::Hidden>)\n",
+        "end\n",
+    );
+    let alias = "pub type BrokenAlias = Broken\n";
+    let leak = concat!(
+        "pub type Leak\n",
+        "  pub Exposed(value: BrokenAlias::Wrapped)\n",
+        "end\n",
+    );
+    let healthy = concat!("pub type Healthy\n", "  pub Ready\n", "end\n",);
+
+    assert_quarantine(&format!("{prefix}{broken}{alias}{leak}{healthy}"));
+    assert_quarantine(&format!("{prefix}{leak}{healthy}{alias}{broken}"));
+}
+
+#[test]
+fn publication_quarantine_closes_over_ordinary_named_types_aliases_and_cycles() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod api\n",
+            "pub type State\n",
+            "  Hidden\n",
+            "end\n",
+            "pub type Box<A>\n",
+            "  pub Boxed(value: A)\n",
+            "end\n",
+            "pub type Broken\n",
+            "  pub Wrapped(value: Box<State::Hidden>)\n",
+            "end\n",
+            "pub type BrokenAlias = Broken\n",
+            "pub type CycleA\n",
+            "  pub Next(value: CycleB)\n",
+            "end\n",
+            "pub type CycleB\n",
+            "  pub Next(value: CycleA, broken: BrokenAlias)\n",
+            "end\n",
+            "pub type Healthy\n",
+            "  pub Ready\n",
+            "end\n",
+            "pub fn expose(value: BrokenAlias) -> CycleA\n",
+            "  panic(\"unreachable\")\n",
+            "end\n",
+            "pub fn expose_alias = expose\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .count(),
+        1,
+        "ordinary uses must not duplicate the causal privacy diagnostic: {diagnostics:#?}"
+    );
+
+    let environment = TypeEnvironment::from_module(&module);
+    let expose = environment.function("expose").expect("recovery signature");
+    assert_eq!(expose.params, [Type::Unknown]);
+    assert_eq!(expose.return_type, Type::Unknown);
+    assert!(!environment.function_is_published_for_test("expose"));
+    assert!(environment.function("expose_alias").is_none());
+
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new("consumer.veln", "mod consumer\nuse api\n")).tree,
+    );
+    let consumer_environment =
+        TypeEnvironment::from_module_with_base_for_test(&consumer, &environment);
+    for name in ["Broken", "BrokenAlias", "CycleA", "CycleB"] {
+        assert!(
+            consumer_environment
+                .adts
+                .descriptor_for_type_path(
+                    &format!("api::{name}"),
+                    0,
+                    Some("consumer"),
+                    &consumer_environment.uses,
+                )
+                .is_none(),
+            "{name} must stay outside imported public type facts"
+        );
+    }
+    assert!(
+        consumer_environment
+            .adts
+            .descriptor_for_type_path(
+                "api::Healthy",
+                0,
+                Some("consumer"),
+                &consumer_environment.uses,
+            )
+            .is_some(),
+        "an unrelated public ADT must remain published"
+    );
+    assert!(
+        consumer_environment
+            .function_path(&["api".to_string(), "expose".to_string()], Some("consumer"),)
+            .is_none(),
+        "ordinary unavailable dependencies must remove inherited callable facts"
+    );
+
+    let lowered = lower_checked_surface_module(&module);
+    assert!(
+        lowered.core.is_none(),
+        "ordinary unavailable dependencies must not enter checked core"
+    );
+    assert!(
+        lowered.ir.is_none(),
+        "ordinary unavailable dependencies must not enter IR"
+    );
+}
+
+#[test]
+fn quarantined_public_adt_cannot_be_reexposed_through_an_alias_refinement() {
+    let diagnostics = visibility_diagnostics(concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub type Box<A>\n",
+        "  pub Boxed(value: A)\n",
+        "end\n",
+        "pub type Envelope\n",
+        "  pub Wrapped(value: Box<State::Hidden>)\n",
+        "end\n",
+        "pub type Alias = Envelope\n",
+        "pub fn expose(value: Alias::Wrapped) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    let observed = diagnostics
+        .iter()
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    assert!(observed[0].contains("\"type\":\"Envelope\",\"variant\":\"Wrapped\""));
+    assert!(observed[1].contains("\"written_type\":\"Alias::Wrapped\""));
+    assert!(observed[1].contains("\"kind\":\"type_alias_declaration\""));
+}
+
+#[test]
 fn record_fields_report_distinct_nested_paths_and_alias_hops() {
     let diagnostics = visibility_diagnostics(concat!(
         "type Secret\n",
@@ -86,7 +440,8 @@ fn record_fields_report_distinct_nested_paths_and_alias_hops() {
     assert!(observed[1].contains(concat!(
         "\"exposure_path\":[{\"kind\":\"parameter\",\"name\":\"value\"},",
         "{\"kind\":\"record_field\",\"name\":\"nested\"},",
-        "{\"kind\":\"record_field\",\"name\":\"second\"}]"
+        "{\"kind\":\"record_field\",\"name\":\"second\"},",
+        "{\"kind\":\"union_alternative\",\"index\":0}]"
     )));
     assert!(observed[1].contains("\"kind\":\"type_alias_declaration\""));
     assert_eq!(observed[1].matches("type_alias_declaration").count(), 2);
@@ -132,7 +487,7 @@ fn deep_record_field_path_is_materialized_for_the_visibility_diagnostic() {
 }
 
 #[test]
-fn public_record_refinements_and_private_function_records_remain_valid() {
+fn public_structural_refinements_are_checked_while_private_functions_remain_valid() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -155,15 +510,18 @@ fn public_record_refinements_and_private_function_records_remain_valid() {
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = lower_surface_ast(&parsed.tree);
     let diagnostics = analyze_surface_module(&module);
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id != "type.variant_refinement_private"),
-        "{diagnostics:#?}"
-    );
+    let visibility = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+    assert_eq!(visibility.len(), 2, "{diagnostics:#?}");
+    for diagnostic in visibility {
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(json.contains("\"kind\":\"function_result\""), "{json}");
+    }
     assert!(TypeEnvironment::from_module(&module).function_is_published_for_test("accepted"));
     assert!(
-        TypeEnvironment::from_module(&module)
+        !TypeEnvironment::from_module(&module)
             .function_is_published_for_test("function_record_boundary")
     );
 }
@@ -206,8 +564,10 @@ fn function_field_effect_rows_do_not_hide_later_record_refinements() {
         "end\n",
     ));
 
-    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-    let observed = veln_diagnostics::diagnostic_to_json(&diagnostics[0]).to_json();
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    let nested = veln_diagnostics::diagnostic_to_json(&diagnostics[0]).to_json();
+    assert!(nested.contains("\"kind\":\"function_result\""), "{nested}");
+    let observed = veln_diagnostics::diagnostic_to_json(&diagnostics[1]).to_json();
     assert!(observed.contains(concat!(
         "\"exposure_path\":[{\"kind\":\"parameter\",\"name\":\"value\"},",
         "{\"kind\":\"record_field\",\"name\":\"state\"}]"
@@ -443,6 +803,95 @@ fn non_unique_casing_recovery_does_not_manufacture_visibility_identity() {
 }
 
 mod import_visibility;
+
+#[test]
+fn root_refinements_recurse_into_arguments_for_functions_unions_and_adt_payloads() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type State\n  Hidden\n  pub Ready\nend\n",
+            "pub type Envelope\n",
+            "  pub Wrapped(value: Option<State::Hidden>::Some)\n",
+            "end\n",
+            "pub fn expose(value: Option<State::Hidden>::Some | Option<State::Hidden>::None) -> Option<State::Hidden>::Some\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+
+    assert_eq!(diagnostics.len(), 4, "{diagnostics:#?}");
+    let observed = diagnostics
+        .iter()
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    assert!(observed[0].contains("\"boundary\":\"public_adt_payload\""));
+    assert!(observed[0].contains("\"kind\":\"type_argument\",\"index\":0"));
+    assert!(observed[1].contains("\"kind\":\"union_alternative\",\"index\":0"));
+    assert!(observed[2].contains("\"kind\":\"union_alternative\",\"index\":1"));
+    assert!(observed[3].contains("\"boundary\":\"public_result\""));
+    let environment = TypeEnvironment::from_module(&module);
+    assert!(!environment.function_is_published_for_test("expose"));
+}
+
+#[test]
+fn compact_and_spaced_structures_have_identical_paths_and_quarantine() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type State\n  Hidden\nend\n",
+            "pub type Box<A>\n  pub Boxed(A)\nend\n",
+            "pub fn compact(value: {item: Box<State::Hidden>}) -> ()\n  ()\nend\n",
+            "pub fn spaced(value: { item : Box< State::Hidden > }) -> ()\n  ()\nend\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    let paths = diagnostics
+        .iter()
+        .map(|diagnostic| {
+            let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+            json[json.find("\"exposure_path\"").expect("path")..]
+                .split("]")
+                .next()
+                .expect("path end")
+                .to_string()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(paths[0], paths[1].replace("compact", "spaced"));
+    let environment = TypeEnvironment::from_module(&module);
+    assert!(!environment.function_is_published_for_test("compact"));
+    assert!(!environment.function_is_published_for_test("spaced"));
+}
+
+#[test]
+fn sibling_records_keep_complete_ordered_generic_paths() {
+    let diagnostics = visibility_diagnostics(concat!(
+        "pub type State\n  Hidden\nend\n",
+        "pub type Box<A>\n  pub Boxed(A)\nend\n",
+        "pub fn expose(value: {first: Box<State::Hidden>, second: Box<State::Hidden>}) -> ()\n  ()\nend\n",
+    ));
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    for (diagnostic, field) in diagnostics.iter().zip(["first", "second"]) {
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(json.contains(&format!("\"kind\":\"record_field\",\"name\":\"{field}\"")));
+        assert!(json.contains("\"kind\":\"type_argument\",\"index\":0"));
+    }
+    let spans = diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.span.as_ref().expect("span").start.column)
+        .collect::<Vec<_>>();
+    assert!(spans[0] < spans[1], "{spans:?}");
+}
 
 #[test]
 fn colliding_implicit_import_qualifiers_do_not_select_by_type_leaf() {
@@ -784,3 +1233,4 @@ fn colliding_qualified_refinement_project(imported_first: bool) -> SurfaceModule
 mod union_visibility;
 
 mod publication_and_recovery;
+mod publication_worklist;

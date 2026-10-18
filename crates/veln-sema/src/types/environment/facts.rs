@@ -147,7 +147,7 @@ fn finish_environment(
             crate::analysis::function_has_private_variant_refinement_exposure(
                 function,
                 &environment,
-            )
+            ) || crate::analysis::function_depends_on_quarantined_adt(function, &environment)
         })
         .map(source_function_publication_key)
         .collect::<Vec<_>>();

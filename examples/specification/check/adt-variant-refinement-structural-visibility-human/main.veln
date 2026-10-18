@@ -1,0 +1,27 @@
+pub type State
+	pub Ready
+	Hidden
+end
+
+pub type Box<A>
+	pub Boxed(value: A)
+end
+
+pub type Alias = State
+
+pub fn expose(value: Box<Alias::Hidden>, callback: fn(State::Hidden) -> Box<State::Hidden>) -> ()
+	()
+end
+
+pub type Envelope
+	pub Wrapped(value: Box<Alias::Hidden | State::Hidden>)
+	pub Root(value: Option< State::Hidden >::Some)
+end
+
+pub fn expose_root(value: Option<State::Hidden>::Some) -> ()
+	()
+end
+
+pub fn expose_siblings(value: {first: Box<State::Hidden>, second: Box< State::Hidden >}) -> ()
+	()
+end

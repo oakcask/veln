@@ -24,13 +24,11 @@ also states it.
   compiler and backend fixtures and executable examples migrate to the
   exported standard module:
   [network-compatibility-removal.md](network-compatibility-removal.md).
-- Remaining ADT variant-refinement support for structural visibility beyond
-  public-function root and record-field annotations, qualified immutable values
+- Remaining ADT variant-refinement support for qualified immutable values
   after a separate source-surface prerequisite, schema boundaries,
-  package-documentation catalog signatures,
   remaining LSP diagnostics and invalid-refinement recovery, and MCP
-  invalid-refinement recovery, package-signature, and saved-state
-  behavior. The provider-dependent base reason requires a separate production
+  invalid-refinement recovery with request-specific saved-state behavior. The
+  provider-dependent base reason requires a separate production
   provider contract before selection:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 

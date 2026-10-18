@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
 use veln_ast::{PublicAliasKind, SurfaceModule, UseDecl, Visibility};
@@ -167,6 +167,7 @@ impl AdtRegistry {
             qualified_import_recovery_modules: HashMap::new(),
             imported_descriptors_by_type: HashMap::new(),
             imported_descriptors_by_type_arity: HashMap::new(),
+            quarantined_type_identities: HashSet::new(),
             source_import_indexes_ready: false,
             local_descriptor_start,
         }
@@ -260,6 +261,7 @@ impl AdtRegistry {
         self.variant_declaration_spans = base.variant_declaration_spans.clone();
         self.variant_declaration_spans
             .extend(source_variant_declaration_spans(module));
+        self.quarantined_type_identities = base.quarantined_type_identities.clone();
         let uses = normal_use_decls(module);
         self.qualified_import_modules = qualified_import_modules(&uses);
         self.qualified_import_recovery_modules =
@@ -368,6 +370,7 @@ impl AdtRegistry {
             .collect();
         registry.declaration_spans = retained_declaration_spans(self, &registry);
         registry.variant_declaration_spans = retained_variant_declaration_spans(self, &registry);
+        registry.quarantined_type_identities = self.quarantined_type_identities.clone();
         registry
     }
 }

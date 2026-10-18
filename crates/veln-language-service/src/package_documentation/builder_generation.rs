@@ -29,6 +29,7 @@ impl<'a> PackageDocBuilder<'a> {
         self.validate_manifest_gate();
         let parsed_sources = self.parse_sources();
         self.validate_manifest_exports(&parsed_sources);
+        self.validate_public_variant_refinement_visibility(&parsed_sources);
         let metadata = self.metadata(&parsed_sources);
         self.validate_doctests(&parsed_sources);
         let schema_targets = self.public_schema_targets(&parsed_sources);
@@ -282,6 +283,48 @@ impl<'a> PackageDocBuilder<'a> {
                     &export.path_span,
                 );
             }
+        }
+    }
+
+    pub(super) fn validate_public_variant_refinement_visibility(
+        &mut self,
+        parsed_sources: &[ParsedPackageSource],
+    ) {
+        let exported_paths = parsed_sources
+            .iter()
+            .filter(|source| source.exported)
+            .map(|source| source.source.path().as_str())
+            .collect::<BTreeSet<_>>();
+        let analysis = analyze_project(
+            Project {
+                root: ".".into(),
+                files: parsed_sources
+                    .iter()
+                    .map(|source| source.source.clone())
+                    .collect(),
+                manifest: None,
+            },
+            DoctestMode::Exclude,
+        );
+        let causal_diagnostics = analysis
+            .unpublished_declarations()
+            .iter()
+            .filter(|declaration| exported_paths.contains(declaration.span.file.as_str()))
+            .flat_map(|declaration| declaration.causal_diagnostics.iter().cloned())
+            .collect::<Vec<_>>();
+        let diagnostics = analysis.checked_diagnostics();
+        for diagnostic in diagnostics.into_iter().filter(|diagnostic| {
+            diagnostic.severity == Severity::Error
+                && diagnostic.id == "type.variant_refinement_private"
+                && diagnostic.span.as_ref().is_some_and(|span| {
+                    exported_paths.contains(span.file.as_str())
+                        || causal_diagnostics.iter().any(|cause| {
+                            cause.diagnostic_id == diagnostic.id && cause.span == *span
+                        })
+                })
+        }) {
+            self.diagnostics
+                .push(self.project_diagnostic("semantic_visibility", diagnostic));
         }
     }
 

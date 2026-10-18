@@ -47,12 +47,18 @@ before applying command-specific execution or write policy. Holes, missing
 expressions, constructor or call arity failures, and recognized concurrency
 blockers prevent execution.
 
-A variant-refinement visibility failure at the root of a public function
-parameter or result, or in a recursively nested record field, is also a
-checked-core and typed-IR blocker. This applies when the written base names the
-terminal ADT directly or resolves to it through a finite transparent type-alias
-chain. The failed function publishes no callable signature, and a direct or
-chained function alias cannot restore execution readiness for it. The
+A variant-refinement visibility failure anywhere in a public function
+parameter or result, or in a public variant payload of a public source ADT, is
+also a checked-core and typed-IR blocker. This applies when the written base
+names the terminal ADT directly or resolves to it through a finite transparent
+type-alias chain. The
+failed function publishes no callable signature, and the failed ADT publishes
+no imported public type fact. The same blockers close over ordinary named ADT
+dependencies in public payloads, including transparent aliases and recursive
+dependency cycles. A public function is also blocked when a parameter or
+result contains an ADT in that closure. These ordinary references do not
+produce a second privacy diagnostic. A direct or chained function alias cannot
+restore execution readiness for an unpublished function. The
 [type-checking contract](types.md#compatibility-and-limits) defines the
 affected annotation positions and the valid private-function controls.
 

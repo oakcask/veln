@@ -29,11 +29,22 @@ fn surface_wire_round_trip_preserves_variant_refinement_structure_and_spans() {
     let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
 
     assert_refinement_spans_round_trip(&module, &decoded);
+    assert_variant_field_type_span(source, &module, &decoded);
     assert_parameter_refinement(source, &decoded);
     assert_result_refinement(&decoded);
     assert_refinement_positions(&decoded);
     assert_test_and_handler_refinements(&decoded);
     assert_eq!(encode_surface_module(&decoded), encoded);
+}
+
+fn assert_variant_field_type_span(source: &str, lowered: &SurfaceModule, decoded: &SurfaceModule) {
+    let lowered_span = &lowered.types[0].variants[0].fields[0].ty_span;
+    let decoded_span = &decoded.types[0].variants[0].fields[0].ty_span;
+    assert_eq!(decoded_span, lowered_span, "variant field type span");
+    assert_eq!(
+        &source[decoded_span.start.offset..decoded_span.end.offset],
+        "protocol::State::Ready | protocol::State::Closed"
+    );
 }
 
 #[test]

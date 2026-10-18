@@ -54,8 +54,8 @@ status resources. Snapshot byte changes affect package snapshot identity.
 Catalog-semantic, schema, or generator-contract changes affect the
 documentation digest.
 
-The implemented gates are parse, manifest, export, documentation-reference,
-doctest, and identity.
+The implemented gates are parse, manifest, export, semantic visibility,
+documentation-reference, doctest, and identity.
 
 ## Result Identity
 
@@ -119,6 +119,21 @@ constructors carry their own attached documentation comments, visible doctest
 fences, expected-output fences, and resolved schema documentation references.
 An effect is one declaration in the catalog; its operations are represented in
 that declaration's canonical signature rather than as separate declarations.
+Public function and ADT signatures preserve source-written variant-refinement
+annotations, including refinements inside named arguments and function types.
+A private refinement exposure in a public function signature or a public
+variant payload of a public source ADT fails the semantic-visibility gate. The
+package-atomic failure result contains no catalog, declaration URI, or
+partially published signature. The gate still discovers a private refinement
+in a function or named-type position when a sibling position has invalid
+generic arity; that visibility failure rejects the complete catalog.
+Publication dependency closure also rejects an exported public function or ADT
+whose signature contains an ordinary named reference to a quarantined ADT,
+including a reference through a transparent alias. The gate does not synthesize
+a privacy diagnostic at each ordinary reference. If this closure makes any
+manifest-exported declaration unavailable, retained causal privacy diagnostics
+are eligible for the package-atomic failure even when their primary spans are
+in non-exported sources.
 
 The catalog excludes non-exported modules, private declarations, handler
 operation clauses and bodies, exact test companions, integration-test sources,
@@ -161,6 +176,21 @@ The implemented gates are:
   is published;
 - export: every exported source must exist in the captured snapshot and each
   export path can appear at most once;
+- semantic visibility: a public function signature or a public variant payload
+  of a public source ADT must not expose a private variant-refinement base or
+  selected variant through any structural type position. Semantic resolution
+  uses every retained package source, including non-exported modules needed by
+  imports and transparent aliases. A diagnostic rooted only in a retained
+  non-exported declaration is non-blocking unless an exported public
+  declaration depends on a quarantined ADT through its resolved signature.
+  When dependency closure makes an exported declaration unavailable, only
+  retained `type.variant_refinement_private` diagnostics in that declaration's
+  causal dependency closure are admitted, even when their primary exposure
+  spans are in non-exported sources. Related base, alias, and variant
+  declarations may also be in a non-exported module. A failure uses
+  `gate: "semantic_visibility"`, reports
+  `type.variant_refinement_private`, and publishes no declaration identity or
+  signature;
 - documentation reference: `{@schema ...}` references in documentation
   blocks that attach to exported public declarations or exported public type
   constructors must resolve to a public schema in an exported module. Bare

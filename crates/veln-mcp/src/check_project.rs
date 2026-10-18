@@ -66,21 +66,25 @@ pub(crate) fn check_project(
     };
 
     let dependencies = captured.dependencies.clone();
-    let diagnostics = checked_project_diagnostics_with_captured_dependencies(
+    let checked_diagnostics = checked_project_diagnostics_with_captured_dependencies(
         captured.project,
         DoctestMode::Exclude,
         captured.dependencies,
-    )
-    .iter()
-    .map(diagnostic_to_serde)
-    .collect::<Vec<_>>();
+    );
+    let visibility_failed = checked_diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.id == "type.variant_refinement_private");
+    let diagnostics = checked_diagnostics
+        .iter()
+        .map(diagnostic_to_serde)
+        .collect::<Vec<_>>();
     let structured = json!({
         "schema_version": 1,
         "analysis": target.metadata(selection.generation()),
         "diagnostics": diagnostics,
         "summary": summary(&diagnostics),
     });
-    if let Err(error) = language_resources.admit_dependencies(&dependencies) {
+    if !visibility_failed && let Err(error) = language_resources.admit_dependencies(&dependencies) {
         return error.into();
     }
     ToolOutcome::Success(structured)

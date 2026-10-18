@@ -29,6 +29,17 @@ A source with parse diagnostics is excluded from semantic analysis. Other
 parse-clean sources in the same project can still proceed to semantic
 analysis.
 
+Shared semantic analysis keeps unambiguous type and constructor identities for
+recovery, but it does not publish a public function or ADT whose signature
+exposes an inaccessible variant refinement. Publication quarantine propagates
+through public signature dependencies, including transparent type aliases and
+recursive ADT dependency cycles. A dependent ordinary named-type reference
+does not duplicate the causal privacy diagnostic. The affected structural
+positions and publication closure are defined by the
+[type specification](types.md#compatibility-and-limits); diagnostic order,
+spans, and related context are defined by the
+[diagnostic specification](diagnostics-json.md#diagnostic-families).
+
 `doc` consumes the same project semantic diagnostics for its selected production
 sources, but retains its own source exclusion, parse recovery, schema-reference,
 and write boundaries. A refinement diagnostic remains an error when recovery

@@ -1,0 +1,23 @@
+pub type State
+	Hidden
+end
+
+pub type Pair<A, B>
+	pub Both(first: A, second: B)
+end
+
+pub fn function_invalid_first(value: fn(Option<Int, Int>) -> State::Hidden) -> ()
+	()
+end
+
+pub fn function_private_first(value: fn(State::Hidden) -> Option<Int, Int>) -> ()
+	()
+end
+
+pub fn wrapper_invalid_first(value: Pair<Option<Int, Int>, State::Hidden>) -> ()
+	()
+end
+
+pub fn wrapper_private_first(value: Pair<State::Hidden, Option<Int, Int>>) -> ()
+	()
+end

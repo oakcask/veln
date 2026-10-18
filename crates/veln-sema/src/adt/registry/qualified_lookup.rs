@@ -1,6 +1,24 @@
 use super::*;
 
 impl AdtRegistry {
+    pub(crate) fn descriptor_for_type_path_including_quarantined(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        if !name.contains("::") {
+            return self.descriptor_for_type_path(name, args_len, current_module, uses);
+        }
+        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+        let type_name = segments.last()?;
+        let identity = self.qualified_source_identity(type_name, &segments, current_module, uses);
+        self.qualified_descriptor_candidates(&identity)
+            .rev()
+            .find(|descriptor| Self::descriptor_matches_arity(descriptor, Some(args_len)))
+    }
+
     pub(crate) fn unique_descriptor_for_type_path_any_arity(
         &self,
         name: &str,

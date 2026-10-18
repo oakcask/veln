@@ -394,6 +394,7 @@ impl<'a> Reader<'a> {
             node_id: self.node_id()?,
             name: self.string()?,
             ty: self.string()?,
+            ty_span: self.span()?,
             ty_paths: self.vec(Self::type_path_segments)?,
             ty_refinements: self.vec(Self::variant_refinement)?,
             span: self.span()?,
