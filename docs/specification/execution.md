@@ -189,9 +189,10 @@ the bytes available from the socket and do not preserve peer write boundaries.
 `net::write_all` preserves the bytes in one chunk and retries uncommitted
 suffixes until completion or the first typed failure. Stream close and
 listener close are explicit ownership operations. Read shutdown preserves
-write ownership and makes later reads report clean end; write shutdown makes
-later writes fail. A closed handle remains invalid, and operations through it
-return typed failures without reopening the resource. Loopback and remote
+write ownership and makes blocked or later reads return `Closed`; write
+shutdown makes blocked or later writes return `Closed`. A closed handle remains
+invalid, and operations through it return typed failures without reopening the
+resource. Loopback and remote
 connections use the same source-visible result shapes. The default transport
 binds and connects real host sockets. The complete source-level operation and
 failure contract is specified by
@@ -207,9 +208,10 @@ close, and through a stale handle remain distinguishable.
 The cancellable receiver-list adapter observes routed, timed-out, and
 cancelled outcomes before producing adapter actions. It uses channel-routed
 `StreamInput` values and preserves adapter trace identity and event order.
-`stream_adapter_drain_actions` drains one accepted stream, emits only
-`SendBytes` actions through `net::write_all`, and leaves stream and listener
-closure to its caller. `stream_adapter_accept_loop` accepts, drains, writes,
+`stream_adapter_drain_actions` drains one accepted stream and writes only
+`SendBytes` payloads in list order through its private host-network
+adapter, and leaves stream and listener closure to its caller.
+`stream_adapter_accept_loop` accepts, drains, writes,
 closes each stream once, and closes the listener after clean end.
 `stream_adapter_drain_actions_until_cancellable` uses the supplied `Deadline`
 and `CancelToken`; deadline and cancellation are ordinary outcome values,

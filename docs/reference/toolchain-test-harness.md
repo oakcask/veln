@@ -652,7 +652,11 @@ The case command lists `fixture_effects.veln` and each shared support source
 that the fixture imports as ordinary Veln source inputs. The general fixture
 factory creates fresh network and clock state. Its scoped host-network handler
 can supply deterministic resolution, connection, stream-I/O, and lifecycle
-results while recording the observable operation trace. A case can therefore
+results while recording the observable operation trace. Outside the
+production-loopback fixture mode, an unconfigured resolution request returns
+the requested endpoint with the address family selected by the resolver
+operation. Production-loopback resolution records its event and fails if that
+event cannot be recorded. A case can therefore
 install the production `net::system()` handler for `net::IO` and place the
 host-network fixture outside it without replacing the production handler.
 The HTTP/2 service support
