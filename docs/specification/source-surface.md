@@ -129,6 +129,12 @@ paths, type arguments, final segments, alternative order, duplicates, and
 source spans. Encoding and decoding the lowered AST through its wire format
 preserves that structure and those spans.
 
+For each named or positional ADT payload field, the syntax tree and lowered
+AST preserve a type span that selects only the written type text. The complete
+field span remains separate. The current wire layout serializes both spans and
+rejects the preceding layout header instead of decoding bytes with the older
+field shape.
+
 Type arguments belong before the final segment. Each side of `|` must be a
 complete structural alternative, and `|>` remains the pipeline token rather
 than a type separator. In a non-generic multi-segment spelling, the last
