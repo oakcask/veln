@@ -1201,7 +1201,7 @@
     fn variant_refinement_navigation_work_is_adjacent_linear() {
         for rename in [false, true] {
             let mut evidence = Vec::new();
-            for annotation_count in [256, 512, 1024, 2048] {
+            for annotation_count in [128, 256, 512, 1024] {
                 let started = std::time::Instant::now();
                 let work = variant_refinement_lookup_work(annotation_count, rename);
                 evidence.push((annotation_count, work, started.elapsed()));

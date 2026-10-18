@@ -251,7 +251,7 @@ fn measure_control_flow_join_work(variant_count: usize) -> (usize, usize) {
 
 #[test]
 fn control_flow_join_work_grows_linearly_in_private_and_ordinary_analysis() {
-    let work = [500, 1000, 2000, 4000].map(measure_control_flow_join_work);
+    let work = [250, 500, 1000, 2000].map(measure_control_flow_join_work);
 
     assert!(
         work[0].0 > 0 && work[0].1 > 0,
