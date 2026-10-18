@@ -275,6 +275,18 @@ fn expect_write_all_calls(calls: { tx : Sender<Int>, rx : Receiver<Int> }, expec
 	end
 end
 
+fn expect_system_write_failure(result: Result<(), net::NetError>) -> Result<(), String>
+	match result
+		Err(net::NetError("write", None, Some("127.0.0.1:2"), net::Other, message)) => if message == "transport write failed: forced_failure\nnote: Stream identity: write-all:1.\nnote: Lifecycle phase: during_operation.\nnote: Commit state: input=false, output=true, ownership=false.\nnote: Platform cause: failed after prefix."
+			Ok(())
+		else
+			Err("write_all changed the system failure context")
+		end
+		Err(_) => Err("write_all changed the system failure shape")
+		Ok(()) => Err("write_all ignored a failed partial write")
+	end
+end
+
 fn verify_write_all_with_system(calls: { tx : Sender<Int>, rx : Receiver<Int> }) -> Result<(), String> effects [net::IO, net, time, concurrency]
 	let empty = byte_chunk([])
 	let stream = facade_expect_stream(net::connect(net::Address(net::Tcp4, "write-all", 1)))?
@@ -286,22 +298,27 @@ fn verify_write_all_with_system(calls: { tx : Sender<Int>, rx : Receiver<Int> })
 		Err(net::NetError(_, _, _, _, message)) => Err(message)
 	end?
 	let _ = expect_write_all_calls(calls, 3, "write_all used the wrong number of partial writes")?
-	let failure_token = time::cancel_token()
+	let zero_token = time::cancel_token()
 	let _ = channel::send(calls.tx, 3)
-	let failed = handle net::write_all(stream, byte_chunk_from_visible_ascii_string("failure")?, Some(deadline), Some(failure_token)) with stable_network_clock(1000)
-	let _ = match failed
-		Err(_) => Ok(())
-		Ok(()) => Err("write_all ignored a failed partial write")
-	end?
-	let _ = expect_write_all_calls(calls, 4, "write_all retried after a failed partial write")?
-	let empty_token = time::cancel_token()
+	let zero = handle net::write_all(stream, byte_chunk_from_visible_ascii_string("zero")?, Some(deadline), Some(zero_token)) with stable_network_clock(1000)
+	let _ = facade_expect(match zero
+		Err(net::NetError("write_all", None, None, net::Other, _)) => true
+		_ => false
+	end, "write_all did not reject zero progress")?
+	let _ = expect_write_all_calls(calls, 4, "write_all retried after zero progress")?
+	let failure_token = time::cancel_token()
 	let _ = channel::send(calls.tx, 4)
+	let failed = handle net::write_all(stream, byte_chunk_from_visible_ascii_string("failure")?, Some(deadline), Some(failure_token)) with stable_network_clock(1000)
+	let _ = expect_system_write_failure(failed)?
+	let _ = expect_write_all_calls(calls, 5, "write_all retried after a failed partial write")?
+	let empty_token = time::cancel_token()
+	let _ = channel::send(calls.tx, 5)
 	let no_write = handle net::write_all(stream, empty, Some(deadline), Some(empty_token)) with stable_network_clock(1000)
 	let _ = facade_expect(match no_write
 		Ok(()) => true
 		Err(_) => false
 	end, "write_all did not accept an empty input")?
-	expect_write_all_calls(calls, 4, "write_all wrote an empty input")
+	expect_write_all_calls(calls, 5, "write_all wrote an empty input")
 end
 
 pub fn verify_write_all() -> Result<(), String> effects [net, time, concurrency]

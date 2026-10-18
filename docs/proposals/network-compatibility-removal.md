@@ -10,9 +10,8 @@ update-when: Legacy compiler-known network lookup or the standard network import
 Remaining checked compiler fixtures and executable examples must replace
 compiler-known source-less `net::...` lookup with an explicit import of the
 exported standard `net` module and the nominal `net::IO` handler boundary.
-The checked JVM backend programs already use that exported module. After the
-remaining migration, the compiler fallback for source-less network lookup will
-be removed.
+After the remaining migration, the compiler fallback for source-less network
+lookup will be removed.
 
 An unresolved legacy spelling must then produce one diagnostic that identifies
 the standard import, the `net::IO` effect, and the `net::system()` application
