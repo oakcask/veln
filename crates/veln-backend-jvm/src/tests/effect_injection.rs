@@ -43,8 +43,9 @@ pub(super) fn lower_with_clock(text: &str) -> TypedProgram {
 
 pub(super) fn lower_with_network_facade(text: &str) -> TypedProgram {
     lower_with_standard_modules_to_ir(&format!(
-        "{}\n{text}",
-        include_str!("../../test-support/network.veln")
+        "{}\n{}\n{text}",
+        include_str!("../../test-support/network.veln"),
+        include_str!("../../test-support/network_boundary.veln")
     ))
 }
 
@@ -293,8 +294,18 @@ fn observe_retained_networks() -> Result<(), String> effects [net::IO, net, stdi
     let second_chunk = byte_chunk_from_hex("0203")?
     let first = facade_expect_stream(handle net::connect(net::Address(net::Tcp4, "first", 1)) with fixed_network("first", first_chunk))?
     let second = facade_expect_stream(handle net::connect(net::Address(net::Tcp4, "second", 1)) with fixed_network("second", second_chunk))?
-    stdio::println(int_to_string(read_count(net::read(first))?))
+    stdio::println(int_to_string(read_count(handle net::read(first) with fixed_network("shadow", second_chunk))?))
     stdio::println(int_to_string(read_count(net::read(second))?))
+    let first_peer = match net::peer_address(first)
+        Ok(net::Endpoint(_, value)) => Ok(value)
+        Err(_) => Err("retained first endpoint failed")
+    end?
+    let second_peer = match net::peer_address(second)
+        Ok(net::Endpoint(_, value)) => Ok(value)
+        Err(_) => Err("retained second endpoint failed")
+    end?
+    stdio::println(first_peer)
+    stdio::println(second_peer)
     let _ = close_retained(first)?
     let _ = close_retained(second)?
     Ok(())
@@ -315,7 +326,10 @@ end
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "1\n2\n");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "1\n2\nfirst\nsecond\n"
+    );
 }
 
 #[test]
@@ -353,6 +367,29 @@ end
     let program = generate_classfiles_with_entry(&ir, "main");
     let Some(output) =
         run_jvm_program_when_java_is_available("standard-network-write-all", &program, &[])
+    else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
+}
+
+#[test]
+fn standard_network_owned_resources_preserve_host_dispatch() {
+    let ir = lower_with_network_facade(
+        r#"
+pub fn main() -> Result<(), String> effects [net, time, concurrency]
+    verify_owned_network_boundary()
+end
+"#,
+    );
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("network-owned-boundary", &program, &[])
     else {
         return;
     };
