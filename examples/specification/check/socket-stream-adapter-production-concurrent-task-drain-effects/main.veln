@@ -1,10 +1,12 @@
+use net from "std"
+
 # Concurrent task drain keeps transport and task effects in the adapter.
 type HandlerOutput
 	Handled
 end
 
 type PendingWork
-	Pending(stream: NetStream, task: Task<Result<HandlerOutput, String>>, tail: PendingWork)
+	Pending(stream: net::Stream, task: Task<Result<HandlerOutput, String>>, tail: PendingWork)
 	Drained
 end
 
@@ -16,8 +18,8 @@ fn run_handler_task(context: { input: StreamInput, accepted: Int }) -> Result<Ha
 	handle_stream(context)
 end
 
-fn spawn_pending(stream: NetStream, tail: PendingWork) -> PendingWork effects [net, concurrency]
-	let input = match net::read_chunk_or_end(stream)
+fn spawn_pending(stream: net::Stream, tail: PendingWork) -> PendingWork effects [net::IO, concurrency]
+	let input = match read_stream_chunk_or_end(stream)
 		Some(bytes) => Chunk(bytes)
 		None => End
 	end
@@ -25,16 +27,16 @@ fn spawn_pending(stream: NetStream, tail: PendingWork) -> PendingWork effects [n
 	Pending(stream, worker, tail)
 end
 
-fn drain_pending(pending: PendingWork) -> () effects [net, concurrency]
+fn drain_pending(pending: PendingWork) -> () effects [net::IO, concurrency]
 	match pending
 		Pending(stream, worker, tail) => close_after_join(stream, worker, tail)
 		Drained => ()
 	end
 end
 
-fn close_after_join(stream: NetStream, worker: Task<Result<HandlerOutput, String>>, tail: PendingWork) -> () effects [net, concurrency]
+fn close_after_join(stream: net::Stream, worker: Task<Result<HandlerOutput, String>>, tail: PendingWork) -> () effects [net::IO, concurrency]
 	let _ = task::join(worker)
-	net::close_stream(stream)
+	close_owned_stream(stream)
 	drain_pending(tail)
 end
 
@@ -42,10 +44,22 @@ pub fn handler_boundary(context: { input: StreamInput, accepted: Int }) -> Resul
 	handle_stream(context)
 end
 
-pub fn adapter_missing_concurrency(stream: NetStream) -> PendingWork effects [net]
+pub fn adapter_missing_concurrency(stream: net::Stream) -> PendingWork effects [net::IO]
 	spawn_pending(stream, Drained)
 end
 
-pub fn adapter_missing_net(stream: NetStream) -> PendingWork effects [concurrency]
+pub fn adapter_missing_net(stream: net::Stream) -> PendingWork effects [concurrency]
 	spawn_pending(stream, Drained)
+end
+
+fn read_stream_chunk_or_end(stream: net::Stream) -> Option<ByteChunk> effects [net::IO]
+	match net::read(stream)
+		Ok(net::ReadChunk(bytes)) => Some(bytes)
+		_ => None
+	end
+end
+
+fn close_owned_stream(stream: net::Stream) -> () effects [net::IO]
+	let _ = net::close_stream(stream)
+	()
 end

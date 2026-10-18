@@ -1,8 +1,11 @@
-# Deadline-aware socket reads require both net and time effects.
-pub fn read_until_missing_time(stream: NetStream, deadline: Deadline) -> Option<ByteChunk> effects [net]
-	net::read_chunk_until(stream, deadline)
+use net from "std"
+
+# Compiler integration contract: controlled reads keep time and nominal IO effects distinct.
+pub fn read_until_missing_time(stream: net::Stream, deadline: Deadline) -> Result<net::ReadOutcome, net::NetError> effects [net::IO]
+	time::wait_until(deadline)
+	net::read_with(stream, Some(deadline), None)
 end
 
-pub fn read_until_missing_net(stream: NetStream, deadline: Deadline) -> Option<ByteChunk> effects [time]
-	net::read_chunk_until(stream, deadline)
+pub fn read_until_missing_net(stream: net::Stream, deadline: Deadline) -> Result<net::ReadOutcome, net::NetError> effects [time]
+	net::read_with(stream, Some(deadline), None)
 end

@@ -1,3 +1,4 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 # Production loopback adapter handles per-stream task handler failure as a source outcome.
@@ -29,8 +30,8 @@ fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, 
 	end
 end
 
-fn read_stream_input(stream: NetStream) -> StreamInput effects [net]
-	match net::read_chunk_or_end(stream)
+fn read_stream_input(stream: net::Stream) -> StreamInput effects [net::IO]
+	match read_chunk_optional(stream)
 		Some(bytes) => Chunk(bytes)
 		None => End
 	end
@@ -86,7 +87,7 @@ fn ordered_send_chunks(actions: List<ResponseAction>) -> List<ByteChunk>
 	end
 end
 
-fn collect_first_result(stream: NetStream, channel_route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, adapter_route: { stream : String, lane : String }, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool }, routed_events : Int, total_bytes : Int, first_sequence : Int, last_sequence : Int, trace_id : String, route_stream : String, route_lane : String, failure_reason : String } effects [net, concurrency]
+fn collect_first_result(stream: net::Stream, channel_route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, adapter_route: { stream : String, lane : String }, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool }, routed_events : Int, total_bytes : Int, first_sequence : Int, last_sequence : Int, trace_id : String, route_stream : String, route_lane : String, failure_reason : String } effects [net::IO, concurrency]
 	let input = route_input(channel_route, read_stream_input(stream))
 	let result = handle_routed_input(input, state, adapter_route, { trace_id: "trace-failure", sequence: state.chunks + 1 })
 	match result.action
@@ -97,30 +98,30 @@ fn collect_first_result(stream: NetStream, channel_route: { tx : Sender<StreamIn
 	end
 end
 
-fn collect_stream_failure(stream: NetStream, adapter_route: { stream : String, lane : String }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool }, routed_events : Int, total_bytes : Int, first_sequence : Int, last_sequence : Int, trace_id : String, route_stream : String, route_lane : String, failure_reason : String } effects [net, concurrency]
+fn collect_stream_failure(stream: net::Stream, adapter_route: { stream : String, lane : String }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool }, routed_events : Int, total_bytes : Int, first_sequence : Int, last_sequence : Int, trace_id : String, route_stream : String, route_lane : String, failure_reason : String } effects [net::IO, concurrency]
 	let channel_route = channel::bounded<StreamInput>(1)
 	collect_first_result(stream, channel_route, adapter_route, { chunks: 0, ended: false })
 end
 
-fn accepted_lifecycle(stream: NetStream, adapter_route: { stream : String, lane : String }) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool }, routed_events : Int, total_bytes : Int, first_sequence : Int, last_sequence : Int, trace_id : String, route_stream : String, route_lane : String, failure_reason : String }, String> effects [net, concurrency]
+fn accepted_lifecycle(stream: net::Stream, adapter_route: { stream : String, lane : String }) -> Result<{ actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool }, routed_events : Int, total_bytes : Int, first_sequence : Int, last_sequence : Int, trace_id : String, route_stream : String, route_lane : String, failure_reason : String }, String> effects [net::IO, concurrency]
 	let summary = collect_stream_failure(stream, adapter_route)
 	let _ = match failure_count(summary.actions)
-		0 => net::write_chunks(stream, ordered_send_chunks(summary.actions))
+		0 => write_chunk_values(stream, ordered_send_chunks(summary.actions))
 		_ => ()
 	end
-	net::close_stream(stream)
+	close_stream_value(stream)
 	Ok(summary)
 end
 
-fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
-	match net::accept_or_end(listener)
+fn accept_next(listener: net::Listener) -> Result<net::Stream, String> effects [net::IO]
+	match accept_optional(listener)
 		Some(stream) => Ok(stream)
 		None => Err("missing production stream")
 	end
 end
 
-fn listener_ended(listener: NetListener) -> Bool effects [net]
-	match net::accept_or_end(listener)
+fn listener_ended(listener: net::Listener) -> Bool effects [net::IO]
+	match accept_optional(listener)
 		Some(_) => false
 		None => true
 	end
@@ -134,8 +135,8 @@ fn bool_text(value: Bool) -> String
 	end
 end
 
-fn fixture_body() -> Result<(), String> effects [net, concurrency, stdio]
-	let listener = net::listen("127.0.0.1:0")
+fn fixture_body() -> Result<(), String> effects [net::IO, concurrency, stdio]
+	let listener = open_listener("127.0.0.1:0")?
 	let stream = accept_next(listener)?
 	let summary = accepted_lifecycle(stream, { stream: "production-stream", lane: "ingress" })?
 	let clean_end = listener_ended(listener)
@@ -166,7 +167,79 @@ fn fixture_body() -> Result<(), String> effects [net, concurrency, stdio]
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+pub fn main() -> Result<(), String> effects [time, concurrency, fs, net, stdio]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
+end
+
+fn fixture_network_error(error: net::NetError) -> String
+	match error
+		net::NetError(_, _, _, _, message) => match string_split_once(message, "\n")
+			Some(parts) => parts.left
+			None => message
+		end
+	end
+end
+
+fn fixture_address(text: String) -> Result<net::Address, String>
+	match net::split_host_port(text)
+		Ok(parts) => Ok(net::Address(net::Tcp4, parts.host, parts.port))
+		Err(error) => Err(fixture_network_error(error))
+	end
+end
+
+fn read_chunk_optional(stream: net::Stream) -> Option<ByteChunk> effects [net::IO]
+	match net::read(stream)
+		Ok(net::ReadChunk(bytes)) => Some(bytes)
+		_ => None
+	end
+end
+
+fn accept_optional(listener: net::Listener) -> Option<net::Stream> effects [net::IO]
+	match net::accept(listener)
+		Ok(stream) => Some(stream)
+		Err(_) => None
+	end
+end
+
+fn write_chunk_values(stream: net::Stream, chunks: List<ByteChunk>) -> () effects [net::IO]
+	match chunks
+		Nil => ()
+		Cons(bytes, tail) => begin
+			let _ = net::write_all(stream, bytes, None, None)
+			write_chunk_values(stream, tail)
+		end
+	end
+end
+
+fn close_stream_value(stream: net::Stream) -> () effects [net::IO]
+	let _ = net::close_stream(stream)
+	()
+end
+
+fn open_listener(text: String) -> Result<net::Listener, String> effects [net::IO]
+	match fixture_address(text)
+		Ok(address) => match net::listen(address)
+			Ok(listener) => Ok(listener)
+			Err(error) => Err(fixture_network_error(error))
+		end
+		Err(message) => Err(message)
+	end
+end
+
+fn open_stream(text: String) -> Result<net::Stream, String> effects [net::IO]
+	match fixture_address(text)
+		Ok(address) => match net::connect(address)
+			Ok(stream) => Ok(stream)
+			Err(error) => Err(fixture_network_error(error))
+		end
+		Err(message) => Err(message)
+	end
+end
+
+fn accept_stream(listener: net::Listener) -> Result<net::Stream, String> effects [net::IO]
+	match net::accept(listener)
+		Ok(stream) => Ok(stream)
+		Err(error) => Err(fixture_network_error(error))
+	end
 end

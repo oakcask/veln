@@ -1,27 +1,62 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 
 # Deadline-aware socket chunk-list write reports success as a value.
-fn write_outcome_text(outcome: StreamWriteOutcome) -> String
+fn write_outcome_text(outcome: Result<(), net::NetError>) -> String
 	match outcome
-		WriteCompleted => "written"
-		WriteDeadlineExpired => "deadline"
-		WriteCancelled => "cancelled"
+		Ok(_) => "written"
+		Err(net::NetError(_, _, _, net::TimedOut, _)) => "deadline"
+		Err(net::NetError(_, _, _, net::Cancelled, _)) => "cancelled"
+		Err(_) => "cancelled"
 	end
 end
 
-fn fixture_body() -> Result<(), String> effects [net, time, stdio]
-	let listener = net::listen("127.0.0.1:0")
-	let stream = net::accept(listener)
+fn fixture_body() -> Result<(), String> effects [net::IO, time, stdio]
+	let listener = open_listener("127.0.0.1:0")?
+	let stream = accept_stream(listener)?
 	let first = byte_chunk_from_hex("0a0b")?
 	let second = byte_chunk_from_hex("cafe")?
 	let chunks = list_cons(first, list_cons(second, list_nil()))
 	let deadline = time::deadline_after_ms(100)
-	stdio::println(write_outcome_text(net::write_chunks_until(stream, chunks, deadline)))
+	stdio::println(write_outcome_text(write_chunks_with(stream, chunks, Some(deadline), None)))
 	Ok(())
+end
+
+fn write_chunks_with(stream: net::Stream, chunks: List<ByteChunk>, deadline: Option<Deadline>, token: Option<CancelToken>) -> Result<(), net::NetError> effects [net::IO]
+	match chunks
+		Nil => Ok(())
+		Cons(bytes, tail) => match net::write_all(stream, bytes, deadline, token)
+			Ok(_) => write_chunks_with(stream, tail, deadline, token)
+			Err(error) => Err(error)
+		end
+	end
+end
+
+fn fixture_network_error(error: net::NetError) -> String
+	match error
+		net::NetError(_, _, _, _, message) => match string_split_once(message, "\n")
+			Some(parts) => parts.left
+			None => message
+		end
+	end
+end
+
+fn open_listener(text: String) -> Result<net::Listener, String> effects [net::IO]
+	match net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))
+		Ok(listener) => Ok(listener)
+		Err(error) => Err(fixture_network_error(error))
+	end
+end
+
+fn accept_stream(listener: net::Listener) -> Result<net::Stream, String> effects [net::IO]
+	match net::accept(listener)
+		Ok(stream) => Ok(stream)
+		Err(error) => Err(fixture_network_error(error))
+	end
 end
 
 pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

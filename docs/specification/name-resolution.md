@@ -230,16 +230,20 @@ check failed, the alias is also unpublished; resolution does not fall back to
 the imported namesake. The imported function remains available through its
 qualified module path.
 
-A qualified function declared by a resolved source import takes precedence
-over a compiler-known qualified fallback with the same spelling. For example,
-after `use net from "std"`, `net::connect` selects the exported `std::net`
-function declaration. Its source signature, effects, and package definition
-location remain authoritative instead of being replaced by a synthetic
-compiler-known call target.
+After `use net from "std"`, `net::connect` selects the exported `std::net`
+function declaration. Its source signature, nominal `net::IO` effect, and
+package definition location are authoritative. There is no compiler-known
+public network fallback.
 
 Unresolved values and call targets produce `name.unresolved` diagnostics. A
 qualified call does not fall back to a bare function with the same final
 segment when no matching import alias exists.
+An unimported spelling that previously named a compiler-known `net::...`
+operation produces one `name.unresolved` diagnostic. Its primary message names
+only the unresolved call target. Three related notes identify the required
+`use net from "std"` import, the nominal `net::IO` effect, and the
+`net::system()` application handler. Other unknown `net::...` spellings retain
+the ordinary unresolved-name shape without those migration notes.
 In a match, an unresolved constructor path also produces `name.unresolved`
 when the scrutinee has a singleton or finite variant-refinement type and is an
 immutable binding written as a bare name or with redundant parentheses. The

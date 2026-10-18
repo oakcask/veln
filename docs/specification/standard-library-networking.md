@@ -339,8 +339,8 @@ listen, accept, connect, inspect addresses, shut down, or close a resource.
 The system handler supports TCP streams only. It does not provide UDP,
 Unix-domain sockets, TLS, HTTP, proxies, packet APIs, file-descriptor conversion,
 or platform-specific socket options. Prompt peer-visible cleanup still requires
-an explicit close; scope cleanup is a safety net. Removing the legacy
-compiler-known network compatibility surface remains proposal work.
+an explicit close; scope cleanup is a safety net. The compiler does not provide
+a source-less public `net::...` compatibility surface.
 
 ## References
 

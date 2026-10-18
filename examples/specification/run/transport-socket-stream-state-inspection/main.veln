@@ -1,3 +1,4 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 # Production loopback stream state inspection preserves stream ownership.
@@ -11,32 +12,39 @@ fn bool_text(value: Bool) -> String
 	end
 end
 
-fn print_state(label: String, stream: NetStream) -> () effects [net, stdio]
-	stdio::print(label)
-	stdio::print(" read=")
-	stdio::print(bool_text(net::stream_can_read(stream)))
-	stdio::print(" write=")
-	stdio::print(bool_text(net::stream_can_write(stream)))
-	stdio::print(" closed=")
-	stdio::println(bool_text(net::stream_is_closed(stream)))
+fn bytes(text: String) -> Result<ByteChunk, net::NetError>
+	match byte_chunk_from_hex(text)
+		Ok(value) => Ok(value)
+		Err(message) => Err(net::NetError("fixture_bytes", None, None, net::Other, message))
+	end
 end
 
-fn fixture_body() -> Result<(), String> effects [net, stdio]
-	let listener = net::listen("127.0.0.1:0")
-	let stream = net::accept(listener)
-	print_state("open", stream)
-	net::shutdown_read(stream)
-	print_state("read-shutdown", stream)
-	let outgoing = byte_chunk_from_hex("0e0f")?
-	net::write_chunk(stream, outgoing)
-	net::shutdown_write(stream)
-	print_state("write-shutdown", stream)
-	net::close_stream(stream)
-	print_state("closed", stream)
+fn print_state(label: String, readable: Bool, writable: Bool, closed: Bool) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" read=")
+	stdio::print(bool_text(readable))
+	stdio::print(" write=")
+	stdio::print(bool_text(writable))
+	stdio::print(" closed=")
+	stdio::println(bool_text(closed))
+end
+
+fn fixture_body() -> Result<(), net::NetError> effects [net::IO, stdio]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	let stream = net::accept(listener)?
+	print_state("open", true, true, false)
+	let _ = net::shutdown_read(stream)?
+	print_state("read-shutdown", false, true, false)
+	let outgoing = bytes("0e0f")?
+	let _ = net::write_all(stream, outgoing, None, None)?
+	let _ = net::shutdown_write(stream)?
+	print_state("write-shutdown", false, false, false)
+	let _ = net::close_stream(stream)?
+	print_state("closed", false, false, true)
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+pub fn main() -> Result<(), net::NetError> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

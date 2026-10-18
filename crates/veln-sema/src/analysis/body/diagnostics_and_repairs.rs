@@ -265,7 +265,7 @@ impl<'a> FunctionChecker<'a> {
                 ));
             return;
         }
-        self.diagnostics.push(Diagnostic::new(
+        let mut diagnostic = Diagnostic::new(
             "name.unresolved",
             Severity::Error,
             DiagnosticKind::Name,
@@ -279,7 +279,35 @@ impl<'a> FunctionChecker<'a> {
                 ("resolution_status", JsonValue::string("unresolved")),
                 ("candidates", JsonValue::array([])),
             ]),
-        ));
+        );
+        if namespace == "call_target"
+            && removed_legacy_network_call(symbol)
+            && !self.environment.uses.iter().any(|use_decl| {
+                use_decl.module_name.as_deref() == self.function.module_name.as_deref()
+                    && use_decl.alias == "net"
+            })
+        {
+            for (kind, message) in [
+                (
+                    "network_import_migration",
+                    "Import the exported network module with `use net from \"std\"`.",
+                ),
+                (
+                    "network_effect_migration",
+                    "Declare the nominal `net::IO` effect for functions that use network operations.",
+                ),
+                (
+                    "network_handler_migration",
+                    "At the application boundary, handle `net::IO` with `net::system()`.",
+                ),
+            ] {
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string(kind)),
+                    ("message", JsonValue::string(message)),
+                ]));
+            }
+        }
+        self.diagnostics.push(diagnostic);
     }
 
     pub(super) fn push_ambiguous_name(
@@ -711,6 +739,43 @@ impl<'a> FunctionChecker<'a> {
             })
             .collect()
     }
+}
+
+fn removed_legacy_network_call(symbol: &str) -> bool {
+    let Some(name) = symbol.strip_prefix("net::") else {
+        return false;
+    };
+    matches!(
+        name,
+        "receive_chunk"
+            | "send_chunk"
+            | "listen"
+            | "connect"
+            | "accept"
+            | "accept_or_end"
+            | "accept_until"
+            | "accept_until_cancellable"
+            | "listener_local_addr"
+            | "read_chunk"
+            | "stream_local_addr"
+            | "stream_peer_addr"
+            | "stream_can_read"
+            | "stream_can_write"
+            | "stream_is_closed"
+            | "read_chunk_until"
+            | "read_chunk_until_cancellable"
+            | "read_chunk_or_end"
+            | "write_chunk"
+            | "write_chunk_until"
+            | "write_chunk_until_cancellable"
+            | "write_chunks"
+            | "write_chunks_until"
+            | "write_chunks_until_cancellable"
+            | "shutdown_write"
+            | "shutdown_read"
+            | "close_stream"
+            | "close_listener"
+    )
 }
 
 fn variant_mismatch_sets<'a>(

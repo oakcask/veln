@@ -1,15 +1,29 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 # Production loopback listeners expose bound local endpoint text before accept.
 use stdio
 
-fn fixture_body() -> Result<(), String> effects [net, stdio]
-	let listener = net::listen("127.0.0.1:0")
-	let local = net::listener_local_addr(listener)
-	let stream = net::accept(listener)
-	let stream_local = net::stream_local_addr(stream)
-	let stream_peer = net::stream_peer_addr(stream)
-	let incoming = net::read_chunk(stream)
+fn endpoint_text(endpoint: net::Endpoint) -> String
+	match endpoint
+		net::Endpoint(_, text) => text
+	end
+end
+
+fn read_bytes(outcome: net::ReadOutcome) -> ByteChunk
+	match outcome
+		net::ReadChunk(bytes) => bytes
+		net::ReadEnd => byte_chunk([])
+	end
+end
+
+fn fixture_body() -> Result<(), net::NetError> effects [net::IO, stdio]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	let local = endpoint_text(net::listener_address(listener)?)
+	let stream = net::accept(listener)?
+	let stream_local = endpoint_text(net::local_address(stream)?)
+	let stream_peer = endpoint_text(net::peer_address(stream)?)
+	let incoming = read_bytes(net::read(stream)?)
 	stdio::print("listener ")
 	stdio::print(local)
 	stdio::print(" stream-local ")
@@ -18,12 +32,12 @@ fn fixture_body() -> Result<(), String> effects [net, stdio]
 	stdio::print(stream_peer)
 	stdio::print(" bytes ")
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
-	net::close_stream(stream)
-	net::close_listener(listener)
+	let _ = net::close_stream(stream)?
+	let _ = net::close_listener(listener)?
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+pub fn main() -> Result<(), net::NetError> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

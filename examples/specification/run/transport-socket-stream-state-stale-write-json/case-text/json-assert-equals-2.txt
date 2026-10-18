@@ -1,1 +1,1 @@
-transport write failed: closed
+Err(NetError(write, None, Some(127.0.0.1:1), Closed, stream write side is closed))

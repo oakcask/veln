@@ -1,21 +1,29 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 
 # Optional socket accept observes clean listener end as None.
-fn emit_accept_result(result: Option<NetStream>) -> () effects [stdio]
+fn emit_accept_result(result: Result<net::Stream, net::NetError>) -> Result<(), net::NetError> effects [stdio]
 	match result
-		Some(_) => stdio::println("accepted")
-		None => stdio::println("ended")
+		Ok(_) => begin
+			stdio::println("accepted")
+			Ok(())
+		end
+		Err(net::NetError(_, _, _, net::Closed, _)) => begin
+			stdio::println("ended")
+			Ok(())
+		end
+		Err(error) => Err(error)
 	end
 end
 
-fn fixture_body() -> Result<(), String> effects [net, stdio]
-	let listener = net::listen("127.0.0.1:0")
-	emit_accept_result(net::accept_or_end(listener))
+fn fixture_body() -> Result<(), net::NetError> effects [net::IO, stdio]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	let _ = emit_accept_result(net::accept(listener))?
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+pub fn main() -> Result<(), net::NetError> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

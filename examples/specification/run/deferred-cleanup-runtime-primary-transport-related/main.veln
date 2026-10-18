@@ -1,10 +1,16 @@
+use net from "std"
+use fixture_effects
+use fake_effects
+
 # A transport failure during cleanup remains related to an established runtime failure.
-pub fn main() -> () effects [net]
-	defer
-		let ignored = net::listen("missing-port")
-		()
-	end
+fn fail_with_deferred_transport() -> Result<(), net::NetError> effects [net::IO]
+	let _ = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
 	let invalid_count = 64
 	let ignored = 1 << invalid_count
-	()
+	Ok(())
+end
+
+pub fn main() -> Result<(), net::NetError> effects [concurrency, fs, net, time]
+	let state = fixture_effects::create_fixture()
+	handle handle handle fail_with_deferred_transport() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

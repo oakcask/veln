@@ -26,32 +26,16 @@ equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error.kind"
-equals = "runtime"
+equals = "result"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport listen failed: invalid_endpoint"
+equals = "runtime result failure: Err(NetError(listen, Some(Tcp4), Some(127.0.0.1), InvalidAddress, port must be between 0 and 65535))"
 
 [[json_assert]]
 path = "error.details.phase"
 equals = "runtime"
 
 [[json_assert]]
-path = "error.details.operation"
-equals = "listen"
-
-[[json_assert]]
-path = "error.details.category"
-equals = "invalid_endpoint"
-
-[[json_assert]]
-path = "error.details.local_endpoint"
-equals = "not-a-socket-address"
-
-[[json_assert]]
-path = "error.details.lifecycle_phase"
-equals = "before_operation"
-
-[[json_assert]]
-path = "error.details.ownership_committed"
-equals = false
+path = "error.details.kind"
+equals = "result"

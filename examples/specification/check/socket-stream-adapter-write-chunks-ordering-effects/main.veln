@@ -1,3 +1,5 @@
+use net from "std"
+
 # Adapter-owned response ordering requires socket and channel effects.
 type ResponseAction
 	SendBytes(bytes: ByteChunk)
@@ -37,8 +39,8 @@ fn ordered_send_chunks(actions: List<ResponseAction>) -> List<ByteChunk>
 	end
 end
 
-fn read_stream_input(stream: NetStream) -> StreamInput effects [net]
-	match net::read_chunk_or_end(stream)
+fn read_stream_input(stream: net::Stream) -> StreamInput effects [net::IO]
+	match read_stream_chunk_or_end(stream)
 		Some(bytes) => Chunk(bytes)
 		None => End
 	end
@@ -58,11 +60,11 @@ fn combine_handler_actions(input: StreamInput, trailer: ByteChunk, state: { body
 	{ actions: append_actions(body.actions, trailer_result.actions), next_state: trailer_result.next_state }
 end
 
-fn ordered_stream_response(stream: NetStream, trailer: ByteChunk, state: { body_chunks : Int, trailer_chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { body_chunks : Int, trailer_chunks : Int, ended : Bool } } effects [net, concurrency]
+fn ordered_stream_response(stream: net::Stream, trailer: ByteChunk, state: { body_chunks : Int, trailer_chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { body_chunks : Int, trailer_chunks : Int, ended : Bool } } effects [net::IO, concurrency]
 	let route = channel::bounded<StreamInput>(1)
 	let input = route_input(route, read_stream_input(stream))
 	let combined = combine_handler_actions(input, trailer, state)
-	net::write_chunks(stream, ordered_send_chunks(combined.actions))
+	write_stream_chunks(stream, ordered_send_chunks(combined.actions))
 	combined
 end
 
@@ -70,10 +72,27 @@ pub fn handler_boundary(input: StreamInput, trailer: ByteChunk, state: { body_ch
 	combine_handler_actions(input, trailer, state)
 end
 
-pub fn adapter_missing_concurrency(stream: NetStream, trailer: ByteChunk, state: { body_chunks : Int, trailer_chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { body_chunks : Int, trailer_chunks : Int, ended : Bool } } effects [net]
+pub fn adapter_missing_concurrency(stream: net::Stream, trailer: ByteChunk, state: { body_chunks : Int, trailer_chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { body_chunks : Int, trailer_chunks : Int, ended : Bool } } effects [net::IO]
 	ordered_stream_response(stream, trailer, state)
 end
 
-pub fn adapter_missing_net(stream: NetStream, trailer: ByteChunk, state: { body_chunks : Int, trailer_chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { body_chunks : Int, trailer_chunks : Int, ended : Bool } } effects [concurrency]
+pub fn adapter_missing_net(stream: net::Stream, trailer: ByteChunk, state: { body_chunks : Int, trailer_chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { body_chunks : Int, trailer_chunks : Int, ended : Bool } } effects [concurrency]
 	ordered_stream_response(stream, trailer, state)
+end
+
+fn read_stream_chunk_or_end(stream: net::Stream) -> Option<ByteChunk> effects [net::IO]
+	match net::read(stream)
+		Ok(net::ReadChunk(bytes)) => Some(bytes)
+		_ => None
+	end
+end
+
+fn write_stream_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> () effects [net::IO]
+	match chunks
+		Nil => ()
+		Cons(bytes, tail) => begin
+			let _ = net::write_all(stream, bytes, None, None)
+			write_stream_chunks(stream, tail)
+		end
+	end
 end

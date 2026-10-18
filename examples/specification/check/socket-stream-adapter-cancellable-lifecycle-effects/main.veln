@@ -1,3 +1,5 @@
+use net from "std"
+
 # Cancellable socket lifecycle keeps handlers pure and adapter effects explicit.
 type ResponseAction
 	SendBytes(bytes: ByteChunk)
@@ -29,9 +31,9 @@ fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, 
 	end
 end
 
-fn collect_cancellable_actions(stream: NetStream, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, time, concurrency]
+fn collect_cancellable_actions(stream: net::Stream, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, time, concurrency]
 	let route = channel::bounded<StreamInput>(1)
-	let input = route_input(route, Chunk(net::read_chunk(stream)))
+	let input = route_input(route, Chunk(read_stream_chunk(stream)))
 	let handled = handle_stream_input(input, state)
 	prepend_wait_action(time::wait_until_cancellable_outcome(deadline, token), handled)
 end
@@ -40,14 +42,21 @@ pub fn handler_boundary(input: StreamInput, state: { chunks : Int, ended : Bool 
 	handle_stream_input(input, state)
 end
 
-pub fn adapter_missing_time(stream: NetStream, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, concurrency]
+pub fn adapter_missing_time(stream: net::Stream, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, concurrency]
 	collect_cancellable_actions(stream, state, deadline, token)
 end
 
-pub fn adapter_missing_concurrency(stream: NetStream, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, time]
+pub fn adapter_missing_concurrency(stream: net::Stream, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, time]
 	collect_cancellable_actions(stream, state, deadline, token)
 end
 
-pub fn adapter_missing_net(stream: NetStream, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time, concurrency]
+pub fn adapter_missing_net(stream: net::Stream, state: { chunks : Int, ended : Bool }, deadline: Deadline, token: CancelToken) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time, concurrency]
 	collect_cancellable_actions(stream, state, deadline, token)
+end
+
+fn read_stream_chunk(stream: net::Stream) -> ByteChunk effects [net::IO]
+	match net::read(stream)
+		Ok(net::ReadChunk(bytes)) => bytes
+		_ => byte_chunk([])
+	end
 end

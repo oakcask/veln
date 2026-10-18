@@ -1,82 +1,116 @@
+use net from "std"
 use fixture_effects
 use fake_effects
-# Production loopback cancellable deadline outcomes remain adapter decisions.
 use stdio
 
-fn accept_outcome_text(outcome: AcceptOutcome) -> String
-	match outcome
-		AcceptStream(_) => "accepted"
-		AcceptEnd => "accept-end"
-		AcceptDeadlineExpired => "accept-deadline"
-		AcceptCancelled => "accept-cancelled"
+type FixtureReadOutcome
+	FixtureReadChunk(bytes: ByteChunk)
+	FixtureReadEnd
+	FixtureReadDeadlineExpired
+	FixtureReadCancelled
+end
+
+type FixtureAcceptOutcome
+	FixtureAcceptStream(stream: net::Stream)
+	FixtureAcceptEnd
+	FixtureAcceptDeadlineExpired
+	FixtureAcceptCancelled
+end
+
+fn fixture_read_with(stream: net::Stream, deadline: Deadline, token: CancelToken) -> FixtureReadOutcome effects [net::IO]
+	match net::read_with(stream, Some(deadline), Some(token))
+		Ok(net::ReadChunk(bytes)) => FixtureReadChunk(bytes)
+		Ok(net::ReadEnd) => FixtureReadEnd
+		Err(net::NetError(_, _, _, net::TimedOut, _)) => FixtureReadDeadlineExpired
+		Err(net::NetError(_, _, _, net::Cancelled, _)) => FixtureReadCancelled
+		Err(_) => FixtureReadEnd
 	end
 end
 
-fn read_outcome_text(outcome: StreamReadOutcome) -> String
+fn fixture_accept_with(listener: net::Listener, deadline: Deadline, token: CancelToken) -> FixtureAcceptOutcome effects [net::IO]
+	match net::accept_with(listener, Some(deadline), Some(token))
+		Ok(stream) => FixtureAcceptStream(stream)
+		Err(net::NetError(_, _, _, net::TimedOut, _)) => FixtureAcceptDeadlineExpired
+		Err(net::NetError(_, _, _, net::Cancelled, _)) => FixtureAcceptCancelled
+		Err(_) => FixtureAcceptEnd
+	end
+end
+# Production loopback cancellable deadline outcomes remain adapter decisions.
+
+fn accept_outcome_text(outcome: FixtureAcceptOutcome) -> String
 	match outcome
-		ReadChunk(_) => "read-chunk"
-		ReadEnd => "read-end"
-		ReadDeadlineExpired => "read-deadline"
-		ReadCancelled => "read-cancelled"
+		FixtureAcceptStream(_) => "accepted"
+		FixtureAcceptEnd => "accept-end"
+		FixtureAcceptDeadlineExpired => "accept-deadline"
+		FixtureAcceptCancelled => "accept-cancelled"
 	end
 end
 
-fn accept_deadline_decision() -> String effects [net, time]
-	let listener = net::listen("127.0.0.1:0")
+fn read_outcome_text(outcome: FixtureReadOutcome) -> String
+	match outcome
+		FixtureReadChunk(_) => "read-chunk"
+		FixtureReadEnd => "read-end"
+		FixtureReadDeadlineExpired => "read-deadline"
+		FixtureReadCancelled => "read-cancelled"
+	end
+end
+
+fn accept_deadline_decision() -> String effects [net::IO, time]
+	let listener = open_listener("127.0.0.1:0")?
 	let deadline = time::deadline_after_ms(0)
 	let token = time::cancel_token()
-	let decision = accept_outcome_text(net::accept_until_cancellable(listener, deadline, token))
-	net::close_listener(listener)
+	let decision = accept_outcome_text(fixture_accept_with(listener, deadline, token))
+	close_listener_value(listener)
 	decision
 end
 
-fn accept_cancel_decision() -> String effects [net, time]
-	let listener = net::listen("127.0.0.1:0")
+fn accept_cancel_decision() -> String effects [net::IO, time]
+	let listener = open_listener("127.0.0.1:0")?
 	let deadline = time::deadline_after_ms(100)
 	let token = time::cancel_token()
 	time::cancel(token)
-	let decision = accept_outcome_text(net::accept_until_cancellable(listener, deadline, token))
-	net::close_listener(listener)
+	let decision = accept_outcome_text(fixture_accept_with(listener, deadline, token))
+	close_listener_value(listener)
 	decision
 end
 
-fn close_and_return(listener: NetListener, stream: NetStream, decision: String) -> String effects [net]
-	net::close_stream(stream)
-	net::close_listener(listener)
+fn close_and_return(listener: net::Listener, stream: net::Stream, decision: String) -> String effects [net::IO]
+	close_stream_value(stream)
+	close_listener_value(listener)
 	decision
 end
 
-fn read_deadline_decision() -> Result<String, String> effects [net, time]
-	let listener = net::listen("127.0.0.1:0")
+fn read_deadline_decision() -> Result<String, String> effects [net::IO, time]
+	let listener = open_listener("127.0.0.1:0")?
 	let accept_deadline = time::deadline_after_ms(100)
 	let read_deadline = time::deadline_after_ms(0)
 	let token = time::cancel_token()
-	match net::accept_until_cancellable(listener, accept_deadline, token)
-		AcceptStream(stream) => Ok(close_and_return(listener, stream, read_outcome_text(net::read_chunk_until_cancellable(stream, read_deadline, token))))
-		AcceptEnd => Ok("accept-end")
-		AcceptDeadlineExpired => Ok("accept-deadline")
-		AcceptCancelled => Ok("accept-cancelled")
+	match fixture_accept_with(listener, accept_deadline, token)
+		FixtureAcceptStream(stream) => Ok(close_and_return(listener, stream, read_outcome_text(fixture_read_with(stream, read_deadline, token))))
+		FixtureAcceptEnd => Ok("accept-end")
+		FixtureAcceptDeadlineExpired => Ok("accept-deadline")
+		FixtureAcceptCancelled => Ok("accept-cancelled")
 	end
 end
 
-fn read_cancel_decision() -> Result<String, String> effects [net, time]
-	let listener = net::listen("127.0.0.1:0")
+fn read_cancel_decision() -> Result<String, String> effects [net::IO, time]
+	let listener = open_listener("127.0.0.1:0")?
 	let deadline = time::deadline_after_ms(100)
 	let token = time::cancel_token()
-	match net::accept_until_cancellable(listener, deadline, token)
-		AcceptStream(stream) => read_cancel_from_stream(listener, stream, deadline, token)
-		AcceptEnd => Ok("accept-end")
-		AcceptDeadlineExpired => Ok("accept-deadline")
-		AcceptCancelled => Ok("accept-cancelled")
+	match fixture_accept_with(listener, deadline, token)
+		FixtureAcceptStream(stream) => read_cancel_from_stream(listener, stream, deadline, token)
+		FixtureAcceptEnd => Ok("accept-end")
+		FixtureAcceptDeadlineExpired => Ok("accept-deadline")
+		FixtureAcceptCancelled => Ok("accept-cancelled")
 	end
 end
 
-fn read_cancel_from_stream(listener: NetListener, stream: NetStream, deadline: Deadline, token: CancelToken) -> Result<String, String> effects [net, time]
+fn read_cancel_from_stream(listener: net::Listener, stream: net::Stream, deadline: Deadline, token: CancelToken) -> Result<String, String> effects [net::IO, time]
 	time::cancel(token)
-	Ok(close_and_return(listener, stream, read_outcome_text(net::read_chunk_until_cancellable(stream, deadline, token))))
+	Ok(close_and_return(listener, stream, read_outcome_text(fixture_read_with(stream, deadline, token))))
 end
 
-fn fixture_body() -> Result<(), String> effects [net, time, stdio]
+fn fixture_body() -> Result<(), String> effects [net::IO, time, stdio]
 	stdio::print("accept ")
 	stdio::print(accept_deadline_decision())
 	stdio::print(",")
@@ -90,5 +124,58 @@ end
 
 pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
+end
+
+fn fixture_network_error(error: net::NetError) -> String
+	match error
+		net::NetError(_, _, _, _, message) => match string_split_once(message, "\n")
+			Some(parts) => parts.left
+			None => message
+		end
+	end
+end
+
+fn fixture_address(text: String) -> Result<net::Address, String>
+	match net::split_host_port(text)
+		Ok(parts) => Ok(net::Address(net::Tcp4, parts.host, parts.port))
+		Err(error) => Err(fixture_network_error(error))
+	end
+end
+
+fn close_listener_value(listener: net::Listener) -> () effects [net::IO]
+	let _ = net::close_listener(listener)
+	()
+end
+
+fn close_stream_value(stream: net::Stream) -> () effects [net::IO]
+	let _ = net::close_stream(stream)
+	()
+end
+
+fn open_listener(text: String) -> Result<net::Listener, String> effects [net::IO]
+	match fixture_address(text)
+		Ok(address) => match net::listen(address)
+			Ok(listener) => Ok(listener)
+			Err(error) => Err(fixture_network_error(error))
+		end
+		Err(message) => Err(message)
+	end
+end
+
+fn open_stream(text: String) -> Result<net::Stream, String> effects [net::IO]
+	match fixture_address(text)
+		Ok(address) => match net::connect(address)
+			Ok(stream) => Ok(stream)
+			Err(error) => Err(fixture_network_error(error))
+		end
+		Err(message) => Err(message)
+	end
+end
+
+fn accept_stream(listener: net::Listener) -> Result<net::Stream, String> effects [net::IO]
+	match net::accept(listener)
+		Ok(stream) => Ok(stream)
+		Err(error) => Err(fixture_network_error(error))
+	end
 end

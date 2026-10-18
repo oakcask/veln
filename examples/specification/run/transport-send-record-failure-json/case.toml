@@ -30,7 +30,7 @@ equals = "runtime"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport send failed: could not record injected net events"
+equals = "transport write failed: event_record_failed"
 
 [[json_assert]]
 path = "error.details.phase"

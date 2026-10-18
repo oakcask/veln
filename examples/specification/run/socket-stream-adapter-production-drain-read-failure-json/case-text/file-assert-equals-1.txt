@@ -1,2 +1,5 @@
+resolve-production 127.0.0.1
 listen-production 127.0.0.1:0
 accept-production 127.0.0.1:0 production-stream-1
+close-listener-production 127.0.0.1:0
+close-production production-stream-1

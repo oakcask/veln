@@ -5,3 +5,4 @@ write fixture-stream ByteChunk([Byte(10), Byte(11)])
 shutdown-write fixture-stream
 read-end fixture-stream
 close fixture-stream
+close-listener 127.0.0.1:0

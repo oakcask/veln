@@ -1,0 +1,6 @@
+# Compiler integration contract: a removed source-less network call reports
+# one unresolved spelling with actionable migration context.
+fn main() -> ()
+	net::connect("127.0.0.1:0")
+	()
+end

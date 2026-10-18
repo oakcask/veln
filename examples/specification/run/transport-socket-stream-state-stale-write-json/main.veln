@@ -1,3 +1,4 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 # Closed stream state is observable before stale writes fail.
@@ -11,17 +12,26 @@ fn bool_text(value: Bool) -> String
 	end
 end
 
-fn fixture_body() -> Result<(), String> effects [net, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = net::accept(listener)
-	net::close_stream(stream)
-	stdio::println(bool_text(net::stream_is_closed(stream)))
-	let outgoing: ByteChunk = byte_chunk_from_hex("0a")?
-	net::write_chunk(stream, outgoing)
-	Ok(())
+fn bytes(text: String) -> Result<ByteChunk, net::NetError>
+	match byte_chunk_from_hex(text)
+		Ok(value) => Ok(value)
+		Err(message) => Err(net::NetError("fixture_bytes", None, None, net::Other, message))
+	end
 end
 
-pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+fn fixture_body() -> Result<(), net::NetError> effects [net::IO, stdio]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	let stream = net::accept(listener)?
+	let _ = net::close_stream(stream)?
+	stdio::println(bool_text(true))
+	let outgoing = bytes("0a")?
+	match net::write(stream, outgoing)
+		net::Written(_) => Ok(())
+		net::WriteFailed(_, error) => Err(error)
+	end
+end
+
+pub fn main() -> Result<(), net::NetError> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

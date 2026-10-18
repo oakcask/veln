@@ -1,4 +1,6 @@
-# Listener address inspection requires the net effect.
-pub fn missing_net(listener: NetListener) -> String
-	net::listener_local_addr(listener)
+use net from "std"
+
+# Compiler integration contract: endpoint lookup contributes nominal net::IO.
+pub fn missing_net(listener: net::Listener) -> Result<net::Endpoint, net::NetError>
+	net::listener_address(listener)
 end

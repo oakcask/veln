@@ -1,3 +1,5 @@
+use net from "std"
+
 # Production multi-chunk routing keeps transport and channel effects in the adapter.
 type ResponseAction
 	SendBytes(bytes: ByteChunk)
@@ -38,8 +40,8 @@ fn ordered_send_chunks(actions: List<ResponseAction>) -> List<ByteChunk>
 	end
 end
 
-fn read_stream_input(stream: NetStream) -> StreamInput effects [net]
-	match net::read_chunk_or_end(stream)
+fn read_stream_input(stream: net::Stream) -> StreamInput effects [net::IO]
+	match read_stream_chunk_or_end(stream)
 		Some(bytes) => Chunk(bytes)
 		None => End
 	end
@@ -66,7 +68,7 @@ fn append_collected_actions(left: { actions : List<ResponseAction>, next_state :
 	{ actions: append_actions(left.actions, right.actions), next_state: right.next_state }
 end
 
-fn collect_stream_actions_until_end(stream: NetStream, route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, concurrency]
+fn collect_stream_actions_until_end(stream: net::Stream, route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, concurrency]
 	let input = route_input(route, read_stream_input(stream))
 	let handled = handle_routed_input(input, state, { stream: "production-stream", lane: "ingress" }, { trace_id: "trace-prod", sequence: state.chunks + 1 })
 	match input
@@ -75,14 +77,14 @@ fn collect_stream_actions_until_end(stream: NetStream, route: { tx : Sender<Stre
 	end
 end
 
-fn collect_stream_actions(stream: NetStream) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, concurrency]
+fn collect_stream_actions(stream: net::Stream) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, concurrency]
 	let route = channel::bounded<StreamInput>(1)
 	collect_stream_actions_until_end(stream, route, { chunks: 0, ended: false })
 end
 
-fn accepted_lifecycle(stream: NetStream) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, concurrency]
+fn accepted_lifecycle(stream: net::Stream) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, concurrency]
 	let routed = collect_stream_actions(stream)
-	net::write_chunks(stream, ordered_send_chunks(routed.actions))
+	write_stream_chunks(stream, ordered_send_chunks(routed.actions))
 	routed
 end
 
@@ -90,10 +92,27 @@ pub fn handler_boundary(input: StreamInput, state: { chunks : Int, ended : Bool 
 	handle_stream_input(input, state)
 end
 
-pub fn adapter_missing_concurrency(stream: NetStream) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net]
+pub fn adapter_missing_concurrency(stream: net::Stream) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO]
 	accepted_lifecycle(stream)
 end
 
-pub fn adapter_missing_net(stream: NetStream) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
+pub fn adapter_missing_net(stream: net::Stream) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [concurrency]
 	accepted_lifecycle(stream)
+end
+
+fn read_stream_chunk_or_end(stream: net::Stream) -> Option<ByteChunk> effects [net::IO]
+	match net::read(stream)
+		Ok(net::ReadChunk(bytes)) => Some(bytes)
+		_ => None
+	end
+end
+
+fn write_stream_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> () effects [net::IO]
+	match chunks
+		Nil => ()
+		Cons(bytes, tail) => begin
+			let _ = net::write_all(stream, bytes, None, None)
+			write_stream_chunks(stream, tail)
+		end
+	end
 end

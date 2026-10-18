@@ -30,7 +30,7 @@ equals = "runtime"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport receive failed: malformed injected receive chunk"
+equals = "transport read failed: invalid_input"
 
 [[json_assert]]
 path = "error.details.phase"

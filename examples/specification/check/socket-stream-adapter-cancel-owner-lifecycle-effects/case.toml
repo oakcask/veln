@@ -23,7 +23,7 @@ message = "public function uses undeclared effect `time`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 52
+line = 54
 column = 1
 
 [[diagnostics]]
@@ -34,16 +34,16 @@ message = "public function uses undeclared effect `concurrency`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 56
+line = 58
 column = 1
 
 [[diagnostics]]
 id = "effect.missing_public"
 severity = "error"
 kind = "effect"
-message = "public function uses undeclared effect `net`"
+message = "public function uses undeclared effect `std::net::IO`"
 
 [diagnostics.span]
 file = "main.veln"
-line = 60
+line = 62
 column = 1

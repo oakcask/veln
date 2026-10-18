@@ -1,3 +1,5 @@
+use net from "std"
+
 schema Http2FrameHeaderWire
 	format binary
 
@@ -30,8 +32,8 @@ pub fn handler_response() -> Result<List<ResponseAction>, String>
 	Ok(list_cons(SendHeaders(headers, false), list_cons(SendData(body, true), list_nil())))
 end
 
-fn write_core_chunks(stream: NetStream, chunks: List<ByteChunk>) -> () effects [net]
-	net::write_chunks(stream, chunks)
+fn write_core_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> () effects [net::IO]
+	write_stream_chunks(stream, chunks)
 end
 
 fn core_headers_and_data() -> Result<List<ByteChunk>, String>
@@ -40,12 +42,22 @@ fn core_headers_and_data() -> Result<List<ByteChunk>, String>
 	Ok(list_cons(headers, list_cons(data, list_nil())))
 end
 
-fn adapter_project_and_write(stream: NetStream) -> Result<(), String> effects [net]
+fn adapter_project_and_write(stream: net::Stream) -> Result<(), String> effects [net::IO]
 	let ignored_actions: List<ResponseAction> = handler_response()?
 	write_core_chunks(stream, core_headers_and_data()?)
 	Ok(())
 end
 
-pub fn adapter_missing_net(stream: NetStream) -> Result<(), String>
+pub fn adapter_missing_net(stream: net::Stream) -> Result<(), String>
 	adapter_project_and_write(stream)
+end
+
+fn write_stream_chunks(stream: net::Stream, chunks: List<ByteChunk>) -> () effects [net::IO]
+	match chunks
+		Nil => ()
+		Cons(bytes, tail) => begin
+			let _ = net::write_all(stream, bytes, None, None)
+			write_stream_chunks(stream, tail)
+		end
+	end
 end

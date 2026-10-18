@@ -1,20 +1,28 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 # Production listener close releases the listener without closing accepted streams.
 use stdio
 
-fn fixture_body() -> NetStream effects [net, stdio]
-	let listener: NetListener = net::listen("127.0.0.1:0")
-	let stream: NetStream = net::accept(listener)
-	net::close_listener(listener)
-	let incoming: ByteChunk = net::read_chunk(stream)
-	net::write_chunk(stream, incoming)
-	net::close_stream(stream)
+fn read_bytes(outcome: net::ReadOutcome) -> ByteChunk
+	match outcome
+		net::ReadChunk(bytes) => bytes
+		net::ReadEnd => byte_chunk([])
+	end
+end
+
+fn fixture_body() -> Result<net::Stream, net::NetError> effects [net::IO, stdio]
+	let listener: net::Listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	let stream: net::Stream = net::accept(listener)?
+	let _ = net::close_listener(listener)?
+	let incoming = read_bytes(net::read(stream)?)
+	let _ = net::write_all(stream, incoming, None, None)?
+	let _ = net::close_stream(stream)?
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
 	net::accept(listener)
 end
 
-pub fn main() -> NetStream effects [concurrency, fs, net, stdio]
+pub fn main() -> Result<net::Stream, net::NetError> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

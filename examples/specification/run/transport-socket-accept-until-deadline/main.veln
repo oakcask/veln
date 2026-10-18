@@ -1,22 +1,30 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 
 # Deadline-aware socket accept observes deadline expiry as None.
-fn emit_accept_result(result: Option<NetStream>) -> () effects [stdio]
+fn emit_accept_result(result: Result<net::Stream, net::NetError>) -> Result<(), net::NetError> effects [stdio]
 	match result
-		Some(_) => stdio::println("accepted")
-		None => stdio::println("deadline")
+		Ok(_) => begin
+			stdio::println("accepted")
+			Ok(())
+		end
+		Err(net::NetError(_, _, _, net::TimedOut, _)) => begin
+			stdio::println("deadline")
+			Ok(())
+		end
+		Err(error) => Err(error)
 	end
 end
 
-fn fixture_body() -> Result<(), String> effects [net, time, stdio]
-	let listener = net::listen("127.0.0.1:0")
+fn fixture_body() -> Result<(), net::NetError> effects [net::IO, time, stdio]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
 	let deadline = time::deadline_after_ms(5)
-	emit_accept_result(net::accept_until(listener, deadline))
+	let _ = emit_accept_result(net::accept_with(listener, Some(deadline), None))?
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
+pub fn main() -> Result<(), net::NetError> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

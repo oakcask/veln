@@ -1,3 +1,4 @@
+resolve-production 127.0.0.1
 listen-production 127.0.0.1:0
 accept-production 127.0.0.1:0 production-stream-1
 write-production production-stream-1 ByteChunk([Byte(80), Byte(82), Byte(73), Byte(32), Byte(42), Byte(32), Byte(72), Byte(84), Byte(84), Byte(80), Byte(47), Byte(50), Byte(46), Byte(48), Byte(13), Byte(10), Byte(13), Byte(10), Byte(83), Byte(77), Byte(13), Byte(10), Byte(13), Byte(10)])
@@ -8,3 +9,4 @@ read-end-production production-stream-1
 close-production production-stream-1
 accept-production 127.0.0.1:0 production-stream-2
 close-production production-stream-2
+close-listener-production 127.0.0.1:0

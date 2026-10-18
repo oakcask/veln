@@ -1,3 +1,5 @@
+use net from "std"
+
 # Deadline-aware socket lifecycle must declare socket, time, and channel effects.
 type ResponseAction
 	SendBytes(bytes: ByteChunk)
@@ -12,10 +14,10 @@ fn handle_stream_input(input: StreamInput, state: { chunks : Int, ended : Bool }
 	end
 end
 
-fn read_stream_input_until(stream: NetStream, deadline: Deadline) -> StreamInput effects [net, time]
-	match net::read_chunk_until(stream, deadline)
-		Some(bytes) => Chunk(bytes)
-		None => End
+fn read_stream_input_until(stream: net::Stream, deadline: Deadline) -> StreamInput effects [net::IO, time]
+	match net::read_with(stream, Some(deadline), None)
+		Ok(net::ReadChunk(bytes)) => Chunk(bytes)
+		_ => End
 	end
 end
 
@@ -27,7 +29,7 @@ fn route_input(route: { tx : Sender<StreamInput>, rx : Receiver<StreamInput> }, 
 	end
 end
 
-fn collect_until_deadline(stream: NetStream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, time, concurrency]
+fn collect_until_deadline(stream: net::Stream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, time, concurrency]
 	let route = channel::bounded<StreamInput>(1)
 	let deadline: Deadline = time::deadline_after_ms(100)
 	handle_stream_input(route_input(route, read_stream_input_until(stream, deadline)), state)
@@ -37,14 +39,14 @@ pub fn handler_boundary(input: StreamInput, state: { chunks : Int, ended : Bool 
 	handle_stream_input(input, state)
 end
 
-pub fn adapter_missing_time(stream: NetStream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, concurrency]
+pub fn adapter_missing_time(stream: net::Stream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, concurrency]
 	collect_until_deadline(stream, state)
 end
 
-pub fn adapter_missing_concurrency(stream: NetStream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net, time]
+pub fn adapter_missing_concurrency(stream: net::Stream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [net::IO, time]
 	collect_until_deadline(stream, state)
 end
 
-pub fn adapter_missing_net(stream: NetStream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time, concurrency]
+pub fn adapter_missing_net(stream: net::Stream, state: { chunks : Int, ended : Bool }) -> { actions : List<ResponseAction>, next_state : { chunks : Int, ended : Bool } } effects [time, concurrency]
 	collect_until_deadline(stream, state)
 end

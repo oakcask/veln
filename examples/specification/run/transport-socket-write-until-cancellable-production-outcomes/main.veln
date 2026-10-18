@@ -1,51 +1,53 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 # Production loopback cancellable deadline-aware writes return adapter values.
 use stdio
 
-fn write_outcome_text(outcome: StreamWriteOutcome) -> String
+fn write_outcome_text(outcome: net::WriteOutcome) -> String
 	match outcome
-		WriteCompleted => "write-completed"
-		WriteDeadlineExpired => "write-deadline"
-		WriteCancelled => "write-cancelled"
+		net::Written(_) => "write-completed"
+		net::WriteFailed(_, net::NetError(_, _, _, net::TimedOut, _)) => "write-deadline"
+		net::WriteFailed(_, net::NetError(_, _, _, net::Cancelled, _)) => "write-cancelled"
+		net::WriteFailed(_, _) => "write-cancelled"
 	end
 end
 
-fn close_and_return(listener: NetListener, stream: NetStream, decision: String) -> String effects [net]
+fn close_and_return(listener: net::Listener, stream: net::Stream, decision: String) -> String effects [net::IO]
 	net::close_stream(stream)
 	net::close_listener(listener)
 	decision
 end
 
-fn write_success_decision() -> Result<String, String> effects [net, time]
-	let listener = net::listen("127.0.0.1:0")
-	let stream = net::accept(listener)
+fn write_success_decision() -> Result<String, String> effects [net::IO, time]
+	let listener = open_listener("127.0.0.1:0")?
+	let stream = accept_stream(listener)?
 	let outgoing = byte_chunk_from_hex("0a0b")?
 	let deadline = time::deadline_after_ms(100)
 	let token = time::cancel_token()
-	Ok(close_and_return(listener, stream, write_outcome_text(net::write_chunk_until_cancellable(stream, outgoing, deadline, token))))
+	Ok(close_and_return(listener, stream, write_outcome_text(net::write_with(stream, outgoing, Some(deadline), Some(token)))))
 end
 
-fn write_deadline_decision() -> Result<String, String> effects [net, time]
-	let listener = net::listen("127.0.0.1:0")
-	let stream = net::accept(listener)
+fn write_deadline_decision() -> Result<String, String> effects [net::IO, time]
+	let listener = open_listener("127.0.0.1:0")?
+	let stream = accept_stream(listener)?
 	let outgoing = byte_chunk_from_hex("0a0b")?
 	let deadline = time::deadline_after_ms(0)
 	let token = time::cancel_token()
-	Ok(close_and_return(listener, stream, write_outcome_text(net::write_chunk_until_cancellable(stream, outgoing, deadline, token))))
+	Ok(close_and_return(listener, stream, write_outcome_text(net::write_with(stream, outgoing, Some(deadline), Some(token)))))
 end
 
-fn write_cancel_decision() -> Result<String, String> effects [net, time]
-	let listener = net::listen("127.0.0.1:0")
-	let stream = net::accept(listener)
+fn write_cancel_decision() -> Result<String, String> effects [net::IO, time]
+	let listener = open_listener("127.0.0.1:0")?
+	let stream = accept_stream(listener)?
 	let outgoing = byte_chunk_from_hex("0a0b")?
 	let deadline = time::deadline_after_ms(100)
 	let token = time::cancel_token()
 	time::cancel(token)
-	Ok(close_and_return(listener, stream, write_outcome_text(net::write_chunk_until_cancellable(stream, outgoing, deadline, token))))
+	Ok(close_and_return(listener, stream, write_outcome_text(net::write_with(stream, outgoing, Some(deadline), Some(token)))))
 end
 
-fn fixture_body() -> Result<(), String> effects [net, time, stdio]
+fn fixture_body() -> Result<(), String> effects [net::IO, time, stdio]
 	stdio::print(write_success_decision()?)
 	stdio::print(",")
 	stdio::print(write_deadline_decision()?)
@@ -54,7 +56,30 @@ fn fixture_body() -> Result<(), String> effects [net, time, stdio]
 	Ok(())
 end
 
+fn fixture_network_error(error: net::NetError) -> String
+	match error
+		net::NetError(_, _, _, _, message) => match string_split_once(message, "\n")
+			Some(parts) => parts.left
+			None => message
+		end
+	end
+end
+
+fn open_listener(text: String) -> Result<net::Listener, String> effects [net::IO]
+	match net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))
+		Ok(listener) => Ok(listener)
+		Err(error) => Err(fixture_network_error(error))
+	end
+end
+
+fn accept_stream(listener: net::Listener) -> Result<net::Stream, String> effects [net::IO]
+	match net::accept(listener)
+		Ok(stream) => Ok(stream)
+		Err(error) => Err(fixture_network_error(error))
+	end
+end
+
 pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

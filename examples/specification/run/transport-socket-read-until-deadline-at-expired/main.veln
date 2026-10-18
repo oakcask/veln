@@ -1,24 +1,32 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 
 # Absolute monotonic deadlines at the current tick are already expired.
-fn emit_read_result(result: Option<ByteChunk>) -> () effects [stdio]
+fn emit_read_result(result: Result<net::ReadOutcome, net::NetError>) -> Result<(), net::NetError> effects [stdio]
 	match result
-		Some(_) => stdio::println("read")
-		None => stdio::println("deadline")
+		Ok(net::ReadChunk(_)) => printed("read")
+		Ok(net::ReadEnd) => printed("deadline")
+		Err(net::NetError(_, _, _, net::TimedOut, _)) => printed("deadline")
+		Err(error) => Err(error)
 	end
 end
 
-fn fixture_body() -> Result<(), String> effects [net, time, stdio]
-	let listener = net::listen("127.0.0.1:0")
-	let stream = net::accept(listener)
-	let target_ms = time::monotonic_ms()
-	let deadline = time::deadline_at_ms(target_ms)
-	emit_read_result(net::read_chunk_until(stream, deadline))
+fn printed(text: String) -> Result<(), net::NetError> effects [stdio]
+	stdio::println(text)
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
+fn fixture_body() -> Result<(), net::NetError> effects [net::IO, time, stdio]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	let stream = net::accept(listener)?
+	let target_ms = time::monotonic_ms()
+	let deadline = time::deadline_at_ms(target_ms)
+	let _ = emit_read_result(net::read_with(stream, Some(deadline), None))?
+	Ok(())
+end
+
+pub fn main() -> Result<(), net::NetError> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

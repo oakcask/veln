@@ -1,3 +1,6 @@
-pub fn write_all(stream: NetStream, chunks: List<ByteChunk>) -> ()
-	net::write_chunks(stream, chunks)
+use net from "std"
+
+# Compiler integration contract: complete writes contribute nominal net::IO.
+pub fn write_all(stream: net::Stream, chunk: ByteChunk) -> Result<(), net::NetError>
+	net::write_all(stream, chunk, None, None)
 end

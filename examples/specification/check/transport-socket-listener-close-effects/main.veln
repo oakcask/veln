@@ -1,4 +1,6 @@
-# Listener close is a net boundary operation.
-pub fn missing_net(listener: NetListener) -> ()
+use net from "std"
+
+# Compiler integration contract: listener closure contributes nominal net::IO.
+pub fn missing_net(listener: net::Listener) -> Result<(), net::NetError>
 	net::close_listener(listener)
 end

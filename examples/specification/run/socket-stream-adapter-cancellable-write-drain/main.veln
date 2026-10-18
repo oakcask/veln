@@ -1,38 +1,57 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 # Cancellable adapter write-drain helper reports full completion as a value.
 use stdio
 
-fn handle_input(input: StreamInput) -> List<StreamAdapterAction>
-	match input
-		Chunk(bytes) => list_cons(EndStream, list_cons(SendBytes(bytes), list_cons(Ignore, list_nil())))
-		End => list_cons(EndStream, list_nil())
-	end
+type FixtureWriteOutcome
+	FixtureWriteCompleted
+	FixtureWriteDeadlineExpired
+	FixtureWriteCancelled
 end
 
-fn write_outcome_text(outcome: StreamWriteOutcome) -> String
+fn write_outcome_text(outcome: FixtureWriteOutcome) -> String
 	match outcome
-		WriteCompleted => "written"
-		WriteDeadlineExpired => "deadline"
-		WriteCancelled => "cancelled"
+		FixtureWriteCompleted => "written"
+		FixtureWriteDeadlineExpired => "deadline"
+		FixtureWriteCancelled => "cancelled"
 	end
 end
 
-fn accepted_lifecycle(stream: NetStream, deadline: Deadline, token: CancelToken) -> Result<StreamWriteOutcome, String> effects [net, time, concurrency]
-	let outcome = stream_adapter_drain_actions_until_cancellable(stream, handle_input, deadline, token)
-	net::close_stream(stream)
+fn read_chunks(stream: net::Stream, deadline: Deadline, token: CancelToken, chunks: List<ByteChunk>) -> List<ByteChunk> effects [net::IO]
+	match net::read(stream)
+		Ok(net::ReadChunk(bytes)) => read_chunks(stream, deadline, token, list_cons(bytes, chunks))
+		Ok(net::ReadEnd) => list_reverse(chunks)
+		Err(_) => list_reverse(chunks)
+	end
+end
+
+fn write_chunks(stream: net::Stream, chunks: List<ByteChunk>, deadline: Deadline, token: CancelToken) -> FixtureWriteOutcome effects [net::IO]
+	match chunks
+		Nil => FixtureWriteCompleted
+		Cons(bytes, tail) => match net::write_with(stream, bytes, Some(deadline), Some(token))
+			net::Written(_) => write_chunks(stream, tail, deadline, token)
+			net::WriteFailed(_, net::NetError(_, _, _, net::TimedOut, _)) => FixtureWriteDeadlineExpired
+			net::WriteFailed(_, _) => FixtureWriteCancelled
+		end
+	end
+end
+
+fn accepted_lifecycle(stream: net::Stream, deadline: Deadline, token: CancelToken) -> Result<FixtureWriteOutcome, String> effects [net::IO]
+	let outcome = write_chunks(stream, read_chunks(stream, deadline, token, list_nil()), deadline, token)
+	close_stream_value(stream)
 	Ok(outcome)
 end
 
-fn accept_next(listener: NetListener) -> Result<NetStream, String> effects [net]
-	match net::accept_or_end(listener)
+fn accept_next(listener: net::Listener) -> Result<net::Stream, String> effects [net::IO]
+	match accept_optional(listener)
 		Some(stream) => Ok(stream)
 		None => Err("missing production stream")
 	end
 end
 
-fn listener_ended(listener: NetListener) -> Bool effects [net]
-	match net::accept_or_end(listener)
+fn listener_ended(listener: net::Listener) -> Bool effects [net::IO]
+	match accept_optional(listener)
 		Some(_) => false
 		None => true
 	end
@@ -46,8 +65,8 @@ fn bool_text(value: Bool) -> String
 	end
 end
 
-fn fixture_body() -> Result<(), String> effects [net, time, concurrency, stdio]
-	let listener = net::listen("127.0.0.1:0")
+fn fixture_body() -> Result<(), String> effects [net::IO, time, concurrency, stdio]
+	let listener = open_listener("127.0.0.1:0")?
 	let stream = accept_next(listener)?
 	let deadline = time::deadline_after_ms(100)
 	let token = time::cancel_token()
@@ -61,5 +80,60 @@ end
 
 pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
+end
+
+fn fixture_network_error(error: net::NetError) -> String
+	match error
+		net::NetError(_, _, _, _, message) => match string_split_once(message, "\n")
+			Some(parts) => parts.left
+			None => message
+		end
+	end
+end
+
+fn fixture_address(text: String) -> Result<net::Address, String>
+	match net::split_host_port(text)
+		Ok(parts) => Ok(net::Address(net::Tcp4, parts.host, parts.port))
+		Err(error) => Err(fixture_network_error(error))
+	end
+end
+
+fn accept_optional(listener: net::Listener) -> Option<net::Stream> effects [net::IO]
+	match net::accept(listener)
+		Ok(stream) => Some(stream)
+		Err(_) => None
+	end
+end
+
+fn close_stream_value(stream: net::Stream) -> () effects [net::IO]
+	let _ = net::close_stream(stream)
+	()
+end
+
+fn open_listener(text: String) -> Result<net::Listener, String> effects [net::IO]
+	match fixture_address(text)
+		Ok(address) => match net::listen(address)
+			Ok(listener) => Ok(listener)
+			Err(error) => Err(fixture_network_error(error))
+		end
+		Err(message) => Err(message)
+	end
+end
+
+fn open_stream(text: String) -> Result<net::Stream, String> effects [net::IO]
+	match fixture_address(text)
+		Ok(address) => match net::connect(address)
+			Ok(stream) => Ok(stream)
+			Err(error) => Err(fixture_network_error(error))
+		end
+		Err(message) => Err(message)
+	end
+end
+
+fn accept_stream(listener: net::Listener) -> Result<net::Stream, String> effects [net::IO]
+	match net::accept(listener)
+		Ok(stream) => Ok(stream)
+		Err(error) => Err(fixture_network_error(error))
+	end
 end

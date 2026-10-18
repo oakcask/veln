@@ -1,27 +1,41 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 
 # Optional socket accept returns a usable stream when the fixture accepts.
-fn emit_accept_result(result: Option<NetStream>) -> () effects [net, stdio]
+fn emit_accept_result(result: Result<net::Stream, net::NetError>) -> Result<(), net::NetError> effects [net::IO, stdio]
 	match result
-		Some(stream) => emit_accepted_stream(stream)
-		None => stdio::println("ended")
+		Ok(stream) => emit_accepted_stream(stream)
+		Err(net::NetError(_, _, _, net::Closed, _)) => begin
+			stdio::println("ended")
+			Ok(())
+		end
+		Err(error) => Err(error)
 	end
 end
 
-fn emit_accepted_stream(stream: NetStream) -> () effects [net, stdio]
-	let incoming = net::read_chunk(stream)
+fn emit_accepted_stream(stream: net::Stream) -> Result<(), net::NetError> effects [net::IO, stdio]
+	let incoming = net::read(stream)?
 	stdio::print("accepted ")
-	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
+	match incoming
+		net::ReadChunk(bytes) => begin
+			stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(bytes))))
+			Ok(())
+		end
+		net::ReadEnd => begin
+			stdio::println("0")
+			Ok(())
+		end
+	end
 end
 
-fn fixture_body() -> Result<(), String> effects [net, stdio]
-	let listener = net::listen("127.0.0.1:0")
-	emit_accept_result(net::accept_or_end(listener))
+fn fixture_body() -> Result<(), net::NetError> effects [net::IO, stdio]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	let _ = emit_accept_result(net::accept(listener))?
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+pub fn main() -> Result<(), net::NetError> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

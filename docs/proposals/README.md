@@ -20,10 +20,6 @@ also states it.
   production exporters, JSON Lines, exporter health, and exporter lifecycle
   behavior:
   [observability.md](observability.md).
-- Legacy compiler-known network compatibility removal after the remaining
-  compiler fixtures and executable examples migrate to the exported standard
-  module:
-  [network-compatibility-removal.md](network-compatibility-removal.md).
 - Remaining ADT variant-refinement support for qualified immutable values
   after a separate source-surface prerequisite, schema boundaries,
   remaining LSP diagnostics and invalid-refinement recovery, and MCP

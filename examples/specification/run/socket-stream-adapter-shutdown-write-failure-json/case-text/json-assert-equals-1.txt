@@ -1,1 +1,1 @@
-transport write failed: closed
+Err(stream write side is closed)

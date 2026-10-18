@@ -1,1 +1,1 @@
-transport accept failed: closed
+Err(NetError(accept, None, Some(127.0.0.1:0), Closed, listener is closed))

@@ -1,4 +1,6 @@
-# Stream write-side shutdown is a net boundary operation.
-pub fn missing_net(stream: NetStream) -> ()
+use net from "std"
+
+# Compiler integration contract: write shutdown contributes nominal net::IO.
+pub fn missing_net(stream: net::Stream) -> Result<(), net::NetError>
 	net::shutdown_write(stream)
 end

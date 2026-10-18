@@ -1,23 +1,38 @@
+use net from "std"
 use fixture_effects
 use fake_effects
 
 # Socket-boundary calls use listener and stream handles under the net effect.
-fn read_stream(stream: NetStream) -> ByteChunk effects [net]
-	net::read_chunk(stream)
+fn read_stream(stream: net::Stream) -> Result<net::ReadOutcome, net::NetError> effects [net::IO]
+	net::read(stream)
 end
 
-fn fixture_body() -> Result<(), String> effects [net, stdio]
-	let listener = net::listen("127.0.0.1:0")
-	let stream = net::accept(listener)
-	let incoming = read_stream(stream)
-	let outgoing = byte_chunk_from_hex("0a0b")?
-	net::write_chunk(stream, outgoing)
-	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
+fn read_count(outcome: net::ReadOutcome) -> Int
+	match outcome
+		net::ReadChunk(bytes) => byte_count_to_int(byte_chunk_count(bytes))
+		net::ReadEnd => 0
+	end
+end
+
+fn fixture_bytes(text: String) -> Result<ByteChunk, net::NetError>
+	match byte_chunk_from_hex(text)
+		Ok(bytes) => Ok(bytes)
+		Err(message) => Err(net::NetError("decode", None, None, net::Other, message))
+	end
+end
+
+fn fixture_body() -> Result<(), net::NetError> effects [net::IO, stdio]
+	let listener = net::listen(net::Address(net::Tcp4, "127.0.0.1", 0))?
+	let stream = net::accept(listener)?
+	let incoming = read_stream(stream)?
+	let outgoing = fixture_bytes("0a0b")?
+	let _ = net::write_all(stream, outgoing, None, None)?
+	stdio::println(int_to_string(read_count(incoming)))
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(outgoing))))
 	Ok(())
 end
 
-pub fn main() -> Result<(), String> effects [concurrency, fs, net, stdio]
+pub fn main() -> Result<(), net::NetError> effects [concurrency, fs, net, stdio, time]
 	let state = fixture_effects::create_fixture()
-	handle handle fixture_body() with fake_effects::network(state) with fake_effects::clock(state)
+	handle handle handle fixture_body() with net::system() with fake_effects::network(state) with fake_effects::clock(state)
 end

@@ -26,27 +26,15 @@ equals_file = "case-text/json-assert-equals-1.txt"
 
 [[json_assert]]
 path = "error.kind"
-equals = "runtime"
+equals = "result"
 
 [[json_assert]]
 path = "error.message"
-equals = "transport write failed: closed"
+equals = "runtime result failure: Err(stream write side is closed)"
 
 [[json_assert]]
 path = "error.details.phase"
 equals = "runtime"
-
-[[json_assert]]
-path = "error.details.lifecycle_phase"
-equals = "write_shutdown"
-
-[[json_assert]]
-path = "error.details.ownership_committed"
-equals = true
-
-[[json_assert]]
-path = "error.details.platform_cause"
-equals = "stream write side is shut down"
 
 [[file_assert]]
 path = "net-events.log"

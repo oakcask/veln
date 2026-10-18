@@ -1,4 +1,6 @@
-# Client connect infers net for public effect checking.
-pub fn open_client() -> NetStream
-	net::connect("127.0.0.1:443")
+use net from "std"
+
+# Compiler integration contract: the explicit standard network facade contributes nominal net::IO.
+pub fn open_client() -> Result<net::Stream, net::NetError>
+	net::connect(net::Address(net::Tcp4, "127.0.0.1", 443))
 end
