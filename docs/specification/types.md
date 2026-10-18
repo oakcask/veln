@@ -922,6 +922,18 @@ double in publication quarantine, diagnostic collection, and checked lowering.
 The measurement counts inspected path bytes instead of elapsed time, so runner
 timing noise does not affect the bound.
 
+For one refinement nested through named type arguments in a public function
+parameter, increasing the nesting depth adds linear structural-visibility work
+when the candidate count stays fixed. This applies both to an accepted public
+variant and to one rejected private variant. The deterministic scaling check
+compares depths 64, 128, and 256 and bounds the combined traversal counters at
+twice the preceding measurement plus a fixed allowance. A refinement-free
+annotation does not enter the structural-visibility walk, and a private
+function does not perform public-signature visibility traversal. The maximum
+supported refinement nesting depth completes the same analysis. The check uses
+work counters rather than elapsed time, so runner timing noise does not affect
+the bound.
+
 Wide record annotations on public function parameters and results check each
 refinement occurrence in their record fields. Each private occurrence rejects
 publication, and analysis work grows linearly with the written occurrences.
