@@ -18,9 +18,9 @@
 {"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/eadd135e878f54b774dd14fcd9953044d3f34a88e0326d85d3baa76069282d22/topic/missing"}}}
 {"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/missing/index"}}}
 {"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"search_docs","arguments":{"query":"and","limit":1e0}}}
-{"jsonrpc":"2.0","id":21,"method":"resources/read","params":{"uri":"veln-pkg:///std/snapshot/d6596937c4ec2d481583751605c77d6600e201626c5e2017e2369b2fab805bcf/bytes.veln"}}
-{"jsonrpc":"2.0","id":22,"method":"resources/read","params":{"uri":"veln-pkg:///std/snapshot/d6596937c4ec2d481583751605c77d6600e201626c5e2017e2369b2fab805bcf/prelude.veln"}}
-{"jsonrpc":"2.0","id":23,"method":"resources/read","params":{"uri":"veln-pkg:///std/snapshot/d6596937c4ec2d481583751605c77d6600e201626c5e2017e2369b2fab805bcf/prelude.test.veln"}}
+{"jsonrpc":"2.0","id":21,"method":"resources/read","params":{"uri":"veln-pkg:///std/snapshot/3af29d28350818aa4e272f69d28d72e0b584df42ba1c443a61da998258c3de72/bytes.veln"}}
+{"jsonrpc":"2.0","id":22,"method":"resources/read","params":{"uri":"veln-pkg:///std/snapshot/3af29d28350818aa4e272f69d28d72e0b584df42ba1c443a61da998258c3de72/prelude.veln"}}
+{"jsonrpc":"2.0","id":23,"method":"resources/read","params":{"uri":"veln-pkg:///std/snapshot/3af29d28350818aa4e272f69d28d72e0b584df42ba1c443a61da998258c3de72/prelude.test.veln"}}
 {"jsonrpc":"2.0","id":24,"method":"resources/read","params":{"uri":"veln-pkg:///std/snapshot/0000000000000000000000000000000000000000000000000000000000000000/prelude.veln"}}
-{"jsonrpc":"2.0","id":25,"method":"resources/read","params":{"uri":"veln-pkg:///std/snapshot/d6596937c4ec2d481583751605c77d6600e201626c5e2017e2369b2fab805bcf/prelude%2Eveln"}}
+{"jsonrpc":"2.0","id":25,"method":"resources/read","params":{"uri":"veln-pkg:///std/snapshot/3af29d28350818aa4e272f69d28d72e0b584df42ba1c443a61da998258c3de72/prelude%2Eveln"}}
 {"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"list_language_topics","arguments":{}}}
