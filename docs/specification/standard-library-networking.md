@@ -363,9 +363,11 @@ failures, complete ordered writes, empty-list behavior, captured-resource
 identity, and the absence of address, connection, shutdown, or lifecycle
 operations during adapter I/O.
 The JVM backend network tests compile their checked programs with the exported
-standard modules. Separate Veln test support checks value operations, option
-forwarding, creating-provider retention, foreign-resource rejection, complete
-writes, and cleanup-failure unwind through `net::IO` and `net::system()`.
+standard modules. Separate Veln test support checks value operations and
+foreign-resource rejection at `net::IO`. Owned-resource cases run through
+`net::system()` and a scoped host fake to check creating-provider retention,
+host-operation order, option and byte forwarding, complete failure
+translation, retry state, complete writes, and cleanup-failure unwind.
 Host-backed client, listener, and cancellation cases use the same explicit
 module and nominal handler boundary while checking real socket I/O and
 interruption. Checked command-level examples under

@@ -502,6 +502,13 @@ than degrading it to a generic rendered result value.
 
 ## References
 
+- JVM networking execution evidence compiles checked programs with the
+  exported standard modules. The backend cases exercise real socket and task
+  cancellation through `net::IO` and `net::system()`. Separate Veln support
+  checks nominal handler dispatch, creating-provider retention, host-operation
+  order, option and byte forwarding, translated failures, retry state, and
+  cleanup-failure unwinding without substituting fake behavior in production
+  handlers.
 - Normal completion, nested unwinding, registration-time snapshots, and the
   public test boundary are checked by
   [`deferred-cleanup-runtime-boundary`](../../examples/specification/run/deferred-cleanup-runtime-boundary/),
