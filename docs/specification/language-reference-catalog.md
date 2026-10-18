@@ -55,11 +55,13 @@ singleton and finite-set identity, subset assignability and direct widening,
 aggregate and control-flow joins, stable match-path narrowing, runtime erasure,
 transitive alias-qualified identity and presentation, complete-domain alias
 reconciliation, generic payload propagation across alias-qualified constructor
-and pattern boundaries, and the qualified-value limit. The selected examples
-demonstrate refined call typing, control-flow result joins, alias-qualified
-identity and presentation, and generic alias boundaries. The current type and
-source specifications remain authoritative for those behaviors and the
-accepted source forms, including malformed-form boundaries.
+and pattern boundaries, recursive public-signature and public-ADT-payload
+visibility, transitive publication quarantine, and the qualified-value limit.
+The selected examples demonstrate refined call typing, control-flow result
+joins, alias-qualified identity and presentation, generic alias boundaries,
+structural visibility, and publication quarantine. The current type and source
+specifications remain authoritative for those behaviors and the accepted
+source forms, including malformed-form boundaries.
 The `contracts` topic selects the function-contract, schema-validation, and
 schema-field predicate entry productions. The complete grammar distinguishes
 function contracts and hole `satisfy` predicates, which admit integer `%`,

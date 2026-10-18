@@ -151,6 +151,8 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                 "match refinement",
                 "runtime erasure",
                 "type aliases",
+                "public visibility",
+                "publication quarantine",
             ],
             body: &[
                 "The topic selects grammar for type parameters, return annotations, result bindings, ADT variant-refinement type text, and constructor patterns.",
@@ -160,7 +162,8 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                 "A constructor pattern narrows a stable matched value to the selected singleton in that arm. A residual catch-all receives the feasible variants not selected by earlier arms. Refinement applies to immutable parameters and local bindings, transparent local aliases that share one feasible domain, and record-field paths rooted at those stable values. Computed expressions are not stable refinement paths.",
                 "Refinements are erased at runtime and use the base ADT representation. They do not add a runtime state store, linear consumption, reachability or progress proofs, payload predicates, or restrictions on constructing visible variants.",
                 "A public type-alias chain whose resolved target is an ADT can qualify a refinement. Alias-qualified and target-qualified forms use the target ADT identity and type arguments, so equal variant sets are mutually assignable. Expected alias-qualified constructor context supplies the target ADT's generic payload arguments. Constructor patterns preserve those payload arguments when the scrutinee and pattern use target and alias qualifiers of the same ADT. One unambiguous alias from an explicit annotation is preserved for display. Constructor inference uses the target ADT name. A join preserves one alias preference when its other contributions use the target name, but conflicting alias preferences make the result use the target name. This reconciliation is independent of contribution order and still applies when a singleton ADT or complete refinement union collapses to the base ADT. Qualified immutable-value refinement remains unavailable because the source language has no module-addressable immutable data-value declaration.",
-                "The selected checked examples exercise constructor singleton inference, subset assignment and widening, refined call typing, alias identity and presentation, generic alias constructor and pattern boundaries, aggregate retention, and control-flow result joins.",
+                "A refinement in a public function parameter or result, or in a public variant payload of a public ADT, must expose a visible base ADT and visible selected variants. This check traverses records, named type arguments, nested function parameters and results, refinement unions, and transparent aliases. An inaccessible refinement prevents publication of the declaration. Publication quarantine propagates through public ADT payload dependencies and then to public functions whose signatures depend on a quarantined ADT. An ordinary named reference to a quarantined ADT does not duplicate the causal privacy diagnostic.",
+                "The selected checked examples exercise constructor singleton inference, subset assignment and widening, refined call typing, alias identity and presentation, generic alias constructor and pattern boundaries, aggregate retention, control-flow result joins, recursive public visibility, and transitive publication quarantine.",
             ],
             related: &["declarations-aliases", "expressions-patterns", "contracts"],
             grammar: &[
@@ -196,6 +199,16 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                     case: "check/adt-variant-refinement-generic-alias-boundaries",
                     display_name: "ADT variant-refinement generic alias boundaries",
                     files: &["api.veln", "app.veln"],
+                },
+                ExampleSelection {
+                    case: "check/adt-variant-refinement-structural-visibility-human",
+                    display_name: "ADT variant-refinement structural visibility",
+                    files: &["main.veln"],
+                },
+                ExampleSelection {
+                    case: "check/adt-variant-refinement-publication-closure-human",
+                    display_name: "ADT variant-refinement publication quarantine",
+                    files: &["main.veln"],
                 },
             ],
         },
