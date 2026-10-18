@@ -16,12 +16,24 @@ path = "diagnostics.0.related"
 length = 3
 
 [[json_assert]]
+path = "diagnostics.0.related.0.kind"
+equals = "network_import_migration"
+
+[[json_assert]]
 path = "diagnostics.0.related.0.message"
 equals = 'Import the exported network module with `use net from "std"`.'
 
 [[json_assert]]
+path = "diagnostics.0.related.1.kind"
+equals = "network_effect_migration"
+
+[[json_assert]]
 path = "diagnostics.0.related.1.message"
 equals = "Declare the nominal `net::IO` effect for functions that use network operations."
+
+[[json_assert]]
+path = "diagnostics.0.related.2.kind"
+equals = "network_handler_migration"
 
 [[json_assert]]
 path = "diagnostics.0.related.2.message"

@@ -47,11 +47,12 @@ consumers must preserve diagnostic and related-note order.
 
 ## Diagnostic families
 
-An unresolved call target that uses one of the removed compiler-known
-`net::...` spellings reports one `name.unresolved` diagnostic. The primary
-message and `details` retain the ordinary unresolved-call shape. When the
-source module has no explicit import whose alias is `net`, the diagnostic adds
-these spanless related entries in order:
+An unresolved call target that uses one of the
+[removed compiler-known network spellings](name-resolution.md#removed-network-call-spellings)
+reports one `name.unresolved` diagnostic. The primary message and `details`
+retain the ordinary unresolved-call shape. When the source module has no
+explicit import whose alias is `net`, the diagnostic adds these spanless
+related entries in order:
 
 | `kind` | `message` |
 | --- | --- |
