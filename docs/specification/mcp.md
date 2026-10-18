@@ -116,9 +116,11 @@ declaration URI forms with Markdown media type. Clients obtain exact readable
 module and declaration URIs from index and module Markdown; template variables
 are not a URI normalization or discovery surface.
 
-Successful error-free `check_project` analysis and successful `definition` and
-`references` calls on a selected manifest project atomically admit every valid direct-dependency package
-snapshot captured by the same stable saved-project operation. A valid snapshot
+Successful `check_project` analysis with no
+`type.variant_refinement_private` diagnostic and successful `definition` and
+`references` calls on a selected manifest project atomically admit every valid
+direct-dependency package snapshot captured by the same stable saved-project
+operation. A valid snapshot
 has a manifest package name that equals the dependency table key and a captured
 package distribution snapshot. The server generates the existing
 transport-independent package-documentation result from that retained snapshot
