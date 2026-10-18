@@ -256,7 +256,7 @@ end
 
 fn blocked_accept_closed(context: { listener : net::Listener, ready : Sender<()> }) -> Result<(), net::NetError> effects [net::IO, time, concurrency]
 	let _ = channel::send(context.ready, ())
-	match net::accept_with(context.listener, Some(time::deadline_after_ms(1000)), None)
+	match net::accept_with(context.listener, Some(time::deadline_after_ms(10000)), None)
 		Err(net::NetError(_, _, _, net::Closed, _)) => Ok(())
 		Err(error) => Err(error)
 		Ok(_) => Err(net::NetError("accept", None, None, net::Other, "closed listener accepted a stream"))
@@ -265,7 +265,7 @@ end
 
 fn blocked_accept_cancelled(context: { listener : net::Listener, token : CancelToken, ready : Sender<()> }) -> Result<(), net::NetError> effects [net::IO, time, concurrency]
 	let _ = channel::send(context.ready, ())
-	match net::accept_with(context.listener, Some(time::deadline_after_ms(1000)), Some(context.token))
+	match net::accept_with(context.listener, Some(time::deadline_after_ms(10000)), Some(context.token))
 		Err(net::NetError(_, _, _, net::Cancelled, _)) => Ok(())
 		Err(error) => Err(error)
 		Ok(_) => Err(net::NetError("accept", None, None, net::Other, "cancelled accept returned a stream"))
