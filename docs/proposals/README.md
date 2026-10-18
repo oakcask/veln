@@ -27,8 +27,8 @@ also states it.
 - Remaining ADT variant-refinement support for qualified immutable values
   after a separate source-surface prerequisite, schema boundaries,
   remaining LSP diagnostics and invalid-refinement recovery, and MCP
-  invalid-refinement recovery, package-signature, and saved-state
-  behavior. The provider-dependent base reason requires a separate production
+  invalid-refinement recovery with request-specific saved-state behavior. The
+  provider-dependent base reason requires a separate production
   provider contract before selection:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 

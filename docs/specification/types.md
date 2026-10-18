@@ -694,14 +694,14 @@ eligibility and diagnostic provenance. When the written base is a public type
 alias or a finite alias chain, `not_adt` eligibility and declaration provenance
 come from the canonical target declaration; the diagnostic still preserves the
 outer written alias as `written_type`. A base with invalid generic arity
-retains the existing `type.invalid_annotation` failure. For a refinement at a
-public-function signature root or in a recursively nested record field, a
-uniquely resolved direct ADT or transparent type-alias chain and final
-constructor also retain an independently provable private-base or
+retains the existing `type.invalid_annotation` failure. For a refinement
+anywhere in a public-function parameter or result, or in a public source-ADT
+payload, a uniquely resolved direct ADT or transparent type-alias chain and
+final constructor also retain an independently provable private-base or
 private-variant failure. An invalid nested type argument or sibling union
 alternative does not suppress that visibility failure. Visibility checking
-uses this recovery while traversing record fields, but it does not traverse
-named type arguments, function types, or other structural positions.
+uses this recovery while traversing named type arguments, function parameters
+and results, record fields, and refinement unions.
 Union comparison and assignability remain suppressed because they require a
 valid instantiation. Exact and uniquely casing-recovered source-backed or
 source-less type paths use the same arity rule. A failed refinement does not
@@ -807,9 +807,9 @@ public. The same private refinements remain valid on private functions.
 An alias declaration does not replace or upgrade the terminal declaration's
 visibility. An imported or reusable public alias, including an implicit
 standard-prelude alias, still exposes a private terminal type or variant when
-it is used at a checked public-function signature root or within its record
-fields. The diagnostic retains the terminal identity and declaration location
-through each local and imported alias hop.
+it is used anywhere in a checked public-function signature or public
+source-ADT payload. The diagnostic retains the terminal identity and
+declaration location through each local and imported alias hop.
 
 The visibility check selects the base identity by unique exact lookup or
 initial-only casing recovery. The written uppercase final constructor must
@@ -918,7 +918,6 @@ timing noise does not affect the bound.
 Wide record annotations on public function parameters and results check each
 refinement occurrence in their record fields. Each private occurrence rejects
 publication, and analysis work grows linearly with the written occurrences.
-Nested generic paths remain excluded from the visibility traversal.
 The checked
 [`generic alias boundaries`](../../examples/specification/check/adt-variant-refinement-generic-alias-boundaries/)
 case also verifies that imported alias-qualified constructor context supplies
@@ -1070,12 +1069,10 @@ Variant-refinement semantic-token classifications are specified in
 [editor-support.md](editor-support.md#token-classes), and its navigation and
 rename behavior is specified by
 [editor support](editor-support.md#lsp-navigation-formatting-and-rename) and
-[MCP](mcp.md#saved-workspace-navigation). Public/private exposure through
-structural positions other than record fields, including aliases nested in
-those positions, qualified-value control-flow refinement, schema boundaries,
-package-documentation catalog signatures, remaining LSP diagnostics and
-recovery, and remaining MCP invalid-refinement recovery, package-signature,
-and saved-state behavior remain proposal work.
+[MCP](mcp.md#saved-workspace-navigation). Qualified-value control-flow
+refinement, schema boundaries, remaining LSP diagnostics and recovery, and
+remaining MCP invalid-refinement recovery, including the saved-state behavior
+of those remaining requests, remain proposal work.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record

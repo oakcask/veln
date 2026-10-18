@@ -199,15 +199,17 @@ Bare names resolve to local bindings. Function calls resolve to:
 - implicit standard prelude helper imports by bare name or `prelude::function`
   form
 
-A public function whose variant-refinement visibility check fails at a
-signature root or in a recursively nested record field can retain an
-all-`unknown` signature for same-module recovery without publishing a callable
-signature. This includes a written base that directly names its ADT or resolves
-through a finite transparent type-alias chain. A public alias of that function
-is not a qualified call target or an unqualified import candidate, and another
-module cannot republish it through a further alias. An alias of a valid public
-function remains available through each supported alias chain. This publication
-rule does not change invalid-name function recovery, whose callable-signature
+A public function whose variant-refinement visibility check fails anywhere in
+a parameter or result can retain an all-`unknown` signature for same-module
+recovery without publishing a callable signature. A public source ADT whose
+public payload fails the same check retains its unambiguous same-module source
+identity without publishing an imported public type fact. These rules include
+a written base that directly names its ADT or resolves through a finite
+transparent type-alias chain. A public alias of the failed function is not a
+qualified call target or an unqualified import candidate, and another module
+cannot republish it through a further alias. An alias of a valid public function
+remains available through each supported alias chain. This publication rule
+does not change invalid-name function recovery, whose callable-signature
 behavior is defined by the
 [type-checking contract](types.md#compatibility-and-limits).
 
@@ -361,14 +363,14 @@ segment as a constructor. Each classification retains the written segment,
 span, and segment index. If changing only an invalid-cased base leaf selects
 exactly one type, casing analysis retains that type classification. It reports
 `name.invalid_case` and still checks the recovered base's independent
-variant-refinement eligibility. For a refinement used as the complete
-annotation of a public function parameter or result, or reached through its
-record fields, that unique recovered terminal ADT identity also participates
-in the visibility check when the written base names it directly or reaches it
-through a finite transparent type-alias chain, and when the written final
-segment starts with an ASCII uppercase letter and resolves exactly to one
-constructor of that ADT. A lowercase final segment is a parse failure and does
-not reach casing or visibility analysis. The privacy diagnostic
+variant-refinement eligibility. For a refinement anywhere in a public function
+parameter or result, or in a public source-ADT payload, that unique recovered
+terminal ADT identity also participates in the visibility check when the
+written base names it directly or reaches it through a finite transparent
+type-alias chain, and when the written final segment starts with an ASCII
+uppercase letter and resolves exactly to one constructor of that ADT. A
+lowercase final segment is a parse failure and does not reach casing or
+visibility analysis. The privacy diagnostic
 retains the written base casing. Ambiguous or unresolved base recovery, or an
 ambiguous or missing exact final segment, does not manufacture a privacy
 diagnostic. This includes a source-less base

@@ -20,8 +20,8 @@ of visibility-invalid declarations.
 
 This proposal retains only the unfinished work: qualified-value match
 refinement, schema boundaries, remaining LSP diagnostics and
-invalid-refinement recovery, and MCP invalid-refinement recovery,
-package-signature, and saved-state behavior. Qualified
+invalid-refinement recovery, and MCP invalid-refinement recovery with the
+saved-state behavior of those remaining requests. Qualified
 immutable-value refinement depends
 on a separately specified source form for module-addressable immutable data
 values; current qualified constructor and function expressions do not satisfy
@@ -39,9 +39,9 @@ The remaining proposal has these intended outcomes:
 - Production inputs with a known ADT identity but no public finite variant
   descriptor report the defined provider-dependent diagnostic after that
   provider contract exists.
-- Package-documentation catalog, LSP, and MCP views agree on the identity and
-  visibility of a refined variant, and language-service failures preserve the
-  previous observable state.
+- Remaining LSP and MCP views agree with the current package-documentation
+  catalog on the identity and visibility of a refined variant. Failures in
+  those remaining operations preserve the previous observable state.
 
 The feature is useful for protocol phases, compiler passes, security-sensitive
 state gates, and other finite state machines. It does not prove that every
@@ -249,10 +249,10 @@ recovery never makes the annotation valid.
 
 The remaining LSP and MCP work must define which retained identities are safe
 to expose through definition, references, prepare-rename, and rename. A
-source-less type has no source definition, reference, or rename target. An
-invalid public declaration must create no published package identity or
-replacement saved snapshot. A failed stable capture or analysis must preserve
-the previous saved snapshot under the existing language-service rules.
+source-less type has no source definition, reference, or rename target. The
+current package-documentation and MCP specifications own publication
+atomicity and preservation after failed stable capture or analysis. The
+remaining recovery work must not weaken those rules.
 
 Machine-readable diagnostics use the existing diagnostic envelope and
 half-open spans. New detail objects are closed schemas. Human and JSON cases
@@ -311,8 +311,8 @@ and [MCP](../specification/mcp.md#saved-workspace-navigation). Recovery for an
 invalid provider-independent base remains unimplemented at those protocol
 surfaces. The future shared recovery must carry each safe, unambiguous
 base-type or constructor identity without reconstructing it from display text.
-Package-documentation signatures must preserve those identities when the
-visibility and publication work below makes them eligible.
+If future recovery makes a declaration eligible for publication, its signature
+must follow the current package-documentation contract.
 
 ### LSP
 
@@ -332,15 +332,11 @@ contracts rather than variant-only implementations.
 
 ### MCP
 
-The remaining MCP surface gains package-signature and saved-snapshot behavior:
-
-- Package-documentation declaration signatures preserve public singleton and
-  union refinement annotations. Constructor documentation identity remains
-  the owning ADT and constructor identity rather than a synthetic declaration.
-
-Protocol-invalid input, failed stable capture, failed analysis, pagination
-failure, and rename refusal create no partial result, consume no unrelated
-cursor, admit no dependency resource, and preserve the previous saved state.
+The remaining MCP surface adds invalid-refinement navigation. The current MCP
+specification owns package-documentation signatures and the state-preservation
+rules for invalid input, failed stable capture or analysis, pagination failure,
+and rename refusal. Future recovery must preserve those invariants and must not
+consume unrelated cursors or admit dependency resources after a failed request.
 
 ## Acceptance Model
 
@@ -359,11 +355,10 @@ current behavior:
 | Schema encode and decode | Refinement annotations preserve the base ADT wire representation. Encode and typed pass-through helpers require statically assignable refined inputs. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. | Schema eligibility and type-checker cases for refined and base inputs; binary, format-neutral, incremental, singleton, union, nested record, payload, option, result, collection, and dictionary cases; runtime cases for admitted variants, excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, and unchanged wire bytes. |
 | Provider descriptor unavailable | After the separate provider prerequisite lands, a production compiler or package input with a known ADT identity and no public finite variant descriptor reports `type.variant_refinement_base` with reason `variant_descriptor_unavailable`. A local source declaration with no lowered variants does not establish this reason. | Human and JSON command fixtures that select the production provider, plus semantic cases that distinguish compiler or package provenance from local source declarations and unit-only provider injection. |
 | LSP | Diagnostics, invalid-refinement recovery, their UTF-16 span projection, and unchanged-snapshot failures follow the remaining LSP contract. | Shared language-service cases and stdio LSP request/response fixtures. |
-| MCP | Invalid-refinement recovery, package signatures, and failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
+| MCP | Invalid-refinement recovery and its request-specific failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
 
 The remaining state-machine examples must include match-based recovery of a
-refined value and an unchanged saved result after a failed language-service
-request.
+refined value and an unchanged saved result after a failed recovery request.
 
 ## Non-Goals
 
