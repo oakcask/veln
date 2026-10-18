@@ -203,7 +203,13 @@ A public function whose variant-refinement visibility check fails anywhere in
 a parameter or result can retain an all-`unknown` signature for same-module
 recovery without publishing a callable signature. A public source ADT whose
 public payload fails the same check retains its unambiguous same-module source
-identity without publishing an imported public type fact. These rules include
+identity without publishing an imported public type fact. A public ADT whose
+payload selects a variant of that quarantined ADT has the same recovery and
+publication behavior. This closure continues through direct or
+transparent-alias payload refinements independently of declaration order.
+Public type aliases whose terminal target belongs to the closure are also
+excluded from imported public type facts. Valid public ADTs outside that
+dependency closure remain importable. These rules include
 a written base that directly names its ADT or resolves through a finite
 transparent type-alias chain. A public alias of the failed function is not a
 qualified call target or an unqualified import candidate, and another module

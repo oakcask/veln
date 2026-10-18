@@ -855,7 +855,12 @@ visibility failure in a later direct sibling field. A visibility failure leaves
 an all-`unknown` signature only as internal same-module recovery state. The
 failed function is absent from the callable facts inherited by another module.
 A visibility-invalid public ADT retains its unambiguous same-module source
-identity but is absent from imported public type facts. A public function
+identity but is absent from imported public type facts. Publication quarantine
+also follows public payload refinements transitively: if a public ADT selects a
+variant of a quarantined public ADT, it is quarantined too. This closure follows
+transparent aliases, is independent of declaration order, and continues until
+no additional public ADT depends on a quarantined ADT. A valid neighboring ADT
+remains published. A public function
 alias can publish only a function that is present in those callable facts, so
 an alias cannot republish the failed function directly or through another
 module. Qualified lookup and unqualified import-candidate lookup both exclude
@@ -905,7 +910,9 @@ from a reusable or dependency environment. Direct visibility analysis grows
 linearly with the relevant source occurrences for wide refinement unions, many
 public declarations, parse-clean recovered bases, and qualified imports. This
 bound includes casing recovery, same-named imported ADTs, and unrelated
-declarations.
+declarations. Publication quarantine over a chain of dependent public ADTs also
+grows linearly with the declarations and payload-refinement dependencies it
+examines.
 
 For one direct refinement whose qualified base requires initial-only casing
 recovery, increasing the qualifier depth adds linear path-normalization and

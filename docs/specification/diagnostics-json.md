@@ -213,7 +213,15 @@ a later refinement, but the later refinement keeps its own primary span,
 do not manufacture a visibility identity. Distinct written alias paths to one
 terminal variant produce distinct diagnostics, while an exact repeated path
 retains its first occurrence. Exact test-companion access does not change
-public-signature eligibility. The checked
+public-signature eligibility.
+
+Public-ADT publication quarantine is transitive. If a public payload refinement
+selects a variant of a public ADT that this check has quarantined, that dependent
+payload reports `type.variant_refinement_private` at its own written refinement
+and the dependent ADT is quarantined too. The same rule repeats through direct
+and transparent-alias dependencies, regardless of declaration order. The
+diagnostics remain in source-span order, and an unrelated valid public ADT does
+not acquire a diagnostic. The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-public-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-public-visibility-json/)
