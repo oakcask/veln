@@ -38,6 +38,49 @@ fn classifier_and_pipeline_diagnostics_share_recovered_path_roles() {
 }
 
 #[test]
+fn role_resolution_keeps_same_index_occurrences_bound_to_their_own_spans() {
+    let main = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use helper\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  let first = helper::make()\n",
+            "  let second = Helper::make()\n",
+            "  helper::Make()\n",
+            "end\n",
+        ),
+    );
+    let helper = SourceFile::new(
+        "helper.veln",
+        concat!("pub fn make() -> Int\n", "  1\n", "end\n"),
+    );
+    let module = merged_modules_with_names([("main", main.clone()), ("helper", helper)]);
+
+    let observed = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .map(|diagnostic| {
+            let span = diagnostic.span.as_ref().expect("name diagnostic span");
+            (
+                main.text()[span.start.offset..span.end.offset].to_string(),
+                class_detail(&diagnostic).to_string(),
+                segment_index_detail(&diagnostic),
+                span.start.line,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        observed,
+        [
+            ("Helper".to_string(), "module".to_string(), Some(0), 5),
+            ("Make".to_string(), "function".to_string(), Some(1), 6),
+        ]
+    );
+}
+
+#[test]
 fn qualified_use_path_segment_matrix_reports_each_fixed_role() {
     let source = SourceFile::new(
         "main.veln",
