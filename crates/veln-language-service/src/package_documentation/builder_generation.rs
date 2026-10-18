@@ -306,17 +306,21 @@ impl<'a> PackageDocBuilder<'a> {
             },
             DoctestMode::Exclude,
         );
-        let exported_publication_is_unavailable = analysis
+        let causal_diagnostics = analysis
             .unpublished_declarations()
             .iter()
-            .any(|declaration| exported_paths.contains(declaration.span.file.as_str()));
+            .filter(|declaration| exported_paths.contains(declaration.span.file.as_str()))
+            .flat_map(|declaration| declaration.causal_diagnostics.iter().cloned())
+            .collect::<Vec<_>>();
         let diagnostics = analysis.checked_diagnostics();
         for diagnostic in diagnostics.into_iter().filter(|diagnostic| {
             diagnostic.severity == Severity::Error
                 && diagnostic.id == "type.variant_refinement_private"
                 && diagnostic.span.as_ref().is_some_and(|span| {
-                    exported_publication_is_unavailable
-                        || exported_paths.contains(span.file.as_str())
+                    exported_paths.contains(span.file.as_str())
+                        || causal_diagnostics.iter().any(|cause| {
+                            cause.diagnostic_id == diagnostic.id && cause.span == *span
+                        })
                 })
         }) {
             self.diagnostics

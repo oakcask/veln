@@ -212,6 +212,24 @@ pub(crate) fn function_depends_on_quarantined_adt(
             .any(|descriptor| environment.adts.descriptor_is_quarantined(descriptor))
 }
 
+pub(crate) fn function_publication_dependency_identities(
+    function: &Function,
+    environment: &TypeEnvironment,
+) -> HashSet<String> {
+    if function.visibility != Visibility::Public {
+        return HashSet::new();
+    }
+    function
+        .params
+        .iter()
+        .flat_map(|param| &param.ty_paths)
+        .chain(function.return_type_paths.iter())
+        .filter_map(|path| {
+            named_type_dependency_identity(path, function.module_name.as_deref(), environment)
+        })
+        .collect()
+}
+
 pub(crate) fn function_has_private_variant_refinement_exposure(
     function: &Function,
     environment: &TypeEnvironment,

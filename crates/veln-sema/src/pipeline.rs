@@ -52,6 +52,13 @@ pub struct UnpublishedDeclaration {
     pub module_name: Option<String>,
     pub name: String,
     pub span: veln_source::SourceSpan,
+    pub causal_diagnostics: Vec<PublicationDiagnosticCause>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PublicationDiagnosticCause {
+    pub diagnostic_id: String,
+    pub span: veln_source::SourceSpan,
 }
 
 pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
@@ -761,7 +768,8 @@ fn lower_analyzed_surface_module_with_environment(
     environment: &TypeEnvironment,
     mode: SurfaceLoweringMode,
 ) -> LoweredSurfaceModule {
-    let unpublished_declarations = unpublished_public_declarations(module, environment);
+    let unpublished_declarations =
+        unpublished_public_declarations(module, environment, &diagnostics);
     if diagnostics
         .iter()
         .any(|diagnostic| diagnostic.severity == Severity::Error)
@@ -809,7 +817,11 @@ fn lower_analyzed_surface_module_with_environment(
 fn unpublished_public_declarations(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
+    diagnostics: &[Diagnostic],
 ) -> Vec<UnpublishedDeclaration> {
+    let type_causes = type_publication_diagnostic_causes(module, environment, diagnostics);
+    let function_causes =
+        function_publication_diagnostic_causes(module, environment, diagnostics, &type_causes);
     let mut declarations = module
         .types
         .iter()
@@ -832,6 +844,10 @@ fn unpublished_public_declarations(
                     module_name: declaration.module_name.clone(),
                     name: name.clone(),
                     span: declaration.span.clone(),
+                    causal_diagnostics: type_causes
+                        .get(&descriptor.identity())
+                        .cloned()
+                        .unwrap_or_default(),
                 })
         })
         .chain(
@@ -849,6 +865,10 @@ fn unpublished_public_declarations(
                         module_name: function.module_name.clone(),
                         name: function.name.clone()?,
                         span: function.span.clone(),
+                        causal_diagnostics: function_causes
+                            .get(&(function.module_name.clone(), function.name.clone()?))
+                            .cloned()
+                            .unwrap_or_default(),
                     })
                 }),
         )
@@ -868,6 +888,30 @@ fn unpublished_public_declarations(
             PublicAliasKind::Function => environment.function(name).is_none(),
             _ => false,
         };
+        let causal_diagnostics = match alias.kind {
+            PublicAliasKind::Type => environment
+                .adts
+                .descriptor_for_type_path_including_quarantined(
+                    name,
+                    0,
+                    alias.module_name.as_deref(),
+                    &environment.uses,
+                )
+                .map(|descriptor| {
+                    environment
+                        .adts
+                        .terminal_descriptor_for_alias(descriptor)
+                        .unwrap_or_else(|| environment.adts.canonical_descriptor_for(descriptor))
+                })
+                .and_then(|descriptor| type_causes.get(&descriptor.identity()))
+                .cloned()
+                .unwrap_or_default(),
+            PublicAliasKind::Function => function_causes
+                .get(&(alias.module_name.clone(), name.clone()))
+                .cloned()
+                .unwrap_or_default(),
+            _ => Vec::new(),
+        };
         unpublished.then(|| UnpublishedDeclaration {
             kind: match alias.kind {
                 PublicAliasKind::Type => "type_alias",
@@ -877,7 +921,192 @@ fn unpublished_public_declarations(
             module_name: alias.module_name.clone(),
             name: name.clone(),
             span: alias.span.clone(),
+            causal_diagnostics,
         })
     }));
     declarations
+}
+
+fn type_publication_diagnostic_causes(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    diagnostics: &[Diagnostic],
+) -> HashMap<String, Vec<PublicationDiagnosticCause>> {
+    struct TypeCauseEntry {
+        identity: String,
+        dependencies: Vec<String>,
+    }
+
+    let mut causes = HashMap::new();
+    let mut entries = Vec::new();
+    for declaration in module
+        .types
+        .iter()
+        .filter(|declaration| declaration.visibility == Visibility::Public)
+    {
+        let Some(name) = declaration.name.as_ref() else {
+            continue;
+        };
+        let Some(descriptor) = environment
+            .adts
+            .descriptor_for_type_path_including_quarantined(
+                name,
+                declaration.params.len(),
+                declaration.module_name.as_deref(),
+                &environment.uses,
+            )
+        else {
+            continue;
+        };
+        let identity = descriptor.identity();
+        causes.insert(
+            identity.clone(),
+            diagnostic_causes_within(&declaration.span, diagnostics),
+        );
+        let dependencies =
+            crate::analysis::adt_publication_dependency_identities(declaration, environment)
+                .into_iter()
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect::<Vec<_>>();
+        entries.push(TypeCauseEntry {
+            identity,
+            dependencies,
+        });
+    }
+
+    loop {
+        let mut changed = false;
+        for entry in &entries {
+            let inherited = entry
+                .dependencies
+                .iter()
+                .flat_map(|dependency| causes.get(dependency).cloned().unwrap_or_default())
+                .collect::<Vec<_>>();
+            let current = causes.entry(entry.identity.clone()).or_default();
+            for cause in inherited {
+                changed |= push_unique_cause(current, cause);
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    causes
+}
+
+fn function_publication_diagnostic_causes(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    diagnostics: &[Diagnostic],
+    type_causes: &HashMap<String, Vec<PublicationDiagnosticCause>>,
+) -> HashMap<(Option<String>, String), Vec<PublicationDiagnosticCause>> {
+    let mut causes = HashMap::new();
+    for function in module.functions.iter().filter(|function| {
+        function.kind == FunctionKind::Function && function.visibility == Visibility::Public
+    }) {
+        let Some(name) = function.name.as_ref() else {
+            continue;
+        };
+        let mut declaration_causes = diagnostic_causes_within(&function.span, diagnostics);
+        let dependencies =
+            crate::analysis::function_publication_dependency_identities(function, environment)
+                .into_iter()
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect::<Vec<_>>();
+        for cause in dependencies
+            .iter()
+            .flat_map(|dependency| type_causes.get(dependency).cloned().unwrap_or_default())
+        {
+            push_unique_cause(&mut declaration_causes, cause);
+        }
+        causes.insert(
+            (function.module_name.clone(), name.clone()),
+            declaration_causes,
+        );
+    }
+    loop {
+        let mut changed = false;
+        for alias in module
+            .aliases
+            .iter()
+            .filter(|alias| alias.kind == PublicAliasKind::Function)
+        {
+            let Some(name) = alias.name.as_ref() else {
+                continue;
+            };
+            let Some(target) = function_alias_target_key(module, alias) else {
+                continue;
+            };
+            let inherited = causes.get(&target).cloned().unwrap_or_default();
+            let current = causes
+                .entry((alias.module_name.clone(), name.clone()))
+                .or_default();
+            for cause in inherited {
+                changed |= push_unique_cause(current, cause);
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    causes
+}
+
+fn function_alias_target_key(
+    module: &SurfaceModule,
+    alias: &veln_ast::PublicAlias,
+) -> Option<(Option<String>, String)> {
+    let name = alias.target.last()?.clone();
+    if alias.target.len() == 1 {
+        return Some((alias.module_name.clone(), name));
+    }
+    let module_path = alias.target[..alias.target.len() - 1].join("::");
+    let use_decl = module.uses.iter().find(|use_decl| {
+        crate::name_recovery::use_decl_matches_import_path(
+            use_decl,
+            &module_path,
+            alias.module_name.as_deref(),
+        )
+    })?;
+    Some((
+        Some(crate::name_recovery::resolved_import_module_name(
+            use_decl,
+            alias.module_name.as_deref(),
+        )),
+        name,
+    ))
+}
+
+fn diagnostic_causes_within(
+    declaration_span: &veln_source::SourceSpan,
+    diagnostics: &[Diagnostic],
+) -> Vec<PublicationDiagnosticCause> {
+    diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .filter_map(|diagnostic| {
+            let span = diagnostic.span.as_ref()?;
+            (span.file == declaration_span.file
+                && span.start.offset >= declaration_span.start.offset
+                && span.end.offset <= declaration_span.end.offset)
+                .then(|| PublicationDiagnosticCause {
+                    diagnostic_id: diagnostic.id.clone(),
+                    span: span.clone(),
+                })
+        })
+        .collect()
+}
+
+fn push_unique_cause(
+    causes: &mut Vec<PublicationDiagnosticCause>,
+    cause: PublicationDiagnosticCause,
+) -> bool {
+    if causes.contains(&cause) {
+        false
+    } else {
+        causes.push(cause);
+        true
+    }
 }

@@ -183,10 +183,11 @@ The implemented gates are:
   imports and transparent aliases. A diagnostic rooted only in a retained
   non-exported declaration is non-blocking unless an exported public
   declaration depends on a quarantined ADT through its resolved signature.
-  When the closure makes any exported declaration unavailable, retained
-  `type.variant_refinement_private` diagnostics are admitted even when their
-  primary exposure spans are in non-exported sources. Related base, alias, and
-  variant declarations may also be in a non-exported module. A failure uses
+  When dependency closure makes an exported declaration unavailable, only
+  retained `type.variant_refinement_private` diagnostics in that declaration's
+  causal dependency closure are admitted, even when their primary exposure
+  spans are in non-exported sources. Related base, alias, and variant
+  declarations may also be in a non-exported module. A failure uses
   `gate: "semantic_visibility"`, reports
   `type.variant_refinement_private`, and publishes no declaration identity or
   signature;

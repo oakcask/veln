@@ -44,8 +44,8 @@ pub(crate) use navigation::{
 };
 pub use pipeline::{
     CanonicalTypeAnnotationIdentity, CanonicalTypeAnnotationWork, LoweredSurfaceModule,
-    UnpublishedDeclaration, VariantRefinementClassificationWork, analyze_surface_module,
-    canonical_type_annotation_identities_with_context,
+    PublicationDiagnosticCause, UnpublishedDeclaration, VariantRefinementClassificationWork,
+    analyze_surface_module, canonical_type_annotation_identities_with_context,
     canonical_type_annotation_identities_with_context_and_work, check_project_surface_module,
     check_project_surface_module_with_standard_environment,
     check_project_surface_module_with_standard_modules_environment,

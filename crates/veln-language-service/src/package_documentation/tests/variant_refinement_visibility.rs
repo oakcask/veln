@@ -143,6 +143,47 @@ fn package_catalog_rejects_function_with_ordinary_quarantined_adt_dependency() {
 }
 
 #[test]
+fn package_catalog_reports_only_causal_non_exported_privacy_diagnostics() {
+    let result = generate(
+        MANIFEST,
+        &[
+            (
+                "main.veln",
+                concat!(
+                    "use causal\n",
+                    "pub fn expose(value: causal::Broken) -> causal::Broken\n",
+                    "  value\n",
+                    "end\n",
+                ),
+            ),
+            ("causal.veln", INTERNAL_BROKEN_ADT),
+            ("unrelated.veln", INTERNAL_BROKEN_ADT),
+        ],
+    );
+
+    assert!(result.catalog().is_none());
+    let diagnostics = &result.status().diagnostics;
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic.gate, "semantic_visibility");
+    assert_eq!(diagnostic.code, "type.variant_refinement_private");
+    let span = diagnostic
+        .span
+        .as_ref()
+        .expect("causal visibility diagnostic span");
+    assert_eq!(
+        span.source_uri,
+        source_uri("demo", result.snapshot_digest(), "causal.veln")
+    );
+    assert_eq!((span.line, span.column), (8, 22));
+    assert!(
+        result
+            .declaration_uri_for("main", "function", "expose")
+            .is_none()
+    );
+}
+
+#[test]
 fn package_catalog_rejects_adt_payload_with_ordinary_quarantined_dependency() {
     let result = generate(
         MANIFEST,
