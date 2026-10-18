@@ -199,12 +199,12 @@ fn many_connections_network_reply(limit: Int, request: ByteChunk, accepted: { tx
 		service_network_reply("ok", "", byte_chunk([]), list_nil(), byte_count_to_int(byte_chunk_count(bytes)), "", 0, "")
 	else if operation == "close_stream"
 		begin
-			let _ = counter_increment(stream_closes)
+			let _ = integer_counter_increment(stream_closes)
 			service_network_reply("ok", "", byte_chunk([]), list_nil(), 0, "", 0, "")
 		end
 	else if operation == "close_listener"
 		begin
-			let _ = counter_increment(listener_closes)
+			let _ = integer_counter_increment(listener_closes)
 			service_network_reply("ok", "", byte_chunk([]), list_nil(), 0, "", 0, "")
 		end
 	else
@@ -364,7 +364,7 @@ fn later_connection_close_listener(listener: net::Listener, expected_listener: n
 	end
 end
 
-fn counter_increment(counter: { tx : Sender<Int>, rx : Receiver<Int> }) -> Int effects [concurrency]
+fn integer_counter_increment(counter: { tx : Sender<Int>, rx : Receiver<Int> }) -> Int effects [concurrency]
 	let observed = option_unwrap_or(channel::recv(counter.rx), 0)
 	let next = observed + 1
 	let _ = channel::send(counter.tx, next)
@@ -416,7 +416,7 @@ end
 fn many_connections_close_stream(stream: net::Stream, expected_stream: net::Stream, closes: { tx : Sender<Int>, rx : Receiver<Int> }) -> Result<(), net::NetError> effects [concurrency]
 	if same_stream(stream, expected_stream)
 		begin
-			let _ = counter_increment(closes)
+			let _ = integer_counter_increment(closes)
 			Ok(())
 		end
 	else
@@ -427,7 +427,7 @@ end
 fn many_connections_close_listener(listener: net::Listener, expected_listener: net::Listener, closes: { tx : Sender<Int>, rx : Receiver<Int> }) -> Result<(), net::NetError> effects [concurrency]
 	if same_listener(listener, expected_listener)
 		begin
-			let _ = counter_increment(closes)
+			let _ = integer_counter_increment(closes)
 			Ok(())
 		end
 	else

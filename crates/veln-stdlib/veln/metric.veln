@@ -1,0 +1,10 @@
+use observe
+use prelude
+
+pub fn counter_increment(context: Option<observe::TraceContext>, name: String, value: Int, attributes: List<observe::Attribute>) -> () effects [observe::Observe] callsite
+	perform observe::Observe::emit(observe::CounterIncrement(observe::CounterIncrementRecord(name, value, attributes, context, callsite)))
+end
+
+pub fn histogram_sample(context: Option<observe::TraceContext>, name: String, value: Int, attributes: List<observe::Attribute>) -> () effects [observe::Observe] callsite
+	perform observe::Observe::emit(observe::HistogramSample(observe::HistogramSampleRecord(name, value, attributes, context, callsite)))
+end
