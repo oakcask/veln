@@ -103,3 +103,4 @@ mod catalog_identity;
 mod doctest_gates;
 mod doctest_publication;
 mod navigation_and_manifest;
+mod variant_refinement_visibility;

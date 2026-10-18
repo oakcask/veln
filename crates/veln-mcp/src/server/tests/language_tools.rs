@@ -857,6 +857,7 @@ fn package_search_uses_catalog_field_tiers_and_retains_distinct_snapshots() {
 fn package_tool_state_is_preserved_across_capacity_and_capture_failures() {
     assert_package_tool_state_preserved_across_capacity_failure();
     assert_package_tool_state_preserved_across_capture_failure();
+    assert_package_tool_state_preserved_across_analysis_failure();
 }
 
 fn assert_package_tool_state_preserved_across_capacity_failure() {
@@ -939,6 +940,57 @@ fn assert_package_tool_state_preserved_across_capture_failure() {
         json!({"query": "capture rejected text", "scope": "package", "limit": 50}),
     );
     assert_eq!(rejected["structuredContent"]["results"], json!([]));
+}
+
+fn assert_package_tool_state_preserved_across_analysis_failure() {
+    let workspace = TempWorkspace::new("package-tool-analysis-failure-state");
+    write_documented_workspace(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
+    assert_eq!(
+        server.check_project_tool(&json!({"project":"."}))["isError"],
+        false
+    );
+    let before = package_tool_state(&mut server, "example/dep", "stable catalog text");
+    workspace.write(
+        "vendor/dep/api.veln",
+        concat!(
+            "pub type State\n",
+            "  Hidden\n",
+            "end\n",
+            "pub type Box<A>\n",
+            "  pub Boxed(value: A)\n",
+            "end\n",
+            "pub type InvalidEnvelope\n",
+            "  pub Wrapped(value: Box<State::Hidden>)\n",
+            "end\n",
+            "## analysis rejected text\n",
+            "pub fn answer() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    refresh_workspace(&mut server);
+    let failed = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(failed["isError"], false, "{failed:#}");
+    assert!(
+        failed["structuredContent"]["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|diagnostic| diagnostic["id"] == "type.variant_refinement_private"),
+        "{failed:#}"
+    );
+    assert_eq!(
+        package_tool_state(&mut server, "example/dep", "stable catalog text"),
+        before
+    );
+    assert_eq!(
+        search(
+            &mut server,
+            json!({"query": "analysis rejected text", "scope": "package", "limit": 50}),
+        )["structuredContent"]["results"],
+        json!([])
+    );
 }
 
 #[test]

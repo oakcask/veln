@@ -11,9 +11,9 @@ use crate::analysis::{
     check_duplicate_constructor_names, check_duplicate_effect_names,
     check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,
     check_duplicate_use_aliases, check_function_body, check_handler_declarations,
-    check_module_boundary, check_public_aliases, check_public_function_boundary,
-    check_reserved_prelude_aliases, check_schema_field_primitives, check_schema_type_references,
-    check_test_declaration_boundary, check_variant_refinement_bases,
+    check_module_boundary, check_public_adt_variant_refinement_visibility, check_public_aliases,
+    check_public_function_boundary, check_reserved_prelude_aliases, check_schema_field_primitives,
+    check_schema_type_references, check_test_declaration_boundary, check_variant_refinement_bases,
 };
 use crate::lowering::{
     lower_executable_surface_module_to_core, lower_project_surface_module_to_core,
@@ -515,6 +515,12 @@ fn check_module_declarations(
     diagnostics.extend(check_duplicate_use_aliases(module));
     diagnostics.extend(check_reserved_prelude_aliases(module));
     diagnostics.extend(check_public_aliases(module, &environment.adts));
+    for declaration in &module.types {
+        diagnostics.extend(check_public_adt_variant_refinement_visibility(
+            declaration,
+            environment,
+        ));
+    }
     diagnostics.extend(check_schema_field_primitives(module));
     diagnostics.extend(check_schema_type_references(module));
     diagnostics.extend(check_handler_declarations(module, environment));

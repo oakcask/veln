@@ -357,7 +357,7 @@ fn malformed_record_annotations_keep_independent_visibility_checks() {
             .iter()
             .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
             .count(),
-        2,
+        3,
         "{diagnostics:#?}"
     );
 }
@@ -789,7 +789,7 @@ fn inherited_private_declaration_provenance_is_retained() {
 }
 
 #[test]
-fn record_refinements_are_checked_while_named_arguments_remain_out_of_scope() {
+fn record_and_named_argument_refinements_are_checked() {
     let diagnostics = diagnostics_for(concat!(
         "pub type State\n",
         "  Hidden\n",
@@ -817,7 +817,7 @@ fn record_refinements_are_checked_while_named_arguments_remain_out_of_scope() {
             .iter()
             .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
             .count(),
-        2,
+        3,
         "{diagnostics:#?}"
     );
 }

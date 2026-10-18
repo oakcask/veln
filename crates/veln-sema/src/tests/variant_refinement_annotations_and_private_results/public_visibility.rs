@@ -58,6 +58,93 @@ fn public_parameters_and_results_reject_private_refinement_declarations() {
 }
 
 #[test]
+fn structural_positions_and_public_adt_payloads_reject_private_refinements() {
+    let diagnostics = visibility_diagnostics(concat!(
+        "pub type State\n",
+        "  pub Ready\n",
+        "  Hidden\n",
+        "end\n",
+        "pub type Box<A>\n",
+        "  pub Boxed(value: A)\n",
+        "end\n",
+        "pub type Alias = State\n",
+        "pub type Envelope\n",
+        "  pub Wrapped(value: Box<State::Hidden | State::Hidden>)\n",
+        "  pub Callback(value: fn(State::Hidden) -> Box<State::Hidden>)\n",
+        "end\n",
+        "pub fn expose(value: Box<Alias::Hidden>) -> fn(State::Hidden) -> Box<State::Hidden>\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 7, "{diagnostics:#?}");
+    let observed = diagnostics
+        .iter()
+        .map(|diagnostic| veln_diagnostics::diagnostic_to_json(diagnostic).to_json())
+        .collect::<Vec<_>>();
+    assert!(observed[0].contains("\"boundary\":\"public_adt_payload\""));
+    assert!(observed[0].contains("\"kind\":\"adt_payload\""));
+    assert!(observed[0].contains("\"kind\":\"type_argument\",\"index\":0"));
+    assert!(observed[0].contains("\"kind\":\"union_alternative\",\"index\":0"));
+    assert!(observed[1].contains("\"kind\":\"union_alternative\",\"index\":1"));
+    assert!(observed[2].contains("\"boundary\":\"public_adt_payload\""));
+    assert!(observed[2].contains("\"kind\":\"function_parameter\",\"index\":0"));
+    assert!(observed[3].contains("\"kind\":\"function_result\""));
+    assert!(observed[4].contains("\"boundary\":\"public_parameter\""));
+    assert!(observed[4].contains("\"kind\":\"type_argument\",\"index\":0"));
+    assert!(observed[4].contains("\"kind\":\"type_alias_declaration\""));
+    assert!(observed[5].contains("\"kind\":\"function_parameter\",\"index\":0"));
+    assert!(observed[6].contains("\"kind\":\"function_result\""));
+    assert!(observed[6].contains("\"kind\":\"type_argument\",\"index\":0"));
+}
+
+#[test]
+fn invalid_public_adt_keeps_local_identity_but_is_not_importable() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod api\n",
+            "pub type State\n",
+            "  Hidden\n",
+            "end\n",
+            "pub type Box<A>\n",
+            "  pub Boxed(value: A)\n",
+            "end\n",
+            "pub type Envelope\n",
+            "  pub Wrapped(value: Box<State::Hidden>)\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let environment = TypeEnvironment::from_module(&module);
+    assert!(
+        environment
+            .adts
+            .descriptor_for_type_path("Envelope", 0, Some("api"), &environment.uses)
+            .is_some(),
+        "same-module recovery keeps the unambiguous source identity"
+    );
+
+    let consumer = lower_surface_ast(
+        &parse(&SourceFile::new("consumer.veln", "mod consumer\nuse api\n")).tree,
+    );
+    let consumer_environment =
+        TypeEnvironment::from_module_with_base_for_test(&consumer, &environment);
+    assert!(
+        consumer_environment
+            .adts
+            .descriptor_for_type_path(
+                "api::Envelope",
+                0,
+                Some("consumer"),
+                &consumer_environment.uses,
+            )
+            .is_none(),
+        "visibility-invalid ADT must not enter an imported public signature"
+    );
+}
+
+#[test]
 fn record_fields_report_distinct_nested_paths_and_alias_hops() {
     let diagnostics = visibility_diagnostics(concat!(
         "type Secret\n",
@@ -132,7 +219,7 @@ fn deep_record_field_path_is_materialized_for_the_visibility_diagnostic() {
 }
 
 #[test]
-fn public_record_refinements_and_private_function_records_remain_valid() {
+fn public_structural_refinements_are_checked_while_private_functions_remain_valid() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -155,15 +242,18 @@ fn public_record_refinements_and_private_function_records_remain_valid() {
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = lower_surface_ast(&parsed.tree);
     let diagnostics = analyze_surface_module(&module);
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id != "type.variant_refinement_private"),
-        "{diagnostics:#?}"
-    );
+    let visibility = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+    assert_eq!(visibility.len(), 1, "{diagnostics:#?}");
+    for diagnostic in visibility {
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(json.contains("\"kind\":\"function_result\""), "{json}");
+    }
     assert!(TypeEnvironment::from_module(&module).function_is_published_for_test("accepted"));
     assert!(
-        TypeEnvironment::from_module(&module)
+        !TypeEnvironment::from_module(&module)
             .function_is_published_for_test("function_record_boundary")
     );
 }
@@ -206,12 +296,14 @@ fn function_field_effect_rows_do_not_hide_later_record_refinements() {
         "end\n",
     ));
 
-    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
     let observed = veln_diagnostics::diagnostic_to_json(&diagnostics[0]).to_json();
     assert!(observed.contains(concat!(
         "\"exposure_path\":[{\"kind\":\"parameter\",\"name\":\"value\"},",
         "{\"kind\":\"record_field\",\"name\":\"state\"}]"
     )));
+    let nested = veln_diagnostics::diagnostic_to_json(&diagnostics[1]).to_json();
+    assert!(nested.contains("\"kind\":\"function_result\""), "{nested}");
     assert!(observed.contains("\"written_type\":\"State::Hidden\""));
 }
 

@@ -240,6 +240,33 @@ impl ConstructorShape {
 }
 
 impl AdtRegistry {
+    pub(crate) fn quarantine_public_source_types(
+        &mut self,
+        invalid: &HashSet<(Option<String>, String)>,
+    ) {
+        let invalid_identities = self
+            .descriptors
+            .iter()
+            .filter(|descriptor| {
+                invalid.contains(&(descriptor.module_name.clone(), descriptor.type_name.clone()))
+            })
+            .map(AdtDescriptor::identity)
+            .collect::<HashSet<_>>();
+        let invalid_aliases = self
+            .type_alias_exposure_paths
+            .iter()
+            .filter(|(_, path)| invalid_identities.contains(&path.terminal.identity()))
+            .map(|(key, _)| key.clone())
+            .collect::<HashSet<_>>();
+        for descriptor in &mut self.descriptors {
+            if invalid_identities.contains(&descriptor.identity())
+                || invalid_aliases.contains(&DescriptorKey::new(descriptor))
+            {
+                descriptor.visibility = Visibility::Private;
+            }
+        }
+    }
+
     pub(crate) fn quarantine_source_variant_payload_types(
         &mut self,
         invalid: &HashSet<(Option<String>, String, String)>,

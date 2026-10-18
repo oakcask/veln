@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 use veln_analysis::{
     CapturedDependencyProject, DoctestMode, checked_project_diagnostics_with_captured_dependencies,
 };
-use veln_diagnostics::diagnostic_to_json;
+use veln_diagnostics::{Severity, diagnostic_to_json};
 use veln_project::{Project, parse_manifest_text};
 use veln_source::SourceFile;
 
@@ -66,22 +66,28 @@ pub(crate) fn check_project(
     };
 
     let dependencies = captured.dependencies.clone();
-    let diagnostics = checked_project_diagnostics_with_captured_dependencies(
+    let checked_diagnostics = checked_project_diagnostics_with_captured_dependencies(
         captured.project,
         DoctestMode::Exclude,
         captured.dependencies,
-    )
-    .iter()
-    .map(diagnostic_to_serde)
-    .collect::<Vec<_>>();
+    );
+    let analysis_failed = checked_diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.severity == Severity::Error);
+    let diagnostics = checked_diagnostics
+        .iter()
+        .map(diagnostic_to_serde)
+        .collect::<Vec<_>>();
     let structured = json!({
         "schema_version": 1,
         "analysis": target.metadata(selection.generation()),
         "diagnostics": diagnostics,
         "summary": summary(&diagnostics),
     });
-    if let Err(error) = language_resources.admit_dependencies(&dependencies) {
-        return error.into();
+    if !analysis_failed {
+        if let Err(error) = language_resources.admit_dependencies(&dependencies) {
+            return error.into();
+        }
     }
     ToolOutcome::Success(structured)
 }

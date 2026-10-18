@@ -774,9 +774,12 @@ source occurrences it examines. This includes invalid-cased bases, unrelated
 diagnostics interleaved around the base failures, and structurally separate
 sibling type positions.
 
-A refinement that is the complete parameter or result annotation of a public
-function, or that is reached by recursively entering record fields from that
-annotation, can expose only a public terminal ADT and public selected variants.
+A refinement anywhere inside a public function parameter or result annotation,
+or inside a payload of a public variant of a public source ADT, can expose only
+a public terminal ADT and public selected variants. The traversal enters named
+type arguments, function parameters and results, record fields, and refinement
+union alternatives. It checks a named public ADT at its declaration and does
+not expand that ADT again at every use.
 The written base can name the ADT directly or resolve through a finite chain of
 local or imported transparent type aliases. At a root annotation, a direct
 private ADT fails at the final identifier of the written base type, excluding
@@ -836,18 +839,23 @@ location belongs to the selected ADT descriptor, including its generic arity.
 A same-module declaration with the same type and variant names but a different
 arity cannot replace that related location.
 
-The visibility check traverses nested record fields from a parameter or result
-annotation. It does not traverse a named type argument, function type, ADT
-payload, or another structural position. Skipping a function-typed field also
-skips refinements inside that function type, including its result, but an
-effect row on that field does not hide a later sibling record field from the
-record traversal. An invalid square-bracket type position likewise does not
+The visibility check follows transparent aliases with cycle-safe resolution.
+An inaccessible refinement reached before a repeated declaration still fails.
+The diagnostic path starts with the public parameter, result, or ADT payload
+boundary, then records `type_argument`, `function_parameter`,
+`function_result`, `record_field`, and `union_alternative` segments in
+structural order. Each distinct ordered exposure path produces one diagnostic.
+The primary span is the outer written structural type occurrence. Alias,
+private declaration, and public boundary notes retain their established order.
+
+An invalid square-bracket type position does not
 make a record nested inside the brackets part of the traversal. Its
 `type.invalid_annotation` diagnostic precedes an independently provable
 visibility failure in a later direct sibling field. A visibility failure leaves
 an all-`unknown` signature only as internal same-module recovery state. The
-failed function is
-absent from the callable facts inherited by another module. A public function
+failed function is absent from the callable facts inherited by another module.
+A visibility-invalid public ADT retains its unambiguous same-module source
+identity but is absent from imported public type facts. A public function
 alias can publish only a function that is present in those callable facts, so
 an alias cannot republish the failed function directly or through another
 module. Qualified lookup and unqualified import-candidate lookup both exclude
@@ -867,8 +875,13 @@ checking of another union alternative. The record-field
 [`human`](../../examples/specification/check/adt-variant-refinement-record-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-record-visibility-json/)
-cases verify nested and separate field paths, union order, alias context,
-accepted public refinements, and the named-argument and function-type limits.
+cases verify nested and separate field paths, union order, and alias context.
+The structural visibility
+[`human`](../../examples/specification/check/adt-variant-refinement-structural-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-structural-visibility-json/)
+cases verify named arguments, function positions, public ADT payloads, union
+paths, outer structural spans, and deterministic related context.
 The alias-qualified
 [`human`](../../examples/specification/check/adt-variant-refinement-alias-visibility-human/)
 and

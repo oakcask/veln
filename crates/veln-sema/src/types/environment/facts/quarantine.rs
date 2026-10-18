@@ -36,6 +36,17 @@ pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
 ) {
     quarantine_invalid_variant_refinement_effect_types(module, environment, effects);
     quarantine_invalid_variant_refinement_adt_payload_types(module, environment, adts);
+    let invalid_types = module
+        .types
+        .iter()
+        .filter(|declaration| {
+            crate::analysis::adt_has_private_variant_refinement_exposure(declaration, environment)
+        })
+        .filter_map(|declaration| {
+            Some((declaration.module_name.clone(), declaration.name.clone()?))
+        })
+        .collect::<HashSet<_>>();
+    adts.quarantine_public_source_types(&invalid_types);
 }
 
 fn annotation_has_base_failure(

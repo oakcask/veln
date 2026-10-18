@@ -132,13 +132,13 @@ record, and function positions.
 | `not_adt` | The resolved named type has no finite ADT variants. | A source-backed type uses `base_type_declaration` with the canonical target's `resolved_identity` and declaration span, including when the written base is a public alias or alias chain. A source-less type published by the type-syntax provider uses spanless `base_type_origin` with `resolved_identity` and `provider: "type_syntax"`. |
 | `opaque` | The resolved compiler-known type intentionally hides its variants. | A spanless `base_type_origin` contains `resolved_identity` and `provider: "adt"`. |
 
-A variant refinement at the root of a public function parameter or result, or
-reached by recursively entering record fields from that root, reports
+A variant refinement anywhere in a public function parameter or result, or in
+a payload of a public variant of a public source ADT, reports
 `type.variant_refinement_private` when its uniquely resolved terminal ADT is
 private or a selected variant is private. The written base can name the ADT
-directly or resolve through a finite local or imported type-alias chain. Named
-type arguments, function types, and other structural positions remain outside
-this check. At a root annotation, a direct private base has a primary span on
+directly or resolve through a finite local or imported type-alias chain. The
+check traverses named type arguments, function parameters and results, record
+fields, and refinement unions. At a root annotation, a direct private base has a primary span on
 the final identifier of the written base type and excludes preceding module
 qualifiers. For example, `main::Secret::One` selects `Secret`, not
 `main::Secret`. For a private variant of a public base, the primary span selects
@@ -146,11 +146,16 @@ the final variant segment. A record-field failure selects the complete written
 refinement or refinement union at that field. The closed details contain
 exactly `written_type`,
 `base_type`, `variant`, `boundary`, and `exposure_path`. `boundary` is
-`public_parameter` or `public_result`.
+`public_parameter`, `public_result`, or `public_adt_payload`.
 `exposure_path` starts with the boundary object. A parameter path contains
 `kind: "parameter"` and its `name`; a result path contains `kind: "result"`.
 Each traversed field then contributes `kind: "record_field"` and its `name`.
-Separate and nested fields therefore retain distinct deterministic paths.
+Named arguments and function positions contribute `type_argument` with a
+zero-based `index`, `function_parameter` with a zero-based `index`, or
+`function_result`. A refinement union contributes `union_alternative` with a
+zero-based `index`. An ADT payload path starts with `kind: "adt_payload"` and
+its `type`, `variant`, and `field`. Separate structural positions therefore
+retain distinct deterministic paths.
 
 For an alias-qualified failure at a root annotation, the primary span selects
 the outermost alias identifier. At a record field, the complete refinement or
@@ -181,7 +186,7 @@ uppercase final segment resolves exactly, `name.invalid_case` precedes the
 independent privacy diagnostic. The diagnostic's `written_type` retains the
 source spelling. Ambiguous or unresolved base recovery does not produce a
 privacy diagnostic. A type path nested in a root alternative's generic
-arguments or in another structural type shape does not become an additional
+arguments is checked as a distinct structural path rather than as another
 direct root.
 An exact final name shared by multiple variant declarations in the selected
 ADT is also ambiguous for this privacy check. That alternative produces no
@@ -195,11 +200,8 @@ privacy diagnostic. Union comparison and assignability diagnostics that
 require an instantiated base remain suppressed.
 An invalid annotation in a nested type argument or sibling alternative of the
 same root union also precedes but does not suppress an independently provable
-privacy diagnostic. Record-field traversal retains this recovery. It does not
-extend visibility checking into other structural type positions. In
-particular, it skips a function-typed field and refinements inside that
-function type. An effect row on the skipped field does not stop traversal of a
-later sibling record field. An invalid square-bracket type position reports
+privacy diagnostic. Structural traversal retains this recovery. An effect row
+does not stop traversal of a later structural child. An invalid square-bracket type position reports
 `type.invalid_annotation` and does not make a record nested inside the brackets
 a visibility path. A later direct record field still reports its independently
 provable privacy diagnostic with its own `exposure_path`. A named type in a
@@ -219,7 +221,12 @@ ordering. The record-field
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-record-visibility-json/)
 cases fix nested paths, union ordering, alias notes, and accepted structural
-boundaries. The alias-qualified
+boundaries. The structural visibility
+[`human`](../../examples/specification/check/adt-variant-refinement-structural-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-structural-visibility-json/)
+cases fix named arguments, function positions, ADT payloads, union path
+segments, and outer structural spans. The alias-qualified
 [`human`](../../examples/specification/check/adt-variant-refinement-alias-visibility-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-alias-visibility-json/)

@@ -1,0 +1,16 @@
+pub type State
+	pub Ready
+	Hidden
+end
+
+pub type Box<A>
+	pub Boxed(value: A)
+end
+
+pub type Envelope
+	pub Wrapped(value: Box<State::Hidden | State::Hidden>)
+end
+
+pub fn expose(value: Box<State::Hidden>, callback: fn(State::Hidden) -> Box<State::Hidden>) -> ()
+	()
+end
