@@ -6,7 +6,7 @@ use veln_source::SourceSpan;
 
 use crate::diagnostics::{span_json, type_details};
 use crate::semantic_model::Type;
-use crate::type_syntax::parse_type_annotation;
+use crate::type_syntax::parse_type_annotation_with_recovery_slots;
 use crate::types::{TypeEnvironment, TypeParameterIdentityContext, VariantRefinementBaseFailure};
 
 pub(crate) struct VariantRefinementBaseDiagnostic {
@@ -326,9 +326,6 @@ fn analyze_annotation(
     let mut visited_paths = HashMap::new();
     let mut materialized_refinements = HashMap::new();
     let declaration_type_parameters = TypeParameterIdentityContext::new(type_parameters);
-    let mut recovery_type_parameters = type_parameters.to_vec();
-    recovery_type_parameters.push("Placeholder::Variant".to_string());
-    let recovery_type_parameters = TypeParameterIdentityContext::new(&recovery_type_parameters);
     collect_independent_refinement_errors(
         refinements,
         paths,
@@ -338,7 +335,6 @@ fn analyze_annotation(
         &mut visited_paths,
         &mut recovery.union_base_failures,
         &declaration_type_parameters,
-        &recovery_type_parameters,
         &mut materialized_refinements,
     );
     collect_independent_structural_arity_errors(
@@ -445,7 +441,6 @@ fn collect_independent_refinement_errors(
     visited_paths: &mut HashMap<PathOccurrence, bool>,
     union_base_failures: &mut Vec<VariantUnionBaseFailure>,
     declaration_type_parameters: &TypeParameterIdentityContext<'_>,
-    recovery_type_parameters: &TypeParameterIdentityContext<'_>,
     materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
 ) -> bool {
     let mut annotation_is_invalid = collect_independent_path_errors(
@@ -465,7 +460,6 @@ fn collect_independent_refinement_errors(
             visited_paths,
             union_base_failures,
             declaration_type_parameters,
-            recovery_type_parameters,
             materialized_refinements,
         );
         annotation_is_invalid |= refinement_is_invalid;
@@ -486,7 +480,6 @@ fn collect_refinement_union(
     visited_paths: &mut HashMap<PathOccurrence, bool>,
     union_base_failures: &mut Vec<VariantUnionBaseFailure>,
     declaration_type_parameters: &TypeParameterIdentityContext<'_>,
-    recovery_type_parameters: &TypeParameterIdentityContext<'_>,
     materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
 ) -> (bool, Option<RecoveredType>) {
     let mut expected_span: Option<SourceSpan> = None;
@@ -502,7 +495,6 @@ fn collect_refinement_union(
             visited_paths,
             union_base_failures,
             declaration_type_parameters,
-            recovery_type_parameters,
             materialized_refinements,
         ) else {
             refinement_is_invalid = true;
@@ -584,7 +576,6 @@ fn collect_refinement_alternative_type(
     visited_paths: &mut HashMap<PathOccurrence, bool>,
     union_base_failures: &mut Vec<VariantUnionBaseFailure>,
     declaration_type_parameters: &TypeParameterIdentityContext<'_>,
-    recovery_type_parameters: &TypeParameterIdentityContext<'_>,
     materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
 ) -> Option<RecoveredType> {
     crate::pipeline::record_variant_refinement_recovery_work(1);
@@ -600,7 +591,6 @@ fn collect_refinement_alternative_type(
         visited_paths,
         union_base_failures,
         declaration_type_parameters,
-        recovery_type_parameters,
         materialized_refinements,
     );
     if let Some(error) =
@@ -660,7 +650,6 @@ fn collect_refinement_argument_types(
     visited_paths: &mut HashMap<PathOccurrence, bool>,
     union_base_failures: &mut Vec<VariantUnionBaseFailure>,
     declaration_type_parameters: &TypeParameterIdentityContext<'_>,
-    recovery_type_parameters: &TypeParameterIdentityContext<'_>,
     materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
 ) -> Option<Vec<RecoveredType>> {
     let mut recovered = Vec::with_capacity(arguments.len());
@@ -674,7 +663,6 @@ fn collect_refinement_argument_types(
             visited_paths,
             union_base_failures,
             declaration_type_parameters,
-            recovery_type_parameters,
             materialized_refinements,
         );
         match argument {
@@ -694,7 +682,6 @@ fn collect_refinement_argument_type(
     visited_paths: &mut HashMap<PathOccurrence, bool>,
     union_base_failures: &mut Vec<VariantUnionBaseFailure>,
     declaration_type_parameters: &TypeParameterIdentityContext<'_>,
-    recovery_type_parameters: &TypeParameterIdentityContext<'_>,
     materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
 ) -> Option<RecoveredType> {
     let argument_errors_start = errors.len();
@@ -707,15 +694,14 @@ fn collect_refinement_argument_type(
         visited_paths,
         union_base_failures,
         declaration_type_parameters,
-        recovery_type_parameters,
         materialized_refinements,
     );
     if argument_is_invalid || errors.len() != argument_errors_start {
         return None;
     }
-    let skeleton = type_argument_skeleton(argument);
+    let (skeleton, recovery_slots) = type_argument_skeleton(argument);
     crate::pipeline::record_variant_refinement_recovery_materialization(skeleton.len());
-    let ty = match parse_type_annotation(&skeleton) {
+    let ty = match parse_type_annotation_with_recovery_slots(&skeleton, &recovery_slots) {
         Ok(ty) => ty,
         Err(error) => {
             let written = render_type_argument(argument);
@@ -731,7 +717,7 @@ fn collect_refinement_argument_type(
     if !environment.type_annotation_is_fully_resolved_with_context(
         &ty,
         current_module,
-        recovery_type_parameters,
+        declaration_type_parameters,
     ) {
         return None;
     }
@@ -783,7 +769,7 @@ fn materialize_refinement_argument(
     crate::pipeline::record_variant_refinement_recovery_materialization(canonical_nodes);
     let local_nodes = canonical_nodes - replacement_count;
     crate::pipeline::record_variant_refinement_recovery_type_materialization(local_nodes);
-    let recovered_argument = replace_recovery_unknowns(canonical, &mut replacement_types);
+    let recovered_argument = replace_recovery_slots(canonical, &mut replacement_types);
     if replacement_types.next().is_some() {
         return None;
     }
@@ -793,15 +779,20 @@ fn materialize_refinement_argument(
     })
 }
 
-fn type_argument_skeleton(argument: &veln_ast::VariantRefinementTypeArgument) -> String {
+fn type_argument_skeleton(
+    argument: &veln_ast::VariantRefinementTypeArgument,
+) -> (String, Vec<std::ops::Range<usize>>) {
     let mut text = String::new();
+    let mut slots = Vec::with_capacity(argument.ty_refinements.len());
     for (index, fragment) in argument.ty_fragments.iter().enumerate() {
         text.push_str(fragment);
         if index < argument.ty_refinements.len() {
-            text.push_str("Placeholder::Variant");
+            let start = text.len();
+            text.push_str("unknown");
+            slots.push(start..text.len());
         }
     }
-    text
+    (text, slots)
 }
 
 fn collect_recovery_replacements(
@@ -810,8 +801,8 @@ fn collect_recovery_replacements(
     replacements: &mut Vec<RecoveredType>,
 ) -> bool {
     match ty {
-        Type::Named { name, args, .. } => {
-            if args.is_empty() && name == "Placeholder::Variant" {
+        ty @ Type::Named { args, .. } => {
+            if ty.recovery_slot_index().is_some() {
                 let Some(Some(child)) = child_refinements.next() else {
                     return false;
                 };
@@ -845,9 +836,12 @@ fn collect_recovery_replacements(
     }
 }
 
-fn replace_recovery_unknowns(ty: Type, replacements: &mut impl Iterator<Item = Type>) -> Type {
+fn replace_recovery_slots(ty: Type, replacements: &mut impl Iterator<Item = Type>) -> Type {
+    if ty.recovery_slot_index().is_some() {
+        return replacements.next().unwrap_or(Type::Unknown);
+    }
     match ty {
-        Type::Unknown => replacements.next().unwrap_or(Type::Unknown),
+        Type::Unknown => Type::Unknown,
         Type::Named {
             name,
             identity,
@@ -857,7 +851,7 @@ fn replace_recovery_unknowns(ty: Type, replacements: &mut impl Iterator<Item = T
             identity,
             args: args
                 .into_iter()
-                .map(|arg| replace_recovery_unknowns(arg, replacements))
+                .map(|arg| replace_recovery_slots(arg, replacements))
                 .collect(),
         },
         Type::VariantRefinement {
@@ -871,7 +865,7 @@ fn replace_recovery_unknowns(ty: Type, replacements: &mut impl Iterator<Item = T
             identity,
             args: args
                 .into_iter()
-                .map(|arg| replace_recovery_unknowns(arg, replacements))
+                .map(|arg| replace_recovery_slots(arg, replacements))
                 .collect(),
             variants,
             unresolved_alternatives,
@@ -879,7 +873,7 @@ fn replace_recovery_unknowns(ty: Type, replacements: &mut impl Iterator<Item = T
         Type::Record(fields) => Type::Record(
             fields
                 .into_iter()
-                .map(|(name, ty)| (name, replace_recovery_unknowns(ty, replacements)))
+                .map(|(name, ty)| (name, replace_recovery_slots(ty, replacements)))
                 .collect(),
         ),
         Type::Function {
@@ -890,10 +884,10 @@ fn replace_recovery_unknowns(ty: Type, replacements: &mut impl Iterator<Item = T
         } => Type::Function {
             params: params
                 .into_iter()
-                .map(|ty| replace_recovery_unknowns(ty, replacements))
+                .map(|ty| replace_recovery_slots(ty, replacements))
                 .collect(),
-            variadic: variadic.map(|ty| Box::new(replace_recovery_unknowns(*ty, replacements))),
-            return_type: Box::new(replace_recovery_unknowns(*return_type, replacements)),
+            variadic: variadic.map(|ty| Box::new(replace_recovery_slots(*ty, replacements))),
+            return_type: Box::new(replace_recovery_slots(*return_type, replacements)),
             effects,
         },
     }

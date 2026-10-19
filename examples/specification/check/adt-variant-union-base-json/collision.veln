@@ -1,5 +1,6 @@
 type State
 	Ready
+	Closed
 end
 
 type Box<A>
@@ -9,4 +10,20 @@ end
 
 type Holder<State>
 	Mixed(Box<State>::Present | Box<collision::State>::Absent)
+end
+
+type Placeholder
+	Variant
+end
+
+type Other
+	C
+end
+
+fn valid_placeholder(value: Placeholder::Variant) -> ()
+	()
+end
+
+fn source_name_collision(value: Box<State::Ready | State::Closed>::Present | Other::C) -> ()
+	()
 end

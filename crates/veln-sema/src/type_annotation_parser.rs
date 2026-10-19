@@ -6,7 +6,15 @@ pub(crate) fn parse_type_annotation_with_arity(
     text: &str,
     builtin_type_arity: &dyn Fn(&str) -> Result<Option<usize>, String>,
 ) -> Result<Type, String> {
-    let mut parser = TypeParser::new(text, builtin_type_arity);
+    parse_type_annotation_with_arity_and_recovery_slots(text, &[], builtin_type_arity)
+}
+
+pub(crate) fn parse_type_annotation_with_arity_and_recovery_slots(
+    text: &str,
+    recovery_slots: &[std::ops::Range<usize>],
+    builtin_type_arity: &dyn Fn(&str) -> Result<Option<usize>, String>,
+) -> Result<Type, String> {
+    let mut parser = TypeParser::new(text, recovery_slots, builtin_type_arity);
     let ty = parser.parse_type()?;
     parser.skip_ws();
     if parser.at_end() {
@@ -19,17 +27,22 @@ pub(crate) fn parse_type_annotation_with_arity(
 struct TypeParser<'a> {
     text: &'a str,
     cursor: usize,
+    recovery_slots: &'a [std::ops::Range<usize>],
+    next_recovery_slot: usize,
     builtin_type_arity: &'a dyn Fn(&str) -> Result<Option<usize>, String>,
 }
 
 impl<'a> TypeParser<'a> {
     fn new(
         text: &'a str,
+        recovery_slots: &'a [std::ops::Range<usize>],
         builtin_type_arity: &'a dyn Fn(&str) -> Result<Option<usize>, String>,
     ) -> Self {
         Self {
             text,
             cursor: 0,
+            recovery_slots,
+            next_recovery_slot: 0,
             builtin_type_arity,
         }
     }
@@ -53,6 +66,14 @@ impl<'a> TypeParser<'a> {
 
     fn parse_non_union_type(&mut self) -> Result<Type, String> {
         self.skip_ws();
+        if let Some(slot) = self.recovery_slots.get(self.next_recovery_slot)
+            && slot.start == self.cursor
+        {
+            self.cursor = slot.end;
+            let index = self.next_recovery_slot;
+            self.next_recovery_slot += 1;
+            return Ok(Type::recovery_slot(index));
+        }
         if self.eat('{') {
             return self.parse_record_type();
         }

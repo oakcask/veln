@@ -201,6 +201,27 @@ pub(crate) enum Type {
 }
 
 impl Type {
+    const RECOVERY_SLOT_IDENTITY_PREFIX: &'static str = "internal:recovery-slot:";
+
+    pub(crate) fn recovery_slot(index: usize) -> Self {
+        Self::resolved_named(
+            "",
+            format!("{}{index}", Self::RECOVERY_SLOT_IDENTITY_PREFIX),
+            Vec::new(),
+        )
+    }
+
+    pub(crate) fn recovery_slot_index(&self) -> Option<usize> {
+        let Self::Named { identity, args, .. } = self else {
+            return None;
+        };
+        args.is_empty()
+            .then(|| identity.strip_prefix(Self::RECOVERY_SLOT_IDENTITY_PREFIX))
+            .flatten()?
+            .parse()
+            .ok()
+    }
+
     pub(crate) fn named(name: impl Into<String>, args: Vec<Type>) -> Self {
         let name = name.into();
         Self::Named {

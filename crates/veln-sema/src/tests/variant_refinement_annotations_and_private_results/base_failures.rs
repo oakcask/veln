@@ -542,6 +542,53 @@ fn declaration_type_parameter_identity_survives_a_same_named_adt() {
 }
 
 #[test]
+fn recovery_slots_cannot_be_captured_by_source_declarations() {
+    fn source(marker: &str) -> String {
+        format!(
+            "type {marker}\n  Variant\nend\n\
+             type State\n  A\n  B\nend\n\
+             type Box<A>\n  Present(A)\nend\n\
+             type Other\n  C\nend\n\
+             fn legal(value: {marker}::Variant) -> ()\n  ()\nend\n\
+             fn broken(value: Box<State::A | State::B>::Present | Other::C) -> ()\n  ()\nend\n"
+        )
+    }
+
+    let collision = diagnostics_for(&source("Placeholder"));
+    let renamed = diagnostics_for(&source("Marker"));
+    let ids = |diagnostics: &[Diagnostic]| {
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.clone())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(ids(&collision), ids(&renamed));
+    assert_eq!(ids(&collision), ["type.variant_union_base"]);
+
+    for diagnostics in [&collision, &renamed] {
+        let diagnostic = &diagnostics[0];
+        let span = diagnostic.span.as_ref().unwrap();
+        assert_eq!((span.start.line, span.start.column), (17, 54));
+        assert_eq!((span.end.line, span.end.column), (17, 62));
+        assert_eq!(
+            diagnostic.details.to_json(),
+            "{\"expected_base_type\":\"Box<State>\",\"actual_base_type\":\"Other\"}"
+        );
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(
+            json.contains("\"kind\":\"expected_variant_union_base\"")
+                && json.contains("\"start\":{\"line\":17,\"column\":18")
+                && json.contains("\"end\":{\"line\":17,\"column\":51")
+                && json.contains(
+                    "The first successfully instantiated alternative established `Box<State>` as the union base."
+                ),
+            "{json}"
+        );
+        assert!(!json.contains("type.invalid_annotation"), "{json}");
+    }
+}
+
+#[test]
 fn recovered_structural_argument_consumes_sibling_refinements_in_order() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n  Ready\nend\n",

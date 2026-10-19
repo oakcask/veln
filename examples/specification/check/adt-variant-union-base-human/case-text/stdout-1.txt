@@ -15,8 +15,10 @@ main.veln:36:68: error[type.variant_union_base]: variant-refinement base `Box<se
 main.veln:40:86: error[type.variant_union_base]: variant-refinement base `Box<second::State::Ready>` does not match expected base `Box<first::State::Ready>`
   note: main.veln:40:50: The first successfully instantiated alternative established `Box<first::State::Ready>` as the union base.
 main.veln:44:32: error[type.invalid_annotation]: invalid type annotation `Box::Present`: `Box` expects 1 type argument(s), found 0
-collision.veln:11:30: error[type.variant_union_base]: variant-refinement base `Box<collision::State>` does not match expected base `Box<State>`
-  note: collision.veln:11:8: The first successfully instantiated alternative established `Box<State>` as the union base.
+collision.veln:12:30: error[type.variant_union_base]: variant-refinement base `Box<collision::State>` does not match expected base `Box<State>`
+  note: collision.veln:12:8: The first successfully instantiated alternative established `Box<State>` as the union base.
+collision.veln:27:78: error[type.variant_union_base]: variant-refinement base `Other` does not match expected base `Box<State>`
+  note: collision.veln:27:33: The first successfully instantiated alternative established `Box<State>` as the union base.
 main.veln:44:57: error[type.variant_union_base]: variant-refinement base `Right` does not match expected base `Left`
   note: main.veln:44:47: The first successfully instantiated alternative established `Left` as the union base.
 main.veln:48:70: error[type.variant_union_base]: variant-refinement base `Right` does not match expected base `Left`
