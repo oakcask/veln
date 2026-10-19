@@ -1,0 +1,27 @@
+type Empty
+end
+
+type Left
+	A
+end
+
+type Right
+	B
+end
+
+type Box<A>
+	Present(A)
+	Absent
+end
+
+fn different_adts(value: Left::A | Right::B | Right::B) -> ()
+	()
+end
+
+fn generic_arguments(value: Box<Int>::Present | Box<String>::Absent) -> ()
+	()
+end
+
+fn failed_before(value: Empty::Missing | Left::A | Right::B) -> ()
+	()
+end

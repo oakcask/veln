@@ -308,9 +308,16 @@ Within one refinement union, a failed alternative does not establish or clear
 the expected base. The earliest successfully instantiated alternative
 establishes that base. Each later successfully instantiated alternative is
 compared with it in written order. A different ADT identity or different
-canonical generic arguments report the existing `type.invalid_annotation` at
-the later alternative, even when a failed alternative occurs before or between
-the successful alternatives.
+canonical generic arguments report `type.variant_union_base` at the complete
+later alternative, even when a failed alternative occurs before or between the
+successful alternatives. Its closed details contain exactly
+`expected_base_type` and `actual_base_type`. The expected type is the base of
+the earliest successfully instantiated alternative. The actual type is the
+base of the conflicting alternative. One `expected_variant_union_base` related
+entry points to that earliest alternative and explains that it established the
+union base. Each later conflict reports separately. An alternative that cannot
+be instantiated does not participate in the comparison and does not suppress
+an independently complete later pair.
 When a nested type argument is invalid, the checker still reports an enclosing
 base-eligibility failure that can be proved from the enclosing base identity
 alone. It suppresses an enclosing annotation or final-segment failure that
@@ -390,6 +397,13 @@ and
 cases cover standard-environment declaration provenance, quarantine before
 omitted-result inference, and a failed union alternative before, between, and
 after two successfully instantiated alternatives.
+The focused union-base
+[`human`](../../examples/specification/check/adt-variant-union-base-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-union-base-json/)
+cases fix later-alternative spans, closed base details, earliest-alternative
+context, repeated conflicts, invariant generic arguments, and recovery after an
+invalid earlier alternative.
 The checked nested-recovery
 [`human`](../../examples/specification/check/adt-variant-refinement-nested-recovery-human/)
 and

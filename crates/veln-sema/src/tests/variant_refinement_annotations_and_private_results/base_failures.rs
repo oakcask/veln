@@ -347,15 +347,15 @@ fn base_failure_skips_only_its_union_alternative() {
     for (annotation, expected_ids) in [
         (
             "Empty::Missing | State::Ready | Other::Go",
-            ["type.variant_refinement_base", "type.invalid_annotation"],
+            ["type.variant_refinement_base", "type.variant_union_base"],
         ),
         (
             "State::Ready | Empty::Missing | Other::Go",
-            ["type.variant_refinement_base", "type.invalid_annotation"],
+            ["type.variant_refinement_base", "type.variant_union_base"],
         ),
         (
             "State::Ready | Other::Go | Empty::Missing",
-            ["type.invalid_annotation", "type.variant_refinement_base"],
+            ["type.variant_union_base", "type.variant_refinement_base"],
         ),
     ] {
         let diagnostics = diagnostics_for(&format!(
@@ -372,7 +372,7 @@ fn base_failure_skips_only_its_union_alternative() {
             .filter(|diagnostic| {
                 matches!(
                     diagnostic.id.as_str(),
-                    "type.variant_refinement_base" | "type.invalid_annotation"
+                    "type.variant_refinement_base" | "type.variant_union_base"
                 )
             })
             .collect::<Vec<_>>();
@@ -386,14 +386,14 @@ fn base_failure_skips_only_its_union_alternative() {
         );
         let union_error = relevant
             .iter()
-            .find(|diagnostic| diagnostic.id == "type.invalid_annotation")
+            .find(|diagnostic| diagnostic.id == "type.variant_union_base")
             .expect("surviving alternatives must still be compared");
+        let json = veln_diagnostics::diagnostic_to_json(union_error).to_json();
+        assert!(json.contains("\"expected_base_type\":\"State\""), "{json}");
+        assert!(json.contains("\"actual_base_type\":\"Other\""), "{json}");
         assert!(
-            union_error.message.contains("`Other::Go`")
-                && union_error
-                    .message
-                    .contains("alternatives must resolve to declared variants of one ADT"),
-            "{diagnostics:#?}"
+            json.contains("\"kind\":\"expected_variant_union_base\""),
+            "{json}"
         );
         let span = union_error.span.as_ref().expect("union error span");
         let expected_column = 17 + annotation.find("Other::Go").unwrap();
@@ -432,7 +432,40 @@ fn recovered_union_compares_canonical_generic_arguments() {
     assert!(
         diagnostics
             .iter()
-            .all(|diagnostic| diagnostic.id != "type.invalid_annotation"),
+            .all(|diagnostic| diagnostic.id != "type.variant_union_base"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn union_base_failure_preserves_an_independent_earlier_arity_failure() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Box<A>\n",
+        "  Present(A)\n",
+        "end\n",
+        "type Left\n",
+        "  A\n",
+        "end\n",
+        "type Right\n",
+        "  B\n",
+        "end\n",
+        "fn mixed(value: Box::Present | Left::A | Right::B) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["type.invalid_annotation", "type.variant_union_base"],
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics[0]
+            .message
+            .contains("`Box` expects 1 type argument(s), found 0"),
         "{diagnostics:#?}"
     );
 }

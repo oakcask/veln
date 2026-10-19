@@ -179,14 +179,14 @@ fn failed_union_alternatives_keep_linear_recovery_and_merge_work() {
         assert_eq!(
             diagnostics
                 .iter()
-                .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
+                .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
                 .count(),
             count / 2,
             "count={count} diagnostics={diagnostics:#?}"
         );
         assert_eq!(
             work.recovery_comparison,
-            count * 3 + 1,
+            count * 5 + 1,
             "count={count} work={work:?}"
         );
         eprintln!("variant refinement union recovery: alternatives={count} work={work:?}");

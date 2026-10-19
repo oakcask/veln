@@ -483,6 +483,28 @@ impl<'a> FunctionChecker<'a> {
             }
             return None;
         }
+        if super::super::annotation_has_variant_union_base_failure(
+            refinements,
+            self.function.module_name.as_deref(),
+            self.environment,
+        ) {
+            for (failed_annotation, error, failure_span) in
+                super::super::independent_annotation_errors(
+                    refinements,
+                    paths,
+                    self.function.module_name.as_deref(),
+                    self.environment,
+                )
+            {
+                self.push_invalid_type_annotation(
+                    &failed_annotation,
+                    &error,
+                    origin_node_id,
+                    failure_span,
+                );
+            }
+            return None;
+        }
         if let Some(error) = self
             .environment
             .recovered_variant_refinement_annotation_error(

@@ -83,7 +83,7 @@ fn union_visibility_keeps_distinct_generic_arguments_and_removes_exact_repeats()
     assert!(
         diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.id == "type.invalid_annotation"),
+            .any(|diagnostic| diagnostic.id == "type.variant_union_base"),
         "{diagnostics:#?}"
     );
 }

@@ -736,7 +736,7 @@ environment. Private return inference therefore cannot publish a result that
 depends on an invalid reusable-base annotation. Within a refinement union, the
 checker skips a failed alternative, retains the earliest successfully
 instantiated base, and compares each later successful alternative with that
-base. A later different base remains an invalid annotation; the failed
+base. A later different base reports `type.variant_union_base`; the failed
 alternative does not suppress that independent comparison. The
 [diagnostic specification](diagnostics-json.md#diagnostic-families) defines the
 closed details, related declaration or provider context, and downstream
@@ -745,6 +745,12 @@ suppression; the checked
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-json/)
 cases verify those boundaries.
+The focused union-base
+[`human`](../../examples/specification/check/adt-variant-union-base-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-union-base-json/)
+cases verify ADT identity, invariant generic arguments, per-alternative spans,
+and recovery after an invalid earlier alternative.
 The reusable-base and union-overlap
 [`human`](../../examples/specification/check/adt-variant-refinement-base-overlap-human/)
 and

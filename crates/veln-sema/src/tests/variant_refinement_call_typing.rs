@@ -555,11 +555,43 @@ fn variant_unions_reject_mixed_resolved_adts() {
         )
     ));
 
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.variant_union_base")
+        .expect("mixed ADTs must report their conflicting union base");
+    let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+    assert!(json.contains("\"expected_base_type\":\"State\""), "{json}");
+    assert!(json.contains("\"actual_base_type\":\"Other\""), "{json}");
     assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.id == "type.invalid_annotation"),
-        "{diagnostics:#?}"
+        json.contains("\"kind\":\"expected_variant_union_base\""),
+        "{json}"
+    );
+}
+
+#[test]
+fn variant_unions_reject_invariant_generic_argument_mismatches() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Box<A>\n",
+        "  Present(A)\n",
+        "  Absent\n",
+        "end\n",
+        "fn invalid(value: Box<Int>::Present | Box<String>::Absent) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.variant_union_base")
+        .expect("invariant generic arguments must establish distinct union bases");
+    let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+    assert!(
+        json.contains("\"expected_base_type\":\"Box<Int>\""),
+        "{json}"
+    );
+    assert!(
+        json.contains("\"actual_base_type\":\"Box<String>\""),
+        "{json}"
     );
 }
 
