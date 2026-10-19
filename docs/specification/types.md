@@ -658,7 +658,8 @@ arguments, and variant are removed. Alternatives whose generic arguments
 differ remain distinct even when they select the same variant. Display follows
 ADT declaration order. Canonical generic arguments recursively use resolved
 type identities, so an alias argument and its resolved target identify the
-same alternative.
+same alternative. A declaration type parameter has an identity in its
+declaration context and remains distinct from a same-spelled nominal type.
 `Option<T>`, `Result<T, E>`, `List<T>`, and source-defined ADTs use this same
 representation. A public type-alias chain whose resolved target is an ADT can
 qualify a singleton or union alternative. Alias-qualified and target-qualified
@@ -756,8 +757,9 @@ The focused union-base
 and
 [`JSON`](../../examples/specification/check/adt-variant-union-base-json/)
 cases verify ADT identity, invariant generic arguments, per-alternative spans,
-recursively nested nominal-identity display, complete base rendering across
-different generic arities, and recovery after an invalid earlier alternative.
+recursively nested nominal-identity display, declaration-type-parameter and
+nominal-type name collisions, complete base rendering across different generic
+arities, and recovery after an invalid earlier alternative.
 The reusable-base and union-overlap
 [`human`](../../examples/specification/check/adt-variant-refinement-base-overlap-human/)
 and
@@ -789,9 +791,12 @@ diagnostics interleaved around the base failures, and structurally separate
 sibling type positions.
 
 For a nested annotation whose innermost refinement union has different bases,
-each additional named-type layer adds constant recovery-comparison and
-diagnostic-materialization work. The deterministic scaling check compares
-depths 8, 16, and 24 and requires constant adjacent growth for both measures.
+each additional named-type layer adds constant recovery-comparison,
+recovery-materialization, materialized-type-node, and peak retained
+recovery-type-node work. Recovered type trees are moved rather than cloned.
+The deterministic scaling check compares depths 8, 16, and 24 and requires
+constant adjacent growth for each measured count and zero recovered-type-tree
+clones.
 
 A refinement anywhere inside a public function parameter or result annotation,
 or inside a payload of a public variant of a public source ADT, can expose only

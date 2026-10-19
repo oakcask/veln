@@ -314,7 +314,10 @@ successful alternatives. Successful instantiation requires every nested named
 type to resolve uniquely. An unresolved or ambiguous nested name therefore
 does not establish the expected base. An in-scope declaration type parameter
 is resolved in that declaration context and remains eligible for comparison.
-Its closed details contain exactly
+It remains distinct from a same-spelled nominal type. The type parameter keeps
+its source spelling in diagnostic details, while the nominal type uses its
+stable qualified identity when that qualification is needed to expose the
+conflict. Its closed details contain exactly
 `expected_base_type` and `actual_base_type`. The expected type is the base of
 the earliest successfully instantiated alternative. The actual type is the
 base of the conflicting alternative. These values use concise canonical names
@@ -423,8 +426,9 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-union-base-json/)
 cases fix later-alternative spans, closed base details, earliest-alternative
 context, repeated conflicts, recursively nested nominal-identity display,
-invariant generic arguments, complete base rendering across different generic
-arities, and arity recovery before an independent later conflict.
+invariant generic arguments, declaration-type-parameter and nominal-type name
+collisions, complete base rendering across different generic arities, and
+arity recovery before an independent later conflict.
 The checked nested-recovery
 [`human`](../../examples/specification/check/adt-variant-refinement-nested-recovery-human/)
 and
