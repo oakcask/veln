@@ -301,7 +301,9 @@ or ambiguous.
 The checker continues with sibling alternatives and nested type positions. It
 retains a name, constructor, or generic-arity diagnostic when that fact is
 provable without treating the failed base as refinable. A failed refinement in
-one record field or other structural child does not stop that traversal: an
+one record field, generic argument, or other structural child does not stop
+that traversal. A failure in one generic argument does not suppress an
+independently complete union-base comparison in a later sibling argument. An
 exact or uniquely casing-recovered type application in a separate sibling
 position still reports its independently provable generic-arity failure.
 Within one refinement union, a failed alternative does not establish or clear

@@ -738,7 +738,10 @@ remain independent occurrences. The
 early quarantine uses the same source-backed declarations as the analyzed
 module, including declarations selected from the reusable standard
 environment. Private return inference therefore cannot publish a result that
-depends on an invalid reusable-base annotation. Within a refinement union, the
+depends on an invalid reusable-base annotation. Recovery visits every generic
+argument even when an earlier sibling argument is invalid. It therefore keeps
+an independently complete union-base comparison in a later sibling argument,
+while the enclosing type remains invalid. Within a refinement union, the
 checker skips a failed alternative, retains the earliest successfully
 instantiated base identity and canonical generic arguments, and compares each
 later successful alternative with that pair. A later different identity or

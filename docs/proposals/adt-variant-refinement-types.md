@@ -184,7 +184,8 @@ The current
 owns the completed provider-independent `not_adt` and `opaque` reasons. The
 current specification also owns recovery that skips a provider-independent
 base failure while preserving comparison of later successfully instantiated
-alternatives through `type.variant_union_base`. The remaining
+alternatives through `type.variant_union_base`, including that comparison in a
+later generic argument after an earlier sibling argument fails. The remaining
 provider-dependent work may extend
 `type.variant_refinement_base.details.reason` with exactly this value:
 
