@@ -374,6 +374,10 @@ fn collect_independent_refinement_errors(
                 annotation_is_invalid = true;
                 continue;
             };
+            if variant_refinement_base_identity_and_arguments(&canonical).is_none() {
+                annotation_is_invalid = true;
+                continue;
+            }
             if let Some(expected) = &expected_union_base {
                 crate::pipeline::record_variant_refinement_recovery_work(1);
                 if !same_variant_refinement_base(expected, &canonical) {
@@ -475,19 +479,19 @@ fn collect_refinement_argument_errors(
     child_is_invalid
 }
 
-fn same_variant_refinement_base(expected: &Type, actual: &Type) -> bool {
-    fn identity_and_arguments(ty: &Type) -> Option<(&str, &[Type])> {
-        match ty {
-            Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
-                Some((identity, args))
-            }
-            _ => None,
+fn variant_refinement_base_identity_and_arguments(ty: &Type) -> Option<(&str, &[Type])> {
+    match ty {
+        Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
+            Some((identity, args))
         }
+        _ => None,
     }
+}
 
+fn same_variant_refinement_base(expected: &Type, actual: &Type) -> bool {
     match (
-        identity_and_arguments(expected),
-        identity_and_arguments(actual),
+        variant_refinement_base_identity_and_arguments(expected),
+        variant_refinement_base_identity_and_arguments(actual),
     ) {
         (Some((expected_identity, expected_args)), Some((actual_identity, actual_args))) => {
             expected_identity == actual_identity
@@ -688,6 +692,9 @@ fn collect_variant_union_base_diagnostics(
             ) else {
                 continue;
             };
+            if variant_refinement_base_identity_and_arguments(&canonical).is_none() {
+                continue;
+            }
             if let Some((expected, expected_span)) = &expected_union_base {
                 crate::pipeline::record_variant_refinement_recovery_work(1);
                 if !same_variant_refinement_base(expected, &canonical) {
