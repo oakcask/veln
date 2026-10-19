@@ -208,6 +208,44 @@ fn failed_union_alternatives_keep_linear_recovery_and_merge_work() {
 }
 
 #[test]
+fn nested_mixed_base_recovery_work_grows_linearly_with_depth() {
+    let measurements = [8, 16, 24].map(|depth| {
+        let mut annotation = "Left::A | Right::B".to_string();
+        for _ in 0..depth {
+            annotation = format!("Box<{annotation}>::Present | Right::B");
+        }
+        let source = format!(
+            "type Left\n  A\nend\n\
+             type Right\n  B\nend\n\
+             type Box<A>\n  Present(A)\nend\n\
+             fn nested(value: {annotation}) -> ()\n  ()\nend\n"
+        );
+
+        crate::pipeline::reset_variant_refinement_base_work();
+        let diagnostics = diagnostics_for(&source);
+        let work = crate::pipeline::take_variant_refinement_base_work();
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
+                .count(),
+            1,
+            "depth={depth} diagnostics={diagnostics:#?}"
+        );
+        eprintln!("nested mixed-base recovery: depth={depth} work={work:?}");
+        (work.recovery_comparison, work.recovery_materialization)
+    });
+
+    for stage in [|work: (usize, usize)| work.0, |work: (usize, usize)| work.1] {
+        assert_eq!(
+            stage(measurements[1]) - stage(measurements[0]),
+            stage(measurements[2]) - stage(measurements[1]),
+            "nested recovery work must have constant adjacent growth: {measurements:?}"
+        );
+    }
+}
+
+#[test]
 fn structural_sibling_recovery_work_is_linear() {
     let measurements = [64, 128, 256].map(|count| {
         let mut source = String::from(concat!(

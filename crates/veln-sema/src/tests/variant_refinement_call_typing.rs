@@ -596,6 +596,43 @@ fn variant_unions_reject_invariant_generic_argument_mismatches() {
 }
 
 #[test]
+fn variant_union_diagnostics_render_complete_bases_with_different_arities() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Pair<A, B>\n",
+        "  First(A)\n",
+        "  Second(B)\n",
+        "end\n",
+        "type Box<A>\n",
+        "  Present(A)\n",
+        "end\n",
+        "fn invalid(value: Pair<Int, String>::First | Box<Bool>::Present) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic.id, "type.variant_union_base");
+    assert_eq!(
+        diagnostic.message,
+        "variant-refinement base `Box<Bool>` does not match expected base `Pair<Int, String>`"
+    );
+    let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+    assert!(
+        json.contains(
+            "\"details\":{\"expected_base_type\":\"Pair<Int, String>\",\"actual_base_type\":\"Box<Bool>\"}"
+        ),
+        "{json}"
+    );
+    assert!(
+        json.contains(
+            "The first successfully instantiated alternative established `Pair<Int, String>` as the union base."
+        ),
+        "{json}"
+    );
+}
+
+#[test]
 fn variant_union_diagnostics_disambiguate_colliding_nominal_identities() {
     let first = SourceFile::new(
         "first.veln",

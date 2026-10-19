@@ -50,3 +50,16 @@ schema InvalidPacket
 	validate invalid == sibling
 	validate true
 end
+
+fn invalid_arity_before(value: Box::Present | Left::A | Right::B) -> ()
+	()
+end
+
+type Pair<A, B>
+	First(A)
+	Second(B)
+end
+
+fn different_outer_arities(value: Pair<Int, String>::First | Box<Bool>::Present) -> ()
+	()
+end

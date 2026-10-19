@@ -294,6 +294,7 @@ pub(crate) struct VariantRefinementBaseWork {
     pub(crate) casing_collection: usize,
     pub(crate) enclosing_context: usize,
     pub(crate) recovery_comparison: usize,
+    pub(crate) recovery_materialization: usize,
     pub(crate) diagnostic_ordering: usize,
 }
 
@@ -305,6 +306,7 @@ impl VariantRefinementBaseWork {
             casing_collection: 0,
             enclosing_context: 0,
             recovery_comparison: 0,
+            recovery_materialization: 0,
             diagnostic_ordering: 0,
         }
     }
@@ -358,6 +360,14 @@ pub(crate) fn record_variant_refinement_recovery_work(amount: usize) {
 
 #[cfg(not(test))]
 pub(crate) fn record_variant_refinement_recovery_work(_amount: usize) {}
+
+#[cfg(test)]
+pub(crate) fn record_variant_refinement_recovery_materialization(amount: usize) {
+    update_variant_refinement_base_work(|work| work.recovery_materialization += amount);
+}
+
+#[cfg(not(test))]
+pub(crate) fn record_variant_refinement_recovery_materialization(_amount: usize) {}
 
 #[cfg(test)]
 pub(crate) fn reset_variant_refinement_base_work() {

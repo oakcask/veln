@@ -15,6 +15,20 @@ pub(crate) struct VariantRefinementBaseDiagnostic {
     pub(crate) union_scope: Option<SourceSpan>,
 }
 
+struct VariantUnionBaseFailure {
+    expected: Type,
+    actual: Type,
+    expected_span: SourceSpan,
+    actual_span: SourceSpan,
+    union_scope: SourceSpan,
+}
+
+#[derive(Default)]
+struct AnnotationRecovery {
+    errors: Vec<(String, String, SourceSpan)>,
+    union_base_failures: Vec<VariantUnionBaseFailure>,
+}
+
 pub(crate) fn check_variant_refinement_bases(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
@@ -35,33 +49,24 @@ pub(crate) fn annotation_has_variant_union_base_failure(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
 ) -> bool {
-    fn contains_union(refinements: &[veln_ast::VariantRefinementType]) -> bool {
-        refinements.iter().any(|refinement| {
-            refinement.alternatives.len() > 1
-                || refinement.alternatives.iter().any(|alternative| {
-                    alternative
-                        .type_arguments
-                        .iter()
-                        .any(|argument| contains_union(&argument.ty_refinements))
-                })
-        })
-    }
-    if !contains_union(refinements) {
+    if !annotation_contains_union(refinements) {
         return false;
     }
-    let mut ignored_errors = Vec::new();
-    let mut visited_paths = HashMap::new();
-    let mut has_union_base_failure = false;
-    collect_independent_refinement_errors(
-        refinements,
-        &[],
-        current_module,
-        environment,
-        &mut ignored_errors,
-        &mut visited_paths,
-        &mut has_union_base_failure,
-    );
-    has_union_base_failure
+    !analyze_annotation(refinements, &[], current_module, environment)
+        .union_base_failures
+        .is_empty()
+}
+
+fn annotation_contains_union(refinements: &[veln_ast::VariantRefinementType]) -> bool {
+    refinements.iter().any(|refinement| {
+        refinement.alternatives.len() > 1
+            || refinement.alternatives.iter().any(|alternative| {
+                alternative
+                    .type_arguments
+                    .iter()
+                    .any(|argument| annotation_contains_union(&argument.ty_refinements))
+            })
+    })
 }
 
 fn collect_type_annotations(
@@ -233,6 +238,16 @@ fn collect_handler_annotations(
     }
 }
 
+pub(crate) fn annotation_has_invalid_refinement(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    annotation_has_base_failure(refinements, paths, current_module, environment)
+        || annotation_has_variant_union_base_failure(refinements, current_module, environment)
+}
+
 fn annotation_has_base_failure(
     refinements: &[veln_ast::VariantRefinementType],
     paths: &[TypePathSegments],
@@ -265,42 +280,40 @@ fn annotation_has_base_failure(
     })
 }
 
-pub(crate) fn annotation_has_invalid_refinement(
-    refinements: &[veln_ast::VariantRefinementType],
-    paths: &[TypePathSegments],
-    current_module: Option<&str>,
-    environment: &TypeEnvironment,
-) -> bool {
-    annotation_has_base_failure(refinements, paths, current_module, environment)
-        || annotation_has_variant_union_base_failure(refinements, current_module, environment)
-}
-
 pub(crate) fn independent_annotation_errors(
     refinements: &[veln_ast::VariantRefinementType],
     paths: &[TypePathSegments],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
 ) -> Vec<(String, String, SourceSpan)> {
-    let mut errors = Vec::new();
+    analyze_annotation(refinements, paths, current_module, environment).errors
+}
+
+fn analyze_annotation(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> AnnotationRecovery {
+    let mut recovery = AnnotationRecovery::default();
     let mut visited_paths = HashMap::new();
-    let mut has_union_base_failure = false;
     collect_independent_refinement_errors(
         refinements,
         paths,
         current_module,
         environment,
-        &mut errors,
+        &mut recovery.errors,
         &mut visited_paths,
-        &mut has_union_base_failure,
+        &mut recovery.union_base_failures,
     );
     collect_independent_structural_arity_errors(
         paths,
         current_module,
         environment,
-        &mut errors,
+        &mut recovery.errors,
         &mut visited_paths,
     );
-    errors
+    recovery
 }
 
 fn collect_independent_structural_arity_errors(
@@ -339,7 +352,7 @@ fn collect_independent_refinement_errors(
     environment: &TypeEnvironment,
     errors: &mut Vec<(String, String, SourceSpan)>,
     visited_paths: &mut HashMap<PathOccurrence, bool>,
-    has_union_base_failure: &mut bool,
+    union_base_failures: &mut Vec<VariantUnionBaseFailure>,
 ) -> bool {
     let mut annotation_is_invalid = false;
     for path in paths {
@@ -371,7 +384,7 @@ fn collect_independent_refinement_errors(
         annotation_is_invalid |= path_is_invalid;
     }
     for refinement in refinements {
-        let mut expected_union_base = None;
+        let mut expected_union_base: Option<(Type, SourceSpan)> = None;
         for alternative in &refinement.alternatives {
             let Some((_, canonical)) = collect_refinement_alternative_type(
                 alternative,
@@ -379,7 +392,7 @@ fn collect_independent_refinement_errors(
                 environment,
                 errors,
                 visited_paths,
-                has_union_base_failure,
+                union_base_failures,
             ) else {
                 annotation_is_invalid = true;
                 continue;
@@ -388,14 +401,20 @@ fn collect_independent_refinement_errors(
                 annotation_is_invalid = true;
                 continue;
             }
-            if let Some(expected) = &expected_union_base {
+            if let Some((expected, expected_span)) = &expected_union_base {
                 crate::pipeline::record_variant_refinement_recovery_work(1);
                 if !same_variant_refinement_base(expected, &canonical) {
-                    *has_union_base_failure = true;
+                    union_base_failures.push(VariantUnionBaseFailure {
+                        expected: expected.clone(),
+                        actual: canonical,
+                        expected_span: expected_span.clone(),
+                        actual_span: alternative_span(alternative),
+                        union_scope: refinement.span.clone(),
+                    });
                     annotation_is_invalid = true;
                 }
             } else {
-                expected_union_base = Some(canonical);
+                expected_union_base = Some((canonical, alternative_span(alternative)));
             }
         }
     }
@@ -408,7 +427,7 @@ fn collect_refinement_alternative_type(
     environment: &TypeEnvironment,
     errors: &mut Vec<(String, String, SourceSpan)>,
     visited_paths: &mut HashMap<PathOccurrence, bool>,
-    has_union_base_failure: &mut bool,
+    union_base_failures: &mut Vec<VariantUnionBaseFailure>,
 ) -> Option<(String, Type)> {
     crate::pipeline::record_variant_refinement_recovery_work(1);
     let base = alternative.base.segments.join("::");
@@ -421,13 +440,29 @@ fn collect_refinement_alternative_type(
         environment,
         errors,
         visited_paths,
-        has_union_base_failure,
+        union_base_failures,
     );
+    if let Some(error) =
+        environment.type_path_arity_error(&base, alternative.type_arguments.len(), current_module)
+    {
+        let written = format!(
+            "{}::{}",
+            written_refinement_base(alternative),
+            alternative.variant
+        );
+        crate::pipeline::record_variant_refinement_recovery_materialization(written.len());
+        errors.push((written, error, alternative_span(alternative)));
+        return None;
+    }
+    if own_base_failure || child_is_invalid {
+        return None;
+    }
     let written = format!(
         "{}::{}",
         written_refinement_base(alternative),
         alternative.variant
     );
+    crate::pipeline::record_variant_refinement_recovery_materialization(written.len());
     let ty = match parse_type_annotation(&written) {
         Ok(ty) => ty,
         Err(error) => {
@@ -437,13 +472,6 @@ fn collect_refinement_alternative_type(
             return None;
         }
     };
-    if let Some(error) = environment.variant_refinement_arity_error(&ty, current_module) {
-        errors.push((written, error, alternative_span(alternative)));
-        return None;
-    }
-    if own_base_failure || child_is_invalid {
-        return None;
-    }
     if let Some(error) = environment.variant_refinement_annotation_error(&ty, current_module) {
         errors.push((written, error, alternative_span(alternative)));
         return None;
@@ -458,7 +486,7 @@ fn collect_refinement_argument_errors(
     environment: &TypeEnvironment,
     errors: &mut Vec<(String, String, SourceSpan)>,
     visited_paths: &mut HashMap<PathOccurrence, bool>,
-    has_union_base_failure: &mut bool,
+    union_base_failures: &mut Vec<VariantUnionBaseFailure>,
 ) -> bool {
     let mut child_is_invalid = false;
     for argument in arguments {
@@ -470,7 +498,7 @@ fn collect_refinement_argument_errors(
             environment,
             errors,
             visited_paths,
-            has_union_base_failure,
+            union_base_failures,
         );
         child_is_invalid |= argument_is_invalid;
         if argument_is_invalid || errors.len() != argument_errors_start {
@@ -551,11 +579,24 @@ fn variant_refinement_base_renders(expected: &Type, actual: &Type) -> (String, S
         } else {
             (expected_name.as_str(), actual_name.as_str())
         };
-    let (expected_arguments, actual_arguments): (Vec<_>, Vec<_>) = expected_args
-        .iter()
-        .zip(actual_args)
-        .map(diagnostic_type_renders)
-        .unzip();
+    let mut expected_arguments = Vec::with_capacity(expected_args.len());
+    let mut actual_arguments = Vec::with_capacity(actual_args.len());
+    for (index, expected_argument) in expected_args.iter().enumerate() {
+        if let Some(actual_argument) = actual_args.get(index) {
+            let (expected_render, actual_render) =
+                diagnostic_type_renders((expected_argument, actual_argument));
+            expected_arguments.push(expected_render);
+            actual_arguments.push(actual_render);
+        } else {
+            expected_arguments.push(expected_argument.render());
+        }
+    }
+    actual_arguments.extend(
+        actual_args
+            .iter()
+            .skip(expected_args.len())
+            .map(Type::render),
+    );
     let expected_render = if expected_arguments.is_empty() {
         expected_name.to_string()
     } else {
@@ -778,6 +819,38 @@ fn collect_annotation(
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     crate::pipeline::record_variant_refinement_annotation_work(refinements.len() + paths.len() + 1);
+    let recovery = if annotation_contains_union(refinements) {
+        analyze_annotation(refinements, &[], current_module, environment)
+    } else {
+        AnnotationRecovery::default()
+    };
+    collect_annotation_diagnostics(
+        refinements,
+        paths,
+        current_module,
+        environment,
+        &recovery,
+        diagnostics,
+    );
+}
+
+fn collect_annotation_diagnostics(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    recovery: &AnnotationRecovery,
+    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
+) {
+    diagnostics.extend(recovery.union_base_failures.iter().map(|failure| {
+        variant_union_base_diagnostic(
+            &failure.expected,
+            &failure.actual,
+            &failure.expected_span,
+            failure.actual_span.clone(),
+            failure.union_scope.clone(),
+        )
+    }));
     collect_refinements(refinements, current_module, environment, diagnostics);
     for path in paths {
         if let Some(failure) =
@@ -806,13 +879,26 @@ fn collect_declaration_annotation(
     origin_node_ids: impl IntoIterator<Item = String> + Clone,
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
-    collect_annotation(refinements, paths, current_module, environment, diagnostics);
-    if !annotation_has_invalid_refinement(refinements, paths, current_module, environment) {
+    crate::pipeline::record_variant_refinement_annotation_work(refinements.len() + paths.len() + 1);
+    let has_base_failure =
+        annotation_has_base_failure(refinements, paths, current_module, environment);
+    let recovery = if has_base_failure || annotation_contains_union(refinements) {
+        analyze_annotation(refinements, paths, current_module, environment)
+    } else {
+        AnnotationRecovery::default()
+    };
+    collect_annotation_diagnostics(
+        refinements,
+        paths,
+        current_module,
+        environment,
+        &recovery,
+        diagnostics,
+    );
+    if !has_base_failure && recovery.union_base_failures.is_empty() {
         return;
     }
-    for (annotation, error, span) in
-        independent_annotation_errors(refinements, paths, current_module, environment)
-    {
+    for (annotation, error, span) in recovery.errors {
         let diagnostic = Diagnostic::new(
             "type.invalid_annotation",
             Severity::Error,
@@ -843,7 +929,6 @@ fn collect_refinements(
     environment: &TypeEnvironment,
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
-    collect_variant_union_base_diagnostics(refinements, current_module, environment, diagnostics);
     for refinement in refinements {
         crate::pipeline::record_variant_refinement_annotation_work(1);
         for alternative in &refinement.alternatives {
@@ -869,52 +954,6 @@ fn collect_refinements(
                     environment,
                     diagnostics,
                 );
-            }
-        }
-    }
-}
-
-fn collect_variant_union_base_diagnostics(
-    refinements: &[veln_ast::VariantRefinementType],
-    current_module: Option<&str>,
-    environment: &TypeEnvironment,
-    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
-) {
-    for refinement in refinements {
-        if refinement.alternatives.len() < 2 {
-            continue;
-        }
-        let mut expected_union_base = None;
-        for alternative in &refinement.alternatives {
-            let mut ignored_errors = Vec::new();
-            let mut visited_paths = HashMap::new();
-            let mut ignored_union_base_failure = false;
-            let Some((_, canonical)) = collect_refinement_alternative_type(
-                alternative,
-                current_module,
-                environment,
-                &mut ignored_errors,
-                &mut visited_paths,
-                &mut ignored_union_base_failure,
-            ) else {
-                continue;
-            };
-            if variant_refinement_base_identity_and_arguments(&canonical).is_none() {
-                continue;
-            }
-            if let Some((expected, expected_span)) = &expected_union_base {
-                crate::pipeline::record_variant_refinement_recovery_work(1);
-                if !same_variant_refinement_base(expected, &canonical) {
-                    diagnostics.push(variant_union_base_diagnostic(
-                        expected,
-                        &canonical,
-                        expected_span,
-                        alternative_span(alternative),
-                        refinement.span.clone(),
-                    ));
-                }
-            } else {
-                expected_union_base = Some((canonical, alternative_span(alternative)));
             }
         }
     }
