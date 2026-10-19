@@ -89,6 +89,25 @@ fn ranks_visible_symbol_candidates_for_hole_expected_type() {
 }
 
 #[test]
+fn limits_unproven_symbol_candidates_to_nearest_five_bindings() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn main(a: Int, b: Int, c: Int, d: Int, e: Int, f: Int) -> Int\n  _\nend\n",
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    let details = diagnostics[0].details.to_json();
+    assert_eq!(details.matches("\"candidate_id\":").count(), 5, "{details}");
+    assert!(details.contains("\"candidate_id\":\"symbol-1\",\"name\":\"f\""));
+    assert!(details.contains("\"candidate_id\":\"symbol-5\",\"name\":\"b\""));
+    assert!(!details.contains("\"candidate_id\":\"symbol-6\""));
+}
+
+#[test]
 fn holes_receive_expected_types_from_expression_contexts() {
     let source = SourceFile::new(
         "main.veln",

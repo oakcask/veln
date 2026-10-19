@@ -30,6 +30,13 @@ fn record_retained_variant_diagnostic_key(ty: &Type) {
     });
 }
 
+struct RankedSymbolCandidate {
+    type_score: u8,
+    distance: usize,
+    binding_index: usize,
+    binding_type: Type,
+}
+
 impl<'a> FunctionChecker<'a> {
     pub(in crate::analysis) fn check_assignable(
         &mut self,
@@ -579,108 +586,116 @@ impl<'a> FunctionChecker<'a> {
             .rev()
             .enumerate()
             .filter(|(_, (_, ty))| is_assignable(expected, ty))
-            .map(|(distance, (index, ty))| {
-                let score = if ty == *expected { 0 } else { 1 };
-                (score, distance, index, ty)
+            .map(|(distance, (index, ty))| RankedSymbolCandidate {
+                type_score: u8::from(ty != *expected),
+                distance,
+                binding_index: index,
+                binding_type: ty,
             })
             .collect::<Vec<_>>();
         candidates.sort_by(|left, right| {
-            left.0
-                .cmp(&right.0)
-                .then(left.1.cmp(&right.1))
-                .then(self.bindings[left.2].name.cmp(&self.bindings[right.2].name))
+            left.type_score
+                .cmp(&right.type_score)
+                .then(left.distance.cmp(&right.distance))
         });
-        candidates
-            .into_iter()
-            .enumerate()
-            .filter_map(|(sorted_index, candidate)| {
-                let static_satisfy = satisfy.and_then(|satisfy| {
-                    satisfy.reason_for(self.bindings[candidate.2].name.as_str())
-                });
-                (sorted_index < 5 || static_satisfy.is_some())
-                    .then_some((candidate, static_satisfy))
-            })
-            .enumerate()
-            .map(
-                |(index, ((score, _, binding_index, binding_type), static_satisfy))| {
-                    let binding = &self.bindings[binding_index];
-                    let rank = index + 1;
-                    let reason = if let Some(reason) = static_satisfy {
-                        reason
-                    } else if score == 0 {
-                        "exact_type_match"
-                    } else {
-                        "assignable_type_match"
-                    };
-                    let policy = application_policy(static_satisfy.is_some());
-                    let satisfy_status =
-                        candidate_satisfy_status(satisfy.is_some(), static_satisfy.is_some());
-                    let mut candidate = vec![
-                        ("candidate_id", JsonValue::string(format!("symbol-{rank}"))),
-                        ("name", JsonValue::string(binding.name.clone())),
-                        ("type", JsonValue::string(binding_type.render())),
-                        ("rank", JsonValue::Number(rank as i64)),
-                        ("reason", JsonValue::string(reason)),
-                        ("application_policy", JsonValue::string(policy)),
-                        (
-                            "edits",
-                            JsonValue::array([JsonValue::object([
-                                ("kind", JsonValue::string("replace")),
-                                ("span", span_json(&hole.span)),
-                                ("replacement", JsonValue::string(binding.name.clone())),
-                            ])]),
-                        ),
-                        (
-                            "target",
-                            JsonValue::object([
-                                ("node_id", JsonValue::string(hole.node_id.display("hole"))),
-                                ("span", span_json(&hole.span)),
-                            ]),
-                        ),
-                        (
-                            "edit_summary",
-                            JsonValue::string(format!("Replace hole with `{}`", binding.name)),
-                        ),
-                        (
-                            "evidence",
-                            candidate_evidence(
-                                expected,
-                                &binding_type,
-                                rank,
-                                reason,
-                                satisfy_status,
-                            ),
-                        ),
-                        ("known_limits", candidate_known_limits(satisfy_status)),
-                        (
-                            "blocking_obligations",
-                            candidate_blocking_obligations(policy, satisfy_status),
-                        ),
-                        (
-                            "verification_hint",
-                            JsonValue::object([
-                                (
-                                    "command",
-                                    JsonValue::string(format!(
-                                        "veln check --json {}",
-                                        hole.span.file.as_str()
-                                    )),
-                                ),
-                                ("scope", JsonValue::string("after_applying_candidate_edit")),
-                            ]),
-                        ),
-                        (
-                            "application_status",
-                            JsonValue::string(APPLICATION_STATUS_UNAPPLIED),
-                        ),
-                    ];
-                    if let Some(satisfy_status) = satisfy_status {
-                        candidate.push(("satisfy_status", JsonValue::string(satisfy_status)));
-                    }
-                    JsonValue::object(candidate)
-                },
-            )
-            .collect()
+        let mut output = Vec::new();
+        for (sorted_index, candidate) in candidates.into_iter().enumerate() {
+            let binding = &self.bindings[candidate.binding_index];
+            let static_satisfy =
+                satisfy.and_then(|constraint| constraint.reason_for(binding.name.as_str()));
+            if sorted_index >= 5 && static_satisfy.is_none() {
+                continue;
+            }
+            let rank = output.len() + 1;
+            output.push(self.symbol_candidate_json(
+                expected,
+                hole,
+                candidate,
+                rank,
+                static_satisfy,
+                satisfy.is_some(),
+            ));
+        }
+        output
+    }
+
+    fn symbol_candidate_json(
+        &self,
+        expected: &Type,
+        hole: &Expr,
+        candidate: RankedSymbolCandidate,
+        rank: usize,
+        static_satisfy: Option<&'static str>,
+        has_satisfy: bool,
+    ) -> JsonValue {
+        let binding = &self.bindings[candidate.binding_index];
+        let reason = static_satisfy.unwrap_or(if candidate.type_score == 0 {
+            "exact_type_match"
+        } else {
+            "assignable_type_match"
+        });
+        let policy = application_policy(static_satisfy.is_some());
+        let satisfy_status = candidate_satisfy_status(has_satisfy, static_satisfy.is_some());
+        let mut fields = vec![
+            ("candidate_id", JsonValue::string(format!("symbol-{rank}"))),
+            ("name", JsonValue::string(binding.name.clone())),
+            ("type", JsonValue::string(candidate.binding_type.render())),
+            ("rank", JsonValue::Number(rank as i64)),
+            ("reason", JsonValue::string(reason)),
+            ("application_policy", JsonValue::string(policy)),
+            (
+                "edits",
+                JsonValue::array([JsonValue::object([
+                    ("kind", JsonValue::string("replace")),
+                    ("span", span_json(&hole.span)),
+                    ("replacement", JsonValue::string(binding.name.clone())),
+                ])]),
+            ),
+            (
+                "target",
+                JsonValue::object([
+                    ("node_id", JsonValue::string(hole.node_id.display("hole"))),
+                    ("span", span_json(&hole.span)),
+                ]),
+            ),
+            (
+                "edit_summary",
+                JsonValue::string(format!("Replace hole with `{}`", binding.name)),
+            ),
+            (
+                "evidence",
+                candidate_evidence(
+                    expected,
+                    &candidate.binding_type,
+                    rank,
+                    reason,
+                    satisfy_status,
+                ),
+            ),
+            ("known_limits", candidate_known_limits(satisfy_status)),
+            (
+                "blocking_obligations",
+                candidate_blocking_obligations(policy, satisfy_status),
+            ),
+            (
+                "verification_hint",
+                JsonValue::object([
+                    (
+                        "command",
+                        JsonValue::string(format!("veln check --json {}", hole.span.file.as_str())),
+                    ),
+                    ("scope", JsonValue::string("after_applying_candidate_edit")),
+                ]),
+            ),
+            (
+                "application_status",
+                JsonValue::string(APPLICATION_STATUS_UNAPPLIED),
+            ),
+        ];
+        if let Some(satisfy_status) = satisfy_status {
+            fields.push(("satisfy_status", JsonValue::string(satisfy_status)));
+        }
+        JsonValue::object(fields)
     }
 
     pub(super) fn satisfy_repair_constraint(
