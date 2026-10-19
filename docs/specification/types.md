@@ -757,8 +757,9 @@ The focused union-base
 and
 [`JSON`](../../examples/specification/check/adt-variant-union-base-json/)
 cases verify ADT identity, invariant generic arguments, per-alternative spans,
-recursively nested nominal-identity display, recovery after an invalid earlier
-alternative, and duplicate schema-validation recovery.
+recursively nested nominal-identity display, complete base rendering across
+different generic arities, recovery after an invalid earlier alternative, and
+duplicate schema-validation recovery.
 The reusable-base and union-overlap
 [`human`](../../examples/specification/check/adt-variant-refinement-base-overlap-human/)
 and
@@ -788,6 +789,11 @@ For `N` independent invalid bases, visibility analysis grows linearly with the
 source occurrences it examines. This includes invalid-cased bases, unrelated
 diagnostics interleaved around the base failures, and structurally separate
 sibling type positions.
+
+For a nested annotation whose innermost refinement union has different bases,
+each additional named-type layer adds constant recovery-comparison and
+diagnostic-materialization work. The deterministic scaling check compares
+depths 8, 16, and 24 and requires constant adjacent growth for both measures.
 
 A refinement anywhere inside a public function parameter or result annotation,
 or inside a payload of a public variant of a public source ADT, can expose only
