@@ -44,7 +44,7 @@ pub(crate) fn check_variant_refinement_bases(
     diagnostics
 }
 
-pub(crate) fn annotation_has_variant_union_base_failure(
+fn annotation_has_variant_union_base_failure(
     refinements: &[veln_ast::VariantRefinementType],
     current_module: Option<&str>,
     environment: &TypeEnvironment,

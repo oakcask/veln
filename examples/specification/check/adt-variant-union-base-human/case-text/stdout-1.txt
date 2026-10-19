@@ -14,11 +14,8 @@ main.veln:36:68: error[type.variant_union_base]: variant-refinement base `Box<se
   note: main.veln:36:39: The first successfully instantiated alternative established `Box<first::State>` as the union base.
 main.veln:40:86: error[type.variant_union_base]: variant-refinement base `Box<second::State::Ready>` does not match expected base `Box<first::State::Ready>`
   note: main.veln:40:50: The first successfully instantiated alternative established `Box<first::State::Ready>` as the union base.
-main.veln:47:21: error[type.variant_union_base]: variant-refinement base `Right` does not match expected base `Left`
-  note: main.veln:47:11: The first successfully instantiated alternative established `Left` as the union base.
-main.veln:51:2: error[schema.validation_duplicate]: schema `InvalidPacket` can declare only one schema-level validation
-main.veln:54:32: error[type.invalid_annotation]: invalid type annotation `Box::Present`: `Box` expects 1 type argument(s), found 0
-main.veln:54:57: error[type.variant_union_base]: variant-refinement base `Right` does not match expected base `Left`
-  note: main.veln:54:47: The first successfully instantiated alternative established `Left` as the union base.
-main.veln:63:62: error[type.variant_union_base]: variant-refinement base `Box<Bool>` does not match expected base `Pair<Int, String>`
-  note: main.veln:63:35: The first successfully instantiated alternative established `Pair<Int, String>` as the union base.
+main.veln:44:32: error[type.invalid_annotation]: invalid type annotation `Box::Present`: `Box` expects 1 type argument(s), found 0
+main.veln:44:57: error[type.variant_union_base]: variant-refinement base `Right` does not match expected base `Left`
+  note: main.veln:44:47: The first successfully instantiated alternative established `Left` as the union base.
+main.veln:53:62: error[type.variant_union_base]: variant-refinement base `Box<Bool>` does not match expected base `Pair<Int, String>`
+  note: main.veln:53:35: The first successfully instantiated alternative established `Pair<Int, String>` as the union base.

@@ -331,13 +331,9 @@ failure remains before the later union-base failure in written-alternative
 order. A mixed-base union makes its annotation invalid. When it occurs in a
 function, effect operation, handler, or ADT
 constructor signature, every type exposed by that declaration is unknown to
-its body and consumers. When it occurs in a schema field, the schema publishes
-no generated decode, encode, or validation helper. These boundaries suppress
-only diagnostics derived from the rejected signature or helper. A schema does
-not validate field references in its first schema-level validation after this
-field failure, but it still reports each independently provable duplicate
-schema-level validation. Other independently provable declaration diagnostics
-also remain.
+its body and consumers. These boundaries suppress only diagnostics derived
+from the rejected signature. Other independently provable declaration
+diagnostics also remain.
 When a nested type argument is invalid, the checker still reports an enclosing
 base-eligibility failure that can be proved from the enclosing base identity
 alone. It suppresses an enclosing annotation or final-segment failure that
@@ -424,8 +420,7 @@ and
 cases fix later-alternative spans, closed base details, earliest-alternative
 context, repeated conflicts, recursively nested nominal-identity display,
 invariant generic arguments, complete base rendering across different generic
-arities, arity recovery before an independent later conflict, and duplicate
-schema-validation recovery without derivative field reference failures.
+arities, and arity recovery before an independent later conflict.
 The checked nested-recovery
 [`human`](../../examples/specification/check/adt-variant-refinement-nested-recovery-human/)
 and

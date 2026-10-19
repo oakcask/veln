@@ -358,9 +358,6 @@ fn declaration_carriers_preserve_arity_before_union_base_errors() {
         "handler broken(input: Box::Present | Left::A | Right::B) for Ask\n",
         "  value() => 0\n",
         "end\n",
-        "schema Packet\n",
-        "  value: Box::Present | Left::A | Right::B\n",
-        "end\n",
     ));
 
     let relevant = diagnostics
@@ -372,7 +369,7 @@ fn declaration_carriers_preserve_arity_before_union_base_errors() {
             )
         })
         .collect::<Vec<_>>();
-    assert_eq!(relevant.len(), 8, "{diagnostics:#?}");
+    assert_eq!(relevant.len(), 6, "{diagnostics:#?}");
     for pair in relevant.as_chunks::<2>().0 {
         assert_eq!(pair[0].id, "type.invalid_annotation", "{diagnostics:#?}");
         assert!(
@@ -471,57 +468,6 @@ fn invalid_schema_refinement_does_not_publish_generated_helpers() {
             .filter(|diagnostic| diagnostic.id == "type.variant_refinement_base")
             .count(),
         1,
-        "{diagnostics:#?}"
-    );
-}
-
-#[test]
-fn mixed_union_base_schema_does_not_publish_generated_helpers() {
-    let source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "type Left\n",
-            "  A\n",
-            "end\n",
-            "type Right\n",
-            "  B\n",
-            "end\n",
-            "schema Packet\n",
-            "  format binary\n",
-            "\n",
-            "  invalid: Left::A | Right::B\n",
-            "  sibling: UInt8\n",
-            "\n",
-            "  validate invalid == sibling\n",
-            "  validate true\n",
-            "end\n",
-        ),
-    );
-    let parsed = parse(&source);
-    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-    let module = lower_surface_ast(&parsed.tree);
-    let environment = TypeEnvironment::from_module(&module);
-
-    for helper in [
-        "byte_decode_packet",
-        "byte_encode_packet",
-        "validate_packet",
-    ] {
-        assert!(
-            environment
-                .function_path(&[helper.to_string()], None)
-                .is_none(),
-            "mixed-base schema must not expose helper `{helper}`"
-        );
-    }
-    let diagnostics = analyze_surface_module(&module);
-    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
-    assert_eq!(diagnostics[0].id, "type.variant_union_base");
-    assert_eq!(diagnostics[1].id, "schema.validation_duplicate");
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id != "schema.validation_reference"),
         "{diagnostics:#?}"
     );
 }

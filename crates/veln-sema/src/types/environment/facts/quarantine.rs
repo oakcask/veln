@@ -26,11 +26,6 @@ pub(super) fn quarantine_invalid_variant_refinement_signatures(
         &validation_environment,
         &mut environment.adts,
     );
-    quarantine_invalid_variant_refinement_schema_helpers(
-        module,
-        &validation_environment,
-        &mut environment.functions,
-    );
 }
 
 pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
@@ -285,27 +280,4 @@ fn quarantine_invalid_variant_refinement_adt_payload_types(
     }
     let work = adts.quarantine_source_variant_payload_types(&invalid);
     crate::pipeline::record_variant_refinement_base_work(work);
-}
-
-fn quarantine_invalid_variant_refinement_schema_helpers(
-    module: &SurfaceModule,
-    environment: &TypeEnvironment,
-    functions: &mut Vec<FunctionSignature>,
-) {
-    let invalid_schema_nodes = module
-        .schemas
-        .iter()
-        .filter(|schema| {
-            schema.fields.iter().any(|field| {
-                annotation_has_invalid_refinement(
-                    &field.ty_refinements,
-                    &field.ty_paths,
-                    schema.module_name.as_deref(),
-                    environment,
-                )
-            })
-        })
-        .map(|schema| schema.node_id)
-        .collect::<HashSet<_>>();
-    functions.retain(|function| !invalid_schema_nodes.contains(&function.node_id));
 }

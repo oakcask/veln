@@ -113,10 +113,7 @@ fn check_expr_schema_type_references(
     });
 }
 
-pub(crate) fn check_schema_field_primitives(
-    module: &SurfaceModule,
-    environment: &TypeEnvironment,
-) -> Vec<Diagnostic> {
+pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
     for schema in &module.schemas {
@@ -129,7 +126,6 @@ pub(crate) fn check_schema_field_primitives(
             schema,
             format_name,
             adts: &adts,
-            environment,
         };
         let mut state = SchemaFieldPrimitiveState {
             decoded_fields: &mut decoded_fields,
@@ -139,17 +135,7 @@ pub(crate) fn check_schema_field_primitives(
         for field in &schema.fields {
             check_schema_field_primitive(context, field, &mut state);
         }
-        let has_variant_union_base_failure = schema.fields.iter().any(|field| {
-            crate::analysis::annotation_has_variant_union_base_failure(
-                &field.ty_refinements,
-                schema.module_name.as_deref(),
-                environment,
-            )
-        });
-        if !has_variant_union_base_failure {
-            check_first_schema_validation_clause(schema, &decoded_fields, &mut diagnostics);
-        }
-        check_duplicate_schema_validation_clauses(schema, &mut diagnostics);
+        check_schema_validation_clauses(schema, &decoded_fields, &mut diagnostics);
     }
 
     diagnostics
@@ -161,7 +147,6 @@ struct SchemaFieldPrimitiveContext<'a> {
     schema: &'a SchemaDecl,
     format_name: Option<&'a str>,
     adts: &'a AdtRegistry,
-    environment: &'a TypeEnvironment,
 }
 
 struct SchemaFieldPrimitiveState<'a> {
@@ -182,13 +167,6 @@ fn check_schema_field_primitive(
                 context.schema,
                 field,
             ));
-        return;
-    }
-    if crate::analysis::annotation_has_variant_union_base_failure(
-        &field.ty_refinements,
-        context.schema.module_name.as_deref(),
-        context.environment,
-    ) {
         return;
     }
     if schema_field_primitive_is_handled(
@@ -250,22 +228,17 @@ fn check_unresolved_schema_payload_name(
     ));
 }
 
-fn check_first_schema_validation_clause(
+fn check_schema_validation_clauses(
     schema: &SchemaDecl,
     decoded_fields: &BTreeMap<String, Type>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    if let Some(validation) = schema.validations.first() {
-        check_schema_validation_clause(schema, validation, decoded_fields, diagnostics);
-    }
-}
-
-fn check_duplicate_schema_validation_clauses(
-    schema: &SchemaDecl,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    for validation in schema.validations.iter().skip(1) {
-        diagnostics.push(schema_validation_duplicate_diagnostic(schema, validation));
+    for (index, validation) in schema.validations.iter().enumerate() {
+        if index > 0 {
+            diagnostics.push(schema_validation_duplicate_diagnostic(schema, validation));
+        } else {
+            check_schema_validation_clause(schema, validation, decoded_fields, diagnostics);
+        }
     }
 }
 
