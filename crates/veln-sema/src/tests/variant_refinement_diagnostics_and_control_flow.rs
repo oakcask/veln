@@ -212,9 +212,10 @@ fn large_variant_union_semantic_analysis_work_grows_linearly() {
         crate::type_relations::take_variant_set_lookups()
     });
     assert!(work[0] > 0, "the metric must observe variant-set work");
-    assert!(
-        work[1] <= work[0] * 2 + 32 && work[2] <= work[1] * 2 + 32,
-        "doubling the variant count must add only linear set work: {work:?}"
+    assert_eq!(
+        work[2] - work[1],
+        (work[1] - work[0]) * 2,
+        "doubling the variant count must double only the added set work: {work:?}"
     );
 }
 

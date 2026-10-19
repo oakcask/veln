@@ -310,7 +310,11 @@ establishes that base. Each later successfully instantiated alternative is
 compared with it in written order. A different ADT identity or different
 canonical generic arguments report `type.variant_union_base` at the complete
 later alternative, even when a failed alternative occurs before or between the
-successful alternatives. Its closed details contain exactly
+successful alternatives. Successful instantiation requires every nested named
+type to resolve uniquely. An unresolved or ambiguous nested name therefore
+does not establish the expected base. An in-scope declaration type parameter
+is resolved in that declaration context and remains eligible for comparison.
+Its closed details contain exactly
 `expected_base_type` and `actual_base_type`. The expected type is the base of
 the earliest successfully instantiated alternative. The actual type is the
 base of the conflicting alternative. These values use concise canonical names

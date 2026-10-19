@@ -464,6 +464,7 @@ impl<'a> FunctionChecker<'a> {
             paths,
             self.function.module_name.as_deref(),
             self.environment,
+            &[],
         );
         if invalid_refinement {
             for (failed_annotation, error, failure_span) in

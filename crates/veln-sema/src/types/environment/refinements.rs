@@ -257,7 +257,7 @@ impl TypeEnvironment {
                     .is_some_and(|arity| arity == args.len())
                 || self
                     .adts
-                    .descriptor_for_type_path(name, args.len(), current_module, &self.uses)
+                    .unique_descriptor_for_type_path(name, args.len(), current_module, &self.uses)
                     .is_some()
                 || self.is_variant_refinement_candidate(ty, current_module)
                     && self.canonicalize_type_annotation(ty.clone(), current_module)
@@ -277,7 +277,7 @@ impl TypeEnvironment {
             .is_none()
             && self
                 .adts
-                .descriptor_for_type_path(name, args.len(), current_module, &self.uses)
+                .unique_descriptor_for_type_path(name, args.len(), current_module, &self.uses)
                 .is_some()
             && self.type_annotations_are_fully_resolved(args, current_module, type_parameters)
             && unresolved_alternatives
@@ -300,7 +300,7 @@ impl TypeEnvironment {
         type_parameters: &TypeParameterIdentityContext<'_>,
     ) -> bool {
         self.adts
-            .descriptor_for_type_path(name, args.len(), current_module, &self.uses)
+            .unique_descriptor_for_type_path(name, args.len(), current_module, &self.uses)
             .is_some()
             && self.type_annotations_are_fully_resolved(args, current_module, type_parameters)
     }

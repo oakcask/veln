@@ -447,6 +447,7 @@ impl<'a> FunctionChecker<'a> {
             &function.return_type_paths,
             function.module_name.as_deref(),
             environment,
+            &[],
         ) || (function.kind == FunctionKind::Function
             && function.params.iter().any(|param| {
                 annotation_has_invalid_refinement(
@@ -454,6 +455,7 @@ impl<'a> FunctionChecker<'a> {
                     &param.ty_paths,
                     function.module_name.as_deref(),
                     environment,
+                    &[],
                 )
             }));
         Self {

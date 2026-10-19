@@ -17,5 +17,11 @@ main.veln:40:86: error[type.variant_union_base]: variant-refinement base `Box<se
 main.veln:44:32: error[type.invalid_annotation]: invalid type annotation `Box::Present`: `Box` expects 1 type argument(s), found 0
 main.veln:44:57: error[type.variant_union_base]: variant-refinement base `Right` does not match expected base `Left`
   note: main.veln:44:47: The first successfully instantiated alternative established `Left` as the union base.
-main.veln:53:62: error[type.variant_union_base]: variant-refinement base `Box<Bool>` does not match expected base `Pair<Int, String>`
-  note: main.veln:53:35: The first successfully instantiated alternative established `Pair<Int, String>` as the union base.
+main.veln:48:70: error[type.variant_union_base]: variant-refinement base `Right` does not match expected base `Left`
+  note: main.veln:48:60: The first successfully instantiated alternative established `Left` as the union base.
+main.veln:52:67: error[type.variant_union_base]: variant-refinement base `Right` does not match expected base `Left`
+  note: main.veln:52:57: The first successfully instantiated alternative established `Left` as the union base.
+main.veln:57:26: error[type.variant_union_base]: variant-refinement base `Right` does not match expected base `Box<T>`
+  note: main.veln:57:8: The first successfully instantiated alternative established `Box<T>` as the union base.
+main.veln:65:62: error[type.variant_union_base]: variant-refinement base `Box<Bool>` does not match expected base `Pair<Int, String>`
+  note: main.veln:65:35: The first successfully instantiated alternative established `Pair<Int, String>` as the union base.

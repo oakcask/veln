@@ -97,12 +97,14 @@ fn annotation_has_invalid_refinement(
     paths: &[veln_ast::TypePathSegments],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
+    type_parameters: &[String],
 ) -> bool {
     crate::analysis::annotation_has_invalid_refinement(
         refinements,
         paths,
         current_module,
         environment,
+        type_parameters,
     )
 }
 
@@ -117,6 +119,7 @@ fn params_have_invalid_refinement(
             &param.ty_paths,
             current_module,
             environment,
+            &[],
         )
     })
 }
@@ -164,6 +167,7 @@ fn function_has_invalid_refinement(function: &Function, environment: &TypeEnviro
         &function.return_type_paths,
         function.module_name.as_deref(),
         environment,
+        &[],
     )
 }
 
@@ -208,6 +212,7 @@ fn quarantine_invalid_variant_refinement_effect_types(
                 &operation.return_type_paths,
                 effect.module_name.as_deref(),
                 environment,
+                &[],
             );
             if !invalid {
                 continue;
@@ -264,6 +269,7 @@ fn quarantine_invalid_variant_refinement_adt_payload_types(
                     &field.ty_paths,
                     declaration.module_name.as_deref(),
                     environment,
+                    &declaration.params,
                 )
             }) {
                 continue;

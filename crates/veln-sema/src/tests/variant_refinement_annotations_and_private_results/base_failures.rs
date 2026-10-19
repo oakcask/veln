@@ -404,6 +404,105 @@ fn base_failure_skips_only_its_union_alternative() {
 }
 
 #[test]
+fn unresolved_nested_name_does_not_establish_the_union_base() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Box<A>\n  Present(A)\n  Absent\nend\n",
+        "type Other\n  B\nend\n",
+        "fn mixed(value: Box<Missing>::Present | Other::B | Box<Int>::Absent) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let union = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.variant_union_base")
+        .expect("the complete later alternatives must still be compared");
+    let json = veln_diagnostics::diagnostic_to_json(union).to_json();
+    assert!(
+        json.contains("\"expected_base_type\":\"Other\"")
+            && json.contains("\"actual_base_type\":\"Box<Int>\""),
+        "{json}"
+    );
+    assert_eq!(union.span.as_ref().unwrap().start.line, 8);
+    assert_eq!(union.span.as_ref().unwrap().start.column, 52);
+    assert!(
+        json.contains("\"kind\":\"expected_variant_union_base\"") && json.contains("\"column\":41"),
+        "{json}"
+    );
+}
+
+#[test]
+fn ambiguous_nested_name_does_not_establish_the_union_base() {
+    let first = SourceFile::new("first.veln", "mod first\npub type Missing\n  One\nend\n");
+    let second = SourceFile::new("second.veln", "mod second\npub type Missing\n  Two\nend\n");
+    let main = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\nuse first\nuse second\n",
+            "type Box<A>\n  Present(A)\n  Absent\nend\n",
+            "type Other\n  B\nend\n",
+            "fn mixed(value: Box<Missing>::Present | Other::B | Box<Int>::Absent) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let diagnostics = analyze_surface_module(&merged_modules_with_identities(vec![
+        ("first", first),
+        ("second", second),
+        ("main", main),
+    ]));
+
+    let union = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.variant_union_base")
+        .expect("the complete later alternatives must still be compared");
+    let json = veln_diagnostics::diagnostic_to_json(union).to_json();
+    assert!(json.contains("\"expected_base_type\":\"Other\""), "{json}");
+    assert!(json.contains("\"actual_base_type\":\"Box<Int>\""), "{json}");
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn declaration_type_parameter_is_a_resolved_nested_union_argument() {
+    let source = concat!(
+        "type Box<A>\n  Present(A)\n  Absent\nend\n",
+        "type Holder<T>\n",
+        "  Mixed(Box<T>::Present | Other::B)\n",
+        "end\n",
+        "type Other\n  B\nend\n",
+    );
+    let source = SourceFile::new("main.veln", source);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    assert_eq!(module.types[1].params, ["T"]);
+    assert_eq!(
+        module.types[1].variants[0].fields[0].ty_refinements.len(),
+        1
+    );
+    let diagnostics = analyze_surface_module(&module);
+
+    let union = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.variant_union_base")
+        .unwrap_or_else(|| {
+            panic!(
+                "the type parameter must participate in invariant base comparison: {diagnostics:#?}"
+            )
+        });
+    let json = veln_diagnostics::diagnostic_to_json(union).to_json();
+    assert!(json.contains("\"expected_base_type\":\"Box<T>\""), "{json}");
+    assert!(json.contains("\"actual_base_type\":\"Other\""), "{json}");
+}
+
+#[test]
 fn recovered_union_compares_canonical_generic_arguments() {
     let diagnostics = diagnostics_for(concat!(
         "type Empty\n",

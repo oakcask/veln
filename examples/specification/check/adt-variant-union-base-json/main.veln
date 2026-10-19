@@ -45,6 +45,18 @@ fn invalid_arity_before(value: Box::Present | Left::A | Right::B) -> ()
 	()
 end
 
+fn unresolved_nested_before(value: Box<Missing>::Present | Left::A | Right::B) -> ()
+	()
+end
+
+fn ambiguous_nested_before(value: Box<State>::Present | Left::A | Right::B) -> ()
+	()
+end
+
+type GenericHolder<T>
+	Mixed(Box<T>::Present | Right::B)
+end
+
 type Pair<A, B>
 	First(A)
 	Second(B)
