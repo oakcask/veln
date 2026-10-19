@@ -36,3 +36,17 @@ end
 fn nested_colliding_identities(value: Box<first::State>::Present | Box<second::State>::Absent) -> ()
 	()
 end
+
+fn nested_refinement_colliding_identities(value: Box<first::State::Ready>::Present | Box<second::State::Ready>::Absent) -> ()
+	()
+end
+
+schema InvalidPacket
+	format binary
+
+	invalid: Left::A | Right::B
+	sibling: UInt8
+
+	validate invalid == sibling
+	validate true
+end

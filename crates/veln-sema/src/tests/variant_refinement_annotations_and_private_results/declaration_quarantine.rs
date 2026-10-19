@@ -335,6 +335,67 @@ fn declaration_carriers_preserve_independent_union_recovery_errors() {
 }
 
 #[test]
+fn declaration_carriers_preserve_arity_before_union_base_errors() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Box<A>\n",
+        "  Present(A)\n",
+        "end\n",
+        "type Left\n",
+        "  A\n",
+        "end\n",
+        "type Right\n",
+        "  B\n",
+        "end\n",
+        "type Holder\n",
+        "  Built(value: Box::Present | Left::A | Right::B)\n",
+        "end\n",
+        "effect Broken\n",
+        "  apply(value: Box::Present | Left::A | Right::B) -> ()\n",
+        "end\n",
+        "effect Ask\n",
+        "  value() -> Int\n",
+        "end\n",
+        "handler broken(input: Box::Present | Left::A | Right::B) for Ask\n",
+        "  value() => 0\n",
+        "end\n",
+        "schema Packet\n",
+        "  value: Box::Present | Left::A | Right::B\n",
+        "end\n",
+    ));
+
+    let relevant = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "type.invalid_annotation" | "type.variant_union_base"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(relevant.len(), 8, "{diagnostics:#?}");
+    for pair in relevant.as_chunks::<2>().0 {
+        assert_eq!(pair[0].id, "type.invalid_annotation", "{diagnostics:#?}");
+        assert!(
+            pair[0]
+                .message
+                .contains("`Box` expects 1 type argument(s), found 0"),
+            "{diagnostics:#?}"
+        );
+        assert_eq!(pair[1].id, "type.variant_union_base", "{diagnostics:#?}");
+        assert!(
+            pair[1].message.contains("`Right`") && pair[1].message.contains("`Left`"),
+            "{diagnostics:#?}"
+        );
+        assert!(
+            pair[1].related[0]
+                .to_json()
+                .contains("established `Left` as the union base"),
+            "{diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
 fn invalid_constructor_quarantine_reaches_alias_descriptor_views() {
     let diagnostics = diagnostics_for(concat!(
         "type Empty\n",
@@ -426,8 +487,13 @@ fn mixed_union_base_schema_does_not_publish_generated_helpers() {
             "  B\n",
             "end\n",
             "schema Packet\n",
+            "  format binary\n",
+            "\n",
             "  invalid: Left::A | Right::B\n",
-            "  sibling: Int\n",
+            "  sibling: UInt8\n",
+            "\n",
+            "  validate invalid == sibling\n",
+            "  validate true\n",
             "end\n",
         ),
     );
@@ -449,8 +515,15 @@ fn mixed_union_base_schema_does_not_publish_generated_helpers() {
         );
     }
     let diagnostics = analyze_surface_module(&module);
-    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
     assert_eq!(diagnostics[0].id, "type.variant_union_base");
+    assert_eq!(diagnostics[1].id, "schema.validation_duplicate");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "schema.validation_reference"),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

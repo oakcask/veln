@@ -139,15 +139,17 @@ pub(crate) fn check_schema_field_primitives(
         for field in &schema.fields {
             check_schema_field_primitive(context, field, &mut state);
         }
-        if !schema.fields.iter().any(|field| {
+        let has_variant_union_base_failure = schema.fields.iter().any(|field| {
             crate::analysis::annotation_has_variant_union_base_failure(
                 &field.ty_refinements,
                 schema.module_name.as_deref(),
                 environment,
             )
-        }) {
-            check_schema_validation_clauses(schema, &decoded_fields, &mut diagnostics);
+        });
+        if !has_variant_union_base_failure {
+            check_first_schema_validation_clause(schema, &decoded_fields, &mut diagnostics);
         }
+        check_duplicate_schema_validation_clauses(schema, &mut diagnostics);
     }
 
     diagnostics
@@ -248,17 +250,22 @@ fn check_unresolved_schema_payload_name(
     ));
 }
 
-fn check_schema_validation_clauses(
+fn check_first_schema_validation_clause(
     schema: &SchemaDecl,
     decoded_fields: &BTreeMap<String, Type>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    for (index, validation) in schema.validations.iter().enumerate() {
-        if index > 0 {
-            diagnostics.push(schema_validation_duplicate_diagnostic(schema, validation));
-        } else {
-            check_schema_validation_clause(schema, validation, decoded_fields, diagnostics);
-        }
+    if let Some(validation) = schema.validations.first() {
+        check_schema_validation_clause(schema, validation, decoded_fields, diagnostics);
+    }
+}
+
+fn check_duplicate_schema_validation_clauses(
+    schema: &SchemaDecl,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for validation in schema.validations.iter().skip(1) {
+        diagnostics.push(schema_validation_duplicate_diagnostic(schema, validation));
     }
 }
 

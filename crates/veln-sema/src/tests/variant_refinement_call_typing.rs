@@ -597,8 +597,14 @@ fn variant_unions_reject_invariant_generic_argument_mismatches() {
 
 #[test]
 fn variant_union_diagnostics_disambiguate_colliding_nominal_identities() {
-    let first = SourceFile::new("first.veln", "pub type State\n  pub Ready\nend\n");
-    let second = SourceFile::new("second.veln", "pub type State\n  pub Ready\nend\n");
+    let first = SourceFile::new(
+        "first.veln",
+        "pub type State\n  pub Ready\n  pub Waiting\nend\n",
+    );
+    let second = SourceFile::new(
+        "second.veln",
+        "pub type State\n  pub Ready\n  pub Waiting\nend\n",
+    );
     let main = SourceFile::new(
         "main.veln",
         concat!(
@@ -614,16 +620,40 @@ fn variant_union_diagnostics_disambiguate_colliding_nominal_identities() {
             "fn nested(value: Box<first::State>::Present | Box<second::State>::Absent) -> ()\n",
             "  ()\n",
             "end\n",
+            "fn nested_refinement(value: Box<first::State::Ready>::Present | Box<second::State::Ready>::Absent) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn nested_record(value: Box<{state: first::State::Ready}>::Present | Box<{state: second::State::Ready}>::Absent) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn nested_function(value: Box<fn(first::State::Ready) -> ()>::Present | Box<fn(second::State::Ready) -> ()>::Absent) -> ()\n",
+            "  ()\n",
+            "end\n",
         ),
     );
     let module =
         merged_modules_with_identities(vec![("first", first), ("second", second), ("main", main)]);
     let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 5, "{diagnostics:#?}");
     for (diagnostic, expected, actual) in [
         (&diagnostics[0], "first::State", "second::State"),
         (&diagnostics[1], "Box<first::State>", "Box<second::State>"),
+        (
+            &diagnostics[2],
+            "Box<first::State::Ready>",
+            "Box<second::State::Ready>",
+        ),
+        (
+            &diagnostics[3],
+            "Box<{state: first::State::Ready}>",
+            "Box<{state: second::State::Ready}>",
+        ),
+        (
+            &diagnostics[4],
+            "Box<fn(first::State::Ready) -> ()>",
+            "Box<fn(second::State::Ready) -> ()>",
+        ),
     ] {
         assert_eq!(
             diagnostic.message,

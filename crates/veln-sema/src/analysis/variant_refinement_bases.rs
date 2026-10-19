@@ -609,7 +609,9 @@ fn diagnostic_type_renders(expected: (&Type, &Type)) -> (String, String) {
                 .zip(actual_args)
                 .map(diagnostic_type_renders)
                 .unzip();
-            if expected_arguments.is_empty() {
+            if expected_arguments.is_empty() && expected_name == "Unit" && actual_name == "Unit" {
+                ("()".to_string(), "()".to_string())
+            } else if expected_arguments.is_empty() {
                 (expected_name.to_string(), actual_name.to_string())
             } else {
                 (
@@ -617,6 +619,125 @@ fn diagnostic_type_renders(expected: (&Type, &Type)) -> (String, String) {
                     format!("{actual_name}<{}>", actual_arguments.join(", ")),
                 )
             }
+        }
+        (
+            Type::VariantRefinement {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+                variants: expected_variants,
+                ..
+            },
+            Type::VariantRefinement {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+                variants: actual_variants,
+                ..
+            },
+        ) if expected_args.len() == actual_args.len() => {
+            let (expected_name, actual_name) =
+                if expected_name == actual_name && expected_identity != actual_identity {
+                    (expected_identity.as_str(), actual_identity.as_str())
+                } else {
+                    (expected_name.as_str(), actual_name.as_str())
+                };
+            let (expected_arguments, actual_arguments): (Vec<_>, Vec<_>) = expected_args
+                .iter()
+                .zip(actual_args)
+                .map(diagnostic_type_renders)
+                .unzip();
+            let expected_base = if expected_arguments.is_empty() {
+                expected_name.to_string()
+            } else {
+                format!("{expected_name}<{}>", expected_arguments.join(", "))
+            };
+            let actual_base = if actual_arguments.is_empty() {
+                actual_name.to_string()
+            } else {
+                format!("{actual_name}<{}>", actual_arguments.join(", "))
+            };
+            (
+                expected_variants
+                    .iter()
+                    .map(|variant| format!("{expected_base}::{variant}"))
+                    .collect::<Vec<_>>()
+                    .join(" | "),
+                actual_variants
+                    .iter()
+                    .map(|variant| format!("{actual_base}::{variant}"))
+                    .collect::<Vec<_>>()
+                    .join(" | "),
+            )
+        }
+        (Type::Record(expected_fields), Type::Record(actual_fields))
+            if expected_fields.len() == actual_fields.len()
+                && expected_fields
+                    .iter()
+                    .zip(actual_fields)
+                    .all(|((expected_name, _), (actual_name, _))| expected_name == actual_name) =>
+        {
+            let (expected_fields, actual_fields): (Vec<_>, Vec<_>) = expected_fields
+                .iter()
+                .zip(actual_fields)
+                .map(|((name, expected), (_, actual))| {
+                    let (expected, actual) = diagnostic_type_renders((expected, actual));
+                    (format!("{name}: {expected}"), format!("{name}: {actual}"))
+                })
+                .unzip();
+            (
+                format!("{{{}}}", expected_fields.join(", ")),
+                format!("{{{}}}", actual_fields.join(", ")),
+            )
+        }
+        (
+            Type::Function {
+                params: expected_params,
+                variadic: expected_variadic,
+                return_type: expected_return,
+                effects: expected_effects,
+            },
+            Type::Function {
+                params: actual_params,
+                variadic: actual_variadic,
+                return_type: actual_return,
+                effects: actual_effects,
+            },
+        ) if expected_params.len() == actual_params.len()
+            && expected_variadic.is_some() == actual_variadic.is_some() =>
+        {
+            let (mut expected_params, mut actual_params): (Vec<_>, Vec<_>) = expected_params
+                .iter()
+                .zip(actual_params)
+                .map(diagnostic_type_renders)
+                .unzip();
+            if let (Some(expected), Some(actual)) = (expected_variadic, actual_variadic) {
+                let (expected, actual) = diagnostic_type_renders((expected, actual));
+                expected_params.push(format!("...{expected}"));
+                actual_params.push(format!("...{actual}"));
+            }
+            let (expected_return, actual_return) =
+                diagnostic_type_renders((expected_return, actual_return));
+            let expected_effects = if expected_effects.is_empty() {
+                String::new()
+            } else {
+                format!(" effects [{}]", expected_effects.join(", "))
+            };
+            let actual_effects = if actual_effects.is_empty() {
+                String::new()
+            } else {
+                format!(" effects [{}]", actual_effects.join(", "))
+            };
+            (
+                format!(
+                    "fn({}) -> {expected_return}{expected_effects}",
+                    expected_params.join(", ")
+                ),
+                format!(
+                    "fn({}) -> {actual_return}{actual_effects}",
+                    actual_params.join(", ")
+                ),
+            )
         }
         _ => (expected.render(), actual.render()),
     }
@@ -700,7 +821,7 @@ fn collect_declaration_annotation(
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     collect_annotation(refinements, paths, current_module, environment, diagnostics);
-    if !annotation_has_base_failure(refinements, paths, current_module, environment) {
+    if !annotation_has_invalid_refinement(refinements, paths, current_module, environment) {
         return;
     }
     for (annotation, error, span) in
