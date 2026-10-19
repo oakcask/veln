@@ -596,6 +596,64 @@ fn variant_unions_reject_invariant_generic_argument_mismatches() {
 }
 
 #[test]
+fn variant_unions_accept_reordered_equivalent_generic_arguments() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  A\n",
+        "  B\n",
+        "end\n",
+        "type Box<A>\n",
+        "  Present(A)\n",
+        "  Absent\n",
+        "end\n",
+        "fn reordered_record(value: Box<{left: Int, right: String}>::Present | Box<{right: String, left: Int}>::Absent) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn reordered_variants(value: Box<State::A | State::B>::Present | Box<State::B | State::A>::Absent) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn variant_union_diagnostics_pair_reordered_record_fields_by_name() {
+    let first = SourceFile::new("first.veln", "pub type State\n  pub Ready\nend\n");
+    let second = SourceFile::new("second.veln", "pub type State\n  pub Ready\nend\n");
+    let main = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use first\n",
+            "use second\n",
+            "type Box<A>\n",
+            "  Present(A)\n",
+            "  Absent\n",
+            "end\n",
+            "fn invalid(value: Box<{state: first::State, count: Int}>::Present | Box<{count: Int, state: second::State}>::Absent) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let module =
+        merged_modules_with_identities(vec![("first", first), ("second", second), ("main", main)]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic.id, "type.variant_union_base");
+    let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+    assert!(
+        json.contains("\"expected_base_type\":\"Box<{state: first::State, count: Int}>\""),
+        "{json}"
+    );
+    assert!(
+        json.contains("\"actual_base_type\":\"Box<{count: Int, state: second::State}>\""),
+        "{json}"
+    );
+}
+
+#[test]
 fn variant_union_diagnostics_render_complete_bases_with_different_arities() {
     let diagnostics = diagnostics_for(concat!(
         "type Pair<A, B>\n",

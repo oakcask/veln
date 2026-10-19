@@ -524,7 +524,11 @@ fn collect_refinement_union(
     }
     let recovered_refinement = (!refinement_is_invalid)
         .then_some(recovered_refinement)
-        .flatten();
+        .flatten()
+        .map(|recovered| RecoveredType {
+            ty: canonicalize_recovered_refinement(recovered.ty, environment),
+            nodes: recovered.nodes,
+        });
     (refinement_is_invalid, recovered_refinement)
 }
 
@@ -983,6 +987,43 @@ fn merge_refinement_alternative(
     })
 }
 
+fn canonicalize_recovered_refinement(ty: Type, environment: &TypeEnvironment) -> Type {
+    let Some(declaration_order) = environment.adts.variant_declaration_order_for_type(&ty) else {
+        return ty;
+    };
+    let Type::VariantRefinement {
+        name,
+        identity,
+        args,
+        variants,
+        unresolved_alternatives,
+    } = ty
+    else {
+        return ty;
+    };
+    let requested = variants.iter().map(String::as_str).collect::<HashSet<_>>();
+    let canonical_variants = (0..declaration_order.len())
+        .filter_map(|rank| declaration_order.name(rank))
+        .filter(|variant| requested.contains(variant))
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    if canonical_variants.len() == declaration_order.len() {
+        Type::Named {
+            name,
+            identity,
+            args,
+        }
+    } else {
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            variants: canonical_variants.into(),
+            unresolved_alternatives,
+        }
+    }
+}
+
 fn variant_refinement_base_identity_and_arguments(ty: &Type) -> Option<(&str, &[Type])> {
     match ty {
         Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
@@ -1044,12 +1085,14 @@ fn type_parameter_identities_match(expected: &Type, actual: &Type) -> bool {
         }
         (Type::Record(expected), Type::Record(actual)) => {
             expected.len() == actual.len()
-                && expected.iter().zip(actual).all(
-                    |((expected_name, expected), (actual_name, actual))| {
-                        expected_name == actual_name
-                            && type_parameter_identities_match(expected, actual)
-                    },
-                )
+                && expected.iter().all(|(expected_name, expected)| {
+                    actual
+                        .iter()
+                        .find(|(actual_name, _)| actual_name == expected_name)
+                        .is_some_and(|(_, actual)| {
+                            type_parameter_identities_match(expected, actual)
+                        })
+                })
         }
         (
             Type::Function {
@@ -1248,19 +1291,39 @@ fn diagnostic_record_type_renders(expected: &Type, actual: &Type) -> Option<(Str
     match (expected, actual) {
         (Type::Record(expected_fields), Type::Record(actual_fields))
             if expected_fields.len() == actual_fields.len()
-                && expected_fields
-                    .iter()
-                    .zip(actual_fields)
-                    .all(|((expected_name, _), (actual_name, _))| expected_name == actual_name) =>
+                && expected_fields.iter().all(|(expected_name, _)| {
+                    actual_fields
+                        .iter()
+                        .any(|(actual_name, _)| actual_name == expected_name)
+                }) =>
         {
-            let (expected_fields, actual_fields): (Vec<_>, Vec<_>) = expected_fields
+            let expected_renders = expected_fields
                 .iter()
-                .zip(actual_fields)
-                .map(|((name, expected), (_, actual))| {
+                .map(|(name, expected)| {
+                    let actual = actual_fields
+                        .iter()
+                        .find(|(actual_name, _)| actual_name == name)
+                        .map(|(_, actual)| actual)
+                        .expect("record field names were checked");
                     let (expected, actual) = diagnostic_type_renders((expected, actual));
-                    (format!("{name}: {expected}"), format!("{name}: {actual}"))
+                    (name.as_str(), expected, actual)
                 })
-                .unzip();
+                .collect::<Vec<_>>();
+            let expected_fields = expected_renders
+                .iter()
+                .map(|(name, expected, _)| format!("{name}: {expected}"))
+                .collect::<Vec<_>>();
+            let actual_fields = actual_fields
+                .iter()
+                .map(|(name, _)| {
+                    let actual = expected_renders
+                        .iter()
+                        .find(|(expected_name, _, _)| expected_name == &name.as_str())
+                        .map(|(_, _, actual)| actual)
+                        .expect("record field names were checked");
+                    format!("{name}: {actual}")
+                })
+                .collect::<Vec<_>>();
             Some((
                 format!("{{{}}}", expected_fields.join(", ")),
                 format!("{{{}}}", actual_fields.join(", ")),

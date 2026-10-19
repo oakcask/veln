@@ -65,3 +65,20 @@ end
 fn different_outer_arities(value: Pair<Int, String>::First | Box<Bool>::Present) -> ()
 	()
 end
+
+type OrderState
+	A
+	B
+end
+
+fn reordered_record(value: Box<{left: Int, right: String}>::Present | Box<{right: String, left: Int}>::Absent) -> ()
+	()
+end
+
+fn reordered_nested_variants(value: Box<OrderState::A | OrderState::B>::Present | Box<OrderState::B | OrderState::A>::Absent) -> ()
+	()
+end
+
+fn reordered_record_nominal_conflict(value: Box<{state: first::State, count: Int}>::Present | Box<{count: Int, state: second::State}>::Absent) -> ()
+	()
+end

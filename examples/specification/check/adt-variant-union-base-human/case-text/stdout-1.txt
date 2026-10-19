@@ -27,3 +27,5 @@ main.veln:57:26: error[type.variant_union_base]: variant-refinement base `Right`
   note: main.veln:57:8: The first successfully instantiated alternative established `Box<T>` as the union base.
 main.veln:65:62: error[type.variant_union_base]: variant-refinement base `Box<Bool>` does not match expected base `Pair<Int, String>`
   note: main.veln:65:35: The first successfully instantiated alternative established `Pair<Int, String>` as the union base.
+main.veln:82:95: error[type.variant_union_base]: variant-refinement base `Box<{count: Int, state: second::State}>` does not match expected base `Box<{state: first::State, count: Int}>`
+  note: main.veln:82:45: The first successfully instantiated alternative established `Box<{state: first::State, count: Int}>` as the union base.
