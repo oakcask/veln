@@ -737,11 +737,14 @@ depends on an invalid reusable-base annotation. Within a refinement union, the
 checker skips a failed alternative, retains the earliest successfully
 instantiated base, and compares each later successful alternative with that
 base. A later different base reports `type.variant_union_base`; the failed
-alternative does not suppress that independent comparison. A mixed-base union
-is an invalid annotation. It quarantines the complete function, effect
-operation, handler, or ADT-constructor signature when it occurs in one of
-those declarations. A schema field with that failure prevents publication of
-the schema's generated decode, encode, and validation helpers. The
+alternative does not suppress that independent comparison, and the failed
+alternative's independently provable generic-arity failure remains. A
+mixed-base union is an invalid annotation. It quarantines the complete
+function, effect operation, handler, or ADT-constructor signature when it
+occurs in one of those declarations. A schema field with that failure prevents
+publication of the schema's generated decode, encode, and validation helpers.
+It does not suppress an independently provable duplicate schema-level
+validation. The
 [diagnostic specification](diagnostics-json.md#diagnostic-families) defines the
 closed details, related declaration or provider context, and downstream
 suppression; the checked
@@ -754,7 +757,8 @@ The focused union-base
 and
 [`JSON`](../../examples/specification/check/adt-variant-union-base-json/)
 cases verify ADT identity, invariant generic arguments, per-alternative spans,
-and recovery after an invalid earlier alternative.
+recursively nested nominal-identity display, recovery after an invalid earlier
+alternative, and duplicate schema-validation recovery.
 The reusable-base and union-overlap
 [`human`](../../examples/specification/check/adt-variant-refinement-base-overlap-human/)
 and
