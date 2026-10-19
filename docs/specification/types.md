@@ -681,8 +681,9 @@ checked
 [`alias presentation`](../../examples/specification/check/adt-variant-refinement-alias-presentation/)
 case covers transitive singleton, union, and generic aliases together with
 mutual assignment, inference, finite joins, and complete-domain joins. An
-unknown variant, invalid base arity, or union of different resolved ADTs is an
-invalid type annotation; it does not become an assignable `unknown` contract.
+unknown variant, invalid base arity, or union whose alternatives have different
+resolved ADT identities or canonical generic arguments is an invalid type
+annotation; it does not become an assignable `unknown` contract.
 If a structurally valid refinement base resolves uniquely but cannot provide a
 finite ADT variant set, the checker rejects the annotation with
 `type.variant_refinement_base`. The reason is `not_adt` for a source declaration
@@ -735,8 +736,9 @@ module, including declarations selected from the reusable standard
 environment. Private return inference therefore cannot publish a result that
 depends on an invalid reusable-base annotation. Within a refinement union, the
 checker skips a failed alternative, retains the earliest successfully
-instantiated base, and compares each later successful alternative with that
-base. A later different base reports `type.variant_union_base`; the failed
+instantiated base identity and canonical generic arguments, and compares each
+later successful alternative with that pair. A later different identity or
+different canonical arguments report `type.variant_union_base`; the failed
 alternative does not suppress that independent comparison, and the failed
 alternative's independently provable generic-arity failure remains. A
 mixed-base union is an invalid annotation. It quarantines the complete

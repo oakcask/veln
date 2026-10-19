@@ -71,9 +71,10 @@ or `pub effect Name`. Each operation declares ordinary parameter types and one
 result type. Effect-operation parameter and result annotations and handler
 context parameter annotations use the same variant-refinement validity rules
 as other type positions. An ineligible base reports its base failure. A union
-whose successfully instantiated alternatives have different bases reports
-`type.variant_union_base`. If one operation parameter or result has either
-failure, every parameter and the result of that operation is unknown to
+whose successfully instantiated alternatives have different resolved ADT
+identities or canonical generic arguments reports `type.variant_union_base`.
+If one operation parameter or result has either failure, every parameter and
+the result of that operation is unknown to
 `perform` expressions and handler clauses. If one handler context parameter
 has either failure, every context parameter is unknown in handler clauses and
 at handler application sites. These boundaries preserve independently

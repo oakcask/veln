@@ -64,9 +64,10 @@ publication and checked-output gate. The
 [diagnostic contract](diagnostics-json.md#diagnostic-families) defines human
 spans, related context, and JSON `exposure_path` segments.
 A refinement union whose successfully instantiated alternatives have different
-bases is also a semantic error. It blocks command success and quarantines the
-complete containing function, effect operation, handler, or ADT-constructor
-signature according to the same type and diagnostic contracts.
+resolved ADT identities or canonical generic arguments is also a semantic
+error. It blocks command success and quarantines the complete containing
+function, effect operation, handler, or ADT-constructor signature according to
+the same type and diagnostic contracts.
 The checked
 [`publication-closure`](../../examples/specification/check/adt-variant-refinement-publication-closure-human/)
 case verifies that one causal diagnostic blocks command success. Focused

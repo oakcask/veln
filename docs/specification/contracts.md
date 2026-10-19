@@ -198,8 +198,9 @@ not to `require`, `invariant`, or the function body. `result` is an ordinary
 identifier when no explicit result binding exists, so an unbound use reports an
 unresolved-name diagnostic. If an ordinary function parameter or its result
 annotation has an invalid variant-refinement base, or if successfully
-instantiated alternatives in one refinement union have different base types,
-the named result binding remains visible to `ensure` but has no usable type.
+instantiated alternatives in one refinement union have different resolved ADT
+identities or canonical generic arguments, the named result binding remains
+visible to `ensure` but has no usable type.
 Contract validation treats that binding and the function's parameters as
 `unknown`, including valid sibling annotations. Their written types therefore
 cannot produce derivative contract type mismatches. Independently provable
