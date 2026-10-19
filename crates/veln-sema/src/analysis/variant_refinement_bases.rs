@@ -233,7 +233,7 @@ fn collect_handler_annotations(
     }
 }
 
-pub(crate) fn annotation_has_base_failure(
+fn annotation_has_base_failure(
     refinements: &[veln_ast::VariantRefinementType],
     paths: &[TypePathSegments],
     current_module: Option<&str>,
@@ -263,6 +263,16 @@ pub(crate) fn annotation_has_base_failure(
                 })
         })
     })
+}
+
+pub(crate) fn annotation_has_invalid_refinement(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    annotation_has_base_failure(refinements, paths, current_module, environment)
+        || annotation_has_variant_union_base_failure(refinements, current_module, environment)
 }
 
 pub(crate) fn independent_annotation_errors(
@@ -507,17 +517,108 @@ fn alternative_span(alternative: &veln_ast::VariantRefinementAlternative) -> Sou
     span
 }
 
-fn variant_refinement_base_render(ty: &Type) -> String {
-    match ty {
-        Type::Named { name, args, .. } | Type::VariantRefinement { name, args, .. } => {
-            if args.is_empty() {
-                name.clone()
+fn variant_refinement_base_renders(expected: &Type, actual: &Type) -> (String, String) {
+    let (
+        Type::Named {
+            name: expected_name,
+            identity: expected_identity,
+            args: expected_args,
+        }
+        | Type::VariantRefinement {
+            name: expected_name,
+            identity: expected_identity,
+            args: expected_args,
+            ..
+        },
+        Type::Named {
+            name: actual_name,
+            identity: actual_identity,
+            args: actual_args,
+        }
+        | Type::VariantRefinement {
+            name: actual_name,
+            identity: actual_identity,
+            args: actual_args,
+            ..
+        },
+    ) = (expected, actual)
+    else {
+        unreachable!("successfully instantiated refinement has a named ADT base")
+    };
+    let expected_short = render_variant_refinement_base(expected_name, expected_args);
+    let actual_short = render_variant_refinement_base(actual_name, actual_args);
+    if expected_short != actual_short {
+        return (expected_short, actual_short);
+    }
+    let (expected_name, actual_name) =
+        if expected_name == actual_name && expected_identity != actual_identity {
+            (expected_identity.as_str(), actual_identity.as_str())
+        } else {
+            (expected_name.as_str(), actual_name.as_str())
+        };
+    let (expected_arguments, actual_arguments): (Vec<_>, Vec<_>) = expected_args
+        .iter()
+        .zip(actual_args)
+        .map(diagnostic_type_renders)
+        .unzip();
+    let expected_render = if expected_arguments.is_empty() {
+        expected_name.to_string()
+    } else {
+        format!("{expected_name}<{}>", expected_arguments.join(", "))
+    };
+    let actual_render = if actual_arguments.is_empty() {
+        actual_name.to_string()
+    } else {
+        format!("{actual_name}<{}>", actual_arguments.join(", "))
+    };
+    (expected_render, actual_render)
+}
+
+fn render_variant_refinement_base(name: &str, args: &[Type]) -> String {
+    if args.is_empty() {
+        name.to_string()
+    } else {
+        let arguments = args.iter().map(Type::render).collect::<Vec<_>>().join(", ");
+        format!("{name}<{arguments}>")
+    }
+}
+
+fn diagnostic_type_renders(expected: (&Type, &Type)) -> (String, String) {
+    let (expected, actual) = expected;
+    match (expected, actual) {
+        (
+            Type::Named {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+            },
+            Type::Named {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+            },
+        ) if expected_args.len() == actual_args.len() => {
+            let (expected_name, actual_name) =
+                if expected_name == actual_name && expected_identity != actual_identity {
+                    (expected_identity.as_str(), actual_identity.as_str())
+                } else {
+                    (expected_name.as_str(), actual_name.as_str())
+                };
+            let (expected_arguments, actual_arguments): (Vec<_>, Vec<_>) = expected_args
+                .iter()
+                .zip(actual_args)
+                .map(diagnostic_type_renders)
+                .unzip();
+            if expected_arguments.is_empty() {
+                (expected_name.to_string(), actual_name.to_string())
             } else {
-                let arguments = args.iter().map(Type::render).collect::<Vec<_>>().join(", ");
-                format!("{name}<{arguments}>")
+                (
+                    format!("{expected_name}<{}>", expected_arguments.join(", ")),
+                    format!("{actual_name}<{}>", actual_arguments.join(", ")),
+                )
             }
         }
-        _ => unreachable!("successfully instantiated refinement has a named ADT base"),
+        _ => (expected.render(), actual.render()),
     }
 }
 
@@ -528,8 +629,7 @@ fn variant_union_base_diagnostic(
     actual_span: SourceSpan,
     union_scope: SourceSpan,
 ) -> VariantRefinementBaseDiagnostic {
-    let expected_base_type = variant_refinement_base_render(expected);
-    let actual_base_type = variant_refinement_base_render(actual);
+    let (expected_base_type, actual_base_type) = variant_refinement_base_renders(expected, actual);
     let mut diagnostic = Diagnostic::new(
         "type.variant_union_base",
         Severity::Error,

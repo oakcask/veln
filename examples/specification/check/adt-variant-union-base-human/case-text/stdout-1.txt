@@ -1,10 +1,14 @@
-main.veln:17:36: error[type.variant_union_base]: variant-refinement base `Right` does not match expected base `Left`
-  note: main.veln:17:26: The first successfully instantiated alternative established `Left` as the union base.
-main.veln:17:47: error[type.variant_union_base]: variant-refinement base `Right` does not match expected base `Left`
-  note: main.veln:17:26: The first successfully instantiated alternative established `Left` as the union base.
-main.veln:21:49: error[type.variant_union_base]: variant-refinement base `Box<String>` does not match expected base `Box<Int>`
-  note: main.veln:21:29: The first successfully instantiated alternative established `Box<Int>` as the union base.
-main.veln:25:25: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
-  note: main.veln:1:1: Type `Empty` is declared here without finite ADT variants.
-main.veln:25:52: error[type.variant_union_base]: variant-refinement base `Right` does not match expected base `Left`
-  note: main.veln:25:42: The first successfully instantiated alternative established `Left` as the union base.
+main.veln:20:36: error[type.variant_union_base]: variant-refinement base `Right` does not match expected base `Left`
+  note: main.veln:20:26: The first successfully instantiated alternative established `Left` as the union base.
+main.veln:20:47: error[type.variant_union_base]: variant-refinement base `Right` does not match expected base `Left`
+  note: main.veln:20:26: The first successfully instantiated alternative established `Left` as the union base.
+main.veln:24:49: error[type.variant_union_base]: variant-refinement base `Box<String>` does not match expected base `Box<Int>`
+  note: main.veln:24:29: The first successfully instantiated alternative established `Box<Int>` as the union base.
+main.veln:28:25: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
+  note: main.veln:4:1: Type `Empty` is declared here without finite ADT variants.
+main.veln:28:52: error[type.variant_union_base]: variant-refinement base `Right` does not match expected base `Left`
+  note: main.veln:28:42: The first successfully instantiated alternative established `Left` as the union base.
+main.veln:32:54: error[type.variant_union_base]: variant-refinement base `second::State` does not match expected base `first::State`
+  note: main.veln:32:32: The first successfully instantiated alternative established `first::State` as the union base.
+main.veln:36:68: error[type.variant_union_base]: variant-refinement base `Box<second::State>` does not match expected base `Box<first::State>`
+  note: main.veln:36:39: The first successfully instantiated alternative established `Box<first::State>` as the union base.

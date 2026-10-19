@@ -313,7 +313,11 @@ later alternative, even when a failed alternative occurs before or between the
 successful alternatives. Its closed details contain exactly
 `expected_base_type` and `actual_base_type`. The expected type is the base of
 the earliest successfully instantiated alternative. The actual type is the
-base of the conflicting alternative. One `expected_variant_union_base` related
+base of the conflicting alternative. These values use concise canonical names
+when those names distinguish the bases. When equal concise names would hide a
+different nominal identity, including inside an invariant generic argument,
+the conflicting position uses its stable qualified identity. One
+`expected_variant_union_base` related
 entry points to that earliest alternative and explains that it established the
 union base. Each later conflict reports separately. An alternative that cannot
 be instantiated does not participate in the comparison and does not suppress

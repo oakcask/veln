@@ -26,6 +26,11 @@ pub(super) fn quarantine_invalid_variant_refinement_signatures(
         &validation_environment,
         &mut environment.adts,
     );
+    quarantine_invalid_variant_refinement_schema_helpers(
+        module,
+        &validation_environment,
+        &mut environment.functions,
+    );
 }
 
 pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
@@ -92,22 +97,27 @@ pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
     adts.quarantine_public_source_types(&invalid_types);
 }
 
-fn annotation_has_base_failure(
+fn annotation_has_invalid_refinement(
     refinements: &[veln_ast::VariantRefinementType],
     paths: &[veln_ast::TypePathSegments],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
 ) -> bool {
-    crate::analysis::annotation_has_base_failure(refinements, paths, current_module, environment)
+    crate::analysis::annotation_has_invalid_refinement(
+        refinements,
+        paths,
+        current_module,
+        environment,
+    )
 }
 
-fn params_have_base_failure(
+fn params_have_invalid_refinement(
     params: &[veln_ast::Param],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
 ) -> bool {
     params.iter().any(|param| {
-        annotation_has_base_failure(
+        annotation_has_invalid_refinement(
             &param.ty_refinements,
             &param.ty_paths,
             current_module,
@@ -149,15 +159,12 @@ pub(super) fn quarantine_invalid_variant_refinement_function_types(
     }
 }
 
-pub(super) fn function_has_base_failure(
-    function: &Function,
-    environment: &TypeEnvironment,
-) -> bool {
-    params_have_base_failure(
+fn function_has_invalid_refinement(function: &Function, environment: &TypeEnvironment) -> bool {
+    params_have_invalid_refinement(
         &function.params,
         function.module_name.as_deref(),
         environment,
-    ) || annotation_has_base_failure(
+    ) || annotation_has_invalid_refinement(
         &function.return_type_refinements,
         &function.return_type_paths,
         function.module_name.as_deref(),
@@ -170,7 +177,7 @@ pub(super) fn function_has_invalid_variant_refinement(
     function: &Function,
     environment: &TypeEnvironment,
 ) -> bool {
-    function_has_base_failure(function, environment)
+    function_has_invalid_refinement(function, environment)
         || crate::analysis::function_has_private_variant_refinement_exposure(function, environment)
         || crate::analysis::function_depends_on_quarantined_adt(function, environment)
 }
@@ -197,11 +204,11 @@ fn quarantine_invalid_variant_refinement_effect_types(
                 .next()
                 .expect("effect operation signature follows its source declaration");
             crate::pipeline::record_variant_refinement_base_work(1);
-            let invalid = params_have_base_failure(
+            let invalid = params_have_invalid_refinement(
                 &operation.params,
                 effect.module_name.as_deref(),
                 environment,
-            ) || annotation_has_base_failure(
+            ) || annotation_has_invalid_refinement(
                 &operation.return_type_refinements,
                 &operation.return_type_paths,
                 effect.module_name.as_deref(),
@@ -231,7 +238,11 @@ pub(super) fn quarantine_invalid_variant_refinement_handler_types(
             .next()
             .expect("handler signature follows its source declaration");
         crate::pipeline::record_variant_refinement_base_work(1);
-        if !params_have_base_failure(&handler.params, handler.module_name.as_deref(), environment) {
+        if !params_have_invalid_refinement(
+            &handler.params,
+            handler.module_name.as_deref(),
+            environment,
+        ) {
             continue;
         }
         debug_assert_eq!(signature.name, handler.name.as_deref().unwrap_or_default());
@@ -253,7 +264,7 @@ fn quarantine_invalid_variant_refinement_adt_payload_types(
         for variant in &declaration.variants {
             crate::pipeline::record_variant_refinement_base_work(1);
             if !variant.fields.iter().any(|field| {
-                annotation_has_base_failure(
+                annotation_has_invalid_refinement(
                     &field.ty_refinements,
                     &field.ty_paths,
                     declaration.module_name.as_deref(),
@@ -274,4 +285,27 @@ fn quarantine_invalid_variant_refinement_adt_payload_types(
     }
     let work = adts.quarantine_source_variant_payload_types(&invalid);
     crate::pipeline::record_variant_refinement_base_work(work);
+}
+
+fn quarantine_invalid_variant_refinement_schema_helpers(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    functions: &mut Vec<FunctionSignature>,
+) {
+    let invalid_schema_nodes = module
+        .schemas
+        .iter()
+        .filter(|schema| {
+            schema.fields.iter().any(|field| {
+                annotation_has_invalid_refinement(
+                    &field.ty_refinements,
+                    &field.ty_paths,
+                    schema.module_name.as_deref(),
+                    environment,
+                )
+            })
+        })
+        .map(|schema| schema.node_id)
+        .collect::<HashSet<_>>();
+    functions.retain(|function| !invalid_schema_nodes.contains(&function.node_id));
 }

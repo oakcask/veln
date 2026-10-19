@@ -80,6 +80,82 @@ fn invalid_declaration_annotations_quarantine_body_and_caller_types() {
 }
 
 #[test]
+fn mixed_union_bases_quarantine_function_bodies_calls_and_contracts() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Left\n",
+        "  A\n",
+        "end\n",
+        "type Right\n",
+        "  B\n",
+        "end\n",
+        "fn needs_int(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn broken_param(invalid: Left::A | Right::B, sibling: String) -> Int\n",
+        "  needs_int(sibling)\n",
+        "  \"wrong\"\n",
+        "end\n",
+        "fn broken_result(sibling: String) -> Left::A | Right::B\n",
+        "  needs_int(sibling)\n",
+        "  ()\n",
+        "end\n",
+        "fn broken_contract(invalid: Left::A | Right::B) -> output: String\n",
+        "ensure output % 2 == 0\n",
+        "  \"ok\"\n",
+        "end\n",
+        "fn caller() -> ()\n",
+        "  let first: String = broken_param(1, 2)\n",
+        "  let second: String = broken_result(1)\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.variant_union_base"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn mixed_union_bases_quarantine_operations_handlers_and_payloads() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Left\n",
+        "  A\n",
+        "end\n",
+        "type Right\n",
+        "  B\n",
+        "end\n",
+        "effect Broken\n",
+        "  apply(invalid: Left::A | Right::B, sibling: String) -> String\n",
+        "end\n",
+        "effect Ask\n",
+        "  value() -> Int\n",
+        "end\n",
+        "handler broken(invalid: Left::A | Right::B, sibling: String) for Ask\n",
+        "  value() => sibling\n",
+        "end\n",
+        "type Holder\n",
+        "  Built(invalid: Left::A | Right::B, sibling: String)\n",
+        "end\n",
+        "fn caller() -> () effects [Broken]\n",
+        "  let performed: Int = perform Broken::apply(1, 2)\n",
+        "  let handled: Int = handle perform Ask::value() with broken(1, 2)\n",
+        "  let built: Holder = Built(1, 2)\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.variant_union_base"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn ordinary_function_quarantine_reaches_every_body_signature_consumer() {
     let diagnostics = diagnostics_for(concat!(
         "type Empty\n",
@@ -336,6 +412,45 @@ fn invalid_schema_refinement_does_not_publish_generated_helpers() {
         1,
         "{diagnostics:#?}"
     );
+}
+
+#[test]
+fn mixed_union_base_schema_does_not_publish_generated_helpers() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Left\n",
+            "  A\n",
+            "end\n",
+            "type Right\n",
+            "  B\n",
+            "end\n",
+            "schema Packet\n",
+            "  invalid: Left::A | Right::B\n",
+            "  sibling: Int\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+
+    for helper in [
+        "byte_decode_packet",
+        "byte_encode_packet",
+        "validate_packet",
+    ] {
+        assert!(
+            environment
+                .function_path(&[helper.to_string()], None)
+                .is_none(),
+            "mixed-base schema must not expose helper `{helper}`"
+        );
+    }
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.variant_union_base");
 }
 
 #[test]

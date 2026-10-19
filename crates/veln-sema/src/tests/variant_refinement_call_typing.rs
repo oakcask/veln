@@ -596,6 +596,56 @@ fn variant_unions_reject_invariant_generic_argument_mismatches() {
 }
 
 #[test]
+fn variant_union_diagnostics_disambiguate_colliding_nominal_identities() {
+    let first = SourceFile::new("first.veln", "pub type State\n  pub Ready\nend\n");
+    let second = SourceFile::new("second.veln", "pub type State\n  pub Ready\nend\n");
+    let main = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use first\n",
+            "use second\n",
+            "type Box<A>\n",
+            "  Present(A)\n",
+            "  Absent\n",
+            "end\n",
+            "fn direct(value: first::State::Ready | second::State::Ready) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn nested(value: Box<first::State>::Present | Box<second::State>::Absent) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let module =
+        merged_modules_with_identities(vec![("first", first), ("second", second), ("main", main)]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    for (diagnostic, expected, actual) in [
+        (&diagnostics[0], "first::State", "second::State"),
+        (&diagnostics[1], "Box<first::State>", "Box<second::State>"),
+    ] {
+        assert_eq!(
+            diagnostic.message,
+            format!("variant-refinement base `{actual}` does not match expected base `{expected}`")
+        );
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(
+            json.contains(&format!("\"expected_base_type\":\"{expected}\"")),
+            "{json}"
+        );
+        assert!(
+            json.contains(&format!("\"actual_base_type\":\"{actual}\"")),
+            "{json}"
+        );
+        assert!(
+            json.contains(&format!("established `{expected}` as the union base.")),
+            "{json}"
+        );
+    }
+}
+
+#[test]
 fn aggregate_construction_retains_record_fields_and_rejects_excluded_variants() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",

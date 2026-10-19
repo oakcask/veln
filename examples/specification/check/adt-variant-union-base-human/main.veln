@@ -1,3 +1,6 @@
+use first
+use second
+
 type Empty
 end
 
@@ -23,5 +26,13 @@ fn generic_arguments(value: Box<Int>::Present | Box<String>::Absent) -> ()
 end
 
 fn failed_before(value: Empty::Missing | Left::A | Right::B) -> ()
+	()
+end
+
+fn colliding_identities(value: first::State::Ready | second::State::Ready) -> ()
+	()
+end
+
+fn nested_colliding_identities(value: Box<first::State>::Present | Box<second::State>::Absent) -> ()
 	()
 end

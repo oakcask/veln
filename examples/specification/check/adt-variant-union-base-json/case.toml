@@ -1,4 +1,4 @@
-command = ["check", "--json", "main.veln"]
+command = ["check", "--json", "first.veln", "second.veln", "main.veln"]
 exit = 1
 
 [stdout]

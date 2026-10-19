@@ -82,7 +82,7 @@ pub(crate) use boundary::{
 };
 pub(crate) use handlers::check_handler_declarations;
 pub(crate) use variant_refinement_bases::{
-    VariantRefinementBaseDiagnostic, annotation_has_base_failure,
+    VariantRefinementBaseDiagnostic, annotation_has_invalid_refinement,
     annotation_has_variant_union_base_failure, check_variant_refinement_bases,
     independent_annotation_errors,
 };
