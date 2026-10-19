@@ -631,6 +631,65 @@ fn union_base_failure_preserves_an_independent_earlier_arity_failure() {
 }
 
 #[test]
+fn invalid_generic_argument_preserves_a_later_sibling_union_base_failure() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Pair<A>\n",
+        "  First(A)\n",
+        "end\n",
+        "type Left\n",
+        "  A\n",
+        "end\n",
+        "type Right\n",
+        "  B\n",
+        "end\n",
+        "fn broken(value: Pair<Missing, Left::A | Right::B>::First) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["type.invalid_annotation", "type.variant_union_base"],
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics[0]
+            .message
+            .contains("`Pair` expects 1 type argument(s), found 2"),
+        "{diagnostics:#?}"
+    );
+    let union_base = &diagnostics[1];
+    assert_eq!(union_base.span.as_ref().unwrap().start.line, 10);
+    assert_eq!(union_base.span.as_ref().unwrap().start.column, 42);
+    assert_eq!(union_base.span.as_ref().unwrap().end.line, 10);
+    assert_eq!(union_base.span.as_ref().unwrap().end.column, 50);
+    assert_eq!(
+        union_base.details.to_json(),
+        "{\"expected_base_type\":\"Left\",\"actual_base_type\":\"Right\"}"
+    );
+    let observed = veln_diagnostics::diagnostic_to_json(union_base).to_json();
+    assert!(
+        observed.contains("\"kind\":\"expected_variant_union_base\"")
+            && observed.contains("\"start\":{\"line\":10,\"column\":32")
+            && observed.contains("\"end\":{\"line\":10,\"column\":39")
+            && observed.contains(
+                "The first successfully instantiated alternative established `Left` as the union base."
+            ),
+        "{observed}"
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            !diagnostic.message.contains("expected base `Pair")
+                && !diagnostic.message.contains("actual base `Pair")
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn base_failures_preserve_independent_sibling_and_nested_annotation_errors() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",

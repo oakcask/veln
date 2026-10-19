@@ -664,8 +664,9 @@ fn collect_refinement_argument_types(
     materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
 ) -> Option<Vec<RecoveredType>> {
     let mut recovered = Vec::with_capacity(arguments.len());
+    let mut all_arguments_recovered = true;
     for argument in arguments {
-        recovered.push(collect_refinement_argument_type(
+        let argument = collect_refinement_argument_type(
             argument,
             current_module,
             environment,
@@ -675,9 +676,13 @@ fn collect_refinement_argument_types(
             declaration_type_parameters,
             recovery_type_parameters,
             materialized_refinements,
-        )?);
+        );
+        match argument {
+            Some(argument) => recovered.push(argument),
+            None => all_arguments_recovered = false,
+        }
     }
-    Some(recovered)
+    all_arguments_recovered.then_some(recovered)
 }
 
 #[allow(clippy::too_many_arguments)]
