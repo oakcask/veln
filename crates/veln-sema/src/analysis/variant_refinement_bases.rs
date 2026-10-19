@@ -612,6 +612,14 @@ fn variant_refinement_base_renders(expected: &Type, actual: &Type) -> (String, S
 
 fn diagnostic_type_renders(expected: (&Type, &Type)) -> (String, String) {
     let (expected, actual) = expected;
+    diagnostic_named_type_renders(expected, actual)
+        .or_else(|| diagnostic_variant_type_renders(expected, actual))
+        .or_else(|| diagnostic_record_type_renders(expected, actual))
+        .or_else(|| diagnostic_function_type_renders(expected, actual))
+        .unwrap_or_else(|| (expected.render(), actual.render()))
+}
+
+fn diagnostic_named_type_renders(expected: &Type, actual: &Type) -> Option<(String, String)> {
     match (expected, actual) {
         (
             Type::Named {
@@ -625,28 +633,29 @@ fn diagnostic_type_renders(expected: (&Type, &Type)) -> (String, String) {
                 args: actual_args,
             },
         ) if expected_args.len() == actual_args.len() => {
-            let (expected_name, actual_name) =
-                if expected_name == actual_name && expected_identity != actual_identity {
-                    (expected_identity.as_str(), actual_identity.as_str())
-                } else {
-                    (expected_name.as_str(), actual_name.as_str())
-                };
-            let (expected_arguments, actual_arguments): (Vec<_>, Vec<_>) = expected_args
-                .iter()
-                .zip(actual_args)
-                .map(diagnostic_type_renders)
-                .unzip();
+            let (expected_name, actual_name) = diagnostic_type_names(
+                expected_name,
+                expected_identity,
+                actual_name,
+                actual_identity,
+            );
+            let (expected_arguments, actual_arguments) =
+                diagnostic_type_arguments(expected_args, actual_args);
             if expected_arguments.is_empty() && expected_name == "Unit" && actual_name == "Unit" {
-                ("()".to_string(), "()".to_string())
-            } else if expected_arguments.is_empty() {
-                (expected_name.to_string(), actual_name.to_string())
+                Some(("()".to_string(), "()".to_string()))
             } else {
-                (
-                    format!("{expected_name}<{}>", expected_arguments.join(", ")),
-                    format!("{actual_name}<{}>", actual_arguments.join(", ")),
-                )
+                Some((
+                    diagnostic_type_application(expected_name, &expected_arguments),
+                    diagnostic_type_application(actual_name, &actual_arguments),
+                ))
             }
         }
+        _ => None,
+    }
+}
+
+fn diagnostic_variant_type_renders(expected: &Type, actual: &Type) -> Option<(String, String)> {
+    match (expected, actual) {
         (
             Type::VariantRefinement {
                 name: expected_name,
@@ -663,28 +672,17 @@ fn diagnostic_type_renders(expected: (&Type, &Type)) -> (String, String) {
                 ..
             },
         ) if expected_args.len() == actual_args.len() => {
-            let (expected_name, actual_name) =
-                if expected_name == actual_name && expected_identity != actual_identity {
-                    (expected_identity.as_str(), actual_identity.as_str())
-                } else {
-                    (expected_name.as_str(), actual_name.as_str())
-                };
-            let (expected_arguments, actual_arguments): (Vec<_>, Vec<_>) = expected_args
-                .iter()
-                .zip(actual_args)
-                .map(diagnostic_type_renders)
-                .unzip();
-            let expected_base = if expected_arguments.is_empty() {
-                expected_name.to_string()
-            } else {
-                format!("{expected_name}<{}>", expected_arguments.join(", "))
-            };
-            let actual_base = if actual_arguments.is_empty() {
-                actual_name.to_string()
-            } else {
-                format!("{actual_name}<{}>", actual_arguments.join(", "))
-            };
-            (
+            let (expected_name, actual_name) = diagnostic_type_names(
+                expected_name,
+                expected_identity,
+                actual_name,
+                actual_identity,
+            );
+            let (expected_arguments, actual_arguments) =
+                diagnostic_type_arguments(expected_args, actual_args);
+            let expected_base = diagnostic_type_application(expected_name, &expected_arguments);
+            let actual_base = diagnostic_type_application(actual_name, &actual_arguments);
+            Some((
                 expected_variants
                     .iter()
                     .map(|variant| format!("{expected_base}::{variant}"))
@@ -695,8 +693,14 @@ fn diagnostic_type_renders(expected: (&Type, &Type)) -> (String, String) {
                     .map(|variant| format!("{actual_base}::{variant}"))
                     .collect::<Vec<_>>()
                     .join(" | "),
-            )
+            ))
         }
+        _ => None,
+    }
+}
+
+fn diagnostic_record_type_renders(expected: &Type, actual: &Type) -> Option<(String, String)> {
+    match (expected, actual) {
         (Type::Record(expected_fields), Type::Record(actual_fields))
             if expected_fields.len() == actual_fields.len()
                 && expected_fields
@@ -712,11 +716,17 @@ fn diagnostic_type_renders(expected: (&Type, &Type)) -> (String, String) {
                     (format!("{name}: {expected}"), format!("{name}: {actual}"))
                 })
                 .unzip();
-            (
+            Some((
                 format!("{{{}}}", expected_fields.join(", ")),
                 format!("{{{}}}", actual_fields.join(", ")),
-            )
+            ))
         }
+        _ => None,
+    }
+}
+
+fn diagnostic_function_type_renders(expected: &Type, actual: &Type) -> Option<(String, String)> {
+    match (expected, actual) {
         (
             Type::Function {
                 params: expected_params,
@@ -755,7 +765,7 @@ fn diagnostic_type_renders(expected: (&Type, &Type)) -> (String, String) {
             } else {
                 format!(" effects [{}]", actual_effects.join(", "))
             };
-            (
+            Some((
                 format!(
                     "fn({}) -> {expected_return}{expected_effects}",
                     expected_params.join(", ")
@@ -764,9 +774,38 @@ fn diagnostic_type_renders(expected: (&Type, &Type)) -> (String, String) {
                     "fn({}) -> {actual_return}{actual_effects}",
                     actual_params.join(", ")
                 ),
-            )
+            ))
         }
-        _ => (expected.render(), actual.render()),
+        _ => None,
+    }
+}
+
+fn diagnostic_type_names<'a>(
+    expected_name: &'a str,
+    expected_identity: &'a str,
+    actual_name: &'a str,
+    actual_identity: &'a str,
+) -> (&'a str, &'a str) {
+    if expected_name == actual_name && expected_identity != actual_identity {
+        (expected_identity, actual_identity)
+    } else {
+        (expected_name, actual_name)
+    }
+}
+
+fn diagnostic_type_arguments(expected: &[Type], actual: &[Type]) -> (Vec<String>, Vec<String>) {
+    expected
+        .iter()
+        .zip(actual)
+        .map(diagnostic_type_renders)
+        .unzip()
+}
+
+fn diagnostic_type_application(name: &str, arguments: &[String]) -> String {
+    if arguments.is_empty() {
+        name.to_string()
+    } else {
+        format!("{name}<{}>", arguments.join(", "))
     }
 }
 
