@@ -321,7 +321,13 @@ the conflicting position uses its stable qualified identity. One
 entry points to that earliest alternative and explains that it established the
 union base. Each later conflict reports separately. An alternative that cannot
 be instantiated does not participate in the comparison and does not suppress
-an independently complete later pair.
+an independently complete later pair. A mixed-base union makes its annotation
+invalid. When it occurs in a function, effect operation, handler, or ADT
+constructor signature, every type exposed by that declaration is unknown to
+its body and consumers. When it occurs in a schema field, the schema publishes
+no generated decode, encode, or validation helper. These boundaries suppress
+only diagnostics derived from the rejected signature or helper; independently
+provable declaration diagnostics remain.
 When a nested type argument is invalid, the checker still reports an enclosing
 base-eligibility failure that can be proved from the enclosing base identity
 alone. It suppresses an enclosing annotation or final-segment failure that

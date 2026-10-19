@@ -737,7 +737,11 @@ depends on an invalid reusable-base annotation. Within a refinement union, the
 checker skips a failed alternative, retains the earliest successfully
 instantiated base, and compares each later successful alternative with that
 base. A later different base reports `type.variant_union_base`; the failed
-alternative does not suppress that independent comparison. The
+alternative does not suppress that independent comparison. A mixed-base union
+is an invalid annotation. It quarantines the complete function, effect
+operation, handler, or ADT-constructor signature when it occurs in one of
+those declarations. A schema field with that failure prevents publication of
+the schema's generated decode, encode, and validation helpers. The
 [diagnostic specification](diagnostics-json.md#diagnostic-families) defines the
 closed details, related declaration or provider context, and downstream
 suppression; the checked

@@ -56,7 +56,9 @@ aggregate and control-flow joins, stable match-path narrowing, runtime erasure,
 transitive alias-qualified identity and presentation, complete-domain alias
 reconciliation, generic payload propagation across alias-qualified constructor
 and pattern boundaries, recursive public-signature and public-ADT-payload
-visibility, transitive publication quarantine, and the qualified-value limit.
+visibility, transitive publication quarantine, focused mixed-union base
+failure, invalid-signature and schema-helper quarantine, and the
+qualified-value limit.
 The selected examples demonstrate refined call typing, control-flow result
 joins, alias-qualified identity and presentation, generic alias boundaries,
 structural visibility, and publication quarantine. The current type and source
