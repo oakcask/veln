@@ -801,14 +801,6 @@ source occurrences it examines. This includes invalid-cased bases, unrelated
 diagnostics interleaved around the base failures, and structurally separate
 sibling type positions.
 
-For a nested annotation whose innermost refinement union has different bases,
-each additional named-type layer adds constant recovery-comparison,
-recovery-materialization, materialized-type-node, and peak retained
-recovery-type-node work. Recovered type trees are moved rather than cloned.
-The deterministic scaling check compares depths 8, 16, and 24 and requires
-constant adjacent growth for each measured count and zero recovered-type-tree
-clones.
-
 A refinement anywhere inside a public function parameter or result annotation,
 or inside a payload of a public variant of a public source ADT, can expose only
 a public terminal ADT and public selected variants. The traversal enters named

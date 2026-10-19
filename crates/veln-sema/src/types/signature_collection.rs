@@ -172,7 +172,7 @@ impl TypeCanonicalizer<'_> {
     fn canonicalize(&self, ty: Type) -> Type {
         record_type_canonicalization_visit();
         match ty {
-            ty @ Type::Named { .. } if ty.recovery_slot_index().is_some() => ty,
+            ty @ Type::Named { .. } if ty.is_recovery_slot() => ty,
             Type::Named { name, args, .. } => self.canonicalize_named(name, args),
             Type::VariantRefinement {
                 name,

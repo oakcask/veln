@@ -802,7 +802,7 @@ fn collect_recovery_replacements(
 ) -> bool {
     match ty {
         ty @ Type::Named { args, .. } => {
-            if ty.recovery_slot_index().is_some() {
+            if ty.is_recovery_slot() {
                 let Some(Some(child)) = child_refinements.next() else {
                     return false;
                 };
@@ -837,7 +837,7 @@ fn collect_recovery_replacements(
 }
 
 fn replace_recovery_slots(ty: Type, replacements: &mut impl Iterator<Item = Type>) -> Type {
-    if ty.recovery_slot_index().is_some() {
+    if ty.is_recovery_slot() {
         return replacements.next().unwrap_or(Type::Unknown);
     }
     match ty {

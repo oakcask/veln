@@ -211,15 +211,11 @@ impl Type {
         )
     }
 
-    pub(crate) fn recovery_slot_index(&self) -> Option<usize> {
+    pub(crate) fn is_recovery_slot(&self) -> bool {
         let Self::Named { identity, args, .. } = self else {
-            return None;
+            return false;
         };
-        args.is_empty()
-            .then(|| identity.strip_prefix(Self::RECOVERY_SLOT_IDENTITY_PREFIX))
-            .flatten()?
-            .parse()
-            .ok()
+        args.is_empty() && identity.starts_with(Self::RECOVERY_SLOT_IDENTITY_PREFIX)
     }
 
     pub(crate) fn named(name: impl Into<String>, args: Vec<Type>) -> Self {

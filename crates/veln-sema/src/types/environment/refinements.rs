@@ -221,7 +221,7 @@ impl TypeEnvironment {
     ) -> bool {
         match ty {
             Type::Unknown => false,
-            ty @ Type::Named { .. } if ty.recovery_slot_index().is_some() => true,
+            ty @ Type::Named { .. } if ty.is_recovery_slot() => true,
             Type::Named { name, args, .. } => self.named_type_annotation_is_fully_resolved(
                 ty,
                 name,
