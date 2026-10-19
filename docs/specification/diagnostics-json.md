@@ -328,6 +328,13 @@ the conflicting base constructors have different arities. Nominal-identity
 disambiguation recurses through variant refinements, record fields, and
 function parameters and results inside an invariant generic argument. Matching
 unit positions in that output use the source spelling `()`.
+Record arguments compare fields by name rather than written field order, and
+nested refinement arguments compare their selected variant sets rather than
+written alternative order. These reorderings do not report a union-base
+failure. If same-named record fields instead contain conflicting nominal
+identities, `expected_base_type` and `actual_base_type` preserve the field order
+written in their respective alternatives while qualifying the conflicting
+identities.
 One
 `expected_variant_union_base` related
 entry points to that earliest alternative and explains that it established the
@@ -429,6 +436,10 @@ context, repeated conflicts, recursively nested nominal-identity display,
 invariant generic arguments, declaration-type-parameter and nominal-type name
 collisions, complete base rendering across different generic arities, and
 arity recovery before an independent later conflict.
+The focused
+[`reordered JSON`](../../examples/specification/check/adt-variant-union-base-reordered-json/)
+case fixes order-independent record and nested-refinement comparison plus
+per-alternative record-field order in conflict details.
 The checked nested-recovery
 [`human`](../../examples/specification/check/adt-variant-refinement-nested-recovery-human/)
 and
