@@ -545,11 +545,6 @@ fn variant_refinement_base_renders(expected: &Type, actual: &Type) -> (String, S
     else {
         unreachable!("successfully instantiated refinement has a named ADT base")
     };
-    let expected_short = render_variant_refinement_base(expected_name, expected_args);
-    let actual_short = render_variant_refinement_base(actual_name, actual_args);
-    if expected_short != actual_short {
-        return (expected_short, actual_short);
-    }
     let (expected_name, actual_name) =
         if expected_name == actual_name && expected_identity != actual_identity {
             (expected_identity.as_str(), actual_identity.as_str())
@@ -572,15 +567,6 @@ fn variant_refinement_base_renders(expected: &Type, actual: &Type) -> (String, S
         format!("{actual_name}<{}>", actual_arguments.join(", "))
     };
     (expected_render, actual_render)
-}
-
-fn render_variant_refinement_base(name: &str, args: &[Type]) -> String {
-    if args.is_empty() {
-        name.to_string()
-    } else {
-        let arguments = args.iter().map(Type::render).collect::<Vec<_>>().join(", ");
-        format!("{name}<{arguments}>")
-    }
 }
 
 fn diagnostic_type_renders(expected: (&Type, &Type)) -> (String, String) {

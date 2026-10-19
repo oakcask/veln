@@ -614,6 +614,10 @@ fn variant_union_diagnostics_disambiguate_colliding_nominal_identities() {
             "  Present(A)\n",
             "  Absent\n",
             "end\n",
+            "type Duo<A, B>\n",
+            "  Present(A, B)\n",
+            "  Absent\n",
+            "end\n",
             "fn direct(value: first::State::Ready | second::State::Ready) -> ()\n",
             "  ()\n",
             "end\n",
@@ -629,13 +633,16 @@ fn variant_union_diagnostics_disambiguate_colliding_nominal_identities() {
             "fn nested_function(value: Box<fn(first::State::Ready) -> ()>::Present | Box<fn(second::State::Ready) -> ()>::Absent) -> ()\n",
             "  ()\n",
             "end\n",
+            "fn nested_collision_and_other_difference(value: Duo<first::State, Int>::Present | Duo<second::State, String>::Absent) -> ()\n",
+            "  ()\n",
+            "end\n",
         ),
     );
     let module =
         merged_modules_with_identities(vec![("first", first), ("second", second), ("main", main)]);
     let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(diagnostics.len(), 5, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 6, "{diagnostics:#?}");
     for (diagnostic, expected, actual) in [
         (&diagnostics[0], "first::State", "second::State"),
         (&diagnostics[1], "Box<first::State>", "Box<second::State>"),
@@ -653,6 +660,11 @@ fn variant_union_diagnostics_disambiguate_colliding_nominal_identities() {
             &diagnostics[4],
             "Box<fn(first::State::Ready) -> ()>",
             "Box<fn(second::State::Ready) -> ()>",
+        ),
+        (
+            &diagnostics[5],
+            "Duo<first::State, Int>",
+            "Duo<second::State, String>",
         ),
     ] {
         assert_eq!(
