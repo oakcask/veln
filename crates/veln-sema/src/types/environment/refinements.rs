@@ -17,6 +17,24 @@ impl TypeEnvironment {
         )
     }
 
+    pub(crate) fn canonicalize_type_annotation_with_context(
+        &self,
+        ty: Type,
+        current_module: Option<&str>,
+        type_parameters: &TypeParameterIdentityContext<'_>,
+    ) -> Type {
+        crate::types::signature_collection::canonicalize_type_effects_with_context(
+            ty,
+            &self.uses,
+            &self.quarantined_uses,
+            current_module,
+            &self.effects,
+            &self.adts,
+            &self.companion_effect_access_targets,
+            Some(type_parameters),
+        )
+    }
+
     pub(crate) fn variant_refinement_annotation_error(
         &self,
         ty: &Type,

@@ -6,6 +6,7 @@ use crate::adt::registry::AdtRegistry;
 use crate::name_recovery::normal_use_decls;
 use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_or_unknown;
+use crate::types::TypeParameterIdentityContext;
 
 use super::effect_call_resolution::push_unique_effect;
 use super::effect_inference::{canonical_user_effect_label, quarantined_public_user_effect_label};
@@ -122,6 +123,29 @@ pub(crate) fn canonicalize_type_effects(
     adts: &AdtRegistry,
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Type {
+    canonicalize_type_effects_with_context(
+        ty,
+        uses,
+        quarantined_uses,
+        current_module,
+        effects,
+        adts,
+        companion_effect_access_targets,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn canonicalize_type_effects_with_context(
+    ty: Type,
+    uses: &[UseDecl],
+    quarantined_uses: &[UseDecl],
+    current_module: Option<&str>,
+    effects: &[EffectSignature],
+    adts: &AdtRegistry,
+    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
+    type_parameters: Option<&TypeParameterIdentityContext<'_>>,
+) -> Type {
     TypeCanonicalizer {
         uses,
         quarantined_uses,
@@ -129,6 +153,7 @@ pub(crate) fn canonicalize_type_effects(
         effects,
         adts,
         companion_effect_access_targets,
+        type_parameters,
     }
     .canonicalize(ty)
 }
@@ -140,6 +165,7 @@ struct TypeCanonicalizer<'a> {
     effects: &'a [EffectSignature],
     adts: &'a AdtRegistry,
     companion_effect_access_targets: &'a BTreeMap<String, CompanionAccessTarget>,
+    type_parameters: Option<&'a TypeParameterIdentityContext<'a>>,
 }
 
 impl TypeCanonicalizer<'_> {
@@ -173,6 +199,13 @@ impl TypeCanonicalizer<'_> {
     }
 
     fn canonicalize_named(&self, name: String, args: Vec<Type>) -> Type {
+        if args.is_empty()
+            && let Some(identity) = self
+                .type_parameters
+                .and_then(|type_parameters| type_parameters.identity(&name))
+        {
+            return Type::resolved_named(name, identity, Vec::new());
+        }
         if let Some(refinement) = self.canonicalize_named_variant(&name, &args) {
             return refinement;
         }

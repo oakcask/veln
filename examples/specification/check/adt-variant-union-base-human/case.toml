@@ -1,4 +1,4 @@
-command = ["check", "first.veln", "second.veln", "main.veln"]
+command = ["check", "first.veln", "second.veln", "main.veln", "collision.veln"]
 exit = 1
 
 [stdout]

@@ -58,6 +58,15 @@ impl<'a> TypeParameterIdentityContext<'a> {
         self.positions.get(name).copied()
     }
 
+    pub(crate) fn identity(&self, name: &str) -> Option<String> {
+        self.ordinal(name)
+            .map(|ordinal| format!("type-parameter:{ordinal}"))
+    }
+
+    pub(crate) fn is_identity(identity: &str) -> bool {
+        identity.starts_with("type-parameter:")
+    }
+
     pub(crate) fn name_count(&self) -> usize {
         self.positions.len()
     }

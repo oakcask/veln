@@ -503,6 +503,67 @@ fn declaration_type_parameter_is_a_resolved_nested_union_argument() {
 }
 
 #[test]
+fn declaration_type_parameter_identity_survives_a_same_named_adt() {
+    let main = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\n",
+            "type State\n  Ready\nend\n",
+            "type Box<A>\n  Present(A)\n  Absent\nend\n",
+            "type Holder<State>\n",
+            "  Mixed(Box<State>::Present | Box<main::State>::Absent)\n",
+            "end\n",
+        ),
+    );
+    let diagnostics = analyze_surface_module(&merged_modules_with_identities(vec![("main", main)]));
+
+    let relevant = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
+        .collect::<Vec<_>>();
+    assert_eq!(relevant.len(), 1, "{diagnostics:#?}");
+    let diagnostic = relevant[0];
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.line, 10);
+    let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+    assert!(
+        json.contains("\"expected_base_type\":\"Box<State>\""),
+        "{json}"
+    );
+    assert!(
+        json.contains("\"actual_base_type\":\"Box<main::State>\""),
+        "{json}"
+    );
+    assert!(
+        json.contains(
+            "The first successfully instantiated alternative established `Box<State>` as the union base."
+        ),
+        "{json}"
+    );
+}
+
+#[test]
+fn recovered_structural_argument_consumes_sibling_refinements_in_order() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n  Ready\nend\n",
+        "type Box<A>\n  Present(A)\nend\n",
+        "type Outer<A>\n  Present(A)\nend\n",
+        "type Other\n  B\nend\n",
+        "fn mixed(value: Outer<{left: Box<State::Ready>::Present, right: Box<State::Ready>::Present}>::Present | Other::B) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn recovered_union_compares_canonical_generic_arguments() {
     let diagnostics = diagnostics_for(concat!(
         "type Empty\n",

@@ -1,0 +1,12 @@
+type State
+	Ready
+end
+
+type Box<A>
+	Present(A)
+	Absent
+end
+
+type Holder<State>
+	Mixed(Box<State>::Present | Box<collision::State>::Absent)
+end

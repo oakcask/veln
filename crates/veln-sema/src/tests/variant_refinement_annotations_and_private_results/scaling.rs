@@ -233,10 +233,24 @@ fn nested_mixed_base_recovery_work_grows_linearly_with_depth() {
             "depth={depth} diagnostics={diagnostics:#?}"
         );
         eprintln!("nested mixed-base recovery: depth={depth} work={work:?}");
-        (work.recovery_comparison, work.recovery_materialization)
+        assert_eq!(
+            work.recovery_type_nodes_cloned, 0,
+            "recovered type trees must move instead of clone: depth={depth} work={work:?}"
+        );
+        (
+            work.recovery_comparison,
+            work.recovery_materialization,
+            work.recovery_materialized_type_nodes,
+            work.recovery_cache_retained_type_nodes_peak,
+        )
     });
 
-    for stage in [|work: (usize, usize)| work.0, |work: (usize, usize)| work.1] {
+    for stage in [
+        |work: (usize, usize, usize, usize)| work.0,
+        |work: (usize, usize, usize, usize)| work.1,
+        |work: (usize, usize, usize, usize)| work.2,
+        |work: (usize, usize, usize, usize)| work.3,
+    ] {
         assert_eq!(
             stage(measurements[1]) - stage(measurements[0]),
             stage(measurements[2]) - stage(measurements[1]),
@@ -271,10 +285,24 @@ fn valid_nested_recovery_materialization_grows_linearly_with_depth() {
             "depth={depth} diagnostics={diagnostics:#?}"
         );
         eprintln!("valid nested union recovery: depth={depth} work={work:?}");
-        (work.recovery_comparison, work.recovery_materialization)
+        assert_eq!(
+            work.recovery_type_nodes_cloned, 0,
+            "recovered type trees must move instead of clone: depth={depth} work={work:?}"
+        );
+        (
+            work.recovery_comparison,
+            work.recovery_materialization,
+            work.recovery_materialized_type_nodes,
+            work.recovery_cache_retained_type_nodes_peak,
+        )
     });
 
-    for stage in [|work: (usize, usize)| work.0, |work: (usize, usize)| work.1] {
+    for stage in [
+        |work: (usize, usize, usize, usize)| work.0,
+        |work: (usize, usize, usize, usize)| work.1,
+        |work: (usize, usize, usize, usize)| work.2,
+        |work: (usize, usize, usize, usize)| work.3,
+    ] {
         assert_eq!(
             stage(measurements[1]) - stage(measurements[0]),
             stage(measurements[2]) - stage(measurements[1]),
