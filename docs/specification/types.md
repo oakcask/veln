@@ -764,8 +764,9 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-union-base-json/)
 cases verify ADT identity, invariant generic arguments, per-alternative spans,
 recursively nested nominal-identity display, declaration-type-parameter and
-nominal-type name collisions, complete base rendering across different generic
-arities, and recovery after an invalid earlier alternative.
+nominal-type name collisions, isolation from unrelated source declaration
+names, complete base rendering across different generic arities, and recovery
+after an invalid earlier alternative.
 The focused
 [`reordered JSON`](../../examples/specification/check/adt-variant-union-base-reordered-json/)
 case verifies order-independent record fields and nested refinement sets while
