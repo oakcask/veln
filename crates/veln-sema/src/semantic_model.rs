@@ -276,54 +276,12 @@ pub(crate) fn measure_type_clone_nodes<T>(operation: impl FnOnce() -> T) -> (T, 
     let guard = MeasurementGuard;
     let result = operation();
     drop(guard);
-    let measured = is_outermost
-        .then(|| MEASURED_TYPE_CLONE_NODES.get())
-        .unwrap_or(0);
+    let measured = if is_outermost {
+        MEASURED_TYPE_CLONE_NODES.get()
+    } else {
+        0
+    };
     (result, measured)
-}
-
-#[cfg(test)]
-mod type_clone_measurement_tests {
-    use super::{Type, measure_type_clone_nodes};
-
-    #[test]
-    fn type_clone_measurement_counts_container_children() {
-        let ty = Type::Function {
-            params: vec![Type::Record(vec![(
-                "field".to_string(),
-                Type::named("Vec", vec![Type::Unknown]),
-            )])],
-            variadic: Some(Box::new(Type::VariantRefinement {
-                name: "State".to_string(),
-                identity: "State".to_string(),
-                args: vec![Type::named("Int", Vec::new())],
-                variants: vec!["Ready".to_string()].into(),
-                unresolved_alternatives: vec![(
-                    "Other".to_string(),
-                    vec![Type::Unknown],
-                    "Done".to_string(),
-                )],
-            })),
-            return_type: Box::new(Type::named(
-                "Result",
-                vec![Type::Unknown, Type::named("String", Vec::new())],
-            )),
-            effects: Vec::new(),
-        };
-
-        let (cloned, measured_nodes) = measure_type_clone_nodes(|| ty.clone());
-
-        assert_eq!(cloned, ty);
-        assert_eq!(measured_nodes, 10);
-
-        let (_, container_nodes) = measure_type_clone_nodes(|| vec![ty.clone()]);
-        assert_eq!(container_nodes, 10);
-
-        let (_, temporary_nodes) = measure_type_clone_nodes(|| {
-            let _temporary = ty.clone();
-        });
-        assert_eq!(temporary_nodes, 10);
-    }
 }
 
 impl Type {
@@ -612,5 +570,49 @@ impl Type {
             Self::Function { effects, .. } => Some(effects),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod type_clone_measurement_tests {
+    use super::{Type, measure_type_clone_nodes};
+
+    #[test]
+    fn type_clone_measurement_counts_container_children() {
+        let ty = Type::Function {
+            params: vec![Type::Record(vec![(
+                "field".to_string(),
+                Type::named("Vec", vec![Type::Unknown]),
+            )])],
+            variadic: Some(Box::new(Type::VariantRefinement {
+                name: "State".to_string(),
+                identity: "State".to_string(),
+                args: vec![Type::named("Int", Vec::new())],
+                variants: vec!["Ready".to_string()].into(),
+                unresolved_alternatives: vec![(
+                    "Other".to_string(),
+                    vec![Type::Unknown],
+                    "Done".to_string(),
+                )],
+            })),
+            return_type: Box::new(Type::named(
+                "Result",
+                vec![Type::Unknown, Type::named("String", Vec::new())],
+            )),
+            effects: Vec::new(),
+        };
+
+        let (cloned, measured_nodes) = measure_type_clone_nodes(|| ty.clone());
+
+        assert_eq!(cloned, ty);
+        assert_eq!(measured_nodes, 10);
+
+        let (_, container_nodes) = measure_type_clone_nodes(|| vec![ty.clone()]);
+        assert_eq!(container_nodes, 10);
+
+        let (_, temporary_nodes) = measure_type_clone_nodes(|| {
+            let _temporary = ty.clone();
+        });
+        assert_eq!(temporary_nodes, 10);
     }
 }

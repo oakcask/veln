@@ -762,10 +762,9 @@ fn materialize_refinement_argument(
     materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
 ) -> Option<RecoveredType> {
     let mut child_refinements = argument.ty_refinements.iter().map(|refinement| {
-        let recovered = materialized_refinements
+        materialized_refinements
             .remove(&span_occurrence(&refinement.span))
-            .flatten();
-        recovered
+            .flatten()
     });
     let mut replacements = Vec::new();
     if !collect_recovery_replacements(&ty, &mut child_refinements, &mut replacements)
