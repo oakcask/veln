@@ -801,6 +801,15 @@ source occurrences it examines. This includes invalid-cased bases, unrelated
 diagnostics interleaved around the base failures, and structurally separate
 sibling type positions.
 
+For a refinement union nested to depth `D` through named type arguments,
+recovery comparison, recovered-type materialization, materialized type nodes,
+and peak retained recovery nodes grow linearly with `D`. Recovered type trees
+are moved into the comparison rather than cloned. The deterministic scaling
+check compares depths 8, 16, and 24, requires constant adjacent growth for each
+counter, and requires zero cloned recovery type nodes. It covers both a nested
+mixed-base failure and a fully instantiated nested alternative compared with a
+different base.
+
 A refinement anywhere inside a public function parameter or result annotation,
 or inside a payload of a public variant of a public source ADT, can expose only
 a public terminal ADT and public selected variants. The traversal enters named
