@@ -322,6 +322,37 @@ fn analyze_annotation(
     environment: &TypeEnvironment,
     type_parameters: &[String],
 ) -> AnnotationRecovery {
+    #[cfg(test)]
+    {
+        let (recovery, cloned_nodes) = crate::semantic_model::measure_type_clone_nodes(|| {
+            analyze_annotation_unmeasured(
+                refinements,
+                paths,
+                current_module,
+                environment,
+                type_parameters,
+            )
+        });
+        crate::pipeline::record_variant_refinement_recovery_type_clones(cloned_nodes);
+        recovery
+    }
+    #[cfg(not(test))]
+    analyze_annotation_unmeasured(
+        refinements,
+        paths,
+        current_module,
+        environment,
+        type_parameters,
+    )
+}
+
+fn analyze_annotation_unmeasured(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    type_parameters: &[String],
+) -> AnnotationRecovery {
     let mut recovery = AnnotationRecovery::default();
     let mut visited_paths = HashMap::new();
     let mut materialized_refinements = HashMap::new();
@@ -344,12 +375,6 @@ fn analyze_annotation(
         &mut recovery.errors,
         &mut visited_paths,
     );
-    let retained_nodes = materialized_refinements
-        .values()
-        .filter_map(Option::as_ref)
-        .map(|recovered| recovered.nodes)
-        .sum();
-    crate::pipeline::release_variant_refinement_recovery_type(retained_nodes);
     recovery
 }
 
@@ -463,9 +488,6 @@ fn collect_independent_refinement_errors(
             materialized_refinements,
         );
         annotation_is_invalid |= refinement_is_invalid;
-        if let Some(recovered) = &recovered_refinement {
-            crate::pipeline::retain_variant_refinement_recovery_type(recovered.nodes);
-        }
         materialized_refinements.insert(span_occurrence(&refinement.span), recovered_refinement);
     }
     annotation_is_invalid
@@ -743,9 +765,6 @@ fn materialize_refinement_argument(
         let recovered = materialized_refinements
             .remove(&span_occurrence(&refinement.span))
             .flatten();
-        if let Some(recovered) = &recovered {
-            crate::pipeline::release_variant_refinement_recovery_type(recovered.nodes);
-        }
         recovered
     });
     let mut replacements = Vec::new();

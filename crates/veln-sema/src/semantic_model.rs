@@ -176,7 +176,8 @@ impl ExpectedTypeSource {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(not(test), derive(Clone))]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Type {
     Unknown,
     Named {
@@ -198,6 +199,131 @@ pub(crate) enum Type {
         return_type: Box<Type>,
         effects: Vec<String>,
     },
+}
+
+#[cfg(test)]
+thread_local! {
+    static TYPE_CLONE_MEASUREMENT_DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static MEASURED_TYPE_CLONE_NODES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+impl Clone for Type {
+    fn clone(&self) -> Self {
+        TYPE_CLONE_MEASUREMENT_DEPTH.with(|depth| {
+            if depth.get() > 0 {
+                MEASURED_TYPE_CLONE_NODES.set(MEASURED_TYPE_CLONE_NODES.get() + 1);
+            }
+        });
+        match self {
+            Self::Unknown => Self::Unknown,
+            Self::Named {
+                name,
+                identity,
+                args,
+            } => Self::Named {
+                name: name.clone(),
+                identity: identity.clone(),
+                args: args.clone(),
+            },
+            Self::VariantRefinement {
+                name,
+                identity,
+                args,
+                variants,
+                unresolved_alternatives,
+            } => Self::VariantRefinement {
+                name: name.clone(),
+                identity: identity.clone(),
+                args: args.clone(),
+                variants: variants.clone(),
+                unresolved_alternatives: unresolved_alternatives.clone(),
+            },
+            Self::Record(fields) => Self::Record(fields.clone()),
+            Self::Function {
+                params,
+                variadic,
+                return_type,
+                effects,
+            } => Self::Function {
+                params: params.clone(),
+                variadic: variadic.clone(),
+                return_type: return_type.clone(),
+                effects: effects.clone(),
+            },
+        }
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn measure_type_clone_nodes<T>(operation: impl FnOnce() -> T) -> (T, usize) {
+    struct MeasurementGuard;
+
+    impl Drop for MeasurementGuard {
+        fn drop(&mut self) {
+            TYPE_CLONE_MEASUREMENT_DEPTH.with(|depth| depth.set(depth.get() - 1));
+        }
+    }
+
+    let is_outermost = TYPE_CLONE_MEASUREMENT_DEPTH.with(|depth| {
+        let current = depth.get();
+        depth.set(current + 1);
+        current == 0
+    });
+    if is_outermost {
+        MEASURED_TYPE_CLONE_NODES.set(0);
+    }
+    let guard = MeasurementGuard;
+    let result = operation();
+    drop(guard);
+    let measured = is_outermost
+        .then(|| MEASURED_TYPE_CLONE_NODES.get())
+        .unwrap_or(0);
+    (result, measured)
+}
+
+#[cfg(test)]
+mod type_clone_measurement_tests {
+    use super::{Type, measure_type_clone_nodes};
+
+    #[test]
+    fn type_clone_measurement_counts_container_children() {
+        let ty = Type::Function {
+            params: vec![Type::Record(vec![(
+                "field".to_string(),
+                Type::named("Vec", vec![Type::Unknown]),
+            )])],
+            variadic: Some(Box::new(Type::VariantRefinement {
+                name: "State".to_string(),
+                identity: "State".to_string(),
+                args: vec![Type::named("Int", Vec::new())],
+                variants: vec!["Ready".to_string()].into(),
+                unresolved_alternatives: vec![(
+                    "Other".to_string(),
+                    vec![Type::Unknown],
+                    "Done".to_string(),
+                )],
+            })),
+            return_type: Box::new(Type::named(
+                "Result",
+                vec![Type::Unknown, Type::named("String", Vec::new())],
+            )),
+            effects: Vec::new(),
+        };
+
+        let (cloned, measured_nodes) = measure_type_clone_nodes(|| ty.clone());
+
+        assert_eq!(cloned, ty);
+        assert_eq!(measured_nodes, 10);
+
+        let (_, container_nodes) = measure_type_clone_nodes(|| vec![ty.clone()]);
+        assert_eq!(container_nodes, 10);
+
+        let (_, temporary_nodes) = measure_type_clone_nodes(|| {
+            let _temporary = ty.clone();
+        });
+        assert_eq!(temporary_nodes, 10);
+    }
 }
 
 impl Type {

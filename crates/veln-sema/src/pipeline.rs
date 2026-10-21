@@ -297,8 +297,6 @@ pub(crate) struct VariantRefinementBaseWork {
     pub(crate) recovery_materialization: usize,
     pub(crate) recovery_materialized_type_nodes: usize,
     pub(crate) recovery_type_nodes_cloned: usize,
-    pub(crate) recovery_cache_retained_type_nodes_peak: usize,
-    recovery_current_cache_retained_type_nodes: usize,
     pub(crate) diagnostic_ordering: usize,
 }
 
@@ -313,8 +311,6 @@ impl VariantRefinementBaseWork {
             recovery_materialization: 0,
             recovery_materialized_type_nodes: 0,
             recovery_type_nodes_cloned: 0,
-            recovery_cache_retained_type_nodes_peak: 0,
-            recovery_current_cache_retained_type_nodes: 0,
             diagnostic_ordering: 0,
         }
     }
@@ -388,27 +384,11 @@ pub(crate) fn record_variant_refinement_recovery_type_materialization(amount: us
 pub(crate) fn record_variant_refinement_recovery_type_materialization(_amount: usize) {}
 
 #[cfg(test)]
-pub(crate) fn retain_variant_refinement_recovery_type(amount: usize) {
+pub(crate) fn record_variant_refinement_recovery_type_clones(amount: usize) {
     update_variant_refinement_base_work(|work| {
-        work.recovery_current_cache_retained_type_nodes += amount;
-        work.recovery_cache_retained_type_nodes_peak = work
-            .recovery_cache_retained_type_nodes_peak
-            .max(work.recovery_current_cache_retained_type_nodes);
+        work.recovery_type_nodes_cloned += amount;
     });
 }
-
-#[cfg(not(test))]
-pub(crate) fn retain_variant_refinement_recovery_type(_amount: usize) {}
-
-#[cfg(test)]
-pub(crate) fn release_variant_refinement_recovery_type(amount: usize) {
-    update_variant_refinement_base_work(|work| {
-        work.recovery_current_cache_retained_type_nodes -= amount;
-    });
-}
-
-#[cfg(not(test))]
-pub(crate) fn release_variant_refinement_recovery_type(_amount: usize) {}
 
 #[cfg(test)]
 pub(crate) fn reset_variant_refinement_base_work() {
