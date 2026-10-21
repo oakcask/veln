@@ -662,7 +662,9 @@ same alternative. During recovered union-base comparison, record arguments
 match fields by name regardless of written field order, and nested refinement
 arguments match variant sets regardless of written alternative order. A
 declaration type parameter has an identity in its declaration context and
-remains distinct from a same-spelled nominal type.
+remains distinct from a same-spelled nominal type. Every named argument keeps
+its resolved identity, so a compiler-known type and a source-declared nominal
+type with the same leaf spelling remain different union bases.
 `Option<T>`, `Result<T, E>`, `List<T>`, and source-defined ADTs use this same
 representation. A public type-alias chain whose resolved target is an ADT can
 qualify a singleton or union alternative. Alias-qualified and target-qualified
@@ -764,9 +766,10 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-union-base-json/)
 cases verify ADT identity, invariant generic arguments, per-alternative spans,
 recursively nested nominal-identity display, declaration-type-parameter and
-nominal-type name collisions, isolation from unrelated source declaration
-names, complete base rendering across different generic arities, and recovery
-after an invalid earlier alternative.
+nominal-type name collisions, compiler-known and source-nominal name
+collisions, isolation from unrelated source declaration names, complete base
+rendering across different generic arities, and recovery after an invalid
+earlier alternative.
 The focused
 [`reordered JSON`](../../examples/specification/check/adt-variant-union-base-reordered-json/)
 case verifies order-independent record fields and nested refinement sets while

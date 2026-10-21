@@ -319,6 +319,9 @@ is resolved in that declaration context and remains eligible for comparison.
 It remains distinct from a same-spelled nominal type. The type parameter keeps
 its source spelling in diagnostic details, while the nominal type uses its
 stable qualified identity when that qualification is needed to expose the
+conflict. A compiler-known type and a source-declared nominal type with the
+same leaf spelling also retain different identities. Diagnostic details keep
+the compiler-known spelling concise and qualify the source type to expose the
 conflict. Adding or renaming a source declaration whose name does not occur in
 the union annotation leaves the expected-base selection and reported conflicts
 unchanged. Its closed details contain exactly
@@ -438,9 +441,9 @@ and
 cases fix later-alternative spans, closed base details, earliest-alternative
 context, repeated conflicts, recursively nested nominal-identity display,
 invariant generic arguments, declaration-type-parameter and nominal-type name
-collisions, isolation from unrelated source declaration names, complete base
-rendering across different generic arities, and arity recovery before an
-independent later conflict.
+collisions, compiler-known and source-nominal name collisions, isolation from
+unrelated source declaration names, complete base rendering across different
+generic arities, and arity recovery before an independent later conflict.
 The focused
 [`reordered JSON`](../../examples/specification/check/adt-variant-union-base-reordered-json/)
 case fixes order-independent record and nested-refinement comparison plus
