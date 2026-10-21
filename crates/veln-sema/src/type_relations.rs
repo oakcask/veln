@@ -1,10 +1,11 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::semantic_model::Type;
 
 #[cfg(test)]
 thread_local! {
     static VARIANT_SET_LOOKUPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static RECORD_FIELD_MATCH_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -15,6 +16,22 @@ pub(crate) fn reset_variant_set_lookups() {
 #[cfg(test)]
 pub(crate) fn take_variant_set_lookups() -> usize {
     VARIANT_SET_LOOKUPS.with(|lookups| lookups.replace(0))
+}
+
+#[cfg(test)]
+pub(crate) fn reset_record_field_match_work() {
+    RECORD_FIELD_MATCH_WORK.with(|work| work.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_record_field_match_work() -> usize {
+    RECORD_FIELD_MATCH_WORK.with(|work| work.replace(0))
+}
+
+#[inline(always)]
+fn record_field_match_work() {
+    #[cfg(test)]
+    RECORD_FIELD_MATCH_WORK.with(|work| work.set(work.get() + 1));
 }
 
 #[inline(always)]
@@ -609,13 +626,28 @@ fn invariant_types_match(expected: &Type, actual: &Type) -> bool {
 }
 
 fn invariant_records_match(expected: &[(String, Type)], actual: &[(String, Type)]) -> bool {
-    expected.len() == actual.len()
-        && expected.iter().all(|(expected_name, expected_ty)| {
-            actual
-                .iter()
-                .find(|(actual_name, _)| actual_name == expected_name)
-                .is_some_and(|(_, actual_ty)| invariant_types_match(expected_ty, actual_ty))
-        })
+    record_fields_match_by_name(expected, actual, invariant_types_match)
+}
+
+pub(crate) fn record_fields_match_by_name(
+    expected: &[(String, Type)],
+    actual: &[(String, Type)],
+    mut types_match: impl FnMut(&Type, &Type) -> bool,
+) -> bool {
+    if expected.len() != actual.len() {
+        return false;
+    }
+    let mut actual_by_name = HashMap::with_capacity(actual.len());
+    for (name, ty) in actual {
+        record_field_match_work();
+        actual_by_name.entry(name.as_str()).or_insert(ty);
+    }
+    expected.iter().all(|(name, expected_ty)| {
+        record_field_match_work();
+        actual_by_name
+            .get(name.as_str())
+            .is_some_and(|actual_ty| types_match(expected_ty, actual_ty))
+    })
 }
 
 fn invariant_parameters_match(expected: &[Type], actual: &[Type]) -> bool {

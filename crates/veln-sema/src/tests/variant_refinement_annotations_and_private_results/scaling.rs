@@ -357,6 +357,59 @@ fn structural_sibling_recovery_work_is_linear() {
 }
 
 #[test]
+fn reordered_wide_record_union_base_comparison_is_linear() {
+    let measurements = [64, 128, 256].map(|count| {
+        let fields = (0..count)
+            .map(|index| format!("field{index}: Int"))
+            .collect::<Vec<_>>();
+        let reversed_fields = fields.iter().rev().cloned().collect::<Vec<_>>();
+        let source = format!(
+            "type Box<A>\n  Present(value: A)\n  Absent(value: A)\nend\n\
+             fn valid(value: Box<{{{}}}>::Present | Box<{{{}}}>::Absent) -> ()\n  ()\nend\n",
+            fields.join(", "),
+            reversed_fields.join(", ")
+        );
+
+        crate::type_relations::reset_record_field_match_work();
+        let diagnostics = diagnostics_for(&source);
+        let work = crate::type_relations::take_record_field_match_work();
+        assert!(
+            diagnostics.is_empty(),
+            "count={count} diagnostics={diagnostics:#?}"
+        );
+        assert!(work >= count * 4, "count={count} work={work}");
+        eprintln!("wide record union comparison: fields={count} work={work}");
+        work
+    });
+
+    let first_growth = measurements[1] - measurements[0];
+    let second_growth = measurements[2] - measurements[1];
+    assert_eq!(
+        second_growth,
+        first_growth * 2,
+        "record identity comparison must have exact affine growth: {measurements:?}"
+    );
+}
+
+#[test]
+fn record_field_identity_matching_preserves_first_duplicate() {
+    let expected = vec![
+        ("field".to_string(), Type::int()),
+        ("field".to_string(), Type::int()),
+    ];
+    let actual = vec![
+        ("field".to_string(), Type::int()),
+        ("field".to_string(), Type::string()),
+    ];
+
+    assert!(crate::type_relations::record_fields_match_by_name(
+        &expected,
+        &actual,
+        |expected, actual| expected == actual,
+    ));
+}
+
+#[test]
 fn declaration_quarantine_work_is_linear_across_consumers() {
     let measurements = [16, 32, 64].map(|count| {
         let mut source = String::from("type Empty\nend\n");

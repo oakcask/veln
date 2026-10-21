@@ -1099,13 +1099,11 @@ fn resolved_type_identities_match(expected: &Type, actual: &Type) -> bool {
                     .all(|(expected, actual)| resolved_type_identities_match(expected, actual))
         }
         (Type::Record(expected), Type::Record(actual)) => {
-            expected.len() == actual.len()
-                && expected.iter().all(|(expected_name, expected)| {
-                    actual
-                        .iter()
-                        .find(|(actual_name, _)| actual_name == expected_name)
-                        .is_some_and(|(_, actual)| resolved_type_identities_match(expected, actual))
-                })
+            crate::type_relations::record_fields_match_by_name(
+                expected,
+                actual,
+                resolved_type_identities_match,
+            )
         }
         (
             Type::Function {
