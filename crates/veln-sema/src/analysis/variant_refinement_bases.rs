@@ -1061,13 +1061,13 @@ fn same_variant_refinement_base(expected: &Type, actual: &Type) -> bool {
                 && expected_args
                     .iter()
                     .zip(actual_args)
-                    .all(|(expected, actual)| type_parameter_identities_match(expected, actual))
+                    .all(|(expected, actual)| resolved_type_identities_match(expected, actual))
         }
         _ => false,
     }
 }
 
-fn type_parameter_identities_match(expected: &Type, actual: &Type) -> bool {
+fn resolved_type_identities_match(expected: &Type, actual: &Type) -> bool {
     match (expected, actual) {
         (
             Type::Named {
@@ -1091,14 +1091,12 @@ fn type_parameter_identities_match(expected: &Type, actual: &Type) -> bool {
                 ..
             },
         ) => {
-            let expected_parameter = TypeParameterIdentityContext::is_identity(expected_identity);
-            let actual_parameter = TypeParameterIdentityContext::is_identity(actual_identity);
-            (!expected_parameter && !actual_parameter || expected_identity == actual_identity)
+            expected_identity == actual_identity
                 && expected_args.len() == actual_args.len()
                 && expected_args
                     .iter()
                     .zip(actual_args)
-                    .all(|(expected, actual)| type_parameter_identities_match(expected, actual))
+                    .all(|(expected, actual)| resolved_type_identities_match(expected, actual))
         }
         (Type::Record(expected), Type::Record(actual)) => {
             expected.len() == actual.len()
@@ -1106,9 +1104,7 @@ fn type_parameter_identities_match(expected: &Type, actual: &Type) -> bool {
                     actual
                         .iter()
                         .find(|(actual_name, _)| actual_name == expected_name)
-                        .is_some_and(|(_, actual)| {
-                            type_parameter_identities_match(expected, actual)
-                        })
+                        .is_some_and(|(_, actual)| resolved_type_identities_match(expected, actual))
                 })
         }
         (
@@ -1129,15 +1125,15 @@ fn type_parameter_identities_match(expected: &Type, actual: &Type) -> bool {
                 && expected_params
                     .iter()
                     .zip(actual_params)
-                    .all(|(expected, actual)| type_parameter_identities_match(expected, actual))
+                    .all(|(expected, actual)| resolved_type_identities_match(expected, actual))
                 && match (expected_variadic, actual_variadic) {
                     (Some(expected), Some(actual)) => {
-                        type_parameter_identities_match(expected, actual)
+                        resolved_type_identities_match(expected, actual)
                     }
                     (None, None) => true,
                     _ => false,
                 }
-                && type_parameter_identities_match(expected_return, actual_return)
+                && resolved_type_identities_match(expected_return, actual_return)
         }
         (Type::Unknown, Type::Unknown) => true,
         _ => true,

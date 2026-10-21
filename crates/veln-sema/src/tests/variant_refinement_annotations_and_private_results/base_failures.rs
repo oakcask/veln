@@ -542,6 +542,50 @@ fn declaration_type_parameter_identity_survives_a_same_named_adt() {
 }
 
 #[test]
+fn compiler_known_and_qualified_source_arguments_have_distinct_identities() {
+    let decoy = SourceFile::new("decoy.veln", "mod decoy\npub type Int\n  pub Value\nend\n");
+    let other = SourceFile::new("other.veln", "mod other\npub type Int\n  pub Value\nend\n");
+    let main = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\nuse decoy\nuse other\n",
+            "type Box<A>\n  Present(A)\n  Absent\nend\n",
+            "fn needs_int(value: Int) -> ()\n  ()\nend\n",
+            "fn broken(invalid: Box<Int>::Present | Box<other::Int>::Absent, sibling: String) -> Int\n",
+            "  needs_int(sibling)\n",
+            "  \"wrong\"\n",
+            "end\n",
+            "fn caller() -> ()\n",
+            "  let result: String = broken(1, 2)\n",
+            "end\n",
+        ),
+    );
+    let diagnostics = analyze_surface_module(&merged_modules_with_identities(vec![
+        ("decoy", decoy),
+        ("other", other),
+        ("main", main),
+    ]));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic.id, "type.variant_union_base");
+    assert_eq!(
+        diagnostic.details.to_json(),
+        "{\"expected_base_type\":\"Box<Int>\",\"actual_base_type\":\"Box<other::Int>\"}"
+    );
+    let observed = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+    assert!(
+        observed.contains("\"kind\":\"expected_variant_union_base\"")
+            && observed.contains("\"start\":{\"line\":11,\"column\":20")
+            && observed.contains("\"end\":{\"line\":11,\"column\":37")
+            && observed.contains(
+                "The first successfully instantiated alternative established `Box<Int>` as the union base."
+            ),
+        "{observed}"
+    );
+}
+
+#[test]
 fn recovery_slots_cannot_be_captured_by_source_declarations() {
     fn source(marker: &str) -> String {
         format!(
