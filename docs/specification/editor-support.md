@@ -862,8 +862,9 @@ Implemented support includes:
 - Full-document semantic token legend and relative integer encoding.
 - Stdio lifecycle, diagnostics, completion, signature-help, definition,
   references, formatting, prepare-rename, and rename responses described above.
-- Workspace and document-scoped diagnostics, unsaved overlays, source-casing
-  diagnostics, and selected-project isolation.
+- Workspace and document-scoped diagnostics with compiler messages, UTF-16
+  primary and related ranges, unsaved overlays, source-casing diagnostics, and
+  selected-project isolation.
 - Navigation for workspace declarations, exact companions, handler bindings,
   embedded standard-library exports, and admitted direct dependencies.
 - Canonical `veln-pkg:` virtual-document reads for retained package sources,
