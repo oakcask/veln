@@ -1,0 +1,15 @@
+pub type Empty
+end
+pub type Left
+  A
+end
+
+pub type Right
+  B
+end
+
+pub type State
+  Hidden
+end
+pub type Inner = State
+pub type Outer = Inner

@@ -26,9 +26,11 @@ is not obvious.
 - Promote proposal work into implemented behavior:
   [proposals/README.md](proposals/README.md), then the matching
   specification page.
-- Update diagnostics, related notes, or command JSON behavior:
+- Update compiler diagnostics, human related notes, or command JSON behavior:
   [specification/diagnostics-json.md](specification/diagnostics-json.md)
   or [specification/json-output.md](specification/json-output.md).
+- Update LSP diagnostic projection or editor behavior:
+  [specification/editor-support.md](specification/editor-support.md).
 - Update MCP workspace selection, saved diagnostics, saved navigation,
   resources, or tool schemas:
   [specification/mcp.md](specification/mcp.md).

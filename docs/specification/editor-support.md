@@ -232,8 +232,33 @@ references. Invalid casing in an unselected package root does not produce a
 workspace diagnostic for the selected project.
 
 Published diagnostics use standard LSP severity numbers and zero-based ranges.
-The diagnostic `code` is the Veln diagnostic id, and the diagnostic `source` is
-`veln`. Span-less diagnostics are published at a zero-width start range while
+The diagnostic `message` preserves the compiler diagnostic message, the
+diagnostic `code` is the Veln diagnostic id, and the diagnostic `source` is
+`veln`. Primary diagnostic ranges are half-open. The server converts their
+one-based Unicode-scalar source positions to zero-based UTF-16 positions from
+the effective source text. A non-BMP scalar before a position therefore adds
+two UTF-16 code units to the LSP character offset. Workspace publication uses
+the same conversion as document publication and includes unsaved overlays in
+that effective text.
+
+Each compiler related note becomes an LSP `relatedInformation` entry when it
+has a text message, a source available to the current document or workspace
+diagnostic publication, and a source span whose start and end each contain
+one-based line and Unicode-scalar column fields plus a zero-based byte offset.
+Each position must identify the same UTF-8 scalar boundary in the available
+source through all three fields, and the start byte offset must not follow the
+end byte offset. Entries retain compiler diagnostic order. Each location uses
+that source's URI and the same half-open UTF-16 range conversion as the primary
+diagnostic. Notes with missing or malformed required fields, unavailable
+sources, out-of-source or inconsistent positions, or reversed ranges remain
+available only through the compiler diagnostic envelope.
+
+This projection applies to variant-refinement diagnostics, including
+`type.variant_union_base`; it does not recover navigation identities from an
+invalid refinement. The checked stdio evidence is under
+`examples/specification/lsp/adt-variant-refinement-diagnostics/`.
+
+Span-less diagnostics are published at a zero-width start range while
 preserving the compiler-owned diagnostic id, including
 `toolchain.invalid_symbol_case`. Source-path-derived module segment
 diagnostics include LSP `data` with the observable source-path origin
@@ -837,8 +862,9 @@ Implemented support includes:
 - Full-document semantic token legend and relative integer encoding.
 - Stdio lifecycle, diagnostics, completion, signature-help, definition,
   references, formatting, prepare-rename, and rename responses described above.
-- Workspace and document-scoped diagnostics, unsaved overlays, source-casing
-  diagnostics, and selected-project isolation.
+- Workspace and document-scoped diagnostics with compiler messages, UTF-16
+  primary and related ranges, unsaved overlays, source-casing diagnostics, and
+  selected-project isolation.
 - Navigation for workspace declarations, exact companions, handler bindings,
   embedded standard-library exports, and admitted direct dependencies.
 - Canonical `veln-pkg:` virtual-document reads for retained package sources,

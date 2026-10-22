@@ -24,9 +24,9 @@ unavailable, only retained privacy diagnostics in that declaration's causal
 dependency closure participate in the package-atomic failure.
 
 This proposal retains only the unfinished work: qualified-value match
-refinement, schema boundaries, remaining LSP diagnostics and
-invalid-refinement recovery, and MCP invalid-refinement recovery with the
-saved-state behavior of those remaining requests. Qualified
+refinement, schema boundaries, the provider-dependent unavailable-descriptor
+diagnostic, LSP invalid-refinement recovery, and MCP invalid-refinement
+recovery with the saved-state behavior of those remaining requests. Qualified
 immutable-value refinement depends
 on a separately specified source form for module-addressable immutable data
 values; current qualified constructor and function expressions do not satisfy
@@ -44,7 +44,7 @@ The remaining proposal has these intended outcomes:
 - Production inputs with a known ADT identity but no public finite variant
   descriptor report the defined provider-dependent diagnostic after that
   provider contract exists.
-- Remaining LSP and MCP views agree with the current package-documentation
+- Remaining LSP and MCP recovery views agree with the current package-documentation
   catalog on the identity and visibility of a refined variant. Failures in
   those remaining operations preserve the previous observable state.
 
@@ -320,10 +320,10 @@ must follow the current package-documentation contract.
 
 ### LSP
 
-The existing LSP surface still requires the following behavior:
-
-- Published diagnostics project the diagnostic table with the existing UTF-16
-  range conversion and related information.
+The current [editor-support specification](../specification/editor-support.md#lsp-diagnostics)
+owns LSP publication of compiler diagnostics, including variant-refinement
+primary and related spans, UTF-16 conversion, cross-source related locations,
+and unsaved overlays. This proposal retains only invalid-refinement recovery.
 
 Invalid or recovered refinements must contribute only identities that the
 remaining shared recovery rules can establish unambiguously. An invalid request
@@ -358,7 +358,7 @@ current behavior:
 | Qualified immutable values | After a separate Ready proposal adds module-addressable immutable data values, matching a qualified reference to such a declaration has the same stable-value refinement as the corresponding direct binding. A same-shaped qualified constructor or function expression remains outside this rule. | Accepted and rejected source-grammar fixtures and name-resolution cases for the prerequisite declaration, followed by match cases that resolve an actual qualified immutable data-value declaration and distinguish it from constructors and functions. |
 | Schema encode and decode | Refinement annotations preserve the base ADT wire representation. Encode and typed pass-through helpers require statically assignable refined inputs. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. Exact test-companion access permits ordinary test source to use a private constructor, but does not make that constructor visible at a generated public schema boundary. | Schema eligibility and type-checker cases for refined and base inputs; paired visibility cases that use one private constructor for accepted ordinary use from its exact test companion and rejection at a generated public schema boundary, with an accepted public-constructor control; binary, format-neutral, incremental, singleton, union, nested record, payload, option, result, collection, and dictionary cases; runtime cases for admitted variants, excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, and unchanged wire bytes. |
 | Provider descriptor unavailable | After the separate provider prerequisite lands, a production compiler or package input with a known ADT identity and no public finite variant descriptor reports `type.variant_refinement_base` with reason `variant_descriptor_unavailable`. A local source declaration with no lowered variants does not establish this reason. | Human and JSON command fixtures that select the production provider, plus semantic cases that distinguish compiler or package provenance from local source declarations and unit-only provider injection. |
-| LSP | Diagnostics, invalid-refinement recovery, their UTF-16 span projection, and unchanged-snapshot failures follow the remaining LSP contract. | Shared language-service cases and stdio LSP request/response fixtures. |
+| LSP | Invalid-refinement recovery and unchanged-snapshot failures follow the remaining LSP contract. | Shared language-service cases and stdio LSP request/response fixtures. |
 | MCP | Invalid-refinement recovery and its request-specific failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |
 
 The remaining state-machine examples must include match-based recovery of a

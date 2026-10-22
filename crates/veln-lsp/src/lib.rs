@@ -416,40 +416,65 @@ impl Server {
         &mut self,
         roots: impl IntoIterator<Item = PathBuf>,
     ) -> Vec<String> {
-        let mut responses = Vec::new();
-        for root in roots {
-            let diagnostics_by_path = Project::discover(root.clone(), &[])
-                .ok()
-                .map(|mut project| {
-                    self.overlay_open_workspace_documents(&root, &mut project);
-                    let diagnostics =
-                        checked_project_diagnostics(project.clone(), DoctestMode::Exclude);
-                    let mut diagnostics_by_path = diagnostics_by_path(diagnostics);
-                    for source in &project.files {
-                        diagnostics_by_path
-                            .entry(source.path().as_str().to_string())
-                            .or_default();
-                    }
-                    diagnostics_by_path
-                })
-                .unwrap_or_default();
-            let mut next_uris = BTreeSet::new();
+        roots
+            .into_iter()
+            .flat_map(|root| self.publish_workspace_diagnostics_for_root(root))
+            .collect()
+    }
 
-            for (source_path, diagnostics) in diagnostics_by_path {
-                let uri = path_to_uri(
-                    &visible_workspace_root(&root, &self.workspace_root_aliases).join(&source_path),
-                );
+    fn publish_workspace_diagnostics_for_root(&mut self, root: PathBuf) -> Vec<String> {
+        let (diagnostics_by_path, diagnostic_sources) = self.workspace_diagnostics_for_root(&root);
+        let visible_root = visible_workspace_root(&root, &self.workspace_root_aliases);
+        let mut next_uris = BTreeSet::new();
+        let mut responses = diagnostics_by_path
+            .into_iter()
+            .map(|(source_path, diagnostics)| {
+                let uri = path_to_uri(&visible_root.join(source_path));
                 next_uris.insert(uri.clone());
-                responses.push(publish_diagnostics_for_uri(&uri, &diagnostics));
-            }
-            if let Some(previous_uris) = self.published_diagnostic_uris.get(&root) {
-                for uri in previous_uris.difference(&next_uris) {
-                    responses.push(empty_publish_diagnostics(uri));
-                }
-            }
-            self.published_diagnostic_uris.insert(root, next_uris);
+                publish_diagnostics_for_uri(&uri, &diagnostics, &diagnostic_sources)
+            })
+            .collect::<Vec<_>>();
+
+        if let Some(previous_uris) = self.published_diagnostic_uris.get(&root) {
+            responses.extend(
+                previous_uris
+                    .difference(&next_uris)
+                    .map(|uri| empty_publish_diagnostics(uri)),
+            );
         }
+        self.published_diagnostic_uris.insert(root, next_uris);
         responses
+    }
+
+    fn workspace_diagnostics_for_root(
+        &mut self,
+        root: &Path,
+    ) -> (BTreeMap<String, Vec<Diagnostic>>, DiagnosticSources) {
+        let Ok(mut project) = Project::discover(root.to_path_buf(), &[]) else {
+            return Default::default();
+        };
+        self.overlay_open_workspace_documents(root, &mut project);
+        let visible_root = visible_workspace_root(root, &self.workspace_root_aliases);
+        let diagnostic_sources = project
+            .files
+            .iter()
+            .map(|source| {
+                let path = source.path().as_str().to_string();
+                let published = DiagnosticSource::new(
+                    path_to_uri(&visible_root.join(&path)),
+                    source.text().to_string(),
+                );
+                (path, published)
+            })
+            .collect();
+        let diagnostics = checked_project_diagnostics(project.clone(), DoctestMode::Exclude);
+        let mut diagnostics_by_path = diagnostics_by_path(diagnostics);
+        for source in &project.files {
+            diagnostics_by_path
+                .entry(source.path().as_str().to_string())
+                .or_default();
+        }
+        (diagnostics_by_path, diagnostic_sources)
     }
 
     fn overlay_open_workspace_documents(&self, root: &Path, project: &mut Project) {

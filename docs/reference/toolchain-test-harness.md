@@ -351,6 +351,7 @@ selector, pointer, operation, independence, and aggregation boundaries.
 
 The `publish-diagnostics`, `semantic-tokens`,
 `semantic-tokens-unsaved-change`,
+`adt-variant-refinement-diagnostics`,
 `adt-variant-refinement-semantic-tokens`,
 `adt-variant-refinement-semantic-token-boundary`,
 `adt-variant-refinement-navigation`,
@@ -408,6 +409,9 @@ ordinary-binding precedence over same-named functions, bare and qualified
 source signature help, the bare `handle` operator boundary, UTF-16 positions,
 invalid-position failures, and unchanged retained-source results after those
 failures.
+The `adt-variant-refinement-diagnostics` LSP specification case uses decoded
+assertions for diagnostic codes and messages, exact primary and related UTF-16
+ranges from unsaved source text, and cross-source related locations.
 The `adt-variant-refinement-semantic-tokens` LSP specification case uses a
 decoded complete-token array for refinement classes, modifiers, nested and
 qualified forms, and UTF-16 coordinates. Its adjacent `-boundary` case uses

@@ -438,7 +438,7 @@ fn lsp_diagnostic_wire_fields_are_stable() {
     );
 
     assert_eq!(
-        lsp_diagnostic_json(&diagnostic),
+        lsp_diagnostic_json(&diagnostic, &DiagnosticSources::default()),
         concat!(
             "{\"range\":{\"start\":{\"line\":1,\"character\":2},",
             "\"end\":{\"line\":1,\"character\":4}},\"severity\":1,",
@@ -453,7 +453,7 @@ fn lsp_diagnostic_wire_preserves_invalid_standard_symbol_case_boundary() {
     let diagnostic = invalid_standard_symbol_case_diagnostic();
 
     assert_eq!(
-        lsp_diagnostic_json(&diagnostic),
+        lsp_diagnostic_json(&diagnostic, &DiagnosticSources::default()),
         concat!(
             "{\"range\":{\"start\":{\"line\":0,\"character\":0},",
             "\"end\":{\"line\":0,\"character\":0}},\"severity\":1,",
@@ -463,9 +463,72 @@ fn lsp_diagnostic_wire_preserves_invalid_standard_symbol_case_boundary() {
         )
     );
 
-    let published = publish_diagnostics_for_uri("file://main.veln", &[diagnostic]);
+    let published = publish_diagnostics_for_uri(
+        "file://main.veln",
+        &[diagnostic],
+        &DiagnosticSources::default(),
+    );
     assert!(published.contains(r#""code":"toolchain.invalid_symbol_case""#));
     assert!(!published.contains("name.invalid_case"));
+}
+
+#[test]
+fn document_diagnostics_project_primary_and_related_ranges_as_utf16() {
+    let uri = "file://main.veln";
+    let text = concat!(
+        "type Left\n",
+        "  A\n",
+        "end\n",
+        "type Right\n",
+        "  B\n",
+        "end\n",
+        "fn sink(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn project(value: Left::A) -> ()\n",
+        "  \"😀\" |> sink<Left::A | Right::B>(value)\n",
+        "end\n",
+    );
+
+    let published = publish_diagnostics(uri, text.to_string());
+
+    assert!(
+        published.contains(r#""code":"type.variant_union_base""#),
+        "{published}"
+    );
+    assert!(
+        published.contains(
+            r#""range":{"start":{"line":10,"character":25},"end":{"line":10,"character":33}}"#
+        ),
+        "{published}"
+    );
+    assert!(
+        published.contains(
+            r#""relatedInformation":[{"location":{"uri":"file://main.veln","range":{"start":{"line":10,"character":15},"end":{"line":10,"character":22}}}"#
+        ),
+        "{published}"
+    );
+}
+
+#[test]
+fn diagnostic_source_positions_preserve_line_and_utf16_boundaries() {
+    let source = DiagnosticSource::new(
+        "file://main.veln".to_string(),
+        "a😀b\r\nsecond\n".to_string(),
+    );
+
+    assert_eq!(
+        source.utf16_position_json(1, 3),
+        r#"{"line":0,"character":3}"#
+    );
+    assert_eq!(
+        source.utf16_position_json(2, 7),
+        r#"{"line":1,"character":6}"#
+    );
+    assert_eq!(
+        source.utf16_position_json(3, 1),
+        r#"{"line":2,"character":0}"#
+    );
 }
 
 #[test]
