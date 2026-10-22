@@ -2,39 +2,61 @@ use super::*;
 
 struct LetBindingContext {
     type_origin: Option<TypeOrigin>,
-    annotation_is_omitted: bool,
-    initializer_has_diagnostic: bool,
-    initializer_unknown_is_diagnosed: bool,
-    deferred_initializer_diagnostic: Option<usize>,
-    pattern_has_diagnostic: bool,
-    transparent_alias_group: Option<usize>,
-    stable_record_root: Option<usize>,
+    omitted_annotation: bool,
+    initializer_failed: bool,
+    diagnosed_unknown: bool,
+    deferred_diagnostic: Option<usize>,
+    pattern_failed: bool,
+    alias_group: Option<usize>,
+    record_root: Option<usize>,
     stable_place: Option<usize>,
     schema_encode_callable: bool,
 }
 
+type LetInitializer = (Type, Option<TypeOrigin>, bool, bool, Option<usize>);
+
+fn repair(message: &str, span: &SourceSpan) -> JsonValue {
+    JsonValue::object([
+        ("kind", JsonValue::string("repair_hint")),
+        ("message", JsonValue::string(message)),
+        ("span", span_json(span)),
+    ])
+}
+
 impl<'a> FunctionChecker<'a> {
     pub(super) fn check_body_line(&mut self, index: usize, line: &BodyLine) {
+        if let Some(expr) = self.check_statement_line(line) {
+            self.check_expr_line(index, line, expr);
+        }
+    }
+
+    fn check_statement_line<'line>(&mut self, line: &'line BodyLine) -> Option<&'line Expr> {
         match &line.kind {
             BodyLineKind::Let {
                 pattern,
                 annotation,
                 annotation_structure,
                 expr,
-            } => self.check_let_line(
-                line,
-                pattern,
-                annotation.as_deref(),
-                &annotation_structure.variant_refinements,
-                &annotation_structure.paths,
-                expr,
-            ),
-            BodyLineKind::Expr { expr } => self.check_expr_line(index, line, expr),
+            } => {
+                self.check_let_line(
+                    line,
+                    pattern,
+                    annotation.as_deref(),
+                    &annotation_structure.variant_refinements,
+                    &annotation_structure.paths,
+                    expr,
+                );
+                None
+            }
+            BodyLineKind::Expr { expr } => Some(expr),
             BodyLineKind::Defer {
                 body,
                 keyword_span,
                 block_span,
-            } => self.check_defer_line(line, body, keyword_span, block_span),
+            } => {
+                self.check_defer_line(line, body, keyword_span, block_span);
+                None
+            }
         }
     }
 
@@ -104,33 +126,11 @@ impl<'a> FunctionChecker<'a> {
 
         let mut result = Type::unit();
         for (index, line) in body.iter().enumerate() {
-            match &line.kind {
-                BodyLineKind::Let {
-                    pattern,
-                    annotation,
-                    annotation_structure,
-                    expr,
-                } => self.check_let_line(
-                    line,
-                    pattern,
-                    annotation.as_deref(),
-                    &annotation_structure.variant_refinements,
-                    &annotation_structure.paths,
-                    expr,
-                ),
-                BodyLineKind::Expr { expr } => {
-                    let tail_expected = (index + 1 == body.len()).then_some(expected).flatten();
-                    let actual = self.infer_expr(expr, tail_expected);
-                    if index + 1 == body.len() {
-                        result = actual;
-                    }
-                }
-                BodyLineKind::Defer {
-                    body,
-                    keyword_span,
-                    block_span,
-                } => {
-                    self.check_defer_line(line, body, keyword_span, block_span);
+            if let Some(expr) = self.check_statement_line(line) {
+                let tail_expected = (index + 1 == body.len()).then_some(expected).flatten();
+                let actual = self.infer_expr(expr, tail_expected);
+                if index + 1 == body.len() {
+                    result = actual;
                 }
             }
         }
@@ -170,11 +170,8 @@ impl<'a> FunctionChecker<'a> {
                 ("reason", JsonValue::string(input.reason)),
             ]),
         );
-        diagnostic.related.push(JsonValue::object([
-            ("kind", JsonValue::string("repair_hint")),
-            ("message", JsonValue::string(input.repair)),
-            ("span", span_json(&input.repair_span)),
-        ]));
+        let hint = repair(input.repair, &input.repair_span);
+        diagnostic.related.push(hint);
         self.diagnostics.push(diagnostic);
     }
 
@@ -187,18 +184,44 @@ impl<'a> FunctionChecker<'a> {
         annotation_paths: &[veln_ast::TypePathSegments],
         expr: &Expr,
     ) {
-        let transparent_alias_group = match &pattern.kind {
-            PatternKind::Binding(_) => self.transparent_alias_group(expr),
-            _ => None,
+        let (transparent_alias_group, stable_record_root, stable_place) =
+            self.inherited_let_binding_metadata(pattern, expr);
+        let (binding_type, type_origin, initializer_failed, diagnosed_unknown, deferred_diagnostic) =
+            self.infer_let_initializer(
+                line,
+                annotation,
+                annotation_refinements,
+                annotation_paths,
+                expr,
+            );
+        let pattern_diagnostic_count = self.diagnostics.len();
+        self.check_let_pattern_supported(pattern);
+        let pattern_bindings = self.let_pattern_bindings(pattern, &binding_type);
+        let binding_context = LetBindingContext {
+            type_origin,
+            omitted_annotation: annotation.is_none(),
+            initializer_failed,
+            diagnosed_unknown,
+            deferred_diagnostic,
+            pattern_failed: self.diagnostics.len() != pattern_diagnostic_count,
+            alias_group: transparent_alias_group,
+            record_root: stable_record_root,
+            stable_place,
+            schema_encode_callable: self.expr_is_schema_encode_callable(expr),
         };
-        let stable_record_root = match &pattern.kind {
-            PatternKind::Binding(_) => self.stable_record_root(expr),
-            _ => None,
-        };
-        let stable_place = match &pattern.kind {
-            PatternKind::Binding(_) => self.stable_place_binding(expr),
-            _ => None,
-        };
+        for binding in pattern_bindings {
+            self.bind_let_pattern(binding, &binding_context);
+        }
+    }
+
+    fn infer_let_initializer(
+        &mut self,
+        line: &BodyLine,
+        annotation: Option<&str>,
+        annotation_refinements: &[veln_ast::VariantRefinementType],
+        annotation_paths: &[veln_ast::TypePathSegments],
+        expr: &Expr,
+    ) -> LetInitializer {
         let expected = annotation.and_then(|annotation| {
             self.parse_annotation(
                 annotation,
@@ -211,12 +234,12 @@ impl<'a> FunctionChecker<'a> {
         });
         let initializer_diagnostic_count = self.diagnostics.len();
         let actual = self.infer_expr(expr, expected.as_ref());
-        let initializer_unknown_is_diagnosed = type_contains_unknown(&actual)
+        let diagnosed_unknown = type_contains_unknown(&actual)
             && (self.diagnostics[initializer_diagnostic_count..]
                 .iter()
                 .any(|diagnostic| diagnostic.id == "name.callsite_requires_modifier")
                 || self.expr_is_diagnosed_unknown_reference(expr));
-        let deferred_initializer_diagnostic = annotation
+        let deferred_diagnostic = annotation
             .is_none()
             .then(|| {
                 self.deferred_ambiguous_initializer_diagnostic(
@@ -229,18 +252,13 @@ impl<'a> FunctionChecker<'a> {
         if let Some(expected) = &expected {
             self.check_assignable(expr, &expected.ty, &actual, expected, "assignable");
         }
-        let initializer_has_diagnostic = self.diagnostics.len() != initializer_diagnostic_count;
-
-        let pattern_diagnostic_count = self.diagnostics.len();
-        self.check_let_pattern_supported(pattern);
+        let initializer_failed = self.diagnostics.len() != initializer_diagnostic_count;
         let binding_type = expected
             .as_ref()
             .map_or_else(|| actual.clone(), |expected| expected.ty.clone());
-        let pattern_bindings = self.let_pattern_bindings(pattern, &binding_type);
-        let schema_encode_callable = self.expr_is_schema_encode_callable(expr);
-        let pattern_has_diagnostic = self.diagnostics.len() != pattern_diagnostic_count;
-        let binding_context = LetBindingContext {
-            type_origin: expected.as_ref().and_then(|expected| {
+        (
+            binding_type,
+            expected.as_ref().and_then(|expected| {
                 expected.origin_span.as_ref().map(|span| TypeOrigin {
                     node_id: expected.origin_node_id,
                     span: span.clone(),
@@ -248,19 +266,10 @@ impl<'a> FunctionChecker<'a> {
                     message: expected.origin_message,
                 })
             }),
-            annotation_is_omitted: annotation.is_none(),
-            initializer_has_diagnostic,
-            initializer_unknown_is_diagnosed,
-            deferred_initializer_diagnostic,
-            pattern_has_diagnostic,
-            transparent_alias_group,
-            stable_record_root,
-            stable_place,
-            schema_encode_callable,
-        };
-        for binding in pattern_bindings {
-            self.bind_let_pattern(binding, &binding_context);
-        }
+            initializer_failed,
+            diagnosed_unknown,
+            deferred_diagnostic,
+        )
     }
 
     fn bind_let_pattern(&mut self, binding: PatternBinding, context: &LetBindingContext) {
@@ -277,23 +286,41 @@ impl<'a> FunctionChecker<'a> {
         ) {
             return;
         }
-        let mut admitted = if context.initializer_unknown_is_diagnosed {
+        let admitted = self.admitted_let_binding(&binding, context);
+        self.push_binding(admitted);
+        if context.omitted_annotation
+            && (!context.initializer_failed || context.deferred_diagnostic.is_some())
+            && !context.pattern_failed
+            && type_contains_unknown(&binding.ty)
+        {
+            self.omitted_local_bindings.push(OmittedLocalBinding {
+                name: binding.name,
+                node_id: binding.node_id,
+                span: binding.span,
+                deferred_initializer_diagnostic: context.deferred_diagnostic,
+            });
+        }
+    }
+
+    fn admitted_let_binding(
+        &mut self,
+        binding: &PatternBinding,
+        context: &LetBindingContext,
+    ) -> Binding {
+        let initializer_is_reliable = !context.initializer_failed && !context.pattern_failed;
+        let mut admitted = if context.diagnosed_unknown {
             Binding::diagnosed_unknown(binding.name.clone(), binding.ty.clone())
         } else {
             Binding::new(binding.name.clone(), binding.ty.clone())
         };
-        admitted.stable_record_root = context
-            .stable_record_root
-            .filter(|_| !context.initializer_has_diagnostic && !context.pattern_has_diagnostic);
-        admitted.stable_place = context
-            .stable_place
-            .filter(|_| !context.initializer_has_diagnostic && !context.pattern_has_diagnostic);
+        admitted.stable_record_root = context.record_root.filter(|_| initializer_is_reliable);
+        admitted.stable_place = context.stable_place.filter(|_| initializer_is_reliable);
         admitted.transparent_alias_group = if admitted.stable_place.is_some() {
             None
         } else {
             context
-                .transparent_alias_group
-                .filter(|_| !context.initializer_has_diagnostic && !context.pattern_has_diagnostic)
+                .alias_group
+                .filter(|_| initializer_is_reliable)
                 .or_else(|| self.fresh_transparent_alias_group(binding.ty.clone()))
         };
         if matches!(binding.ty, Type::Function { .. })
@@ -303,22 +330,8 @@ impl<'a> FunctionChecker<'a> {
         }
         admitted.schema_encode_callable = matches!(binding.ty, Type::Function { .. })
             && context.schema_encode_callable
-            && !context.initializer_has_diagnostic
-            && !context.pattern_has_diagnostic;
-        self.push_binding(admitted);
-        if context.annotation_is_omitted
-            && (!context.initializer_has_diagnostic
-                || context.deferred_initializer_diagnostic.is_some())
-            && !context.pattern_has_diagnostic
-            && type_contains_unknown(&binding.ty)
-        {
-            self.omitted_local_bindings.push(OmittedLocalBinding {
-                name: binding.name,
-                node_id: binding.node_id,
-                span: binding.span,
-                deferred_initializer_diagnostic: context.deferred_initializer_diagnostic,
-            });
-        }
+            && initializer_is_reliable;
+        admitted
     }
 
     fn expr_is_schema_encode_callable(&self, expr: &Expr) -> bool {
@@ -346,37 +359,29 @@ impl<'a> FunctionChecker<'a> {
         })
     }
 
-    fn transparent_alias_group(&self, expr: &Expr) -> Option<usize> {
+    fn inherited_let_binding_metadata(
+        &self,
+        pattern: &Pattern,
+        expr: &Expr,
+    ) -> (Option<usize>, Option<usize>, Option<usize>) {
+        if !matches!(pattern.kind, PatternKind::Binding(_)) {
+            return (None, None, None);
+        }
         let ExprKind::NamePath { segments, .. } = &expr.kind else {
-            return None;
+            return (None, None, None);
         };
         let [name] = segments.as_slice() else {
-            return None;
+            return (None, None, None);
         };
         self.visible_binding_index(name)
-            .and_then(|index| self.bindings[index].transparent_alias_group)
-    }
-
-    fn stable_record_root(&self, expr: &Expr) -> Option<usize> {
-        let ExprKind::NamePath { segments, .. } = &expr.kind else {
-            return None;
-        };
-        let [name] = segments.as_slice() else {
-            return None;
-        };
-        self.visible_binding_index(name)
-            .and_then(|index| self.bindings[index].stable_record_root)
-    }
-
-    fn stable_place_binding(&self, expr: &Expr) -> Option<usize> {
-        let ExprKind::NamePath { segments, .. } = &expr.kind else {
-            return None;
-        };
-        let [name] = segments.as_slice() else {
-            return None;
-        };
-        self.visible_binding_index(name)
-            .and_then(|index| self.bindings[index].stable_place)
+            .map_or((None, None, None), |index| {
+                let binding = &self.bindings[index];
+                (
+                    binding.transparent_alias_group,
+                    binding.stable_record_root,
+                    binding.stable_place,
+                )
+            })
     }
 
     pub(super) fn check_expr_line(&mut self, index: usize, line: &BodyLine, expr: &Expr) {
@@ -531,14 +536,8 @@ impl<'a> FunctionChecker<'a> {
                 ("inferred_type", JsonValue::string(inferred.render())),
             ]),
         );
-        diagnostic.related.push(JsonValue::object([
-            ("kind", JsonValue::string("repair_hint")),
-            (
-                "message",
-                JsonValue::string("Add a parameter type annotation."),
-            ),
-            ("span", span_json(&param.span)),
-        ]));
+        let hint = repair("Add a parameter type annotation.", &param.span);
+        diagnostic.related.push(hint);
         self.diagnostics.push(diagnostic);
     }
 
@@ -568,14 +567,8 @@ impl<'a> FunctionChecker<'a> {
                 ("inferred_type", JsonValue::string(inferred.render())),
             ]),
         );
-        diagnostic.related.push(JsonValue::object([
-            ("kind", JsonValue::string("repair_hint")),
-            (
-                "message",
-                JsonValue::string("Add a return type annotation."),
-            ),
-            ("span", span_json(&self.function.span)),
-        ]));
+        let hint = repair("Add a return type annotation.", &self.function.span);
+        diagnostic.related.push(hint);
         self.diagnostics.push(diagnostic);
     }
 
@@ -622,16 +615,10 @@ impl<'a> FunctionChecker<'a> {
                     ("inferred_type", JsonValue::string(inferred.render())),
                 ]),
             );
-            diagnostic.related.push(JsonValue::object([
-                ("kind", JsonValue::string("repair_hint")),
-                (
-                    "message",
-                    JsonValue::string(
-                        "Add a type annotation or a later same-function use that fixes the type.",
-                    ),
-                ),
-                ("span", span_json(&omitted.span)),
-            ]));
+            diagnostic.related.push(repair(
+                "Add a type annotation or a later same-function use that fixes the type.",
+                &omitted.span,
+            ));
             self.diagnostics.push(diagnostic);
         }
     }

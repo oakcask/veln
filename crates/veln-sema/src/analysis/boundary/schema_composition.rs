@@ -19,9 +19,55 @@ pub(super) fn check_format_neutral_schema_field(
         schema.module_name.as_deref(),
         &field.ty,
     );
-    if let Some(field_ty) = decode_field_type.clone() {
-        record_decoded_schema_field(schema, field, field_ty, decoded_fields, diagnostics);
-    } else if let Some(field_ty) = &encode_field_type {
+    let context = FormatNeutralSchemaFieldCheck {
+        module,
+        schema,
+        field,
+        direct_source_adt_candidate,
+        refinement_candidate,
+    };
+    if !check_format_neutral_schema_field_decode(
+        &context,
+        decode_field_type.as_ref(),
+        encode_field_type.as_ref(),
+        decoded_fields,
+        diagnostics,
+    ) {
+        return;
+    }
+    check_format_neutral_schema_field_encode(
+        &context,
+        decode_field_type.as_ref(),
+        encode_field_type.as_ref(),
+        diagnostics,
+    );
+}
+
+struct FormatNeutralSchemaFieldCheck<'a> {
+    module: &'a SurfaceModule,
+    schema: &'a SchemaDecl,
+    field: &'a SchemaField,
+    direct_source_adt_candidate: bool,
+    refinement_candidate: bool,
+}
+
+fn check_format_neutral_schema_field_decode(
+    context: &FormatNeutralSchemaFieldCheck<'_>,
+    decode_field_type: Option<&Type>,
+    encode_field_type: Option<&Type>,
+    decoded_fields: &mut BTreeMap<String, Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let FormatNeutralSchemaFieldCheck {
+        module,
+        schema,
+        field,
+        direct_source_adt_candidate,
+        refinement_candidate,
+    } = *context;
+    if let Some(field_ty) = decode_field_type {
+        record_decoded_schema_field(schema, field, field_ty.clone(), decoded_fields, diagnostics);
+    } else if let Some(field_ty) = encode_field_type {
         // An encode-only field does not publish a decode helper. Its encode
         // helper remains usable without claiming that decode can establish
         // the field's type.
@@ -33,7 +79,7 @@ pub(super) fn check_format_neutral_schema_field(
             diagnostics,
         );
     } else if schema_composition_quarantine_is_sole_failure(module, schema, &field.ty) {
-        return;
+        return false;
     } else if schema_payload_name_path(&field.ty).is_some()
         && !direct_source_adt_candidate
         && !refinement_candidate
@@ -48,13 +94,27 @@ pub(super) fn check_format_neutral_schema_field(
     } else {
         diagnostics.push(format_neutral_schema_helper_diagnostic(schema, field));
     }
+    true
+}
 
-    let encode_unsupported = encode_field_type.is_none();
+fn check_format_neutral_schema_field_encode(
+    context: &FormatNeutralSchemaFieldCheck<'_>,
+    decode_field_type: Option<&Type>,
+    encode_field_type: Option<&Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let FormatNeutralSchemaFieldCheck {
+        module,
+        schema,
+        field,
+        direct_source_adt_candidate,
+        refinement_candidate,
+    } = *context;
     let ordinary_or_non_path = schema_payload_name_path(&field.ty).is_none()
         || schema_field_has_ordinary_type_target(module, schema, &field.ty)
         || direct_source_adt_candidate
         || refinement_candidate;
-    if encode_unsupported
+    if encode_field_type.is_none()
         && (direct_source_adt_candidate || refinement_candidate)
         && decode_field_type.is_none()
         && ordinary_or_non_path

@@ -621,8 +621,7 @@ fn format_neutral_schema_source_adt_descriptor<'a>(
     if let Some(descriptor) = adts.descriptor_for_type(ty)
         && (descriptor.module_name.as_deref() == current_module
             || descriptor.visibility == Visibility::Public)
-        && (!matches!(ty, Type::VariantRefinement { .. })
-            || descriptor_has_source_declaration(adts, descriptor))
+        && format_neutral_schema_descriptor_supports_type(adts, descriptor, ty)
     {
         return Some(descriptor);
     }
@@ -632,29 +631,63 @@ fn format_neutral_schema_source_adt_descriptor<'a>(
     };
     let segments = name.split("::").collect::<Vec<_>>();
     match segments.as_slice() {
-        [local_name] => adts
-            .descriptor_for_type_in_module(&Type::named(*local_name, args.clone()), current_module)
-            .filter(|descriptor| {
-                !matches!(ty, Type::VariantRefinement { .. })
-                    || descriptor_has_source_declaration(adts, descriptor)
-            }),
-        [_, .., type_name] => {
-            let import_path = segments[..segments.len() - 1]
-                .iter()
-                .map(|segment| (*segment).to_string())
-                .collect::<Vec<_>>();
-            let use_decl = normal_imported_use_for_path(module, &import_path, current_module)?;
-            adts.descriptors().iter().rev().find(|descriptor| {
-                descriptor.type_name == *type_name
-                    && descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
-                    && descriptor.type_parameters.len() == args.len()
-                    && descriptor.visibility == Visibility::Public
-                    && (!matches!(ty, Type::VariantRefinement { .. })
-                        || descriptor_has_source_declaration(adts, descriptor))
-            })
+        [local_name] => {
+            format_neutral_schema_local_adt_descriptor(current_module, adts, ty, local_name, args)
         }
+        [_, .., type_name] => format_neutral_schema_imported_adt_descriptor(
+            module,
+            current_module,
+            adts,
+            ty,
+            &segments[..segments.len() - 1],
+            type_name,
+            args.len(),
+        ),
         _ => None,
     }
+}
+
+fn format_neutral_schema_descriptor_supports_type(
+    adts: &AdtRegistry,
+    descriptor: &AdtDescriptor,
+    ty: &Type,
+) -> bool {
+    !matches!(ty, Type::VariantRefinement { .. })
+        || descriptor_has_source_declaration(adts, descriptor)
+}
+
+fn format_neutral_schema_local_adt_descriptor<'a>(
+    current_module: Option<&str>,
+    adts: &'a AdtRegistry,
+    ty: &Type,
+    local_name: &str,
+    args: &[Type],
+) -> Option<&'a AdtDescriptor> {
+    adts.descriptor_for_type_in_module(&Type::named(local_name, args.to_vec()), current_module)
+        .filter(|descriptor| format_neutral_schema_descriptor_supports_type(adts, descriptor, ty))
+}
+
+fn format_neutral_schema_imported_adt_descriptor<'a>(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    adts: &'a AdtRegistry,
+    ty: &Type,
+    import_segments: &[&str],
+    type_name: &str,
+    argument_count: usize,
+) -> Option<&'a AdtDescriptor> {
+    let import_path = import_segments
+        .iter()
+        .map(|segment| (*segment).to_string())
+        .collect::<Vec<_>>();
+    let use_decl = normal_imported_use_for_path(module, &import_path, current_module)?;
+    adts.descriptors().iter().rev().find(|descriptor| {
+        descriptor.type_name == type_name
+            && descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
+            && descriptor.type_parameters.len() == argument_count
+            && descriptor.visibility == Visibility::Public
+            && format_neutral_schema_descriptor_supports_type(adts, descriptor, ty)
+    })
 }
 
 fn descriptor_has_source_declaration(adts: &AdtRegistry, descriptor: &AdtDescriptor) -> bool {
