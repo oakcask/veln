@@ -1121,15 +1121,26 @@ or final result. Its JSON details contain the rendered `actual_type`, rendered
 `form: all_except_expected` and an empty `variants` array when the actual type
 is the complete base ADT. A `variant_exclusion` related note renders the same
 fact for human output, and another related note identifies the expected local
-annotation, parameter, result declaration, or compiler-known helper parameter
-inferred at the call site. Invariant named-type arguments are compared by
+annotation, parameter, result declaration, compiler-known helper parameter, or
+generated schema encode helper parameter inferred at the call site. Invariant
+named-type arguments are compared by
 resolved type identity, not by alias display spelling. If the arguments differ
 only by aliases of one target, an outer refinement exclusion therefore remains
 a `type.variant_mismatch`, and each rendered side retains its own alias
 spelling. If the resolved nested refinements differ, or a nested record,
 named-type argument, ADT payload, or function position otherwise fails
 invariance, there is no truthful top-level variant exclusion and the comparison
-uses the ordinary `type.mismatch` diagnostic instead.
+uses the ordinary `type.mismatch` diagnostic instead. Generated schema encode
+boundaries are the exception: they inspect supported record and container
+positions and report `type.variant_mismatch` for an innermost base-to-refinement
+or excluded-variant comparison when all other inspected positions are
+assignable. The schema expectation reaches list and vector literal items,
+dictionary literal values, and the payload argument of `Some`, `Ok`, or `Err`
+while the supplied record is checked. The exception follows a generated encode
+helper through an immutable local binding initialized from that helper. It does
+not follow an ordinary function value merely because its visible function type
+is the same.
+This exception does not make ordinary assignment recursively covariant.
 The checked examples cover
 accepted source and compiler-known cases in
 `examples/specification/check/adt-variant-refinement-call-typing/`, JSON failures
@@ -1147,7 +1158,7 @@ Variant-refinement semantic-token classifications are specified in
 rename behavior is specified by
 [editor support](editor-support.md#lsp-navigation-formatting-and-rename) and
 [MCP](mcp.md#saved-workspace-navigation). Qualified-value control-flow
-refinement, schema boundaries, LSP invalid-refinement recovery, and
+refinement, schema decode boundaries, LSP invalid-refinement recovery, and
 remaining MCP invalid-refinement recovery, including the saved-state behavior
 of those remaining requests, remain proposal work.
 This slice also does not add recursive generic or function variance.

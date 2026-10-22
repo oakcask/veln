@@ -78,13 +78,26 @@ impl<'a> FunctionChecker<'a> {
             |expected| inferred_aggregate_member_type_with_expected(actual.clone(), &expected.ty),
         );
         if let Some(field_expected) = &field_expected {
-            self.check_assignable_nested(
-                &field.expr,
-                &field_expected.ty,
-                &aggregate_actual,
-                field_expected,
-                "record_field",
-            );
+            if matches!(
+                field_expected.source,
+                ExpectedTypeSource::SchemaEncodeParameter
+            ) {
+                self.check_schema_encode_assignable(
+                    &field.expr,
+                    &field_expected.ty,
+                    &aggregate_actual,
+                    field_expected,
+                    "record_field",
+                );
+            } else {
+                self.check_assignable_nested(
+                    &field.expr,
+                    &field_expected.ty,
+                    &aggregate_actual,
+                    field_expected,
+                    "record_field",
+                );
+            }
         }
         aggregate_actual
     }
@@ -276,7 +289,7 @@ impl<'a> FunctionChecker<'a> {
             ty: mismatch_expected,
             ..item_expected.clone()
         };
-        self.check_assignable_nested(
+        self.check_contextual_assignable_nested(
             item,
             &mismatch_context.ty,
             actual,

@@ -483,9 +483,10 @@ one-hop alias, and transitive-alias views of the same quarantined variant; every
 view suppresses the derivative payload mismatch.
 
 A value whose complete ADT variant set is not assignable at a direct local,
-argument, branch, arm, or result boundary reports `type.variant_mismatch` at
-that value expression. The primary message states the actual and expected
-types. The diagnostic renders the two sides independently: an unambiguous
+argument, branch, arm, result, or generated schema encode boundary reports
+`type.variant_mismatch` at that value expression. The primary message states
+the actual and expected types. The diagnostic renders the two sides
+independently: an unambiguous
 explicit alias spelling is preserved only on the side that supplied it, and an
 expected alias never relabels an inferred actual type. Conflicting alias
 provenance uses the target ADT's canonical display name, including when the
@@ -504,10 +505,11 @@ base-ADT variant outside `expected_variants` is excluded, without copying the
 complete ADT declaration into each diagnostic. A `variant_exclusion` related
 note renders that fact for human output. One `expected_type_origin` related
 note identifies the declaration or local annotation that supplied the
-expectation. When a compiler-known helper infers a parameter expectation from
-the call, the note instead identifies that helper at the call site. A nested
-aggregate invariance failure with no truthful finite variant exclusion reports
-ordinary `type.mismatch`. Alias display differences do not create such an
+expectation. When a compiler-known helper or generated schema encode helper
+infers a parameter expectation from the call, the note instead identifies that
+helper at the call site. A nested aggregate invariance failure with no truthful
+finite variant exclusion reports ordinary `type.mismatch`. Alias display
+differences do not create such an
 invariance failure: when invariant arguments have the same resolved type, an
 outer finite-set or base-to-refinement exclusion remains
 `type.variant_mismatch`, with independent alias spellings in `actual_type` and
@@ -533,6 +535,21 @@ type as actual. None of that payload's occurrences update the accumulated type,
 so a later payload is checked against only the constraints that were complete
 before the rejected payload. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
+
+Generated schema encode boundaries additionally inspect corresponding fields
+of anonymous records and corresponding arguments of `Option`, `List`, `Vec`,
+`Dict`, and `Result`. When the boundary supplies the expected record type, a
+list or vector literal checks each item with that schema expectation, a
+dictionary literal checks each value with it, and `Some`, `Ok`, or `Err` checks
+its payload with it. If every other inspected position is assignable, a base
+ADT or excluded constructor at one of those nested refined positions reports
+`type.variant_mismatch`; `actual_type`, `expected_type`, and the exclusion facts
+describe that innermost ADT comparison. A missing record field, unrelated type,
+unsupported container shape, or another non-variant mismatch makes the whole
+comparison an ordinary `type.mismatch`. This recursive diagnostic selection is
+specific to generated schema encode boundaries and follows a generated encode
+helper through an immutable local binding. An ordinary function value with the
+same visible type retains ordinary aggregate invariance.
 
 A valid constructor arm for a stable match scrutinee refines the matched place
 to the constructor singleton while checking the arm. A stable scrutinee is an

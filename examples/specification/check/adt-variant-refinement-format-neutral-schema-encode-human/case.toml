@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["value of type `State::Failed` is not assignable to variant type `State::Ready | State::Closed`", "Excluded variants: Failed.", "Schema encode value must match the schema-local visible record."]
+
+[stderr]
+format = "empty"

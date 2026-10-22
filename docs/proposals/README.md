@@ -21,7 +21,7 @@ also states it.
   behavior:
   [observability.md](observability.md).
 - Remaining ADT variant-refinement support for qualified immutable values
-  after a separate source-surface prerequisite, schema boundaries,
+  after a separate source-surface prerequisite, schema decode boundaries,
   LSP invalid-refinement recovery, and MCP
   invalid-refinement recovery with request-specific saved-state behavior. The
   provider-dependent base reason requires a separate production

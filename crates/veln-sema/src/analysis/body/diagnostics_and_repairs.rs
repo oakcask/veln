@@ -38,6 +38,59 @@ struct RankedSymbolCandidate {
 }
 
 impl<'a> FunctionChecker<'a> {
+    pub(in crate::analysis) fn check_contextual_assignable_nested(
+        &mut self,
+        expr: &Expr,
+        expected: &Type,
+        actual: &Type,
+        expected_source: &ExpectedType,
+        constraint: &'static str,
+    ) {
+        if matches!(
+            expected_source.source,
+            ExpectedTypeSource::SchemaEncodeParameter
+        ) {
+            self.check_schema_encode_assignable(
+                expr,
+                expected,
+                actual,
+                expected_source,
+                constraint,
+            );
+        } else {
+            self.check_assignable_nested(expr, expected, actual, expected_source, constraint);
+        }
+    }
+
+    pub(in crate::analysis) fn check_schema_encode_assignable(
+        &mut self,
+        expr: &Expr,
+        expected: &Type,
+        actual: &Type,
+        expected_source: &ExpectedType,
+        constraint: &'static str,
+    ) {
+        if is_assignable(expected, actual) {
+            return;
+        }
+        if !type_contains_unknown(expected)
+            && !type_contains_unknown(actual)
+            && let Some(mismatch) =
+                schema_encode_variant_mismatch(expected, actual, &self.environment.adts)
+        {
+            self.push_variant_mismatch_diagnostic(
+                expr,
+                mismatch.expected,
+                mismatch.actual,
+                expected_source,
+                constraint,
+                mismatch.facts,
+            );
+            return;
+        }
+        self.push_type_mismatch_diagnostic(expr, expected, actual, expected_source, constraint);
+    }
+
     pub(in crate::analysis) fn check_assignable(
         &mut self,
         expr: &Expr,
@@ -889,6 +942,110 @@ fn variant_mismatch_sets<'a>(
                 exclusion: VariantExclusion::AllExceptExpected,
             })
         }
+        _ => None,
+    }
+}
+
+struct NestedVariantMismatch<'a> {
+    expected: &'a Type,
+    actual: &'a Type,
+    facts: VariantMismatchFacts<'a>,
+}
+
+enum SchemaEncodeTypeComparison<'a> {
+    Assignable,
+    VariantMismatch(NestedVariantMismatch<'a>),
+    OtherMismatch,
+}
+
+fn schema_encode_variant_mismatch<'a>(
+    expected: &'a Type,
+    actual: &'a Type,
+    adts: &AdtRegistry,
+) -> Option<NestedVariantMismatch<'a>> {
+    match compare_schema_encode_types(expected, actual, adts) {
+        SchemaEncodeTypeComparison::VariantMismatch(mismatch) => Some(mismatch),
+        SchemaEncodeTypeComparison::Assignable | SchemaEncodeTypeComparison::OtherMismatch => None,
+    }
+}
+
+fn compare_schema_encode_types<'a>(
+    expected: &'a Type,
+    actual: &'a Type,
+    adts: &AdtRegistry,
+) -> SchemaEncodeTypeComparison<'a> {
+    if is_assignable(expected, actual) {
+        return SchemaEncodeTypeComparison::Assignable;
+    }
+    if let Some(facts) = variant_mismatch_sets(expected, actual, adts) {
+        return SchemaEncodeTypeComparison::VariantMismatch(NestedVariantMismatch {
+            expected,
+            actual,
+            facts,
+        });
+    }
+    match (expected, actual) {
+        (
+            Type::Named {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+            },
+            Type::Named {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+            },
+        ) if schema_encode_container_arity(expected_name) == Some(expected_args.len())
+            && expected_name == actual_name
+            && expected_identity == actual_identity
+            && expected_args.len() == actual_args.len() =>
+        {
+            compare_schema_encode_children(expected_args.iter().zip(actual_args), adts)
+        }
+        (Type::Record(expected_fields), Type::Record(actual_fields)) => {
+            let mut comparisons = Vec::with_capacity(expected_fields.len());
+            for (expected_name, expected_ty) in expected_fields {
+                let Some((_, actual_ty)) = actual_fields
+                    .iter()
+                    .find(|(actual_name, _)| actual_name == expected_name)
+                else {
+                    return SchemaEncodeTypeComparison::OtherMismatch;
+                };
+                comparisons.push((expected_ty, actual_ty));
+            }
+            compare_schema_encode_children(comparisons, adts)
+        }
+        _ => SchemaEncodeTypeComparison::OtherMismatch,
+    }
+}
+
+fn compare_schema_encode_children<'a>(
+    children: impl IntoIterator<Item = (&'a Type, &'a Type)>,
+    adts: &AdtRegistry,
+) -> SchemaEncodeTypeComparison<'a> {
+    let mut nested_mismatch = None;
+    for (expected, actual) in children {
+        match compare_schema_encode_types(expected, actual, adts) {
+            SchemaEncodeTypeComparison::Assignable => {}
+            SchemaEncodeTypeComparison::VariantMismatch(mismatch) => {
+                nested_mismatch.get_or_insert(mismatch);
+            }
+            SchemaEncodeTypeComparison::OtherMismatch => {
+                return SchemaEncodeTypeComparison::OtherMismatch;
+            }
+        }
+    }
+    nested_mismatch.map_or(
+        SchemaEncodeTypeComparison::Assignable,
+        SchemaEncodeTypeComparison::VariantMismatch,
+    )
+}
+
+fn schema_encode_container_arity(name: &str) -> Option<usize> {
+    match name {
+        "Option" | "List" | "Vec" => Some(1),
+        "Dict" | "Result" => Some(2),
         _ => None,
     }
 }

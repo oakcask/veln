@@ -1,0 +1,321 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.variant_mismatch\"", "\"kind\":\"variant_exclusion\"", "\"kind\":\"expected_type_origin\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 18
+
+[[json_assert]]
+path = "diagnostics.0.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_type"
+equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.0.details.excluded_variants.form"
+equals = "all_except_expected"
+
+[[json_assert]]
+path = "diagnostics.1.details.actual_type"
+equals = "State::Failed"
+
+[[json_assert]]
+path = "diagnostics.1.details.excluded_variants.form"
+equals = "listed"
+
+[[json_assert]]
+path = "diagnostics.1.details.excluded_variants.variants.0"
+equals = "Failed"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.2.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.2.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.3.details.actual_type"
+equals = "State::Failed"
+
+[[json_assert]]
+path = "diagnostics.3.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.4.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.4.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.4.details.expected_type"
+equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.5.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.5.details.actual_type"
+equals = "State::Failed"
+
+[[json_assert]]
+path = "diagnostics.5.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.6.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.6.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.6.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.7.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.7.details.actual_type"
+equals = "State::Failed"
+
+[[json_assert]]
+path = "diagnostics.7.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.8.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.8.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.8.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.8.details.constraint"
+equals = "list_element"
+
+[[json_assert]]
+path = "diagnostics.8.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.8.related.1.message"
+equals = "Callee parameter type declared here."
+
+[[json_assert]]
+path = "diagnostics.9.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.9.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.9.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.9.details.constraint"
+equals = "dict_value"
+
+[[json_assert]]
+path = "diagnostics.9.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.10.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.10.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.10.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.10.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.10.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.11.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.11.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.11.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.11.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.11.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.12.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.12.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.12.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.12.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.12.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.13.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.13.details.actual_type"
+equals = "State::Failed"
+
+[[json_assert]]
+path = "diagnostics.13.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.13.details.constraint"
+equals = "list_element"
+
+[[json_assert]]
+path = "diagnostics.13.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.13.related.1.message"
+equals = "Schema encode value must match the schema-local visible record."
+
+[[json_assert]]
+path = "diagnostics.14.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.14.details.actual_type"
+equals = "State::Failed"
+
+[[json_assert]]
+path = "diagnostics.14.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.14.details.constraint"
+equals = "dict_value"
+
+[[json_assert]]
+path = "diagnostics.14.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.15.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.15.details.actual_type"
+equals = "State::Failed"
+
+[[json_assert]]
+path = "diagnostics.15.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.15.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.15.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.16.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.16.details.actual_type"
+equals = "State::Failed"
+
+[[json_assert]]
+path = "diagnostics.16.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.16.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.16.related.1.kind"
+equals = "expected_type_origin"
+
+[[json_assert]]
+path = "diagnostics.17.id"
+equals = "type.variant_mismatch"
+
+[[json_assert]]
+path = "diagnostics.17.details.actual_type"
+equals = "State::Failed"
+
+[[json_assert]]
+path = "diagnostics.17.details.expected_type"
+equals = "State::Ready"
+
+[[json_assert]]
+path = "diagnostics.17.details.constraint"
+equals = "call_argument"
+
+[[json_assert]]
+path = "diagnostics.17.related.1.kind"
+equals = "expected_type_origin"

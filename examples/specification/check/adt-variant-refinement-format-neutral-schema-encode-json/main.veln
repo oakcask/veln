@@ -1,0 +1,75 @@
+pub type State
+	pub Ready
+	pub Closed
+	pub Failed
+end
+
+schema Packet
+	state: State::Ready | State::Closed
+end
+
+schema NestedPacket
+	states: Option<List<State::Ready>>
+end
+
+schema Inner
+	state: State::Ready
+end
+
+schema Outer
+	inner: Inner
+end
+
+schema ContextualPacket
+	states: Vec<State::Ready>
+	states_by_name: Dict<String, State::Ready>
+	optional_state: Option<State::Ready>
+	success: Result<State::Ready, String>
+	failure: Result<Int, State::Ready>
+end
+
+fn reject_base(state: State) -> Result<{state: State::Ready | State::Closed}, String>
+	byte_encode_packet({state: state})
+end
+
+fn reject_excluded(state: State::Failed) -> Result<{state: State::Ready | State::Closed}, String>
+	encode Packet from {state: state}
+end
+
+fn reject_nested_base(state: State) -> Result<{states: Option<List<State::Ready>>}, String>
+	byte_encode_nested_packet({states: Some(list_cons(state, list_nil()))})
+end
+
+fn reject_nested_excluded(state: State::Failed) -> Result<{states: Option<List<State::Ready>>}, String>
+	encode NestedPacket from {states: Some(list_cons(state, list_nil()))}
+end
+
+fn reject_bound_base(state: State) -> Result<{state: State::Ready | State::Closed}, String>
+	let encoder = byte_encode_packet
+	encoder({state: state})
+end
+
+fn reject_bound_nested_excluded(state: State::Failed) -> Result<{states: Option<List<State::Ready>>}, String>
+	let encoder = byte_encode_nested_packet
+	encoder({states: Some(list_cons(state, list_nil()))})
+end
+
+fn accept_composed(state: State::Ready) -> Result<{inner: {state: State::Ready}}, String>
+	byte_encode_outer({inner: {state: state}})
+end
+
+fn reject_composed_base(state: State) -> Result<{inner: {state: State::Ready}}, String>
+	byte_encode_outer({inner: {state: state}})
+end
+
+fn reject_composed_excluded(state: State::Failed) -> Result<{inner: {state: State::Ready}}, String>
+	encode Outer from {inner: {state: state}}
+end
+
+fn reject_contextual_base(state: State) -> Result<{states: Vec<State::Ready>, states_by_name: Dict<String, State::Ready>, optional_state: Option<State::Ready>, success: Result<State::Ready, String>, failure: Result<Int, State::Ready>}, String>
+	byte_encode_contextual_packet({states: [state], states_by_name: {"state": state}, optional_state: Some(state), success: Ok(state), failure: Err(state)})
+end
+
+fn reject_contextual_excluded(state: State::Failed) -> Result<{states: Vec<State::Ready>, states_by_name: Dict<String, State::Ready>, optional_state: Option<State::Ready>, success: Result<State::Ready, String>, failure: Result<Int, State::Ready>}, String>
+	encode ContextualPacket from {states: [state], states_by_name: {"state": state}, optional_state: Some(state), success: Ok(state), failure: Err(state)}
+end

@@ -1,0 +1,16 @@
+pub type State
+	Hidden
+	pub Visible
+end
+
+pub schema HiddenPacket
+	state: State::Hidden
+end
+
+pub schema VisiblePacket
+	state: State::Visible
+end
+
+fn accepted(value: State::Visible) -> Result<{state: State::Visible}, String>
+	byte_encode_visible_packet({state: value})
+end

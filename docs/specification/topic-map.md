@@ -12,7 +12,8 @@ discovery guidance; the linked subject pages own behavior and evidence.
 
 ## Source Surface
 
-- Modules, items, expressions, literals, comments, tests, doctests, and grammar:
+- Modules, items, expressions, literals, comments, tests, doctests, grammar,
+  schema declarations, and schema field eligibility:
   [source-surface.md](source-surface.md).
 - Call-site-aware declarations, direct and indirect propagation, runtime
   callbacks, source-location values, editor presentation, and related
@@ -106,7 +107,8 @@ discovery guidance; the linked subject pages own behavior and evidence.
   call-site-aware structured logs, named domain events, counter increments,
   and histogram samples:
   [standard-library-observability.md](standard-library-observability.md).
-- JVM execution behavior, values, calls, control flow, and host boundaries:
+- JVM execution behavior, values, calls, control flow, schema execution and
+  codecs, and host boundaries:
   [execution.md](execution.md).
 - User-facing source examples: [examples.md](examples.md).
 - Stability boundary and explicit non-goals: [overview.md](overview.md).

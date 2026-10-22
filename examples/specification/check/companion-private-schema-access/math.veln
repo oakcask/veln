@@ -1,3 +1,12 @@
+pub type State
+	Hidden
+	pub Visible
+end
+
+schema RefinedPacket
+	state: State::Hidden
+end
+
 schema Packet
 	format binary
 

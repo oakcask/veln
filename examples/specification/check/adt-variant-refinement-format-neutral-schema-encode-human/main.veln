@@ -1,0 +1,13 @@
+pub type State
+	pub Ready
+	pub Closed
+	pub Failed
+end
+
+schema Packet
+	state: State::Ready | State::Closed
+end
+
+fn reject_excluded(state: State::Failed) -> Result<{state: State::Ready | State::Closed}, String>
+	encode Packet from {state: state}
+end

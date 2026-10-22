@@ -272,7 +272,7 @@ and `concurrency` effects instead of a `net::IO` handler. Direct protocol
 drivers, the duplex adapter, the lower client service, and `serve_tcp` do not
 install that production client boundary.
 
-## Binary schemas
+## Schema execution
 
 - Every exact-width unsigned primitive from `uint8` through `uint64be` and
   `uint64le` decodes to `Int` and accepts `Int` on encode. This holds for
@@ -328,15 +328,31 @@ install that production client boundary.
   format-neutral visible shape; the helper preserves the source ADT value
   shape through the pass-through boundary.
 - Format-neutral generated encode helpers for schemas without a `format`
-  clause accept a schema-local visible record shape and return
-  `Result<T, String>` when every field is a recursive visible shape made from
-  `Int`, `Bool`, `Float`, and `String` leaves, anonymous records, `Option<T>`,
-  `List<T>`, `Vec<T>`, `Dict<String, T>`, `Result<Ok, Err>`, and eligible
-  same-module or public imported source ADTs. Every recursively visited child
-  or constructor payload must also be eligible; container depth is not
-  otherwise limited.
+  clause accept the schema-local record defined by the
+  [format-neutral field eligibility rules](source-surface.md#format-neutral-fields)
+  and return `Result<T, String>`. An eligible singleton or finite-set
+  refinement of a source ADT remains refined in the helper's input and
+  successful result through supported containers, anonymous records, and
+  composed format-neutral schemas.
+  The helper accepts an admitted constructor. A base ADT or an excluded
+  constructor at any such refined position fails static checking with
+  `type.variant_mismatch`, including when the refined position is supplied by
+  a list or vector literal, dictionary literal, or `Some`, `Ok`, or `Err`
+  payload inside the record. An unrelated nested type difference remains
+  `type.mismatch`. Assigning a generated encode helper to an immutable local
+  binding preserves this schema-boundary checking when the binding is called;
+  assigning an ordinary function with the same visible parameter shape does
+  not acquire it.
   The helper returns the supplied record on success and does not produce binary
-  bytes.
+  bytes, so an admitted refined value has the same representation as the
+  corresponding base-ADT encode path. Checked runtime and diagnostic evidence
+  covers singleton, union, nested-container, and pass-through behavior, plus
+  direct, nested-container, and composed-schema rejection of base and
+  excluded-constructor values. Helper visibility follows the
+  [schema-operation rules](source-surface.md#schema-operations): an exact test
+  companion may encode through its explicitly imported private target schema,
+  including a schema-local private refinement, without making that helper
+  available to ordinary importers or through a public schema boundary.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression
@@ -526,6 +542,14 @@ than degrading it to a generic rendered result value.
 
 ## References
 
+- Format-neutral refinement encode behavior is checked by
+  [`adt-variant-refinement-format-neutral-schema-encode`](../../examples/specification/run/adt-variant-refinement-format-neutral-schema-encode/)
+  and
+  [`adt-variant-refinement-format-neutral-schema-encode-json`](../../examples/specification/check/adt-variant-refinement-format-neutral-schema-encode-json/).
+  Source-less refinement rejection is checked by
+  [`adt-variant-refinement-format-neutral-schema-encode-source-boundary`](../../examples/specification/check/adt-variant-refinement-format-neutral-schema-encode-source-boundary/).
+  Exact-companion access to a private refined schema is checked by
+  [`companion-private-schema-access`](../../examples/specification/check/companion-private-schema-access/).
 - JVM networking execution evidence compiles checked programs with the
   exported standard modules. The backend cases exercise real socket and task
   cancellation through `net::IO` and `net::system()`. Separate Veln support

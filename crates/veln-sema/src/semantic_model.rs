@@ -9,6 +9,7 @@ pub(crate) struct CallOrigin {
     pub(crate) span: SourceSpan,
     pub(crate) symbol: String,
     pub(crate) effects: Vec<String>,
+    pub(crate) schema_encode: bool,
 }
 
 #[derive(Clone)]
@@ -29,6 +30,7 @@ pub(crate) struct Binding {
     pub(crate) stable_place: Option<usize>,
     pub(crate) type_origin: Option<TypeOrigin>,
     pub(crate) private_function_value: Option<FunctionKey>,
+    pub(crate) schema_encode_callable: bool,
     pub(crate) is_diagnosed_unknown: bool,
 }
 
@@ -58,6 +60,7 @@ impl Clone for Binding {
             stable_place: self.stable_place,
             type_origin: self.type_origin.clone(),
             private_function_value: self.private_function_value.clone(),
+            schema_encode_callable: self.schema_encode_callable,
             is_diagnosed_unknown: self.is_diagnosed_unknown,
         }
     }
@@ -94,6 +97,7 @@ impl Binding {
             stable_place: None,
             type_origin: None,
             private_function_value: None,
+            schema_encode_callable: false,
             is_diagnosed_unknown: false,
         }
     }
@@ -107,6 +111,7 @@ impl Binding {
             stable_place: None,
             type_origin: None,
             private_function_value: None,
+            schema_encode_callable: false,
             is_diagnosed_unknown: false,
         }
     }
@@ -120,6 +125,7 @@ impl Binding {
             stable_place: None,
             type_origin: None,
             private_function_value: Some(target),
+            schema_encode_callable: false,
             is_diagnosed_unknown: false,
         }
     }
@@ -133,6 +139,7 @@ impl Binding {
             stable_place: None,
             type_origin: None,
             private_function_value: None,
+            schema_encode_callable: false,
             is_diagnosed_unknown: true,
         }
     }
@@ -151,6 +158,7 @@ pub(crate) struct ExpectedType {
 pub(crate) enum ExpectedTypeSource {
     DeclaredReturn,
     DeclaredParameter,
+    SchemaEncodeParameter,
     LocalAnnotation,
     Inferred,
     Unknown,
@@ -161,6 +169,7 @@ impl ExpectedTypeSource {
         match self {
             Self::DeclaredReturn => "declared_return",
             Self::DeclaredParameter => "declared_parameter",
+            Self::SchemaEncodeParameter => "declared_parameter",
             Self::LocalAnnotation => "local_annotation",
             Self::Inferred => "inferred_expression",
             Self::Unknown => "unknown",
@@ -169,7 +178,10 @@ impl ExpectedTypeSource {
 
     pub(crate) fn as_hole_source(self) -> &'static str {
         match self {
-            Self::DeclaredReturn | Self::DeclaredParameter | Self::LocalAnnotation => "declared",
+            Self::DeclaredReturn
+            | Self::DeclaredParameter
+            | Self::SchemaEncodeParameter
+            | Self::LocalAnnotation => "declared",
             Self::Inferred => "inferred",
             Self::Unknown => "unknown",
         }

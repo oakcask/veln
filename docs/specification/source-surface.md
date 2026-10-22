@@ -241,12 +241,33 @@ The scalar leaves are `Int`, `Bool`, `Float`, and `String`. Containers are
 anonymous records, `Option<T>`, `List<T>`,
 `Vec<T>`, `Dict<String, T>`, and `Result<Ok, Err>`. Same-module source ADTs
 and public imported source ADTs are eligible when every constructor payload also
-has an eligible shape. Private imports, missing or wrong-kind targets, and
-unsupported ADT payloads are declaration errors. Decode and encode share this
-vocabulary but differ in recursive generic stopping: decode may accept a
-repeated source ADT descriptor with changed instantiated arguments; encode
-checks newly introduced arguments and rejects unsupported leaves. There is no
-separate container-depth limit.
+has an eligible shape. Encode fields also accept singleton and finite-set
+refinements of those ADTs recursively through the same containers and through
+composed format-neutral schemas. An encode-only refinement field still
+participates in field-predicate name validation even though it does not publish
+a decode field.
+
+Only source-declared ADTs are eligible for these refinement fields. A finite
+compiler-provided source-less ADT remains usable in an ordinary refinement
+annotation, but a refinement such as `Option<Int>::Some` prevents the schema
+from publishing a format-neutral encode helper. An ordinary container such as
+`Option<Result<Int, String>>` remains eligible when its recursively visited
+arguments satisfy the field rules.
+
+A private constructor can appear only in a private schema declared by its own
+module. The exact test companion may explicitly import that target and encode
+through the target's private schema with the private constructor. A public
+schema boundary and an ordinary imported schema user cannot expose a private
+constructor through a generated encode helper. The encode eligibility check
+applies to the constructors written in nested singleton and finite-set
+refinements before a singleton or complete set is normalized to another type
+form. Provider-backed opaque ADTs do not become eligible refinements. Private
+imports other than exact-companion access, missing or wrong-kind targets, and
+unsupported ADT payloads are declaration errors. Decode and encode otherwise
+share this vocabulary but differ in recursive generic stopping: decode may
+accept a repeated source ADT descriptor with changed instantiated arguments;
+encode checks newly introduced arguments and rejects unsupported leaves. There
+is no separate container-depth limit.
 
 ### Binary fields
 
@@ -279,7 +300,9 @@ workspace leaf aliases remain unresolved regardless of import order. Format-
 neutral schemas may compose only format-neutral targets; binary schemas only
 binary targets. Missing, private, wrong-kind, ambiguous, incompatible, cyclic,
 duplicate-binding, forward-reference, and direction-specific helper failures
-are declaration errors.
+are declaration errors. The private-target case has one exception: an exact
+test companion with an explicit import may compose a private schema from its
+target module. This access does not extend to another module or package.
 
 Anonymous binary records expose nested schema-local records when every leaf is an
 exact-width unsigned primitive. Sibling nested records at one level are allowed.
@@ -296,8 +319,11 @@ record. `encode SchemaName from value` accepts that record and returns
 `Result<ByteChunk, EncodeError>`. For format-neutral schemas the operations
 use `Result<T, String>` and do not produce binary bytes. Bare operation paths
 resolve only to same-module schemas; qualified public schemas and public aliases
-are available through written imports. A written import does not create a bare
-schema operation path. Generated helper names are implementation details.
+are available through written imports. An exact test companion may also use an
+explicitly imported private schema from its target module, including an encode
+operation whose schema-local record contains a private refinement admitted by
+the format-neutral field rules. A written import does not create a bare schema
+operation path. Generated helper names are implementation details.
 
 ## Codecs
 
