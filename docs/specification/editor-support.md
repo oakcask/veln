@@ -235,8 +235,10 @@ Published diagnostics use standard LSP severity numbers and zero-based ranges.
 The diagnostic `code` is the Veln diagnostic id, and the diagnostic `source` is
 `veln`. Primary diagnostic ranges are half-open. The server converts their
 one-based Unicode-scalar source positions to zero-based UTF-16 positions from
-the effective source text. Workspace publication uses the same conversion as
-document publication and includes unsaved overlays in that effective text.
+the effective source text. A non-BMP scalar before a position therefore adds
+two UTF-16 code units to the LSP character offset. Workspace publication uses
+the same conversion as document publication and includes unsaved overlays in
+that effective text.
 
 Each compiler related note becomes an LSP `relatedInformation` entry when it
 has a text message, a source span with the required file and position fields,
