@@ -282,7 +282,6 @@ pub enum IrCallTarget {
         target: IrCallbackTarget,
         callsite: Box<IrExpr>,
     },
-    Value(String),
     CallsiteValue {
         name: String,
         callsite: Box<IrExpr>,

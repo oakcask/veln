@@ -136,7 +136,14 @@ fn mapper_call_statement(line: &BodyLine) -> CoreStmt {
                 mapper_call,
                 CoreType::int(),
                 CoreExprKind::Call {
-                    target: CoreCallTarget::Value("mapper".to_string()),
+                    target: CoreCallTarget::CallsiteValue {
+                        name: "mapper".to_string(),
+                        callsite: Box::new(core_expr(
+                            mapper_call,
+                            CoreType::unit(),
+                            CoreExprKind::Unit,
+                        )),
+                    },
                     args: vec![local(&mapper_args[0], "input", CoreType::int())],
                 },
             ),
@@ -212,9 +219,10 @@ fn assert_function_shape_body(function: &IrFunction) {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::Value(name),
+            target: IrCallTarget::CallsiteValue { name, callsite },
             args
         } if name == "mapper"
+            && matches!(callsite.kind, IrExprKind::Unit)
             && matches!(args.as_slice(), [IrExpr { kind: IrExprKind::Local(arg), .. }] if arg == "input")
     ));
 

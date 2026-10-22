@@ -15,6 +15,7 @@ use crate::{
 pub enum IrLowerError {
     Blocked(CoreBlocker),
     UnresolvedCallTarget { node_id: NodeId, symbol: String },
+    ValueCallMissingCallsite { node_id: NodeId, symbol: String },
     MissingExpression { node_id: NodeId },
     Hole { node_id: NodeId },
 }
@@ -440,7 +441,6 @@ fn lower_named_call_target(target: &CoreCallTarget) -> Option<IrCallTarget> {
             Some(IrCallTarget::StandardLibraryBuiltin(name.clone()))
         }
         CoreCallTarget::PreludeBuiltin(name) => Some(IrCallTarget::PreludeBuiltin(name.clone())),
-        CoreCallTarget::Value(name) => Some(IrCallTarget::Value(name.clone())),
         _ => None,
     }
 }
@@ -459,6 +459,10 @@ fn lower_contextual_call_target(
         CoreCallTarget::CallsiteValue { name, callsite } => Ok(IrCallTarget::CallsiteValue {
             name: name.clone(),
             callsite: lower_callsite_expr(callsite)?,
+        }),
+        CoreCallTarget::Value(symbol) => Err(IrLowerError::ValueCallMissingCallsite {
+            node_id,
+            symbol: symbol.clone(),
         }),
         CoreCallTarget::Unresolved(symbol) => Err(IrLowerError::UnresolvedCallTarget {
             node_id,

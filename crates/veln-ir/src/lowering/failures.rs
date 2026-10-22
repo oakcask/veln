@@ -73,6 +73,41 @@ fn complete_program_reports_unresolved_call_target_with_call_node() {
 }
 
 #[test]
+fn complete_program_rejects_value_call_without_callsite_metadata() {
+    let module = lower_source(concat!(
+        "fn main(mapper: () -> ()) -> ()\n",
+        "  mapper()\n",
+        "end\n",
+    ));
+    let surface = main_function(&module);
+    let call = expr_line(&surface.body[0]);
+    let program = complete_program(vec![CoreFunction {
+        body: CoreCleanupRegion::new(vec![core_stmt(
+            &surface.body[0],
+            CoreStmtKind::Return {
+                expr: core_expr(
+                    call,
+                    CoreType::unit(),
+                    CoreExprKind::Call {
+                        target: CoreCallTarget::Value("mapper".to_string()),
+                        args: Vec::new(),
+                    },
+                ),
+            },
+        )]),
+        ..function_shell(surface)
+    }]);
+
+    assert_eq!(
+        lower_checked_core(&program),
+        Err(IrLowerError::ValueCallMissingCallsite {
+            node_id: call.node_id,
+            symbol: "mapper".to_string(),
+        })
+    );
+}
+
+#[test]
 fn complete_program_rejects_missing_and_hole_expressions() {
     let module = lower_source(concat!("fn main() -> ()\n", "  _\n", "end\n",));
     let surface = main_function(&module);
