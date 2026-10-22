@@ -271,12 +271,11 @@ span's trace identity. Linked contexts do not affect parentage or identity
 allocation. The recording handler keeps parent and links in distinct fields,
 including an empty link list.
 
-The selection is explicit and independent of channel arrival order, worker
-creation context, and the handler inherited by a task. Starting and finishing
-the span preserve the body's ordinary result. Repeated recording snapshots
-preserve the same parent and links without consuming them. Raw task and
-channel operations continue to perform no implicit observation-context
-propagation.
+The selection is explicit and independent of channel arrival order and worker
+creation context. Starting and finishing the span preserve the body's ordinary
+result. Repeated recording snapshots preserve the same parent and links without
+consuming them. Raw task and channel operations continue to perform no implicit
+observation-context propagation.
 
 ### Explicit child-task context
 
