@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The standard-library Observe effect, observation handlers, scoped span helpers, explicit task or channel-value context propagation, structured logging, named domain events, or observation data model changes.
+update-when: The standard-library Observe effect, observation handlers, scoped span helpers, explicit task, channel-value, or fan-in context propagation, structured logging, named domain events, or observation data model changes.
 specification-coverage: usage=#usage; behavior=#behavior; limits=#limits
 ---
 
@@ -9,7 +9,8 @@ specification-coverage: usage=#usage; behavior=#behavior; limits=#limits
 
 The standard library provides a substitutable observation effect, scoped span
 lifecycle, explicit child-task context propagation, an inspectable recording
-handler, explicit channel-value context attachment, and call-site-aware
+handler, explicit channel-value context attachment, explicit fan-in parent and
+link selection, and call-site-aware
 structured log helpers for four severities, named domain events, counter
 increments, and histogram samples.
 Programs choose a lexical handler for the effect; the library does not select
@@ -62,8 +63,10 @@ end
 
 `Observe` has three operations: `start_span(SpanRequest) -> Span`,
 `emit(Observation) -> ()`, and `finish_span(SpanFinish) -> ()`. `Span` is
-opaque. Construct a request with a stable name and an optional opaque parent
-span from a recording handler when recorded parentage is required.
+opaque. Construct a request with a stable name, an optional parent
+`TraceContext`, and an ordered list of linked `TraceContext` values. Pass an
+empty list when the new span has no causal links. `observe::context(span)`
+returns the context of a recording span and returns `None` for a no-op span.
 `trace::in_span<effect E>` accepts a body of type
 `fn(Span) -> Result<(), String> effects [...E]`. It starts the span, passes its
 opaque handle to the body, forwards the callback effect row beside `Observe`,
@@ -79,7 +82,7 @@ fn work(span: Span) -> Result<(), String> effects [stdio]
 end
 
 fn traced_work() -> Result<(), String> effects [observe::Observe, stdio]
-	trace::in_span(observe::SpanRequest("work", None), work)
+	trace::in_span(observe::SpanRequest("work", None, list_nil()), work)
 end
 ```
 
@@ -145,6 +148,19 @@ end
 
 The receiver chooses how to use the attached context. An observation helper
 receives it only when the program passes it explicitly.
+
+For fan-in, choose one received context as the parent and put every other
+causal input context that must be retained in the link list. Parentage is not
+inferred from receive order or task creation:
+
+```veln
+let request = observe::SpanRequest(
+	"consume",
+	Some(chosen_parent),
+	list_cons(other_input, list_nil()),
+)
+trace::in_span(request, consume)
+```
 
 ## Behavior
 
@@ -216,17 +232,18 @@ Counter increments and histogram samples follow the same discard rule.
 ### Span lifecycle and recording
 
 A root span receives a trace identity and a span identity from its recording.
-A child request retains the parent's trace identity, records the parent's span
-identity, and receives a distinct span identity. Each recording allocates
-identities in order from its caller-supplied prefix and retains state in its own
-channel-backed scope. A recording handler accepts an opaque parent returned by
-another recording. If both recordings use the same prefix, child allocation
-skips a candidate that equals the supplied parent identity. Children accepted
-by one recording therefore remain distinct from their parent and siblings.
-This local guarantee does not make identities globally unique across unrelated
-recordings or processes. A no-op span has no recording identity; if one is
-supplied as a parent to a recording handler, that request starts a root span
-and records no parent identity.
+A request with a parent context retains the parent's trace identity, records
+the parent's span identity, and receives a distinct span identity. The parent
+context and link list are independent request fields: zero links is valid, and
+the recording preserves linked trace and span identities in caller-supplied
+order. Each recording allocates identities in order from its caller-supplied
+prefix and retains state in its own channel-backed scope. If a recording's
+next span-identity candidate equals the supplied parent span identity, the
+handler skips that candidate. Children accepted by one recording therefore
+remain distinct from their parent and siblings. This local guarantee does not
+make identities globally unique across unrelated recordings or processes.
+A no-op span has no recording context, so `observe::context` returns `None`
+for it.
 
 `trace::in_span` registers the matching finish immediately after start. The
 finish runs exactly once after a normal `Ok` return, after an `Err` result that
@@ -238,10 +255,26 @@ same trace and span identities as its start entry.
 consuming entries or resetting the next identity. A later snapshot includes
 the preserved prefix followed by entries from subsequent recording operations.
 `SpanStarted` exposes the name, trace identity, span identity, optional parent
-span identity, and monotonic millisecond reading. `SpanFinished` exposes the
-matching identities and finish reading. `Emitted` retains an emitted
+span identity, ordered link contexts, and monotonic millisecond reading.
+`SpanFinished` exposes the matching identities and finish reading. `Emitted` retains an emitted
 observation alongside span entries, so one recording preserves the order
 across all three `Observe` operations.
+
+### Explicit fan-in context
+
+A consumer selects parentage by placing one `TraceContext` in the optional
+parent field of `SpanRequest`. It retains other causal inputs by placing their
+contexts in the request's link list. The selected parent determines the new
+span's trace identity. Linked contexts do not affect parentage or identity
+allocation. The recording handler keeps parent and links in distinct fields,
+including an empty link list.
+
+The selection is explicit and independent of channel arrival order, worker
+creation context, and the handler inherited by a task. Starting and finishing
+the span preserve the body's ordinary result. Repeated recording snapshots
+preserve the same parent and links without consuming them. Raw task and
+channel operations continue to perform no implicit observation-context
+propagation.
 
 ### Explicit child-task context
 
@@ -276,7 +309,7 @@ infer ambient context, or apply a context to later observations.
 ## Limits
 
 Metric-cardinality enforcement, metric query APIs, asynchronous metric
-callbacks, fan-in links, carrier propagation, production exporters, wall-time
+callbacks, carrier propagation, production exporters, wall-time
 or resource enrichment, exporter health, and shutdown flushing are not
 available. The no-op handler does not record,
 enrich, buffer, export, or report observations. `trace::in_span` currently
@@ -303,7 +336,7 @@ process or machine termination can prevent it from running.
   [`metric.test.veln`](../../crates/veln-stdlib/veln/metric.test.veln), plus scoped
   span lifecycle coverage in
   [`trace.test.veln`](../../crates/veln-stdlib/veln/trace.test.veln) and explicit
-  task- and channel-value-context coverage in
+  task-, channel-value-, and fan-in-context coverage in
   [`traced.test.veln`](../../crates/veln-stdlib/veln/traced.test.veln).
 - Public task-context execution evidence:
   [`observability-traced-task-context`](../../examples/specification/run/observability-traced-task-context/).

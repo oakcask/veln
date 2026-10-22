@@ -14,8 +14,8 @@ recording snapshots, typed scalar attributes, optional trace context,
 effect-polymorphic scoped span lifecycle, and call-site-aware structured log
 records at debug, info, warning, and error severities, named domain events,
 counter increments and histogram samples with recording and no-op handler
-support, plus explicit direct child-task and channel-value context propagation, are
-implemented in the
+support, explicit direct child-task and channel-value context propagation, and
+explicit fan-in parent and causal-link selection are implemented in the
 [current observability specification](../specification/standard-library-observability.md).
 This proposal covers only the remaining facilities described below.
 
@@ -63,12 +63,8 @@ The remaining standard-library work supplies this group:
 Explicit context attachment for channel values and the absence of implicit
 context on raw channel operations are current behavior described by the
 [observability specification](../specification/standard-library-observability.md#explicit-channel-value-context).
-The remaining propagation work is:
-
-- Fan-in code chooses which context is the parent and can represent other
-  causal inputs as links.
-- Network adapters inject and extract a trace context through an explicit
-  carrier.
+The remaining propagation work is for network adapters to inject and extract
+a trace context through an explicit carrier.
 
 This rule prevents a worker's creation context from being mistaken for the
 context of every message it later receives. It also keeps custom observability
@@ -117,7 +113,6 @@ invent a version before a checked schema exists.
 
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |
-| O8 | Several producers feed one consumer. | The selected parent and additional links match the consumer's explicit choice. | Fan-in case. |
 | O9 | An exporter rejects or drops a record. | The application result is unchanged and bounded health facts reflect the failure. | Forced-export-failure case. |
 | O10 | Metric input exceeds a configured production cardinality limit. | The production handler applies the limit without changing the application result and reports bounded drop facts. | Table-driven cardinality and drop cases. |
 | O11 | A trace crosses a carrier boundary. | Injection followed by extraction preserves valid trace identity and sampling state; malformed input produces no forged valid context. | Carrier conformance cases. |
@@ -126,15 +121,18 @@ invent a version before a checked schema exists.
 
 ## Verification and Promotion
 
-The next implementation work starts with fan-in links, carrier propagation,
-and production metric-cardinality policy. The JSON Lines schema and fixtures then
+The next implementation work starts with carrier propagation and production
+metric-cardinality policy. The JSON Lines schema and fixtures then
 establish the machine-readable contract. An external protocol adapter is
 verified against that protocol's conformance fixtures and remains replaceable.
 
-Executable cases belong under `examples/specification/`. When implementation
-is complete, focused current specification pages must explain usage, handler
-installation, propagation, failure behavior, limits, and the checked JSON
-schema. This proposal and its catalog entry must then be removed.
+Standard-library API behavior belongs in companion tests under
+`crates/veln-stdlib/veln/`. Executable cases under `examples/specification/`
+must verify an independently identified compiler, backend, CLI, or host
+integration contract. When implementation is complete, focused current
+specification pages must explain usage, handler installation, propagation,
+failure behavior, limits, and the checked JSON schema. This proposal and its
+catalog entry must then be removed.
 
 ## Non-goals
 
