@@ -300,7 +300,9 @@ workspace leaf aliases remain unresolved regardless of import order. Format-
 neutral schemas may compose only format-neutral targets; binary schemas only
 binary targets. Missing, private, wrong-kind, ambiguous, incompatible, cyclic,
 duplicate-binding, forward-reference, and direction-specific helper failures
-are declaration errors.
+are declaration errors. The private-target case has one exception: an exact
+test companion with an explicit import may compose a private schema from its
+target module. This access does not extend to another module or package.
 
 Anonymous binary records expose nested schema-local records when every leaf is an
 exact-width unsigned primitive. Sibling nested records at one level are allowed.
@@ -317,8 +319,11 @@ record. `encode SchemaName from value` accepts that record and returns
 `Result<ByteChunk, EncodeError>`. For format-neutral schemas the operations
 use `Result<T, String>` and do not produce binary bytes. Bare operation paths
 resolve only to same-module schemas; qualified public schemas and public aliases
-are available through written imports. A written import does not create a bare
-schema operation path. Generated helper names are implementation details.
+are available through written imports. An exact test companion may also use an
+explicitly imported private schema from its target module, including an encode
+operation whose schema-local record contains a private refinement admitted by
+the format-neutral field rules. A written import does not create a bare schema
+operation path. Generated helper names are implementation details.
 
 ## Codecs
 

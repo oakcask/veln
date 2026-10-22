@@ -348,7 +348,11 @@ install that production client boundary.
   corresponding base-ADT encode path. Checked runtime and diagnostic evidence
   covers singleton, union, nested-container, and pass-through behavior, plus
   direct, nested-container, and composed-schema rejection of base and
-  excluded-constructor values.
+  excluded-constructor values. Helper visibility follows the
+  [schema-operation rules](source-surface.md#schema-operations): an exact test
+  companion may encode through its explicitly imported private target schema,
+  including a schema-local private refinement, without making that helper
+  available to ordinary importers or through a public schema boundary.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression
@@ -544,6 +548,8 @@ than degrading it to a generic rendered result value.
   [`adt-variant-refinement-format-neutral-schema-encode-json`](../../examples/specification/check/adt-variant-refinement-format-neutral-schema-encode-json/).
   Source-less refinement rejection is checked by
   [`adt-variant-refinement-format-neutral-schema-encode-source-boundary`](../../examples/specification/check/adt-variant-refinement-format-neutral-schema-encode-source-boundary/).
+  Exact-companion access to a private refined schema is checked by
+  [`companion-private-schema-access`](../../examples/specification/check/companion-private-schema-access/).
 - JVM networking execution evidence compiles checked programs with the
   exported standard modules. The backend cases exercise real socket and task
   cancellation through `net::IO` and `net::system()`. Separate Veln support
