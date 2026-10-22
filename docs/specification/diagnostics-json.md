@@ -483,9 +483,10 @@ one-hop alias, and transitive-alias views of the same quarantined variant; every
 view suppresses the derivative payload mismatch.
 
 A value whose complete ADT variant set is not assignable at a direct local,
-argument, branch, arm, or result boundary reports `type.variant_mismatch` at
-that value expression. The primary message states the actual and expected
-types. The diagnostic renders the two sides independently: an unambiguous
+argument, branch, arm, result, or generated schema encode boundary reports
+`type.variant_mismatch` at that value expression. The primary message states
+the actual and expected types. The diagnostic renders the two sides
+independently: an unambiguous
 explicit alias spelling is preserved only on the side that supplied it, and an
 expected alias never relabels an inferred actual type. Conflicting alias
 provenance uses the target ADT's canonical display name, including when the
@@ -504,10 +505,11 @@ base-ADT variant outside `expected_variants` is excluded, without copying the
 complete ADT declaration into each diagnostic. A `variant_exclusion` related
 note renders that fact for human output. One `expected_type_origin` related
 note identifies the declaration or local annotation that supplied the
-expectation. When a compiler-known helper infers a parameter expectation from
-the call, the note instead identifies that helper at the call site. A nested
-aggregate invariance failure with no truthful finite variant exclusion reports
-ordinary `type.mismatch`. Alias display differences do not create such an
+expectation. When a compiler-known helper or generated schema encode helper
+infers a parameter expectation from the call, the note instead identifies that
+helper at the call site. A nested aggregate invariance failure with no truthful
+finite variant exclusion reports ordinary `type.mismatch`. Alias display
+differences do not create such an
 invariance failure: when invariant arguments have the same resolved type, an
 outer finite-set or base-to-refinement exclusion remains
 `type.variant_mismatch`, with independent alias spellings in `actual_type` and

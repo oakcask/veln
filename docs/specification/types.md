@@ -1121,8 +1121,9 @@ or final result. Its JSON details contain the rendered `actual_type`, rendered
 `form: all_except_expected` and an empty `variants` array when the actual type
 is the complete base ADT. A `variant_exclusion` related note renders the same
 fact for human output, and another related note identifies the expected local
-annotation, parameter, result declaration, or compiler-known helper parameter
-inferred at the call site. Invariant named-type arguments are compared by
+annotation, parameter, result declaration, compiler-known helper parameter, or
+generated schema encode helper parameter inferred at the call site. Invariant
+named-type arguments are compared by
 resolved type identity, not by alias display spelling. If the arguments differ
 only by aliases of one target, an outer refinement exclusion therefore remains
 a `type.variant_mismatch`, and each rendered side retains its own alias

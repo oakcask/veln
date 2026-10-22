@@ -267,14 +267,14 @@ A refinement in a schema-visible shape constrains the decoded value.
 It does not define a new wire shape, omit an existing constructor tag, or change
 the underlying ADT representation.
 
-The current [execution specification](../specification/execution.md#binary-schemas)
+The current [execution specification](../specification/execution.md#schema-execution)
 owns format-neutral encode helpers. Those helpers retain eligible source-ADT
 refinements, reject base or excluded values statically, and preserve the base
 ADT representation. This section retains only decode behavior.
 
 Exact test-companion access can permit ordinary test source to use a private
 constructor. That permission does not make the constructor visible at a
-generated public schema boundary.
+generated public decode boundary.
 
 | Boundary | Refinement behavior |
 | --- | --- |

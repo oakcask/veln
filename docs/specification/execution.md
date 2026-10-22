@@ -272,7 +272,7 @@ and `concurrency` effects instead of a `net::IO` handler. Direct protocol
 drivers, the duplex adapter, the lower client service, and `serve_tcp` do not
 install that production client boundary.
 
-## Binary schemas
+## Schema execution
 
 - Every exact-width unsigned primitive from `uint8` through `uint64be` and
   `uint64le` decodes to `Int` and accepts `Int` on encode. This holds for
@@ -328,18 +328,11 @@ install that production client boundary.
   format-neutral visible shape; the helper preserves the source ADT value
   shape through the pass-through boundary.
 - Format-neutral generated encode helpers for schemas without a `format`
-  clause accept a schema-local visible record shape and return
-  `Result<T, String>` when every field is a recursive visible shape made from
-  `Int`, `Bool`, `Float`, and `String` leaves, anonymous records, `Option<T>`,
-  `List<T>`, `Vec<T>`, `Dict<String, T>`, `Result<Ok, Err>`, and eligible
-  same-module or public imported source ADTs. Every recursively visited child
-  or constructor payload must also be eligible; container depth is not
-  otherwise limited. An eligible singleton or finite-set refinement of a
-  source ADT remains refined in the helper's input and successful result at
-  every supported field position. A selected private constructor is eligible
-  only at a private same-module schema boundary. A public schema does not
-  expose it. Compiler-provided opaque ADTs do not become eligible through a
-  refinement annotation.
+  clause accept the schema-local record defined by the
+  [format-neutral field eligibility rules](source-surface.md#format-neutral-fields)
+  and return `Result<T, String>`. An eligible singleton or finite-set
+  refinement of a source ADT remains refined in the helper's input and
+  successful result at every supported field position.
   The helper accepts an admitted constructor. A base ADT or an excluded
   constructor fails static checking with `type.variant_mismatch`.
   The helper returns the supplied record on success and does not produce binary
