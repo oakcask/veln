@@ -14,7 +14,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrCallTarget::CallbackBoundary { target, callsite } => {
                 self.emit_callback_boundary_call(code, target, args, callsite);
             }
-            IrCallTarget::Value(name) => self.emit_value_call(code, name, args),
             IrCallTarget::CallsiteValue { name, callsite } => {
                 self.emit_callsite_value_call(code, name, args, callsite)
             }
@@ -109,18 +108,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             &self.program.options.runtime_class,
             stdio_method(name),
             "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;",
-        );
-    }
-
-    fn emit_value_call(&mut self, code: &mut MethodCode, name: &str, args: &[IrExpr]) {
-        code.aload(self.local_slot(name));
-        self.emit_object_array(code, args.len(), |this, code, index| {
-            this.emit_expr(code, &args[index]);
-        });
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "call",
-            "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
         );
     }
 

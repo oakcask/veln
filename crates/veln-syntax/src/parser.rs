@@ -481,9 +481,7 @@ trait TokenCursor {
     fn source_file(&self) -> &SourceFile;
     fn diagnostics_mut(&mut self) -> &mut Vec<ParseDiagnostic>;
 
-    fn holds_at_eof(&self) -> bool {
-        false
-    }
+    fn holds_at_eof(&self) -> bool;
 
     fn eat(&mut self, kind: TokenKind) -> Option<Token> {
         self.at(kind).then(|| self.bump())
