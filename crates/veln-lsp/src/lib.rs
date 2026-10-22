@@ -418,10 +418,23 @@ impl Server {
     ) -> Vec<String> {
         let mut responses = Vec::new();
         for root in roots {
-            let diagnostics_by_path = Project::discover(root.clone(), &[])
+            let (diagnostics_by_path, diagnostic_sources) = Project::discover(root.clone(), &[])
                 .ok()
                 .map(|mut project| {
                     self.overlay_open_workspace_documents(&root, &mut project);
+                    let visible_root = visible_workspace_root(&root, &self.workspace_root_aliases);
+                    let diagnostic_sources = project
+                        .files
+                        .iter()
+                        .map(|source| {
+                            let path = source.path().as_str().to_string();
+                            let published = DiagnosticSource {
+                                uri: path_to_uri(&visible_root.join(&path)),
+                                text: source.text().to_string(),
+                            };
+                            (path, published)
+                        })
+                        .collect::<DiagnosticSources>();
                     let diagnostics =
                         checked_project_diagnostics(project.clone(), DoctestMode::Exclude);
                     let mut diagnostics_by_path = diagnostics_by_path(diagnostics);
@@ -430,7 +443,7 @@ impl Server {
                             .entry(source.path().as_str().to_string())
                             .or_default();
                     }
-                    diagnostics_by_path
+                    (diagnostics_by_path, diagnostic_sources)
                 })
                 .unwrap_or_default();
             let mut next_uris = BTreeSet::new();
@@ -440,7 +453,11 @@ impl Server {
                     &visible_workspace_root(&root, &self.workspace_root_aliases).join(&source_path),
                 );
                 next_uris.insert(uri.clone());
-                responses.push(publish_diagnostics_for_uri(&uri, &diagnostics));
+                responses.push(publish_diagnostics_for_uri(
+                    &uri,
+                    &diagnostics,
+                    &diagnostic_sources,
+                ));
             }
             if let Some(previous_uris) = self.published_diagnostic_uris.get(&root) {
                 for uri in previous_uris.difference(&next_uris) {

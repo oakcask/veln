@@ -233,7 +233,24 @@ workspace diagnostic for the selected project.
 
 Published diagnostics use standard LSP severity numbers and zero-based ranges.
 The diagnostic `code` is the Veln diagnostic id, and the diagnostic `source` is
-`veln`. Span-less diagnostics are published at a zero-width start range while
+`veln`. Primary diagnostic ranges are half-open. The server converts their
+one-based Unicode-scalar source positions to zero-based UTF-16 positions from
+the effective source text. Workspace publication uses the same conversion as
+document publication and includes unsaved overlays in that effective text.
+
+Each compiler related note that has both a source span and a message becomes an
+LSP `relatedInformation` entry in compiler diagnostic order. Its location uses
+the URI for that workspace source and the same half-open UTF-16 range
+conversion as the primary diagnostic. Notes without a span or without a
+message remain available only through the compiler diagnostic envelope because
+LSP related information requires both fields.
+
+This projection applies to variant-refinement diagnostics, including
+`type.variant_union_base`; it does not recover navigation identities from an
+invalid refinement. The checked stdio evidence is under
+`examples/specification/lsp/adt-variant-refinement-diagnostics/`.
+
+Span-less diagnostics are published at a zero-width start range while
 preserving the compiler-owned diagnostic id, including
 `toolchain.invalid_symbol_case`. Source-path-derived module segment
 diagnostics include LSP `data` with the observable source-path origin

@@ -1,0 +1,14 @@
+use model
+
+fn sink(value: Int) -> ()
+  ()
+end
+
+fn union(value: model::Left::A) -> ()
+  "😀" |> sink<model::Left::A | model::Right::B>(value)
+end
+
+fn non_adt(value: model::Empty::Missing) -> ()
+  ()
+end
+

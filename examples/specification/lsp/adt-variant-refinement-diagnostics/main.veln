@@ -1,0 +1,5 @@
+use model
+
+fn main() -> ()
+  ()
+end

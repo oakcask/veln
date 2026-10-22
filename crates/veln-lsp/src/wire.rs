@@ -140,7 +140,7 @@ pub(crate) fn navigation_range_json(
     )
 }
 
-fn utf16_position_json(text: &str, line: usize, column: usize) -> String {
+pub(crate) fn utf16_position_json(text: &str, line: usize, column: usize) -> String {
     let character = text
         .lines()
         .nth(line.saturating_sub(1))

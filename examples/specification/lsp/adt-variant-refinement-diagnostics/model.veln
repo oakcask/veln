@@ -1,0 +1,9 @@
+pub type Empty
+end
+pub type Left
+  A
+end
+
+pub type Right
+  B
+end

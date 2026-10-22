@@ -1,24 +1,44 @@
 use std::collections::BTreeMap;
 
 use veln_diagnostics::{Diagnostic, JsonValue};
-use veln_source::SourceFile;
+use veln_source::{SourceFile, SourceSpan};
 
-use super::{display_path, escape_json, range_json, severity_code};
+use super::{display_path, escape_json, range_json, severity_code, utf16_position_json};
 use crate::diagnostics;
 
+#[derive(Clone, Debug)]
+pub(crate) struct DiagnosticSource {
+    pub(crate) uri: String,
+    pub(crate) text: String,
+}
+
+pub(crate) type DiagnosticSources = BTreeMap<String, DiagnosticSource>;
+
 pub(crate) fn publish_diagnostics(uri: &str, text: String) -> String {
-    let source = SourceFile::new(display_path(uri), text);
+    let path = display_path(uri);
+    let source = SourceFile::new(path.clone(), text.clone());
     let diagnostics = diagnostics(&source)
         .into_iter()
         .filter(|diagnostic| diagnostic_applies_to_uri(diagnostic, uri))
         .collect::<Vec<_>>();
-    publish_diagnostics_for_uri(uri, &diagnostics)
+    let sources = BTreeMap::from([(
+        path,
+        DiagnosticSource {
+            uri: uri.to_string(),
+            text,
+        },
+    )]);
+    publish_diagnostics_for_uri(uri, &diagnostics, &sources)
 }
 
-pub(crate) fn publish_diagnostics_for_uri(uri: &str, diagnostics: &[Diagnostic]) -> String {
+pub(crate) fn publish_diagnostics_for_uri(
+    uri: &str,
+    diagnostics: &[Diagnostic],
+    sources: &DiagnosticSources,
+) -> String {
     let diagnostics = diagnostics
         .iter()
-        .map(lsp_diagnostic_json)
+        .map(|diagnostic| lsp_diagnostic_json(diagnostic, sources))
         .collect::<Vec<_>>()
         .join(",");
     format!(
@@ -41,17 +61,85 @@ pub(crate) fn diagnostic_applies_to_uri(diagnostic: &Diagnostic, uri: &str) -> b
         .is_none_or(|span| span.file.as_str() == display_path(uri))
 }
 
-pub(crate) fn lsp_diagnostic_json(diagnostic: &Diagnostic) -> String {
+pub(crate) fn lsp_diagnostic_json(diagnostic: &Diagnostic, sources: &DiagnosticSources) -> String {
     let data = lsp_diagnostic_data_json(diagnostic)
         .map(|data| format!(",\"data\":{data}"))
         .unwrap_or_default();
+    let related_information = lsp_related_information_json(diagnostic, sources)
+        .map(|related| format!(",\"relatedInformation\":[{related}]"))
+        .unwrap_or_default();
     format!(
-        "{{\"range\":{},\"severity\":{},\"code\":\"{}\",\"source\":\"veln\",\"message\":\"{}\"{data}}}",
-        range_json(diagnostic.span.as_ref()),
+        "{{\"range\":{},\"severity\":{},\"code\":\"{}\",\"source\":\"veln\",\"message\":\"{}\"{related_information}{data}}}",
+        diagnostic_range_json(diagnostic.span.as_ref(), sources),
         severity_code(diagnostic.severity),
         escape_json(&diagnostic.id),
         escape_json(diagnostic.message.as_str()),
     )
+}
+
+fn diagnostic_range_json(span: Option<&SourceSpan>, sources: &DiagnosticSources) -> String {
+    let Some(span) = span else {
+        return range_json(None);
+    };
+    let Some(source) = sources.get(span.file.as_str()) else {
+        return range_json(Some(span));
+    };
+    format!(
+        "{{\"start\":{},\"end\":{}}}",
+        utf16_position_json(&source.text, span.start.line, span.start.column),
+        utf16_position_json(&source.text, span.end.line, span.end.column),
+    )
+}
+
+fn lsp_related_information_json(
+    diagnostic: &Diagnostic,
+    sources: &DiagnosticSources,
+) -> Option<String> {
+    let related = diagnostic
+        .related
+        .iter()
+        .filter_map(|note| {
+            let message = object_text(note, "message")?;
+            let span = object_value(note, "span")?;
+            let file = object_text(span, "file")?;
+            let source = sources.get(file)?;
+            let start = object_value(span, "start")?;
+            let end = object_value(span, "end")?;
+            let start_line = object_usize(start, "line")?;
+            let start_column = object_usize(start, "column")?;
+            let end_line = object_usize(end, "line")?;
+            let end_column = object_usize(end, "column")?;
+            let range = format!(
+                "{{\"start\":{},\"end\":{}}}",
+                utf16_position_json(&source.text, start_line, start_column),
+                utf16_position_json(&source.text, end_line, end_column),
+            );
+            Some(format!(
+                "{{\"location\":{{\"uri\":\"{}\",\"range\":{range}}},\"message\":\"{}\"}}",
+                escape_json(&source.uri),
+                escape_json(message),
+            ))
+        })
+        .collect::<Vec<_>>();
+    (!related.is_empty()).then(|| related.join(","))
+}
+
+fn object_value<'a>(value: &'a JsonValue, key: &str) -> Option<&'a JsonValue> {
+    value
+        .as_object()?
+        .iter()
+        .find_map(|(candidate, value)| (candidate == key).then_some(value))
+}
+
+fn object_text<'a>(value: &'a JsonValue, key: &str) -> Option<&'a str> {
+    object_value(value, key)?.as_text()
+}
+
+fn object_usize(value: &JsonValue, key: &str) -> Option<usize> {
+    let JsonValue::Number(value) = object_value(value, key)? else {
+        return None;
+    };
+    usize::try_from(*value).ok()
 }
 
 fn lsp_diagnostic_data_json(diagnostic: &Diagnostic) -> Option<String> {

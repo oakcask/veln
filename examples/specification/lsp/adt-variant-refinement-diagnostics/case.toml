@@ -1,0 +1,101 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics"
+length = 4
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/2/code"
+equals = "type.variant_union_base"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/2/severity"
+equals = 1
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/2/source"
+equals = "veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/2/message"
+equals = "variant-refinement base `Right` does not match expected base `Left`"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/2/range"
+equals = {"start":{"line":7,"character":32},"end":{"line":7,"character":47}}
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/2/relatedInformation"
+length = 1
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/2/relatedInformation/0/message"
+equals = "The first successfully instantiated alternative established `Left` as the union base."
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/2/relatedInformation/0/location/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/2/relatedInformation/0/location/range"
+equals = {"start":{"line":7,"character":15},"end":{"line":7,"character":29}}
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/3/code"
+equals = "type.variant_refinement_base"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/3/relatedInformation/0/message"
+equals = "Type `Empty` is declared here without finite ADT variants."
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/3/relatedInformation/0/location/uri"
+workspace_file_uri = "model.veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/3/relatedInformation/0/location/range"
+equals = {"start":{"line":0,"character":4},"end":{"line":2,"character":0}}
+
+[[lsp_assert]]
+id = 2
+path = "/result"
+equals = null
