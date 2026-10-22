@@ -1,4 +1,8 @@
 use veln_source::SourceSpan;
+pub use veln_syntax::{
+    RecordFieldPath, TypePathSegments, VariantRefinementAlternative, VariantRefinementType,
+    VariantRefinementTypeArgument,
+};
 
 mod predicates;
 
@@ -353,48 +357,6 @@ pub struct Param {
     pub ty_paths: Vec<TypePathSegments>,
     pub ty_refinements: Vec<VariantRefinementType>,
     pub is_variadic: bool,
-    pub span: SourceSpan,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TypePathSegments {
-    pub segments: Vec<String>,
-    pub segment_spans: Vec<SourceSpan>,
-    pub type_argument_count: usize,
-    pub application_span: SourceSpan,
-    pub written: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct VariantRefinementType {
-    pub alternatives: Vec<VariantRefinementAlternative>,
-    pub pipe_spans: Vec<SourceSpan>,
-    pub record_field_path: Option<RecordFieldPath>,
-    pub span: SourceSpan,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RecordFieldPath {
-    /// Fields shared with the preceding record-associated refinement in this annotation.
-    pub shared_prefix_len: usize,
-    /// Fields appended after the shared prefix to reach this source occurrence.
-    pub suffix: Vec<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct VariantRefinementAlternative {
-    pub base: TypePathSegments,
-    pub type_arguments: Vec<VariantRefinementTypeArgument>,
-    pub variant: String,
-    pub variant_span: SourceSpan,
-    pub span: SourceSpan,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct VariantRefinementTypeArgument {
-    pub ty_fragments: Vec<String>,
-    pub ty_paths: Vec<TypePathSegments>,
-    pub ty_refinements: Vec<VariantRefinementType>,
     pub span: SourceSpan,
 }
 

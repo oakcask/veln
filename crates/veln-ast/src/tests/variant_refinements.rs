@@ -1,6 +1,20 @@
 use super::*;
 
 #[test]
+fn syntax_and_surface_ast_share_type_annotation_metadata() {
+    fn identity<T>(value: T) -> T {
+        value
+    }
+
+    let _: fn(veln_syntax::TypePathSegments) -> TypePathSegments = identity;
+    let _: fn(veln_syntax::VariantRefinementType) -> VariantRefinementType = identity;
+    let _: fn(veln_syntax::RecordFieldPath) -> RecordFieldPath = identity;
+    let _: fn(veln_syntax::VariantRefinementAlternative) -> VariantRefinementAlternative = identity;
+    let _: fn(veln_syntax::VariantRefinementTypeArgument) -> VariantRefinementTypeArgument =
+        identity;
+}
+
+#[test]
 fn surface_wire_round_trip_preserves_variant_refinement_structure_and_spans() {
     let source = concat!(
         "effect Transition\n",
