@@ -17,6 +17,24 @@ impl TypeEnvironment {
         )
     }
 
+    pub(crate) fn canonicalize_type_annotation_with_context(
+        &self,
+        ty: Type,
+        current_module: Option<&str>,
+        type_parameters: &TypeParameterIdentityContext<'_>,
+    ) -> Type {
+        crate::types::signature_collection::canonicalize_type_effects_with_context(
+            ty,
+            &self.uses,
+            &self.quarantined_uses,
+            current_module,
+            &self.effects,
+            &self.adts,
+            &self.companion_effect_access_targets,
+            Some(type_parameters),
+        )
+    }
+
     pub(crate) fn variant_refinement_annotation_error(
         &self,
         ty: &Type,
@@ -203,6 +221,7 @@ impl TypeEnvironment {
     ) -> bool {
         match ty {
             Type::Unknown => false,
+            ty @ Type::Named { .. } if ty.is_recovery_slot() => true,
             Type::Named { name, args, .. } => self.named_type_annotation_is_fully_resolved(
                 ty,
                 name,
@@ -257,7 +276,7 @@ impl TypeEnvironment {
                     .is_some_and(|arity| arity == args.len())
                 || self
                     .adts
-                    .descriptor_for_type_path(name, args.len(), current_module, &self.uses)
+                    .unique_descriptor_for_type_path(name, args.len(), current_module, &self.uses)
                     .is_some()
                 || self.is_variant_refinement_candidate(ty, current_module)
                     && self.canonicalize_type_annotation(ty.clone(), current_module)
@@ -277,7 +296,7 @@ impl TypeEnvironment {
             .is_none()
             && self
                 .adts
-                .descriptor_for_type_path(name, args.len(), current_module, &self.uses)
+                .unique_descriptor_for_type_path(name, args.len(), current_module, &self.uses)
                 .is_some()
             && self.type_annotations_are_fully_resolved(args, current_module, type_parameters)
             && unresolved_alternatives
@@ -300,7 +319,7 @@ impl TypeEnvironment {
         type_parameters: &TypeParameterIdentityContext<'_>,
     ) -> bool {
         self.adts
-            .descriptor_for_type_path(name, args.len(), current_module, &self.uses)
+            .unique_descriptor_for_type_path(name, args.len(), current_module, &self.uses)
             .is_some()
             && self.type_annotations_are_fully_resolved(args, current_module, type_parameters)
     }

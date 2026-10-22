@@ -658,7 +658,13 @@ arguments, and variant are removed. Alternatives whose generic arguments
 differ remain distinct even when they select the same variant. Display follows
 ADT declaration order. Canonical generic arguments recursively use resolved
 type identities, so an alias argument and its resolved target identify the
-same alternative.
+same alternative. During recovered union-base comparison, record arguments
+match fields by name regardless of written field order, and nested refinement
+arguments match variant sets regardless of written alternative order. A
+declaration type parameter has an identity in its declaration context and
+remains distinct from a same-spelled nominal type. Every named argument keeps
+its resolved identity, so a compiler-known type and a source-declared nominal
+type with the same leaf spelling remain different union bases.
 `Option<T>`, `Result<T, E>`, `List<T>`, and source-defined ADTs use this same
 representation. A public type-alias chain whose resolved target is an ADT can
 qualify a singleton or union alternative. Alias-qualified and target-qualified
@@ -681,8 +687,9 @@ checked
 [`alias presentation`](../../examples/specification/check/adt-variant-refinement-alias-presentation/)
 case covers transitive singleton, union, and generic aliases together with
 mutual assignment, inference, finite joins, and complete-domain joins. An
-unknown variant, invalid base arity, or union of different resolved ADTs is an
-invalid type annotation; it does not become an assignable `unknown` contract.
+unknown variant, invalid base arity, or union whose alternatives have different
+resolved ADT identities or canonical generic arguments is an invalid type
+annotation; it does not become an assignable `unknown` contract.
 If a structurally valid refinement base resolves uniquely but cannot provide a
 finite ADT variant set, the checker rejects the annotation with
 `type.variant_refinement_base`. The reason is `not_adt` for a source declaration
@@ -733,11 +740,19 @@ remain independent occurrences. The
 early quarantine uses the same source-backed declarations as the analyzed
 module, including declarations selected from the reusable standard
 environment. Private return inference therefore cannot publish a result that
-depends on an invalid reusable-base annotation. Within a refinement union, the
+depends on an invalid reusable-base annotation. Recovery visits every generic
+argument even when an earlier sibling argument is invalid. It therefore keeps
+an independently complete union-base comparison in a later sibling argument,
+while the enclosing type remains invalid. Within a refinement union, the
 checker skips a failed alternative, retains the earliest successfully
-instantiated base, and compares each later successful alternative with that
-base. A later different base remains an invalid annotation; the failed
-alternative does not suppress that independent comparison. The
+instantiated base identity and canonical generic arguments, and compares each
+later successful alternative with that pair. A later different identity or
+different canonical arguments report `type.variant_union_base`; the failed
+alternative does not suppress that independent comparison, and the failed
+alternative's independently provable generic-arity failure remains. A
+mixed-base union is an invalid annotation. It quarantines the complete
+function, effect operation, handler, or ADT-constructor signature when it
+occurs in one of those declarations. The
 [diagnostic specification](diagnostics-json.md#diagnostic-families) defines the
 closed details, related declaration or provider context, and downstream
 suppression; the checked
@@ -745,6 +760,20 @@ suppression; the checked
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-base-diagnostics-json/)
 cases verify those boundaries.
+The focused union-base
+[`human`](../../examples/specification/check/adt-variant-union-base-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-union-base-json/)
+cases verify ADT identity, invariant generic arguments, per-alternative spans,
+recursively nested nominal-identity display, declaration-type-parameter and
+nominal-type name collisions, compiler-known and source-nominal name
+collisions, isolation from unrelated source declaration names, complete base
+rendering across different generic arities, and recovery after an invalid
+earlier alternative.
+The focused
+[`reordered JSON`](../../examples/specification/check/adt-variant-union-base-reordered-json/)
+case verifies order-independent record fields and nested refinement sets while
+preserving written record-field order in conflicting diagnostic details.
 The reusable-base and union-overlap
 [`human`](../../examples/specification/check/adt-variant-refinement-base-overlap-human/)
 and
@@ -1239,7 +1268,8 @@ inventing an arithmetic rewrite.
   `crates/veln-sema/src/tests/variant_refinement_aggregate_scaling.rs`.
 - Invalid variant-refinement base recovery scaling:
   `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results.rs`.
-- Direct variant-refinement visibility and qualified-path recovery scaling:
+- Direct variant-refinement visibility, union-base comparison and diagnostic
+  rendering, and qualified-path recovery scaling:
   `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/scaling.rs`.
 - Parser coverage: `crates/veln-syntax/src/tests/calls_and_generics.rs`,
   `literals_and_numbers.rs`, and `patterns_and_control_flow.rs`.

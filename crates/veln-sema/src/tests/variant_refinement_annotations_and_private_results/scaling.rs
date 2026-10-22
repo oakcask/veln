@@ -179,14 +179,14 @@ fn failed_union_alternatives_keep_linear_recovery_and_merge_work() {
         assert_eq!(
             diagnostics
                 .iter()
-                .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
+                .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
                 .count(),
             count / 2,
             "count={count} diagnostics={diagnostics:#?}"
         );
         assert_eq!(
             work.recovery_comparison,
-            count * 3 + 1,
+            count * 5 + 1,
             "count={count} work={work:?}"
         );
         eprintln!("variant refinement union recovery: alternatives={count} work={work:?}");
@@ -203,6 +203,107 @@ fn failed_union_alternatives_keep_linear_recovery_and_merge_work() {
             second_growth,
             first_growth * 2,
             "recovery and merge work must have exact affine growth: {measurements:?}"
+        );
+    }
+}
+
+#[test]
+fn nested_mixed_base_recovery_work_grows_linearly_with_depth() {
+    let measurements = [8, 16, 24].map(|depth| {
+        let mut annotation = "Left::A | Right::B".to_string();
+        for _ in 0..depth {
+            annotation = format!("Box<{annotation}>::Present | Right::B");
+        }
+        let source = format!(
+            "type Left\n  A\nend\n\
+             type Right\n  B\nend\n\
+             type Box<A>\n  Present(A)\nend\n\
+             fn nested(value: {annotation}) -> ()\n  ()\nend\n"
+        );
+
+        crate::pipeline::reset_variant_refinement_base_work();
+        let diagnostics = diagnostics_for(&source);
+        let work = crate::pipeline::take_variant_refinement_base_work();
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
+                .count(),
+            1,
+            "depth={depth} diagnostics={diagnostics:#?}"
+        );
+        eprintln!("nested mixed-base recovery: depth={depth} work={work:?}");
+        (
+            work.recovery_comparison,
+            work.recovery_materialization,
+            work.recovery_materialized_type_nodes,
+            work.recovery_type_nodes_cloned,
+        )
+    });
+
+    // Clone nodes are measured by Type::clone itself. This makes the stage
+    // sensitive to copies of accumulated child trees, not only copies that a
+    // recovery caller remembers to record.
+    for stage in [
+        |work: (usize, usize, usize, usize)| work.0,
+        |work: (usize, usize, usize, usize)| work.1,
+        |work: (usize, usize, usize, usize)| work.2,
+        |work: (usize, usize, usize, usize)| work.3,
+    ] {
+        assert_eq!(
+            stage(measurements[1]) - stage(measurements[0]),
+            stage(measurements[2]) - stage(measurements[1]),
+            "nested recovery work must have constant adjacent growth: {measurements:?}"
+        );
+    }
+}
+
+#[test]
+fn valid_nested_recovery_materialization_grows_linearly_with_depth() {
+    let measurements = [8, 16, 24].map(|depth| {
+        let mut alternative = "State::Ready".to_string();
+        for _ in 0..depth {
+            alternative = format!("Box<{alternative}>::Present");
+        }
+        let source = format!(
+            "type State\n  Ready\nend\n\
+             type Other\n  B\nend\n\
+             type Box<A>\n  Present(A)\nend\n\
+             fn nested(value: {alternative} | Other::B) -> ()\n  ()\nend\n"
+        );
+
+        crate::pipeline::reset_variant_refinement_base_work();
+        let diagnostics = diagnostics_for(&source);
+        let work = crate::pipeline::take_variant_refinement_base_work();
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
+                .count(),
+            1,
+            "depth={depth} diagnostics={diagnostics:#?}"
+        );
+        eprintln!("valid nested union recovery: depth={depth} work={work:?}");
+        (
+            work.recovery_comparison,
+            work.recovery_materialization,
+            work.recovery_materialized_type_nodes,
+            work.recovery_type_nodes_cloned,
+        )
+    });
+
+    // The valid path accumulates one recovered child at each level. Constant
+    // adjacent clone growth rejects copying that growing tree at every level.
+    for stage in [
+        |work: (usize, usize, usize, usize)| work.0,
+        |work: (usize, usize, usize, usize)| work.1,
+        |work: (usize, usize, usize, usize)| work.2,
+        |work: (usize, usize, usize, usize)| work.3,
+    ] {
+        assert_eq!(
+            stage(measurements[1]) - stage(measurements[0]),
+            stage(measurements[2]) - stage(measurements[1]),
+            "valid nested recovery work must have constant adjacent growth: {measurements:?}"
         );
     }
 }
@@ -253,6 +354,132 @@ fn structural_sibling_recovery_work_is_linear() {
             "structural recovery and merge work must have exact affine growth: {measurements:?}"
         );
     }
+}
+
+#[test]
+fn reordered_wide_record_union_base_comparison_is_linear() {
+    let measurements = [64, 128, 256].map(|count| {
+        let fields = (0..count)
+            .map(|index| format!("field{index}: Int"))
+            .collect::<Vec<_>>();
+        let reversed_fields = fields.iter().rev().cloned().collect::<Vec<_>>();
+        let source = format!(
+            "type Box<A>\n  Present(value: A)\n  Absent(value: A)\nend\n\
+             fn valid(value: Box<{{{}}}>::Present | Box<{{{}}}>::Absent) -> ()\n  ()\nend\n",
+            fields.join(", "),
+            reversed_fields.join(", ")
+        );
+
+        crate::type_relations::reset_record_field_match_work();
+        let diagnostics = diagnostics_for(&source);
+        let work = crate::type_relations::take_record_field_match_work();
+        assert!(
+            diagnostics.is_empty(),
+            "count={count} diagnostics={diagnostics:#?}"
+        );
+        assert!(work >= count * 4, "count={count} work={work}");
+        eprintln!("wide record union comparison: fields={count} work={work}");
+        work
+    });
+
+    let first_growth = measurements[1] - measurements[0];
+    let second_growth = measurements[2] - measurements[1];
+    assert_eq!(
+        second_growth,
+        first_growth * 2,
+        "record identity comparison must have exact affine growth: {measurements:?}"
+    );
+}
+
+#[test]
+fn reordered_conflicting_record_union_base_rendering_is_linear() {
+    let measurements = [64, 128, 256].map(|count| {
+        let expected_fields = (0..count)
+            .map(|index| format!("field{index}: Int"))
+            .collect::<Vec<_>>();
+        let actual_fields = (0..count)
+            .rev()
+            .map(|index| {
+                let ty = if index == 0 { "String" } else { "Int" };
+                format!("field{index}: {ty}")
+            })
+            .collect::<Vec<_>>();
+        let source = format!(
+            "type Box<A>\n  Present(value: A)\n  Absent(value: A)\nend\n\
+             fn invalid(value: Box<{{{}}}>::Present | Box<{{{}}}>::Absent) -> ()\n  ()\nend\n",
+            expected_fields.join(", "),
+            actual_fields.join(", ")
+        );
+
+        crate::analysis::reset_diagnostic_record_render_work();
+        let diagnostics = diagnostics_for(&source);
+        let work = crate::analysis::take_diagnostic_record_render_work();
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
+                .count(),
+            1,
+            "count={count} diagnostics={diagnostics:#?}"
+        );
+        assert!(
+            work.index_insertions >= count
+                && work.pairing_lookups >= count * 2
+                && work.result_reordering_lookups >= count,
+            "count={count} work={work:?}"
+        );
+        eprintln!("wide record union diagnostic rendering: fields={count} work={work:?}");
+        work
+    });
+
+    for stage in [
+        |work: crate::analysis::DiagnosticRecordRenderWork| work.index_insertions,
+        |work: crate::analysis::DiagnosticRecordRenderWork| work.pairing_lookups,
+        |work: crate::analysis::DiagnosticRecordRenderWork| work.result_reordering_lookups,
+    ] {
+        let first_growth = stage(measurements[1]) - stage(measurements[0]);
+        let second_growth = stage(measurements[2]) - stage(measurements[1]);
+        assert_eq!(
+            second_growth,
+            first_growth * 2,
+            "diagnostic record rendering must have exact affine growth: {measurements:?}"
+        );
+    }
+
+    let diagnostics = diagnostics_for(concat!(
+        "type Box<A>\n  Present(value: A)\n  Absent(value: A)\nend\n",
+        "fn invalid(value: Box<{first: Int, second: Int, third: Int}>::Present | ",
+        "Box<{third: Int, second: Int, first: String}>::Absent) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.variant_union_base");
+    assert_eq!(
+        diagnostics[0].details.to_json(),
+        concat!(
+            "{\"expected_base_type\":\"Box<{first: Int, second: Int, third: Int}>\",",
+            "\"actual_base_type\":\"Box<{third: Int, second: Int, first: String}>\"}"
+        )
+    );
+}
+
+#[test]
+fn record_field_identity_matching_preserves_first_duplicate() {
+    let expected = vec![
+        ("field".to_string(), Type::int()),
+        ("field".to_string(), Type::int()),
+    ];
+    let actual = vec![
+        ("field".to_string(), Type::int()),
+        ("field".to_string(), Type::string()),
+    ];
+
+    assert!(crate::type_relations::record_fields_match_by_name(
+        &expected,
+        &actual,
+        |expected, actual| expected == actual,
+    ));
 }
 
 #[test]

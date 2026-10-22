@@ -459,13 +459,14 @@ impl<'a> FunctionChecker<'a> {
         origin_message: &'static str,
     ) -> Option<ExpectedType> {
         let (refinements, paths) = structure;
-        let base_failure = super::super::annotation_has_base_failure(
+        let invalid_refinement = super::super::annotation_has_invalid_refinement(
             refinements,
             paths,
             self.function.module_name.as_deref(),
             self.environment,
+            &[],
         );
-        if base_failure {
+        if invalid_refinement {
             for (failed_annotation, error, failure_span) in
                 super::super::independent_annotation_errors(
                     refinements,

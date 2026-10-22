@@ -1,0 +1,4 @@
+pub type State
+	pub Ready
+	pub Waiting
+end

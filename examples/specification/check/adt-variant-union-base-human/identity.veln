@@ -1,0 +1,11 @@
+use decoy
+use other
+
+type Box<A>
+	Present(A)
+	Absent
+end
+
+fn compiler_known_collision(value: Box<Int>::Present | Box<other::Int>::Absent) -> ()
+	()
+end

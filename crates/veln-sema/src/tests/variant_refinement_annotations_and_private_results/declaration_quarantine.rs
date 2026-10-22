@@ -80,6 +80,82 @@ fn invalid_declaration_annotations_quarantine_body_and_caller_types() {
 }
 
 #[test]
+fn mixed_union_bases_quarantine_function_bodies_calls_and_contracts() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Left\n",
+        "  A\n",
+        "end\n",
+        "type Right\n",
+        "  B\n",
+        "end\n",
+        "fn needs_int(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn broken_param(invalid: Left::A | Right::B, sibling: String) -> Int\n",
+        "  needs_int(sibling)\n",
+        "  \"wrong\"\n",
+        "end\n",
+        "fn broken_result(sibling: String) -> Left::A | Right::B\n",
+        "  needs_int(sibling)\n",
+        "  ()\n",
+        "end\n",
+        "fn broken_contract(invalid: Left::A | Right::B) -> output: String\n",
+        "ensure output % 2 == 0\n",
+        "  \"ok\"\n",
+        "end\n",
+        "fn caller() -> ()\n",
+        "  let first: String = broken_param(1, 2)\n",
+        "  let second: String = broken_result(1)\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.variant_union_base"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn mixed_union_bases_quarantine_operations_handlers_and_payloads() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Left\n",
+        "  A\n",
+        "end\n",
+        "type Right\n",
+        "  B\n",
+        "end\n",
+        "effect Broken\n",
+        "  apply(invalid: Left::A | Right::B, sibling: String) -> String\n",
+        "end\n",
+        "effect Ask\n",
+        "  value() -> Int\n",
+        "end\n",
+        "handler broken(invalid: Left::A | Right::B, sibling: String) for Ask\n",
+        "  value() => sibling\n",
+        "end\n",
+        "type Holder\n",
+        "  Built(invalid: Left::A | Right::B, sibling: String)\n",
+        "end\n",
+        "fn caller() -> () effects [Broken]\n",
+        "  let performed: Int = perform Broken::apply(1, 2)\n",
+        "  let handled: Int = handle perform Ask::value() with broken(1, 2)\n",
+        "  let built: Holder = Built(1, 2)\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 3, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.variant_union_base"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn ordinary_function_quarantine_reaches_every_body_signature_consumer() {
     let diagnostics = diagnostics_for(concat!(
         "type Empty\n",
@@ -256,6 +332,64 @@ fn declaration_carriers_preserve_independent_union_recovery_errors() {
                     .message
                     .contains("alternatives must resolve to declared variants of one ADT"))
     );
+}
+
+#[test]
+fn declaration_carriers_preserve_arity_before_union_base_errors() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Box<A>\n",
+        "  Present(A)\n",
+        "end\n",
+        "type Left\n",
+        "  A\n",
+        "end\n",
+        "type Right\n",
+        "  B\n",
+        "end\n",
+        "type Holder\n",
+        "  Built(value: Box::Present | Left::A | Right::B)\n",
+        "end\n",
+        "effect Broken\n",
+        "  apply(value: Box::Present | Left::A | Right::B) -> ()\n",
+        "end\n",
+        "effect Ask\n",
+        "  value() -> Int\n",
+        "end\n",
+        "handler broken(input: Box::Present | Left::A | Right::B) for Ask\n",
+        "  value() => 0\n",
+        "end\n",
+    ));
+
+    let relevant = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "type.invalid_annotation" | "type.variant_union_base"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(relevant.len(), 6, "{diagnostics:#?}");
+    for pair in relevant.as_chunks::<2>().0 {
+        assert_eq!(pair[0].id, "type.invalid_annotation", "{diagnostics:#?}");
+        assert!(
+            pair[0]
+                .message
+                .contains("`Box` expects 1 type argument(s), found 0"),
+            "{diagnostics:#?}"
+        );
+        assert_eq!(pair[1].id, "type.variant_union_base", "{diagnostics:#?}");
+        assert!(
+            pair[1].message.contains("`Right`") && pair[1].message.contains("`Left`"),
+            "{diagnostics:#?}"
+        );
+        assert!(
+            pair[1].related[0]
+                .to_json()
+                .contains("established `Left` as the union base"),
+            "{diagnostics:#?}"
+        );
+    }
 }
 
 #[test]

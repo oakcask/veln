@@ -301,16 +301,60 @@ or ambiguous.
 The checker continues with sibling alternatives and nested type positions. It
 retains a name, constructor, or generic-arity diagnostic when that fact is
 provable without treating the failed base as refinable. A failed refinement in
-one record field or other structural child does not stop that traversal: an
+one record field, generic argument, or other structural child does not stop
+that traversal. A failure in one generic argument does not suppress an
+independently complete union-base comparison in a later sibling argument. An
 exact or uniquely casing-recovered type application in a separate sibling
 position still reports its independently provable generic-arity failure.
 Within one refinement union, a failed alternative does not establish or clear
 the expected base. The earliest successfully instantiated alternative
 establishes that base. Each later successfully instantiated alternative is
 compared with it in written order. A different ADT identity or different
-canonical generic arguments report the existing `type.invalid_annotation` at
-the later alternative, even when a failed alternative occurs before or between
-the successful alternatives.
+canonical generic arguments report `type.variant_union_base` at the complete
+later alternative, even when a failed alternative occurs before or between the
+successful alternatives. Successful instantiation requires every nested named
+type to resolve uniquely. An unresolved or ambiguous nested name therefore
+does not establish the expected base. An in-scope declaration type parameter
+is resolved in that declaration context and remains eligible for comparison.
+It remains distinct from a same-spelled nominal type. The type parameter keeps
+its source spelling in diagnostic details, while the nominal type uses its
+stable qualified identity when that qualification is needed to expose the
+conflict. A compiler-known type and a source-declared nominal type with the
+same leaf spelling also retain different identities. Diagnostic details keep
+the compiler-known spelling concise and qualify the source type to expose the
+conflict. Adding or renaming a source declaration whose name does not occur in
+the union annotation leaves the expected-base selection and reported conflicts
+unchanged. Its closed details contain exactly
+`expected_base_type` and `actual_base_type`. The expected type is the base of
+the earliest successfully instantiated alternative. The actual type is the
+base of the conflicting alternative. These values use concise canonical names
+when those names distinguish the bases. When equal concise names would hide a
+different nominal identity, the conflicting position uses its stable qualified
+identity. Each rendered base retains its complete generic argument list when
+the conflicting base constructors have different arities. Nominal-identity
+disambiguation recurses through variant refinements, record fields, and
+function parameters and results inside an invariant generic argument. Matching
+unit positions in that output use the source spelling `()`.
+Record arguments compare fields by name rather than written field order, and
+nested refinement arguments compare their selected variant sets rather than
+written alternative order. These reorderings do not report a union-base
+failure. If same-named record fields instead contain conflicting nominal
+identities, `expected_base_type` and `actual_base_type` preserve the field order
+written in their respective alternatives while qualifying the conflicting
+identities.
+One
+`expected_variant_union_base` related
+entry points to that earliest alternative and explains that it established the
+union base. Each later conflict reports separately. An alternative that cannot
+be instantiated does not participate in the comparison and does not suppress
+an independently complete later pair. Its independently provable generic-arity
+failure remains before the later union-base failure in written-alternative
+order. A mixed-base union makes its annotation invalid. When it occurs in a
+function, effect operation, handler, or ADT
+constructor signature, every type exposed by that declaration is unknown to
+its body and consumers. These boundaries suppress only diagnostics derived
+from the rejected signature. Other independently provable declaration
+diagnostics also remain.
 When a nested type argument is invalid, the checker still reports an enclosing
 base-eligibility failure that can be proved from the enclosing base identity
 alone. It suppresses an enclosing annotation or final-segment failure that
@@ -390,6 +434,20 @@ and
 cases cover standard-environment declaration provenance, quarantine before
 omitted-result inference, and a failed union alternative before, between, and
 after two successfully instantiated alternatives.
+The focused union-base
+[`human`](../../examples/specification/check/adt-variant-union-base-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-union-base-json/)
+cases fix later-alternative spans, closed base details, earliest-alternative
+context, repeated conflicts, recursively nested nominal-identity display,
+invariant generic arguments, declaration-type-parameter and nominal-type name
+collisions, compiler-known and source-nominal name collisions, isolation from
+unrelated source declaration names, complete base rendering across different
+generic arities, and arity recovery before an independent later conflict.
+The focused
+[`reordered JSON`](../../examples/specification/check/adt-variant-union-base-reordered-json/)
+case fixes order-independent record and nested-refinement comparison plus
+per-alternative record-field order in conflict details.
 The checked nested-recovery
 [`human`](../../examples/specification/check/adt-variant-refinement-nested-recovery-human/)
 and

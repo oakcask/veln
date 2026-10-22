@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use veln_ast::{BodyLine, BodyLineKind, Expr, ExprKind, SurfaceModule, TypePathSegments};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
@@ -6,13 +6,83 @@ use veln_source::SourceSpan;
 
 use crate::diagnostics::{span_json, type_details};
 use crate::semantic_model::Type;
-use crate::type_syntax::parse_type_annotation;
-use crate::types::{TypeEnvironment, VariantRefinementBaseFailure};
+use crate::type_syntax::parse_type_annotation_with_recovery_slots;
+use crate::types::{TypeEnvironment, TypeParameterIdentityContext, VariantRefinementBaseFailure};
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct DiagnosticRecordRenderWork {
+    pub(crate) index_insertions: usize,
+    pub(crate) pairing_lookups: usize,
+    pub(crate) result_reordering_lookups: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    static DIAGNOSTIC_RECORD_RENDER_WORK: std::cell::Cell<DiagnosticRecordRenderWork> =
+        const { std::cell::Cell::new(DiagnosticRecordRenderWork {
+            index_insertions: 0,
+            pairing_lookups: 0,
+            result_reordering_lookups: 0,
+        }) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_diagnostic_record_render_work() {
+    DIAGNOSTIC_RECORD_RENDER_WORK.set(DiagnosticRecordRenderWork::default());
+}
+
+#[cfg(test)]
+pub(crate) fn take_diagnostic_record_render_work() -> DiagnosticRecordRenderWork {
+    DIAGNOSTIC_RECORD_RENDER_WORK.replace(DiagnosticRecordRenderWork::default())
+}
+
+enum DiagnosticRecordRenderOperation {
+    IndexInsertion,
+    PairingLookup,
+    ResultReorderingLookup,
+}
+
+fn record_diagnostic_record_render_work(operation: DiagnosticRecordRenderOperation) {
+    #[cfg(test)]
+    DIAGNOSTIC_RECORD_RENDER_WORK.set({
+        let mut work = DIAGNOSTIC_RECORD_RENDER_WORK.get();
+        match operation {
+            DiagnosticRecordRenderOperation::IndexInsertion => work.index_insertions += 1,
+            DiagnosticRecordRenderOperation::PairingLookup => work.pairing_lookups += 1,
+            DiagnosticRecordRenderOperation::ResultReorderingLookup => {
+                work.result_reordering_lookups += 1;
+            }
+        }
+        work
+    });
+    #[cfg(not(test))]
+    let _ = operation;
+}
 
 pub(crate) struct VariantRefinementBaseDiagnostic {
     pub(crate) diagnostic: Diagnostic,
     pub(crate) ordering_scope: SourceSpan,
     pub(crate) union_scope: Option<SourceSpan>,
+}
+
+struct VariantUnionBaseFailure {
+    expected_base_type: String,
+    actual_base_type: String,
+    expected_span: SourceSpan,
+    actual_span: SourceSpan,
+    union_scope: SourceSpan,
+}
+
+struct RecoveredType {
+    ty: Type,
+    nodes: usize,
+}
+
+#[derive(Default)]
+struct AnnotationRecovery {
+    errors: Vec<(String, String, SourceSpan)>,
+    union_base_failures: Vec<VariantUnionBaseFailure>,
 }
 
 pub(crate) fn check_variant_refinement_bases(
@@ -30,6 +100,38 @@ pub(crate) fn check_variant_refinement_bases(
     diagnostics
 }
 
+fn annotation_has_variant_union_base_failure(
+    refinements: &[veln_ast::VariantRefinementType],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    type_parameters: &[String],
+) -> bool {
+    if !annotation_contains_union(refinements) {
+        return false;
+    }
+    !analyze_annotation(
+        refinements,
+        &[],
+        current_module,
+        environment,
+        type_parameters,
+    )
+    .union_base_failures
+    .is_empty()
+}
+
+fn annotation_contains_union(refinements: &[veln_ast::VariantRefinementType]) -> bool {
+    refinements.iter().any(|refinement| {
+        refinement.alternatives.len() > 1
+            || refinement.alternatives.iter().any(|alternative| {
+                alternative
+                    .type_arguments
+                    .iter()
+                    .any(|argument| annotation_contains_union(&argument.ty_refinements))
+            })
+    })
+}
+
 fn collect_type_annotations(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
@@ -43,6 +145,7 @@ fn collect_type_annotations(
                     &field.ty_paths,
                     decl.module_name.as_deref(),
                     environment,
+                    &decl.params,
                     field.node_id.display("field"),
                     [
                         decl.node_id.display("type"),
@@ -69,6 +172,7 @@ fn collect_effect_annotations(
                     &param.ty_paths,
                     effect.module_name.as_deref(),
                     environment,
+                    &[],
                     param.node_id.display("param"),
                     [
                         effect.node_id.display("effect"),
@@ -83,6 +187,7 @@ fn collect_effect_annotations(
                 &operation.return_type_paths,
                 effect.module_name.as_deref(),
                 environment,
+                &[],
                 operation.node_id.display("operation"),
                 [
                     effect.node_id.display("effect"),
@@ -106,6 +211,7 @@ fn collect_schema_annotations(
                 &field.ty_paths,
                 schema.module_name.as_deref(),
                 environment,
+                &[],
                 field.node_id.display("schema-field"),
                 [
                     schema.node_id.display("schema"),
@@ -131,6 +237,7 @@ fn collect_function_annotations(
                 &param.ty_paths,
                 function.module_name.as_deref(),
                 environment,
+                &[],
                 diagnostics,
             );
         }
@@ -139,6 +246,7 @@ fn collect_function_annotations(
             &function.return_type_paths,
             function.module_name.as_deref(),
             environment,
+            &[],
             diagnostics,
         );
         for line in &function.body {
@@ -165,6 +273,7 @@ fn collect_handler_annotations(
                 &param.ty_paths,
                 handler.module_name.as_deref(),
                 environment,
+                &[],
                 param.node_id.display("param"),
                 [
                     handler.node_id.display("handler"),
@@ -180,6 +289,7 @@ fn collect_handler_annotations(
                     &param.ty_paths,
                     handler.module_name.as_deref(),
                     environment,
+                    &[],
                     param.node_id.display("param"),
                     [
                         handler.node_id.display("handler"),
@@ -199,7 +309,23 @@ fn collect_handler_annotations(
     }
 }
 
-pub(crate) fn annotation_has_base_failure(
+pub(crate) fn annotation_has_invalid_refinement(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    type_parameters: &[String],
+) -> bool {
+    annotation_has_base_failure(refinements, paths, current_module, environment)
+        || annotation_has_variant_union_base_failure(
+            refinements,
+            current_module,
+            environment,
+            type_parameters,
+        )
+}
+
+fn annotation_has_base_failure(
     refinements: &[veln_ast::VariantRefinementType],
     paths: &[TypePathSegments],
     current_module: Option<&str>,
@@ -237,24 +363,70 @@ pub(crate) fn independent_annotation_errors(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
 ) -> Vec<(String, String, SourceSpan)> {
-    let mut errors = Vec::new();
+    analyze_annotation(refinements, paths, current_module, environment, &[]).errors
+}
+
+fn analyze_annotation(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    type_parameters: &[String],
+) -> AnnotationRecovery {
+    #[cfg(test)]
+    {
+        let (recovery, cloned_nodes) = crate::semantic_model::measure_type_clone_nodes(|| {
+            analyze_annotation_unmeasured(
+                refinements,
+                paths,
+                current_module,
+                environment,
+                type_parameters,
+            )
+        });
+        crate::pipeline::record_variant_refinement_recovery_type_clones(cloned_nodes);
+        recovery
+    }
+    #[cfg(not(test))]
+    analyze_annotation_unmeasured(
+        refinements,
+        paths,
+        current_module,
+        environment,
+        type_parameters,
+    )
+}
+
+fn analyze_annotation_unmeasured(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    type_parameters: &[String],
+) -> AnnotationRecovery {
+    let mut recovery = AnnotationRecovery::default();
     let mut visited_paths = HashMap::new();
+    let mut materialized_refinements = HashMap::new();
+    let declaration_type_parameters = TypeParameterIdentityContext::new(type_parameters);
     collect_independent_refinement_errors(
         refinements,
         paths,
         current_module,
         environment,
-        &mut errors,
+        &mut recovery.errors,
         &mut visited_paths,
+        &mut recovery.union_base_failures,
+        &declaration_type_parameters,
+        &mut materialized_refinements,
     );
     collect_independent_structural_arity_errors(
         paths,
         current_module,
         environment,
-        &mut errors,
+        &mut recovery.errors,
         &mut visited_paths,
     );
-    errors
+    recovery
 }
 
 fn collect_independent_structural_arity_errors(
@@ -286,13 +458,13 @@ fn collect_independent_structural_arity_errors(
 
 type PathOccurrence = (veln_source::SourcePath, usize, usize);
 
-fn collect_independent_refinement_errors(
-    refinements: &[veln_ast::VariantRefinementType],
+fn collect_independent_path_errors(
     paths: &[TypePathSegments],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     errors: &mut Vec<(String, String, SourceSpan)>,
     visited_paths: &mut HashMap<PathOccurrence, bool>,
+    declaration_type_parameters: &TypeParameterIdentityContext<'_>,
 ) -> bool {
     let mut annotation_is_invalid = false;
     for path in paths {
@@ -300,6 +472,15 @@ fn collect_independent_refinement_errors(
         let occurrence = (span.file, span.start.offset, span.end.offset);
         if let Some(path_is_invalid) = visited_paths.get(&occurrence) {
             annotation_is_invalid |= path_is_invalid;
+            continue;
+        }
+        if path.segments.len() == 1
+            && path.type_argument_count == 0
+            && declaration_type_parameters
+                .ordinal(&path.segments[0])
+                .is_some()
+        {
+            visited_paths.insert(occurrence, false);
             continue;
         }
         let path_is_invalid = if environment
@@ -323,140 +504,688 @@ fn collect_independent_refinement_errors(
         visited_paths.insert(occurrence, path_is_invalid);
         annotation_is_invalid |= path_is_invalid;
     }
+    annotation_is_invalid
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_independent_refinement_errors(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    errors: &mut Vec<(String, String, SourceSpan)>,
+    visited_paths: &mut HashMap<PathOccurrence, bool>,
+    union_base_failures: &mut Vec<VariantUnionBaseFailure>,
+    declaration_type_parameters: &TypeParameterIdentityContext<'_>,
+    materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
+) -> bool {
+    let mut annotation_is_invalid = collect_independent_path_errors(
+        paths,
+        current_module,
+        environment,
+        errors,
+        visited_paths,
+        declaration_type_parameters,
+    );
     for refinement in refinements {
-        let mut expected_union_base = None;
-        for alternative in &refinement.alternatives {
-            let Some((written, canonical)) = collect_refinement_alternative_type(
-                alternative,
-                current_module,
-                environment,
-                errors,
-                visited_paths,
-            ) else {
-                annotation_is_invalid = true;
-                continue;
-            };
-            if let Some(expected) = &expected_union_base {
-                crate::pipeline::record_variant_refinement_recovery_work(1);
-                if !same_variant_refinement_base(expected, &canonical) {
-                    errors.push((
-                        written,
-                        "variant refinement alternatives must resolve to declared variants of one ADT"
-                            .to_string(),
-                        alternative_span(alternative),
-                    ));
-                    annotation_is_invalid = true;
-                }
-            } else {
-                expected_union_base = Some(canonical);
-            }
-        }
+        let (refinement_is_invalid, recovered_refinement) = collect_refinement_union(
+            refinement,
+            current_module,
+            environment,
+            errors,
+            visited_paths,
+            union_base_failures,
+            declaration_type_parameters,
+            materialized_refinements,
+        );
+        annotation_is_invalid |= refinement_is_invalid;
+        materialized_refinements.insert(span_occurrence(&refinement.span), recovered_refinement);
     }
     annotation_is_invalid
 }
 
+#[allow(clippy::too_many_arguments)]
+fn collect_refinement_union(
+    refinement: &veln_ast::VariantRefinementType,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    errors: &mut Vec<(String, String, SourceSpan)>,
+    visited_paths: &mut HashMap<PathOccurrence, bool>,
+    union_base_failures: &mut Vec<VariantUnionBaseFailure>,
+    declaration_type_parameters: &TypeParameterIdentityContext<'_>,
+    materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
+) -> (bool, Option<RecoveredType>) {
+    let mut expected_span: Option<SourceSpan> = None;
+    let mut recovered_refinement: Option<RecoveredType> = None;
+    let mut recovered_variants = HashSet::new();
+    let mut refinement_is_invalid = false;
+    for alternative in &refinement.alternatives {
+        let Some(canonical) = collect_refinement_alternative_type(
+            alternative,
+            current_module,
+            environment,
+            errors,
+            visited_paths,
+            union_base_failures,
+            declaration_type_parameters,
+            materialized_refinements,
+        ) else {
+            refinement_is_invalid = true;
+            continue;
+        };
+        if variant_refinement_base_identity_and_arguments(&canonical.ty).is_none() {
+            refinement_is_invalid = true;
+            continue;
+        }
+        refinement_is_invalid |= merge_recovered_union_alternative(
+            refinement,
+            alternative,
+            canonical,
+            &mut expected_span,
+            &mut recovered_refinement,
+            &mut recovered_variants,
+            union_base_failures,
+        );
+    }
+    let recovered_refinement = (!refinement_is_invalid)
+        .then_some(recovered_refinement)
+        .flatten()
+        .map(|recovered| RecoveredType {
+            ty: canonicalize_recovered_refinement(recovered.ty, environment),
+            nodes: recovered.nodes,
+        });
+    (refinement_is_invalid, recovered_refinement)
+}
+
+fn merge_recovered_union_alternative(
+    refinement: &veln_ast::VariantRefinementType,
+    alternative: &veln_ast::VariantRefinementAlternative,
+    canonical: RecoveredType,
+    expected_span: &mut Option<SourceSpan>,
+    recovered_refinement: &mut Option<RecoveredType>,
+    recovered_variants: &mut HashSet<String>,
+    union_base_failures: &mut Vec<VariantUnionBaseFailure>,
+) -> bool {
+    let Some(established_span) = expected_span else {
+        *expected_span = Some(alternative_span(alternative));
+        if let Type::VariantRefinement { variants, .. } = &canonical.ty {
+            recovered_variants.extend(variants.iter().cloned());
+        }
+        *recovered_refinement = Some(canonical);
+        return false;
+    };
+    crate::pipeline::record_variant_refinement_recovery_work(1);
+    let expected = recovered_refinement
+        .as_ref()
+        .expect("an expected span has a recovered refinement");
+    if !same_variant_refinement_base(&expected.ty, &canonical.ty) {
+        let (expected_base_type, actual_base_type) =
+            variant_refinement_base_renders(&expected.ty, &canonical.ty);
+        union_base_failures.push(VariantUnionBaseFailure {
+            expected_base_type,
+            actual_base_type,
+            expected_span: established_span.clone(),
+            actual_span: alternative_span(alternative),
+            union_scope: refinement.span.clone(),
+        });
+        return true;
+    }
+    let expected = recovered_refinement
+        .take()
+        .expect("an expected span has a recovered refinement");
+    let nodes = expected.nodes;
+    *recovered_refinement =
+        merge_refinement_alternative(expected.ty, canonical.ty, recovered_variants)
+            .map(|ty| RecoveredType { ty, nodes });
+    false
+}
+
+#[allow(clippy::too_many_arguments)]
 fn collect_refinement_alternative_type(
     alternative: &veln_ast::VariantRefinementAlternative,
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     errors: &mut Vec<(String, String, SourceSpan)>,
     visited_paths: &mut HashMap<PathOccurrence, bool>,
-) -> Option<(String, Type)> {
+    union_base_failures: &mut Vec<VariantUnionBaseFailure>,
+    declaration_type_parameters: &TypeParameterIdentityContext<'_>,
+    materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
+) -> Option<RecoveredType> {
     crate::pipeline::record_variant_refinement_recovery_work(1);
     let base = alternative.base.segments.join("::");
     let own_base_failure = environment
         .variant_refinement_base_failure(&base, alternative.type_arguments.len(), current_module)
         .is_some();
-    let child_is_invalid = collect_refinement_argument_errors(
+    let argument_types = collect_refinement_argument_types(
         &alternative.type_arguments,
         current_module,
         environment,
         errors,
         visited_paths,
+        union_base_failures,
+        declaration_type_parameters,
+        materialized_refinements,
     );
-    let written = format!(
-        "{}::{}",
-        written_refinement_base(alternative),
-        alternative.variant
-    );
-    let ty = match parse_type_annotation(&written) {
-        Ok(ty) => ty,
-        Err(error) => {
-            if !child_is_invalid {
-                errors.push((written, error, alternative_span(alternative)));
-            }
-            return None;
-        }
-    };
-    if let Some(error) = environment.variant_refinement_arity_error(&ty, current_module) {
+    if let Some(error) =
+        environment.type_path_arity_error(&base, alternative.type_arguments.len(), current_module)
+    {
+        let written = format!(
+            "{}::{}",
+            written_refinement_base(alternative),
+            alternative.variant
+        );
+        crate::pipeline::record_variant_refinement_recovery_materialization(written.len());
         errors.push((written, error, alternative_span(alternative)));
         return None;
     }
-    if own_base_failure || child_is_invalid {
+    if own_base_failure || argument_types.is_none() {
         return None;
     }
-    if let Some(error) = environment.variant_refinement_annotation_error(&ty, current_module) {
+    let argument_types = argument_types.expect("checked recovered argument types");
+    let argument_nodes: usize = argument_types.iter().map(|argument| argument.nodes).sum();
+    let argument_types = argument_types
+        .into_iter()
+        .map(|argument| argument.ty)
+        .collect::<Vec<_>>();
+    let shell = Type::variant_refinement(
+        base,
+        vec![Type::Unknown; argument_types.len()],
+        vec![alternative.variant.clone()],
+    );
+    if let Some(error) = environment.variant_refinement_annotation_error(&shell, current_module) {
+        let written = format!(
+            "{}::{}",
+            written_refinement_base(alternative),
+            alternative.variant
+        );
+        crate::pipeline::record_variant_refinement_recovery_materialization(written.len());
         errors.push((written, error, alternative_span(alternative)));
         return None;
     }
-    let canonical = environment.canonicalize_type_annotation(ty, current_module);
-    Some((written, canonical))
+    crate::pipeline::record_variant_refinement_recovery_materialization(argument_types.len() + 1);
+    let canonical = refinement_with_arguments(
+        environment.canonicalize_type_annotation(shell, current_module),
+        argument_types,
+    )?;
+    crate::pipeline::record_variant_refinement_recovery_type_materialization(1);
+    Some(RecoveredType {
+        ty: canonical,
+        nodes: argument_nodes + 1,
+    })
 }
 
-fn collect_refinement_argument_errors(
+#[allow(clippy::too_many_arguments)]
+fn collect_refinement_argument_types(
     arguments: &[veln_ast::VariantRefinementTypeArgument],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     errors: &mut Vec<(String, String, SourceSpan)>,
     visited_paths: &mut HashMap<PathOccurrence, bool>,
-) -> bool {
-    let mut child_is_invalid = false;
+    union_base_failures: &mut Vec<VariantUnionBaseFailure>,
+    declaration_type_parameters: &TypeParameterIdentityContext<'_>,
+    materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
+) -> Option<Vec<RecoveredType>> {
+    let mut recovered = Vec::with_capacity(arguments.len());
+    let mut all_arguments_recovered = true;
     for argument in arguments {
-        let argument_errors_start = errors.len();
-        let argument_is_invalid = collect_independent_refinement_errors(
-            &argument.ty_refinements,
-            &argument.ty_paths,
+        let argument = collect_refinement_argument_type(
+            argument,
             current_module,
             environment,
             errors,
             visited_paths,
+            union_base_failures,
+            declaration_type_parameters,
+            materialized_refinements,
         );
-        child_is_invalid |= argument_is_invalid;
-        if argument_is_invalid || errors.len() != argument_errors_start {
-            continue;
-        }
-        let written_argument = render_type_argument(argument);
-        let error = match parse_type_annotation(&written_argument) {
-            Ok(ty) => environment.variant_refinement_arity_error(&ty, current_module),
-            Err(error) => Some(error),
-        };
-        if let Some(error) = error {
-            errors.push((written_argument, error, argument.span.clone()));
-            child_is_invalid = true;
+        match argument {
+            Some(argument) => recovered.push(argument),
+            None => all_arguments_recovered = false,
         }
     }
-    child_is_invalid
+    all_arguments_recovered.then_some(recovered)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_refinement_argument_type(
+    argument: &veln_ast::VariantRefinementTypeArgument,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    errors: &mut Vec<(String, String, SourceSpan)>,
+    visited_paths: &mut HashMap<PathOccurrence, bool>,
+    union_base_failures: &mut Vec<VariantUnionBaseFailure>,
+    declaration_type_parameters: &TypeParameterIdentityContext<'_>,
+    materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
+) -> Option<RecoveredType> {
+    let argument_errors_start = errors.len();
+    let argument_is_invalid = collect_independent_refinement_errors(
+        &argument.ty_refinements,
+        &argument.ty_paths,
+        current_module,
+        environment,
+        errors,
+        visited_paths,
+        union_base_failures,
+        declaration_type_parameters,
+        materialized_refinements,
+    );
+    if argument_is_invalid || errors.len() != argument_errors_start {
+        return None;
+    }
+    let (skeleton, recovery_slots) = type_argument_skeleton(argument);
+    crate::pipeline::record_variant_refinement_recovery_materialization(skeleton.len());
+    let ty = match parse_type_annotation_with_recovery_slots(&skeleton, &recovery_slots) {
+        Ok(ty) => ty,
+        Err(error) => {
+            let written = render_type_argument(argument);
+            errors.push((written, error, argument.span.clone()));
+            return None;
+        }
+    };
+    if let Some(error) = environment.variant_refinement_arity_error(&ty, current_module) {
+        let written = render_type_argument(argument);
+        errors.push((written, error, argument.span.clone()));
+        return None;
+    }
+    if !environment.type_annotation_is_fully_resolved_with_context(
+        &ty,
+        current_module,
+        declaration_type_parameters,
+    ) {
+        return None;
+    }
+    materialize_refinement_argument(
+        argument,
+        ty,
+        current_module,
+        environment,
+        declaration_type_parameters,
+        materialized_refinements,
+    )
+}
+
+fn materialize_refinement_argument(
+    argument: &veln_ast::VariantRefinementTypeArgument,
+    ty: Type,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    declaration_type_parameters: &TypeParameterIdentityContext<'_>,
+    materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
+) -> Option<RecoveredType> {
+    let mut child_refinements = argument.ty_refinements.iter().map(|refinement| {
+        materialized_refinements
+            .remove(&span_occurrence(&refinement.span))
+            .flatten()
+    });
+    let mut replacements = Vec::new();
+    if !collect_recovery_replacements(&ty, &mut child_refinements, &mut replacements)
+        || child_refinements.next().is_some()
+    {
+        return None;
+    }
+    let replacement_nodes = replacements
+        .iter()
+        .map(|replacement| replacement.nodes)
+        .sum::<usize>();
+    let replacement_count = replacements.len();
+    let mut replacement_types = replacements.into_iter().map(|replacement| replacement.ty);
+    let canonical = environment.canonicalize_type_annotation_with_context(
+        ty,
+        current_module,
+        declaration_type_parameters,
+    );
+    let canonical_nodes = type_node_count(&canonical);
+    crate::pipeline::record_variant_refinement_recovery_materialization(canonical_nodes);
+    let local_nodes = canonical_nodes - replacement_count;
+    crate::pipeline::record_variant_refinement_recovery_type_materialization(local_nodes);
+    let recovered_argument = replace_recovery_slots(canonical, &mut replacement_types);
+    if replacement_types.next().is_some() {
+        return None;
+    }
+    Some(RecoveredType {
+        ty: recovered_argument,
+        nodes: local_nodes + replacement_nodes,
+    })
+}
+
+fn type_argument_skeleton(
+    argument: &veln_ast::VariantRefinementTypeArgument,
+) -> (String, Vec<std::ops::Range<usize>>) {
+    let mut text = String::new();
+    let mut slots = Vec::with_capacity(argument.ty_refinements.len());
+    for (index, fragment) in argument.ty_fragments.iter().enumerate() {
+        text.push_str(fragment);
+        if index < argument.ty_refinements.len() {
+            let start = text.len();
+            text.push_str("unknown");
+            slots.push(start..text.len());
+        }
+    }
+    (text, slots)
+}
+
+fn collect_recovery_replacements(
+    ty: &Type,
+    child_refinements: &mut impl Iterator<Item = Option<RecoveredType>>,
+    replacements: &mut Vec<RecoveredType>,
+) -> bool {
+    match ty {
+        ty @ Type::Named { args, .. } => {
+            if ty.is_recovery_slot() {
+                let Some(Some(child)) = child_refinements.next() else {
+                    return false;
+                };
+                replacements.push(child);
+                return true;
+            }
+            args.iter()
+                .all(|arg| collect_recovery_replacements(arg, child_refinements, replacements))
+        }
+        Type::VariantRefinement { args, .. } => args
+            .iter()
+            .all(|arg| collect_recovery_replacements(arg, child_refinements, replacements)),
+        Type::Record(fields) => fields
+            .iter()
+            .all(|(_, ty)| collect_recovery_replacements(ty, child_refinements, replacements)),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            params
+                .iter()
+                .all(|ty| collect_recovery_replacements(ty, child_refinements, replacements))
+                && variadic.as_deref().is_none_or(|ty| {
+                    collect_recovery_replacements(ty, child_refinements, replacements)
+                })
+                && collect_recovery_replacements(return_type, child_refinements, replacements)
+        }
+        Type::Unknown => true,
+    }
+}
+
+fn replace_recovery_slots(ty: Type, replacements: &mut impl Iterator<Item = Type>) -> Type {
+    if ty.is_recovery_slot() {
+        return replacements.next().unwrap_or(Type::Unknown);
+    }
+    match ty {
+        Type::Unknown => Type::Unknown,
+        Type::Named {
+            name,
+            identity,
+            args,
+        } => Type::Named {
+            name,
+            identity,
+            args: args
+                .into_iter()
+                .map(|arg| replace_recovery_slots(arg, replacements))
+                .collect(),
+        },
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            variants,
+            unresolved_alternatives,
+        } => Type::VariantRefinement {
+            name,
+            identity,
+            args: args
+                .into_iter()
+                .map(|arg| replace_recovery_slots(arg, replacements))
+                .collect(),
+            variants,
+            unresolved_alternatives,
+        },
+        Type::Record(fields) => Type::Record(
+            fields
+                .into_iter()
+                .map(|(name, ty)| (name, replace_recovery_slots(ty, replacements)))
+                .collect(),
+        ),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            effects,
+        } => Type::Function {
+            params: params
+                .into_iter()
+                .map(|ty| replace_recovery_slots(ty, replacements))
+                .collect(),
+            variadic: variadic.map(|ty| Box::new(replace_recovery_slots(*ty, replacements))),
+            return_type: Box::new(replace_recovery_slots(*return_type, replacements)),
+            effects,
+        },
+    }
+}
+
+fn span_occurrence(span: &SourceSpan) -> PathOccurrence {
+    (span.file.clone(), span.start.offset, span.end.offset)
+}
+
+fn type_node_count(ty: &Type) -> usize {
+    match ty {
+        Type::Unknown => 1,
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
+            1 + args.iter().map(type_node_count).sum::<usize>()
+        }
+        Type::Record(fields) => {
+            1 + fields
+                .iter()
+                .map(|(_, field)| type_node_count(field))
+                .sum::<usize>()
+        }
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            1 + params.iter().map(type_node_count).sum::<usize>()
+                + variadic.as_deref().map(type_node_count).unwrap_or_default()
+                + type_node_count(return_type)
+        }
+    }
+}
+
+fn refinement_with_arguments(ty: Type, arguments: Vec<Type>) -> Option<Type> {
+    match ty {
+        Type::Named { name, identity, .. } => Some(Type::Named {
+            name,
+            identity,
+            args: arguments,
+        }),
+        Type::VariantRefinement {
+            name,
+            identity,
+            variants,
+            unresolved_alternatives,
+            ..
+        } => Some(Type::VariantRefinement {
+            name,
+            identity,
+            args: arguments,
+            variants,
+            unresolved_alternatives,
+        }),
+        _ => None,
+    }
+}
+
+fn merge_refinement_alternative(
+    expected: Type,
+    actual: Type,
+    seen_variants: &mut HashSet<String>,
+) -> Option<Type> {
+    if matches!(expected, Type::Named { .. }) {
+        return Some(expected);
+    }
+    let Type::VariantRefinement {
+        name,
+        identity,
+        args,
+        variants,
+        unresolved_alternatives,
+    } = expected
+    else {
+        return None;
+    };
+    let Type::VariantRefinement {
+        variants: actual_variants,
+        ..
+    } = actual
+    else {
+        return None;
+    };
+    let mut variants = variants.to_vec();
+    for variant in actual_variants.iter() {
+        if seen_variants.insert(variant.clone()) {
+            variants.push(variant.clone());
+        }
+    }
+    Some(Type::VariantRefinement {
+        name,
+        identity,
+        args,
+        variants: variants.into(),
+        unresolved_alternatives,
+    })
+}
+
+fn canonicalize_recovered_refinement(ty: Type, environment: &TypeEnvironment) -> Type {
+    let Some(declaration_order) = environment.adts.variant_declaration_order_for_type(&ty) else {
+        return ty;
+    };
+    let Type::VariantRefinement {
+        name,
+        identity,
+        args,
+        variants,
+        unresolved_alternatives,
+    } = ty
+    else {
+        return ty;
+    };
+    let requested = variants.iter().map(String::as_str).collect::<HashSet<_>>();
+    let canonical_variants = (0..declaration_order.len())
+        .filter_map(|rank| declaration_order.name(rank))
+        .filter(|variant| requested.contains(variant))
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    if canonical_variants.len() == declaration_order.len() {
+        Type::Named {
+            name,
+            identity,
+            args,
+        }
+    } else {
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            variants: canonical_variants.into(),
+            unresolved_alternatives,
+        }
+    }
+}
+
+fn variant_refinement_base_identity_and_arguments(ty: &Type) -> Option<(&str, &[Type])> {
+    match ty {
+        Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
+            Some((identity, args))
+        }
+        _ => None,
+    }
 }
 
 fn same_variant_refinement_base(expected: &Type, actual: &Type) -> bool {
-    fn identity_and_arguments(ty: &Type) -> Option<(&str, &[Type])> {
-        match ty {
-            Type::Named { identity, args, .. } | Type::VariantRefinement { identity, args, .. } => {
-                Some((identity, args))
-            }
-            _ => None,
-        }
-    }
-
     match (
-        identity_and_arguments(expected),
-        identity_and_arguments(actual),
+        variant_refinement_base_identity_and_arguments(expected),
+        variant_refinement_base_identity_and_arguments(actual),
     ) {
         (Some((expected_identity, expected_args)), Some((actual_identity, actual_args))) => {
             expected_identity == actual_identity
                 && crate::type_relations::invariant_args_match(expected_args, actual_args)
+                && expected_args
+                    .iter()
+                    .zip(actual_args)
+                    .all(|(expected, actual)| resolved_type_identities_match(expected, actual))
         }
         _ => false,
+    }
+}
+
+fn resolved_type_identities_match(expected: &Type, actual: &Type) -> bool {
+    match (expected, actual) {
+        (
+            Type::Named {
+                identity: expected_identity,
+                args: expected_args,
+                ..
+            }
+            | Type::VariantRefinement {
+                identity: expected_identity,
+                args: expected_args,
+                ..
+            },
+            Type::Named {
+                identity: actual_identity,
+                args: actual_args,
+                ..
+            }
+            | Type::VariantRefinement {
+                identity: actual_identity,
+                args: actual_args,
+                ..
+            },
+        ) => {
+            expected_identity == actual_identity
+                && expected_args.len() == actual_args.len()
+                && expected_args
+                    .iter()
+                    .zip(actual_args)
+                    .all(|(expected, actual)| resolved_type_identities_match(expected, actual))
+        }
+        (Type::Record(expected), Type::Record(actual)) => {
+            crate::type_relations::record_fields_match_by_name(
+                expected,
+                actual,
+                resolved_type_identities_match,
+            )
+        }
+        (
+            Type::Function {
+                params: expected_params,
+                variadic: expected_variadic,
+                return_type: expected_return,
+                ..
+            },
+            Type::Function {
+                params: actual_params,
+                variadic: actual_variadic,
+                return_type: actual_return,
+                ..
+            },
+        ) => {
+            expected_params.len() == actual_params.len()
+                && expected_params
+                    .iter()
+                    .zip(actual_params)
+                    .all(|(expected, actual)| resolved_type_identities_match(expected, actual))
+                && match (expected_variadic, actual_variadic) {
+                    (Some(expected), Some(actual)) => {
+                        resolved_type_identities_match(expected, actual)
+                    }
+                    (None, None) => true,
+                    _ => false,
+                }
+                && resolved_type_identities_match(expected_return, actual_return)
+        }
+        (Type::Unknown, Type::Unknown) => true,
+        _ => true,
     }
 }
 
@@ -466,14 +1195,392 @@ fn alternative_span(alternative: &veln_ast::VariantRefinementAlternative) -> Sou
     span
 }
 
+fn variant_refinement_base_renders(expected: &Type, actual: &Type) -> (String, String) {
+    let (
+        Type::Named {
+            name: expected_name,
+            identity: expected_identity,
+            args: expected_args,
+        }
+        | Type::VariantRefinement {
+            name: expected_name,
+            identity: expected_identity,
+            args: expected_args,
+            ..
+        },
+        Type::Named {
+            name: actual_name,
+            identity: actual_identity,
+            args: actual_args,
+        }
+        | Type::VariantRefinement {
+            name: actual_name,
+            identity: actual_identity,
+            args: actual_args,
+            ..
+        },
+    ) = (expected, actual)
+    else {
+        unreachable!("successfully instantiated refinement has a named ADT base")
+    };
+    let (expected_name, actual_name) =
+        if expected_name == actual_name && expected_identity != actual_identity {
+            (expected_identity.as_str(), actual_identity.as_str())
+        } else {
+            (expected_name.as_str(), actual_name.as_str())
+        };
+    let mut expected_arguments = Vec::with_capacity(expected_args.len());
+    let mut actual_arguments = Vec::with_capacity(actual_args.len());
+    for (index, expected_argument) in expected_args.iter().enumerate() {
+        if let Some(actual_argument) = actual_args.get(index) {
+            let (expected_render, actual_render) =
+                diagnostic_type_renders((expected_argument, actual_argument));
+            expected_arguments.push(expected_render);
+            actual_arguments.push(actual_render);
+        } else {
+            expected_arguments.push(expected_argument.render());
+        }
+    }
+    actual_arguments.extend(
+        actual_args
+            .iter()
+            .skip(expected_args.len())
+            .map(Type::render),
+    );
+    let expected_render = if expected_arguments.is_empty() {
+        expected_name.to_string()
+    } else {
+        format!("{expected_name}<{}>", expected_arguments.join(", "))
+    };
+    let actual_render = if actual_arguments.is_empty() {
+        actual_name.to_string()
+    } else {
+        format!("{actual_name}<{}>", actual_arguments.join(", "))
+    };
+    (expected_render, actual_render)
+}
+
+fn diagnostic_type_renders(expected: (&Type, &Type)) -> (String, String) {
+    let (expected, actual) = expected;
+    diagnostic_named_type_renders(expected, actual)
+        .or_else(|| diagnostic_variant_type_renders(expected, actual))
+        .or_else(|| diagnostic_record_type_renders(expected, actual))
+        .or_else(|| diagnostic_function_type_renders(expected, actual))
+        .unwrap_or_else(|| (expected.render(), actual.render()))
+}
+
+fn diagnostic_named_type_renders(expected: &Type, actual: &Type) -> Option<(String, String)> {
+    match (expected, actual) {
+        (
+            Type::Named {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+            },
+            Type::Named {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+            },
+        ) if expected_args.len() == actual_args.len() => {
+            let (expected_name, actual_name) = diagnostic_type_names(
+                expected_name,
+                expected_identity,
+                actual_name,
+                actual_identity,
+            );
+            let (expected_arguments, actual_arguments) =
+                diagnostic_type_arguments(expected_args, actual_args);
+            if expected_arguments.is_empty() && expected_name == "Unit" && actual_name == "Unit" {
+                Some(("()".to_string(), "()".to_string()))
+            } else {
+                Some((
+                    diagnostic_type_application(expected_name, &expected_arguments),
+                    diagnostic_type_application(actual_name, &actual_arguments),
+                ))
+            }
+        }
+        _ => None,
+    }
+}
+
+fn diagnostic_variant_type_renders(expected: &Type, actual: &Type) -> Option<(String, String)> {
+    match (expected, actual) {
+        (
+            Type::VariantRefinement {
+                name: expected_name,
+                identity: expected_identity,
+                args: expected_args,
+                variants: expected_variants,
+                ..
+            },
+            Type::VariantRefinement {
+                name: actual_name,
+                identity: actual_identity,
+                args: actual_args,
+                variants: actual_variants,
+                ..
+            },
+        ) if expected_args.len() == actual_args.len() => {
+            let (expected_name, actual_name) = diagnostic_type_names(
+                expected_name,
+                expected_identity,
+                actual_name,
+                actual_identity,
+            );
+            let (expected_arguments, actual_arguments) =
+                diagnostic_type_arguments(expected_args, actual_args);
+            let expected_base = diagnostic_type_application(expected_name, &expected_arguments);
+            let actual_base = diagnostic_type_application(actual_name, &actual_arguments);
+            Some((
+                expected_variants
+                    .iter()
+                    .map(|variant| format!("{expected_base}::{variant}"))
+                    .collect::<Vec<_>>()
+                    .join(" | "),
+                actual_variants
+                    .iter()
+                    .map(|variant| format!("{actual_base}::{variant}"))
+                    .collect::<Vec<_>>()
+                    .join(" | "),
+            ))
+        }
+        _ => None,
+    }
+}
+
+fn diagnostic_record_type_renders(expected: &Type, actual: &Type) -> Option<(String, String)> {
+    let (Type::Record(expected_fields), Type::Record(actual_fields)) = (expected, actual) else {
+        return None;
+    };
+    if expected_fields.len() != actual_fields.len() {
+        return None;
+    }
+
+    struct FieldPair<'a> {
+        actual: &'a Type,
+        rendered_actual: Option<String>,
+    }
+
+    let mut pairs_by_name = HashMap::with_capacity(actual_fields.len());
+    for (name, actual) in actual_fields {
+        record_diagnostic_record_render_work(DiagnosticRecordRenderOperation::IndexInsertion);
+        pairs_by_name.entry(name.as_str()).or_insert(FieldPair {
+            actual,
+            rendered_actual: None,
+        });
+    }
+
+    for (name, _) in expected_fields {
+        record_diagnostic_record_render_work(DiagnosticRecordRenderOperation::PairingLookup);
+        pairs_by_name.get(name.as_str())?;
+    }
+
+    let mut rendered_expected_fields = Vec::with_capacity(expected_fields.len());
+    for (name, expected) in expected_fields {
+        record_diagnostic_record_render_work(DiagnosticRecordRenderOperation::PairingLookup);
+        let pair = pairs_by_name.get_mut(name.as_str())?;
+        let (rendered_expected, rendered_actual) = diagnostic_type_renders((expected, pair.actual));
+        if pair.rendered_actual.is_none() {
+            pair.rendered_actual = Some(rendered_actual);
+        }
+        rendered_expected_fields.push(format!("{name}: {rendered_expected}"));
+    }
+
+    let mut rendered_actual_fields = Vec::with_capacity(actual_fields.len());
+    for (name, _) in actual_fields {
+        record_diagnostic_record_render_work(
+            DiagnosticRecordRenderOperation::ResultReorderingLookup,
+        );
+        let rendered_actual = pairs_by_name.get(name.as_str())?.rendered_actual.as_ref()?;
+        rendered_actual_fields.push(format!("{name}: {rendered_actual}"));
+    }
+
+    Some((
+        format!("{{{}}}", rendered_expected_fields.join(", ")),
+        format!("{{{}}}", rendered_actual_fields.join(", ")),
+    ))
+}
+
+fn diagnostic_function_type_renders(expected: &Type, actual: &Type) -> Option<(String, String)> {
+    match (expected, actual) {
+        (
+            Type::Function {
+                params: expected_params,
+                variadic: expected_variadic,
+                return_type: expected_return,
+                effects: expected_effects,
+            },
+            Type::Function {
+                params: actual_params,
+                variadic: actual_variadic,
+                return_type: actual_return,
+                effects: actual_effects,
+            },
+        ) if expected_params.len() == actual_params.len()
+            && expected_variadic.is_some() == actual_variadic.is_some() =>
+        {
+            let (mut expected_params, mut actual_params): (Vec<_>, Vec<_>) = expected_params
+                .iter()
+                .zip(actual_params)
+                .map(diagnostic_type_renders)
+                .unzip();
+            if let (Some(expected), Some(actual)) = (expected_variadic, actual_variadic) {
+                let (expected, actual) = diagnostic_type_renders((expected, actual));
+                expected_params.push(format!("...{expected}"));
+                actual_params.push(format!("...{actual}"));
+            }
+            let (expected_return, actual_return) =
+                diagnostic_type_renders((expected_return, actual_return));
+            let expected_effects = if expected_effects.is_empty() {
+                String::new()
+            } else {
+                format!(" effects [{}]", expected_effects.join(", "))
+            };
+            let actual_effects = if actual_effects.is_empty() {
+                String::new()
+            } else {
+                format!(" effects [{}]", actual_effects.join(", "))
+            };
+            Some((
+                format!(
+                    "fn({}) -> {expected_return}{expected_effects}",
+                    expected_params.join(", ")
+                ),
+                format!(
+                    "fn({}) -> {actual_return}{actual_effects}",
+                    actual_params.join(", ")
+                ),
+            ))
+        }
+        _ => None,
+    }
+}
+
+fn diagnostic_type_names<'a>(
+    expected_name: &'a str,
+    expected_identity: &'a str,
+    actual_name: &'a str,
+    actual_identity: &'a str,
+) -> (&'a str, &'a str) {
+    if expected_name == actual_name && expected_identity != actual_identity {
+        (
+            if TypeParameterIdentityContext::is_identity(expected_identity) {
+                expected_name
+            } else {
+                expected_identity
+            },
+            if TypeParameterIdentityContext::is_identity(actual_identity) {
+                actual_name
+            } else {
+                actual_identity
+            },
+        )
+    } else {
+        (expected_name, actual_name)
+    }
+}
+
+fn diagnostic_type_arguments(expected: &[Type], actual: &[Type]) -> (Vec<String>, Vec<String>) {
+    expected
+        .iter()
+        .zip(actual)
+        .map(diagnostic_type_renders)
+        .unzip()
+}
+
+fn diagnostic_type_application(name: &str, arguments: &[String]) -> String {
+    if arguments.is_empty() {
+        name.to_string()
+    } else {
+        format!("{name}<{}>", arguments.join(", "))
+    }
+}
+
+fn variant_union_base_diagnostic(
+    expected_base_type: &str,
+    actual_base_type: &str,
+    expected_span: &SourceSpan,
+    actual_span: SourceSpan,
+    union_scope: SourceSpan,
+) -> VariantRefinementBaseDiagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "type.variant_union_base",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "variant-refinement base `{actual_base_type}` does not match expected base `{expected_base_type}`"
+        ),
+        Some(actual_span.clone()),
+        JsonValue::object([
+            ("expected_base_type", JsonValue::string(expected_base_type)),
+            ("actual_base_type", JsonValue::string(actual_base_type)),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("expected_variant_union_base")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "The first successfully instantiated alternative established `{expected_base_type}` as the union base."
+            )),
+        ),
+        ("span", span_json(expected_span)),
+    ]));
+    VariantRefinementBaseDiagnostic {
+        diagnostic,
+        ordering_scope: actual_span,
+        union_scope: Some(union_scope),
+    }
+}
+
 fn collect_annotation(
     refinements: &[veln_ast::VariantRefinementType],
     paths: &[TypePathSegments],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
+    type_parameters: &[String],
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     crate::pipeline::record_variant_refinement_annotation_work(refinements.len() + paths.len() + 1);
+    let recovery = if annotation_contains_union(refinements) {
+        analyze_annotation(
+            refinements,
+            &[],
+            current_module,
+            environment,
+            type_parameters,
+        )
+    } else {
+        AnnotationRecovery::default()
+    };
+    collect_annotation_diagnostics(
+        refinements,
+        paths,
+        current_module,
+        environment,
+        &recovery,
+        diagnostics,
+    );
+}
+
+fn collect_annotation_diagnostics(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    recovery: &AnnotationRecovery,
+    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
+) {
+    diagnostics.extend(recovery.union_base_failures.iter().map(|failure| {
+        variant_union_base_diagnostic(
+            &failure.expected_base_type,
+            &failure.actual_base_type,
+            &failure.expected_span,
+            failure.actual_span.clone(),
+            failure.union_scope.clone(),
+        )
+    }));
     collect_refinements(refinements, current_module, environment, diagnostics);
     for path in paths {
         if let Some(failure) =
@@ -493,22 +1600,43 @@ fn collect_annotation(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn collect_declaration_annotation(
     refinements: &[veln_ast::VariantRefinementType],
     paths: &[TypePathSegments],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
+    type_parameters: &[String],
     node_id: String,
     origin_node_ids: impl IntoIterator<Item = String> + Clone,
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
-    collect_annotation(refinements, paths, current_module, environment, diagnostics);
-    if !annotation_has_base_failure(refinements, paths, current_module, environment) {
+    crate::pipeline::record_variant_refinement_annotation_work(refinements.len() + paths.len() + 1);
+    let has_base_failure =
+        annotation_has_base_failure(refinements, paths, current_module, environment);
+    let recovery = if has_base_failure || annotation_contains_union(refinements) {
+        analyze_annotation(
+            refinements,
+            paths,
+            current_module,
+            environment,
+            type_parameters,
+        )
+    } else {
+        AnnotationRecovery::default()
+    };
+    collect_annotation_diagnostics(
+        refinements,
+        paths,
+        current_module,
+        environment,
+        &recovery,
+        diagnostics,
+    );
+    if !has_base_failure && recovery.union_base_failures.is_empty() {
         return;
     }
-    for (annotation, error, span) in
-        independent_annotation_errors(refinements, paths, current_module, environment)
-    {
+    for (annotation, error, span) in recovery.errors {
         let diagnostic = Diagnostic::new(
             "type.invalid_annotation",
             Severity::Error,
@@ -586,6 +1714,7 @@ fn collect_body_line(
                 &annotation_structure.paths,
                 current_module,
                 environment,
+                &[],
                 diagnostics,
             );
             collect_expr(expr, current_module, environment, diagnostics);
@@ -619,6 +1748,7 @@ fn collect_expr(
                 paths,
                 current_module,
                 environment,
+                &[],
                 expr.node_id.display("expr"),
                 [expr.node_id.display("expr")],
                 diagnostics,

@@ -157,7 +157,6 @@ repair guidance belong in `related` notes rather than the primary message.
 | --- | --- | --- | --- |
 | `type.variant_refinement_base` | The ADT identity is known, but its selected production provider has no public finite variant descriptor. | `written_type`, `reason` | The selected provider and its provenance. |
 | `type.variant_refinement_unknown` | The final segment does not name a variant owned by the resolved ADT. | `base_type`, `variant` | The ADT declaration and visible variant names. |
-| `type.variant_union_base` | A union alternative resolves to a different ADT identity or generic arguments. | `expected_base_type`, `actual_base_type` | The first alternative that established the required union base. |
 | `schema.variant_refinement_decode_unsupported` | A decode target contains a refinement that the selected decoder can neither construct directly nor validate from the decoded ADT tag. | `target_type`, `base_type`, `expected_variants`, `decoder` | The decoder or codec declaration whose result cannot establish the refinement. |
 
 Parser failures that cannot form a base type, `::`, and an uppercase final
@@ -175,8 +174,8 @@ classifies for casing analysis. Explicit expression type arguments remain
 navigation-only casing carriers and do not emit `name.invalid_case`. The
 current diagnostic specification owns the independent casing failure for a
 qualified type nested in a refinement base, the enclosing base-eligibility
-failure, and their per-alternative order. The planned diagnostics do not expand
-that current casing boundary.
+failure, focused union-base comparison, and their per-alternative order. The
+planned diagnostics do not expand that current casing boundary.
 
 ### Diagnostic Overlap And Recovery
 
@@ -185,8 +184,9 @@ The current
 owns the completed provider-independent `not_adt` and `opaque` reasons. The
 current specification also owns recovery that skips a provider-independent
 base failure while preserving comparison of later successfully instantiated
-alternatives through the existing invalid-annotation diagnostic. The
-remaining provider-dependent work may extend
+alternatives through `type.variant_union_base`, including that comparison in a
+later generic argument after an earlier sibling argument fails. The remaining
+provider-dependent work may extend
 `type.variant_refinement_base.details.reason` with exactly this value:
 
 | Reason | Failed fact |
@@ -231,18 +231,13 @@ analysis; it does not by itself publish protocol-visible navigation.
 | The final segment is not a variant of the resolved ADT. | `type.variant_refinement_unknown`, plus an independently applicable casing diagnostic. | Visibility and assignability diagnostics that require a selected constructor. | The base declaration only. |
 | Under the planned invalid-refinement recovery, a lowercase final segment has one recovery identity. | `parse.variant_refinement_type`, followed by `name.invalid_case` and independent semantic failures discovered through that identity. | A lookup or unknown-variant diagnostic whose only cause is the recovered casing. | The uniquely recovered constructor declaration. |
 | Under the planned invalid-refinement recovery, a lowercase final segment has no unique recovery. | `parse.variant_refinement_type`, followed by the independently provable casing or lookup diagnostic. | Downstream failures that require a selected constructor identity. | Only identities selected independently of the failed final segment. |
-| Two successfully instantiated alternatives have different base identities or generic arguments. | `type.variant_union_base`. | Assignability diagnostics that require the rejected union type. | All successfully resolved alternative identities; no union type identity. |
 
 Within one annotation, the checker visits union alternatives in written order.
 It checks each alternative in this order: casing, base resolution, generic
 arity, base eligibility, final-segment resolution, and visibility. The current
 [diagnostic specification](../specification/diagnostics-json.md#diagnostic-families)
-owns comparison of successfully instantiated union bases through the existing
-invalid-annotation diagnostic. The planned focused diagnostic uses the same
-retained identities: the earliest successfully instantiated alternative
-establishes the expected union base, and each later successfully instantiated
-alternative is compared with it. An incomplete alternative does not prevent an
-independently complete later pair from reporting `type.variant_union_base`.
+owns comparison of successfully instantiated union bases, including retained
+identities, failed-alternative suppression, and focused diagnostic details.
 
 Diagnostics for one annotation follow the written alternative order and check
 order above. Diagnostics with the same primary span use that check order,

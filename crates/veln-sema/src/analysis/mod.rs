@@ -81,9 +81,14 @@ pub(crate) use boundary::{
     check_schema_type_references, check_test_declaration_boundary,
 };
 pub(crate) use handlers::check_handler_declarations;
+#[cfg(test)]
 pub(crate) use variant_refinement_bases::{
-    VariantRefinementBaseDiagnostic, annotation_has_base_failure, check_variant_refinement_bases,
-    independent_annotation_errors,
+    DiagnosticRecordRenderWork, reset_diagnostic_record_render_work,
+    take_diagnostic_record_render_work,
+};
+pub(crate) use variant_refinement_bases::{
+    VariantRefinementBaseDiagnostic, annotation_has_invalid_refinement,
+    check_variant_refinement_bases, independent_annotation_errors,
 };
 pub(crate) use variant_refinement_visibility::{
     adt_has_private_variant_refinement_exposure, adt_publication_dependency_identities,

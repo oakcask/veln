@@ -1,7 +1,9 @@
 use crate::builtin_type_syntax::BuiltinTypeSyntaxRegistry;
 use crate::semantic_model::Type;
 use crate::source_less_names::InvalidStandardSymbolCase;
-use crate::type_annotation_parser::parse_type_annotation_with_arity;
+use crate::type_annotation_parser::{
+    parse_type_annotation_with_arity, parse_type_annotation_with_arity_and_recovery_slots,
+};
 
 fn with_builtin_type_syntax_registry<R>(
     lookup: impl FnOnce(&BuiltinTypeSyntaxRegistry) -> R,
@@ -36,6 +38,16 @@ pub(crate) fn parse_type_or_unknown(text: Option<&str>) -> Type {
 
 pub(crate) fn parse_type_annotation(text: &str) -> Result<Type, String> {
     parse_type_annotation_with_arity(text, &|name| {
+        with_builtin_type_syntax_registry(|registry| registry.arity(name))
+            .map_err(|failure| failure.diagnostic().message.to_owned_string())
+    })
+}
+
+pub(crate) fn parse_type_annotation_with_recovery_slots(
+    text: &str,
+    recovery_slots: &[std::ops::Range<usize>],
+) -> Result<Type, String> {
+    parse_type_annotation_with_arity_and_recovery_slots(text, recovery_slots, &|name| {
         with_builtin_type_syntax_registry(|registry| registry.arity(name))
             .map_err(|failure| failure.diagnostic().message.to_owned_string())
     })

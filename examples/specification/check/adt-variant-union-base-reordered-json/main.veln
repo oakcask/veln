@@ -1,0 +1,24 @@
+use first
+use second
+
+type State
+	A
+	B
+end
+
+type Box<A>
+	Present(A)
+	Absent
+end
+
+fn reordered_record(value: Box<{left: Int, right: String}>::Present | Box<{right: String, left: Int}>::Absent) -> ()
+	()
+end
+
+fn reordered_nested_variants(value: Box<State::A | State::B>::Present | Box<State::B | State::A>::Absent) -> ()
+	()
+end
+
+fn reordered_record_nominal_conflict(value: Box<{state: first::State, count: Int}>::Present | Box<{count: Int, state: second::State}>::Absent) -> ()
+	()
+end

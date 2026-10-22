@@ -555,12 +555,231 @@ fn variant_unions_reject_mixed_resolved_adts() {
         )
     ));
 
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.variant_union_base")
+        .expect("mixed ADTs must report their conflicting union base");
+    let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+    assert!(json.contains("\"expected_base_type\":\"State\""), "{json}");
+    assert!(json.contains("\"actual_base_type\":\"Other\""), "{json}");
     assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.id == "type.invalid_annotation"),
-        "{diagnostics:#?}"
+        json.contains("\"kind\":\"expected_variant_union_base\""),
+        "{json}"
     );
+}
+
+#[test]
+fn variant_unions_reject_invariant_generic_argument_mismatches() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Box<A>\n",
+        "  Present(A)\n",
+        "  Absent\n",
+        "end\n",
+        "fn invalid(value: Box<Int>::Present | Box<String>::Absent) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.variant_union_base")
+        .expect("invariant generic arguments must establish distinct union bases");
+    let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+    assert!(
+        json.contains("\"expected_base_type\":\"Box<Int>\""),
+        "{json}"
+    );
+    assert!(
+        json.contains("\"actual_base_type\":\"Box<String>\""),
+        "{json}"
+    );
+}
+
+#[test]
+fn variant_unions_accept_reordered_equivalent_generic_arguments() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  A\n",
+        "  B\n",
+        "end\n",
+        "type Box<A>\n",
+        "  Present(A)\n",
+        "  Absent\n",
+        "end\n",
+        "fn reordered_record(value: Box<{left: Int, right: String}>::Present | Box<{right: String, left: Int}>::Absent) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn reordered_variants(value: Box<State::A | State::B>::Present | Box<State::B | State::A>::Absent) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn variant_union_diagnostics_pair_reordered_record_fields_by_name() {
+    let first = SourceFile::new("first.veln", "pub type State\n  pub Ready\nend\n");
+    let second = SourceFile::new("second.veln", "pub type State\n  pub Ready\nend\n");
+    let main = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use first\n",
+            "use second\n",
+            "type Box<A>\n",
+            "  Present(A)\n",
+            "  Absent\n",
+            "end\n",
+            "fn invalid(value: Box<{state: first::State, count: Int}>::Present | Box<{count: Int, state: second::State}>::Absent) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let module =
+        merged_modules_with_identities(vec![("first", first), ("second", second), ("main", main)]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic.id, "type.variant_union_base");
+    let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+    assert!(
+        json.contains("\"expected_base_type\":\"Box<{state: first::State, count: Int}>\""),
+        "{json}"
+    );
+    assert!(
+        json.contains("\"actual_base_type\":\"Box<{count: Int, state: second::State}>\""),
+        "{json}"
+    );
+}
+
+#[test]
+fn variant_union_diagnostics_render_complete_bases_with_different_arities() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Pair<A, B>\n",
+        "  First(A)\n",
+        "  Second(B)\n",
+        "end\n",
+        "type Box<A>\n",
+        "  Present(A)\n",
+        "end\n",
+        "fn invalid(value: Pair<Int, String>::First | Box<Bool>::Present) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic.id, "type.variant_union_base");
+    assert_eq!(
+        diagnostic.message,
+        "variant-refinement base `Box<Bool>` does not match expected base `Pair<Int, String>`"
+    );
+    let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+    assert!(
+        json.contains(
+            "\"details\":{\"expected_base_type\":\"Pair<Int, String>\",\"actual_base_type\":\"Box<Bool>\"}"
+        ),
+        "{json}"
+    );
+    assert!(
+        json.contains(
+            "The first successfully instantiated alternative established `Pair<Int, String>` as the union base."
+        ),
+        "{json}"
+    );
+}
+
+#[test]
+fn variant_union_diagnostics_disambiguate_colliding_nominal_identities() {
+    let first = SourceFile::new(
+        "first.veln",
+        "pub type State\n  pub Ready\n  pub Waiting\nend\n",
+    );
+    let second = SourceFile::new(
+        "second.veln",
+        "pub type State\n  pub Ready\n  pub Waiting\nend\n",
+    );
+    let main = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use first\n",
+            "use second\n",
+            "type Box<A>\n",
+            "  Present(A)\n",
+            "  Absent\n",
+            "end\n",
+            "type Duo<A, B>\n",
+            "  Present(A, B)\n",
+            "  Absent\n",
+            "end\n",
+            "fn direct(value: first::State::Ready | second::State::Ready) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn nested(value: Box<first::State>::Present | Box<second::State>::Absent) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn nested_refinement(value: Box<first::State::Ready>::Present | Box<second::State::Ready>::Absent) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn nested_record(value: Box<{state: first::State::Ready}>::Present | Box<{state: second::State::Ready}>::Absent) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn nested_function(value: Box<fn(first::State::Ready) -> ()>::Present | Box<fn(second::State::Ready) -> ()>::Absent) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn nested_collision_and_other_difference(value: Duo<first::State, Int>::Present | Duo<second::State, String>::Absent) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let module =
+        merged_modules_with_identities(vec![("first", first), ("second", second), ("main", main)]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 6, "{diagnostics:#?}");
+    for (diagnostic, expected, actual) in [
+        (&diagnostics[0], "first::State", "second::State"),
+        (&diagnostics[1], "Box<first::State>", "Box<second::State>"),
+        (
+            &diagnostics[2],
+            "Box<first::State::Ready>",
+            "Box<second::State::Ready>",
+        ),
+        (
+            &diagnostics[3],
+            "Box<{state: first::State::Ready}>",
+            "Box<{state: second::State::Ready}>",
+        ),
+        (
+            &diagnostics[4],
+            "Box<fn(first::State::Ready) -> ()>",
+            "Box<fn(second::State::Ready) -> ()>",
+        ),
+        (
+            &diagnostics[5],
+            "Duo<first::State, Int>",
+            "Duo<second::State, String>",
+        ),
+    ] {
+        assert_eq!(
+            diagnostic.message,
+            format!("variant-refinement base `{actual}` does not match expected base `{expected}`")
+        );
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(
+            json.contains(&format!("\"expected_base_type\":\"{expected}\"")),
+            "{json}"
+        );
+        assert!(
+            json.contains(&format!("\"actual_base_type\":\"{actual}\"")),
+            "{json}"
+        );
+        assert!(
+            json.contains(&format!("established `{expected}` as the union base.")),
+            "{json}"
+        );
+    }
 }
 
 #[test]

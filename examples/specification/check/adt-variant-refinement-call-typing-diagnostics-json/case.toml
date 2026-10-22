@@ -144,15 +144,15 @@ line = 58
 column = 14
 
 [[diagnostics]]
-id = "type.invalid_annotation"
+id = "type.variant_union_base"
 severity = "error"
 kind = "type"
-message = "invalid type annotation `State::Ready | Other::Foreign`: variant refinement alternatives must resolve to declared variants of one ADT"
+message = "variant-refinement base `Other` does not match expected base `State`"
 
 [diagnostics.span]
 file = "main.veln"
 line = 66
-column = 16
+column = 38
 
 [[json_assert]]
 path = "diagnostics.0.details.actual_type"

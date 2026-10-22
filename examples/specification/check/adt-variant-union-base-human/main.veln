@@ -1,0 +1,84 @@
+use first
+use second
+
+type Empty
+end
+
+type Left
+	A
+end
+
+type Right
+	B
+end
+
+type Box<A>
+	Present(A)
+	Absent
+end
+
+fn different_adts(value: Left::A | Right::B | Right::B) -> ()
+	()
+end
+
+fn generic_arguments(value: Box<Int>::Present | Box<String>::Absent) -> ()
+	()
+end
+
+fn failed_before(value: Empty::Missing | Left::A | Right::B) -> ()
+	()
+end
+
+fn colliding_identities(value: first::State::Ready | second::State::Ready) -> ()
+	()
+end
+
+fn nested_colliding_identities(value: Box<first::State>::Present | Box<second::State>::Absent) -> ()
+	()
+end
+
+fn nested_refinement_colliding_identities(value: Box<first::State::Ready>::Present | Box<second::State::Ready>::Absent) -> ()
+	()
+end
+
+fn invalid_arity_before(value: Box::Present | Left::A | Right::B) -> ()
+	()
+end
+
+fn unresolved_nested_before(value: Box<Missing>::Present | Left::A | Right::B) -> ()
+	()
+end
+
+fn ambiguous_nested_before(value: Box<State>::Present | Left::A | Right::B) -> ()
+	()
+end
+
+type GenericHolder<T>
+	Mixed(Box<T>::Present | Right::B)
+end
+
+type Pair<A, B>
+	First(A)
+	Second(B)
+end
+
+fn different_outer_arities(value: Pair<Int, String>::First | Box<Bool>::Present) -> ()
+	()
+end
+
+type OrderState
+	A
+	B
+end
+
+fn reordered_record(value: Box<{left: Int, right: String}>::Present | Box<{right: String, left: Int}>::Absent) -> ()
+	()
+end
+
+fn reordered_nested_variants(value: Box<OrderState::A | OrderState::B>::Present | Box<OrderState::B | OrderState::A>::Absent) -> ()
+	()
+end
+
+fn reordered_record_nominal_conflict(value: Box<{state: first::State, count: Int}>::Present | Box<{count: Int, state: second::State}>::Absent) -> ()
+	()
+end

@@ -34,8 +34,12 @@ recovery, but it does not publish a public function or ADT whose signature
 exposes an inaccessible variant refinement. Publication quarantine propagates
 through public signature dependencies, including transparent type aliases and
 recursive ADT dependency cycles. A dependent ordinary named-type reference
-does not duplicate the causal privacy diagnostic. The affected structural
-positions and publication closure are defined by the
+does not duplicate the causal privacy diagnostic. The pipeline also
+quarantines every type exposed by a function, effect operation, handler, or ADT
+constructor whose signature contains a refinement union with different
+resolved ADT identities or canonical generic arguments. The affected
+structural positions, declaration boundaries, and publication closure are
+defined by the
 [type specification](types.md#compatibility-and-limits); diagnostic order,
 spans, and related context are defined by the
 [diagnostic specification](diagnostics-json.md#diagnostic-families).

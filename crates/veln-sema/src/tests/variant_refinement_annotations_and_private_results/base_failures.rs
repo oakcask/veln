@@ -347,15 +347,15 @@ fn base_failure_skips_only_its_union_alternative() {
     for (annotation, expected_ids) in [
         (
             "Empty::Missing | State::Ready | Other::Go",
-            ["type.variant_refinement_base", "type.invalid_annotation"],
+            ["type.variant_refinement_base", "type.variant_union_base"],
         ),
         (
             "State::Ready | Empty::Missing | Other::Go",
-            ["type.variant_refinement_base", "type.invalid_annotation"],
+            ["type.variant_refinement_base", "type.variant_union_base"],
         ),
         (
             "State::Ready | Other::Go | Empty::Missing",
-            ["type.invalid_annotation", "type.variant_refinement_base"],
+            ["type.variant_union_base", "type.variant_refinement_base"],
         ),
     ] {
         let diagnostics = diagnostics_for(&format!(
@@ -372,7 +372,7 @@ fn base_failure_skips_only_its_union_alternative() {
             .filter(|diagnostic| {
                 matches!(
                     diagnostic.id.as_str(),
-                    "type.variant_refinement_base" | "type.invalid_annotation"
+                    "type.variant_refinement_base" | "type.variant_union_base"
                 )
             })
             .collect::<Vec<_>>();
@@ -386,14 +386,14 @@ fn base_failure_skips_only_its_union_alternative() {
         );
         let union_error = relevant
             .iter()
-            .find(|diagnostic| diagnostic.id == "type.invalid_annotation")
+            .find(|diagnostic| diagnostic.id == "type.variant_union_base")
             .expect("surviving alternatives must still be compared");
+        let json = veln_diagnostics::diagnostic_to_json(union_error).to_json();
+        assert!(json.contains("\"expected_base_type\":\"State\""), "{json}");
+        assert!(json.contains("\"actual_base_type\":\"Other\""), "{json}");
         assert!(
-            union_error.message.contains("`Other::Go`")
-                && union_error
-                    .message
-                    .contains("alternatives must resolve to declared variants of one ADT"),
-            "{diagnostics:#?}"
+            json.contains("\"kind\":\"expected_variant_union_base\""),
+            "{json}"
         );
         let span = union_error.span.as_ref().expect("union error span");
         let expected_column = 17 + annotation.find("Other::Go").unwrap();
@@ -401,6 +401,257 @@ fn base_failure_skips_only_its_union_alternative() {
         assert_eq!(span.start.column, expected_column);
         assert_eq!(span.end.column, expected_column + "Other::Go".len());
     }
+}
+
+#[test]
+fn unresolved_nested_name_does_not_establish_the_union_base() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Box<A>\n  Present(A)\n  Absent\nend\n",
+        "type Other\n  B\nend\n",
+        "fn mixed(value: Box<Missing>::Present | Other::B | Box<Int>::Absent) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let union = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.variant_union_base")
+        .expect("the complete later alternatives must still be compared");
+    let json = veln_diagnostics::diagnostic_to_json(union).to_json();
+    assert!(
+        json.contains("\"expected_base_type\":\"Other\"")
+            && json.contains("\"actual_base_type\":\"Box<Int>\""),
+        "{json}"
+    );
+    assert_eq!(union.span.as_ref().unwrap().start.line, 8);
+    assert_eq!(union.span.as_ref().unwrap().start.column, 52);
+    assert!(
+        json.contains("\"kind\":\"expected_variant_union_base\"") && json.contains("\"column\":41"),
+        "{json}"
+    );
+}
+
+#[test]
+fn ambiguous_nested_name_does_not_establish_the_union_base() {
+    let first = SourceFile::new("first.veln", "mod first\npub type Missing\n  One\nend\n");
+    let second = SourceFile::new("second.veln", "mod second\npub type Missing\n  Two\nend\n");
+    let main = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\nuse first\nuse second\n",
+            "type Box<A>\n  Present(A)\n  Absent\nend\n",
+            "type Other\n  B\nend\n",
+            "fn mixed(value: Box<Missing>::Present | Other::B | Box<Int>::Absent) -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let diagnostics = analyze_surface_module(&merged_modules_with_identities(vec![
+        ("first", first),
+        ("second", second),
+        ("main", main),
+    ]));
+
+    let union = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.variant_union_base")
+        .expect("the complete later alternatives must still be compared");
+    let json = veln_diagnostics::diagnostic_to_json(union).to_json();
+    assert!(json.contains("\"expected_base_type\":\"Other\""), "{json}");
+    assert!(json.contains("\"actual_base_type\":\"Box<Int>\""), "{json}");
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn declaration_type_parameter_is_a_resolved_nested_union_argument() {
+    let source = concat!(
+        "type Box<A>\n  Present(A)\n  Absent\nend\n",
+        "type Holder<T>\n",
+        "  Mixed(Box<T>::Present | Other::B)\n",
+        "end\n",
+        "type Other\n  B\nend\n",
+    );
+    let source = SourceFile::new("main.veln", source);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    assert_eq!(module.types[1].params, ["T"]);
+    assert_eq!(
+        module.types[1].variants[0].fields[0].ty_refinements.len(),
+        1
+    );
+    let diagnostics = analyze_surface_module(&module);
+
+    let union = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.variant_union_base")
+        .unwrap_or_else(|| {
+            panic!(
+                "the type parameter must participate in invariant base comparison: {diagnostics:#?}"
+            )
+        });
+    let json = veln_diagnostics::diagnostic_to_json(union).to_json();
+    assert!(json.contains("\"expected_base_type\":\"Box<T>\""), "{json}");
+    assert!(json.contains("\"actual_base_type\":\"Other\""), "{json}");
+}
+
+#[test]
+fn declaration_type_parameter_identity_survives_a_same_named_adt() {
+    let main = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\n",
+            "type State\n  Ready\nend\n",
+            "type Box<A>\n  Present(A)\n  Absent\nend\n",
+            "type Holder<State>\n",
+            "  Mixed(Box<State>::Present | Box<main::State>::Absent)\n",
+            "end\n",
+        ),
+    );
+    let diagnostics = analyze_surface_module(&merged_modules_with_identities(vec![("main", main)]));
+
+    let relevant = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
+        .collect::<Vec<_>>();
+    assert_eq!(relevant.len(), 1, "{diagnostics:#?}");
+    let diagnostic = relevant[0];
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.line, 10);
+    let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+    assert!(
+        json.contains("\"expected_base_type\":\"Box<State>\""),
+        "{json}"
+    );
+    assert!(
+        json.contains("\"actual_base_type\":\"Box<main::State>\""),
+        "{json}"
+    );
+    assert!(
+        json.contains(
+            "The first successfully instantiated alternative established `Box<State>` as the union base."
+        ),
+        "{json}"
+    );
+}
+
+#[test]
+fn compiler_known_and_qualified_source_arguments_have_distinct_identities() {
+    let decoy = SourceFile::new("decoy.veln", "mod decoy\npub type Int\n  pub Value\nend\n");
+    let other = SourceFile::new("other.veln", "mod other\npub type Int\n  pub Value\nend\n");
+    let main = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\nuse decoy\nuse other\n",
+            "type Box<A>\n  Present(A)\n  Absent\nend\n",
+            "fn needs_int(value: Int) -> ()\n  ()\nend\n",
+            "fn broken(invalid: Box<Int>::Present | Box<other::Int>::Absent, sibling: String) -> Int\n",
+            "  needs_int(sibling)\n",
+            "  \"wrong\"\n",
+            "end\n",
+            "fn caller() -> ()\n",
+            "  let result: String = broken(1, 2)\n",
+            "end\n",
+        ),
+    );
+    let diagnostics = analyze_surface_module(&merged_modules_with_identities(vec![
+        ("decoy", decoy),
+        ("other", other),
+        ("main", main),
+    ]));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic.id, "type.variant_union_base");
+    assert_eq!(
+        diagnostic.details.to_json(),
+        "{\"expected_base_type\":\"Box<Int>\",\"actual_base_type\":\"Box<other::Int>\"}"
+    );
+    let observed = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+    assert!(
+        observed.contains("\"kind\":\"expected_variant_union_base\"")
+            && observed.contains("\"start\":{\"line\":11,\"column\":20")
+            && observed.contains("\"end\":{\"line\":11,\"column\":37")
+            && observed.contains(
+                "The first successfully instantiated alternative established `Box<Int>` as the union base."
+            ),
+        "{observed}"
+    );
+}
+
+#[test]
+fn recovery_slots_cannot_be_captured_by_source_declarations() {
+    fn source(marker: &str) -> String {
+        format!(
+            "type {marker}\n  Variant\nend\n\
+             type State\n  A\n  B\nend\n\
+             type Box<A>\n  Present(A)\nend\n\
+             type Other\n  C\nend\n\
+             fn legal(value: {marker}::Variant) -> ()\n  ()\nend\n\
+             fn broken(value: Box<State::A | State::B>::Present | Other::C) -> ()\n  ()\nend\n"
+        )
+    }
+
+    let collision = diagnostics_for(&source("Placeholder"));
+    let renamed = diagnostics_for(&source("Marker"));
+    let ids = |diagnostics: &[Diagnostic]| {
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.clone())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(ids(&collision), ids(&renamed));
+    assert_eq!(ids(&collision), ["type.variant_union_base"]);
+
+    for diagnostics in [&collision, &renamed] {
+        let diagnostic = &diagnostics[0];
+        let span = diagnostic.span.as_ref().unwrap();
+        assert_eq!((span.start.line, span.start.column), (17, 54));
+        assert_eq!((span.end.line, span.end.column), (17, 62));
+        assert_eq!(
+            diagnostic.details.to_json(),
+            "{\"expected_base_type\":\"Box<State>\",\"actual_base_type\":\"Other\"}"
+        );
+        let json = veln_diagnostics::diagnostic_to_json(diagnostic).to_json();
+        assert!(
+            json.contains("\"kind\":\"expected_variant_union_base\"")
+                && json.contains("\"start\":{\"line\":17,\"column\":18")
+                && json.contains("\"end\":{\"line\":17,\"column\":51")
+                && json.contains(
+                    "The first successfully instantiated alternative established `Box<State>` as the union base."
+                ),
+            "{json}"
+        );
+        assert!(!json.contains("type.invalid_annotation"), "{json}");
+    }
+}
+
+#[test]
+fn recovered_structural_argument_consumes_sibling_refinements_in_order() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n  Ready\nend\n",
+        "type Box<A>\n  Present(A)\nend\n",
+        "type Outer<A>\n  Present(A)\nend\n",
+        "type Other\n  B\nend\n",
+        "fn mixed(value: Outer<{left: Box<State::Ready>::Present, right: Box<State::Ready>::Present}>::Present | Other::B) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]
@@ -432,7 +683,99 @@ fn recovered_union_compares_canonical_generic_arguments() {
     assert!(
         diagnostics
             .iter()
-            .all(|diagnostic| diagnostic.id != "type.invalid_annotation"),
+            .all(|diagnostic| diagnostic.id != "type.variant_union_base"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn union_base_failure_preserves_an_independent_earlier_arity_failure() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Box<A>\n",
+        "  Present(A)\n",
+        "end\n",
+        "type Left\n",
+        "  A\n",
+        "end\n",
+        "type Right\n",
+        "  B\n",
+        "end\n",
+        "fn mixed(value: Box::Present | Left::A | Right::B) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["type.invalid_annotation", "type.variant_union_base"],
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics[0]
+            .message
+            .contains("`Box` expects 1 type argument(s), found 0"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_generic_argument_preserves_a_later_sibling_union_base_failure() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Pair<A>\n",
+        "  First(A)\n",
+        "end\n",
+        "type Left\n",
+        "  A\n",
+        "end\n",
+        "type Right\n",
+        "  B\n",
+        "end\n",
+        "fn broken(value: Pair<Missing, Left::A | Right::B>::First) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["type.invalid_annotation", "type.variant_union_base"],
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics[0]
+            .message
+            .contains("`Pair` expects 1 type argument(s), found 2"),
+        "{diagnostics:#?}"
+    );
+    let union_base = &diagnostics[1];
+    assert_eq!(union_base.span.as_ref().unwrap().start.line, 10);
+    assert_eq!(union_base.span.as_ref().unwrap().start.column, 42);
+    assert_eq!(union_base.span.as_ref().unwrap().end.line, 10);
+    assert_eq!(union_base.span.as_ref().unwrap().end.column, 50);
+    assert_eq!(
+        union_base.details.to_json(),
+        "{\"expected_base_type\":\"Left\",\"actual_base_type\":\"Right\"}"
+    );
+    let observed = veln_diagnostics::diagnostic_to_json(union_base).to_json();
+    assert!(
+        observed.contains("\"kind\":\"expected_variant_union_base\"")
+            && observed.contains("\"start\":{\"line\":10,\"column\":32")
+            && observed.contains("\"end\":{\"line\":10,\"column\":39")
+            && observed.contains(
+                "The first successfully instantiated alternative established `Left` as the union base."
+            ),
+        "{observed}"
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            !diagnostic.message.contains("expected base `Pair")
+                && !diagnostic.message.contains("actual base `Pair")
+        }),
         "{diagnostics:#?}"
     );
 }
