@@ -3,7 +3,7 @@ use metric
 use observe
 
 fn emit_wrapped() -> () effects [observe::Observe] callsite
-	metric::counter_increment(Some(observe::TraceContext("trace-1", "span-2")), "request.duration", 3, list_cons(observe::Attribute("route", observe::StringValue("checkout")), list_nil()))
+	metric::counter_increment(Some(observe::TraceContext("trace-1", "span-2", true)), "request.duration", 3, list_cons(observe::Attribute("route", observe::StringValue("checkout")), list_nil()))
 end
 
 fn emit_without_recording() -> Int effects [observe::Observe]
@@ -18,14 +18,14 @@ test metric_records_preserve_kind_values_context_callsite_and_mixed_order() -> R
 	let result = handle begin
 		emit_wrapped()
 		event::emit(None, "between", list_nil())
-		metric::histogram_sample(Some(observe::TraceContext("trace-1", "span-2")), "request.duration", 17, attributes)
+		metric::histogram_sample(Some(observe::TraceContext("trace-1", "span-2", true)), "request.duration", 17, attributes)
 		83
 	end with observe::recording(recording)
 	let first = observe::recorded(recording)
 	let second = observe::recorded(recording)
 	if result == 83
 		match first
-			Cons(observe::Emitted(observe::CounterIncrement(observe::CounterIncrementRecord("request.duration", 3, Cons(observe::Attribute("route", observe::StringValue("checkout")), Nil), Some(observe::TraceContext("trace-1", "span-2")), counter_source))), Cons(observe::Emitted(observe::Event(observe::EventRecord("between", Nil, None, _))), Cons(observe::Emitted(observe::HistogramSample(observe::HistogramSampleRecord("request.duration", 17, Cons(observe::Attribute("route", observe::StringValue("checkout")), Nil), Some(observe::TraceContext("trace-1", "span-2")), histogram_source))), Nil))) => if counter_source.file == "metric.test.veln" and counter_source.start_line == 19 and histogram_source.file == "metric.test.veln" and histogram_source.start_line == 21
+			Cons(observe::Emitted(observe::CounterIncrement(observe::CounterIncrementRecord("request.duration", 3, Cons(observe::Attribute("route", observe::StringValue("checkout")), Nil), Some(observe::TraceContext("trace-1", "span-2", true)), counter_source))), Cons(observe::Emitted(observe::Event(observe::EventRecord("between", Nil, None, _))), Cons(observe::Emitted(observe::HistogramSample(observe::HistogramSampleRecord("request.duration", 17, Cons(observe::Attribute("route", observe::StringValue("checkout")), Nil), Some(observe::TraceContext("trace-1", "span-2", true)), histogram_source))), Nil))) => if counter_source.file == "metric.test.veln" and counter_source.start_line == 19 and histogram_source.file == "metric.test.veln" and histogram_source.start_line == 21
 				match second
 					Cons(observe::Emitted(observe::CounterIncrement(_)), Cons(observe::Emitted(observe::Event(_)), Cons(observe::Emitted(observe::HistogramSample(_)), Nil))) => Ok(())
 					_ => Err("second metric snapshot consumed or reordered observations")

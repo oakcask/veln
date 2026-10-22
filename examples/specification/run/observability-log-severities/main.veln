@@ -21,28 +21,28 @@ end
 
 fn print_debug(record: Option<Observation>) -> () effects [stdio]
 	match record
-		Some(observe::Log(observe::LogRecord("log", observe::Debug, "debugged", attributes, Some(observe::TraceContext("trace-1", "span-2")), source))) => print_record("debug", attributes, source)
+		Some(observe::Log(observe::LogRecord("log", observe::Debug, "debugged", attributes, Some(observe::TraceContext("trace-1", "span-2", true)), source))) => print_record("debug", attributes, source)
 		_ => stdio::println("unexpected-debug")
 	end
 end
 
 fn print_info(record: Option<Observation>) -> () effects [stdio]
 	match record
-		Some(observe::Log(observe::LogRecord("log", observe::Info, "informed", attributes, Some(observe::TraceContext("trace-1", "span-2")), source))) => print_record("info", attributes, source)
+		Some(observe::Log(observe::LogRecord("log", observe::Info, "informed", attributes, Some(observe::TraceContext("trace-1", "span-2", true)), source))) => print_record("info", attributes, source)
 		_ => stdio::println("unexpected-info")
 	end
 end
 
 fn print_warning(record: Option<Observation>) -> () effects [stdio]
 	match record
-		Some(observe::Log(observe::LogRecord("log", observe::Warning, "warned", attributes, Some(observe::TraceContext("trace-1", "span-2")), source))) => print_record("warning", attributes, source)
+		Some(observe::Log(observe::LogRecord("log", observe::Warning, "warned", attributes, Some(observe::TraceContext("trace-1", "span-2", true)), source))) => print_record("warning", attributes, source)
 		_ => stdio::println("unexpected-warning")
 	end
 end
 
 fn print_error(record: Option<Observation>) -> () effects [stdio]
 	match record
-		Some(observe::Log(observe::LogRecord("log", observe::Error, "failed", attributes, Some(observe::TraceContext("trace-1", "span-2")), source))) => print_record("error", attributes, source)
+		Some(observe::Log(observe::LogRecord("log", observe::Error, "failed", attributes, Some(observe::TraceContext("trace-1", "span-2", true)), source))) => print_record("error", attributes, source)
 		_ => stdio::println("unexpected-error")
 	end
 end

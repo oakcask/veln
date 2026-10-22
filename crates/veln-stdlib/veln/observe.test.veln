@@ -59,7 +59,7 @@ test recording_snapshots_preserve_mixed_log_and_event_order() -> Result<(), Stri
 	let recording = observe::new_recording("mixed-observations")
 	let result = handle begin
 		log::info(None, "before", list_nil())
-		event::emit(Some(observe::TraceContext("trace-event", "span-event")), "checkout.completed", list_cons(observe::Attribute("attempt", observe::IntValue(3)), list_nil()))
+		event::emit(Some(observe::TraceContext("trace-event", "span-event", true)), "checkout.completed", list_cons(observe::Attribute("attempt", observe::IntValue(3)), list_nil()))
 		log::error(None, "after", list_nil())
 		91
 	end with observe::recording(recording)
@@ -67,8 +67,8 @@ test recording_snapshots_preserve_mixed_log_and_event_order() -> Result<(), Stri
 	let second = observe::recorded(recording)
 	if result == 91
 		match first
-			Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "before", Nil, None, _))), Cons(observe::Emitted(observe::Event(observe::EventRecord("checkout.completed", Cons(observe::Attribute("attempt", observe::IntValue(3)), Nil), Some(observe::TraceContext("trace-event", "span-event")), _))), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Error, "after", Nil, None, _))), Nil))) => match second
-				Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "before", Nil, None, _))), Cons(observe::Emitted(observe::Event(observe::EventRecord("checkout.completed", Cons(observe::Attribute("attempt", observe::IntValue(3)), Nil), Some(observe::TraceContext("trace-event", "span-event")), _))), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Error, "after", Nil, None, _))), Nil))) => Ok(())
+			Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "before", Nil, None, _))), Cons(observe::Emitted(observe::Event(observe::EventRecord("checkout.completed", Cons(observe::Attribute("attempt", observe::IntValue(3)), Nil), Some(observe::TraceContext("trace-event", "span-event", true)), _))), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Error, "after", Nil, None, _))), Nil))) => match second
+				Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "before", Nil, None, _))), Cons(observe::Emitted(observe::Event(observe::EventRecord("checkout.completed", Cons(observe::Attribute("attempt", observe::IntValue(3)), Nil), Some(observe::TraceContext("trace-event", "span-event", true)), _))), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Error, "after", Nil, None, _))), Nil))) => Ok(())
 				_ => Err("second snapshot consumed or reordered mixed observations")
 			end
 			_ => Err("recording changed mixed log and event order or values")
@@ -128,7 +128,7 @@ end
 
 test recording_preserves_an_empty_link_list_with_an_explicit_parent() -> Result<(), String> effects [time, concurrency]
 	let recording = observe::new_recording("empty-links")
-	let parent = observe::TraceContext("upstream-trace", "upstream-span")
+	let parent = observe::TraceContext("upstream-trace", "upstream-span", true)
 	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("consumer", Some(parent), list_nil())) with observe::recording(recording)
 	match observe::recorded(recording)
 		Cons(observe::SpanStarted("consumer", "upstream-trace", "empty-links-0", Some("upstream-span"), Nil, _), Nil) => Ok(())
@@ -138,21 +138,74 @@ end
 
 test recording_preserves_multiple_link_identities_in_request_order() -> Result<(), String> effects [time, concurrency]
 	let recording = observe::new_recording("ordered-links")
-	let links = list_cons(observe::TraceContext("linked-trace-a", "linked-span-a"), list_cons(observe::TraceContext("linked-trace-b", "linked-span-b"), list_nil()))
-	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("consumer", Some(observe::TraceContext("parent-trace", "parent-span")), links)) with observe::recording(recording)
+	let links = list_cons(observe::TraceContext("linked-trace-a", "linked-span-a", true), list_cons(observe::TraceContext("linked-trace-b", "linked-span-b", true), list_nil()))
+	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("consumer", Some(observe::TraceContext("parent-trace", "parent-span", true)), links)) with observe::recording(recording)
 	match observe::recorded(recording)
-		Cons(observe::SpanStarted("consumer", "parent-trace", "ordered-links-0", Some("parent-span"), Cons(observe::TraceContext("linked-trace-a", "linked-span-a"), Cons(observe::TraceContext("linked-trace-b", "linked-span-b"), Nil)), _), Nil) => Ok(())
+		Cons(observe::SpanStarted("consumer", "parent-trace", "ordered-links-0", Some("parent-span"), Cons(observe::TraceContext("linked-trace-a", "linked-span-a", true), Cons(observe::TraceContext("linked-trace-b", "linked-span-b", true), Nil)), _), Nil) => Ok(())
 		_ => Err("recording changed linked context identities or request order")
 	end
 end
 
 test recording_preserves_links_without_a_parent() -> Result<(), String> effects [time, concurrency]
 	let recording = observe::new_recording("root-links")
-	let links = list_cons(observe::TraceContext("linked-trace", "linked-span"), list_nil())
+	let links = list_cons(observe::TraceContext("linked-trace", "linked-span", true), list_nil())
 	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("consumer", None, links)) with observe::recording(recording)
 	match observe::recorded(recording)
-		Cons(observe::SpanStarted("consumer", "root-links-0", "root-links-1", None, Cons(observe::TraceContext("linked-trace", "linked-span"), Nil), _), Nil) => Ok(())
+		Cons(observe::SpanStarted("consumer", "root-links-0", "root-links-1", None, Cons(observe::TraceContext("linked-trace", "linked-span", true), Nil), _), Nil) => Ok(())
 		_ => Err("recording did not preserve links independently of parentage")
+	end
+end
+
+test trace_context_injection_exposes_every_carrier_field() -> Result<(), String>
+	match observe::inject_context(observe::TraceContext("trace-injected", "span-injected", false))
+		observe::TraceCarrier(Some("trace-injected"), Some("span-injected"), Some(false)) => Ok(())
+		_ => Err("trace context injection changed an identity or sampling state")
+	end
+end
+
+test trace_context_injection_then_extraction_preserves_both_sampling_states() -> Result<(), String>
+	let sampled = observe::TraceContext("trace-sampled", "span-sampled", true)
+	let unsampled = observe::TraceContext("trace-unsampled", "span-unsampled", false)
+	match observe::extract_context(observe::inject_context(sampled))
+		Some(observe::TraceContext("trace-sampled", "span-sampled", true)) => match observe::extract_context(observe::inject_context(unsampled))
+			Some(observe::TraceContext("trace-unsampled", "span-unsampled", false)) => Ok(())
+			_ => Err("trace context carrier round trip changed unsampled state")
+		end
+		_ => Err("trace context carrier round trip changed sampled state")
+	end
+end
+
+test trace_context_extraction_rejects_missing_and_empty_fields() -> Result<(), String>
+	match observe::extract_context(observe::TraceCarrier(None, Some("span"), Some(true)))
+		None => match observe::extract_context(observe::TraceCarrier(Some("trace"), None, Some(true)))
+			None => match observe::extract_context(observe::TraceCarrier(Some("trace"), Some("span"), None))
+				None => match observe::extract_context(observe::inject_context(observe::TraceContext("", "span", true)))
+					None => match observe::extract_context(observe::TraceCarrier(Some("trace"), Some(""), Some(false)))
+						None => Ok(())
+						Some(_) => Err("trace context extraction accepted an empty span identity")
+					end
+					Some(_) => Err("trace context extraction accepted an empty trace identity")
+				end
+				Some(_) => Err("trace context extraction accepted missing sampling state")
+			end
+			Some(_) => Err("trace context extraction accepted a missing span identity")
+		end
+		Some(_) => Err("trace context extraction accepted a missing trace identity")
+	end
+end
+
+test recording_context_defaults_roots_to_sampled_and_inherits_parent_sampling() -> Result<(), String> effects [time, concurrency]
+	let root_recording = observe::new_recording("sampled-root")
+	let root = handle perform observe::Observe::start_span(observe::SpanRequest("root", None, list_nil())) with observe::recording(root_recording)
+	let child_recording = observe::new_recording("unsampled-child")
+	let parent = observe::TraceContext("upstream-trace", "upstream-span", false)
+	let child = handle perform observe::Observe::start_span(observe::SpanRequest("child", Some(parent), list_nil())) with observe::recording(child_recording)
+	match observe::context(root)
+		Some(observe::TraceContext("sampled-root-0", "sampled-root-1", true)) => match observe::context(child)
+			Some(observe::TraceContext("upstream-trace", "unsampled-child-0", false)) => Ok(())
+			_ => Err("recording child context did not inherit parent sampling state")
+		end
+		_ => Err("recording root context did not default to sampled")
 	end
 end
 

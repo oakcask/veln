@@ -16,8 +16,8 @@ also states it.
 
 ## Ready
 
-- Metric-cardinality limits, carrier context propagation,
-  production exporters, JSON Lines, exporter health, and exporter lifecycle
+- Metric-cardinality limits, production exporters, JSON Lines, exporter
+  health, and exporter lifecycle
   behavior:
   [observability.md](observability.md).
 - Remaining ADT variant-refinement support for qualified immutable values

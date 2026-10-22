@@ -10,7 +10,7 @@ pub fn main() -> () effects [stdio, concurrency]
 	let _ = handle wrapper::emit_checkout() with recording::recording(records.tx)
 	channel::close(records.tx)
 	match channel::recv(records.rx)
-		Some(observe::Event(observe::EventRecord("checkout.completed", Cons(observe::Attribute("attempt", observe::IntValue(3)), Nil), Some(observe::TraceContext("trace-1", "span-2")), source))) => begin
+		Some(observe::Event(observe::EventRecord("checkout.completed", Cons(observe::Attribute("attempt", observe::IntValue(3)), Nil), Some(observe::TraceContext("trace-1", "span-2", true)), source))) => begin
 			stdio::println(source.package)
 			stdio::println(source.module)
 			stdio::println(source.file)

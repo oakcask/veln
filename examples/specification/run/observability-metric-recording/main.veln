@@ -7,8 +7,8 @@ use observe from "std"
 fn run(recording: Recording) -> () effects [observe::Observe, stdio, concurrency]
 	let attributes = list_cons(observe::Attribute("route", observe::StringValue("checkout")), list_nil())
 	let result = begin
-		metric::counter_increment(Some(observe::TraceContext("trace-1", "span-2")), "request.duration", 3, attributes)
-		metric::histogram_sample(Some(observe::TraceContext("trace-1", "span-2")), "request.duration", 17, attributes)
+		metric::counter_increment(Some(observe::TraceContext("trace-1", "span-2", true)), "request.duration", 3, attributes)
+		metric::histogram_sample(Some(observe::TraceContext("trace-1", "span-2", true)), "request.duration", 17, attributes)
 		83
 	end
 	print_result(result, observe::recorded(recording), observe::recorded(recording))
@@ -21,7 +21,7 @@ end
 
 fn print_result(result: Int, first: List<RecordingEntry>, second: List<RecordingEntry>) -> () effects [stdio]
 	match first
-		Cons(observe::Emitted(observe::CounterIncrement(observe::CounterIncrementRecord(name, increment, Cons(observe::Attribute("route", observe::StringValue(route)), Nil), Some(observe::TraceContext(trace_id, span_id)), counter_source))), Cons(observe::Emitted(observe::HistogramSample(observe::HistogramSampleRecord(histogram_name, sample, Cons(observe::Attribute("route", observe::StringValue(histogram_route)), Nil), Some(observe::TraceContext(histogram_trace, histogram_span)), histogram_source))), Nil)) => begin
+		Cons(observe::Emitted(observe::CounterIncrement(observe::CounterIncrementRecord(name, increment, Cons(observe::Attribute("route", observe::StringValue(route)), Nil), Some(observe::TraceContext(trace_id, span_id, true)), counter_source))), Cons(observe::Emitted(observe::HistogramSample(observe::HistogramSampleRecord(histogram_name, sample, Cons(observe::Attribute("route", observe::StringValue(histogram_route)), Nil), Some(observe::TraceContext(histogram_trace, histogram_span, true)), histogram_source))), Nil)) => begin
 			stdio::println(int_to_string(result))
 			stdio::println(name)
 			stdio::println(int_to_string(increment))

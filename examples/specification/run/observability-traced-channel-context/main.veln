@@ -34,7 +34,7 @@ end
 
 fn print_traced_records(recording: Recording) -> () effects [stdio, concurrency]
 	match observe::recorded(recording)
-		Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, first, Nil, Some(observe::TraceContext(first_trace, first_span)), _))), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, second, Nil, Some(observe::TraceContext(second_trace, second_span)), _))), Nil)) => begin
+		Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, first, Nil, Some(observe::TraceContext(first_trace, first_span, true)), _))), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, second, Nil, Some(observe::TraceContext(second_trace, second_span, true)), _))), Nil)) => begin
 			stdio::println(first)
 			stdio::println(first_trace)
 			stdio::println(first_span)
@@ -59,8 +59,8 @@ end
 fn run_traced(recording: Recording) -> () effects [observe::Observe, stdio, concurrency]
 	let values = channel::bounded<Traced<String>>(2)
 	let worker = task::spawn_with<Result<(), String>, Receiver<Traced<String>>>(traced_worker, values.rx)
-	let _ = channel::send(values.tx, Traced("first", observe::TraceContext("trace-first", "span-first")))
-	let _ = channel::send(values.tx, Traced("second", observe::TraceContext("trace-second", "span-second")))
+	let _ = channel::send(values.tx, Traced("first", observe::TraceContext("trace-first", "span-first", true)))
+	let _ = channel::send(values.tx, Traced("second", observe::TraceContext("trace-second", "span-second", true)))
 	match task::join(worker)
 		Ok(Ok(_)) => print_traced_records(recording)
 		_ => stdio::println("unexpected-traced-worker-result")
