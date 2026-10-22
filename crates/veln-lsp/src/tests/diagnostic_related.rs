@@ -24,6 +24,10 @@ fn related_note_for(file: &str, message: &str, start: JsonValue, end: JsonValue)
     ])
 }
 
+fn related_span_for(file: JsonValue, start: JsonValue, end: JsonValue) -> JsonValue {
+    JsonValue::object([("file", file), ("start", start), ("end", end)])
+}
+
 fn diagnostic_with_related(related: Vec<JsonValue>) -> Diagnostic {
     let mut diagnostic = Diagnostic::new(
         "test.related",
@@ -34,6 +38,30 @@ fn diagnostic_with_related(related: Vec<JsonValue>) -> Diagnostic {
         JsonValue::Null,
     );
     diagnostic.related = related;
+    diagnostic
+}
+
+fn diagnostic_with_span_and_related(column: usize, related: JsonValue) -> Diagnostic {
+    let offset = column - 1;
+    let position = veln_source::LineCol {
+        line: 1,
+        column,
+        offset,
+    };
+    let mut diagnostic = Diagnostic::new(
+        "test.related",
+        Severity::Error,
+        DiagnosticKind::Type,
+        "bounded projection work",
+        Some(SourceSpan {
+            file: veln_source::SourcePath::new("main.veln"),
+            start: position,
+            end: position,
+            generated_origin: None,
+        }),
+        JsonValue::Null,
+    );
+    diagnostic.related = vec![related];
     diagnostic
 }
 
@@ -123,4 +151,137 @@ fn related_information_requires_complete_consistent_source_positions() {
     .map(|message| published.find(message).unwrap());
     assert!(positions.windows(2).all(|pair| pair[0] < pair[1]), "{published}");
     assert_eq!(published.matches("valid ").count(), 5, "{published}");
+}
+
+#[test]
+fn diagnostic_projection_handles_many_same_line_endpoints() {
+    const ENDPOINTS: usize = 512;
+    let text = "a😀".repeat(ENDPOINTS);
+    let positions = text
+        .char_indices()
+        .map(|(offset, _)| offset)
+        .take(ENDPOINTS)
+        .collect::<Vec<_>>();
+    let sources = DiagnosticSources::from([(
+        "main.veln".to_string(),
+        DiagnosticSource::new("file://main.veln".to_string(), text),
+    )]);
+    let diagnostics = positions
+        .into_iter()
+        .enumerate()
+        .map(|(index, offset)| {
+            let column = index + 1;
+            let position = related_position(1, column as i64, offset as i64);
+            diagnostic_with_span_and_related(
+                column,
+                related_note("same-line endpoint", position.clone(), position),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let published = publish_diagnostics_for_uri("file://main.veln", &diagnostics, &sources);
+
+    assert_eq!(published.matches("same-line endpoint").count(), ENDPOINTS);
+    assert_eq!(
+        sources["main.veln"].projection_work(),
+        (ENDPOINTS * 2, ENDPOINTS * 4)
+    );
+}
+
+#[test]
+fn related_information_omits_malformed_envelopes_and_unavailable_sources_in_order() {
+    let position = related_position(1, 1, 0);
+    let span = related_span_for(
+        JsonValue::string("main.veln"),
+        position.clone(),
+        position.clone(),
+    );
+    let notes = vec![
+        related_note("valid before", position.clone(), position.clone()),
+        JsonValue::object([("span", span.clone())]),
+        JsonValue::object([
+            ("message", JsonValue::Number(1)),
+            ("span", span.clone()),
+        ]),
+        JsonValue::object([("message", JsonValue::string("missing span"))]),
+        JsonValue::object([
+            ("message", JsonValue::string("non-object span")),
+            ("span", JsonValue::string("main.veln")),
+        ]),
+        JsonValue::object([
+            ("message", JsonValue::string("missing file")),
+            (
+                "span",
+                JsonValue::object([
+                    ("start", position.clone()),
+                    ("end", position.clone()),
+                ]),
+            ),
+        ]),
+        JsonValue::object([
+            ("message", JsonValue::string("non-text file")),
+            (
+                "span",
+                related_span_for(JsonValue::Number(1), position.clone(), position.clone()),
+            ),
+        ]),
+        related_note_for(
+            "absent.veln",
+            "unavailable source",
+            position.clone(),
+            position.clone(),
+        ),
+        related_note("valid after", position.clone(), position),
+    ];
+    let sources = DiagnosticSources::from([(
+        "main.veln".to_string(),
+        DiagnosticSource::new("file://main.veln".to_string(), String::new()),
+    )]);
+
+    let published = lsp_diagnostic_json(&diagnostic_with_related(notes), &sources);
+
+    assert_eq!(published.matches(r#""location""#).count(), 2, "{published}");
+    let before = published.find("valid before").unwrap();
+    let after = published.find("valid after").unwrap();
+    assert!(before < after, "{published}");
+    for omitted in [
+        "missing span",
+        "non-object span",
+        "missing file",
+        "non-text file",
+        "unavailable source",
+    ] {
+        assert!(!published.contains(omitted), "{published}");
+    }
+}
+
+#[test]
+fn document_publication_omits_cross_file_related_information_in_order() {
+    let position = related_position(1, 1, 0);
+    let related = vec![
+        related_note("valid before", position.clone(), position.clone()),
+        related_note_for(
+            "other.veln",
+            "cross-file unavailable",
+            position.clone(),
+            position.clone(),
+        ),
+        related_note("valid after", position.clone(), position),
+    ];
+    let sources = DiagnosticSources::from([(
+        "main.veln".to_string(),
+        DiagnosticSource::new("file://main.veln".to_string(), String::new()),
+    )]);
+
+    let published = publish_diagnostics_for_uri(
+        "file://main.veln",
+        &[diagnostic_with_related(related)],
+        &sources,
+    );
+
+    assert_eq!(published.matches(r#""location""#).count(), 2, "{published}");
+    let before = published.find("valid before").unwrap();
+    let after = published.find("valid after").unwrap();
+    assert!(before < after, "{published}");
+    assert!(!published.contains("cross-file unavailable"), "{published}");
 }

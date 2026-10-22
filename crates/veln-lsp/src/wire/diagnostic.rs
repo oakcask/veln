@@ -1,3 +1,5 @@
+#[cfg(test)]
+use std::cell::Cell;
 use std::collections::BTreeMap;
 
 use veln_diagnostics::{Diagnostic, JsonValue};
@@ -9,65 +11,137 @@ use crate::diagnostics;
 #[derive(Clone, Debug)]
 pub(crate) struct DiagnosticSource {
     uri: String,
-    text: String,
-    line_starts: Vec<usize>,
+    lines: Vec<DiagnosticLine>,
+    #[cfg(test)]
+    indexed_scalars: usize,
+    #[cfg(test)]
+    endpoint_lookups: Cell<usize>,
+}
+
+#[derive(Clone, Debug)]
+struct DiagnosticLine {
+    boundaries: Vec<DiagnosticBoundary>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct DiagnosticBoundary {
+    byte_offset: usize,
+    utf16_character: usize,
 }
 
 impl DiagnosticSource {
     pub(crate) fn new(uri: String, text: String) -> Self {
-        let mut line_starts = vec![0];
-        line_starts.extend(
-            text.bytes()
-                .enumerate()
-                .filter_map(|(index, byte)| (byte == b'\n').then_some(index + 1)),
-        );
+        let mut lines = vec![DiagnosticLine::new(0)];
+        let mut utf16_character = 0;
+        #[cfg(test)]
+        let mut indexed_scalars = 0;
+        for (offset, character) in text.char_indices() {
+            #[cfg(test)]
+            {
+                indexed_scalars += 1;
+            }
+            if character == '\n' {
+                if offset > 0 && text.as_bytes()[offset - 1] == b'\r' {
+                    lines
+                        .last_mut()
+                        .expect("diagnostic line")
+                        .trim_terminal_cr();
+                }
+                lines.push(DiagnosticLine::new(offset + 1));
+                utf16_character = 0;
+                continue;
+            }
+            utf16_character += character.len_utf16();
+            lines
+                .last_mut()
+                .expect("diagnostic line")
+                .boundaries
+                .push(DiagnosticBoundary {
+                    byte_offset: offset + character.len_utf8(),
+                    utf16_character,
+                });
+        }
+        if text.ends_with('\r') {
+            lines
+                .last_mut()
+                .expect("diagnostic line")
+                .trim_terminal_cr();
+        }
         Self {
             uri,
-            text,
-            line_starts,
+            lines,
+            #[cfg(test)]
+            indexed_scalars,
+            #[cfg(test)]
+            endpoint_lookups: Cell::new(0),
         }
     }
 
     pub(crate) fn utf16_position_json(&self, line: usize, column: usize) -> String {
         let character = self
-            .line_text(line)
-            .map(|text| {
-                text.chars()
-                    .take(column.saturating_sub(1))
-                    .map(char::len_utf16)
-                    .sum()
-            })
+            .boundary(line, column, true)
+            .map(|boundary| boundary.utf16_character)
             .unwrap_or_else(|| column.saturating_sub(1));
-        format!(
-            "{{\"line\":{},\"character\":{character}}}",
-            line.saturating_sub(1),
-        )
+        utf16_position_json(line, character)
     }
 
-    fn line_text(&self, line: usize) -> Option<&str> {
-        let start = *self.line_starts.get(line.saturating_sub(1))?;
-        let rest = self.text.get(start..)?;
-        let line = rest.find('\n').map_or(rest, |end| &rest[..end]);
-        line.strip_suffix('\r').or(Some(line))
+    fn checked_utf16_position_json(&self, position: &DiagnosticPosition) -> Option<String> {
+        let boundary = self.boundary(position.line, position.column, false)?;
+        (boundary.byte_offset == position.offset)
+            .then(|| utf16_position_json(position.line, boundary.utf16_character))
     }
 
-    fn contains_position(&self, line: usize, column: usize, offset: usize) -> bool {
-        if line == 0
-            || column == 0
-            || offset > self.text.len()
-            || !self.text.is_char_boundary(offset)
-        {
-            return false;
+    fn boundary(
+        &self,
+        line: usize,
+        column: usize,
+        clamp_column: bool,
+    ) -> Option<&DiagnosticBoundary> {
+        #[cfg(test)]
+        self.endpoint_lookups
+            .set(self.endpoint_lookups.get().saturating_add(1));
+        if !clamp_column && (line == 0 || column == 0) {
+            return None;
         }
-        let line_index = self.line_starts.partition_point(|start| *start <= offset);
-        let Some(start) = line_index
-            .checked_sub(1)
-            .and_then(|index| self.line_starts.get(index))
-        else {
-            return false;
-        };
-        line_index == line && self.text[*start..offset].chars().count() + 1 == column
+        let boundaries = &self.lines.get(line.saturating_sub(1))?.boundaries;
+        let index = column.saturating_sub(1);
+        if clamp_column {
+            boundaries.get(index.min(boundaries.len() - 1))
+        } else {
+            boundaries.get(index)
+        }
     }
+
+    #[cfg(test)]
+    pub(crate) fn projection_work(&self) -> (usize, usize) {
+        (self.indexed_scalars, self.endpoint_lookups.get())
+    }
+}
+
+impl DiagnosticLine {
+    fn new(byte_offset: usize) -> Self {
+        Self {
+            boundaries: vec![DiagnosticBoundary {
+                byte_offset,
+                utf16_character: 0,
+            }],
+        }
+    }
+
+    fn trim_terminal_cr(&mut self) {
+        let boundary_count = self.boundaries.len();
+        if boundary_count >= 2 {
+            self.boundaries[boundary_count - 1].utf16_character =
+                self.boundaries[boundary_count - 2].utf16_character;
+        }
+    }
+}
+
+fn utf16_position_json(line: usize, character: usize) -> String {
+    format!(
+        "{{\"line\":{},\"character\":{character}}}",
+        line.saturating_sub(1),
+    )
 }
 
 pub(crate) type DiagnosticSources = BTreeMap<String, DiagnosticSource>;
@@ -170,17 +244,12 @@ fn related_information_json(note: &JsonValue, sources: &DiagnosticSources) -> Op
 fn related_range_json(span: &JsonValue, source: &DiagnosticSource) -> Option<String> {
     let start = diagnostic_position(object_value(span, "start")?)?;
     let end = diagnostic_position(object_value(span, "end")?)?;
-    if !source.contains_position(start.line, start.column, start.offset)
-        || !source.contains_position(end.line, end.column, end.offset)
-        || start.offset > end.offset
-    {
+    if start.offset > end.offset {
         return None;
     }
-    Some(format!(
-        "{{\"start\":{},\"end\":{}}}",
-        source.utf16_position_json(start.line, start.column),
-        source.utf16_position_json(end.line, end.column),
-    ))
+    let start = source.checked_utf16_position_json(&start)?;
+    let end = source.checked_utf16_position_json(&end)?;
+    Some(format!("{{\"start\":{},\"end\":{}}}", start, end,))
 }
 
 struct DiagnosticPosition {
