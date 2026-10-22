@@ -8,10 +8,42 @@ schema Packet
 	state: State::Ready | State::Closed
 end
 
+schema NestedPacket
+	states: Option<List<State::Ready>>
+end
+
+schema Inner
+	state: State::Ready
+end
+
+schema Outer
+	inner: Inner
+end
+
 fn reject_base(state: State) -> Result<{state: State::Ready | State::Closed}, String>
 	byte_encode_packet({state: state})
 end
 
 fn reject_excluded(state: State::Failed) -> Result<{state: State::Ready | State::Closed}, String>
 	encode Packet from {state: state}
+end
+
+fn reject_nested_base(state: State) -> Result<{states: Option<List<State::Ready>>}, String>
+	byte_encode_nested_packet({states: Some(list_cons(state, list_nil()))})
+end
+
+fn reject_nested_excluded(state: State::Failed) -> Result<{states: Option<List<State::Ready>>}, String>
+	encode NestedPacket from {states: Some(list_cons(state, list_nil()))}
+end
+
+fn accept_composed(state: State::Ready) -> Result<{inner: {state: State::Ready}}, String>
+	byte_encode_outer({inner: {state: state}})
+end
+
+fn reject_composed_base(state: State) -> Result<{inner: {state: State::Ready}}, String>
+	byte_encode_outer({inner: {state: state}})
+end
+
+fn reject_composed_excluded(state: State::Failed) -> Result<{inner: {state: State::Ready}}, String>
+	encode Outer from {inner: {state: state}}
 end

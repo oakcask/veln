@@ -263,7 +263,7 @@ pub(super) fn check_schema_field_composition(
 
     let decode_eligible = schema_decode_value_type(module, target).is_some();
     let encode_eligible = schema_encode_value_type(module, target).is_some();
-    if !decode_eligible {
+    if !decode_eligible && !encode_eligible {
         diagnostics.push(schema_composition_reference_diagnostic(
             module,
             schema,
@@ -279,7 +279,7 @@ pub(super) fn check_schema_field_composition(
             "encode_ineligible_target",
         ));
     }
-    !decode_eligible
+    !decode_eligible && !encode_eligible
 }
 
 pub(super) fn check_direct_schema_primitive(

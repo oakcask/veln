@@ -77,7 +77,36 @@ fn format_neutral_schema_field_type_for_traversal(
     text: &str,
     traversal: FormatNeutralSchemaTraversal,
 ) -> Option<Type> {
+    format_neutral_schema_resolved_field_type(
+        module,
+        schema,
+        adts,
+        text,
+        traversal,
+        &mut Vec::new(),
+    )
+}
+
+fn format_neutral_schema_resolved_field_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    adts: &AdtRegistry,
+    text: &str,
+    traversal: FormatNeutralSchemaTraversal,
+    composition_stack: &mut Vec<(Option<String>, String)>,
+) -> Option<Type> {
     let parsed = parse_type_annotation(text).ok()?;
+    if traversal.is_encode()
+        && !format_neutral_schema_written_constructors_are_visible(
+            module,
+            schema.module_name.as_deref(),
+            adts,
+            &parsed,
+            traversal,
+        )
+    {
+        return None;
+    }
     let ty = if traversal.is_encode() {
         crate::types::canonicalize_type_effects(
             parsed,
@@ -113,10 +142,134 @@ fn format_neutral_schema_field_type_for_traversal(
             module,
             target,
             traversal,
-            &mut Vec::new(),
+            composition_stack,
         );
     }
     None
+}
+
+fn format_neutral_schema_written_constructors_are_visible(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    adts: &AdtRegistry,
+    ty: &Type,
+    traversal: FormatNeutralSchemaTraversal,
+) -> bool {
+    let selected_are_visible = |descriptor: &AdtDescriptor, variants: &[String]| {
+        variants.iter().all(|selected| {
+            descriptor.variants.iter().any(|variant| {
+                variant.name == *selected
+                    && (variant.visibility == Visibility::Public
+                        || traversal.permits_private_variants()
+                            && descriptor.module_name.as_deref() == current_module)
+            })
+        })
+    };
+    match ty {
+        Type::Named { name, args, .. } => {
+            let selection_is_visible = name.rsplit_once("::").is_none_or(|(base, selected)| {
+                let base = Type::named(base, args.clone());
+                format_neutral_schema_source_adt_descriptor(module, current_module, adts, &base)
+                    .is_none_or(|descriptor| {
+                        selected_are_visible(descriptor, &[selected.to_string()])
+                    })
+            });
+            selection_is_visible
+                && args.iter().all(|arg| {
+                    format_neutral_schema_written_constructors_are_visible(
+                        module,
+                        current_module,
+                        adts,
+                        arg,
+                        traversal,
+                    )
+                })
+        }
+        Type::VariantRefinement {
+            name,
+            args,
+            variants,
+            unresolved_alternatives,
+            ..
+        } => {
+            let base = Type::named(name, args.clone());
+            let selected_are_visible_here =
+                format_neutral_schema_source_adt_descriptor(module, current_module, adts, &base)
+                    .is_none_or(|descriptor| selected_are_visible(descriptor, variants));
+            selected_are_visible_here
+                && args.iter().all(|arg| {
+                    format_neutral_schema_written_constructors_are_visible(
+                        module,
+                        current_module,
+                        adts,
+                        arg,
+                        traversal,
+                    )
+                })
+                && unresolved_alternatives
+                    .iter()
+                    .all(|(name, args, selected)| {
+                        let base = Type::named(name, args.clone());
+                        format_neutral_schema_source_adt_descriptor(
+                            module,
+                            current_module,
+                            adts,
+                            &base,
+                        )
+                        .is_none_or(|descriptor| {
+                            selected_are_visible(descriptor, std::slice::from_ref(selected))
+                        }) && args.iter().all(|arg| {
+                            format_neutral_schema_written_constructors_are_visible(
+                                module,
+                                current_module,
+                                adts,
+                                arg,
+                                traversal,
+                            )
+                        })
+                    })
+        }
+        Type::Record(fields) => fields.iter().all(|(_, field_ty)| {
+            format_neutral_schema_written_constructors_are_visible(
+                module,
+                current_module,
+                adts,
+                field_ty,
+                traversal,
+            )
+        }),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            params.iter().all(|param| {
+                format_neutral_schema_written_constructors_are_visible(
+                    module,
+                    current_module,
+                    adts,
+                    param,
+                    traversal,
+                )
+            }) && variadic.as_deref().is_none_or(|variadic| {
+                format_neutral_schema_written_constructors_are_visible(
+                    module,
+                    current_module,
+                    adts,
+                    variadic,
+                    traversal,
+                )
+            }) && format_neutral_schema_written_constructors_are_visible(
+                module,
+                current_module,
+                adts,
+                return_type,
+                traversal,
+            )
+        }
+        Type::Unknown => true,
+    }
 }
 
 pub(crate) fn binary_schema_anonymous_record_decode_type(text: &str) -> Option<Type> {
@@ -389,23 +542,9 @@ fn format_neutral_schema_composition_value_type(
     let adts = AdtRegistry::from_module(module);
     let mut fields = Vec::new();
     for field in &schema.fields {
-        let parsed = parse_type_annotation(&field.ty).ok()?;
-        let ty = if let Some(ty) = format_neutral_schema_visible_shape_type_for_schema(
-            module,
-            schema.module_name.as_deref(),
-            &adts,
-            &parsed,
-            &mut FormatNeutralSchemaTraversalState::default(),
-            traversal,
-        ) {
-            ty
-        } else if let Some(target) = schema_field_target(module, schema, &field.ty)
-            && target.format.is_none()
-        {
-            format_neutral_schema_composition_value_type(module, target, traversal, stack)?
-        } else {
-            return None;
-        };
+        let ty = format_neutral_schema_resolved_field_type(
+            module, schema, &adts, &field.ty, traversal, stack,
+        )?;
         fields.push((field.name.clone(), ty));
     }
     stack.pop();

@@ -16,10 +16,17 @@ pub(super) fn check_format_neutral_schema_field(
         format_neutral_schema_encode_field_is_source_adt_candidate(module, schema, adts, &field.ty);
     if let Some(field_ty) = decode_field_type.clone() {
         record_decoded_schema_field(schema, field, field_ty, decoded_fields, diagnostics);
-    } else if encode_field_type.is_some() {
+    } else if let Some(field_ty) = &encode_field_type {
         // An encode-only field does not publish a decode helper. Its encode
         // helper remains usable without claiming that decode can establish
         // the field's type.
+        check_schema_field_predicate_references(
+            schema,
+            field,
+            field_ty,
+            decoded_fields,
+            diagnostics,
+        );
     } else if schema_composition_quarantine_is_sole_failure(module, schema, &field.ty) {
         return;
     } else if schema_payload_name_path(&field.ty).is_some()

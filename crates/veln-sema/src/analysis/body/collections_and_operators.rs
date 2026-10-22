@@ -82,7 +82,7 @@ impl<'a> FunctionChecker<'a> {
                 field_expected.source,
                 ExpectedTypeSource::SchemaEncodeParameter
             ) {
-                self.check_assignable(
+                self.check_schema_encode_assignable(
                     &field.expr,
                     &field_expected.ty,
                     &aggregate_actual,
