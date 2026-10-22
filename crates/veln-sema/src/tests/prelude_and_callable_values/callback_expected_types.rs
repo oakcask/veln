@@ -80,6 +80,73 @@ fn lowers_function_declarations_as_callable_values() {
 }
 
 #[test]
+fn user_function_calls_with_callable_arguments_cross_callback_boundaries() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn stringify(value: Int) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+            "fn apply(value: Int, callback: fn(Int) -> String) -> String\n",
+            "  callback(value)\n",
+            "end\n",
+            "pub fn main() -> String\n",
+            "  apply(1, stringify)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::CallbackBoundary {
+                target: CoreCallbackTarget::Function(name),
+                callsite,
+            },
+            args,
+        } if name == "apply"
+            && matches!(callsite.kind, CoreExprKind::Record(_))
+            && matches!(&args[1].kind, CoreExprKind::FunctionValue { name, callsite: false } if name == "stringify")
+    ));
+
+    let ir = lowered.ir.expect("complete core should lower to IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should reach IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should reach IR as return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::CallbackBoundary {
+                target: IrCallbackTarget::Function(name),
+                callsite,
+            },
+            args,
+        } if name == "apply"
+            && matches!(callsite.kind, IrExprKind::Record(_))
+            && matches!(&args[1].kind, IrExprKind::FunctionValue { name, callsite: false } if name == "stringify")
+    ));
+}
+
+#[test]
 fn runtime_callback_boundaries_forward_callsite_wrapper_context() {
     let source = SourceFile::new(
         "main.veln",

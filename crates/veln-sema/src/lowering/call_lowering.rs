@@ -283,8 +283,7 @@ impl<'a> CoreLowerer<'a> {
         );
         let name = segments.join("::");
         let target = self.callback_boundary_target(
-            CoreCallbackTarget::ConcurrencyBuiltin(name.clone()),
-            CoreCallTarget::ConcurrencyBuiltin(name),
+            CoreCallbackTarget::ConcurrencyBuiltin(name),
             &lowered_args,
             expr,
         );
@@ -343,31 +342,7 @@ impl<'a> CoreLowerer<'a> {
             },
             |signature| (signature.target, signature.return_type),
         );
-        let target = match target {
-            CoreCallTarget::Value(name) => CoreCallTarget::CallsiteValue {
-                name,
-                callsite: Box::new(self.lower_direct_callsite(callsite_expr)),
-            },
-            CoreCallTarget::Function(name) => self.callback_boundary_target(
-                CoreCallbackTarget::Function(name.clone()),
-                CoreCallTarget::Function(name),
-                &lowered_args,
-                callsite_expr,
-            ),
-            CoreCallTarget::StandardLibraryBuiltin(name) => self.callback_boundary_target(
-                CoreCallbackTarget::StandardLibraryBuiltin(name.clone()),
-                CoreCallTarget::StandardLibraryBuiltin(name),
-                &lowered_args,
-                callsite_expr,
-            ),
-            CoreCallTarget::PreludeBuiltin(name) => self.callback_boundary_target(
-                CoreCallbackTarget::PreludeBuiltin(name.clone()),
-                CoreCallTarget::PreludeBuiltin(name),
-                &lowered_args,
-                callsite_expr,
-            ),
-            target => target,
-        };
+        let target = self.call_target_with_context(target, &lowered_args, callsite_expr);
 
         self.core_expr(
             expr,
@@ -379,10 +354,39 @@ impl<'a> CoreLowerer<'a> {
         )
     }
 
+    fn call_target_with_context(
+        &self,
+        target: CoreCallTarget,
+        args: &[CoreExpr],
+        callsite_expr: &Expr,
+    ) -> CoreCallTarget {
+        match target {
+            CoreCallTarget::Value(name) => CoreCallTarget::CallsiteValue {
+                name,
+                callsite: Box::new(self.lower_direct_callsite(callsite_expr)),
+            },
+            CoreCallTarget::Function(name) => self.callback_boundary_target(
+                CoreCallbackTarget::Function(name),
+                args,
+                callsite_expr,
+            ),
+            CoreCallTarget::StandardLibraryBuiltin(name) => self.callback_boundary_target(
+                CoreCallbackTarget::StandardLibraryBuiltin(name),
+                args,
+                callsite_expr,
+            ),
+            CoreCallTarget::PreludeBuiltin(name) => self.callback_boundary_target(
+                CoreCallbackTarget::PreludeBuiltin(name),
+                args,
+                callsite_expr,
+            ),
+            target => target,
+        }
+    }
+
     fn callback_boundary_target(
         &self,
-        callback_target: CoreCallbackTarget,
-        ordinary_target: CoreCallTarget,
+        target: CoreCallbackTarget,
         args: &[CoreExpr],
         callsite_expr: &Expr,
     ) -> CoreCallTarget {
@@ -391,11 +395,20 @@ impl<'a> CoreLowerer<'a> {
             .any(|arg| matches!(arg.ty, CoreType::Function { .. }))
         {
             CoreCallTarget::CallbackBoundary {
-                target: callback_target,
+                target,
                 callsite: Box::new(self.lower_direct_callsite(callsite_expr)),
             }
         } else {
-            ordinary_target
+            match target {
+                CoreCallbackTarget::Function(name) => CoreCallTarget::Function(name),
+                CoreCallbackTarget::ConcurrencyBuiltin(name) => {
+                    CoreCallTarget::ConcurrencyBuiltin(name)
+                }
+                CoreCallbackTarget::StandardLibraryBuiltin(name) => {
+                    CoreCallTarget::StandardLibraryBuiltin(name)
+                }
+                CoreCallbackTarget::PreludeBuiltin(name) => CoreCallTarget::PreludeBuiltin(name),
+            }
         }
     }
 
