@@ -1130,7 +1130,12 @@ a `type.variant_mismatch`, and each rendered side retains its own alias
 spelling. If the resolved nested refinements differ, or a nested record,
 named-type argument, ADT payload, or function position otherwise fails
 invariance, there is no truthful top-level variant exclusion and the comparison
-uses the ordinary `type.mismatch` diagnostic instead.
+uses the ordinary `type.mismatch` diagnostic instead. Generated schema encode
+boundaries are the exception: they inspect supported record and container
+positions and report `type.variant_mismatch` for an innermost base-to-refinement
+or excluded-variant comparison when all other inspected positions are
+assignable. This exception does not make ordinary assignment recursively
+covariant.
 The checked examples cover
 accepted source and compiler-known cases in
 `examples/specification/check/adt-variant-refinement-call-typing/`, JSON failures

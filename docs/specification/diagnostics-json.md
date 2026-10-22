@@ -536,6 +536,17 @@ so a later payload is checked against only the constraints that were complete
 before the rejected payload. If an earlier error leaves the value untyped,
 `type.variant_mismatch` is omitted.
 
+Generated schema encode boundaries additionally inspect corresponding fields
+of anonymous records and corresponding arguments of `Option`, `List`, `Vec`,
+`Dict`, and `Result`. If every other inspected position is assignable, a base
+ADT or excluded constructor at a nested refined position reports
+`type.variant_mismatch`; `actual_type`, `expected_type`, and the exclusion facts
+describe that innermost ADT comparison. A missing record field, unrelated type,
+unsupported container shape, or another non-variant mismatch makes the whole
+comparison an ordinary `type.mismatch`. This recursive diagnostic selection is
+specific to generated schema encode boundaries and does not change ordinary
+aggregate invariance.
+
 A valid constructor arm for a stable match scrutinee refines the matched place
 to the constructor singleton while checking the arm. A stable scrutinee is an
 immutable binding written as a bare name or with redundant parentheses, or a

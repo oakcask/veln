@@ -332,17 +332,18 @@ install that production client boundary.
   [format-neutral field eligibility rules](source-surface.md#format-neutral-fields)
   and return `Result<T, String>`. An eligible singleton or finite-set
   refinement of a source ADT remains refined in the helper's input and
-  successful result at every supported field position.
+  successful result through supported containers, anonymous records, and
+  composed format-neutral schemas.
   The helper accepts an admitted constructor. A base ADT or an excluded
-  constructor fails static checking with `type.variant_mismatch`.
+  constructor at any such refined position fails static checking with
+  `type.variant_mismatch`. An unrelated nested type difference remains
+  `type.mismatch`.
   The helper returns the supplied record on success and does not produce binary
   bytes, so an admitted refined value has the same representation as the
-  corresponding base-ADT encode path. The checked runtime case at
-  `examples/specification/run/adt-variant-refinement-format-neutral-schema-encode/`
-  covers singleton, union, nested-container, and pass-through behavior. The
-  checked diagnostic case at
-  `examples/specification/check/adt-variant-refinement-format-neutral-schema-encode-json/`
-  covers base and excluded-constructor rejection.
+  corresponding base-ADT encode path. Checked runtime and diagnostic evidence
+  covers singleton, union, nested-container, and pass-through behavior, plus
+  direct, nested-container, and composed-schema rejection of base and
+  excluded-constructor values.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression
@@ -532,6 +533,10 @@ than degrading it to a generic rendered result value.
 
 ## References
 
+- Format-neutral refinement encode behavior is checked by
+  [`adt-variant-refinement-format-neutral-schema-encode`](../../examples/specification/run/adt-variant-refinement-format-neutral-schema-encode/)
+  and
+  [`adt-variant-refinement-format-neutral-schema-encode-json`](../../examples/specification/check/adt-variant-refinement-format-neutral-schema-encode-json/).
 - JVM networking execution evidence compiles checked programs with the
   exported standard modules. The backend cases exercise real socket and task
   cancellation through `net::IO` and `net::system()`. Separate Veln support
