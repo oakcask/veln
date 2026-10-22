@@ -1268,7 +1268,8 @@ inventing an arithmetic rewrite.
   `crates/veln-sema/src/tests/variant_refinement_aggregate_scaling.rs`.
 - Invalid variant-refinement base recovery scaling:
   `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results.rs`.
-- Direct variant-refinement visibility and qualified-path recovery scaling:
+- Direct variant-refinement visibility, union-base comparison and diagnostic
+  rendering, and qualified-path recovery scaling:
   `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/scaling.rs`.
 - Parser coverage: `crates/veln-syntax/src/tests/calls_and_generics.rs`,
   `literals_and_numbers.rs`, and `patterns_and_control_flow.rs`.
