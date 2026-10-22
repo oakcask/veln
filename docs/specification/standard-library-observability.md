@@ -229,8 +229,9 @@ supplied message, the supplied attributes in order, the supplied optional
 
 An attribute value is exactly one of `BoolValue(Bool)`, `IntValue(Int)`, or
 `StringValue(String)`. A trace context contains its trace and span identity
-strings. The standard library preserves these values; policy such as
-redaction, truncation, or export encoding belongs to a future handler.
+strings and Boolean sampling state. The standard library preserves these
+values; policy such as redaction, truncation, or export encoding belongs to a
+future handler.
 
 Each log helper is call-site-aware. An ordinary caller records the complete
 span of its call expression. A call-site-aware wrapper forwards its own hidden
@@ -380,8 +381,9 @@ process or machine termination can prevent it from running.
   coverage in
   [`metric.test.veln`](../../crates/veln-stdlib/veln/metric.test.veln), plus scoped
   span lifecycle coverage in
-  [`trace.test.veln`](../../crates/veln-stdlib/veln/trace.test.veln) and explicit
-  task-, channel-value-, and fan-in-context coverage in
+  [`trace.test.veln`](../../crates/veln-stdlib/veln/trace.test.veln), carrier
+  context coverage in `observe.test.veln`, and explicit task-, channel-value-,
+  and fan-in-context coverage in
   [`traced.test.veln`](../../crates/veln-stdlib/veln/traced.test.veln).
 - Public task-context execution evidence:
   [`observability-traced-task-context`](../../examples/specification/run/observability-traced-task-context/).
