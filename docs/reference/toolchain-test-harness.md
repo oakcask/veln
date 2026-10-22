@@ -411,8 +411,7 @@ invalid-position failures, and unchanged retained-source results after those
 failures.
 The `adt-variant-refinement-diagnostics` LSP specification case uses decoded
 assertions for diagnostic codes and messages, exact primary and related UTF-16
-ranges from unsaved source text, cross-source related locations, and an empty
-definition result for an invalid mixed-base union.
+ranges from unsaved source text, and cross-source related locations.
 The `adt-variant-refinement-semantic-tokens` LSP specification case uses a
 decoded complete-token array for refinement classes, modifiers, nested and
 qualified forms, and UTF-16 coordinates. Its adjacent `-boundary` case uses
