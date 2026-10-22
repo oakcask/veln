@@ -285,6 +285,20 @@ fn variant_refinement_widening_is_direct_and_erases_for_core_types() {
 }
 
 #[test]
+fn renders_variant_refinement_unions_with_one_shared_generic_base() {
+    let refined = Type::variant_refinement(
+        "Result",
+        vec![Type::vec(Type::int()), Type::named("AppError", Vec::new())],
+        vec!["Ok".to_string(), "Err".to_string()],
+    );
+
+    assert_eq!(
+        refined.render(),
+        "Result<Vec<Int>, AppError>::Ok | Result<Vec<Int>, AppError>::Err"
+    );
+}
+
+#[test]
 fn variant_refinement_subset_widening_stays_at_the_direct_boundary() {
     let ready = Type::variant_refinement("State", Vec::new(), vec!["Ready".to_string()]);
     let any_state = Type::variant_refinement(

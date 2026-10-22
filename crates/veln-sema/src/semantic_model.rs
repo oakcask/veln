@@ -464,55 +464,20 @@ impl Type {
         match self {
             Self::Unknown => "unknown".to_string(),
             Self::Named { name, args, .. } if name == "Unit" && args.is_empty() => "()".to_string(),
-            Self::Named { name, args, .. } if args.is_empty() => name.clone(),
-            Self::Named { name, args, .. } => {
-                let args = args.iter().map(Type::render).collect::<Vec<_>>().join(", ");
-                format!("{name}<{args}>")
-            }
+            Self::Named { name, args, .. } => render_named_type(name, args),
             Self::VariantRefinement {
                 name,
                 args,
                 variants,
                 ..
-            } => {
-                let base = if args.is_empty() {
-                    name.clone()
-                } else {
-                    let args = args.iter().map(Type::render).collect::<Vec<_>>().join(", ");
-                    format!("{name}<{args}>")
-                };
-                variants
-                    .iter()
-                    .map(|variant| format!("{base}::{variant}"))
-                    .collect::<Vec<_>>()
-                    .join(" | ")
-            }
-            Self::Record(fields) => {
-                let fields = fields
-                    .iter()
-                    .map(|(name, ty)| format!("{name}: {}", ty.render()))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                format!("{{{fields}}}")
-            }
+            } => render_variant_refinement(name, args, variants),
+            Self::Record(fields) => render_record_type(fields),
             Self::Function {
                 params,
                 variadic,
                 return_type,
                 effects,
-            } => {
-                let mut rendered_params = params.iter().map(Type::render).collect::<Vec<_>>();
-                if let Some(variadic) = variadic {
-                    rendered_params.push(format!("...{}", variadic.render()));
-                }
-                let params = rendered_params.join(", ");
-                let effects = if effects.is_empty() {
-                    String::new()
-                } else {
-                    format!(" effects [{}]", effects.join(", "))
-                };
-                format!("fn({params}) -> {}{effects}", return_type.render())
-            }
+            } => render_function_type(params, variadic.as_deref(), return_type, effects),
         }
     }
 
@@ -571,6 +536,62 @@ impl Type {
             _ => None,
         }
     }
+}
+
+fn render_named_type(name: &str, args: &[Type]) -> String {
+    if args.is_empty() {
+        name.to_string()
+    } else {
+        format!("{name}<{}>", render_type_list(args))
+    }
+}
+
+fn render_variant_refinement(name: &str, args: &[Type], variants: &[String]) -> String {
+    let base = render_named_type(name, args);
+    variants
+        .iter()
+        .map(|variant| format!("{base}::{variant}"))
+        .collect::<Vec<_>>()
+        .join(" | ")
+}
+
+fn render_record_type(fields: &[(String, Type)]) -> String {
+    let fields = fields
+        .iter()
+        .map(|(name, ty)| format!("{name}: {}", ty.render()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{{{fields}}}")
+}
+
+fn render_function_type(
+    params: &[Type],
+    variadic: Option<&Type>,
+    return_type: &Type,
+    effects: &[String],
+) -> String {
+    let mut rendered_params = params.iter().map(Type::render).collect::<Vec<_>>();
+    if let Some(variadic) = variadic {
+        rendered_params.push(format!("...{}", variadic.render()));
+    }
+    let effects = if effects.is_empty() {
+        String::new()
+    } else {
+        format!(" effects [{}]", effects.join(", "))
+    };
+    format!(
+        "fn({}) -> {}{effects}",
+        rendered_params.join(", "),
+        return_type.render()
+    )
+}
+
+fn render_type_list(types: &[Type]) -> String {
+    types
+        .iter()
+        .map(Type::render)
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 #[cfg(test)]
