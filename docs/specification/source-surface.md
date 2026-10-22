@@ -241,12 +241,17 @@ The scalar leaves are `Int`, `Bool`, `Float`, and `String`. Containers are
 anonymous records, `Option<T>`, `List<T>`,
 `Vec<T>`, `Dict<String, T>`, and `Result<Ok, Err>`. Same-module source ADTs
 and public imported source ADTs are eligible when every constructor payload also
-has an eligible shape. Private imports, missing or wrong-kind targets, and
-unsupported ADT payloads are declaration errors. Decode and encode share this
-vocabulary but differ in recursive generic stopping: decode may accept a
-repeated source ADT descriptor with changed instantiated arguments; encode
-checks newly introduced arguments and rejects unsupported leaves. There is no
-separate container-depth limit.
+has an eligible shape. Encode fields also accept singleton and finite-set
+refinements of those ADTs recursively through the same containers. A private
+constructor can appear only at a private schema in its own module. A public
+schema, an imported schema user, and an exact test companion cannot expose that
+constructor through a generated encode helper. Provider-backed opaque ADTs do
+not become eligible refinements. Private imports, missing or wrong-kind
+targets, and unsupported ADT payloads are declaration errors. Decode and
+encode otherwise share this vocabulary but differ in recursive generic
+stopping: decode may accept a repeated source ADT descriptor with changed
+instantiated arguments; encode checks newly introduced arguments and rejects
+unsupported leaves. There is no separate container-depth limit.
 
 ### Binary fields
 

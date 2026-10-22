@@ -1,0 +1,41 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.variant_mismatch\"", "\"kind\":\"variant_exclusion\"", "\"kind\":\"expected_type_origin\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.details.actual_type"
+equals = "State"
+
+[[json_assert]]
+path = "diagnostics.0.details.expected_type"
+equals = "State::Ready | State::Closed"
+
+[[json_assert]]
+path = "diagnostics.0.details.excluded_variants.form"
+equals = "all_except_expected"
+
+[[json_assert]]
+path = "diagnostics.1.details.actual_type"
+equals = "State::Failed"
+
+[[json_assert]]
+path = "diagnostics.1.details.excluded_variants.form"
+equals = "listed"
+
+[[json_assert]]
+path = "diagnostics.1.details.excluded_variants.variants.0"
+equals = "Failed"

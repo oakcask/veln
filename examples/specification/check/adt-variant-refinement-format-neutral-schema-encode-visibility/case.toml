@@ -1,0 +1,13 @@
+command = ["check", "--json", "main.veln", "main.test.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.format_neutral_encode_helper\"", "format-neutral schema field `state` cannot expose a generated encode helper because `State::Hidden` is not a recursive format-neutral visible shape", "\"schema\":\"HiddenPacket\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

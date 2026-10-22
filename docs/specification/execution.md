@@ -334,9 +334,22 @@ install that production client boundary.
   `List<T>`, `Vec<T>`, `Dict<String, T>`, `Result<Ok, Err>`, and eligible
   same-module or public imported source ADTs. Every recursively visited child
   or constructor payload must also be eligible; container depth is not
-  otherwise limited.
+  otherwise limited. An eligible singleton or finite-set refinement of a
+  source ADT remains refined in the helper's input and successful result at
+  every supported field position. A selected private constructor is eligible
+  only at a private same-module schema boundary. A public schema does not
+  expose it. Compiler-provided opaque ADTs do not become eligible through a
+  refinement annotation.
+  The helper accepts an admitted constructor. A base ADT or an excluded
+  constructor fails static checking with `type.variant_mismatch`.
   The helper returns the supplied record on success and does not produce binary
-  bytes.
+  bytes, so an admitted refined value has the same representation as the
+  corresponding base-ADT encode path. The checked runtime case at
+  `examples/specification/run/adt-variant-refinement-format-neutral-schema-encode/`
+  covers singleton, union, nested-container, and pass-through behavior. The
+  checked diagnostic case at
+  `examples/specification/check/adt-variant-refinement-format-neutral-schema-encode-json/`
+  covers base and excluded-constructor rejection.
 - Repeated fields written as `[Payload; count]` normalize to the same generated
   decode and encode helper behavior as `Repeat(count, Payload)`, with the
   payload before `;` and the count expression after it. The count expression

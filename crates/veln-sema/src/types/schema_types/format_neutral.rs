@@ -3,6 +3,7 @@ use super::*;
 use crate::adt::descriptors::{AdtConstructor, AdtDescriptor};
 use crate::adt::registry::AdtRegistry;
 use crate::adt::type_operations as adt;
+use crate::name_recovery::{normal_use_decls, use_decl_has_invalid_module_segment};
 use crate::type_syntax::parse_type_annotation;
 
 pub(super) fn format_neutral_schema_decode_function_signature_for_schema(
@@ -76,7 +77,25 @@ fn format_neutral_schema_field_type_for_traversal(
     text: &str,
     traversal: FormatNeutralSchemaTraversal,
 ) -> Option<Type> {
-    let ty = parse_type_annotation(text).ok()?;
+    let parsed = parse_type_annotation(text).ok()?;
+    let ty = if traversal.is_encode() {
+        crate::types::canonicalize_type_effects(
+            parsed,
+            &normal_use_decls(module),
+            &module
+                .uses
+                .iter()
+                .filter(|use_decl| use_decl_has_invalid_module_segment(module, use_decl))
+                .cloned()
+                .collect::<Vec<_>>(),
+            schema.module_name.as_deref(),
+            &[],
+            adts,
+            &BTreeMap::new(),
+        )
+    } else {
+        parsed
+    };
     if let Some(ty) = format_neutral_schema_visible_shape_type_for_schema(
         module,
         schema.module_name.as_deref(),
@@ -154,26 +173,131 @@ pub(crate) fn format_neutral_schema_encode_field_type_for_schema(
     adts: &AdtRegistry,
     text: &str,
 ) -> Option<Type> {
-    format_neutral_schema_field_type_for_traversal(
-        module,
-        schema,
+    let traversal = if schema.visibility == Visibility::Public {
+        FormatNeutralSchemaTraversal::EncodePublic
+    } else {
+        FormatNeutralSchemaTraversal::EncodePrivate
+    };
+    format_neutral_schema_field_type_for_traversal(module, schema, adts, text, traversal)
+}
+
+pub(crate) fn format_neutral_schema_encode_field_is_source_adt_candidate(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    adts: &AdtRegistry,
+    text: &str,
+) -> bool {
+    let Ok(parsed) = parse_type_annotation(text) else {
+        return false;
+    };
+    if format_neutral_schema_encode_type_contains_refinement(&parsed) {
+        return true;
+    }
+    if format_neutral_schema_encode_written_refinement_base_is_adt_candidate(
         adts,
-        text,
-        FormatNeutralSchemaTraversal::Encode,
+        schema.module_name.as_deref(),
+        &parsed,
+    ) {
+        return true;
+    }
+    let ty = crate::types::canonicalize_type_effects(
+        parsed,
+        &normal_use_decls(module),
+        &module
+            .uses
+            .iter()
+            .filter(|use_decl| use_decl_has_invalid_module_segment(module, use_decl))
+            .cloned()
+            .collect::<Vec<_>>(),
+        schema.module_name.as_deref(),
+        &[],
+        adts,
+        &BTreeMap::new(),
+    );
+    format_neutral_schema_encode_type_is_source_adt_candidate(
+        adts,
+        schema.module_name.as_deref(),
+        &ty,
     )
 }
 
-pub(crate) fn format_neutral_schema_encode_field_is_source_adt_candidate(text: &str) -> bool {
-    parse_type_annotation(text)
-        .ok()
-        .is_some_and(|ty| format_neutral_schema_encode_type_is_source_adt_candidate(&ty))
+fn format_neutral_schema_encode_written_refinement_base_is_adt_candidate(
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    ty: &Type,
+) -> bool {
+    match ty {
+        Type::Named { name, args, .. } => {
+            let written_base = name.rsplit_once("::").map(|(base, _)| {
+                let base = Type::named(base, args.clone());
+                adts.descriptor_for_type(&base)
+                    .or_else(|| adts.descriptor_for_type_in_module(&base, current_module))
+            });
+            written_base.flatten().is_some_and(|descriptor| {
+                descriptor.module_name.as_deref() == current_module
+                    || descriptor.visibility == Visibility::Public
+            }) || args.iter().any(|arg| {
+                format_neutral_schema_encode_written_refinement_base_is_adt_candidate(
+                    adts,
+                    current_module,
+                    arg,
+                )
+            })
+        }
+        Type::Record(fields) => fields.iter().any(|(_, field_ty)| {
+            format_neutral_schema_encode_written_refinement_base_is_adt_candidate(
+                adts,
+                current_module,
+                field_ty,
+            )
+        }),
+        _ => false,
+    }
 }
 
-fn format_neutral_schema_encode_type_is_source_adt_candidate(ty: &Type) -> bool {
-    matches!(ty, Type::Named { name, .. } if !matches!(
-        name.as_str(),
-        "Int" | "Bool" | "Float" | "String" | "Option" | "List" | "Vec" | "Dict" | "Result"
-    ))
+fn format_neutral_schema_encode_type_contains_refinement(ty: &Type) -> bool {
+    match ty {
+        Type::VariantRefinement { .. } => true,
+        Type::Named { args, .. } => args
+            .iter()
+            .any(format_neutral_schema_encode_type_contains_refinement),
+        Type::Record(fields) => fields
+            .iter()
+            .any(|(_, field_ty)| format_neutral_schema_encode_type_contains_refinement(field_ty)),
+        _ => false,
+    }
+}
+
+fn format_neutral_schema_encode_type_is_source_adt_candidate(
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    ty: &Type,
+) -> bool {
+    match ty {
+        Type::VariantRefinement { .. } => true,
+        Type::Named { name, args, .. }
+            if matches!(
+                name.as_str(),
+                "Int" | "Bool" | "Float" | "String" | "Option" | "List" | "Vec" | "Dict" | "Result"
+            ) =>
+        {
+            args.iter().any(|arg| {
+                format_neutral_schema_encode_type_is_source_adt_candidate(adts, current_module, arg)
+            })
+        }
+        Type::Named { .. } => adts.descriptor_for_type(ty).is_some_and(|descriptor| {
+            descriptor.module_name.as_deref() == current_module
+                || descriptor.visibility == Visibility::Public
+        }),
+        Type::Record(fields) => fields.iter().any(|(_, field_ty)| {
+            format_neutral_schema_encode_type_is_source_adt_candidate(
+                adts,
+                current_module,
+                field_ty,
+            )
+        }),
+        _ => false,
+    }
 }
 
 pub(super) fn format_neutral_schema_encode_record_fields(
@@ -208,7 +332,9 @@ pub(crate) fn format_neutral_schema_first_unsupported_encode_field(
             let declaration_diagnostic_exists =
                 format_neutral_schema_field_type_for_schema(module, schema, adts, &field.ty)
                     .is_none()
-                    && format_neutral_schema_encode_field_is_source_adt_candidate(&field.ty);
+                    && format_neutral_schema_encode_field_is_source_adt_candidate(
+                        module, schema, adts, &field.ty,
+                    );
             !declaration_diagnostic_exists
                 && format_neutral_schema_encode_field_type_for_schema(
                     module, schema, adts, &field.ty,
@@ -235,7 +361,18 @@ struct FormatNeutralSchemaTraversalState {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum FormatNeutralSchemaTraversal {
     Decode,
-    Encode,
+    EncodePrivate,
+    EncodePublic,
+}
+
+impl FormatNeutralSchemaTraversal {
+    fn is_encode(self) -> bool {
+        matches!(self, Self::EncodePrivate | Self::EncodePublic)
+    }
+
+    fn permits_private_variants(self) -> bool {
+        self == Self::EncodePrivate
+    }
 }
 
 fn format_neutral_schema_composition_value_type(
@@ -357,6 +494,16 @@ fn format_neutral_schema_visible_shape_type_for_schema(
             state,
             traversal,
         ),
+        Type::VariantRefinement { .. } if traversal.is_encode() => {
+            format_neutral_schema_source_adt_type(
+                module,
+                current_module,
+                adts,
+                ty,
+                state,
+                traversal,
+            )
+        }
         Type::Record(fields) => Some(Type::Record(
             fields
                 .iter()
@@ -388,13 +535,22 @@ fn format_neutral_schema_source_adt_type(
     traversal: FormatNeutralSchemaTraversal,
 ) -> Option<Type> {
     let descriptor = format_neutral_schema_source_adt_descriptor(module, current_module, adts, ty)?;
-    let descriptor_ty = format_neutral_schema_descriptor_type(ty, descriptor);
-    let Type::Named {
-        args: type_arguments,
-        ..
-    } = &descriptor_ty
-    else {
+    if let Type::VariantRefinement { variants, .. } = ty
+        && variants.iter().any(|selected| {
+            !descriptor.variants.iter().any(|variant| {
+                variant.name == *selected
+                    && (variant.visibility == Visibility::Public
+                        || traversal.permits_private_variants()
+                            && descriptor.module_name.as_deref() == current_module)
+            })
+        })
+    {
         return None;
+    }
+    let descriptor_ty = format_neutral_schema_descriptor_type(ty, descriptor);
+    let type_arguments = match &descriptor_ty {
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
+        _ => return None,
     };
     let frame = FormatNeutralSchemaAdtFrame {
         module_name: descriptor.module_name.clone(),
@@ -471,14 +627,25 @@ fn format_neutral_schema_source_adt_type(
 }
 
 fn format_neutral_schema_descriptor_type(ty: &Type, descriptor: &AdtDescriptor) -> Type {
-    let Type::Named { args, .. } = ty else {
-        return ty.clone();
-    };
-    Type::resolved_named(
-        descriptor.type_name.clone(),
-        descriptor.identity(),
-        args.clone(),
-    )
+    match ty {
+        Type::Named { args, .. } => Type::resolved_named(
+            descriptor.type_name.clone(),
+            descriptor.identity(),
+            args.clone(),
+        ),
+        Type::VariantRefinement {
+            args,
+            variants,
+            unresolved_alternatives,
+            ..
+        } if unresolved_alternatives.is_empty() => Type::resolved_variant_refinement_shared(
+            descriptor.type_name.clone(),
+            descriptor.identity(),
+            args.clone(),
+            Arc::clone(variants),
+        ),
+        _ => ty.clone(),
+    }
 }
 
 fn format_neutral_schema_source_adt_descriptor<'a>(
@@ -487,8 +654,15 @@ fn format_neutral_schema_source_adt_descriptor<'a>(
     adts: &'a AdtRegistry,
     ty: &Type,
 ) -> Option<&'a AdtDescriptor> {
-    let Type::Named { name, args, .. } = ty else {
-        return None;
+    if let Some(descriptor) = adts.descriptor_for_type(ty)
+        && (descriptor.module_name.as_deref() == current_module
+            || descriptor.visibility == Visibility::Public)
+    {
+        return Some(descriptor);
+    }
+    let (name, args) = match ty {
+        Type::Named { name, args, .. } | Type::VariantRefinement { name, args, .. } => (name, args),
+        _ => return None,
     };
     let segments = name.split("::").collect::<Vec<_>>();
     match segments.as_slice() {

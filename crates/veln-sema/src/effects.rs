@@ -86,6 +86,7 @@ fn call_origin(symbol: &StandardSymbolDescriptor, callee: &Expr) -> Option<CallO
         span: callee.span.clone(),
         symbol: format!("{module}::{}", symbol.name),
         effects: effect_strings(symbol),
+        schema_encode: false,
     })
 }
 
@@ -182,6 +183,7 @@ pub(crate) fn prelude_effect_origin(segments: &[String], callee: &Expr) -> Optio
         span: callee.span.clone(),
         symbol,
         effects: effects.iter().map(|effect| (*effect).to_string()).collect(),
+        schema_encode: false,
     })
 }
 

@@ -200,6 +200,7 @@ impl<'a> FunctionChecker<'a> {
             span: operation.name_span.clone(),
             symbol: format!("{}::{operation_name}", effect.qualified_name),
             effects: vec![effect.qualified_name.clone()],
+            schema_encode: false,
         };
         self.check_call_arguments(args, &operation.params, None, &origin);
         self.inferred_effects.push(EffectUse {
@@ -274,6 +275,7 @@ impl<'a> FunctionChecker<'a> {
                 span: handler_span.clone(),
                 symbol: handler.qualified_name.clone(),
                 effects: handler.effects.clone(),
+                schema_encode: false,
             },
         );
         let before_body = self.inferred_effects.len();
@@ -377,7 +379,7 @@ impl<'a> FunctionChecker<'a> {
         };
         let value_expected = ExpectedType {
             ty: value_type,
-            source: ExpectedTypeSource::DeclaredParameter,
+            source: ExpectedTypeSource::SchemaEncodeParameter,
             origin_node_id: expr.node_id,
             origin_span: Some(expr.span.clone()),
             origin_message: "Schema encode value must match the schema-local visible record.",

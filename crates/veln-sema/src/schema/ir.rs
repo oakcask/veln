@@ -22,6 +22,7 @@ use crate::schema::reserved_layout::supported_encode_reserved_bits;
 use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_annotation;
 use crate::types::schema_types::{
+    format_neutral_schema_encode_field_type_for_schema,
     format_neutral_schema_field_type_for_schema,
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, schema_decode_function_name,
@@ -79,7 +80,15 @@ fn format_neutral_schema_decode_spec(
         .fields
         .iter()
         .map(|field| {
-            format_neutral_schema_field_type_for_schema(module, schema, &adts, &field.ty)?;
+            if format_neutral_schema_field_type_for_schema(module, schema, &adts, &field.ty)
+                .is_none()
+                && format_neutral_schema_encode_field_type_for_schema(
+                    module, schema, &adts, &field.ty,
+                )
+                .is_none()
+            {
+                return None;
+            }
             let payload_schema =
                 (!matches!(field.ty.as_str(), "Int" | "Bool" | "Float" | "String"))
                     .then(|| schema_field_target(module, schema, &field.ty))

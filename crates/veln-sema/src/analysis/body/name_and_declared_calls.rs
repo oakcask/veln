@@ -277,6 +277,7 @@ impl<'a> FunctionChecker<'a> {
             span: callee.span.clone(),
             symbol: name.clone(),
             effects,
+            schema_encode: false,
         };
         let instantiated_effects = self.check_call_arguments_with_origin(
             args,
@@ -486,7 +487,11 @@ impl<'a> FunctionChecker<'a> {
             let expected = type_origin.map_or_else(
                 || ExpectedType {
                     ty: param_type.clone(),
-                    source: ExpectedTypeSource::DeclaredParameter,
+                    source: if origin.schema_encode {
+                        ExpectedTypeSource::SchemaEncodeParameter
+                    } else {
+                        ExpectedTypeSource::DeclaredParameter
+                    },
                     origin_node_id: origin.node_id,
                     origin_span: Some(origin.span.clone()),
                     origin_message: "Callee parameter type declared here.",

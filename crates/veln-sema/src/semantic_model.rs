@@ -9,6 +9,7 @@ pub(crate) struct CallOrigin {
     pub(crate) span: SourceSpan,
     pub(crate) symbol: String,
     pub(crate) effects: Vec<String>,
+    pub(crate) schema_encode: bool,
 }
 
 #[derive(Clone)]
@@ -151,6 +152,7 @@ pub(crate) struct ExpectedType {
 pub(crate) enum ExpectedTypeSource {
     DeclaredReturn,
     DeclaredParameter,
+    SchemaEncodeParameter,
     LocalAnnotation,
     Inferred,
     Unknown,
@@ -161,6 +163,7 @@ impl ExpectedTypeSource {
         match self {
             Self::DeclaredReturn => "declared_return",
             Self::DeclaredParameter => "declared_parameter",
+            Self::SchemaEncodeParameter => "declared_parameter",
             Self::LocalAnnotation => "local_annotation",
             Self::Inferred => "inferred_expression",
             Self::Unknown => "unknown",
@@ -169,7 +172,10 @@ impl ExpectedTypeSource {
 
     pub(crate) fn as_hole_source(self) -> &'static str {
         match self {
-            Self::DeclaredReturn | Self::DeclaredParameter | Self::LocalAnnotation => "declared",
+            Self::DeclaredReturn
+            | Self::DeclaredParameter
+            | Self::SchemaEncodeParameter
+            | Self::LocalAnnotation => "declared",
             Self::Inferred => "inferred",
             Self::Unknown => "unknown",
         }

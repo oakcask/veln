@@ -95,6 +95,7 @@ mod explicit_schema_operations;
 mod format_neutral_decode_boundaries;
 mod format_neutral_encode_containers;
 mod format_neutral_source_adts;
+mod format_neutral_variant_refinements;
 mod imported_codecs_and_prelude_inference;
 mod network_system_prelude_inference;
 mod packed_reserved_suffix;

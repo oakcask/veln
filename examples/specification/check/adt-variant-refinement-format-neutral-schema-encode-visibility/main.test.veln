@@ -1,0 +1,6 @@
+test companion_can_use_private_constructor() -> ()
+	let state: State::Hidden = Hidden
+	match state
+		Hidden => ()
+	end
+end

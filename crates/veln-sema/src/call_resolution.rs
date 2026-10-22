@@ -237,6 +237,7 @@ fn type_binding_call_signature(
             span: callee.span.clone(),
             symbol: name.clone(),
             effects,
+            schema_encode: false,
         },
     })
 }
@@ -431,6 +432,9 @@ fn function_type_call_signature(
             span: function.span.clone(),
             symbol,
             effects: function.effects.clone(),
+            schema_encode: function
+                .target_name
+                .starts_with(SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX),
         },
     })
 }
