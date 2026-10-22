@@ -506,7 +506,17 @@ impl<'a> FunctionChecker<'a> {
             );
             let actual = self.infer_expr(arg, Some(&expected));
             collect_effect_row_substitution(param_type, &actual, &mut row_substitutions);
-            self.check_assignable(arg, &expected.ty, &actual, &expected, "call_argument");
+            if matches!(expected.source, ExpectedTypeSource::SchemaEncodeParameter) {
+                self.check_schema_encode_assignable(
+                    arg,
+                    &expected.ty,
+                    &actual,
+                    &expected,
+                    "call_argument",
+                );
+            } else {
+                self.check_assignable(arg, &expected.ty, &actual, &expected, "call_argument");
+            }
         }
         row_substitutions
     }

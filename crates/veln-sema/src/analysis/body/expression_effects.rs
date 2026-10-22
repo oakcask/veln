@@ -385,7 +385,7 @@ impl<'a> FunctionChecker<'a> {
             origin_message: "Schema encode value must match the schema-local visible record.",
         };
         let value_actual = self.infer_expr(value, Some(&value_expected));
-        self.check_assignable(
+        self.check_schema_encode_assignable(
             value,
             &value_expected.ty,
             &value_actual,

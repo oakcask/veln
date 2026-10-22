@@ -208,6 +208,48 @@ fn nested_schema_encode_refinements_report_variant_mismatches_only_at_schema_bou
 }
 
 #[test]
+fn bound_schema_encode_records_report_nested_variant_mismatches() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready\n",
+            "  pub Closed\n",
+            "end\n",
+            "\n",
+            "schema Packet\n",
+            "  state: Option<List<State::Ready>>\n",
+            "end\n",
+            "\n",
+            "pub fn direct(packet: {state: Option<List<State>>}) -> Result<{state: Option<List<State::Ready>>}, String>\n",
+            "  byte_encode_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn explicit(packet: {state: Option<List<State::Closed>>}) -> Result<{state: Option<List<State::Ready>>}, String>\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn encode_only_refinement_fields_still_validate_predicate_references() {
     let source = SourceFile::new(
         "main.veln",
