@@ -9,6 +9,57 @@ use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_annotation_with_recovery_slots;
 use crate::types::{TypeEnvironment, TypeParameterIdentityContext, VariantRefinementBaseFailure};
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct DiagnosticRecordRenderWork {
+    pub(crate) index_insertions: usize,
+    pub(crate) pairing_lookups: usize,
+    pub(crate) result_reordering_lookups: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    static DIAGNOSTIC_RECORD_RENDER_WORK: std::cell::Cell<DiagnosticRecordRenderWork> =
+        const { std::cell::Cell::new(DiagnosticRecordRenderWork {
+            index_insertions: 0,
+            pairing_lookups: 0,
+            result_reordering_lookups: 0,
+        }) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_diagnostic_record_render_work() {
+    DIAGNOSTIC_RECORD_RENDER_WORK.set(DiagnosticRecordRenderWork::default());
+}
+
+#[cfg(test)]
+pub(crate) fn take_diagnostic_record_render_work() -> DiagnosticRecordRenderWork {
+    DIAGNOSTIC_RECORD_RENDER_WORK.replace(DiagnosticRecordRenderWork::default())
+}
+
+enum DiagnosticRecordRenderOperation {
+    IndexInsertion,
+    PairingLookup,
+    ResultReorderingLookup,
+}
+
+fn record_diagnostic_record_render_work(operation: DiagnosticRecordRenderOperation) {
+    #[cfg(test)]
+    DIAGNOSTIC_RECORD_RENDER_WORK.set({
+        let mut work = DIAGNOSTIC_RECORD_RENDER_WORK.get();
+        match operation {
+            DiagnosticRecordRenderOperation::IndexInsertion => work.index_insertions += 1,
+            DiagnosticRecordRenderOperation::PairingLookup => work.pairing_lookups += 1,
+            DiagnosticRecordRenderOperation::ResultReorderingLookup => {
+                work.result_reordering_lookups += 1;
+            }
+        }
+        work
+    });
+    #[cfg(not(test))]
+    let _ = operation;
+}
+
 pub(crate) struct VariantRefinementBaseDiagnostic {
     pub(crate) diagnostic: Diagnostic,
     pub(crate) ordering_scope: SourceSpan,
@@ -1299,49 +1350,56 @@ fn diagnostic_variant_type_renders(expected: &Type, actual: &Type) -> Option<(St
 }
 
 fn diagnostic_record_type_renders(expected: &Type, actual: &Type) -> Option<(String, String)> {
-    match (expected, actual) {
-        (Type::Record(expected_fields), Type::Record(actual_fields))
-            if expected_fields.len() == actual_fields.len()
-                && expected_fields.iter().all(|(expected_name, _)| {
-                    actual_fields
-                        .iter()
-                        .any(|(actual_name, _)| actual_name == expected_name)
-                }) =>
-        {
-            let expected_renders = expected_fields
-                .iter()
-                .map(|(name, expected)| {
-                    let actual = actual_fields
-                        .iter()
-                        .find(|(actual_name, _)| actual_name == name)
-                        .map(|(_, actual)| actual)
-                        .expect("record field names were checked");
-                    let (expected, actual) = diagnostic_type_renders((expected, actual));
-                    (name.as_str(), expected, actual)
-                })
-                .collect::<Vec<_>>();
-            let expected_fields = expected_renders
-                .iter()
-                .map(|(name, expected, _)| format!("{name}: {expected}"))
-                .collect::<Vec<_>>();
-            let actual_fields = actual_fields
-                .iter()
-                .map(|(name, _)| {
-                    let actual = expected_renders
-                        .iter()
-                        .find(|(expected_name, _, _)| expected_name == &name.as_str())
-                        .map(|(_, _, actual)| actual)
-                        .expect("record field names were checked");
-                    format!("{name}: {actual}")
-                })
-                .collect::<Vec<_>>();
-            Some((
-                format!("{{{}}}", expected_fields.join(", ")),
-                format!("{{{}}}", actual_fields.join(", ")),
-            ))
-        }
-        _ => None,
+    let (Type::Record(expected_fields), Type::Record(actual_fields)) = (expected, actual) else {
+        return None;
+    };
+    if expected_fields.len() != actual_fields.len() {
+        return None;
     }
+
+    struct FieldPair<'a> {
+        actual: &'a Type,
+        rendered_actual: Option<String>,
+    }
+
+    let mut pairs_by_name = HashMap::with_capacity(actual_fields.len());
+    for (name, actual) in actual_fields {
+        record_diagnostic_record_render_work(DiagnosticRecordRenderOperation::IndexInsertion);
+        pairs_by_name.entry(name.as_str()).or_insert(FieldPair {
+            actual,
+            rendered_actual: None,
+        });
+    }
+
+    for (name, _) in expected_fields {
+        record_diagnostic_record_render_work(DiagnosticRecordRenderOperation::PairingLookup);
+        pairs_by_name.get(name.as_str())?;
+    }
+
+    let mut rendered_expected_fields = Vec::with_capacity(expected_fields.len());
+    for (name, expected) in expected_fields {
+        record_diagnostic_record_render_work(DiagnosticRecordRenderOperation::PairingLookup);
+        let pair = pairs_by_name.get_mut(name.as_str())?;
+        let (rendered_expected, rendered_actual) = diagnostic_type_renders((expected, pair.actual));
+        if pair.rendered_actual.is_none() {
+            pair.rendered_actual = Some(rendered_actual);
+        }
+        rendered_expected_fields.push(format!("{name}: {rendered_expected}"));
+    }
+
+    let mut rendered_actual_fields = Vec::with_capacity(actual_fields.len());
+    for (name, _) in actual_fields {
+        record_diagnostic_record_render_work(
+            DiagnosticRecordRenderOperation::ResultReorderingLookup,
+        );
+        let rendered_actual = pairs_by_name.get(name.as_str())?.rendered_actual.as_ref()?;
+        rendered_actual_fields.push(format!("{name}: {rendered_actual}"));
+    }
+
+    Some((
+        format!("{{{}}}", rendered_expected_fields.join(", ")),
+        format!("{{{}}}", rendered_actual_fields.join(", ")),
+    ))
 }
 
 fn diagnostic_function_type_renders(expected: &Type, actual: &Type) -> Option<(String, String)> {

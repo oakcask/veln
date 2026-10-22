@@ -392,6 +392,79 @@ fn reordered_wide_record_union_base_comparison_is_linear() {
 }
 
 #[test]
+fn reordered_conflicting_record_union_base_rendering_is_linear() {
+    let measurements = [64, 128, 256].map(|count| {
+        let expected_fields = (0..count)
+            .map(|index| format!("field{index}: Int"))
+            .collect::<Vec<_>>();
+        let actual_fields = (0..count)
+            .rev()
+            .map(|index| {
+                let ty = if index == 0 { "String" } else { "Int" };
+                format!("field{index}: {ty}")
+            })
+            .collect::<Vec<_>>();
+        let source = format!(
+            "type Box<A>\n  Present(value: A)\n  Absent(value: A)\nend\n\
+             fn invalid(value: Box<{{{}}}>::Present | Box<{{{}}}>::Absent) -> ()\n  ()\nend\n",
+            expected_fields.join(", "),
+            actual_fields.join(", ")
+        );
+
+        crate::analysis::reset_diagnostic_record_render_work();
+        let diagnostics = diagnostics_for(&source);
+        let work = crate::analysis::take_diagnostic_record_render_work();
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
+                .count(),
+            1,
+            "count={count} diagnostics={diagnostics:#?}"
+        );
+        assert!(
+            work.index_insertions >= count
+                && work.pairing_lookups >= count * 2
+                && work.result_reordering_lookups >= count,
+            "count={count} work={work:?}"
+        );
+        eprintln!("wide record union diagnostic rendering: fields={count} work={work:?}");
+        work
+    });
+
+    for stage in [
+        |work: crate::analysis::DiagnosticRecordRenderWork| work.index_insertions,
+        |work: crate::analysis::DiagnosticRecordRenderWork| work.pairing_lookups,
+        |work: crate::analysis::DiagnosticRecordRenderWork| work.result_reordering_lookups,
+    ] {
+        let first_growth = stage(measurements[1]) - stage(measurements[0]);
+        let second_growth = stage(measurements[2]) - stage(measurements[1]);
+        assert_eq!(
+            second_growth,
+            first_growth * 2,
+            "diagnostic record rendering must have exact affine growth: {measurements:?}"
+        );
+    }
+
+    let diagnostics = diagnostics_for(concat!(
+        "type Box<A>\n  Present(value: A)\n  Absent(value: A)\nend\n",
+        "fn invalid(value: Box<{first: Int, second: Int, third: Int}>::Present | ",
+        "Box<{third: Int, second: Int, first: String}>::Absent) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.variant_union_base");
+    assert_eq!(
+        diagnostics[0].details.to_json(),
+        concat!(
+            "{\"expected_base_type\":\"Box<{first: Int, second: Int, third: Int}>\",",
+            "\"actual_base_type\":\"Box<{third: Int, second: Int, first: String}>\"}"
+        )
+    );
+}
+
+#[test]
 fn record_field_identity_matching_preserves_first_duplicate() {
     let expected = vec![
         ("field".to_string(), Type::int()),
