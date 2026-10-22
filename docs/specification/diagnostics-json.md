@@ -538,8 +538,11 @@ before the rejected payload. If an earlier error leaves the value untyped,
 
 Generated schema encode boundaries additionally inspect corresponding fields
 of anonymous records and corresponding arguments of `Option`, `List`, `Vec`,
-`Dict`, and `Result`. If every other inspected position is assignable, a base
-ADT or excluded constructor at a nested refined position reports
+`Dict`, and `Result`. When the boundary supplies the expected record type, a
+list or vector literal checks each item with that schema expectation, a
+dictionary literal checks each value with it, and `Some`, `Ok`, or `Err` checks
+its payload with it. If every other inspected position is assignable, a base
+ADT or excluded constructor at one of those nested refined positions reports
 `type.variant_mismatch`; `actual_type`, `expected_type`, and the exclusion facts
 describe that innermost ADT comparison. A missing record field, unrelated type,
 unsupported container shape, or another non-variant mismatch makes the whole

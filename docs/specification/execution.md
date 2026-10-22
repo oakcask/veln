@@ -336,7 +336,9 @@ install that production client boundary.
   composed format-neutral schemas.
   The helper accepts an admitted constructor. A base ADT or an excluded
   constructor at any such refined position fails static checking with
-  `type.variant_mismatch`. An unrelated nested type difference remains
+  `type.variant_mismatch`, including when the refined position is supplied by
+  a list or vector literal, dictionary literal, or `Some`, `Ok`, or `Err`
+  payload inside the record. An unrelated nested type difference remains
   `type.mismatch`. Assigning a generated encode helper to an immutable local
   binding preserves this schema-boundary checking when the binding is called;
   assigning an ordinary function with the same visible parameter shape does
