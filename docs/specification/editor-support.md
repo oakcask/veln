@@ -232,7 +232,8 @@ references. Invalid casing in an unselected package root does not produce a
 workspace diagnostic for the selected project.
 
 Published diagnostics use standard LSP severity numbers and zero-based ranges.
-The diagnostic `code` is the Veln diagnostic id, and the diagnostic `source` is
+The diagnostic `message` preserves the compiler diagnostic message, the
+diagnostic `code` is the Veln diagnostic id, and the diagnostic `source` is
 `veln`. Primary diagnostic ranges are half-open. The server converts their
 one-based Unicode-scalar source positions to zero-based UTF-16 positions from
 the effective source text. A non-BMP scalar before a position therefore adds
