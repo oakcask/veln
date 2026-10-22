@@ -150,38 +150,51 @@ fn lsp_related_information_json(
     let related = diagnostic
         .related
         .iter()
-        .filter_map(|note| {
-            let message = object_text(note, "message")?;
-            let span = object_value(note, "span")?;
-            let file = object_text(span, "file")?;
-            let source = sources.get(file)?;
-            let start = object_value(span, "start")?;
-            let end = object_value(span, "end")?;
-            let start_line = object_usize(start, "line")?;
-            let start_column = object_usize(start, "column")?;
-            let start_offset = object_usize(start, "offset")?;
-            let end_line = object_usize(end, "line")?;
-            let end_column = object_usize(end, "column")?;
-            let end_offset = object_usize(end, "offset")?;
-            if !source.contains_position(start_line, start_column, start_offset)
-                || !source.contains_position(end_line, end_column, end_offset)
-                || start_offset > end_offset
-            {
-                return None;
-            }
-            let range = format!(
-                "{{\"start\":{},\"end\":{}}}",
-                source.utf16_position_json(start_line, start_column),
-                source.utf16_position_json(end_line, end_column),
-            );
-            Some(format!(
-                "{{\"location\":{{\"uri\":\"{}\",\"range\":{range}}},\"message\":\"{}\"}}",
-                escape_json(&source.uri),
-                escape_json(message),
-            ))
-        })
+        .filter_map(|note| related_information_json(note, sources))
         .collect::<Vec<_>>();
     (!related.is_empty()).then(|| related.join(","))
+}
+
+fn related_information_json(note: &JsonValue, sources: &DiagnosticSources) -> Option<String> {
+    let message = object_text(note, "message")?;
+    let span = object_value(note, "span")?;
+    let source = sources.get(object_text(span, "file")?)?;
+    let range = related_range_json(span, source)?;
+    Some(format!(
+        "{{\"location\":{{\"uri\":\"{}\",\"range\":{range}}},\"message\":\"{}\"}}",
+        escape_json(&source.uri),
+        escape_json(message),
+    ))
+}
+
+fn related_range_json(span: &JsonValue, source: &DiagnosticSource) -> Option<String> {
+    let start = diagnostic_position(object_value(span, "start")?)?;
+    let end = diagnostic_position(object_value(span, "end")?)?;
+    if !source.contains_position(start.line, start.column, start.offset)
+        || !source.contains_position(end.line, end.column, end.offset)
+        || start.offset > end.offset
+    {
+        return None;
+    }
+    Some(format!(
+        "{{\"start\":{},\"end\":{}}}",
+        source.utf16_position_json(start.line, start.column),
+        source.utf16_position_json(end.line, end.column),
+    ))
+}
+
+struct DiagnosticPosition {
+    line: usize,
+    column: usize,
+    offset: usize,
+}
+
+fn diagnostic_position(value: &JsonValue) -> Option<DiagnosticPosition> {
+    Some(DiagnosticPosition {
+        line: object_usize(value, "line")?,
+        column: object_usize(value, "column")?,
+        offset: object_usize(value, "offset")?,
+    })
 }
 
 fn object_value<'a>(value: &'a JsonValue, key: &str) -> Option<&'a JsonValue> {
