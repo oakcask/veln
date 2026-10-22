@@ -15,16 +15,12 @@ pub(crate) struct DiagnosticSource {
 
 impl DiagnosticSource {
     pub(crate) fn new(uri: String, text: String) -> Self {
-        let line_starts = if text.is_empty() {
-            Vec::new()
-        } else {
-            let mut starts = vec![0];
-            starts.extend(text.bytes().enumerate().filter_map(|(index, byte)| {
-                let next = index + 1;
-                (byte == b'\n' && next < text.len()).then_some(next)
-            }));
-            starts
-        };
+        let mut line_starts = vec![0];
+        line_starts.extend(
+            text.bytes()
+                .enumerate()
+                .filter_map(|(index, byte)| (byte == b'\n').then_some(index + 1)),
+        );
         Self {
             uri,
             text,
@@ -53,6 +49,24 @@ impl DiagnosticSource {
         let rest = self.text.get(start..)?;
         let line = rest.find('\n').map_or(rest, |end| &rest[..end]);
         line.strip_suffix('\r').or(Some(line))
+    }
+
+    fn contains_position(&self, line: usize, column: usize, offset: usize) -> bool {
+        if line == 0
+            || column == 0
+            || offset > self.text.len()
+            || !self.text.is_char_boundary(offset)
+        {
+            return false;
+        }
+        let line_index = self.line_starts.partition_point(|start| *start <= offset);
+        let Some(start) = line_index
+            .checked_sub(1)
+            .and_then(|index| self.line_starts.get(index))
+        else {
+            return false;
+        };
+        line_index == line && self.text[*start..offset].chars().count() + 1 == column
     }
 }
 
@@ -145,8 +159,16 @@ fn lsp_related_information_json(
             let end = object_value(span, "end")?;
             let start_line = object_usize(start, "line")?;
             let start_column = object_usize(start, "column")?;
+            let start_offset = object_usize(start, "offset")?;
             let end_line = object_usize(end, "line")?;
             let end_column = object_usize(end, "column")?;
+            let end_offset = object_usize(end, "offset")?;
+            if !source.contains_position(start_line, start_column, start_offset)
+                || !source.contains_position(end_line, end_column, end_offset)
+                || start_offset > end_offset
+            {
+                return None;
+            }
             let range = format!(
                 "{{\"start\":{},\"end\":{}}}",
                 source.utf16_position_json(start_line, start_column),
