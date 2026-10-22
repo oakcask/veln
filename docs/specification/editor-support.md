@@ -238,12 +238,14 @@ one-based Unicode-scalar source positions to zero-based UTF-16 positions from
 the effective source text. Workspace publication uses the same conversion as
 document publication and includes unsaved overlays in that effective text.
 
-Each compiler related note that has both a source span and a message becomes an
-LSP `relatedInformation` entry in compiler diagnostic order. Its location uses
-the URI for that workspace source and the same half-open UTF-16 range
-conversion as the primary diagnostic. Notes without a span or without a
-message remain available only through the compiler diagnostic envelope because
-LSP related information requires both fields.
+Each compiler related note becomes an LSP `relatedInformation` entry when it
+has a text message, a source span with the required file and position fields,
+and a source available to the current document or workspace diagnostic
+publication. Entries retain compiler diagnostic order. Each location uses that
+source's URI and the same half-open UTF-16 range conversion as the primary
+diagnostic. Notes with missing or malformed required fields, or with an
+unavailable source, remain available only through the compiler diagnostic
+envelope.
 
 This projection applies to variant-refinement diagnostics, including
 `type.variant_union_base`; it does not recover navigation identities from an
