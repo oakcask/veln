@@ -68,14 +68,8 @@ impl AstBuilder {
             } => Some(ExprKind::TypeApply {
                 callee: Box::new(self.lower_expr(callee)),
                 type_args: type_args.clone(),
-                type_arg_paths: type_arg_paths
-                    .iter()
-                    .map(|paths| self.lower_type_paths(paths))
-                    .collect(),
-                type_arg_refinements: type_arg_refinements
-                    .iter()
-                    .map(|refinements| self.lower_variant_refinements(refinements))
-                    .collect(),
+                type_arg_paths: type_arg_paths.clone(),
+                type_arg_refinements: type_arg_refinements.clone(),
             }),
             SyntaxExprKind::Call { callee, args } => Some(ExprKind::Call {
                 callee: Box::new(self.lower_expr(callee)),

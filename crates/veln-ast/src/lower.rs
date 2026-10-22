@@ -20,8 +20,7 @@ use crate::{
     NodeId, Param, Pattern, PatternField, PatternKind, PredicateRemainder, PrefixOp, PublicAlias,
     PublicAliasKind, RecordField, ResultBinding, SchemaDecl, SchemaField, SchemaFieldWhereClause,
     SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeAnnotationStructure, TypeDecl,
-    TypePathSegments, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin,
-    VariantRefinementAlternative, VariantRefinementType, VariantRefinementTypeArgument, Visibility,
+    TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
 };
 
 mod expressions;
@@ -247,8 +246,8 @@ impl AstBuilder {
                             name: field.name.clone(),
                             ty: field.ty.clone(),
                             ty_span: field.ty_span.clone(),
-                            ty_paths: self.lower_type_paths(&field.ty_paths),
-                            ty_refinements: self.lower_variant_refinements(&field.ty_refinements),
+                            ty_paths: field.ty_paths.clone(),
+                            ty_refinements: field.ty_refinements.clone(),
                             span: field.span.clone(),
                         })
                         .collect(),
@@ -291,9 +290,8 @@ impl AstBuilder {
             name_span: operation.name_span.clone(),
             params: self.lower_params(&operation.params),
             return_type: operation.return_type.clone(),
-            return_type_paths: self.lower_type_paths(&operation.return_type_paths),
-            return_type_refinements: self
-                .lower_variant_refinements(&operation.return_type_refinements),
+            return_type_paths: operation.return_type_paths.clone(),
+            return_type_refinements: operation.return_type_refinements.clone(),
             span: operation.span.clone(),
         }
     }
@@ -380,8 +378,8 @@ impl AstBuilder {
                     node_id: self.alloc(),
                     name: field.name.clone(),
                     ty: field.ty.clone(),
-                    ty_paths: self.lower_type_paths(&field.ty_paths),
-                    ty_refinements: self.lower_variant_refinements(&field.ty_refinements),
+                    ty_paths: field.ty_paths.clone(),
+                    ty_refinements: field.ty_refinements.clone(),
                     where_clause: field.where_clause.as_ref().map(|where_clause| {
                         SchemaFieldWhereClause {
                             node_id: self.alloc(),
@@ -442,9 +440,8 @@ impl AstBuilder {
                 }),
             return_type: function.return_type.clone(),
             return_type_span: function.return_type_span.clone(),
-            return_type_paths: self.lower_type_paths(&function.return_type_paths),
-            return_type_refinements: self
-                .lower_variant_refinements(&function.return_type_refinements),
+            return_type_paths: function.return_type_paths.clone(),
+            return_type_refinements: function.return_type_refinements.clone(),
             effects: function.effects.clone(),
             effect_spans: function.effect_spans.clone(),
             callsite: function.callsite.clone(),
@@ -506,8 +503,8 @@ impl AstBuilder {
                     pattern: self.lower_pattern(pattern),
                     annotation: annotation.clone(),
                     annotation_structure: Box::new(TypeAnnotationStructure {
-                        paths: self.lower_type_paths(annotation_paths),
-                        variant_refinements: self.lower_variant_refinements(annotation_refinements),
+                        paths: annotation_paths.to_vec(),
+                        variant_refinements: annotation_refinements.to_vec(),
                     }),
                     expr: self.lower_expr(expr),
                 },
@@ -546,72 +543,10 @@ impl AstBuilder {
                 name_span: param.name_span.clone(),
                 ty: param.ty.clone(),
                 ty_span: param.ty_span.clone(),
-                ty_paths: self.lower_type_paths(&param.ty_paths),
-                ty_refinements: self.lower_variant_refinements(&param.ty_refinements),
+                ty_paths: param.ty_paths.clone(),
+                ty_refinements: param.ty_refinements.clone(),
                 is_variadic: param.is_variadic,
                 span: param.span.clone(),
-            })
-            .collect()
-    }
-
-    fn lower_type_paths(
-        &mut self,
-        paths: &[veln_syntax::TypePathSegments],
-    ) -> Vec<TypePathSegments> {
-        paths
-            .iter()
-            .map(|path| TypePathSegments {
-                segments: path.segments.clone(),
-                segment_spans: path.segment_spans.clone(),
-                type_argument_count: path.type_argument_count,
-                application_span: path.application_span.clone(),
-                written: path.written.clone(),
-            })
-            .collect()
-    }
-
-    fn lower_variant_refinements(
-        &mut self,
-        refinements: &[veln_syntax::VariantRefinementType],
-    ) -> Vec<VariantRefinementType> {
-        refinements
-            .iter()
-            .map(|refinement| VariantRefinementType {
-                alternatives: refinement
-                    .alternatives
-                    .iter()
-                    .map(|alternative| VariantRefinementAlternative {
-                        base: TypePathSegments {
-                            segments: alternative.base.segments.clone(),
-                            segment_spans: alternative.base.segment_spans.clone(),
-                            type_argument_count: alternative.base.type_argument_count,
-                            application_span: alternative.base.application_span.clone(),
-                            written: alternative.base.written.clone(),
-                        },
-                        type_arguments: alternative
-                            .type_arguments
-                            .iter()
-                            .map(|argument| VariantRefinementTypeArgument {
-                                ty_fragments: argument.ty_fragments.clone(),
-                                ty_paths: self.lower_type_paths(&argument.ty_paths),
-                                ty_refinements: self
-                                    .lower_variant_refinements(&argument.ty_refinements),
-                                span: argument.span.clone(),
-                            })
-                            .collect(),
-                        variant: alternative.variant.clone(),
-                        variant_span: alternative.variant_span.clone(),
-                        span: alternative.span.clone(),
-                    })
-                    .collect(),
-                pipe_spans: refinement.pipe_spans.clone(),
-                record_field_path: refinement.record_field_path.as_ref().map(|path| {
-                    crate::RecordFieldPath {
-                        shared_prefix_len: path.shared_prefix_len,
-                        suffix: path.suffix.clone(),
-                    }
-                }),
-                span: refinement.span.clone(),
             })
             .collect()
     }
