@@ -11,12 +11,15 @@ test noop_preserves_a_handled_body_result() -> Result<(), String>
 	end
 end
 
-test noop_start_span_returns_an_opaque_span() -> Result<(), String>
-	let span = handle perform observe::Observe::start_span(observe::SpanRequest("noop", None)) with observe::noop()
-	if observe::is_noop_span(span)
-		Ok(())
-	else
-		Err("no-op observation handler returned an unexpected span")
+test noop_start_span_has_no_recording_context() -> Result<(), String>
+	let span = handle perform observe::Observe::start_span(observe::SpanRequest("noop", None, list_nil())) with observe::noop()
+	match observe::context(span)
+		None => if observe::is_noop_span(span)
+			Ok(())
+		else
+			Err("no-op observation handler returned an unexpected span")
+		end
+		Some(_) => Err("no-op observation handler exposed a recording context")
 	end
 end
 
@@ -31,7 +34,7 @@ test noop_emit_completes_without_observation() -> Result<(), String>
 end
 
 test noop_finish_span_completes() -> Result<(), String>
-	let span = handle perform observe::Observe::start_span(observe::SpanRequest("noop", None)) with observe::noop()
+	let span = handle perform observe::Observe::start_span(observe::SpanRequest("noop", None, list_nil())) with observe::noop()
 	let completed = handle perform observe::Observe::finish_span(observe::finish(span)) with observe::noop()
 	if completed == ()
 		Ok(())
@@ -42,12 +45,12 @@ end
 
 test recording_exposes_ordered_start_emit_and_finish_entries() -> Result<(), String> effects [time, concurrency]
 	let recording = observe::new_recording("recording")
-	let span = handle perform observe::Observe::start_span(observe::SpanRequest("request", None)) with observe::recording(recording)
+	let span = handle perform observe::Observe::start_span(observe::SpanRequest("request", None, list_nil())) with observe::recording(recording)
 	let record = observe::Log(observe::LogRecord("log", observe::Info, "message", list_nil(), None, callsite_location()))
 	let _ = handle perform observe::Observe::emit(record) with observe::recording(recording)
 	let _ = handle perform observe::Observe::finish_span(observe::finish(span)) with observe::recording(recording)
 	match observe::recorded(recording)
-		Cons(observe::SpanStarted("request", "recording-0", "recording-1", None, _), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "message", Nil, None, _))), Cons(observe::SpanFinished("recording-0", "recording-1", _), Nil))) => Ok(())
+		Cons(observe::SpanStarted("request", "recording-0", "recording-1", None, Nil, _), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "message", Nil, None, _))), Cons(observe::SpanFinished("recording-0", "recording-1", _), Nil))) => Ok(())
 		_ => Err("recording did not preserve lifecycle order or identities")
 	end
 end
@@ -77,19 +80,19 @@ end
 
 test recorded_is_a_non_consuming_sequential_snapshot() -> Result<(), String> effects [time, concurrency]
 	let recording = observe::new_recording("snapshot")
-	let first_span = handle perform observe::Observe::start_span(observe::SpanRequest("first", None)) with observe::recording(recording)
+	let first_span = handle perform observe::Observe::start_span(observe::SpanRequest("first", None, list_nil())) with observe::recording(recording)
 	let first_read = observe::recorded(recording)
 	let second_read = observe::recorded(recording)
 	let record = observe::Log(observe::LogRecord("log", observe::Info, "after read", list_nil(), None, callsite_location()))
 	let _ = handle perform observe::Observe::emit(record) with observe::recording(recording)
 	let appended_read = observe::recorded(recording)
-	let second_span = handle perform observe::Observe::start_span(observe::SpanRequest("second", None)) with observe::recording(recording)
+	let second_span = handle perform observe::Observe::start_span(observe::SpanRequest("second", None, list_nil())) with observe::recording(recording)
 	let identity_read = observe::recorded(recording)
 	match first_read
-		Cons(observe::SpanStarted("first", "snapshot-0", "snapshot-1", None, _), Nil) => match second_read
-			Cons(observe::SpanStarted("first", "snapshot-0", "snapshot-1", None, _), Nil) => match appended_read
-				Cons(observe::SpanStarted("first", "snapshot-0", "snapshot-1", None, _), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "after read", Nil, None, _))), Nil)) => match identity_read
-					Cons(observe::SpanStarted("first", "snapshot-0", "snapshot-1", None, _), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "after read", Nil, None, _))), Cons(observe::SpanStarted("second", "snapshot-2", "snapshot-3", None, _), Nil))) => Ok(())
+		Cons(observe::SpanStarted("first", "snapshot-0", "snapshot-1", None, Nil, _), Nil) => match second_read
+			Cons(observe::SpanStarted("first", "snapshot-0", "snapshot-1", None, Nil, _), Nil) => match appended_read
+				Cons(observe::SpanStarted("first", "snapshot-0", "snapshot-1", None, Nil, _), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "after read", Nil, None, _))), Nil)) => match identity_read
+					Cons(observe::SpanStarted("first", "snapshot-0", "snapshot-1", None, Nil, _), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "after read", Nil, None, _))), Cons(observe::SpanStarted("second", "snapshot-2", "snapshot-3", None, Nil, _), Nil))) => Ok(())
 					_ => Err("recorded changed the preserved entries or reset identity allocation")
 				end
 				_ => Err("recording after a read did not preserve and append entries")
@@ -103,22 +106,53 @@ end
 test recording_children_do_not_collide_with_a_parent_from_another_recording() -> Result<(), String> effects [time, concurrency]
 	let parent_recording = observe::new_recording("shared")
 	let child_recording = observe::new_recording("shared")
-	let parent = handle perform observe::Observe::start_span(observe::SpanRequest("parent", None)) with observe::recording(parent_recording)
-	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("first", Some(parent))) with observe::recording(child_recording)
-	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("second", Some(parent))) with observe::recording(child_recording)
+	let parent = handle perform observe::Observe::start_span(observe::SpanRequest("parent", None, list_nil())) with observe::recording(parent_recording)
+	let parent_context = observe::context(parent)
+	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("first", parent_context, list_nil())) with observe::recording(child_recording)
+	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("second", parent_context, list_nil())) with observe::recording(child_recording)
 	match observe::recorded(child_recording)
-		Cons(observe::SpanStarted("first", "shared-0", "shared-0", Some("shared-1"), _), Cons(observe::SpanStarted("second", "shared-0", "shared-2", Some("shared-1"), _), Nil)) => Ok(())
+		Cons(observe::SpanStarted("first", "shared-0", "shared-0", Some("shared-1"), Nil, _), Cons(observe::SpanStarted("second", "shared-0", "shared-2", Some("shared-1"), Nil, _), Nil)) => Ok(())
 		_ => Err("cross-recording children changed trace, parent, sibling, or allocation identities")
 	end
 end
 
 test recording_treats_a_noop_parent_as_a_root_request() -> Result<(), String> effects [time, concurrency]
-	let parent = handle perform observe::Observe::start_span(observe::SpanRequest("ignored", None)) with observe::noop()
+	let parent = handle perform observe::Observe::start_span(observe::SpanRequest("ignored", None, list_nil())) with observe::noop()
 	let recording = observe::new_recording("mixed")
-	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("root", Some(parent))) with observe::recording(recording)
+	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("root", observe::context(parent), list_nil())) with observe::recording(recording)
 	match observe::recorded(recording)
-		Cons(observe::SpanStarted("root", "mixed-0", "mixed-1", None, _), Nil) => Ok(())
+		Cons(observe::SpanStarted("root", "mixed-0", "mixed-1", None, Nil, _), Nil) => Ok(())
 		_ => Err("recording did not treat a no-op parent as a root request")
+	end
+end
+
+test recording_preserves_an_empty_link_list_with_an_explicit_parent() -> Result<(), String> effects [time, concurrency]
+	let recording = observe::new_recording("empty-links")
+	let parent = observe::TraceContext("upstream-trace", "upstream-span")
+	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("consumer", Some(parent), list_nil())) with observe::recording(recording)
+	match observe::recorded(recording)
+		Cons(observe::SpanStarted("consumer", "upstream-trace", "empty-links-0", Some("upstream-span"), Nil, _), Nil) => Ok(())
+		_ => Err("recording did not preserve an explicit parent with zero links")
+	end
+end
+
+test recording_preserves_multiple_link_identities_in_request_order() -> Result<(), String> effects [time, concurrency]
+	let recording = observe::new_recording("ordered-links")
+	let links = list_cons(observe::TraceContext("linked-trace-a", "linked-span-a"), list_cons(observe::TraceContext("linked-trace-b", "linked-span-b"), list_nil()))
+	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("consumer", Some(observe::TraceContext("parent-trace", "parent-span")), links)) with observe::recording(recording)
+	match observe::recorded(recording)
+		Cons(observe::SpanStarted("consumer", "parent-trace", "ordered-links-0", Some("parent-span"), Cons(observe::TraceContext("linked-trace-a", "linked-span-a"), Cons(observe::TraceContext("linked-trace-b", "linked-span-b"), Nil)), _), Nil) => Ok(())
+		_ => Err("recording changed linked context identities or request order")
+	end
+end
+
+test recording_preserves_links_without_a_parent() -> Result<(), String> effects [time, concurrency]
+	let recording = observe::new_recording("root-links")
+	let links = list_cons(observe::TraceContext("linked-trace", "linked-span"), list_nil())
+	let _ = handle perform observe::Observe::start_span(observe::SpanRequest("consumer", None, links)) with observe::recording(recording)
+	match observe::recorded(recording)
+		Cons(observe::SpanStarted("consumer", "root-links-0", "root-links-1", None, Cons(observe::TraceContext("linked-trace", "linked-span"), Nil), _), Nil) => Ok(())
+		_ => Err("recording did not preserve links independently of parentage")
 	end
 end
 

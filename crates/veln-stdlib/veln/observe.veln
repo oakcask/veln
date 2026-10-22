@@ -1,7 +1,7 @@
 use prelude
 
 pub type SpanRequest
-	pub SpanRequest(name: String, parent: Option<Span>)
+	pub SpanRequest(name: String, parent: Option<TraceContext>, links: List<TraceContext>)
 end
 
 pub type Span
@@ -14,7 +14,7 @@ pub type SpanFinish
 end
 
 pub type RecordingEntry
-	pub SpanStarted(name: String, trace_id: String, span_id: String, parent_span_id: Option<String>, monotonic_ms: Int)
+	pub SpanStarted(name: String, trace_id: String, span_id: String, parent_span_id: Option<String>, links: List<TraceContext>, monotonic_ms: Int)
 	pub SpanFinished(trace_id: String, span_id: String, monotonic_ms: Int)
 	pub Emitted(record: Observation)
 end
@@ -104,27 +104,27 @@ pub handler recording(recording: Recording) for Observe effects [time, concurren
 			let monotonic_ms = time::monotonic_ms()
 			match channel::recv(state.rx)
 				Some(RecordingBuffer(next_identity, entries)) => match request
-					SpanRequest(name, Some(RecordingSpan(trace_id, parent_span_id))) => begin
+					SpanRequest(name, Some(TraceContext(trace_id, parent_span_id)), links) => begin
 						let candidate = string::concat(string::concat(prefix, "-"), int_to_string(next_identity))
 						if candidate == parent_span_id
 							begin
 								let span_id = string::concat(string::concat(prefix, "-"), int_to_string(next_identity + 1))
-								let entry = SpanStarted(name, trace_id, span_id, Some(parent_span_id), monotonic_ms)
+								let entry = SpanStarted(name, trace_id, span_id, Some(parent_span_id), links, monotonic_ms)
 								let _ = channel::send(state.tx, RecordingBuffer(next_identity + 2, list_cons(entry, entries)))
 								RecordingSpan(trace_id, span_id)
 							end
 						else
 							begin
-								let entry = SpanStarted(name, trace_id, candidate, Some(parent_span_id), monotonic_ms)
+								let entry = SpanStarted(name, trace_id, candidate, Some(parent_span_id), links, monotonic_ms)
 								let _ = channel::send(state.tx, RecordingBuffer(next_identity + 1, list_cons(entry, entries)))
 								RecordingSpan(trace_id, candidate)
 							end
 						end
 					end
-					SpanRequest(name, _) => begin
+					SpanRequest(name, _, links) => begin
 						let trace_id = string::concat(string::concat(prefix, "-"), int_to_string(next_identity))
 						let span_id = string::concat(string::concat(prefix, "-"), int_to_string(next_identity + 1))
-						let entry = SpanStarted(name, trace_id, span_id, None, monotonic_ms)
+						let entry = SpanStarted(name, trace_id, span_id, None, links, monotonic_ms)
 						let _ = channel::send(state.tx, RecordingBuffer(next_identity + 2, list_cons(entry, entries)))
 						RecordingSpan(trace_id, span_id)
 					end
@@ -161,6 +161,13 @@ end
 
 pub fn finish(span: Span) -> SpanFinish
 	SpanFinish(span)
+end
+
+pub fn context(span: Span) -> Option<TraceContext>
+	match span
+		RecordingSpan(trace_id, span_id) => Some(TraceContext(trace_id, span_id))
+		NoopSpan(_) => None
+	end
 end
 
 fn restore_and_read(tx: Sender<RecordingBuffer>, buffer: RecordingBuffer) -> List<RecordingEntry> effects [concurrency]

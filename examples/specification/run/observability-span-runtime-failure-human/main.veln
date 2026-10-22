@@ -14,7 +14,7 @@ end
 
 fn print_lifecycle(recording: Recording) -> () effects [stdio, concurrency]
 	match observe::recorded(recording)
-		Cons(observe::SpanStarted("work", trace_id, span_id, None, 40), Cons(observe::Emitted(observe::Log(observe::LogRecord("body", observe::Info, message, Nil, None, _))), Cons(observe::SpanFinished(finish_trace_id, finish_span_id, 40), Nil))) => begin
+		Cons(observe::SpanStarted("work", trace_id, span_id, None, Nil, 40), Cons(observe::Emitted(observe::Log(observe::LogRecord("body", observe::Info, message, Nil, None, _))), Cons(observe::SpanFinished(finish_trace_id, finish_span_id, 40), Nil))) => begin
 			stdio::println(string::concat(string::concat("start ", trace_id), string::concat(" ", span_id)))
 			stdio::println(string::concat("body ", message))
 			stdio::println(string::concat(string::concat("finish ", finish_trace_id), string::concat(" ", finish_span_id)))
@@ -32,6 +32,6 @@ pub fn main() -> () effects [stdio, time, concurrency]
 	defer
 		print_lifecycle(recording)
 	end
-	let _ = handle (handle trace::in_span(observe::SpanRequest("work", None), fail) with observe::recording(recording)) with fake_clock::clock()
+	let _ = handle (handle trace::in_span(observe::SpanRequest("work", None, list_nil()), fail) with observe::recording(recording)) with fake_clock::clock()
 	()
 end

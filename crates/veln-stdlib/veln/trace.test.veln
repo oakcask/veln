@@ -27,8 +27,8 @@ end
 
 fn sibling_children(parent: Span) -> Result<(), String> effects [observe::Observe, time]
 	let _ = time::monotonic_ms()
-	let _ = trace::in_span(observe::SpanRequest("first", Some(parent)), child_value)?
-	let _ = trace::in_span(observe::SpanRequest("second", Some(parent)), child_value)?
+	let _ = trace::in_span(observe::SpanRequest("first", observe::context(parent), list_nil()), child_value)?
+	let _ = trace::in_span(observe::SpanRequest("second", observe::context(parent), list_nil()), child_value)?
 	Ok(())
 end
 
@@ -41,9 +41,9 @@ end
 
 test in_span_finishes_once_after_normal_return() -> Result<(), String> effects [time, concurrency]
 	let recording = observe_test_support_test::span_recording("normal")
-	let value = handle (handle trace::in_span(observe::SpanRequest("work", None), return_value) with observe::recording(recording)) with observe_test_support_test::clock(10)
+	let value = handle (handle trace::in_span(observe::SpanRequest("work", None, list_nil()), return_value) with observe::recording(recording)) with observe_test_support_test::clock(10)
 	match observe::recorded(recording)
-		Cons(observe::SpanStarted("work", "normal-0", "normal-1", None, 10), Cons(observe::Emitted(observe::Log(observe::LogRecord("body", observe::Info, "normal", Nil, None, _))), Cons(observe::SpanFinished("normal-0", "normal-1", 10), Nil))) => if is_ok(value)
+		Cons(observe::SpanStarted("work", "normal-0", "normal-1", None, Nil, 10), Cons(observe::Emitted(observe::Log(observe::LogRecord("body", observe::Info, "normal", Nil, None, _))), Cons(observe::SpanFinished("normal-0", "normal-1", 10), Nil))) => if is_ok(value)
 			Ok(())
 		else
 			Err("in_span changed the body result")
@@ -54,9 +54,9 @@ end
 
 test in_span_finishes_once_when_error_propagates() -> Result<(), String> effects [time, concurrency]
 	let recording = observe_test_support_test::span_recording("error")
-	let result = handle (handle trace::in_span(observe::SpanRequest("work", None), propagate_error) with observe::recording(recording)) with observe_test_support_test::clock(20)
+	let result = handle (handle trace::in_span(observe::SpanRequest("work", None, list_nil()), propagate_error) with observe::recording(recording)) with observe_test_support_test::clock(20)
 	match observe::recorded(recording)
-		Cons(observe::SpanStarted("work", "error-0", "error-1", None, 20), Cons(observe::Emitted(observe::Log(observe::LogRecord("body", observe::Info, "error", Nil, None, _))), Cons(observe::SpanFinished("error-0", "error-1", 20), Nil))) => match result
+		Cons(observe::SpanStarted("work", "error-0", "error-1", None, Nil, 20), Cons(observe::Emitted(observe::Log(observe::LogRecord("body", observe::Info, "error", Nil, None, _))), Cons(observe::SpanFinished("error-0", "error-1", 20), Nil))) => match result
 			Err("body error") => Ok(())
 			_ => Err("in_span changed the propagated error")
 		end
@@ -66,9 +66,9 @@ end
 
 test sibling_spans_share_parent_and_have_distinct_identities() -> Result<(), String> effects [time, concurrency]
 	let recording = observe_test_support_test::span_recording("tree")
-	let result = handle (handle trace::in_span(observe::SpanRequest("parent", None), sibling_children) with observe::recording(recording)) with observe_test_support_test::clock(30)
+	let result = handle (handle trace::in_span(observe::SpanRequest("parent", None, list_nil()), sibling_children) with observe::recording(recording)) with observe_test_support_test::clock(30)
 	match observe::recorded(recording)
-		Cons(observe::SpanStarted("parent", "tree-0", "tree-1", None, 30), Cons(observe::SpanStarted("first", "tree-0", "tree-2", Some("tree-1"), 30), Cons(observe::SpanFinished("tree-0", "tree-2", 30), Cons(observe::SpanStarted("second", "tree-0", "tree-3", Some("tree-1"), 30), Cons(observe::SpanFinished("tree-0", "tree-3", 30), Cons(observe::SpanFinished("tree-0", "tree-1", 30), Nil)))))) => if is_ok(result)
+		Cons(observe::SpanStarted("parent", "tree-0", "tree-1", None, Nil, 30), Cons(observe::SpanStarted("first", "tree-0", "tree-2", Some("tree-1"), Nil, 30), Cons(observe::SpanFinished("tree-0", "tree-2", 30), Cons(observe::SpanStarted("second", "tree-0", "tree-3", Some("tree-1"), Nil, 30), Cons(observe::SpanFinished("tree-0", "tree-3", 30), Cons(observe::SpanFinished("tree-0", "tree-1", 30), Nil)))))) => if is_ok(result)
 			Ok(())
 		else
 			Err("nested in_span changed the body result")
