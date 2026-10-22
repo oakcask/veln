@@ -13,8 +13,9 @@ contains = [
   "\"line\":52,\"column\":23",
   "\"id\":\"name.invalid_case\"",
   "\"id\":\"name.duplicate\"",
+  "\"id\":\"schema.format_neutral_encode_helper\"",
   "function name `Recovered` must start with an ASCII lowercase letter",
-  "\"summary\":{\"diagnostic_count\":13,\"by_severity\":{\"error\":13},\"by_kind\":{\"name\":3,\"type\":10}}",
+  "\"summary\":{\"diagnostic_count\":14,\"by_severity\":{\"error\":14},\"by_kind\":{\"name\":3,\"type\":11}}",
 ]
 not_contains = [
   "\"id\":\"type.mismatch\"",
