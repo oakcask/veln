@@ -254,18 +254,20 @@ from publishing a format-neutral encode helper. An ordinary container such as
 `Option<Result<Int, String>>` remains eligible when its recursively visited
 arguments satisfy the field rules.
 
-A private constructor can appear only at a private schema in its own module.
-The encode eligibility check applies to the constructors written in nested
-singleton and finite-set refinements before a singleton or complete set is
-normalized to another type form. A public schema, an imported schema user, and
-an exact test companion therefore cannot expose a private constructor through
-a generated encode helper. Provider-backed opaque ADTs do not become eligible
-refinements. Private imports, missing or wrong-kind targets, and unsupported
-ADT payloads are declaration errors. Decode and encode otherwise share this
-vocabulary but differ in recursive generic stopping: decode may accept a
-repeated source ADT descriptor with changed instantiated arguments; encode
-checks newly introduced arguments and rejects unsupported leaves. There is no
-separate container-depth limit.
+A private constructor can appear only in a private schema declared by its own
+module. The exact test companion may explicitly import that target and encode
+through the target's private schema with the private constructor. A public
+schema boundary and an ordinary imported schema user cannot expose a private
+constructor through a generated encode helper. The encode eligibility check
+applies to the constructors written in nested singleton and finite-set
+refinements before a singleton or complete set is normalized to another type
+form. Provider-backed opaque ADTs do not become eligible refinements. Private
+imports other than exact-companion access, missing or wrong-kind targets, and
+unsupported ADT payloads are declaration errors. Decode and encode otherwise
+share this vocabulary but differ in recursive generic stopping: decode may
+accept a repeated source ADT descriptor with changed instantiated arguments;
+encode checks newly introduced arguments and rejects unsupported leaves. There
+is no separate container-depth limit.
 
 ### Binary fields
 

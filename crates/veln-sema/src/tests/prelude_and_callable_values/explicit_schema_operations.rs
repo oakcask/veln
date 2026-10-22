@@ -430,6 +430,8 @@ fn matching_companion_resolves_private_target_schema_operations_and_composition(
             "fn companion_uses_private_schema(view: ByteView, offset: ByteOffset, value: {length: Int}) -> ()\n",
             "  let decoded: DecodeStep<{length: Int}> = decode math::Packet from view at offset\n",
             "  let encoded: Result<ByteChunk, EncodeError> = encode math::Packet from value\n",
+            "  let state: math::State::Hidden = math::State::Hidden\n",
+            "  let refined: Result<{state: math::State::Hidden}, String> = encode math::RefinedPacket from {state: state}\n",
             "  ()\n",
             "end\n",
         ),
@@ -438,6 +440,13 @@ fn matching_companion_resolves_private_target_schema_operations_and_composition(
         "math.veln",
         concat!(
             "mod math\n",
+            "pub type State\n",
+            "  Hidden\n",
+            "  pub Visible\n",
+            "end\n",
+            "schema RefinedPacket\n",
+            "  state: State::Hidden\n",
+            "end\n",
             "schema Packet\n",
             "  format binary\n",
             "\n",
@@ -453,7 +462,7 @@ fn matching_companion_resolves_private_target_schema_operations_and_composition(
         aliases: Vec::new(),
         effects: Vec::new(),
         handlers: Vec::new(),
-        types: Vec::new(),
+        types: target.types,
         schemas: companion
             .schemas
             .into_iter()
