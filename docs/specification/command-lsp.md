@@ -18,8 +18,8 @@ identity is initialized. Unsaved open-document text is the source for semantic
 tokens. A token request for an unopened document falls back to its file URI;
 an unreadable file returns an empty token array.
 
-The semantic-token legend and navigation boundaries are specified by
-[editor-support.md](editor-support.md).
+The diagnostic projection, semantic-token legend, and navigation boundaries
+are specified by [editor-support.md](editor-support.md).
 
 ## Limits and errors
 

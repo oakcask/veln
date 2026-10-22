@@ -241,13 +241,16 @@ the same conversion as document publication and includes unsaved overlays in
 that effective text.
 
 Each compiler related note becomes an LSP `relatedInformation` entry when it
-has a text message, a source span with the required file and position fields,
-and a source available to the current document or workspace diagnostic
-publication. Entries retain compiler diagnostic order. Each location uses that
-source's URI and the same half-open UTF-16 range conversion as the primary
-diagnostic. Notes with missing or malformed required fields, or with an
-unavailable source, remain available only through the compiler diagnostic
-envelope.
+has a text message, a source available to the current document or workspace
+diagnostic publication, and a source span whose start and end each contain
+one-based line and Unicode-scalar column fields plus a zero-based byte offset.
+Each position must identify the same UTF-8 scalar boundary in the available
+source through all three fields, and the start byte offset must not follow the
+end byte offset. Entries retain compiler diagnostic order. Each location uses
+that source's URI and the same half-open UTF-16 range conversion as the primary
+diagnostic. Notes with missing or malformed required fields, unavailable
+sources, out-of-source or inconsistent positions, or reversed ranges remain
+available only through the compiler diagnostic envelope.
 
 This projection applies to variant-refinement diagnostics, including
 `type.variant_union_base`; it does not recover navigation identities from an
