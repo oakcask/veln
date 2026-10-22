@@ -24,9 +24,9 @@ unavailable, only retained privacy diagnostics in that declaration's causal
 dependency closure participate in the package-atomic failure.
 
 This proposal retains only the unfinished work: qualified-value match
-refinement, schema boundaries, LSP invalid-refinement recovery, and MCP
-invalid-refinement recovery with the
-saved-state behavior of those remaining requests. Qualified
+refinement, schema boundaries, the provider-dependent unavailable-descriptor
+diagnostic, LSP invalid-refinement recovery, and MCP invalid-refinement
+recovery with the saved-state behavior of those remaining requests. Qualified
 immutable-value refinement depends
 on a separately specified source form for module-addressable immutable data
 values; current qualified constructor and function expressions do not satisfy

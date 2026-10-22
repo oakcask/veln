@@ -240,14 +240,6 @@ two UTF-16 code units to the LSP character offset. Workspace publication uses
 the same conversion as document publication and includes unsaved overlays in
 that effective text.
 
-For one diagnostic snapshot, range projection indexes each available source
-once and visits each Unicode scalar once. It then performs one indexed boundary
-lookup for each primary or related range endpoint that reaches source-boundary
-projection. The deterministic work therefore grows with the available-source
-scalar count plus the projected endpoint count; adding same-line endpoints does
-not rescan the source prefix. Elapsed time is diagnostic and does not define a
-conformance threshold.
-
 Each compiler related note becomes an LSP `relatedInformation` entry when it
 has a text message, a source available to the current document or workspace
 diagnostic publication, and a source span whose start and end each contain
