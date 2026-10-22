@@ -247,6 +247,13 @@ composed format-neutral schemas. An encode-only refinement field still
 participates in field-predicate name validation even though it does not publish
 a decode field.
 
+Only source-declared ADTs are eligible for these refinement fields. A finite
+compiler-provided source-less ADT remains usable in an ordinary refinement
+annotation, but a refinement such as `Option<Int>::Some` prevents the schema
+from publishing a format-neutral encode helper. An ordinary container such as
+`Option<Result<Int, String>>` remains eligible when its recursively visited
+arguments satisfy the field rules.
+
 A private constructor can appear only at a private schema in its own module.
 The encode eligibility check applies to the constructors written in nested
 singleton and finite-set refinements before a singleton or complete set is

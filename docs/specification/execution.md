@@ -337,7 +337,10 @@ install that production client boundary.
   The helper accepts an admitted constructor. A base ADT or an excluded
   constructor at any such refined position fails static checking with
   `type.variant_mismatch`. An unrelated nested type difference remains
-  `type.mismatch`.
+  `type.mismatch`. Assigning a generated encode helper to an immutable local
+  binding preserves this schema-boundary checking when the binding is called;
+  assigning an ordinary function with the same visible parameter shape does
+  not acquire it.
   The helper returns the supplied record on success and does not produce binary
   bytes, so an admitted refined value has the same representation as the
   corresponding base-ADT encode path. Checked runtime and diagnostic evidence
@@ -537,6 +540,8 @@ than degrading it to a generic rendered result value.
   [`adt-variant-refinement-format-neutral-schema-encode`](../../examples/specification/run/adt-variant-refinement-format-neutral-schema-encode/)
   and
   [`adt-variant-refinement-format-neutral-schema-encode-json`](../../examples/specification/check/adt-variant-refinement-format-neutral-schema-encode-json/).
+  Source-less refinement rejection is checked by
+  [`adt-variant-refinement-format-neutral-schema-encode-source-boundary`](../../examples/specification/check/adt-variant-refinement-format-neutral-schema-encode-source-boundary/).
 - JVM networking execution evidence compiles checked programs with the
   exported standard modules. The backend cases exercise real socket and task
   cancellation through `net::IO` and `net::system()`. Separate Veln support

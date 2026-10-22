@@ -91,6 +91,14 @@ source identity takes precedence over a same-spelled built-in type-syntax or
 ADT descriptor. Source-less lookup supplies a fallback; it does not replace or
 make ambiguous an exact qualified source identity.
 
+Finite source-less ADT descriptors support ordinary variant-refinement
+analysis, but they do not become source ADTs for format-neutral schema field
+eligibility. A schema field that refines a source-less ADT therefore publishes
+no generated format-neutral encode helper and reports
+`schema.format_neutral_encode_helper`. The
+[source-surface field rules](source-surface.md#format-neutral-fields) own the
+eligible schema shapes.
+
 Private compiler adapters, including the `net_system_*` operations used by
 `std::net::system()`, publish only their qualified
 `prelude_builtin::name` keys. Bare prelude lookup does not publish those names.

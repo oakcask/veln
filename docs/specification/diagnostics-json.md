@@ -544,8 +544,9 @@ ADT or excluded constructor at a nested refined position reports
 describe that innermost ADT comparison. A missing record field, unrelated type,
 unsupported container shape, or another non-variant mismatch makes the whole
 comparison an ordinary `type.mismatch`. This recursive diagnostic selection is
-specific to generated schema encode boundaries and does not change ordinary
-aggregate invariance.
+specific to generated schema encode boundaries and follows a generated encode
+helper through an immutable local binding. An ordinary function value with the
+same visible type retains ordinary aggregate invariance.
 
 A valid constructor arm for a stable match scrutinee refines the matched place
 to the constructor singleton while checking the arm. A stable scrutinee is an

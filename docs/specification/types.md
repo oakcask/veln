@@ -1134,8 +1134,10 @@ uses the ordinary `type.mismatch` diagnostic instead. Generated schema encode
 boundaries are the exception: they inspect supported record and container
 positions and report `type.variant_mismatch` for an innermost base-to-refinement
 or excluded-variant comparison when all other inspected positions are
-assignable. This exception does not make ordinary assignment recursively
-covariant.
+assignable. The exception follows a generated encode helper through an
+immutable local binding initialized from that helper. It does not follow an
+ordinary function value merely because its visible function type is the same.
+This exception does not make ordinary assignment recursively covariant.
 The checked examples cover
 accepted source and compiler-known cases in
 `examples/specification/check/adt-variant-refinement-call-typing/`, JSON failures
