@@ -116,6 +116,16 @@ test recording_children_do_not_collide_with_a_parent_from_another_recording() ->
 	end
 end
 
+test recording_collision_adjustment_preserves_parent_sampling_state() -> Result<(), String> effects [time, concurrency]
+	let recording = observe::new_recording("collision")
+	let parent = observe::TraceContext("upstream-trace", "collision-0", false)
+	let child = handle perform observe::Observe::start_span(observe::SpanRequest("child", Some(parent), list_nil())) with observe::recording(recording)
+	match observe::context(child)
+		Some(observe::TraceContext("upstream-trace", "collision-1", false)) => Ok(())
+		_ => Err("collision-adjusted child context changed its identity or inherited sampling state")
+	end
+end
+
 test recording_treats_a_noop_parent_as_a_root_request() -> Result<(), String> effects [time, concurrency]
 	let parent = handle perform observe::Observe::start_span(observe::SpanRequest("ignored", None, list_nil())) with observe::noop()
 	let recording = observe::new_recording("mixed")
