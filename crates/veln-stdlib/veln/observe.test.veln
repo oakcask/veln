@@ -11,12 +11,15 @@ test noop_preserves_a_handled_body_result() -> Result<(), String>
 	end
 end
 
-test noop_start_span_returns_an_opaque_span() -> Result<(), String>
+test noop_start_span_has_no_recording_context() -> Result<(), String>
 	let span = handle perform observe::Observe::start_span(observe::SpanRequest("noop", None, list_nil())) with observe::noop()
-	if observe::is_noop_span(span)
-		Ok(())
-	else
-		Err("no-op observation handler returned an unexpected span")
+	match observe::context(span)
+		None => if observe::is_noop_span(span)
+			Ok(())
+		else
+			Err("no-op observation handler returned an unexpected span")
+		end
+		Some(_) => Err("no-op observation handler exposed a recording context")
 	end
 end
 

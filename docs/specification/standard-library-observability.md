@@ -224,10 +224,12 @@ rules of [Call-site Declarations](call-site-declarations.md).
 
 `observe::noop()` handles every `Observe` operation and has no retained host
 effect. It discards each emitted observation and each span finish. A span start
-returns an opaque span value, so the operation is total even though programs
-cannot construct or inspect that value through the public API. Installing the
-handler preserves the handled program's result and opens no output destination.
-Counter increments and histogram samples follow the same discard rule.
+returns an opaque span value, so the operation is total. Programs cannot
+construct or pattern-match the span representation. They can call
+`observe::context` to inspect its optional recording context; the accessor
+returns `None` for a no-op span. Installing the handler preserves the handled
+program's result and opens no output destination. Counter increments and
+histogram samples follow the same discard rule.
 
 ### Span lifecycle and recording
 
