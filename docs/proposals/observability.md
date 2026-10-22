@@ -14,8 +14,8 @@ recording snapshots, typed scalar attributes, optional trace context,
 effect-polymorphic scoped span lifecycle, and call-site-aware structured log
 records at debug, info, warning, and error severities, named domain events,
 counter increments and histogram samples with recording and no-op handler
-support, explicit direct child-task and channel-value context propagation, and
-explicit fan-in parent and causal-link selection are implemented in the
+support, plus explicit direct child-task and channel-value context propagation
+are implemented in the
 [current observability specification](../specification/standard-library-observability.md).
 This proposal covers only the remaining facilities described below.
 
