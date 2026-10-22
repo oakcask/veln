@@ -15,7 +15,7 @@ workspace_file_uri = "main.veln"
 method = "textDocument/publishDiagnostics"
 occurrence = 2
 path = "/params/diagnostics"
-length = 4
+length = 5
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
@@ -80,6 +80,12 @@ equals = "type.variant_refinement_base"
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
 occurrence = 2
+path = "/params/diagnostics/3/relatedInformation"
+length = 1
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
 path = "/params/diagnostics/3/relatedInformation/0/message"
 equals = "Type `Empty` is declared here without finite ADT variants."
 
@@ -99,3 +105,99 @@ equals = {"start":{"line":0,"character":4},"end":{"line":2,"character":0}}
 id = 2
 path = "/result"
 equals = null
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/4/code"
+equals = "type.variant_refinement_private"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/4/message"
+equals = "public refinement exposes private variant `model::State::Hidden`"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/4/range"
+equals = {"start":{"line":14,"character":28},"end":{"line":14,"character":33}}
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/4/relatedInformation"
+length = 4
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/4/relatedInformation/0/message"
+equals = "Public type alias `model::Outer` is declared here."
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/4/relatedInformation/0/location/uri"
+workspace_file_uri = "model.veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/4/relatedInformation/0/location/range"
+equals = {"start":{"line":14,"character":0},"end":{"line":15,"character":0}}
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/4/relatedInformation/1/message"
+equals = "Public type alias `model::Inner` is declared here."
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/4/relatedInformation/1/location/uri"
+workspace_file_uri = "model.veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/4/relatedInformation/1/location/range"
+equals = {"start":{"line":13,"character":0},"end":{"line":14,"character":0}}
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/4/relatedInformation/2/message"
+equals = "Private variant `model::State::Hidden` is declared here."
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/4/relatedInformation/2/location/uri"
+workspace_file_uri = "model.veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/4/relatedInformation/2/location/range"
+equals = {"start":{"line":11,"character":2},"end":{"line":12,"character":0}}
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/4/relatedInformation/3/message"
+equals = "Public parameter `value` of function `expose` exposes this refinement."
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/4/relatedInformation/3/location/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/4/relatedInformation/3/location/range"
+equals = {"start":{"line":14,"character":14},"end":{"line":14,"character":41}}

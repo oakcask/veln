@@ -428,10 +428,10 @@ impl Server {
                         .iter()
                         .map(|source| {
                             let path = source.path().as_str().to_string();
-                            let published = DiagnosticSource {
-                                uri: path_to_uri(&visible_root.join(&path)),
-                                text: source.text().to_string(),
-                            };
+                            let published = DiagnosticSource::new(
+                                path_to_uri(&visible_root.join(&path)),
+                                source.text().to_string(),
+                            );
                             (path, published)
                         })
                         .collect::<DiagnosticSources>();

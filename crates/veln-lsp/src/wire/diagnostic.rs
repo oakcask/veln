@@ -3,13 +3,57 @@ use std::collections::BTreeMap;
 use veln_diagnostics::{Diagnostic, JsonValue};
 use veln_source::{SourceFile, SourceSpan};
 
-use super::{display_path, escape_json, range_json, severity_code, utf16_position_json};
+use super::{display_path, escape_json, range_json, severity_code};
 use crate::diagnostics;
 
 #[derive(Clone, Debug)]
 pub(crate) struct DiagnosticSource {
-    pub(crate) uri: String,
-    pub(crate) text: String,
+    uri: String,
+    text: String,
+    line_starts: Vec<usize>,
+}
+
+impl DiagnosticSource {
+    pub(crate) fn new(uri: String, text: String) -> Self {
+        let line_starts = if text.is_empty() {
+            Vec::new()
+        } else {
+            let mut starts = vec![0];
+            starts.extend(text.bytes().enumerate().filter_map(|(index, byte)| {
+                let next = index + 1;
+                (byte == b'\n' && next < text.len()).then_some(next)
+            }));
+            starts
+        };
+        Self {
+            uri,
+            text,
+            line_starts,
+        }
+    }
+
+    pub(crate) fn utf16_position_json(&self, line: usize, column: usize) -> String {
+        let character = self
+            .line_text(line)
+            .map(|text| {
+                text.chars()
+                    .take(column.saturating_sub(1))
+                    .map(char::len_utf16)
+                    .sum()
+            })
+            .unwrap_or_else(|| column.saturating_sub(1));
+        format!(
+            "{{\"line\":{},\"character\":{character}}}",
+            line.saturating_sub(1),
+        )
+    }
+
+    fn line_text(&self, line: usize) -> Option<&str> {
+        let start = *self.line_starts.get(line.saturating_sub(1))?;
+        let rest = self.text.get(start..)?;
+        let line = rest.find('\n').map_or(rest, |end| &rest[..end]);
+        line.strip_suffix('\r').or(Some(line))
+    }
 }
 
 pub(crate) type DiagnosticSources = BTreeMap<String, DiagnosticSource>;
@@ -21,13 +65,7 @@ pub(crate) fn publish_diagnostics(uri: &str, text: String) -> String {
         .into_iter()
         .filter(|diagnostic| diagnostic_applies_to_uri(diagnostic, uri))
         .collect::<Vec<_>>();
-    let sources = BTreeMap::from([(
-        path,
-        DiagnosticSource {
-            uri: uri.to_string(),
-            text,
-        },
-    )]);
+    let sources = BTreeMap::from([(path, DiagnosticSource::new(uri.to_string(), text))]);
     publish_diagnostics_for_uri(uri, &diagnostics, &sources)
 }
 
@@ -86,8 +124,8 @@ fn diagnostic_range_json(span: Option<&SourceSpan>, sources: &DiagnosticSources)
     };
     format!(
         "{{\"start\":{},\"end\":{}}}",
-        utf16_position_json(&source.text, span.start.line, span.start.column),
-        utf16_position_json(&source.text, span.end.line, span.end.column),
+        source.utf16_position_json(span.start.line, span.start.column),
+        source.utf16_position_json(span.end.line, span.end.column),
     )
 }
 
@@ -111,8 +149,8 @@ fn lsp_related_information_json(
             let end_column = object_usize(end, "column")?;
             let range = format!(
                 "{{\"start\":{},\"end\":{}}}",
-                utf16_position_json(&source.text, start_line, start_column),
-                utf16_position_json(&source.text, end_line, end_column),
+                source.utf16_position_json(start_line, start_column),
+                source.utf16_position_json(end_line, end_column),
             );
             Some(format!(
                 "{{\"location\":{{\"uri\":\"{}\",\"range\":{range}}},\"message\":\"{}\"}}",

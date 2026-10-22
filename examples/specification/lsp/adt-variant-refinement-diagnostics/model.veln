@@ -7,3 +7,9 @@ end
 pub type Right
   B
 end
+
+pub type State
+  Hidden
+end
+pub type Inner = State
+pub type Outer = Inner

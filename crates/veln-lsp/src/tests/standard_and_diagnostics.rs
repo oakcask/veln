@@ -511,6 +511,31 @@ fn document_diagnostics_project_primary_and_related_ranges_as_utf16() {
 }
 
 #[test]
+fn diagnostic_source_positions_preserve_line_and_utf16_boundaries() {
+    let source = DiagnosticSource::new(
+        "file://main.veln".to_string(),
+        "a😀b\r\nsecond\n".to_string(),
+    );
+
+    assert_eq!(
+        source.utf16_position_json(1, 3),
+        r#"{"line":0,"character":3}"#
+    );
+    assert_eq!(
+        source.utf16_position_json(2, 7),
+        r#"{"line":1,"character":6}"#
+    );
+    assert_eq!(
+        source.utf16_position_json(0, 2),
+        r#"{"line":0,"character":1}"#
+    );
+    assert_eq!(
+        source.utf16_position_json(3, 4),
+        r#"{"line":2,"character":3}"#
+    );
+}
+
+#[test]
 fn server_publishes_semantic_diagnostics_after_parse_succeeds() {
     let mut server = Server::default();
 
