@@ -14,6 +14,11 @@ pub(super) fn check_format_neutral_schema_field(
         format_neutral_schema_encode_field_type_for_schema(module, schema, adts, &field.ty);
     let direct_source_adt_candidate =
         format_neutral_schema_encode_field_is_source_adt_candidate(module, schema, adts, &field.ty);
+    let refinement_candidate = format_neutral_schema_encode_field_contains_refinement(
+        adts,
+        schema.module_name.as_deref(),
+        &field.ty,
+    );
     if let Some(field_ty) = decode_field_type.clone() {
         record_decoded_schema_field(schema, field, field_ty, decoded_fields, diagnostics);
     } else if let Some(field_ty) = &encode_field_type {
@@ -31,6 +36,7 @@ pub(super) fn check_format_neutral_schema_field(
         return;
     } else if schema_payload_name_path(&field.ty).is_some()
         && !direct_source_adt_candidate
+        && !refinement_candidate
         && !schema_field_has_ordinary_type_target(module, schema, &field.ty)
     {
         diagnostics.push(schema_composition_reference_diagnostic(
@@ -46,9 +52,10 @@ pub(super) fn check_format_neutral_schema_field(
     let encode_unsupported = encode_field_type.is_none();
     let ordinary_or_non_path = schema_payload_name_path(&field.ty).is_none()
         || schema_field_has_ordinary_type_target(module, schema, &field.ty)
-        || direct_source_adt_candidate;
+        || direct_source_adt_candidate
+        || refinement_candidate;
     if encode_unsupported
-        && direct_source_adt_candidate
+        && (direct_source_adt_candidate || refinement_candidate)
         && decode_field_type.is_none()
         && ordinary_or_non_path
     {

@@ -26,6 +26,7 @@ use crate::schema::reserved_layout::{
 use crate::types::companion_access_targets;
 use crate::types::schema_types::{
     binary_schema_anonymous_record_decode_type,
+    format_neutral_schema_encode_field_contains_refinement,
     format_neutral_schema_encode_field_is_source_adt_candidate,
     format_neutral_schema_encode_field_type_for_schema,
     format_neutral_schema_field_type_for_schema,

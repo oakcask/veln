@@ -10,6 +10,7 @@ struct LetBindingContext {
     transparent_alias_group: Option<usize>,
     stable_record_root: Option<usize>,
     stable_place: Option<usize>,
+    schema_encode_callable: bool,
 }
 
 impl<'a> FunctionChecker<'a> {
@@ -236,6 +237,7 @@ impl<'a> FunctionChecker<'a> {
             .as_ref()
             .map_or_else(|| actual.clone(), |expected| expected.ty.clone());
         let pattern_bindings = self.let_pattern_bindings(pattern, &binding_type);
+        let schema_encode_callable = self.expr_is_schema_encode_callable(expr);
         let pattern_has_diagnostic = self.diagnostics.len() != pattern_diagnostic_count;
         let binding_context = LetBindingContext {
             type_origin: expected.as_ref().and_then(|expected| {
@@ -254,6 +256,7 @@ impl<'a> FunctionChecker<'a> {
             transparent_alias_group,
             stable_record_root,
             stable_place,
+            schema_encode_callable,
         };
         for binding in pattern_bindings {
             self.bind_let_pattern(binding, &binding_context);
@@ -298,6 +301,10 @@ impl<'a> FunctionChecker<'a> {
         {
             admitted.type_origin = Some(type_origin.clone());
         }
+        admitted.schema_encode_callable = matches!(binding.ty, Type::Function { .. })
+            && context.schema_encode_callable
+            && !context.initializer_has_diagnostic
+            && !context.pattern_has_diagnostic;
         self.push_binding(admitted);
         if context.annotation_is_omitted
             && (!context.initializer_has_diagnostic
@@ -312,6 +319,31 @@ impl<'a> FunctionChecker<'a> {
                 deferred_initializer_diagnostic: context.deferred_initializer_diagnostic,
             });
         }
+    }
+
+    fn expr_is_schema_encode_callable(&self, expr: &Expr) -> bool {
+        let ExprKind::NamePath { segments, .. } = &expr.kind else {
+            return false;
+        };
+        if let [name] = segments.as_slice()
+            && let Some(index) = self.visible_binding_index(name)
+        {
+            return self.bindings[index].schema_encode_callable;
+        }
+        let function = match segments.as_slice() {
+            [name] => self
+                .environment
+                .unqualified_function(name, self.function.module_name.as_deref())
+                .found(),
+            _ => self
+                .environment
+                .function_path(segments, self.function.module_name.as_deref()),
+        };
+        function.is_some_and(|function| {
+            function
+                .target_name
+                .starts_with(SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX)
+        })
     }
 
     fn transparent_alias_group(&self, expr: &Expr) -> Option<usize> {

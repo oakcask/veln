@@ -1,0 +1,11 @@
+schema Direct
+	value: Option<Int>::Some
+end
+
+schema Nested
+	value: List<Option<Int>::Some>
+end
+
+schema Ordinary
+	value: Option<Result<Int, String>>
+end

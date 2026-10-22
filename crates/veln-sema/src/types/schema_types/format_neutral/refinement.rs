@@ -149,9 +149,7 @@ pub(crate) fn format_neutral_schema_encode_field_is_source_adt_candidate(
     let Ok(parsed) = parse_type_annotation(text) else {
         return false;
     };
-    if encode_type_contains_refinement(&parsed)
-        || written_refinement_base_is_adt_candidate(adts, schema.module_name.as_deref(), &parsed)
-    {
+    if written_refinement_base_is_adt_candidate(adts, schema.module_name.as_deref(), &parsed) {
         return true;
     }
     let ty = crate::types::canonicalize_type_effects(
@@ -184,8 +182,9 @@ fn written_refinement_base_is_adt_candidate(
                     .or_else(|| adts.descriptor_for_type_in_module(&base, current_module))
             });
             written_base.flatten().is_some_and(|descriptor| {
-                descriptor.module_name.as_deref() == current_module
-                    || descriptor.visibility == Visibility::Public
+                descriptor_has_source_declaration(adts, descriptor)
+                    && (descriptor.module_name.as_deref() == current_module
+                        || descriptor.visibility == Visibility::Public)
             }) || args
                 .iter()
                 .any(|arg| written_refinement_base_is_adt_candidate(adts, current_module, arg))
@@ -194,6 +193,58 @@ fn written_refinement_base_is_adt_candidate(
             written_refinement_base_is_adt_candidate(adts, current_module, field_ty)
         }),
         _ => false,
+    }
+}
+
+pub(crate) fn format_neutral_schema_encode_field_contains_refinement(
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    text: &str,
+) -> bool {
+    parse_type_annotation(text).is_ok_and(|ty| {
+        encode_type_contains_refinement(&ty)
+            || written_type_contains_adt_refinement(adts, current_module, &ty)
+    })
+}
+
+fn written_type_contains_adt_refinement(
+    adts: &AdtRegistry,
+    current_module: Option<&str>,
+    ty: &Type,
+) -> bool {
+    match ty {
+        Type::Named { name, args, .. } => {
+            name.rsplit_once("::").is_some_and(|(base, _)| {
+                let base = Type::named(base, args.clone());
+                adts.descriptor_for_type(&base)
+                    .or_else(|| adts.descriptor_for_type_in_module(&base, current_module))
+                    .is_some_and(|descriptor| {
+                        descriptor.module_name.as_deref() == current_module
+                            || descriptor.visibility == Visibility::Public
+                    })
+            }) || args
+                .iter()
+                .any(|arg| written_type_contains_adt_refinement(adts, current_module, arg))
+        }
+        Type::Record(fields) => fields.iter().any(|(_, field_ty)| {
+            written_type_contains_adt_refinement(adts, current_module, field_ty)
+        }),
+        Type::VariantRefinement { .. } => true,
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            params
+                .iter()
+                .any(|param| written_type_contains_adt_refinement(adts, current_module, param))
+                || variadic.as_deref().is_some_and(|variadic| {
+                    written_type_contains_adt_refinement(adts, current_module, variadic)
+                })
+                || written_type_contains_adt_refinement(adts, current_module, return_type)
+        }
+        Type::Unknown => false,
     }
 }
 
@@ -214,7 +265,11 @@ fn encode_type_is_source_adt_candidate(
     ty: &Type,
 ) -> bool {
     match ty {
-        Type::VariantRefinement { .. } => true,
+        Type::VariantRefinement { .. } => adts.descriptor_for_type(ty).is_some_and(|descriptor| {
+            descriptor_has_source_declaration(adts, descriptor)
+                && (descriptor.module_name.as_deref() == current_module
+                    || descriptor.visibility == Visibility::Public)
+        }),
         Type::Named { name, args, .. }
             if matches!(
                 name.as_str(),
@@ -225,8 +280,9 @@ fn encode_type_is_source_adt_candidate(
                 .any(|arg| encode_type_is_source_adt_candidate(adts, current_module, arg))
         }
         Type::Named { .. } => adts.descriptor_for_type(ty).is_some_and(|descriptor| {
-            descriptor.module_name.as_deref() == current_module
-                || descriptor.visibility == Visibility::Public
+            descriptor_has_source_declaration(adts, descriptor)
+                && (descriptor.module_name.as_deref() == current_module
+                    || descriptor.visibility == Visibility::Public)
         }),
         Type::Record(fields) => fields.iter().any(|(_, field_ty)| {
             encode_type_is_source_adt_candidate(adts, current_module, field_ty)

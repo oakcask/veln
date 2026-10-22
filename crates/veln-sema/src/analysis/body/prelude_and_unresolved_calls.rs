@@ -437,6 +437,7 @@ impl<'a> FunctionChecker<'a> {
             .map(|(index, ty)| crate::call_resolution::TypeBinding {
                 name: &self.bindings[*index].name,
                 ty,
+                schema_encode_callable: self.bindings[*index].schema_encode_callable,
             })
             .collect::<Vec<_>>();
         let signature = crate::call_resolution::type_call_signature(

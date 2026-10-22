@@ -8,8 +8,11 @@ use crate::type_syntax::parse_type_annotation;
 
 mod refinement;
 
-pub(crate) use refinement::format_neutral_schema_encode_field_is_source_adt_candidate;
 use refinement::format_neutral_schema_written_constructors_are_visible;
+pub(crate) use refinement::{
+    format_neutral_schema_encode_field_contains_refinement,
+    format_neutral_schema_encode_field_is_source_adt_candidate,
+};
 
 pub(super) fn format_neutral_schema_decode_function_signature_for_schema(
     module: &SurfaceModule,
@@ -618,6 +621,8 @@ fn format_neutral_schema_source_adt_descriptor<'a>(
     if let Some(descriptor) = adts.descriptor_for_type(ty)
         && (descriptor.module_name.as_deref() == current_module
             || descriptor.visibility == Visibility::Public)
+        && (!matches!(ty, Type::VariantRefinement { .. })
+            || descriptor_has_source_declaration(adts, descriptor))
     {
         return Some(descriptor);
     }
@@ -628,7 +633,11 @@ fn format_neutral_schema_source_adt_descriptor<'a>(
     let segments = name.split("::").collect::<Vec<_>>();
     match segments.as_slice() {
         [local_name] => adts
-            .descriptor_for_type_in_module(&Type::named(*local_name, args.clone()), current_module),
+            .descriptor_for_type_in_module(&Type::named(*local_name, args.clone()), current_module)
+            .filter(|descriptor| {
+                !matches!(ty, Type::VariantRefinement { .. })
+                    || descriptor_has_source_declaration(adts, descriptor)
+            }),
         [_, .., type_name] => {
             let import_path = segments[..segments.len() - 1]
                 .iter()
@@ -640,8 +649,17 @@ fn format_neutral_schema_source_adt_descriptor<'a>(
                     && descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
                     && descriptor.type_parameters.len() == args.len()
                     && descriptor.visibility == Visibility::Public
+                    && (!matches!(ty, Type::VariantRefinement { .. })
+                        || descriptor_has_source_declaration(adts, descriptor))
             })
         }
         _ => None,
     }
+}
+
+fn descriptor_has_source_declaration(adts: &AdtRegistry, descriptor: &AdtDescriptor) -> bool {
+    adts.declaration_span(descriptor).is_some()
+        || adts
+            .terminal_descriptor_for_alias(descriptor)
+            .is_some_and(|terminal| adts.declaration_span(terminal).is_some())
 }

@@ -30,6 +30,7 @@ pub(crate) struct Binding {
     pub(crate) stable_place: Option<usize>,
     pub(crate) type_origin: Option<TypeOrigin>,
     pub(crate) private_function_value: Option<FunctionKey>,
+    pub(crate) schema_encode_callable: bool,
     pub(crate) is_diagnosed_unknown: bool,
 }
 
@@ -59,6 +60,7 @@ impl Clone for Binding {
             stable_place: self.stable_place,
             type_origin: self.type_origin.clone(),
             private_function_value: self.private_function_value.clone(),
+            schema_encode_callable: self.schema_encode_callable,
             is_diagnosed_unknown: self.is_diagnosed_unknown,
         }
     }
@@ -95,6 +97,7 @@ impl Binding {
             stable_place: None,
             type_origin: None,
             private_function_value: None,
+            schema_encode_callable: false,
             is_diagnosed_unknown: false,
         }
     }
@@ -108,6 +111,7 @@ impl Binding {
             stable_place: None,
             type_origin: None,
             private_function_value: None,
+            schema_encode_callable: false,
             is_diagnosed_unknown: false,
         }
     }
@@ -121,6 +125,7 @@ impl Binding {
             stable_place: None,
             type_origin: None,
             private_function_value: Some(target),
+            schema_encode_callable: false,
             is_diagnosed_unknown: false,
         }
     }
@@ -134,6 +139,7 @@ impl Binding {
             stable_place: None,
             type_origin: None,
             private_function_value: None,
+            schema_encode_callable: false,
             is_diagnosed_unknown: true,
         }
     }

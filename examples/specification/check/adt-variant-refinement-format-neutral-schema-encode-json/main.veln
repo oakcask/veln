@@ -36,6 +36,16 @@ fn reject_nested_excluded(state: State::Failed) -> Result<{states: Option<List<S
 	encode NestedPacket from {states: Some(list_cons(state, list_nil()))}
 end
 
+fn reject_bound_base(state: State) -> Result<{state: State::Ready | State::Closed}, String>
+	let encoder = byte_encode_packet
+	encoder({state: state})
+end
+
+fn reject_bound_nested_excluded(state: State::Failed) -> Result<{states: Option<List<State::Ready>>}, String>
+	let encoder = byte_encode_nested_packet
+	encoder({states: Some(list_cons(state, list_nil()))})
+end
+
 fn accept_composed(state: State::Ready) -> Result<{inner: {state: State::Ready}}, String>
 	byte_encode_outer({inner: {state: state}})
 end

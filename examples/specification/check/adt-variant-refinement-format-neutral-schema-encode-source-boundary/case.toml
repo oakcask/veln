@@ -1,0 +1,32 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 4
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "schema.format_neutral_encode_helper"
+
+[[json_assert]]
+path = "diagnostics.1.details.schema"
+equals = "Direct"
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "schema.format_neutral_encode_helper"
+
+[[json_assert]]
+path = "diagnostics.3.details.schema"
+equals = "Nested"

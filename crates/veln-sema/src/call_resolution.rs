@@ -24,6 +24,7 @@ use crate::types::signatures::{
 pub(crate) struct TypeBinding<'a> {
     pub(crate) name: &'a str,
     pub(crate) ty: &'a Type,
+    pub(crate) schema_encode_callable: bool,
 }
 
 pub(crate) struct CoreBinding<'a> {
@@ -237,7 +238,7 @@ fn type_binding_call_signature(
             span: callee.span.clone(),
             symbol: name.clone(),
             effects,
-            schema_encode: false,
+            schema_encode: binding.schema_encode_callable,
         },
     })
 }

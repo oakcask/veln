@@ -277,7 +277,7 @@ impl<'a> FunctionChecker<'a> {
             span: callee.span.clone(),
             symbol: name.clone(),
             effects,
-            schema_encode: false,
+            schema_encode: binding.schema_encode_callable,
         };
         let instantiated_effects = self.check_call_arguments_with_origin(
             args,
@@ -506,7 +506,7 @@ impl<'a> FunctionChecker<'a> {
             );
             let actual = self.infer_expr(arg, Some(&expected));
             collect_effect_row_substitution(param_type, &actual, &mut row_substitutions);
-            if matches!(expected.source, ExpectedTypeSource::SchemaEncodeParameter) {
+            if origin.schema_encode {
                 self.check_schema_encode_assignable(
                     arg,
                     &expected.ty,
