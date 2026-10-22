@@ -208,6 +208,105 @@ fn nested_schema_encode_refinements_report_variant_mismatches_only_at_schema_bou
 }
 
 #[test]
+fn contextual_schema_encode_members_preserve_variant_mismatch_provenance() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready\n",
+            "  pub Closed\n",
+            "end\n",
+            "\n",
+            "schema Packet\n",
+            "  states: Vec<State::Ready>\n",
+            "  states_by_name: Dict<String, State::Ready>\n",
+            "  optional_state: Option<State::Ready>\n",
+            "  success: Result<State::Ready, String>\n",
+            "  failure: Result<Int, State::Ready>\n",
+            "  unrelated: Vec<Int>\n",
+            "end\n",
+            "\n",
+            "fn accept(ready: State::Ready) -> Result<{states: Vec<State::Ready>, states_by_name: Dict<String, State::Ready>, optional_state: Option<State::Ready>, success: Result<State::Ready, String>, failure: Result<Int, State::Ready>, unrelated: Vec<Int>}, String>\n",
+            "  byte_encode_packet({states: [ready], states_by_name: {\"state\": ready}, optional_state: Some(ready), success: Ok(ready), failure: Err(ready), unrelated: [1]})\n",
+            "end\n",
+            "\n",
+            "fn accept_explicit(ready: State::Ready) -> Result<{states: Vec<State::Ready>, states_by_name: Dict<String, State::Ready>, optional_state: Option<State::Ready>, success: Result<State::Ready, String>, failure: Result<Int, State::Ready>, unrelated: Vec<Int>}, String>\n",
+            "  encode Packet from {states: [ready], states_by_name: {\"state\": ready}, optional_state: Some(ready), success: Ok(ready), failure: Err(ready), unrelated: [1]}\n",
+            "end\n",
+            "\n",
+            "fn reject_base(state: State) -> Result<{states: Vec<State::Ready>, states_by_name: Dict<String, State::Ready>, optional_state: Option<State::Ready>, success: Result<State::Ready, String>, failure: Result<Int, State::Ready>, unrelated: Vec<Int>}, String>\n",
+            "  let encoder = byte_encode_packet\n",
+            "  encoder({states: [state], states_by_name: {\"state\": state}, optional_state: Some(state), success: Ok(state), failure: Err(state), unrelated: [1]})\n",
+            "end\n",
+            "\n",
+            "fn reject_excluded(closed: State::Closed) -> Result<{states: Vec<State::Ready>, states_by_name: Dict<String, State::Ready>, optional_state: Option<State::Ready>, success: Result<State::Ready, String>, failure: Result<Int, State::Ready>, unrelated: Vec<Int>}, String>\n",
+            "  encode Packet from {states: [closed], states_by_name: {\"state\": closed}, optional_state: Some(closed), success: Ok(closed), failure: Err(closed), unrelated: [1]}\n",
+            "end\n",
+            "\n",
+            "fn reject_unrelated(ready: State::Ready) -> Result<{states: Vec<State::Ready>, states_by_name: Dict<String, State::Ready>, optional_state: Option<State::Ready>, success: Result<State::Ready, String>, failure: Result<Int, State::Ready>, unrelated: Vec<Int>}, String>\n",
+            "  byte_encode_packet({states: [ready], states_by_name: {\"state\": ready}, optional_state: Some(ready), success: Ok(ready), failure: Err(ready), unrelated: [\"wrong\"]})\n",
+            "end\n",
+            "\n",
+            "fn ordinary_context(closed: State::Closed) -> ()\n",
+            "  let states: Vec<State::Ready> = [closed]\n",
+            "  let states_by_name: Dict<String, State::Ready> = {\"state\": closed}\n",
+            "  let optional_state: Option<State::Ready> = Some(closed)\n",
+            "  let success: Result<State::Ready, String> = Ok(closed)\n",
+            "  let failure: Result<Int, State::Ready> = Err(closed)\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let variant_mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_mismatch")
+        .collect::<Vec<_>>();
+    let type_mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
+        .collect::<Vec<_>>();
+
+    assert_eq!(variant_mismatches.len(), 10, "{diagnostics:#?}");
+    assert_eq!(type_mismatches.len(), 6, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 16, "{diagnostics:#?}");
+    for mismatch in &variant_mismatches {
+        let details = mismatch.details.to_json();
+        assert!(
+            details.contains("\"expected_type\":\"State::Ready\""),
+            "{details}"
+        );
+        assert!(
+            details.contains("\"actual_type\":\"State\"")
+                || details.contains("\"actual_type\":\"State::Closed\""),
+            "{details}"
+        );
+        assert!(
+            mismatch.related.iter().any(|related| related
+                .to_json()
+                .contains("\"kind\":\"expected_type_origin\"")),
+            "{mismatch:#?}"
+        );
+    }
+    for (constraint, expected_count) in
+        [("list_element", 2), ("dict_value", 2), ("call_argument", 6)]
+    {
+        assert_eq!(
+            variant_mismatches
+                .iter()
+                .filter(|diagnostic| diagnostic
+                    .details
+                    .to_json()
+                    .contains(&format!("\"constraint\":\"{constraint}\"")))
+                .count(),
+            expected_count,
+            "{diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
 fn bound_schema_encode_records_report_nested_variant_mismatches() {
     let source = SourceFile::new(
         "main.veln",

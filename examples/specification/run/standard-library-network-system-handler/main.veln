@@ -337,7 +337,6 @@ fn exercise() -> Result<(), net::NetError> effects [net::IO, net, time, concurre
 	let cancel_ready = channel::bounded<()>(1)
 	let blocked_cancel = task::spawn_with(blocked_accept_cancelled, { listener: listener, token: blocked_token, ready: cancel_ready.tx })
 	let _ = channel::recv(cancel_ready.rx)
-	time::wait_until(time::deadline_after_ms(100))
 	let _ = require_busy_accept(listener, 1000)?
 	time::cancel_owned(blocked_owner)
 	let _ = require_closed_accept_join(task::join(blocked_cancel))?
@@ -401,7 +400,6 @@ fn exercise() -> Result<(), net::NetError> effects [net::IO, net, time, concurre
 	let read_ready = channel::bounded<()>(1)
 	let blocked_read = task::spawn_with(blocked_read_closed, { stream: closing_client, ready: read_ready.tx })
 	let _ = channel::recv(read_ready.rx)
-	time::wait_until(time::deadline_after_ms(100))
 	let _ = require_busy_read(closing_client, 1000)?
 	let _ = net::close_stream(closing_client)?
 	let _ = require_closed_accept_join(task::join(blocked_read))?
@@ -423,7 +421,6 @@ fn exercise() -> Result<(), net::NetError> effects [net::IO, net, time, concurre
 	let accept_ready = channel::bounded<()>(1)
 	let blocked_accept = task::spawn_with(blocked_accept_closed, { listener: closing_listener, ready: accept_ready.tx })
 	let _ = channel::recv(accept_ready.rx)
-	time::wait_until(time::deadline_after_ms(100))
 	let _ = require_busy_accept(closing_listener, 1000)?
 	let _ = net::close_listener(closing_listener)?
 	let _ = require_closed_accept_join(task::join(blocked_accept))?

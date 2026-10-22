@@ -569,7 +569,13 @@ impl<'a> FunctionChecker<'a> {
             {
                 return;
             }
-            self.check_assignable_nested(arg, &expected.ty, actual, expected, "call_argument");
+            self.check_contextual_assignable_nested(
+                arg,
+                &expected.ty,
+                actual,
+                expected,
+                "call_argument",
+            );
             return;
         }
         if joined || is_assignable_nested(&expected.ty, actual) {
@@ -579,7 +585,7 @@ impl<'a> FunctionChecker<'a> {
             ty: type_args.mismatch_expected(field, expected),
             ..expected.clone()
         };
-        self.check_assignable_nested(
+        self.check_contextual_assignable_nested(
             arg,
             &mismatch_context.ty,
             actual,
@@ -722,7 +728,7 @@ impl<'a> FunctionChecker<'a> {
             ty: mismatch_expected,
             ..item_expected.clone()
         };
-        self.check_assignable_nested(
+        self.check_contextual_assignable_nested(
             item,
             &mismatch_context.ty,
             actual,

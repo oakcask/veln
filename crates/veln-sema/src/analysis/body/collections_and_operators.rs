@@ -289,7 +289,7 @@ impl<'a> FunctionChecker<'a> {
             ty: mismatch_expected,
             ..item_expected.clone()
         };
-        self.check_assignable_nested(
+        self.check_contextual_assignable_nested(
             item,
             &mismatch_context.ty,
             actual,

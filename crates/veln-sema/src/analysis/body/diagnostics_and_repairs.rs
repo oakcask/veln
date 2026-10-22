@@ -38,6 +38,30 @@ struct RankedSymbolCandidate {
 }
 
 impl<'a> FunctionChecker<'a> {
+    pub(in crate::analysis) fn check_contextual_assignable_nested(
+        &mut self,
+        expr: &Expr,
+        expected: &Type,
+        actual: &Type,
+        expected_source: &ExpectedType,
+        constraint: &'static str,
+    ) {
+        if matches!(
+            expected_source.source,
+            ExpectedTypeSource::SchemaEncodeParameter
+        ) {
+            self.check_schema_encode_assignable(
+                expr,
+                expected,
+                actual,
+                expected_source,
+                constraint,
+            );
+        } else {
+            self.check_assignable_nested(expr, expected, actual, expected_source, constraint);
+        }
+    }
+
     pub(in crate::analysis) fn check_schema_encode_assignable(
         &mut self,
         expr: &Expr,
