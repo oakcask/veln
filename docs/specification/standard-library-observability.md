@@ -238,12 +238,13 @@ with the same name and attributes remain distinct series.
 `ProductionHealth` reports the retained series count, admitted metric
 observation count, and dropped metric observation count. Both observation
 counts saturate at the maximum `Int` instead of overflowing. Reading health
-does not consume or reset it. Metric decisions and health updates are atomic
-across tasks that inherit the handler, and separately constructed policies do
-not share state. If a task is cancelled before its metric decision commits,
-that decision leaves the policy state unchanged; later metric emissions and
-health reads remain available. The retained identity list never exceeds the
-normalized series limit, and health uses a fixed number of scalar fields.
+does not consume or reset it. Metric decisions and health snapshots are
+serialized across tasks that share the policy, and separately constructed
+policies do not share state. If a task is cancelled before its metric decision
+commits, that decision leaves the policy state unchanged; later metric
+emissions and health reads remain available. The retained identity list never
+exceeds the normalized series limit, and health uses a fixed number of scalar
+fields.
 
 Dropping a metric returns normally and does not change the handled body's
 result. Logs, events, span starts, and span finishes remain accepted terminal
