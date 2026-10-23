@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use veln_repo_language_reference::{
-    generate_checked_catalog, verify_checked_digest, verify_freshness, write_checked_outputs,
+    generate_checked_catalog, verify_freshness, write_checked_outputs,
 };
 
 struct Cli {
@@ -11,7 +11,6 @@ struct Cli {
 
 enum Command {
     Generate,
-    Check,
     CheckFresh,
 }
 
@@ -23,7 +22,6 @@ fn main() {
     let result = match cli.command {
         Command::Generate => generate_checked_catalog(&cli.repository_root)
             .and_then(|generated| write_checked_outputs(&cli.repository_root, &generated)),
-        Command::Check => verify_checked_digest(),
         Command::CheckFresh => verify_freshness(&cli.repository_root).map_err(|mismatch| {
             format!(
                 "regenerate the language-reference catalog; artifact_matches={}, digest_matches={}, checked_digest={}, generated_digest={}",
@@ -46,19 +44,13 @@ fn parse_cli() -> Result<Cli, String> {
         .iter()
         .any(|arg| matches!(arg.as_str(), "-h" | "--help"))
     {
-        return Err(
-            "usage: veln-repo-language-reference [REPOSITORY_ROOT] <generate|check|check-fresh>"
-                .to_string(),
-        );
+        return Err(usage());
     }
     let (repository_root, command) = match arguments.as_slice() {
         [command] => (PathBuf::from("."), parse_command(command)?),
         [root, command] => (PathBuf::from(root), parse_command(command)?),
         _ => {
-            return Err(
-                "usage: veln-repo-language-reference [REPOSITORY_ROOT] <generate|check|check-fresh>"
-                    .to_string(),
-            );
+            return Err(usage());
         }
     };
     Ok(Cli {
@@ -70,10 +62,24 @@ fn parse_cli() -> Result<Cli, String> {
 fn parse_command(command: &str) -> Result<Command, String> {
     match command {
         "generate" => Ok(Command::Generate),
-        "check" => Ok(Command::Check),
         "check-fresh" => Ok(Command::CheckFresh),
         _ => Err(format!(
-            "remove unknown language-reference command `{command}`; expected generate, check, or check-fresh"
+            "remove unknown language-reference command `{command}`; expected generate or check-fresh"
         )),
+    }
+}
+
+fn usage() -> String {
+    "usage: veln-repo-language-reference [REPOSITORY_ROOT] <generate|check-fresh>".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_command, usage};
+
+    #[test]
+    fn check_is_not_a_supported_command() {
+        assert!(parse_command("check").is_err());
+        assert!(!usage().contains("|check|"));
     }
 }
