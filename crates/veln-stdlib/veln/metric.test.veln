@@ -160,11 +160,11 @@ test production_cardinality_serializes_concurrent_emissions() -> Result<(), Stri
 	end
 end
 
-test production_cardinality_serializes_increasing_mixed_emission_and_health_batches() -> Result<(), String> effects [concurrency]
+test production_cardinality_completes_increasing_mixed_emission_and_health_batches_with_correct_final_health() -> Result<(), String> effects [concurrency]
 	if mixed_production_batch_passes(2) and mixed_production_batch_passes(8) and mixed_production_batch_passes(32)
 		Ok(())
 	else
-		Err("production cardinality did not bound mixed concurrent transaction ownership")
+		Err("mixed concurrent metric emissions and health reads did not all complete with correct final health")
 	end
 end
 

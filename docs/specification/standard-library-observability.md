@@ -249,10 +249,11 @@ retained identity index never exceeds the normalized series limit, and health
 uses a fixed number of scalar fields. Identity lookup uses a bounded ordered
 index rather than scanning all retained series. Each emission or health read
 uses its calling task as the scoped transaction owner: a policy creates neither
-a permanent owner task nor an auxiliary task per operation. Across all
-concurrent operations on one policy, at most one acquired state token and one
-commit marker are live; cancellation before the commit phase restores that
-token before the operation exits.
+a permanent owner task nor an auxiliary task per operation. At most one policy
+state token is acquired at a time. Caller-local commit markers can remain live
+until their deferred cleanup runs after the token is published; their number
+is not bounded independently of active calls. Cancellation before the commit
+phase restores the acquired token before the operation exits.
 
 Dropping a metric returns normally and does not change the handled body's
 result. Logs, events, span starts, and span finishes remain accepted terminal
