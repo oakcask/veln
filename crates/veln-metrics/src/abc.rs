@@ -1,33 +1,5 @@
 use super::*;
 
-pub(super) fn abc_subjects(
-    project: &Project,
-    selected_paths: &BTreeSet<String>,
-) -> Vec<AbcSubjectMetric> {
-    let mut subjects = Vec::new();
-    for source in &project.files {
-        let path = source.path().as_str().to_string();
-        if !selected_paths.contains(&path) {
-            continue;
-        }
-        if is_generated_or_doctest_path(&path) {
-            continue;
-        }
-        let parsed = parse(source);
-        if !parsed.diagnostics.is_empty() {
-            continue;
-        }
-        for item in parsed.tree.items {
-            let SyntaxItem::Function(function) = item else {
-                continue;
-            };
-            subjects.push(abc_subject(source, &path, &function));
-        }
-    }
-    subjects.sort_by(compare_abc_subjects);
-    subjects
-}
-
 pub(super) fn abc_subject(
     source: &SourceFile,
     path: &str,
@@ -60,34 +32,6 @@ pub(super) fn abc_subject(
 
 pub(super) fn is_generated_or_doctest_path(path: &str) -> bool {
     path.contains("#doctest-") || path.split('/').any(|segment| segment == "target")
-}
-
-pub(super) fn abc_contract_subject_count(
-    project: &Project,
-    selected_paths: &BTreeSet<String>,
-) -> usize {
-    let mut count = 0;
-    for source in &project.files {
-        let path = source.path().as_str().to_string();
-        if !selected_paths.contains(&path) || is_generated_or_doctest_path(&path) {
-            continue;
-        }
-        let parsed = parse(source);
-        if !parsed.diagnostics.is_empty() {
-            continue;
-        }
-        count += parsed
-            .tree
-            .items
-            .into_iter()
-            .filter_map(|item| match item {
-                SyntaxItem::Function(function) => Some(function),
-                _ => None,
-            })
-            .filter(|function| !function.contracts.is_empty())
-            .count();
-    }
-    count
 }
 
 pub(super) fn abc_vector(function: &FunctionDecl) -> AbcVector {

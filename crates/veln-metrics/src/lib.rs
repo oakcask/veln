@@ -323,6 +323,7 @@ mod dependency_graph;
 mod human_output;
 mod json_output;
 mod similarity;
+mod source_metrics;
 
 use abc::*;
 use analysis::*;
@@ -332,6 +333,7 @@ use json_output::{
     json_string_field, max_json_usize, metrics_io_diagnostic, metrics_policy_diagnostic,
 };
 use similarity::*;
+use source_metrics::*;
 
 pub use human_output::{render_check_human, render_human};
 pub use json_output::{baseline_from_json, baseline_to_json, report_check_to_json, report_to_json};

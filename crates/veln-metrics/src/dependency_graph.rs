@@ -106,17 +106,15 @@ impl DependencyGraph {
         let modules = self.selected_module_metrics(&selected_modules);
         let edges = self.selected_edges(&selected_modules);
         let cycles = self.selected_cycles(&selected_modules);
-        let abc_subjects = abc_subjects(source_project, selected_paths);
-        let abc_contract_subject_count = abc_contract_subject_count(source_project, selected_paths);
-        let (similarities, similarity_fingerprint_count) =
-            similarity_instances(source_project, selected_paths, config.similarity_min_tokens);
+        let source_metrics =
+            collect_source_metrics(source_project, selected_paths, config.similarity_min_tokens);
         let summary = self.summary(
             &modules,
             &cycles,
-            &abc_subjects,
-            abc_contract_subject_count,
-            &similarities,
-            similarity_fingerprint_count,
+            &source_metrics.abc_subjects,
+            source_metrics.abc_contract_subject_count,
+            &source_metrics.similarities,
+            source_metrics.similarity_fingerprint_count,
         );
         MetricsReport {
             project,
@@ -125,8 +123,8 @@ impl DependencyGraph {
             modules,
             edges,
             cycles,
-            abc_subjects,
-            similarities,
+            abc_subjects: source_metrics.abc_subjects,
+            similarities: source_metrics.similarities,
             summary,
             human_output_max_findings: config.human_output_max_findings,
         }

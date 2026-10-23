@@ -174,7 +174,8 @@ fn excludes_annotations_contracts_and_preserves_subject_kind_identity() {
         )],
     };
     let selected = ["app.veln".to_string()].into_iter().collect();
-    let subjects = abc_subjects(&project, &selected);
+    let metrics = collect_source_metrics(&project, &selected, DEFAULT_SIMILARITY_MIN_TOKENS);
+    let subjects = metrics.abc_subjects;
 
     assert_eq!(subjects.len(), 2);
     assert_eq!(subjects[0].kind, AbcSubjectKind::Test);
@@ -191,7 +192,7 @@ fn excludes_annotations_contracts_and_preserves_subject_kind_identity() {
     assert_eq!(subjects[1].vector, AbcVector::default());
     assert_eq!(subjects[0].identity, "app.veln::same");
     assert_eq!(subjects[1].identity, "app.veln::same");
-    assert_eq!(abc_contract_subject_count(&project, &selected), 2);
+    assert_eq!(metrics.abc_contract_subject_count, 2);
 }
 
 #[test]
@@ -218,10 +219,82 @@ fn excludes_generated_and_doctest_derived_abc_subjects() {
     ]
     .into_iter()
     .collect();
-    let subjects = abc_subjects(&project, &selected);
+    let subjects =
+        collect_source_metrics(&project, &selected, DEFAULT_SIMILARITY_MIN_TOKENS).abc_subjects;
 
     assert_eq!(subjects.len(), 1);
     assert_eq!(subjects[0].identity, "app.veln::source");
+}
+
+#[test]
+fn source_metrics_share_selection_and_parse_boundaries() {
+    let included_source =
+        "fn included() -> Int\n  ensure 1 == 1\n  let value = call()\n  value\nend\n";
+    let companion_source =
+        "test companion() -> Int\n  ensure 1 == 1\n  let value = call()\n  value\nend\n";
+    let source_project = Project {
+        root: ".".into(),
+        manifest: None,
+        files: vec![
+            SourceFile::new("app.veln", included_source),
+            SourceFile::new("app.test.veln", companion_source),
+            SourceFile::new("ignored.veln", included_source),
+            SourceFile::new("target/generated.veln", included_source),
+            SourceFile::new("app.veln#doctest-1_test.veln", companion_source),
+            SourceFile::new("broken.veln", "fn broken(\n"),
+        ],
+    };
+    let graph_project = Project {
+        root: ".".into(),
+        manifest: None,
+        files: source_project.files[..2].to_vec(),
+    };
+    let selected = [
+        "app.veln",
+        "app.test.veln",
+        "target/generated.veln",
+        "app.veln#doctest-1_test.veln",
+        "broken.veln",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect::<BTreeSet<_>>();
+    let report = DependencyGraph::from_project(&graph_project)
+        .expect("graph")
+        .report(
+            &source_project,
+            ProjectIdentity {
+                root: ".".to_string(),
+                selected_paths: selected.iter().cloned().collect(),
+            },
+            &selected,
+            MetricsConfig {
+                similarity_min_tokens: 1,
+                ..default_metrics_config()
+            },
+            Vec::new(),
+            MetricsCompleteness::default(),
+        );
+
+    assert_eq!(
+        report
+            .abc_subjects
+            .iter()
+            .map(|subject| subject.identity.as_str())
+            .collect::<Vec<_>>(),
+        ["app.test.veln::companion", "app.veln::included"]
+    );
+    assert_eq!(report.summary.abc_contract_subject_count, 2);
+    assert_eq!(report.summary.similarity_fingerprint_count, 2);
+    assert_eq!(report.similarities.len(), 1);
+    assert_eq!(
+        report.similarities[0]
+            .declarations
+            .iter()
+            .map(|declaration| declaration.identity.as_str())
+            .collect::<Vec<_>>(),
+        ["app.test.veln::companion", "app.veln::included"]
+    );
 }
 
 #[test]

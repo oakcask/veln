@@ -117,7 +117,8 @@ fn orders_abc_subjects_deterministically() {
     let selected = ["a.veln".to_string(), "b.veln".to_string()]
         .into_iter()
         .collect();
-    let subjects = abc_subjects(&project, &selected);
+    let subjects =
+        collect_source_metrics(&project, &selected, DEFAULT_SIMILARITY_MIN_TOKENS).abc_subjects;
 
     assert_eq!(
         subjects
@@ -189,8 +190,9 @@ fn detects_similarity_from_table_driven_source_boundaries() {
             files: vec![SourceFile::new("app.veln", case.source)],
         };
         let selected = ["app.veln".to_string()].into_iter().collect();
-        let (instances, fingerprint_count) =
-            similarity_instances(&project, &selected, case.min_tokens);
+        let metrics = collect_source_metrics(&project, &selected, case.min_tokens);
+        let instances = metrics.similarities;
+        let fingerprint_count = metrics.similarity_fingerprint_count;
         let groups = instances
             .iter()
             .map(|instance| {
