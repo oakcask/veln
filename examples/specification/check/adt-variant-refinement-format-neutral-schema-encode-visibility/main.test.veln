@@ -2,6 +2,7 @@ use main
 
 test companion_can_use_private_constructor() -> ()
 	let state: main::State::Hidden = main::State::Hidden
+	let decoded: Result<{state: main::State::Hidden}, String> = main::byte_decode_private_packet({state: state})
 	match state
 		main::State::Hidden => ()
 	end

@@ -1140,6 +1140,11 @@ while the supplied record is checked. The exception follows a generated encode
 helper through an immutable local binding initialized from that helper. It does
 not follow an ordinary function value merely because its visible function type
 is the same.
+Format-neutral generated decode helpers retain refinements in their parameter
+and successful result types but remain ordinary invariant record boundaries.
+A base ADT, an excluded constructor, or a base-typed decode result supplied at
+a refined nested position therefore reports `type.mismatch`; decode does not
+use the generated-encode variant-exclusion exception.
 This exception does not make ordinary assignment recursively covariant.
 The checked examples cover
 accepted source and compiler-known cases in
@@ -1158,9 +1163,10 @@ Variant-refinement semantic-token classifications are specified in
 rename behavior is specified by
 [editor support](editor-support.md#lsp-navigation-formatting-and-rename) and
 [MCP](mcp.md#saved-workspace-navigation). Qualified-value control-flow
-refinement, schema decode boundaries, LSP invalid-refinement recovery, and
-remaining MCP invalid-refinement recovery, including the saved-state behavior
-of those remaining requests, remain proposal work.
+refinement, external or representation schema decode validation, LSP
+invalid-refinement recovery, and remaining MCP invalid-refinement recovery,
+including the saved-state behavior of those remaining requests, remain
+proposal work.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record

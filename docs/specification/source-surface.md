@@ -241,11 +241,11 @@ The scalar leaves are `Int`, `Bool`, `Float`, and `String`. Containers are
 anonymous records, `Option<T>`, `List<T>`,
 `Vec<T>`, `Dict<String, T>`, and `Result<Ok, Err>`. Same-module source ADTs
 and public imported source ADTs are eligible when every constructor payload also
-has an eligible shape. Encode fields also accept singleton and finite-set
+has an eligible shape. Both directions also accept singleton and finite-set
 refinements of those ADTs recursively through the same containers and through
-composed format-neutral schemas. An encode-only refinement field still
-participates in field-predicate name validation even though it does not publish
-a decode field.
+composed format-neutral schemas. Decode retains each refinement in the helper
+parameter and successful result instead of strengthening a base ADT after the
+call. Field-predicate name validation uses the same retained field shape.
 
 Only source-declared ADTs are eligible for these refinement fields. A finite
 compiler-provided source-less ADT remains usable in an ordinary refinement
@@ -255,11 +255,11 @@ from publishing a format-neutral encode helper. An ordinary container such as
 arguments satisfy the field rules.
 
 A private constructor can appear only in a private schema declared by its own
-module. The exact test companion may explicitly import that target and encode
-through the target's private schema with the private constructor. A public
-schema boundary and an ordinary imported schema user cannot expose a private
-constructor through a generated encode helper. The encode eligibility check
-applies to the constructors written in nested singleton and finite-set
+module. The exact test companion may explicitly import that target and decode
+or encode through the target's private schema with the private constructor. A
+public schema boundary and an ordinary imported schema user cannot expose a
+private constructor through a generated helper. Direction-specific eligibility
+checks apply to the constructors written in nested singleton and finite-set
 refinements before a singleton or complete set is normalized to another type
 form. Provider-backed opaque ADTs do not become eligible refinements. Private
 imports other than exact-companion access, missing or wrong-kind targets, and
@@ -320,10 +320,10 @@ record. `encode SchemaName from value` accepts that record and returns
 use `Result<T, String>` and do not produce binary bytes. Bare operation paths
 resolve only to same-module schemas; qualified public schemas and public aliases
 are available through written imports. An exact test companion may also use an
-explicitly imported private schema from its target module, including an encode
-operation whose schema-local record contains a private refinement admitted by
-the format-neutral field rules. A written import does not create a bare schema
-operation path. Generated helper names are implementation details.
+explicitly imported private schema from its target module, including a decode
+or encode operation whose schema-local record contains a private refinement
+admitted by the format-neutral field rules. A written import does not create a
+bare schema operation path. Generated helper names are implementation details.
 
 ## Codecs
 

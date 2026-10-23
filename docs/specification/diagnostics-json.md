@@ -551,6 +551,16 @@ specific to generated schema encode boundaries and follows a generated encode
 helper through an immutable local binding. An ordinary function value with the
 same visible type retains ordinary aggregate invariance.
 
+Format-neutral generated decode helpers retain refinements in their parameter
+and successful `Result` types, but they use ordinary invariant record
+compatibility. Supplying a base ADT or an excluded constructor at a refined
+nested position reports `type.mismatch`, as does assigning a base-typed decode
+result to a refined result. These failures do not contain the
+`expected_variants` or `excluded_variants` details of `type.variant_mismatch`.
+The checked
+[`format-neutral decode JSON case`](../../examples/specification/check/adt-variant-refinement-format-neutral-schema-decode-json/)
+covers all three boundaries.
+
 A valid constructor arm for a stable match scrutinee refines the matched place
 to the constructor singleton while checking the arm. A stable scrutinee is an
 immutable binding written as a bare name or with redundant parentheses, or a

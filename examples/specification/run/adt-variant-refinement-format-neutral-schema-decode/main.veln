@@ -1,0 +1,46 @@
+# Format-neutral schema decode helpers retain refinements and pass source ADT values through unchanged.
+use stdio
+
+pub type State
+	pub Ready(value: Int)
+	pub Closed(value: Int)
+	pub Failed(value: Int)
+end
+
+schema Packet
+	singleton: State::Ready
+	union: State::Ready | State::Closed
+	nested: Option<List<State::Ready>>
+end
+
+fn describe_state(state: State) -> Int
+	match state
+		Ready(value) => value
+		Closed(value) => -value
+		Failed(_) => 0
+	end
+end
+
+fn describe_nested(states: Option<List<State::Ready>>) -> Int
+	match states
+		Some(Cons(state, _)) => describe_state(state)
+		Some(Nil) => 0
+		None => -1
+	end
+end
+
+fn print_decoded(result: Result<{singleton: State::Ready, union: State::Ready | State::Closed, nested: Option<List<State::Ready>>}, String>) -> () effects [stdio]
+	match result
+		Ok(packet) => begin
+			stdio::println(int_to_string(describe_state(packet.singleton)))
+			stdio::println(int_to_string(describe_state(packet.union)))
+			stdio::println(int_to_string(describe_nested(packet.nested)))
+		end
+		Err(message) => stdio::println(message)
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let packet: {singleton: State::Ready, union: State::Ready | State::Closed, nested: Option<List<State::Ready>>} = {singleton: Ready(3), union: Closed(5), nested: Some(list_cons(Ready(7), list_nil()))}
+	print_decoded(byte_decode_packet(packet))
+end

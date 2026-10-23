@@ -326,7 +326,21 @@ install that production client boundary.
   imported source ADTs referenced through written `use` paths are supported in
   the same positions when every constructor payload is a recursive
   format-neutral visible shape; the helper preserves the source ADT value
-  shape through the pass-through boundary.
+  shape through the pass-through boundary. An eligible singleton or
+  finite-set refinement remains in both the helper parameter and successful
+  `Result` type through supported containers, anonymous records, and composed
+  format-neutral schemas. The supplied record must be assignable to that
+  refined parameter. A base ADT or an excluded constructor at a refined
+  position fails static checking with `type.mismatch`.
+  A schema that declares the base ADT retains the base type in its successful
+  result; the constructor observed at runtime does not strengthen that result.
+  On success the helper returns the same value. It performs no runtime
+  refinement check and introduces no wire representation. Helper visibility
+  follows the [schema-operation rules](source-surface.md#schema-operations):
+  an exact test companion may call an explicitly imported private target
+  helper whose signature contains a private refinement, but a public helper
+  signature cannot expose a private constructor and ordinary importers gain no
+  private access.
 - Format-neutral generated encode helpers for schemas without a `format`
   clause accept the schema-local record defined by the
   [format-neutral field eligibility rules](source-surface.md#format-neutral-fields)
@@ -550,6 +564,13 @@ than degrading it to a generic rendered result value.
   [`adt-variant-refinement-format-neutral-schema-encode-source-boundary`](../../examples/specification/check/adt-variant-refinement-format-neutral-schema-encode-source-boundary/).
   Exact-companion access to a private refined schema is checked by
   [`companion-private-schema-access`](../../examples/specification/check/companion-private-schema-access/).
+- Format-neutral typed pass-through decode behavior is checked by
+  [`adt-variant-refinement-format-neutral-schema-decode`](../../examples/specification/run/adt-variant-refinement-format-neutral-schema-decode/)
+  and
+  [`adt-variant-refinement-format-neutral-schema-decode-json`](../../examples/specification/check/adt-variant-refinement-format-neutral-schema-decode-json/).
+  Its public/private helper boundary is checked together with encode visibility
+  by
+  [`adt-variant-refinement-format-neutral-schema-encode-visibility`](../../examples/specification/check/adt-variant-refinement-format-neutral-schema-encode-visibility/).
 - JVM networking execution evidence compiles checked programs with the
   exported standard modules. The backend cases exercise real socket and task
   cancellation through `net::IO` and `net::system()`. Separate Veln support

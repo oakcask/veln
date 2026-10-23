@@ -1,0 +1,29 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["expected `{state: State::Ready | State::Closed}`, but found `{state: State}`", "expected `{state: State::Ready | State::Closed}`, but found `{state: State::Failed}`", "expected `Result<{state: State::Ready}, String>`, but found `Result<{state: State}, String>`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "type.mismatch"
