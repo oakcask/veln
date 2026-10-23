@@ -254,8 +254,10 @@ sources, out-of-source or inconsistent positions, or reversed ranges remain
 available only through the compiler diagnostic envelope.
 
 This projection applies to variant-refinement diagnostics, including
-`type.variant_union_base`; it does not recover navigation identities from an
-invalid refinement. The checked stdio evidence is under
+`type.variant_union_base`. Diagnostic projection alone does not establish a
+navigation identity; the shared navigation rules below separately define the
+eligible workspace-base identity retained for an invalid final segment. The
+checked stdio evidence is under
 `examples/specification/lsp/adt-variant-refinement-diagnostics/`.
 
 Span-less diagnostics are published at a zero-width start range while
@@ -399,8 +401,9 @@ preservation through canonically equal generic aliases, and separation of alias
 and constructor edits.
 The checked
 [`adt-variant-refinement-invalid-final-recovery`](../../examples/specification/lsp/adt-variant-refinement-invalid-final-recovery/)
-case covers base-only projection, an empty final segment, inbound UTF-16 after
-a non-BMP scalar, and preservation of an unsaved overlay after a failed request.
+case covers direct and alias base-only projection, empty final segments, the
+empty external-origin boundary, inbound UTF-16 after a non-BMP scalar, and
+preservation of an unsaved overlay after a failed request.
 The character position at the end of a line is valid and preserves half-open
 selection behavior. After `params.textDocument.uri` selects a retained source,
 the request must contain exactly one direct `params.position` object. That

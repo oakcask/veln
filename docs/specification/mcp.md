@@ -506,8 +506,9 @@ edits without target-ADT or constructor edits, exclusion of a same-spelled
 constructor from another ADT, and empty results for an invalid mixed-ADT union.
 The checked `adt-variant-refinement-invalid-final-recovery` case asserts
 workspace-alias base recovery through definition, paginated references, and
-rename, cursor continuation after a failed request, empty final selection, and
-the empty package-written-base boundary.
+rename. It also asserts cursor continuation and unchanged saved results and
+resources after a failed request, empty final selection, and the empty direct
+dependency, package-alias, and standard-library written-base boundaries.
 
 ### Source presentation
 
