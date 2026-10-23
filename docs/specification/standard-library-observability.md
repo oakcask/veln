@@ -13,7 +13,9 @@ handler, explicit channel-value context attachment, explicit fan-in parent and
 link selection, explicit carrier context propagation, and call-site-aware
 structured log helpers for four severities, named domain events, counter
 increments, histogram samples, and a configured production metric-cardinality
-policy with bounded health reporting.
+policy with bounded health reporting. It also provides a synchronous JSON
+Lines handler with configured resource identity, scope identity, attribute
+limits, destinations, and exporter health.
 Programs choose a lexical handler for the effect; the library does not select
 an exporter implicitly.
 
@@ -151,6 +153,22 @@ span request. `observe::exporter_health` reads a
 non-consuming health snapshot. `observe::report_exporter_health` writes one
 summary only to the configured diagnostic destination; a disabled diagnostic
 destination makes that call a successful no-op.
+
+`observe::StandardError` writes and flushes the process standard error stream.
+`observe::FileDestination(path)` creates the file when needed and appends
+UTF-8 bytes without truncating prior records.
+`observe::NoDiagnosticDestination` accepts a write without producing output.
+The default constructor uses standard error for records and the disabled
+destination for health summaries. The explicit constructor accepts these
+choices independently for records and summaries.
+
+For direct composition, `observe::apply_metric_cardinality` applies one
+record to a production policy and returns whether that record is admitted.
+`observe::export_observation` writes one observation without applying that
+policy. `observe::start_export_span` writes a span-start record and returns its
+span handle. `observe::finish_export_span` writes a finish record for a span
+returned by `observe::start_export_span`. The `observe::json_lines` handler
+combines these lower-level operations and is the ordinary installation route.
 
 Use `traced::spawn(context, body)` to start a child task whose callback needs
 an explicit `observe::TraceContext`. The callback accepts that context as its
@@ -368,6 +386,30 @@ unchanged. Export and health-summary writes do not perform `Observe`, so a
 failure cannot recursively create telemetry. Exported source files use the
 compiler's canonical repository or virtual name. The host boundary replaces
 an unexpected absolute source with its final path component before encoding.
+
+### Direct exporter operations
+
+`observe::apply_metric_cardinality(production, record)` returns `true` for a
+non-metric observation, a known metric series, or a new series admitted below
+the configured limit. It returns `false` for an unseen series after the limit
+is full. Metric calls update the same admitted, dropped, and retained-series
+state read by `observe::production_health`.
+
+`observe::export_observation(exporter, record)` synchronously writes the
+matching log, event, counter, or histogram record. It does not apply
+metric-cardinality admission. A direct caller that needs the handler's metric
+policy must call `observe::apply_metric_cardinality` first and export only an
+admitted record.
+
+`observe::start_export_span(exporter, request)` allocates the span identities,
+writes the span-start record, and returns a span whose context is available
+through `observe::context`. A located request created by
+`observe::span_request` supplies the call site; an ordinary `SpanRequest`
+produces the exporter fallback source. `observe::finish_export_span` writes a
+span-finish record only when its `SpanFinish` contains an exporter span. Other
+span representations are accepted as a no-op. Each direct start, finish, or
+observation export uses the same sequence, destination, attribute-limit, and
+failure-health rules as handler-driven export.
 
 ### Span lifecycle and recording
 
