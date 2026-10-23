@@ -22,6 +22,14 @@ const RUNTIME_FRAGMENTS: &[&str] = &[
     "interop.java.inc",
 ];
 
+struct PortableUnicodeData {
+    decompositions: Vec<(u32, Vec<char>)>,
+    combining_classes: Vec<(u32, u8)>,
+    compositions: BTreeMap<(u32, u32), u32>,
+    whitespace: Vec<u32>,
+    controls: Vec<u32>,
+}
+
 fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("manifest dir"));
     let runtime_source_dir = manifest_dir.join("src").join("runtime");
@@ -74,94 +82,8 @@ fn runtime_source(runtime_source_dir: &Path) -> String {
 fn portable_unicode_source() -> String {
     assert_eq!(unicode_normalization::UNICODE_VERSION, (17, 0, 0));
 
-    let mut decompositions = Vec::new();
-    let mut combining_classes = Vec::new();
-    let mut compositions = BTreeMap::new();
-    let mut whitespace = Vec::new();
-    let mut controls = Vec::new();
-
-    for value in 0..=0x10ffff {
-        let Some(character) = char::from_u32(value) else {
-            continue;
-        };
-        let combining_class = canonical_combining_class(character);
-        if combining_class != 0 {
-            combining_classes.push((value, combining_class));
-        }
-        if character.is_whitespace() {
-            whitespace.push(value);
-        }
-        if character.is_control() {
-            controls.push(value);
-        }
-
-        if (0xac00..0xd7a4).contains(&value) {
-            continue;
-        }
-        let mut decomposition = Vec::new();
-        decompose_canonical(character, |part| decomposition.push(part));
-        if decomposition.len() == 1 && decomposition[0] == character {
-            continue;
-        }
-        decompositions.push((value, decomposition.clone()));
-
-        let mut starter = decomposition[0];
-        let mut last_class = 0;
-        for part in decomposition.into_iter().skip(1) {
-            let part_class = canonical_combining_class(part);
-            if (last_class == 0 || last_class < part_class)
-                && let Some(composite) = compose(starter, part)
-            {
-                compositions.insert((starter as u32, part as u32), composite as u32);
-                starter = composite;
-            } else {
-                if part_class == 0 {
-                    starter = part;
-                }
-                last_class = part_class;
-            }
-        }
-    }
-
-    let mut bytes = Vec::new();
-    push_u32(&mut bytes, decompositions.len());
-    for (character, decomposition) in decompositions {
-        push_u32(&mut bytes, character as usize);
-        bytes.push(u8::try_from(decomposition.len()).expect("canonical decomposition length"));
-        for part in decomposition {
-            push_u32(&mut bytes, part as usize);
-        }
-    }
-    push_u32(&mut bytes, combining_classes.len());
-    for (character, combining_class) in combining_classes {
-        push_u32(&mut bytes, character as usize);
-        bytes.push(combining_class);
-    }
-    push_u32(&mut bytes, compositions.len());
-    for ((starter, part), composite) in compositions {
-        push_u32(&mut bytes, starter as usize);
-        push_u32(&mut bytes, part as usize);
-        push_u32(&mut bytes, composite as usize);
-    }
-    push_u32(&mut bytes, whitespace.len());
-    for character in whitespace {
-        push_u32(&mut bytes, character as usize);
-    }
-    push_u32(&mut bytes, controls.len());
-    for character in controls {
-        push_u32(&mut bytes, character as usize);
-    }
-
-    let encoded = encode_base64(&bytes);
-    let mut chunks = String::from("        StringBuilder encoded = new StringBuilder();\n");
-    for chunk in encoded.as_bytes().chunks(16_000) {
-        writeln!(
-            chunks,
-            "        encoded.append({:?});",
-            std::str::from_utf8(chunk).expect("base64 is UTF-8")
-        )
-        .unwrap();
-    }
+    let bytes = portable_unicode_bytes(collect_portable_unicode_data());
+    let chunks = portable_unicode_chunks(&bytes);
 
     format!(
         r#"
@@ -316,6 +238,118 @@ fn portable_unicode_source() -> String {
     }}
 "#
     )
+}
+
+fn collect_portable_unicode_data() -> PortableUnicodeData {
+    let mut decompositions = Vec::new();
+    let mut combining_classes = Vec::new();
+    let mut compositions = BTreeMap::new();
+    let mut whitespace = Vec::new();
+    let mut controls = Vec::new();
+
+    for value in 0..=0x10ffff {
+        let Some(character) = char::from_u32(value) else {
+            continue;
+        };
+        let combining_class = canonical_combining_class(character);
+        if combining_class != 0 {
+            combining_classes.push((value, combining_class));
+        }
+        if character.is_whitespace() {
+            whitespace.push(value);
+        }
+        if character.is_control() {
+            controls.push(value);
+        }
+
+        if (0xac00..0xd7a4).contains(&value) {
+            continue;
+        }
+        let mut decomposition = Vec::new();
+        decompose_canonical(character, |part| decomposition.push(part));
+        if decomposition.len() == 1 && decomposition[0] == character {
+            continue;
+        }
+        collect_canonical_compositions(&decomposition, &mut compositions);
+        decompositions.push((value, decomposition));
+    }
+
+    PortableUnicodeData {
+        decompositions,
+        combining_classes,
+        compositions,
+        whitespace,
+        controls,
+    }
+}
+
+fn collect_canonical_compositions(
+    decomposition: &[char],
+    compositions: &mut BTreeMap<(u32, u32), u32>,
+) {
+    let mut starter = decomposition[0];
+    let mut last_class = 0;
+    for &part in &decomposition[1..] {
+        let part_class = canonical_combining_class(part);
+        if (last_class == 0 || last_class < part_class)
+            && let Some(composite) = compose(starter, part)
+        {
+            compositions.insert((starter as u32, part as u32), composite as u32);
+            starter = composite;
+        } else {
+            if part_class == 0 {
+                starter = part;
+            }
+            last_class = part_class;
+        }
+    }
+}
+
+fn portable_unicode_bytes(data: PortableUnicodeData) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    push_u32(&mut bytes, data.decompositions.len());
+    for (character, decomposition) in data.decompositions {
+        push_u32(&mut bytes, character as usize);
+        bytes.push(u8::try_from(decomposition.len()).expect("canonical decomposition length"));
+        for part in decomposition {
+            push_u32(&mut bytes, part as usize);
+        }
+    }
+    push_u32(&mut bytes, data.combining_classes.len());
+    for (character, combining_class) in data.combining_classes {
+        push_u32(&mut bytes, character as usize);
+        bytes.push(combining_class);
+    }
+    push_u32(&mut bytes, data.compositions.len());
+    for ((starter, part), composite) in data.compositions {
+        push_u32(&mut bytes, starter as usize);
+        push_u32(&mut bytes, part as usize);
+        push_u32(&mut bytes, composite as usize);
+    }
+    push_u32(&mut bytes, data.whitespace.len());
+    for character in data.whitespace {
+        push_u32(&mut bytes, character as usize);
+    }
+    push_u32(&mut bytes, data.controls.len());
+    for character in data.controls {
+        push_u32(&mut bytes, character as usize);
+    }
+
+    bytes
+}
+
+fn portable_unicode_chunks(bytes: &[u8]) -> String {
+    let encoded = encode_base64(bytes);
+    let mut chunks = String::from("        StringBuilder encoded = new StringBuilder();\n");
+    for chunk in encoded.as_bytes().chunks(16_000) {
+        writeln!(
+            chunks,
+            "        encoded.append({:?});",
+            std::str::from_utf8(chunk).expect("base64 is UTF-8")
+        )
+        .unwrap();
+    }
+    chunks
 }
 
 fn push_u32(output: &mut Vec<u8>, value: usize) {
