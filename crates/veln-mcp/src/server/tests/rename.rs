@@ -123,7 +123,7 @@ fn variant_refinement_navigation_uses_shared_constructor_identity() {
 }
 
 #[test]
-fn invalid_variant_refinement_alias_bases_do_not_select_or_rename() {
+fn invalid_variant_refinement_alias_bases_project_saved_navigation() {
     let workspace = TempWorkspace::new("invalid-variant-refinement-alias-base");
     workspace.write("veln.toml", "");
     workspace.write(
@@ -147,21 +147,53 @@ fn invalid_variant_refinement_alias_bases_do_not_select_or_rename() {
     );
     let mut server = initialized_server(&workspace);
 
-    for (line, column) in [(22, 19), (26, 23), (30, 27)] {
+    for (line, base_column, final_column) in [(22, 19, 26), (26, 23, 30), (30, 27, 34)] {
         let definition = server.definition_tool(&json!({
-            "source": "main.veln", "line": line, "column": column
+            "source": "main.veln", "line": line, "column": base_column
         }));
-        assert_eq!(
+        assert_ne!(
             definition["structuredContent"]["definition"],
             Value::Null,
             "{definition:#}"
         );
+        let references = server.references_tool(&json!({
+            "source": "main.veln", "line": line, "column": base_column,
+            "include_declaration": true
+        }));
+        assert_eq!(
+            references["structuredContent"]["references"]
+                .as_array()
+                .unwrap()
+                .len(),
+            7,
+            "{references:#}"
+        );
 
         let renamed = server.rename_tool(&json!({
-            "source": "main.veln", "line": line, "column": column,
+            "source": "main.veln", "line": line, "column": base_column,
             "new_name": "RenamedAlias"
         }));
-        assert!(edits(&renamed).is_empty(), "{renamed:#}");
+        assert_eq!(edits(&renamed).len(), 7, "{renamed:#}");
+
+        let final_definition = server.definition_tool(&json!({
+            "source": "main.veln", "line": line, "column": final_column
+        }));
+        assert_eq!(
+            final_definition["structuredContent"]["definition"],
+            Value::Null,
+            "{final_definition:#}"
+        );
+        let final_references = server.references_tool(&json!({
+            "source": "main.veln", "line": line, "column": final_column,
+            "include_declaration": true
+        }));
+        assert!(
+            final_references["structuredContent"]["references"]
+                .as_array()
+                .unwrap()
+                .is_empty(),
+            "{final_references:#}"
+        );
     }
 
     for (line, column) in [(14, 24), (18, 23), (18, 38)] {

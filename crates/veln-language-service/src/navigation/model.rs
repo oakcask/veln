@@ -964,7 +964,9 @@ enum VariantRefinementBaseSymbol {
 #[derive(Clone, Debug)]
 struct VariantRefinementNavigationIdentity {
     base: VariantRefinementBaseSymbol,
-    constructor: ConstructorSymbol,
+    terminal: TypeSymbol,
+    semantically_valid: bool,
+    constructor: Option<ConstructorSymbol>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

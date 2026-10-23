@@ -335,6 +335,8 @@ thread_local! {
     static VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static VARIANT_REFINEMENT_ALIAS_CACHE_REUSES: Cell<usize> = const { Cell::new(0) };
     static VARIANT_REFINEMENT_BASE_FINAL_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_GROUP_CLASSIFICATIONS: Cell<usize> = const { Cell::new(0) };
+    static VARIANT_REFINEMENT_GROUP_ALTERNATIVE_VISITS: Cell<usize> = const { Cell::new(0) };
     static VARIANT_REFINEMENT_RENDERED_ANNOTATIONS: Cell<usize> = const { Cell::new(0) };
     static VARIANT_REFINEMENT_RENDERED_BYTES: Cell<usize> = const { Cell::new(0) };
     static VARIANT_REFINEMENT_CANONICAL_ANNOTATION_BYTES: Cell<usize> = const { Cell::new(0) };
@@ -1053,6 +1055,17 @@ fn record_variant_refinement_base_final_lookup() {
 #[cfg(not(test))]
 fn record_variant_refinement_base_final_lookup() {}
 
+#[cfg(test)]
+fn record_variant_refinement_group_classification(alternatives: usize) {
+    VARIANT_REFINEMENT_GROUP_CLASSIFICATIONS
+        .set(VARIANT_REFINEMENT_GROUP_CLASSIFICATIONS.get() + 1);
+    VARIANT_REFINEMENT_GROUP_ALTERNATIVE_VISITS
+        .set(VARIANT_REFINEMENT_GROUP_ALTERNATIVE_VISITS.get() + alternatives);
+}
+
+#[cfg(not(test))]
+fn record_variant_refinement_group_classification(_alternatives: usize) {}
+
 #[cfg(not(test))]
 fn record_variant_refinement_alias_cache_reuse() {}
 
@@ -1072,6 +1085,8 @@ pub(crate) fn reset_variant_refinement_navigation_work() {
     VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS.set(0);
     VARIANT_REFINEMENT_ALIAS_CACHE_REUSES.set(0);
     VARIANT_REFINEMENT_BASE_FINAL_LOOKUPS.set(0);
+    VARIANT_REFINEMENT_GROUP_CLASSIFICATIONS.set(0);
+    VARIANT_REFINEMENT_GROUP_ALTERNATIVE_VISITS.set(0);
     VARIANT_REFINEMENT_RENDERED_ANNOTATIONS.set(0);
     VARIANT_REFINEMENT_RENDERED_BYTES.set(0);
     VARIANT_REFINEMENT_CANONICAL_ANNOTATION_BYTES.set(0);
@@ -1113,6 +1128,8 @@ pub(crate) fn variant_refinement_navigation_work() -> (
     usize,
     usize,
     usize,
+    usize,
+    usize,
 ) {
     (
         VARIANT_REFINEMENT_TOKEN_INDEX_ENTRIES.get(),
@@ -1124,6 +1141,8 @@ pub(crate) fn variant_refinement_navigation_work() -> (
         VARIANT_REFINEMENT_ALIAS_TARGET_LOOKUPS.get(),
         VARIANT_REFINEMENT_ALIAS_CACHE_REUSES.get(),
         VARIANT_REFINEMENT_BASE_FINAL_LOOKUPS.get(),
+        VARIANT_REFINEMENT_GROUP_CLASSIFICATIONS.get(),
+        VARIANT_REFINEMENT_GROUP_ALTERNATIVE_VISITS.get(),
     )
 }
 

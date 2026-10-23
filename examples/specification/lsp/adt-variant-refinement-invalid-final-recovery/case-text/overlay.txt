@@ -1,0 +1,7 @@
+type S
+	Ready
+end
+
+fn observe(value: S::Missing) -> {label: String, state: S}
+	{label: "😀", state: keep<S::Missing>(value)}
+end

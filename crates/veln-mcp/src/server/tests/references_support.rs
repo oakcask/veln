@@ -28,6 +28,29 @@ pub(super) fn all_resource_state(server: &mut Server) -> Value {
     json!(resources)
 }
 
+pub(super) fn complete_resource_state(server: &mut Server) -> Value {
+    let resources = all_resource_state(server);
+    let dependency_reads = resources
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|resource| resource["uri"].as_str())
+        .filter(|uri| uri.starts_with("veln-pkg:///"))
+        .map(|uri| {
+            let read = server
+                .handle_request(json!({
+                    "jsonrpc":"2.0",
+                    "id":"complete-resource-state",
+                    "method":"resources/read",
+                    "params":{"uri":uri}
+                }))
+                .unwrap();
+            json!({"uri":uri,"response":read})
+        })
+        .collect::<Vec<_>>();
+    json!({"resources":resources,"dependency_reads":dependency_reads})
+}
+
 pub(super) fn dependency_resource_is_listed(server: &mut Server, identity: &str) -> bool {
     let prefix = format!("veln-pkg:///{}/snapshot/", identity.replace('/', "%2F"));
     all_resource_state(server)

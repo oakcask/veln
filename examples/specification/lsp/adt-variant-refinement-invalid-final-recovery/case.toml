@@ -1,0 +1,56 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 2
+path = "/result/range"
+equals = {"start":{"line":0,"character":5},"end":{"line":0,"character":6}}
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+length = 4
+
+[[lsp_assert]]
+id = 4
+path = "/result"
+equals = {"start":{"line":5,"character":27},"end":{"line":5,"character":28}}
+
+[[lsp_assert]]
+id = 5
+path = "/result/changes/$workspace_file_uri:main.veln"
+length = 4
+
+[[lsp_assert]]
+id = 6
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 7
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 8
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 9
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 10
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 11
+path = "/result/range"
+equals = {"start":{"line":0,"character":5},"end":{"line":0,"character":6}}

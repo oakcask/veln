@@ -484,11 +484,30 @@ an empty reference list, or an empty edit list. Invalid paths, positions,
 captures, and pagination retain the failure and state-preservation rules of the
 corresponding MCP tool.
 
+For an unknown, non-constructor, or wrong-owner final segment, MCP projects the
+shared workspace-base recovery. A written workspace ADT or workspace alias has
+definition, references, and rename results for that base only. A workspace
+alias may terminate at a dependency or standard-library ADT. A written
+dependency, standard-library, package-backed, or source-less base and every
+invalid final segment return the ordinary empty result. Invalid arity,
+arguments, terminal ADT identity, canonical union arguments, visibility, or
+same-owner uniqueness also prevents recovery.
+
+A failed invalid-final request preserves the exact saved selection, prior tool
+result, complete retained dependency-resource metadata and contents, and every
+existing references cursor. Continuing a cursor after the failure returns the
+next page from its original captured result. The failed request admits no new
+dependency resource.
+
 The checked `adt-variant-refinement-navigation` MCP case asserts the exact
 ordered constructor references and rename edits across direct and
 alias-qualified refinements. It also asserts alias-base definition and rename
 edits without target-ADT or constructor edits, exclusion of a same-spelled
 constructor from another ADT, and empty results for an invalid mixed-ADT union.
+The checked `adt-variant-refinement-invalid-final-recovery` case asserts
+workspace-alias base recovery through definition, paginated references, and
+rename, cursor continuation after a failed request, empty final selection, and
+the empty package-written-base boundary.
 
 ### Source presentation
 

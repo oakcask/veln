@@ -619,7 +619,7 @@
     }
 
     #[test]
-    fn invalid_variant_refinement_bases_require_complete_identity() {
+    fn invalid_variant_refinement_finals_retain_only_workspace_bases() {
         let text = concat!(
             "type State\n",
             "  Ready\n",
@@ -662,17 +662,24 @@
             column: text.lines().nth(line - 1).unwrap().find(needle).unwrap() + 1,
         };
 
-        for (line, needle) in [
-            (22, "Alias::"),
-            (26, "Alias::"),
-            (30, "Alias::"),
-            (34, "State::"),
-            (38, "State::"),
-            (42, "State::"),
+        for (line, base, final_name) in [
+            (22, "Alias::", "Missing"),
+            (26, "Alias::", "Shared"),
+            (30, "Alias::", "Helper"),
+            (34, "State::", "Missing"),
+            (38, "State::", "Shared"),
+            (42, "State::", "Helper"),
         ] {
-            assert!(definition_at(&snapshot, position(line, needle)).is_none());
-            assert!(navigate(&snapshot, position(line, needle)).is_none());
-            assert!(navigate_for_rename(&snapshot, position(line, needle)).is_none());
+            let navigation = navigate(&snapshot, position(line, base))
+                .unwrap_or_else(|| panic!("invalid-final base recovery at line {line}"));
+            assert_eq!(navigation.selected_symbol.kind, SymbolKind::Type);
+            assert!(definition_at(&snapshot, position(line, base)).is_some());
+            let rename = navigate_for_rename(&snapshot, position(line, base)).unwrap();
+            assert!(validate_rename_in_snapshot(&snapshot, &rename, "Recovered").is_ok());
+
+            assert!(definition_at(&snapshot, position(line, final_name)).is_none());
+            assert!(navigate(&snapshot, position(line, final_name)).is_none());
+            assert!(navigate_for_rename(&snapshot, position(line, final_name)).is_none());
         }
 
         for (line, needle) in [(14, "Alias::"), (18, "Alias::")] {
@@ -1125,7 +1132,7 @@
     }
 
     type VariantRefinementNavigationWork =
-        (usize, usize, usize, usize, usize, usize, usize, usize, usize);
+        (usize, usize, usize, usize, usize, usize, usize, usize, usize, usize, usize);
 
     fn variant_refinement_lookup_work(
         annotation_count: usize,
@@ -1195,6 +1202,8 @@
         assert_eq!(larger.6, smaller.6, "{smaller:?} -> {larger:?}");
         assert!(larger.7 <= smaller.7 * 2 + 16, "{smaller:?} -> {larger:?}");
         assert!(larger.8 <= smaller.8 * 2 + 16, "{smaller:?} -> {larger:?}");
+        assert!(larger.9 <= smaller.9 * 2 + 16, "{smaller:?} -> {larger:?}");
+        assert!(larger.10 <= smaller.10 * 2 + 16, "{smaller:?} -> {larger:?}");
     }
 
     #[test]
@@ -1213,6 +1222,82 @@
                 assert_adjacent_variant_refinement_work(smaller, larger);
             }
             eprintln!("variant refinement navigation evidence rename={rename}: {evidence:?}");
+        }
+    }
+
+    fn invalid_final_union_work(
+        width: usize,
+        alias_base: bool,
+        wrong_owner: bool,
+    ) -> VariantRefinementNavigationWork {
+        reset_variant_refinement_navigation_work();
+        let mut text = String::from("type State\n  Ready\nend\n\npub type Alias = State\n\n");
+        if wrong_owner {
+            text.push_str("type Other\n");
+            for index in 0..width {
+                text.push_str(&format!("  Wrong{index}\n"));
+            }
+            text.push_str("end\n\n");
+        }
+        let base = if alias_base { "Alias" } else { "State" };
+        let final_prefix = if wrong_owner { "Wrong" } else { "Missing" };
+        let alternatives = (0..width)
+            .map(|index| format!("{base}::{final_prefix}{index}"))
+            .collect::<Vec<_>>()
+            .join(" | ");
+        text.push_str(&format!(
+            "fn observe(value: {alternatives}) -> Int\n  0\nend\n"
+        ));
+        let (line, source_line) = text
+            .lines()
+            .enumerate()
+            .find(|(_, line)| line.starts_with("fn observe"))
+            .unwrap();
+        let position = || SourcePosition {
+            source: SourcePath::new("main.veln"),
+            line: line + 1,
+            column: source_line.find(base).unwrap() + 1,
+        };
+        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &text)]);
+        assert!(definition_at(&snapshot, position()).is_some());
+        let navigation = navigate(&snapshot, position()).unwrap();
+        assert!(
+            navigation.references.len() >= width,
+            "base={base} wrong_owner={wrong_owner} width={width} references={}",
+            navigation.references.len()
+        );
+        let rename = navigate_for_rename(&snapshot, position()).unwrap();
+        assert!(rename.references.len() >= width);
+        assert!(validate_rename_in_snapshot(&snapshot, &rename, "Recovered").is_ok());
+        variant_refinement_navigation_work()
+    }
+
+    #[test]
+    fn invalid_final_union_group_work_is_adjacent_and_reused() {
+        for alias_base in [false, true] {
+            for wrong_owner in [false, true] {
+                let smaller = invalid_final_union_work(64, alias_base, wrong_owner);
+                let larger = invalid_final_union_work(65, alias_base, wrong_owner);
+                for (smaller_metric, larger_metric) in [
+                    (smaller.0, larger.0),
+                    (smaller.1, larger.1),
+                    (smaller.2, larger.2),
+                    (smaller.3, larger.3),
+                    (smaller.4, larger.4),
+                    (smaller.5, larger.5),
+                    (smaller.6, larger.6),
+                    (smaller.7, larger.7),
+                    (smaller.8, larger.8),
+                ] {
+                    assert!(larger_metric >= smaller_metric, "{smaller:?} -> {larger:?}");
+                    assert!(
+                        larger_metric <= smaller_metric + 32,
+                        "{smaller:?} -> {larger:?}"
+                    );
+                }
+                assert_eq!((smaller.9, larger.9), (1, 1));
+                assert_eq!((smaller.10, larger.10), (64, 65));
+            }
         }
     }
 

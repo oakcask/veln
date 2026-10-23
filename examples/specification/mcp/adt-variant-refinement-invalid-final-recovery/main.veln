@@ -1,0 +1,15 @@
+use dep from "example/dep"
+
+pub type Alias = dep::Remote
+
+fn first(value: Alias::Missing) -> Int
+	0
+end
+
+fn second(value: Alias::Unknown) -> Int
+	0
+end
+
+fn direct(value: dep::Remote::Missing) -> Int
+	0
+end

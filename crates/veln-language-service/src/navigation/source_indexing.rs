@@ -333,11 +333,22 @@ fn attach_canonical_variant_refinement_type_arguments(
         for (range, argument_ranges) in
             &file.variant_refinement_type_argument_ranges_by_final_range
         {
-            if file
-                .classified_paths
-                .by_range
+            let union_ranges = file
+                .variant_refinement_union_group_index_by_final_range
                 .get(range)
-                .is_some_and(|segment| segment.role == veln_ast::NameClass::Constructor)
+                .and_then(|group_index| {
+                    file.variant_refinement_union_final_range_groups
+                        .get(*group_index)
+                })
+                .map(Vec::as_slice)
+                .unwrap_or(std::slice::from_ref(range));
+            if !argument_ranges.is_empty()
+                && union_ranges.iter().all(|range| {
+                file.classified_paths
+                    .by_range
+                    .get(range)
+                    .is_some_and(|segment| segment.role == veln_ast::NameClass::Constructor)
+                })
             {
                 continue;
             }

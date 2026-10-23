@@ -1,0 +1,7 @@
+type Changed
+	Fresh
+end
+
+fn fresh(value: Changed::Fresh) -> Int
+	0
+end
