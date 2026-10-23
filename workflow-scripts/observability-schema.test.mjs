@@ -2,29 +2,76 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const schemaUrl = new URL(
+const recordSchemaUrl = new URL(
   "../crates/veln-stdlib/schemas/observability/v1/json-lines-record.schema.json",
   import.meta.url,
 );
-const schema = JSON.parse(await readFile(schemaUrl, "utf8"));
-const hostBoundaryUrl = new URL(
+const healthSchemaUrl = new URL(
+  "../crates/veln-stdlib/schemas/observability/v1/json-lines-exporter-health.schema.json",
+  import.meta.url,
+);
+const recordSchema = JSON.parse(await readFile(recordSchemaUrl, "utf8"));
+const healthSchema = parseLosslessJson(await readFile(healthSchemaUrl, "utf8"));
+const encoderRecordsUrl = new URL(
   "../examples/specification/run/observability-json-lines-encoder/case-text/records.jsonl",
   import.meta.url,
 );
+const hostHealthUrl = new URL(
+  "../examples/specification/run/observability-json-lines-host-boundary/case-text/health.jsonl",
+  import.meta.url,
+);
 
-function resolve(reference) {
-  assert.match(reference, /^#\/\$defs\/[a-z_]+$/u);
-  return schema.$defs[reference.slice("#/$defs/".length)];
+function parseLosslessJson(text) {
+  let transformed = "";
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < text.length;) {
+    const character = text[index];
+    if (inString) {
+      transformed += character;
+      index += 1;
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === "\"") inString = false;
+      continue;
+    }
+    if (character === "\"") {
+      inString = true;
+      transformed += character;
+      index += 1;
+      continue;
+    }
+    const number = text.slice(index).match(/^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/u)?.[0];
+    if (number !== undefined) {
+      transformed += number.includes(".") || /[eE]/u.test(number)
+        ? number
+        : `"__veln_bigint__${number}"`;
+      index += number.length;
+      continue;
+    }
+    transformed += character;
+    index += 1;
+  }
+  return JSON.parse(transformed, (_name, value) => (
+    typeof value === "string" && value.startsWith("__veln_bigint__")
+      ? BigInt(value.slice("__veln_bigint__".length))
+      : value
+  ));
 }
 
-function validate(value, rule, path = "record") {
-  if (rule.$ref) return validate(value, resolve(rule.$ref), path);
-  for (const constraint of rule.allOf ?? []) validate(value, constraint, path);
+function resolve(reference, rootSchema) {
+  assert.match(reference, /^#\/\$defs\/[a-z_]+$/u);
+  return rootSchema.$defs[reference.slice("#/$defs/".length)];
+}
+
+function validate(value, rule, path = "record", rootSchema = rule) {
+  if (rule.$ref) return validate(value, resolve(rule.$ref, rootSchema), path, rootSchema);
+  for (const constraint of rule.allOf ?? []) validate(value, constraint, path, rootSchema);
   if (rule.anyOf) {
     const failures = [];
     for (const choice of rule.anyOf) {
       try {
-        validate(value, choice, path);
+        validate(value, choice, path, rootSchema);
         return;
       } catch (error) {
         failures.push(error.message);
@@ -35,17 +82,17 @@ function validate(value, rule, path = "record") {
   if (rule.if) {
     let matches = true;
     try {
-      validate(value, rule.if, path);
+      validate(value, rule.if, path, rootSchema);
     } catch {
       matches = false;
     }
-    if (matches && rule.then) validate(value, rule.then, path);
-    if (!matches && rule.else) validate(value, rule.else, path);
+    if (matches && rule.then) validate(value, rule.then, path, rootSchema);
+    if (!matches && rule.else) validate(value, rule.else, path, rootSchema);
   }
   if (rule.not) {
     let matches = true;
     try {
-      validate(value, rule.not, path);
+      validate(value, rule.not, path, rootSchema);
     } catch {
       matches = false;
     }
@@ -59,14 +106,19 @@ function validate(value, rule, path = "record") {
     if (rule.minLength !== undefined) assert.ok(value.length >= rule.minLength, path);
   }
   if (rule.type === "integer") {
-    assert.ok(Number.isSafeInteger(value), path);
-    if (rule.minimum !== undefined) assert.ok(value >= rule.minimum, path);
-    if (rule.maximum !== undefined) assert.ok(value <= rule.maximum, path);
+    assert.ok(typeof value === "bigint" || Number.isSafeInteger(value), path);
+    const integer = typeof value === "bigint" ? value : BigInt(value);
+    if (rule.minimum !== undefined) {
+      assert.ok(integer >= (typeof rule.minimum === "bigint" ? rule.minimum : BigInt(rule.minimum)), path);
+    }
+    if (rule.maximum !== undefined) {
+      assert.ok(integer <= (typeof rule.maximum === "bigint" ? rule.maximum : BigInt(rule.maximum)), path);
+    }
   }
   if (rule.type === "boolean") assert.equal(typeof value, "boolean", path);
   if (rule.type === "array") {
     assert.ok(Array.isArray(value), path);
-    value.forEach((item, index) => validate(item, rule.items, `${path}[${index}]`));
+    value.forEach((item, index) => validate(item, rule.items, `${path}[${index}]`, rootSchema));
   }
   const objectValue = value !== null && typeof value === "object" && !Array.isArray(value);
   if (rule.type === "object") assert.ok(objectValue, path);
@@ -80,7 +132,7 @@ function validate(value, rule, path = "record") {
       }
     }
     for (const [name, child] of Object.entries(rule.properties ?? {})) {
-      if (Object.hasOwn(value, name)) validate(value[name], child, `${path}.${name}`);
+      if (Object.hasOwn(value, name)) validate(value[name], child, `${path}.${name}`, rootSchema);
     }
   }
 }
@@ -120,56 +172,56 @@ function representative(kind) {
 }
 
 test("the checked schema rejects incompatible versions and unrecognized fields", () => {
-  assert.throws(() => validate({ ...representative("event"), schema_version: 2 }, schema));
-  assert.throws(() => validate({ ...representative("event"), unexpected: true }, schema));
+  assert.throws(() => validate({ ...representative("event"), schema_version: 2 }, recordSchema));
+  assert.throws(() => validate({ ...representative("event"), unexpected: true }, recordSchema));
   assert.throws(() => validate({
     ...representative("event"),
     attributes: [{ name: "attempt", type: "int", value: "1" }],
-  }, schema));
+  }, recordSchema));
   const logWithoutMessage = representative("log");
   delete logWithoutMessage.message;
-  assert.throws(() => validate(logWithoutMessage, schema));
-  assert.throws(() => validate({ ...representative("event"), message: "unexpected" }, schema));
+  assert.throws(() => validate(logWithoutMessage, recordSchema));
+  assert.throws(() => validate({ ...representative("event"), message: "unexpected" }, recordSchema));
   const counterWithoutValue = representative("counter");
   delete counterWithoutValue.value;
-  assert.throws(() => validate(counterWithoutValue, schema));
-  assert.throws(() => validate({ ...representative("span_start"), trace: { trace_id: "trace-1", span_id: "span-1", sampled: true } }, schema));
+  assert.throws(() => validate(counterWithoutValue, recordSchema));
+  assert.throws(() => validate({ ...representative("span_start"), trace: { trace_id: "trace-1", span_id: "span-1", sampled: true } }, recordSchema));
   assert.throws(() => validate({
     ...representative("log"),
     trace: { trace_id: "", span_id: "span-1", sampled: true },
-  }, schema));
+  }, recordSchema));
   assert.throws(() => validate({
     ...representative("log"),
     trace: { trace_id: "trace-1", span_id: "", sampled: true },
-  }, schema));
+  }, recordSchema));
   assert.throws(() => validate({
     ...representative("span_start"),
     span: { trace_id: "trace-1", span_id: "span-2", parent_span_id: "" },
-  }, schema));
+  }, recordSchema));
   assert.throws(() => validate({
     ...representative("span_start"),
     links: [{ trace_id: "", span_id: "span-3", sampled: false }],
-  }, schema));
+  }, recordSchema));
   assert.throws(() => validate({
     ...representative("event"),
     source: { ...representative("event").source, start_line: -1 },
-  }, schema));
+  }, recordSchema));
   assert.throws(() => validate({
     ...representative("event"),
     source: { ...representative("event").source, end_column: -1 },
-  }, schema));
+  }, recordSchema));
   assert.throws(() => validate({
     ...representative("event"),
     resource: { name: "", attributes: [] },
-  }, schema));
+  }, recordSchema));
   assert.throws(() => validate({
     ...representative("event"),
     instrumentation_scope: { name: "", version: "1" },
-  }, schema));
+  }, recordSchema));
 });
 
 test("six captured JVM encoder records satisfy schema, branch, framing, and path contracts", async () => {
-  const raw = await readFile(hostBoundaryUrl, "utf8");
+  const raw = await readFile(encoderRecordsUrl, "utf8");
   assert.equal(raw.includes("\r"), false);
   assert.equal(raw.endsWith("\n"), true);
   const parts = raw.split("\n");
@@ -179,7 +231,7 @@ test("six captured JVM encoder records satisfy schema, branch, framing, and path
     assert.notEqual(line, "");
     assert.equal(line.includes("\n"), false);
     const record = JSON.parse(line);
-    validate(record, schema);
+    validate(record, recordSchema);
     return record;
   });
 
@@ -206,7 +258,7 @@ test("six captured JVM encoder records satisfy schema, branch, framing, and path
     end_column: 256,
   });
   assert.deepEqual(records[1].source, {
-    package: "<invalid-source>",
+    package: "acme:lib",
     module: "<invalid-source>",
     file: "<invalid-source>",
     start_line: 1,
@@ -235,7 +287,33 @@ test("six captured JVM encoder records satisfy schema, branch, framing, and path
       assert.equal(component.split(/[\\/]|::/u).some((segment) => segment === "." || segment === ".."), false);
     }
   }
-  assert.equal(raw.includes("/machine/"), false);
+  assert.equal(raw.includes("acme:lib"), true);
   assert.equal(raw.includes("../private"), false);
-  assert.equal(raw.includes("C:\\machine"), false);
+  assert.equal(raw.includes("CON.veln"), false);
+});
+
+test("the captured exporter health summary has one closed int64 record and LF", async () => {
+  const raw = await readFile(hostHealthUrl, "utf8");
+  assert.equal(raw.includes("\r"), false);
+  assert.equal(raw.endsWith("\n"), true);
+  const parts = raw.split("\n");
+  assert.equal(parts.length, 2);
+  assert.notEqual(parts[0], "");
+  assert.equal(parts[1], "");
+
+  const health = parseLosslessJson(parts[0]);
+  validate(health, healthSchema, "health");
+  assert.throws(() => validate(health, recordSchema));
+  assert.throws(() => validate(representative("event"), healthSchema, "health"));
+
+  const maximum = { ...health, failed_exports: 9223372036854775807n };
+  validate(maximum, healthSchema, "health");
+  assert.throws(() => validate({ ...maximum, failed_exports: 9223372036854775808n }, healthSchema, "health"));
+  assert.throws(() => validate({ ...health, schema_version: 2n }, healthSchema, "health"));
+  assert.throws(() => validate({ ...health, kind: "event" }, healthSchema, "health"));
+  assert.throws(() => validate({ ...health, failed_exports: -1n }, healthSchema, "health"));
+  assert.throws(() => validate({ ...health, unexpected: 0n }, healthSchema, "health"));
+  const missing = { ...health };
+  delete missing.redacted_attributes;
+  assert.throws(() => validate(missing, healthSchema, "health"));
 });

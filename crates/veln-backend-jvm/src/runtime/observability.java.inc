@@ -298,23 +298,73 @@
         return output.append(']').toString();
     }
 
-    private static String observationCanonicalSourcePath(String value, boolean allowEmpty) {
-        if (value.isEmpty()) return allowEmpty ? value : "<invalid-source>";
-        if (value.startsWith("/") || value.startsWith("\\")
-            || value.matches("^[A-Za-z]:.*") || value.indexOf('\\') >= 0
-            || value.indexOf('\0') >= 0 || value.indexOf(':') >= 0) {
+    private static String observationCanonicalPackage(String value) {
+        if (value.isEmpty()) return value;
+        if (value.codePointCount(0, value.length()) > 255 || !portableUnicodeIsNfc(value)) {
             return "<invalid-source>";
         }
-        String[] pathSegments = value.split("/", -1);
-        for (String segment : pathSegments) {
+        String[] segments = value.split("/", -1);
+        for (String segment : segments) {
             if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) {
                 return "<invalid-source>";
             }
+            for (int offset = 0; offset < segment.length();) {
+                int character = segment.codePointAt(offset);
+                if (PORTABLE_UNICODE.whitespace.contains(Integer.valueOf(character))) {
+                    return "<invalid-source>";
+                }
+                offset += Character.charCount(character);
+            }
         }
-        try {
-            java.nio.file.Paths.get(value);
-        } catch (java.nio.file.InvalidPathException ignored) {
-            return "<invalid-source>";
+        return value;
+    }
+
+    private static boolean observationReservedDevice(String segment) {
+        int dot = segment.indexOf('.');
+        String stem = dot < 0 ? segment : segment.substring(0, dot);
+        int end = stem.length();
+        while (end > 0) {
+            char character = stem.charAt(end - 1);
+            if (character != ' ' && character != '\t' && character != '\n'
+                && character != '\u000b' && character != '\f' && character != '\r') break;
+            end -= 1;
+        }
+        stem = stem.substring(0, end);
+        StringBuilder upper = new StringBuilder(stem.length());
+        for (int index = 0; index < stem.length(); index++) {
+            char character = stem.charAt(index);
+            upper.append(character >= 'a' && character <= 'z' ? (char) (character - 32) : character);
+        }
+        String name = upper.toString();
+        if (name.equals("CON") || name.equals("PRN") || name.equals("AUX")
+            || name.equals("NUL") || name.equals("CONIN$") || name.equals("CONOUT$")) {
+            return true;
+        }
+        if (!(name.startsWith("COM") || name.startsWith("LPT"))) return false;
+        String number = name.substring(3);
+        return number.equals("1") || number.equals("2") || number.equals("3")
+            || number.equals("4") || number.equals("5") || number.equals("6")
+            || number.equals("7") || number.equals("8") || number.equals("9")
+            || number.equals("¹") || number.equals("²") || number.equals("³");
+    }
+
+    private static String observationCanonicalFile(String value) {
+        if (value.isEmpty() || !portableUnicodeIsNfc(value)) return "<invalid-source>";
+        String[] segments = value.split("/", -1);
+        for (String segment : segments) {
+            if (segment.isEmpty() || segment.equals(".") || segment.equals("..")
+                || segment.endsWith(" ") || segment.endsWith(".")
+                || observationReservedDevice(segment)) {
+                return "<invalid-source>";
+            }
+            for (int offset = 0; offset < segment.length();) {
+                int character = segment.codePointAt(offset);
+                if (PORTABLE_UNICODE.controls.contains(Integer.valueOf(character))
+                    || character == '\\' || character == ':') {
+                    return "<invalid-source>";
+                }
+                offset += Character.charCount(character);
+            }
         }
         return value;
     }
@@ -335,12 +385,12 @@
     }
 
     private static String observationSource(Object source) {
-        String packageName = observationCanonicalSourcePath(
-            asString(recordField(source, "package")), true);
+        String packageName = observationCanonicalPackage(
+            asString(recordField(source, "package")));
         String moduleName = observationCanonicalModule(
             asString(recordField(source, "module")));
-        String file = observationCanonicalSourcePath(
-            asString(recordField(source, "file")), false);
+        String file = observationCanonicalFile(
+            asString(recordField(source, "file")));
         return "{\"package\":" + observationJsonString(packageName)
             + ",\"module\":" + observationJsonString(moduleName)
             + ",\"file\":" + observationJsonString(file)

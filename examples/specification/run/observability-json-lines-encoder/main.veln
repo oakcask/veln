@@ -29,5 +29,5 @@ fn emit_all(configured: JsonLinesExporter) -> () effects [observe::Observe, time
 end
 
 fn hostile_source() -> SourceLocation
-	{ package: "/machine/package", module: "../private", file: "C:\\machine\\main.veln", start_line: 1, start_column: 2, start_offset: 0, end_line: 1, end_column: 3, end_offset: 1 }
+	{ package: "acme:lib", module: "../private", file: "CON.veln", start_line: 1, start_column: 2, start_offset: 0, end_line: 1, end_column: 3, end_offset: 1 }
 end

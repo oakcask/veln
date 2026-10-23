@@ -380,6 +380,28 @@ facts, and per-record attribute facts. Log records add `message`; metric
 records add `value`. The current host does not expose a stable task identity,
 so it encodes `task_id` as `null`.
 
+The diagnostic health summary has a separate closed contract in
+[`json-lines-exporter-health.schema.json`](../../crates/veln-stdlib/schemas/observability/v1/json-lines-exporter-health.schema.json).
+An enabled, accepted call to `observe::report_exporter_health` writes exactly
+one object followed by one `\n`. The object has no fields beyond this table:
+
+| Field | Value |
+| --- | --- |
+| `schema_version` | The integer `1`. |
+| `kind` | The string `exporter_health`. |
+| `failed_exports` | The cumulative rejected or failed observation-export attempts. |
+| `dropped_attributes` | The cumulative attributes omitted by count limits. |
+| `truncated_attributes` | The cumulative names and values shortened by size limits. |
+| `redacted_attributes` | The cumulative values replaced by the redaction policy. |
+| `metric_series` | The current retained metric-series count. |
+| `admitted_metric_observations` | The cumulative admitted metric observations. |
+| `dropped_metric_observations` | The cumulative metric observations rejected by cardinality admission. |
+
+Every counter is a non-negative Veln `Int` and can reach the maximum signed
+64-bit value. `NoDiagnosticDestination` accepts the call without output. A
+diagnostic write rejection returns `false`, leaves these health values
+unchanged, and does not retry through `Observe`.
+
 The exporter captures the cumulative admitted and dropped metric-observation
 facts while it assigns each record's handler sequence. Across records from one
 exporter in ascending sequence order, neither fact decreases, including when
@@ -425,16 +447,27 @@ not perform `Observe`, so a failure cannot recursively create telemetry.
 
 Every direct or handler-driven export validates all public `SourceLocation`
 components before encoding. A workspace source has an empty `package`; a
-dependency source has its public package identity. `module` is a logical path
-whose non-empty segments are separated by `::`; it is validated independently
-of host filesystem syntax. `file` is package-relative or a canonical virtual
-name. Package and file validation replaces an absolute Unix, Windows, or UNC
-spelling, a `.` or `..` traversal segment, an invalid host path, or another
-noncanonical component with `<invalid-source>`. Module validation replaces
-slash, backslash, traversal, empty-segment, NUL, or stray-colon spellings. It
-preserves compiler-produced canonical values such as nested module `a::b` and
-its slash-separated package-relative file. Equivalent source trees at
-different absolute roots therefore encode the same source identity.
+dependency source has its exact public package identity, including punctuation
+such as `acme:lib`. A nonempty package has at most 255 Unicode scalars, uses
+Unicode Normalization Form C from the repository's pinned portable Unicode
+data, has nonempty `/`-separated segments other than `.` and `..`, and contains
+no Unicode whitespace. The empty workspace identity and embedded `std`
+identity remain valid.
+
+`module` is a logical path whose non-empty segments are separated by `::`; it
+is validated independently of host filesystem syntax. `file` is a nonempty
+package-relative path or canonical virtual name in pinned NFC. Each
+`/`-separated file segment is nonempty and is not `.` or `..`. A segment cannot
+contain a Unicode control, backslash, or colon; end in a space or dot; or use a
+case-insensitive platform-reserved device stem, including numbered and
+superscript `COM` and `LPT` aliases and their extension forms. File validation
+does not consult the host filesystem. An invalid component becomes
+`<invalid-source>` without changing valid components of the same location.
+Module validation replaces slash, backslash, traversal, empty-segment, NUL, or
+stray-colon spellings. It preserves compiler-produced canonical values such as
+nested module `a::b` and its slash-separated package-relative file. Equivalent
+source trees at different absolute roots therefore encode the same source
+identity.
 
 ### Direct exporter operations
 
@@ -601,13 +634,18 @@ process or machine termination can prevent it from running.
 - JSON Lines API, ordering, limit, cardinality, and failure-health coverage:
   [`observe.test.veln`](../../crates/veln-stdlib/veln/observe.test.veln), with
   scoped fakes in `observe_export_test_support_test.veln`.
-  The checked schema and six captured encoder records are owned by
+  The checked record and exporter-health schemas, six captured encoder records,
+  and one real diagnostic summary are owned by
   [`observability-schema.test.mjs`](../../workflow-scripts/observability-schema.test.mjs)
   and the
   [`observability-json-lines-encoder`](../../examples/specification/run/observability-json-lines-encoder/)
-  JVM integration case. They check every record kind, exact JSON Lines framing,
-  limit facts, schema-invalid export rejection, hostile-source replacement,
-  and preservation of a nested logical module and package-relative file path.
+  and
+  [`observability-json-lines-host-boundary`](../../examples/specification/run/observability-json-lines-host-boundary/)
+  JVM integration cases. They check every record kind, both closed object
+  shapes, exact JSON Lines framing, `Int` counter bounds, limit facts,
+  schema-invalid export rejection, portable hostile-source replacement, and
+  preservation of package, nested logical module, and package-relative file
+  identity.
 - Production index boundary coverage:
   [`effect_boundary_policy.rs`](../../crates/veln-backend-jvm/src/tests/effect_boundary_policy.rs)
   checks bounded indexed state and the absence of owner tasks, while

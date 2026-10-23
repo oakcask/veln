@@ -20,8 +20,10 @@ local_reusable_workflow_paths contains workflow_path if {
 }
 
 observability_schema_checker_inputs := {
+  "crates/veln-stdlib/schemas/observability/v1/json-lines-exporter-health.schema.json",
   "crates/veln-stdlib/schemas/observability/v1/json-lines-record.schema.json",
   "examples/specification/run/observability-json-lines-encoder/case-text/records.jsonl",
+  "examples/specification/run/observability-json-lines-host-boundary/case-text/health.jsonl",
 }
 
 runs_observability_schema_checker if {
