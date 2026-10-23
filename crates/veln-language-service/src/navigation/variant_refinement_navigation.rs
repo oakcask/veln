@@ -89,14 +89,14 @@ impl SymbolIndex {
                 self.variant_refinement_union_navigation(file, &candidates, union_ranges)
             {
                 for range in union_ranges {
-                    if let Some(identity) = candidates.get(range) {
-                        if constructor_navigation || identity.base_is_workspace() {
-                            let mut identity = identity.clone();
-                            if !constructor_navigation {
-                                identity.constructor = None;
-                            }
-                            identities.insert(*range, identity);
+                    if let Some(identity) = candidates.get(range)
+                        && (constructor_navigation || identity.base_is_workspace())
+                    {
+                        let mut identity = identity.clone();
+                        if !constructor_navigation {
+                            identity.constructor = None;
                         }
+                        identities.insert(*range, identity);
                     }
                 }
             }
@@ -110,12 +110,8 @@ impl SymbolIndex {
         candidates: &BTreeMap<(usize, usize), VariantRefinementNavigationIdentity>,
         union_ranges: &[(usize, usize)],
     ) -> Option<bool> {
-        let Some(first_range) = union_ranges.first() else {
-            return None;
-        };
-        let Some(first) = candidates.get(first_range) else {
-            return None;
-        };
+        let first_range = union_ranges.first()?;
+        let first = candidates.get(first_range)?;
         if !union_ranges.iter().all(|range| {
             candidates.get(range).is_some_and(|candidate| {
                 same_type(&candidate.terminal, &first.terminal)
@@ -187,10 +183,10 @@ impl SymbolIndex {
             return None;
         }
         let constructor = self.unique_variant_refinement_constructor(file, &terminal, variant_token);
-        if constructor.is_none() {
-            if self.variant_refinement_owner_has_constructor(&terminal, variant_token) {
-                return None;
-            }
+        if constructor.is_none()
+            && self.variant_refinement_owner_has_constructor(&terminal, variant_token)
+        {
+            return None;
         }
         Some((
             (variant_token.range.start, variant_token.range.end),

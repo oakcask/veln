@@ -1225,28 +1225,28 @@
         }
     }
 
-    fn invalid_final_union_work(
+    fn invalid_final_generic_union_work(
         width: usize,
         alias_base: bool,
         wrong_owner: bool,
     ) -> VariantRefinementNavigationWork {
         reset_variant_refinement_navigation_work();
-        let mut text = String::from("type State\n  Ready\nend\n\npub type Alias = State\n\n");
-        if wrong_owner {
-            text.push_str("type Other\n");
-            for index in 0..width {
-                text.push_str(&format!("  Wrong{index}\n"));
-            }
-            text.push_str("end\n\n");
+        let mut text = String::from("type State<A>\n");
+        for index in 0..width - 1 {
+            text.push_str(&format!("  Ready{index}(A)\n"));
         }
-        let base = if alias_base { "Alias" } else { "State" };
-        let final_prefix = if wrong_owner { "Wrong" } else { "Missing" };
-        let alternatives = (0..width)
-            .map(|index| format!("{base}::{final_prefix}{index}"))
-            .collect::<Vec<_>>()
-            .join(" | ");
+        text.push_str("end\n\npub type Alias = State\n\ntype Other<A>\n  Wrong(A)\nend\n\n");
+        let base = if alias_base { "Alias<Int>" } else { "State<Int>" };
+        let mut alternatives = (0..width - 1)
+            .map(|index| format!("{base}::Ready{index}"))
+            .collect::<Vec<_>>();
+        alternatives.push(format!(
+            "{base}::{}",
+            if wrong_owner { "Wrong" } else { "Missing" }
+        ));
         text.push_str(&format!(
-            "fn observe(value: {alternatives}) -> Int\n  0\nend\n"
+            "fn observe(value: {}) -> Int\n  0\nend\n",
+            alternatives.join(" | ")
         ));
         let (line, source_line) = text
             .lines()
@@ -1269,6 +1269,7 @@
         let rename = navigate_for_rename(&snapshot, position()).unwrap();
         assert!(rename.references.len() >= width);
         assert!(validate_rename_in_snapshot(&snapshot, &rename, "Recovered").is_ok());
+        assert_eq!(variant_refinement_canonical_group_work(), (1, width));
         variant_refinement_navigation_work()
     }
 
@@ -1276,8 +1277,8 @@
     fn invalid_final_union_group_work_is_adjacent_and_reused() {
         for alias_base in [false, true] {
             for wrong_owner in [false, true] {
-                let smaller = invalid_final_union_work(64, alias_base, wrong_owner);
-                let larger = invalid_final_union_work(65, alias_base, wrong_owner);
+                let smaller = invalid_final_generic_union_work(64, alias_base, wrong_owner);
+                let larger = invalid_final_generic_union_work(65, alias_base, wrong_owner);
                 for (smaller_metric, larger_metric) in [
                     (smaller.0, larger.0),
                     (smaller.1, larger.1),

@@ -330,26 +330,38 @@ fn attach_canonical_variant_refinement_type_arguments(
     let mut annotations = Vec::<(&str, Option<&str>, &[String])>::new();
     let mut groups = Vec::<(usize, (usize, usize), usize, usize)>::new();
     for (file_index, file) in files.iter().enumerate() {
+        let union_groups_are_constructor_only = file
+            .variant_refinement_union_final_range_groups
+            .iter()
+            .map(|union_ranges| {
+                record_variant_refinement_canonical_group_classification(union_ranges.len());
+                union_ranges.iter().all(|range| {
+                    file.classified_paths
+                        .by_range
+                        .get(range)
+                        .is_some_and(|segment| segment.role == veln_ast::NameClass::Constructor)
+                })
+            })
+            .collect::<Vec<_>>();
         for (range, argument_ranges) in
             &file.variant_refinement_type_argument_ranges_by_final_range
         {
-            let union_ranges = file
+            let union_is_constructor_only = file
                 .variant_refinement_union_group_index_by_final_range
                 .get(range)
                 .and_then(|group_index| {
-                    file.variant_refinement_union_final_range_groups
+                    union_groups_are_constructor_only
                         .get(*group_index)
                 })
-                .map(Vec::as_slice)
-                .unwrap_or(std::slice::from_ref(range));
-            if !argument_ranges.is_empty()
-                && union_ranges.iter().all(|range| {
+                .copied()
+                .unwrap_or_else(|| {
+                    record_variant_refinement_canonical_group_classification(1);
                 file.classified_paths
                     .by_range
                     .get(range)
                     .is_some_and(|segment| segment.role == veln_ast::NameClass::Constructor)
-                })
-            {
+                });
+            if !argument_ranges.is_empty() && union_is_constructor_only {
                 continue;
             }
             let start = annotations.len();
