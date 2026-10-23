@@ -260,9 +260,10 @@ the recording preserves linked trace and span identities in caller-supplied
 order. Each recording allocates identities in order from its caller-supplied
 prefix and retains state in its own channel-backed scope. If a recording's
 next span-identity candidate equals the supplied parent span identity, the
-handler skips that candidate. Children accepted by one recording therefore
-remain distinct from their parent and siblings. This local guarantee does not
-make identities globally unique across unrelated recordings or processes.
+handler skips that candidate without changing the sampling state inherited
+from the parent. Children accepted by one recording therefore remain distinct
+from their parent and siblings. This local guarantee does not make identities
+globally unique across unrelated recordings or processes.
 A no-op span has no recording context, so `observe::context` returns `None`
 for it.
 
