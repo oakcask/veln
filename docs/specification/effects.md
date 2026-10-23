@@ -174,7 +174,12 @@ effect without adding another effect. Handling it with
 `concurrency` from the handler clauses. Handling it with
 `observe::production(policy)` removes `observe::Observe` and adds
 `concurrency`; constructing the policy and reading its health snapshot also
-require `concurrency`. The `trace::in_span<effect E>` helper
+require `concurrency`. Handling with `observe::json_lines(exporter)` removes
+`observe::Observe` and adds `time` and `concurrency`. Its host write boundary
+uses real configured destinations unless a scoped
+`host_effects::ObservationExporter` handler is installed by test support; no
+environment variable or system property selects that substitution. The
+`trace::in_span<effect E>` helper
 retains `observe::Observe` together with the effect row `E` of its callback
 until an enclosing handler discharges the observation effect. The
 [standard-library observability specification](standard-library-observability.md)

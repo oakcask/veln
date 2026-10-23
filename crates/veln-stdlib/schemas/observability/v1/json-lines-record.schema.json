@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://veln.dev/schemas/observability/v1/json-lines-record.schema.json",
+  "title": "Veln JSON Lines observation record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "kind", "name", "wall_time", "sequence", "severity",
+    "trace", "span", "links", "source", "task_id", "attributes", "resource",
+    "instrumentation_scope", "cardinality", "exporter_health", "attribute_facts"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": { "enum": ["log", "event", "counter", "histogram", "span_start", "span_finish"] },
+    "name": { "type": "string" },
+    "wall_time": { "$ref": "#/$defs/wall_time" },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "severity": {
+      "anyOf": [
+        { "enum": ["debug", "info", "warning", "error"] },
+        { "type": "null" }
+      ]
+    },
+    "trace": { "anyOf": [{ "$ref": "#/$defs/trace" }, { "type": "null" }] },
+    "span": { "anyOf": [{ "$ref": "#/$defs/span" }, { "type": "null" }] },
+    "links": { "type": "array", "items": { "$ref": "#/$defs/trace" } },
+    "source": { "$ref": "#/$defs/source" },
+    "task_id": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+    "attributes": { "$ref": "#/$defs/attributes" },
+    "resource": { "$ref": "#/$defs/resource" },
+    "instrumentation_scope": { "$ref": "#/$defs/scope" },
+    "cardinality": { "$ref": "#/$defs/cardinality" },
+    "exporter_health": { "$ref": "#/$defs/exporter_health" },
+    "attribute_facts": { "$ref": "#/$defs/attribute_facts" },
+    "message": { "type": "string" },
+    "value": { "type": "integer" }
+  },
+  "$defs": {
+    "wall_time": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unix_seconds", "nanosecond"],
+      "properties": {
+        "unix_seconds": { "type": "integer" },
+        "nanosecond": { "type": "integer", "minimum": 0, "maximum": 999999999 }
+      }
+    },
+    "trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trace_id", "span_id", "sampled"],
+      "properties": {
+        "trace_id": { "type": "string", "minLength": 1 },
+        "span_id": { "type": "string", "minLength": 1 },
+        "sampled": { "type": "boolean" }
+      }
+    },
+    "span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trace_id", "span_id", "parent_span_id"],
+      "properties": {
+        "trace_id": { "type": "string", "minLength": 1 },
+        "span_id": { "type": "string", "minLength": 1 },
+        "parent_span_id": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package", "module", "file", "start_line", "start_column", "end_line", "end_column"],
+      "properties": {
+        "package": { "type": "string" },
+        "module": { "type": "string" },
+        "file": { "type": "string", "minLength": 1 },
+        "start_line": { "type": "integer", "minimum": 0 },
+        "start_column": { "type": "integer", "minimum": 0 },
+        "end_line": { "type": "integer", "minimum": 0 },
+        "end_column": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "attribute": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "type", "value"],
+          "properties": {
+            "name": { "type": "string" },
+            "type": { "const": "bool" },
+            "value": { "type": "boolean" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "type", "value"],
+          "properties": {
+            "name": { "type": "string" },
+            "type": { "const": "int" },
+            "value": { "type": "integer" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "type", "value"],
+          "properties": {
+            "name": { "type": "string" },
+            "type": { "const": "string" },
+            "value": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "attributes": { "type": "array", "items": { "$ref": "#/$defs/attribute" } },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "attributes"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "attributes": { "$ref": "#/$defs/attributes" }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string" }
+      }
+    },
+    "cardinality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["admitted_metric_observations", "dropped_metric_observations"],
+      "properties": {
+        "admitted_metric_observations": { "type": "integer", "minimum": 0 },
+        "dropped_metric_observations": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "exporter_health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["failed_exports"],
+      "properties": { "failed_exports": { "type": "integer", "minimum": 0 } }
+    },
+    "attribute_facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dropped", "truncated", "redacted"],
+      "properties": {
+        "dropped": { "type": "integer", "minimum": 0 },
+        "truncated": { "type": "integer", "minimum": 0 },
+        "redacted": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

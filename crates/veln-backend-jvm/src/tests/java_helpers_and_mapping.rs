@@ -253,6 +253,9 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("string_split_once", "stringSplitOnce"),
         ("string_parse_int", "stringParseInt"),
         ("int_to_string", "intToString"),
+        ("observation_json_line", "observationJsonLine"),
+        ("observation_export_write", "observationExportWrite"),
+        ("observation_export_identity", "observationExportIdentity"),
         ("production_metric_index_new", "productionMetricIndexNew"),
         (
             "production_metric_index_contains",

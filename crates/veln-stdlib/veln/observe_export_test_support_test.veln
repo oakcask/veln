@@ -1,0 +1,114 @@
+use observe
+use log
+use event
+use metric
+use observe_test_support_test
+
+fn exporter(lines: Sender<String>, metric_limit: Int) -> JsonLinesExporter effects [concurrency]
+	observe::new_json_lines(
+		observe::Resource("checkout", list_cons(observe::Attribute("deployment", observe::StringValue("production")), list_nil())),
+		observe::InstrumentationScope("checkout.web", "1"),
+		metric_limit,
+		observe::ExporterLimits(2, 4, 1, list_cons("secret", list_nil())),
+		observe::StandardError,
+		observe::StandardError,
+		"fixed",
+	)
+end
+
+fn all_operations() -> Int effects [observe::Observe]
+	log::info(None, "ready", list_cons(observe::Attribute("secret", observe::StringValue("value")), list_cons(observe::Attribute("long", observe::StringValue("abcdef")), list_cons(observe::Attribute("drop", observe::IntValue(3)), list_nil()))))
+	event::emit(None, "checkout.completed", list_nil())
+	metric::counter_increment(None, "request.count", 1, list_nil())
+	metric::histogram_sample(None, "request.duration", 7, list_nil())
+	let span = perform observe::Observe::start_span(observe::span_request("request", None, list_nil()))
+	perform observe::Observe::finish_span(observe::finish(span))
+	42
+end
+
+pub fn json_lines_exports_all_operations_in_order_and_reports_limits() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(8)
+	let configured = exporter(lines.tx, 2)
+	let result = handle handle handle all_operations() with observe::json_lines(configured) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, true)
+	if result != 42
+		Err("JSON Lines handler changed the body result")
+	else
+		match channel::recv(lines.rx)
+			Some(first) => match string_split_once(first, "\"sequence\":1")
+				Some(_) => match string_split_once(first, "\"attribute_facts\":{\"dropped\":1,\"truncated\":2,\"redacted\":1}")
+					Some(_) => expect_remaining_lines(lines.rx, 2, 6)
+					None => Err("JSON Lines attribute limit facts changed")
+				end
+				None => Err("JSON Lines sequence did not start at one")
+			end
+			None => Err("JSON Lines exporter emitted no log record")
+		end
+	end
+end
+
+fn expect_remaining_lines(lines: Receiver<String>, expected: Int, last: Int) -> Result<(), String> effects [concurrency]
+	if expected > last
+		Ok(())
+	else
+		match channel::recv(lines)
+			Some(line) => match string_split_once(line, string::concat(string::concat("\"sequence\":", int_to_string(expected)), ","))
+				Some(_) => expect_remaining_lines(lines, expected + 1, last)
+				None => Err("JSON Lines records were not sequenced in operation order")
+			end
+			None => Err("JSON Lines exporter omitted an Observe operation")
+		end
+	end
+end
+
+fn failing_body() -> String effects [observe::Observe]
+	log::error(None, "still-running", list_nil())
+	"unchanged"
+end
+
+pub fn rejected_export_preserves_result_and_reports_bounded_health_to_diagnostics() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(3)
+	let configured = exporter(lines.tx, 1)
+	let result = handle handle handle failing_body() with observe::json_lines(configured) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, false)
+	let reported = handle observe::report_exporter_health(configured) with observe_test_support_test::exporter(lines.tx, true)
+	match observe::exporter_health(configured)
+		observe::ExporterHealth(1, 0, 1, 0, observe::ProductionHealth(0, 0, 0)) => if result == "unchanged" and reported
+			match channel::recv(lines.rx)
+				Some(_) => match channel::recv(lines.rx)
+					Some(summary) => match string_split_once(summary, "diagnostic:stderr:{\"schema_version\":1,\"kind\":\"exporter_health\",\"failed_exports\":1")
+						Some(_) => Ok(())
+						None => Err("exporter health summary used the record destination or changed shape")
+					end
+					None => Err("exporter health summary was not written")
+				end
+				None => Err("failed export was not attempted")
+			end
+		else
+			Err("failed export changed the result or health reporting failed")
+		end
+		_ => Err("failed export health changed")
+	end
+end
+
+pub fn cardinality_rejection_happens_before_attribute_limits_and_export() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(3)
+	let configured = exporter(lines.tx, 1)
+	let result = handle handle handle begin
+		metric::counter_increment(None, "requests", 1, list_cons(observe::Attribute("route", observe::StringValue("first")), list_nil()))
+		metric::counter_increment(None, "requests", 1, list_cons(observe::Attribute("route", observe::StringValue("second")), list_nil()))
+		7
+	end with observe::json_lines(configured) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, true)
+	match observe::exporter_health(configured)
+		observe::ExporterHealth(0, 0, 2, 0, observe::ProductionHealth(1, 1, 1)) => if result == 7
+			match channel::recv(lines.rx)
+				Some(_) => match channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
+					None => Ok(())
+					Some(_) => Err("rejected metric series was exported")
+				end
+				None => Err("admitted metric was not exported")
+			end
+		else
+			Err("cardinality rejection changed the body result")
+		end
+		_ => Err("cardinality or attribute-limit health changed")
+	end
+end

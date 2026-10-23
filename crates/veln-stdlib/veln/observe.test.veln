@@ -3,6 +3,7 @@ use log
 use metric
 use observe
 use observe_test_support_test
+use observe_export_test_support_test
 
 test noop_preserves_a_handled_body_result() -> Result<(), String>
 	let observed = handle 42 with observe::noop()
@@ -301,4 +302,16 @@ end
 
 fn callsite_location() -> SourceLocation callsite
 	callsite
+end
+
+test json_lines_exports_all_operations_in_order_and_reports_limits() -> Result<(), String> effects [time, concurrency]
+	observe_export_test_support_test::json_lines_exports_all_operations_in_order_and_reports_limits()
+end
+
+test rejected_export_preserves_result_and_reports_bounded_health_to_diagnostics() -> Result<(), String> effects [time, concurrency]
+	observe_export_test_support_test::rejected_export_preserves_result_and_reports_bounded_health_to_diagnostics()
+end
+
+test cardinality_rejection_happens_before_attribute_limits_and_export() -> Result<(), String> effects [time, concurrency]
+	observe_export_test_support_test::cardinality_rejection_happens_before_attribute_limits_and_export()
 end

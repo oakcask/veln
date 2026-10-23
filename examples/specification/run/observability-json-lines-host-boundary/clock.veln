@@ -1,0 +1,6 @@
+use host_effects from "std"
+
+pub handler fixed() for host_effects::Clock
+	request(operation, milliseconds) => Ok(0)
+	wall_time() => Ok({ unix_seconds: 7, nanosecond: 9 })
+end

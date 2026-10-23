@@ -10,7 +10,8 @@ pub(super) fn surface_prelude_signature(
     descriptor: &StandardSymbolDescriptor,
     expected: &ExpectedPreludeParts,
 ) -> Option<(Vec<Type>, Type)> {
-    prelude_production_metric_index_signature(descriptor.name)
+    prelude_observation_export_signature(descriptor.name, expected)
+        .or_else(|| prelude_production_metric_index_signature(descriptor.name))
         .or_else(|| prelude_net_system_signature(descriptor.name, expected))
         .or_else(|| prelude_float_signature(descriptor.name))
         .or_else(|| prelude_byte_signature(descriptor.name))
@@ -21,6 +22,24 @@ pub(super) fn surface_prelude_signature(
         .or_else(|| prelude_option_signature(descriptor.name, expected))
         .or_else(|| prelude_result_signature(descriptor.name, expected))
         .or_else(|| compiler_adapter_callback_signature(descriptor))
+}
+
+fn prelude_observation_export_signature(
+    name: &str,
+    expected: &ExpectedPreludeParts,
+) -> Option<(Vec<Type>, Type)> {
+    match name {
+        "observation_json_line" => Some((vec![Type::Unknown; 9], expected.direct.clone())),
+        "observation_export_write" => Some((
+            vec![Type::Unknown, Type::string(), Type::bool()],
+            Type::bool(),
+        )),
+        "observation_export_identity" => Some((
+            vec![Type::string(), Type::string(), Type::int()],
+            Type::string(),
+        )),
+        _ => None,
+    }
 }
 
 fn prelude_production_metric_index_signature(name: &str) -> Option<(Vec<Type>, Type)> {

@@ -189,6 +189,9 @@ pub(crate) const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor
 pub(crate) const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
 
 compiler_adapter_symbol_set! {
+    "observation_json_line",
+    "observation_export_write",
+    "observation_export_identity",
     "production_metric_index_new",
     "production_metric_index_contains",
     "production_metric_index_insert",

@@ -16,8 +16,7 @@ also states it.
 
 ## Ready
 
-- Production exporters, JSON Lines, exporter failure health, and exporter lifecycle
-  behavior:
+- Buffered observation export and shutdown flushing or drop accounting:
   [observability.md](observability.md).
 - Remaining ADT variant-refinement support for qualified immutable values
   after a separate source-surface prerequisite, external or representation

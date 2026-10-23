@@ -124,11 +124,33 @@ match observe::production_health(policy)
 end
 ```
 
-This handler is the production cardinality-policy path. It is terminal in this
-slice: an admitted observation is accepted by the policy but is not exported.
-Export destinations, encoding, and shutdown remain separate future facilities.
-The handler and health snapshot use the `concurrency` effect. They do not use
-environment variables, system properties, or deterministic fake exporters.
+This handler remains useful when an application needs admission without
+export. To export synchronously, construct a `Resource`, an
+`InstrumentationScope`, finite `ExporterLimits`, and a JSON Lines exporter.
+Install `observe::json_lines(exporter)` at the application's outer effect
+boundary. `observe::new_json_lines_default` writes records to standard error,
+which keeps application standard output separate. `observe::new_json_lines`
+accepts an explicit record destination and a separate diagnostic destination:
+
+```veln
+let limits = observe::ExporterLimits(32, 1024, 8, list_cons("password", list_nil()))
+let exporter = observe::new_json_lines_default(
+	observe::Resource("checkout", list_nil()),
+	observe::InstrumentationScope("checkout.web", "1"),
+	100,
+	limits,
+	"checkout",
+)
+let result = handle measured() with observe::json_lines(exporter)
+```
+
+The identity prefix namespaces host-generated trace and span identities. Test
+support can inject deterministic identities through the scoped exporter host
+adapter. Use `observe::span_request` to attach the call site to an exported
+span request. `observe::exporter_health` reads a
+non-consuming health snapshot. `observe::report_exporter_health` writes one
+summary only to the configured diagnostic destination; a disabled diagnostic
+destination makes that call a successful no-op.
 
 Use `traced::spawn(context, body)` to start a child task whose callback needs
 an explicit `observe::TraceContext`. The callback accepts that context as its
@@ -289,9 +311,9 @@ supplied message, the supplied attributes in order, the supplied optional
 
 An attribute value is exactly one of `BoolValue(Bool)`, `IntValue(Int)`, or
 `StringValue(String)`. A trace context contains its trace and span identity
-strings and Boolean sampling state. The standard library preserves these
-values; policy such as redaction, truncation, or export encoding belongs to a
-future handler.
+strings and Boolean sampling state. The recording handler preserves these
+values. The JSON Lines handler applies its configured attribute policy during
+export.
 
 Each log helper is call-site-aware. An ordinary caller records the complete
 span of its call expression. A call-site-aware wrapper forwards its own hidden
@@ -309,6 +331,43 @@ construct or pattern-match the span representation. They can call
 returns `None` for a no-op span. Installing the handler preserves the handled
 program's result and opens no output destination. Counter increments and
 histogram samples follow the same discard rule.
+
+### Synchronous JSON Lines export
+
+The JSON Lines handler applies metric-cardinality admission to the original
+metric kind, name, and complete typed attribute multiset. It does this before
+redaction, truncation, or attribute-count limits. A rejected unseen metric
+series produces no line. Every accepted log, event, counter, histogram,
+span-start, and span-finish operation attempts exactly one synchronous write
+of one versioned JSON object followed by `\n`. Accepted operations consume
+handler sequence values in operation order, including a write that the
+destination rejects.
+
+Each record follows the checked
+[`json-lines-record.schema.json`](../../crates/veln-stdlib/schemas/observability/v1/json-lines-record.schema.json).
+It contains the observation kind and name, wall-clock seconds and nanoseconds,
+handler sequence, nullable severity and trace/span identity, ordered links,
+source, nullable task identity, typed attributes, resource identity,
+instrumentation-scope identity, cumulative cardinality and exporter failure
+facts, and per-record attribute facts. Log records add `message`; metric
+records add `value`. The current host does not expose a stable task identity,
+so it encodes `task_id` as `null`.
+
+Attribute count limits apply independently to observation and resource
+attribute lists. Negative limits normalize to zero. String size is measured
+in JVM UTF-16 code units. A string beyond the limit is shortened to the
+configured size and increments `truncated`. Attributes after the count limit
+are omitted and increment `dropped`. A matching attribute name is replaced by
+the string `[REDACTED]` until the finite redaction limit is reached and
+increments `redacted`. The encoded facts include changes to both observation
+and resource attributes.
+
+A destination rejection or host write failure increments the saturating
+`failed_exports` counter and leaves the handled application's ordinary result
+unchanged. Export and health-summary writes do not perform `Observe`, so a
+failure cannot recursively create telemetry. Exported source files use the
+compiler's canonical repository or virtual name. The host boundary replaces
+an unexpected absolute source with its final path component before encoding.
 
 ### Span lifecycle and recording
 
@@ -408,11 +467,12 @@ ambient. Raw task and channel operations remain unchanged.
 
 ## Limits
 
-Metric query APIs, asynchronous metric callbacks, production exporters,
-wall-time or resource enrichment, exporter failure health, and shutdown
-flushing are not available. Cardinality admission does not retain or export
-accepted observations, and its identity bound counts series rather than the
-bytes in their names and attributes. The no-op handler does not record,
+Metric query APIs, asynchronous metric callbacks, buffered export, automatic
+shutdown flushing, and external telemetry-protocol adapters are not
+available. The synchronous exporter has no retry or durable-audit guarantee.
+Its identity bound counts series rather than the bytes in their names and
+attributes. The standalone cardinality handler does not retain or export
+accepted observations. The no-op handler does not record,
 enrich, buffer, export, or report observations. `trace::in_span` currently
 accepts only a body returning `Result<(), String>`, while forwarding that
 body's effect row; it does not define rescue or exception recovery.
@@ -447,6 +507,11 @@ process or machine termination can prevent it from running.
   context coverage in `observe.test.veln`, and explicit task-, channel-value-,
   and fan-in-context coverage in
   [`traced.test.veln`](../../crates/veln-stdlib/veln/traced.test.veln).
+- JSON Lines API, ordering, limit, cardinality, and failure-health coverage:
+  [`observe.test.veln`](../../crates/veln-stdlib/veln/observe.test.veln), with
+  scoped fakes in `observe_export_test_support_test.veln`.
+  The checked schema and representative validation are owned by
+  [`observability-schema.test.mjs`](../../workflow-scripts/observability-schema.test.mjs).
 - Production index boundary coverage:
   [`effect_boundary_policy.rs`](../../crates/veln-backend-jvm/src/tests/effect_boundary_policy.rs)
   checks bounded indexed state and the absence of owner tasks, while

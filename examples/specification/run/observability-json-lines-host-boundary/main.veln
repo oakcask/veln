@@ -1,0 +1,18 @@
+use observe from "std"
+use log from "std"
+use clock
+
+# This case checks the JVM host boundary: default JSON Lines output is one
+# stderr line while application stdout remains separate. Companion tests own
+# the standard-library exporter API and limit semantics.
+pub fn main() -> () effects [stdio, time, concurrency]
+	let exporter = observe::new_json_lines_default(
+		observe::Resource("checkout", list_nil()),
+		observe::InstrumentationScope("example", "1"),
+		1,
+		observe::ExporterLimits(4, 32, 1, list_nil()),
+		"example",
+	)
+	let _ = handle handle log::info(None, "ready", list_nil()) with observe::json_lines(exporter) with clock::fixed()
+	stdio::println("application-output")
+end
