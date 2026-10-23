@@ -110,14 +110,8 @@ fn jvm_runtime_preserves_network_system_commit_and_ownership_invariants_when_jav
     {
         return;
     }
-    let ir = super::effect_injection::lower_with_network_facade(
-        r#"
-pub fn main() -> ()
-    ()
-end
-"#,
-    );
-    let program = generate_classfiles_with_entry(&ir, "main");
+    let ir = lower_network_facade_entry_to_ir("", "write_all_selected");
+    let program = generate_classfiles_with_entry(&ir, "write_all_selected");
     let output = run_java_runtime_harness_with_env(
         "runtime-network-system-lifecycle",
         "NetworkSystemLifecycleHarness.java",
