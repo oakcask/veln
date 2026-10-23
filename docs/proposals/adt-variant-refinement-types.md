@@ -24,9 +24,10 @@ unavailable, only retained privacy diagnostics in that declaration's causal
 dependency closure participate in the package-atomic failure.
 
 This proposal retains only the unfinished work: qualified-value match
-refinement, schema decode boundaries, the provider-dependent unavailable-descriptor
-diagnostic, LSP invalid-refinement recovery, and MCP invalid-refinement
-recovery with the saved-state behavior of those remaining requests. Qualified
+refinement, external or representation schema decode validation, the
+provider-dependent unavailable-descriptor diagnostic, LSP invalid-refinement
+recovery, and MCP invalid-refinement recovery with the saved-state behavior of
+those remaining requests. Qualified
 immutable-value refinement depends
 on a separately specified source form for module-addressable immutable data
 values; current qualified constructor and function expressions do not satisfy
@@ -39,8 +40,8 @@ The remaining proposal has these intended outcomes:
 - Qualified immutable values gain the implemented stable-value match
   refinement only after a separate source-surface and name-resolution contract
   provides module-addressable immutable data values.
-- Schema decode boundaries preserve the base ADT wire format while enforcing
-  the annotated variant set.
+- External or representation schema decode preserves the base ADT wire format
+  while validating the annotated variant set.
 - Production inputs with a known ADT identity but no public finite variant
   descriptor report the defined provider-dependent diagnostic after that
   provider contract exists.
@@ -268,19 +269,16 @@ It does not define a new wire shape, omit an existing constructor tag, or change
 the underlying ADT representation.
 
 The current [execution specification](../specification/execution.md#schema-execution)
-owns format-neutral encode helpers. Those helpers retain eligible source-ADT
-refinements, reject base or excluded values statically, and preserve the base
-ADT representation. This section retains only decode behavior.
-
-Exact test-companion access can permit ordinary test source to use a private
-constructor. That permission does not make the constructor visible at a
-generated public decode boundary.
+owns format-neutral encode helpers and typed pass-through decode helpers. Those
+helpers retain eligible source-ADT refinements, reject base or excluded values
+statically, preserve their result types, and do not change runtime
+representation. This section retains only external or representation decode
+behavior.
 
 | Boundary | Refinement behavior |
 | --- | --- |
-| Typed pass-through decode | Require the supplied value to be assignable to the refined input shape and preserve that type in the result. No runtime refinement check is needed because the helper does not strengthen a base type. |
 | External or representation decode | Decode the complete base value first. After successful base decoding, validate that every refinement-bearing position contains an admitted variant. Return the refined result only after every validation succeeds. |
-| Base-typed decode result | Preserve the declared base type even when one execution produces a particular variant. Observing a runtime tag does not silently strengthen the declared result. |
+| Base-typed external decode result | Preserve the declared base type unless the decoder performs the specified validation or directly constructs an admitted variant. Observing a runtime tag alone does not silently strengthen the declared result. |
 
 An external decoder can produce a refinement only when it directly constructs
 an admitted variant or can inspect the existing ADT tag after decoding. If it
@@ -360,7 +358,7 @@ current behavior:
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
 | Qualified immutable values | After a separate Ready proposal adds module-addressable immutable data values, matching a qualified reference to such a declaration has the same stable-value refinement as the corresponding direct binding. A same-shaped qualified constructor or function expression remains outside this rule. | Accepted and rejected source-grammar fixtures and name-resolution cases for the prerequisite declaration, followed by match cases that resolve an actual qualified immutable data-value declaration and distinguish it from constructors and functions. |
-| Schema decode | Refinement annotations preserve the base ADT wire representation. Typed pass-through helpers require statically assignable refined inputs. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. Exact test-companion access permits ordinary test source to use a private constructor, but does not make that constructor visible at a generated public decode boundary. | Decode eligibility and type-checker cases for refined and base inputs; paired decode visibility cases; binary, format-neutral, incremental, singleton, union, nested record, payload, option, result, collection, and dictionary cases; runtime cases for excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, and unchanged wire bytes. |
+| External schema decode | Refinement annotations preserve the base ADT wire representation. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. | Binary and incremental decoder cases for singleton, union, nested record, payload, option, result, collection, and dictionary positions; runtime cases for excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, unchanged wire bytes, and unsupported decoder capabilities. |
 | Provider descriptor unavailable | After the separate provider prerequisite lands, a production compiler or package input with a known ADT identity and no public finite variant descriptor reports `type.variant_refinement_base` with reason `variant_descriptor_unavailable`. A local source declaration with no lowered variants does not establish this reason. | Human and JSON command fixtures that select the production provider, plus semantic cases that distinguish compiler or package provenance from local source declarations and unit-only provider injection. |
 | LSP | Invalid-refinement recovery and unchanged-snapshot failures follow the remaining LSP contract. | Shared language-service cases and stdio LSP request/response fixtures. |
 | MCP | Invalid-refinement recovery and its request-specific failure-state preservation follow the MCP contract. | Schema validation and multi-request stdio MCP fixtures. |

@@ -1,0 +1,26 @@
+pub type State
+	pub Ready
+	pub Closed
+	pub Failed
+end
+
+schema RefinedPacket
+	state: State::Ready | State::Closed
+end
+
+schema BasePacket
+	state: State
+end
+
+fn reject_base_input(packet: {state: State}) -> Result<{state: State::Ready | State::Closed}, String>
+	byte_decode_refined_packet(packet)
+end
+
+fn reject_excluded_input(packet: {state: State::Failed}) -> Result<{state: State::Ready | State::Closed}, String>
+	let decoder = byte_decode_refined_packet
+	decoder(packet)
+end
+
+fn reject_base_result(packet: {state: State}) -> Result<{state: State::Ready}, String>
+	byte_decode_base_packet(packet)
+end

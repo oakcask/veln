@@ -349,7 +349,7 @@ fn bound_schema_encode_records_report_nested_variant_mismatches() {
 }
 
 #[test]
-fn encode_only_refinement_fields_still_validate_predicate_references() {
+fn refinement_fields_remain_decode_eligible_and_validate_predicate_references() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -365,9 +365,11 @@ fn encode_only_refinement_fields_still_validate_predicate_references() {
     );
     let module = lower_surface_ast(&parse(&source).tree);
 
-    assert!(
-        schema_decode_value_type(&module, &module.schemas[0]).is_none(),
-        "a refinement field must remain absent from the decode record"
+    assert_eq!(
+        schema_decode_value_type(&module, &module.schemas[0])
+            .expect("a typed pass-through decoder should retain the refinement")
+            .render(),
+        "{state: State::Ready}"
     );
     assert!(
         schema_encode_value_type(&module, &module.schemas[0]).is_some(),
@@ -388,6 +390,188 @@ fn encode_only_refinement_fields_still_validate_predicate_references() {
         diagnostics
             .iter()
             .all(|diagnostic| diagnostic.id != "schema.format_neutral_encode_helper"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn generated_format_neutral_schema_decode_helpers_retain_variant_refinements() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready(value: Int)\n",
+            "  pub Closed(value: Int)\n",
+            "  pub Failed(value: Int)\n",
+            "end\n",
+            "\n",
+            "schema Packet\n",
+            "  singleton: State::Ready\n",
+            "  union: State::Ready | State::Closed\n",
+            "  nested: {payload: Option<List<Vec<Dict<String, Result<State::Ready, State::Ready | State::Closed>>>>>}\n",
+            "end\n",
+            "\n",
+            "pub fn decode(packet: {singleton: State::Ready, union: State::Ready | State::Closed, nested: {payload: Option<List<Vec<Dict<String, Result<State::Ready, State::Ready | State::Closed>>>>>}}) -> Result<{singleton: State::Ready, union: State::Ready | State::Closed, nested: {payload: Option<List<Vec<Dict<String, Result<State::Ready, State::Ready | State::Closed>>>>>}}, String>\n",
+            "  byte_decode_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn decode_bound(packet: {singleton: State::Ready, union: State::Ready | State::Closed, nested: {payload: Option<List<Vec<Dict<String, Result<State::Ready, State::Ready | State::Closed>>>>>}}) -> Result<{singleton: State::Ready, union: State::Ready | State::Closed, nested: {payload: Option<List<Vec<Dict<String, Result<State::Ready, State::Ready | State::Closed>>>>>}}, String>\n",
+            "  let decoder = byte_decode_packet\n",
+            "  decoder(packet)\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let value_type = schema_decode_value_type(&module, &module.schemas[0])
+        .expect("decode helper should retain eligible refinements");
+    let rendered = value_type.render();
+    assert!(rendered.contains("singleton: State::Ready"), "{rendered}");
+    assert!(
+        rendered.contains("union: State::Ready | State::Closed"),
+        "{rendered}"
+    );
+    assert!(
+        rendered.contains("Result<State::Ready, State::Ready | State::Closed>"),
+        "{rendered}"
+    );
+
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+}
+
+#[test]
+fn generated_format_neutral_schema_decode_helpers_reject_strengthening_inputs_and_results() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready\n",
+            "  pub Closed\n",
+            "  pub Failed\n",
+            "end\n",
+            "\n",
+            "schema RefinedPacket\n",
+            "  state: State::Ready | State::Closed\n",
+            "end\n",
+            "\n",
+            "schema BasePacket\n",
+            "  state: State\n",
+            "end\n",
+            "\n",
+            "schema SingletonPacket\n",
+            "  state: State::Ready\n",
+            "end\n",
+            "\n",
+            "schema NestedPacket\n",
+            "  states: Option<List<State::Ready>>\n",
+            "end\n",
+            "\n",
+            "pub fn base_input(packet: {state: State}) -> Result<{state: State::Ready | State::Closed}, String>\n",
+            "  byte_decode_refined_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn excluded_input(packet: {state: State::Failed}) -> Result<{state: State::Ready | State::Closed}, String>\n",
+            "  byte_decode_refined_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn base_result(packet: {state: State}) -> Result<{state: State::Ready}, String>\n",
+            "  byte_decode_base_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn singleton_base_input(packet: {state: State}) -> Result<{state: State::Ready}, String>\n",
+            "  byte_decode_singleton_packet(packet)\n",
+            "end\n",
+            "\n",
+            "pub fn nested_base_input(packet: {states: Option<List<State>>}) -> Result<{states: Option<List<State::Ready>>}, String>\n",
+            "  byte_decode_nested_packet(packet)\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+    assert_eq!(diagnostics.len(), 5, "{diagnostics:#?}");
+}
+
+#[test]
+fn format_neutral_schema_decode_visibility_pairs_public_and_companion_boundaries() {
+    let companion_source = SourceFile::new(
+        "math.test.veln",
+        concat!(
+            "mod math__test_companion\n",
+            "use math\n",
+            "test decode_private(packet: {state: math::State::Hidden}) -> Result<{state: math::State::Hidden}, String>\n",
+            "  math::byte_decode_private_packet(packet)\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "pub type State\n",
+            "  Hidden\n",
+            "  pub Visible\n",
+            "end\n",
+            "schema PrivatePacket\n",
+            "  state: State::Hidden\n",
+            "end\n",
+            "pub schema PublicPacket\n",
+            "  state: State::Hidden\n",
+            "end\n",
+            "pub schema VisiblePacket\n",
+            "  state: State::Visible\n",
+            "end\n",
+        ),
+    );
+    let companion = lower_surface_ast(&parse(&companion_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: target.types,
+        schemas: target.schemas,
+        functions: companion.functions,
+        invalid_names: Vec::new(),
+    };
+
+    assert_eq!(
+        schema_decode_value_type(&module, &module.schemas[0])
+            .expect("an exact companion may use the private target helper")
+            .render(),
+        "{state: State::Hidden}"
+    );
+    assert!(
+        schema_decode_value_type(&module, &module.schemas[1]).is_none(),
+        "a public helper must not expose a private constructor"
+    );
+    assert_eq!(
+        schema_decode_value_type(&module, &module.schemas[2])
+            .expect("a public helper may expose a public constructor")
+            .render(),
+        "{state: State::Visible}"
+    );
+    let diagnostics = analyze_surface_module(&module);
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "schema.format_neutral_decode_helper"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "call.private_companion_target"),
         "{diagnostics:#?}"
     );
 }

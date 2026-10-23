@@ -69,13 +69,12 @@ pub(crate) fn format_neutral_schema_field_type_for_schema(
     adts: &AdtRegistry,
     text: &str,
 ) -> Option<Type> {
-    format_neutral_schema_field_type_for_traversal(
-        module,
-        schema,
-        adts,
-        text,
-        FormatNeutralSchemaTraversal::Decode,
-    )
+    let traversal = if schema.visibility == Visibility::Public {
+        FormatNeutralSchemaTraversal::DecodePublic
+    } else {
+        FormatNeutralSchemaTraversal::DecodePrivate
+    };
+    format_neutral_schema_field_type_for_traversal(module, schema, adts, text, traversal)
 }
 
 fn format_neutral_schema_field_type_for_traversal(
@@ -104,35 +103,29 @@ fn format_neutral_schema_resolved_field_type(
     composition_stack: &mut Vec<(Option<String>, String)>,
 ) -> Option<Type> {
     let parsed = parse_type_annotation(text).ok()?;
-    if traversal.is_encode()
-        && !format_neutral_schema_written_constructors_are_visible(
-            module,
-            schema.module_name.as_deref(),
-            adts,
-            &parsed,
-            traversal,
-        )
-    {
+    if !format_neutral_schema_written_constructors_are_visible(
+        module,
+        schema.module_name.as_deref(),
+        adts,
+        &parsed,
+        traversal,
+    ) {
         return None;
     }
-    let ty = if traversal.is_encode() {
-        crate::types::canonicalize_type_effects(
-            parsed,
-            &normal_use_decls(module),
-            &module
-                .uses
-                .iter()
-                .filter(|use_decl| use_decl_has_invalid_module_segment(module, use_decl))
-                .cloned()
-                .collect::<Vec<_>>(),
-            schema.module_name.as_deref(),
-            &[],
-            adts,
-            &BTreeMap::new(),
-        )
-    } else {
-        parsed
-    };
+    let ty = crate::types::canonicalize_type_effects(
+        parsed,
+        &normal_use_decls(module),
+        &module
+            .uses
+            .iter()
+            .filter(|use_decl| use_decl_has_invalid_module_segment(module, use_decl))
+            .cloned()
+            .collect::<Vec<_>>(),
+        schema.module_name.as_deref(),
+        &[],
+        adts,
+        &BTreeMap::new(),
+    );
     if let Some(ty) = format_neutral_schema_visible_shape_type_for_schema(
         module,
         schema.module_name.as_deref(),
@@ -278,18 +271,19 @@ struct FormatNeutralSchemaTraversalState {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum FormatNeutralSchemaTraversal {
-    Decode,
+    DecodePrivate,
+    DecodePublic,
     EncodePrivate,
     EncodePublic,
 }
 
 impl FormatNeutralSchemaTraversal {
-    fn is_encode(self) -> bool {
-        matches!(self, Self::EncodePrivate | Self::EncodePublic)
+    fn permits_private_variants(self) -> bool {
+        matches!(self, Self::DecodePrivate | Self::EncodePrivate)
     }
 
-    fn permits_private_variants(self) -> bool {
-        self == Self::EncodePrivate
+    fn is_decode(self) -> bool {
+        matches!(self, Self::DecodePrivate | Self::DecodePublic)
     }
 }
 
@@ -332,16 +326,14 @@ fn format_neutral_schema_visible_shape_type_for_schema(
             args,
             state,
         ),
-        Type::VariantRefinement { .. } if traversal.is_encode() => {
-            format_neutral_schema_source_adt_type(
-                module,
-                current_module,
-                adts,
-                ty,
-                state,
-                traversal,
-            )
-        }
+        Type::VariantRefinement { .. } => format_neutral_schema_source_adt_type(
+            module,
+            current_module,
+            adts,
+            ty,
+            state,
+            traversal,
+        ),
         Type::Record(fields) => Some(Type::Record(
             fields
                 .iter()
@@ -532,7 +524,7 @@ fn format_neutral_schema_prior_adt_traversal_result(
         active.module_name == frame.module_name && active.type_name == frame.type_name
     })?;
     state.stack_cacheable[recursive_index + 1..].fill(false);
-    if traversal == FormatNeutralSchemaTraversal::Decode {
+    if traversal.is_decode() {
         return Some(Some(descriptor_ty.clone()));
     }
     Some(

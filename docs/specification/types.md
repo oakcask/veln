@@ -1158,9 +1158,10 @@ Variant-refinement semantic-token classifications are specified in
 rename behavior is specified by
 [editor support](editor-support.md#lsp-navigation-formatting-and-rename) and
 [MCP](mcp.md#saved-workspace-navigation). Qualified-value control-flow
-refinement, schema decode boundaries, LSP invalid-refinement recovery, and
-remaining MCP invalid-refinement recovery, including the saved-state behavior
-of those remaining requests, remain proposal work.
+refinement, external or representation schema decode validation, LSP
+invalid-refinement recovery, and remaining MCP invalid-refinement recovery,
+including the saved-state behavior of those remaining requests, remain
+proposal work.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record

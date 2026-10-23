@@ -11,6 +11,14 @@ pub schema VisiblePacket
 	state: State::Visible
 end
 
+schema PrivatePacket
+	state: State::Hidden
+end
+
 fn accepted(value: State::Visible) -> Result<{state: State::Visible}, String>
 	byte_encode_visible_packet({state: value})
+end
+
+fn accepted_decode(value: State::Visible) -> Result<{state: State::Visible}, String>
+	byte_decode_visible_packet({state: value})
 end
