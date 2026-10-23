@@ -337,6 +337,15 @@ test rejected_export_preserves_result_and_reports_bounded_health_to_diagnostics(
 	observe_export_test_support_test::rejected_export_preserves_result_and_reports_bounded_health_to_diagnostics()
 end
 
+test rejected_health_summary_preserves_health_and_is_not_retried() -> Result<(), String> effects [concurrency]
+	let configured = observe::new_json_lines_for_test(observe::Resource("checkout", list_nil()), observe::InstrumentationScope("checkout.web", "1"), 1, observe::ExporterLimits(1, 4, 1, list_nil()), observe::StandardError, observe::DiagnosticStandardError, "health", 2, 3, 4, 5)
+	observe_export_test_support_test::rejected_health_summary_preserves_health(configured)
+end
+
+test default_exporter_routes_records_and_disables_health_output() -> Result<(), String> effects [time, concurrency]
+	observe_export_test_support_test::default_exporter_uses_stderr_and_disables_health_output()
+end
+
 test cardinality_rejection_happens_before_attribute_limits_and_export() -> Result<(), String> effects [time, concurrency]
 	observe_export_test_support_test::cardinality_rejection_happens_before_attribute_limits_and_export()
 end

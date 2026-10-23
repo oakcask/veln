@@ -304,6 +304,61 @@ pub fn rejected_export_preserves_result_and_reports_bounded_health_to_diagnostic
 	end
 end
 
+pub fn rejected_health_summary_preserves_health(configured: JsonLinesExporter) -> Result<(), String> effects [concurrency]
+	let lines = observe_test_support_test::export_lines(2)
+	let before = observe::exporter_health(configured)
+	let reported = handle observe::report_exporter_health(configured) with observe_test_support_test::exporter(lines.tx, false)
+	let after = observe::exporter_health(configured)
+	match before
+		observe::ExporterHealth(2, 3, 4, 5, observe::ProductionHealth(0, 0, 0)) => match after
+			observe::ExporterHealth(2, 3, 4, 5, observe::ProductionHealth(0, 0, 0)) => if reported
+				Err("rejected exporter health summary reported success")
+			else
+				match channel::recv(lines.rx)
+					Some(line) => if has(line, "diagnostic:stderr:{\"schema_version\":1,\"kind\":\"exporter_health\",\"failed_exports\":2")
+						match channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
+							None => Ok(())
+							Some(_) => Err("rejected exporter health summary was retried")
+						end
+					else
+						Err("rejected exporter health summary changed shape or destination")
+					end
+					None => Err("rejected exporter health summary was not attempted")
+				end
+			end
+			_ => Err("rejected exporter health summary changed health")
+		end
+		_ => Err("exporter health rejection test was initialized incorrectly")
+	end
+end
+
+pub fn default_exporter_uses_stderr_and_disables_health_output() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(2)
+	let configured = observe::new_json_lines_default(
+		observe::Resource("checkout", list_nil()),
+		observe::InstrumentationScope("checkout.web", "1"),
+		1,
+		observe::ExporterLimits(1, 8, 1, list_nil()),
+		"fixed",
+	)
+	let record = observe::Event(observe::EventRecord("default", list_nil(), None, source("", "main", "main.veln")))
+	let _ = handle handle observe::export_observation(configured, record) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, true)
+	let reported = handle observe::report_exporter_health(configured) with observe_test_support_test::exporter(lines.tx, false)
+	match channel::recv(lines.rx)
+		Some(line) => if not has(line, "record:stderr:{\"schema_version\":1,\"kind\":\"event\"")
+			Err("default exporter did not select the standard-error record destination")
+		else if not reported
+			Err("disabled diagnostic destination rejected the health call")
+		else
+			match channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
+				None => Ok(())
+				Some(_) => Err("disabled diagnostic destination emitted a health summary")
+			end
+		end
+		None => Err("default exporter emitted no record")
+	end
+end
+
 pub fn cardinality_rejection_happens_before_attribute_limits_and_export() -> Result<(), String> effects [time, concurrency]
 	let lines = observe_test_support_test::export_lines(3)
 	let configured = exporter(lines.tx, 1)
