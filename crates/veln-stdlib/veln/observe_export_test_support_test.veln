@@ -79,13 +79,16 @@ pub fn hostile_public_source_components_are_replaced() -> Result<(), String> eff
 	let _ = expect_source(configured, lines, "acme:lib", "src/main.veln", "acme:lib", "src/main.veln")?
 	let _ = expect_source(configured, lines, "acme\\lib", "src/main.veln", "acme\\\\lib", "src/main.veln")?
 	let _ = expect_source(configured, lines, "controlpackage", "café.veln", "controlpackage", "café.veln")?
+	let _ = expect_source(configured, lines, "owner/가", "한글.veln", "owner/가", "한글.veln")?
 	let _ = expect_source(configured, lines, maximum_package, "src/main.veln", maximum_package, "src/main.veln")?
 	let _ = expect_source(configured, lines, oversized_package, "src/main.veln", "<invalid-source>", "src/main.veln")?
 	let _ = expect_source(configured, lines, "café", "src/main.veln", "<invalid-source>", "src/main.veln")?
+	let _ = expect_source(configured, lines, "owner/가", "src/main.veln", "<invalid-source>", "src/main.veln")?
 	let _ = expect_source(configured, lines, "owner//package", "src/main.veln", "<invalid-source>", "src/main.veln")?
 	let _ = expect_source(configured, lines, "owner/../package", "src/main.veln", "<invalid-source>", "src/main.veln")?
 	let _ = expect_source(configured, lines, "owner/em space", "src/main.veln", "<invalid-source>", "src/main.veln")?
 	let _ = expect_source(configured, lines, "acme:lib", "café.veln", "acme:lib", "<invalid-source>")?
+	let _ = expect_source(configured, lines, "acme:lib", "한글.veln", "acme:lib", "<invalid-source>")?
 	let _ = expect_source(configured, lines, "acme:lib", "safe/control.veln", "acme:lib", "<invalid-source>")?
 	let _ = expect_source(configured, lines, "acme:lib", "safe/main.veln.", "acme:lib", "<invalid-source>")?
 	let _ = expect_source(configured, lines, "acme:lib", "safe/main.veln ", "acme:lib", "<invalid-source>")?
