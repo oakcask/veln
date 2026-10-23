@@ -446,28 +446,24 @@ not prevent a later export or health read. Export and health-summary writes do
 not perform `Observe`, so a failure cannot recursively create telemetry.
 
 Every direct or handler-driven export validates all public `SourceLocation`
-components before encoding. A workspace source has an empty `package`; a
-dependency source has its exact public package identity, including punctuation
-such as `acme:lib`. A nonempty package has at most 255 Unicode scalars, uses
-Unicode Normalization Form C from the repository's pinned portable Unicode
-data, has nonempty `/`-separated segments other than `.` and `..`, and contains
-no Unicode whitespace. The empty workspace identity and embedded `std`
-identity remain valid.
+components before encoding. A dependency `package` uses the
+[portable package identity](package-snapshots.md#portable-package-identity)
+domain and retains its exact spelling, including punctuation such as
+`acme:lib`. The empty workspace identity and embedded `std` identity also
+remain valid.
 
 `module` is a logical path whose non-empty segments are separated by `::`; it
-is validated independently of host filesystem syntax. `file` is a nonempty
-package-relative path or canonical virtual name in pinned NFC. Each
-`/`-separated file segment is nonempty and is not `.` or `..`. A segment cannot
-contain a Unicode control, backslash, or colon; end in a space or dot; or use a
-case-insensitive platform-reserved device stem, including numbered and
-superscript `COM` and `LPT` aliases and their extension forms. File validation
-does not consult the host filesystem. An invalid component becomes
-`<invalid-source>` without changing valid components of the same location.
-Module validation replaces slash, backslash, traversal, empty-segment, NUL, or
-stray-colon spellings. It preserves compiler-produced canonical values such as
-nested module `a::b` and its slash-separated package-relative file. Equivalent
-source trees at different absolute roots therefore encode the same source
-identity.
+is validated independently of host filesystem syntax. `file` uses the pinned
+portable source-path domain specified by
+[package snapshot capture](package-snapshots.md#filesystem-capture-and-exclusions),
+whether it is a package-relative path or a compiler-produced canonical virtual
+name. Validation does not consult the host filesystem. An invalid package,
+module, or file becomes `<invalid-source>` without changing valid components
+of the same location. Module validation rejects slash, backslash, traversal,
+empty-segment, NUL, and stray-colon spellings. It preserves canonical values
+such as nested module `a::b` and its slash-separated package-relative file.
+Equivalent source trees at different absolute roots therefore encode the same
+source identity.
 
 ### Direct exporter operations
 
