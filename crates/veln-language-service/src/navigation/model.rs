@@ -635,6 +635,7 @@ struct TypeSymbol {
     public: bool,
     standard_prelude: bool,
     generic_arity: usize,
+    has_variants: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -1110,6 +1111,9 @@ pub(crate) struct SymbolIndex {
     workspace_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     package_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     variant_refinement_alias_index: OnceLock<VariantRefinementAliasIndex>,
+    variant_refinement_resolved_type_arguments:
+        OnceLock<BTreeSet<VariantRefinementRangeIdentity>>,
+    type_resolution_project: veln_ast::SurfaceModule,
     eligible_workspace_effect_indices: BTreeMap<(String, String), usize>,
     eligible_workspace_effect_operation_indices: BTreeMap<(String, String, String), usize>,
     schema_composition_references: Vec<SchemaCompositionReference>,
@@ -1128,6 +1132,12 @@ type ConstructorIdentity = (
     String,
 );
 type IndexedFileIdentity = (Option<String>, Option<PackageOrigin>, String);
+type VariantRefinementRangeIdentity = (
+    Option<String>,
+    Option<PackageOrigin>,
+    String,
+    (usize, usize),
+);
 type TypeIdentity = (Option<String>, Option<PackageOrigin>, String, String);
 
 #[derive(Debug)]

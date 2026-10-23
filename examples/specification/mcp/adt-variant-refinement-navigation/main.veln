@@ -21,13 +21,21 @@ fn alias_union(value: Alias::Ready | Alias::Closed) -> Int
 end
 
 pub type Other
-  pub Ready
+  pub Shared
 end
 
-fn observe_other(value: Other::Ready) -> Other
-  Other::Ready
+fn observe_other(value: Other::Shared) -> Other
+  Other::Shared
 end
 
-fn invalid(value: State::Ready | Other::Ready) -> Int
+fn invalid(value: State::Ready | Other::Shared) -> Int
+  0
+end
+
+fn retained_unknown(value: Alias::Missing) -> Int
+  0
+end
+
+fn retained_wrong_owner(value: Alias::Shared) -> Int
   0
 end

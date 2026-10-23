@@ -7,3 +7,11 @@
 {"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":31,"column":27,"include_declaration":true}}}
 {"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":31,"column":27,"new_name":"Prepared"}}}
 {"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":15,"column":25,"new_name":"Phase"}}}
+{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":35,"column":28}}}
+{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":35,"column":28,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":35,"column":28,"new_name":"Phase"}}}
+{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":35,"column":35}}}
+{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":35,"column":35,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":35,"column":35,"new_name":"Prepared"}}}
+{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":8,"column":27}}}
+{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":39,"column":32}}}

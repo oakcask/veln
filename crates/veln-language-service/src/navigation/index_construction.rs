@@ -122,6 +122,15 @@ impl SymbolIndex {
             &eligible_workspace_effect_indices,
             &files,
         );
+        let mut type_resolution_project = workspace_module.clone();
+        append_surface_module(
+            &mut type_resolution_project,
+            direct_dependencies.module.clone(),
+        );
+        append_surface_module(
+            &mut type_resolution_project,
+            standard_library.module.clone(),
+        );
         files.extend(direct_dependencies.files.clone());
         files.extend(standard_library.files.clone());
         let file_indices_by_identity = file_indices_by_identity(&files);
@@ -149,6 +158,8 @@ impl SymbolIndex {
             workspace_type_alias_indices_by_module_and_name,
             package_type_alias_indices_by_module_and_name,
             variant_refinement_alias_index: OnceLock::new(),
+            variant_refinement_resolved_type_arguments: OnceLock::new(),
+            type_resolution_project,
             eligible_workspace_effect_indices,
             eligible_workspace_effect_operation_indices,
             schema_composition_references,

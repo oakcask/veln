@@ -98,7 +98,9 @@ path = "/result/changes/$workspace_file_uri:main.veln"
 equals = [
   {"range":{"start":{"line":5,"character":9},"end":{"line":5,"character":14}},"newText":"Phase"},
   {"range":{"start":{"line":7,"character":39},"end":{"line":7,"character":44}},"newText":"Phase"},
-  {"range":{"start":{"line":7,"character":54},"end":{"line":7,"character":59}},"newText":"Phase"}
+  {"range":{"start":{"line":7,"character":54},"end":{"line":7,"character":59}},"newText":"Phase"},
+  {"range":{"start":{"line":35,"character":27},"end":{"line":35,"character":32}},"newText":"Phase"},
+  {"range":{"start":{"line":39,"character":31},"end":{"line":39,"character":36}},"newText":"Phase"}
 ]
 
 [[lsp_assert]]
@@ -140,3 +142,53 @@ equals = null
 id = 16
 path = "/result/changes"
 equals = {}
+
+[[lsp_assert]]
+id = 17
+path = "/result/range"
+equals = {"start":{"line":5,"character":9},"end":{"line":5,"character":14}}
+
+[[lsp_assert]]
+id = 18
+path = "/result"
+length = 5
+
+[[lsp_assert]]
+id = 19
+path = "/result"
+equals = {"start":{"line":35,"character":27},"end":{"line":35,"character":32}}
+
+[[lsp_assert]]
+id = 20
+path = "/result/changes/$workspace_file_uri:main.veln"
+length = 5
+
+[[lsp_assert]]
+id = 21
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 22
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 23
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 24
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 25
+path = "/result/range"
+equals = {"start":{"line":1,"character":5},"end":{"line":1,"character":10}}
+
+[[lsp_assert]]
+id = 26
+path = "/result/range"
+equals = {"start":{"line":5,"character":9},"end":{"line":5,"character":14}}

@@ -619,7 +619,7 @@
     }
 
     #[test]
-    fn invalid_variant_refinement_bases_require_complete_identity() {
+    fn invalid_variant_refinements_retain_only_the_valid_base_identity() {
         let text = concat!(
             "type State\n",
             "  Ready\n",
@@ -654,6 +654,9 @@
             "\nfn direct_non_constructor(value: State::Helper) -> Int\n",
             "  0\n",
             "end\n",
+            "\nfn non_adt_base(value: Helper::Missing) -> Int\n",
+            "  0\n",
+            "end\n",
         );
         let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", text)]);
         let position = |line: usize, needle: &str| SourcePosition {
@@ -662,23 +665,96 @@
             column: text.lines().nth(line - 1).unwrap().find(needle).unwrap() + 1,
         };
 
-        for (line, needle) in [
-            (22, "Alias::"),
-            (26, "Alias::"),
-            (30, "Alias::"),
-            (34, "State::"),
-            (38, "State::"),
-            (42, "State::"),
+        for (line, base, final_segment, definition_line, definition_column) in [
+            (22, "Alias::", "Missing", 12, 10),
+            (26, "Alias::", "Shared", 12, 10),
+            (30, "Alias::", "Helper", 12, 10),
+            (34, "State::", "Missing", 1, 6),
+            (38, "State::", "Shared", 1, 6),
+            (42, "State::", "Helper", 1, 6),
         ] {
-            assert!(definition_at(&snapshot, position(line, needle)).is_none());
-            assert!(navigate(&snapshot, position(line, needle)).is_none());
-            assert!(navigate_for_rename(&snapshot, position(line, needle)).is_none());
+            let definition = definition_at(&snapshot, position(line, base)).unwrap();
+            assert_location(&definition, "main.veln", definition_line, definition_column);
+            let navigation = navigate(&snapshot, position(line, base)).unwrap();
+            assert_eq!(navigation.selected_symbol.kind, SymbolKind::Type);
+            let rename = navigate_for_rename(&snapshot, position(line, base)).unwrap();
+            assert!(validate_rename_in_snapshot(&snapshot, &rename, "Renamed").is_ok());
+
+            assert!(definition_at(&snapshot, position(line, final_segment)).is_none());
+            assert!(navigate(&snapshot, position(line, final_segment)).is_none());
+            assert!(navigate_for_rename(&snapshot, position(line, final_segment)).is_none());
+        }
+
+        let alias = navigate(&snapshot, position(22, "Alias::")).unwrap();
+        assert_eq!(alias.references.len(), 6);
+        let alias_rename = navigate_for_rename(&snapshot, position(22, "Alias::")).unwrap();
+        assert_eq!(alias_rename.references.len(), 6);
+
+        let direct = navigate(&snapshot, position(34, "State::")).unwrap();
+        assert_eq!(direct.references.len(), 4);
+        let direct_rename = navigate_for_rename(&snapshot, position(34, "State::")).unwrap();
+        assert_eq!(direct_rename.references.len(), 4);
+
+        for needle in ["Helper::", "Missing"] {
+            assert!(definition_at(&snapshot, position(46, needle)).is_none());
+            assert!(navigate(&snapshot, position(46, needle)).is_none());
+            assert!(navigate_for_rename(&snapshot, position(46, needle)).is_none());
         }
 
         for (line, needle) in [(14, "Alias::"), (18, "Alias::")] {
             let result = navigate(&snapshot, position(line, needle)).unwrap();
             assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
             assert!(navigate_for_rename(&snapshot, position(line, needle)).is_some());
+        }
+    }
+
+    #[test]
+    fn invalid_variant_refinement_retains_qualified_alias_base() {
+        let main = concat!(
+            "use model\n\n",
+            "fn missing(value: model::Alias::Missing) -> Int\n  0\nend\n\n",
+            "fn wrong_owner(value: model::Alias::Shared) -> Int\n  0\nend\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "model.veln",
+                concat!(
+                    "pub type State\n  pub Ready\nend\n\n",
+                    "pub type Other\n  pub Shared\nend\n\n",
+                    "pub type Alias = State\n",
+                ),
+            ),
+            source("main.veln", main),
+        ]);
+        for (line, final_segment) in [(3, "Missing"), (7, "Shared")] {
+            let source_line = main.lines().nth(line - 1).unwrap();
+            let base_column = source_line.find("Alias").unwrap() + 1;
+            let base = query_snapshot(&snapshot, "main.veln", line, base_column).unwrap();
+            assert_location(&base.definition, "model.veln", 9, 10);
+            assert_eq!(base.references.len(), 2);
+            let rename = navigate_for_rename(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line,
+                    column: base_column,
+                },
+            )
+            .unwrap();
+            assert_eq!(rename.references.len(), 2);
+
+            let column = source_line.find(final_segment).unwrap() + 1;
+            assert!(
+                navigate(
+                    &snapshot,
+                    SourcePosition {
+                        source: SourcePath::new("main.veln"),
+                        line,
+                        column,
+                    }
+                )
+                .is_none()
+            );
         }
     }
 

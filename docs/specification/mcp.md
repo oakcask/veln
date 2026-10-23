@@ -472,23 +472,33 @@ empty definition. A public constructor selected through a visible type alias
 returns the constructor declaration, not the alias declaration. Definition
 exposes a recovery record's retained source range.
 
-Valid singleton and union variant refinements use the
+Valid singleton and union variant refinements, plus the eligible retained base
+of an invalid singleton refinement, use the
 [shared navigation contract](editor-support.md#shared-variant-refinement-navigation).
 MCP supplies and returns positive one-based Unicode-scalar coordinates and does
 not resolve a second refinement identity. Definition projects the shared
 declaration. References project the shared deterministic locations and apply
 `include_declaration` and pagination. Rename projects eligible workspace
 locations to MCP edits without making retained package source editable. A valid
-position whose refinement has no shared identity returns `definition: null`,
+position on an invalid final segment has no shared identity and returns `definition: null`,
 an empty reference list, or an empty edit list. Invalid paths, positions,
 captures, and pagination retain the failure and state-preservation rules of the
 corresponding MCP tool.
+
+An empty request on an invalid final segment does not replace saved workspace
+selection or prior results, consume an existing reference cursor, or admit or
+remove dependency resources. A later valid request uses the retained saved
+workspace snapshot. Definition, references, and rename on the retained base
+remain eligible under the shared rules and preserve the same state invariants
+if their request fails.
 
 The checked `adt-variant-refinement-navigation` MCP case asserts the exact
 ordered constructor references and rename edits across direct and
 alias-qualified refinements. It also asserts alias-base definition and rename
 edits without target-ADT or constructor edits, exclusion of a same-spelled
-constructor from another ADT, and empty results for an invalid mixed-ADT union.
+constructor from another ADT, retained alias-base navigation for unknown and
+wrong-owner final segments, empty results for those final segments and for an
+invalid mixed-ADT union, and a valid result after an empty recovery request.
 
 ### Source presentation
 

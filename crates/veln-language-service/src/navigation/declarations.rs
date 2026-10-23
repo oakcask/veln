@@ -588,6 +588,17 @@ fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol>
                     public,
                     standard_prelude: origin.standard_prelude,
                     generic_arity: type_decl.params.len(),
+                    has_variants: type_decl.variants.iter().any(|variant| {
+                        variant.name.as_ref().is_some_and(|name| {
+                            let span = constructor_variant_name_span(
+                                file,
+                                file.tokens.as_slice(),
+                                variant,
+                                name,
+                            );
+                            !is_invalid_declaration_name(file, &span)
+                        })
+                    }),
                 })
             }
             _ => None,

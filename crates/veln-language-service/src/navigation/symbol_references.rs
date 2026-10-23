@@ -198,13 +198,22 @@ impl SymbolIndex {
                             ))
                         {
                             return self
-                                .workspace_type_alias_for_constructor_qualifier_token(
+                                .variant_refinement_base_for_range(
                                     file,
                                     tokens,
                                     token_index,
-                                    &symbol.name,
+                                    &file.variant_refinement_final_range_by_base_range[&(
+                                        tokens[token_index].range.start,
+                                        tokens[token_index].range.end,
+                                    )],
                                 )
-                                .is_some_and(|candidate| same_type_alias(&candidate, symbol))
+                                .is_some_and(|candidate| {
+                                    matches!(
+                                        candidate,
+                                        VariantRefinementBaseSymbol::Alias(candidate)
+                                            if same_type_alias(&candidate, symbol)
+                                    )
+                                })
                                 .then_some(span);
                         }
                         self.workspace_type_alias_for_reference(
@@ -250,12 +259,16 @@ impl SymbolIndex {
         if let Some(final_range) =
             self.variant_refinement_final_range_for_base(file, &tokens[token_index])
         {
-            let identity = self.variant_refinement_identity_for_final_range(file, &final_range)?;
-            return match &identity.base {
+            return match self.variant_refinement_base_for_range(
+                file,
+                tokens,
+                token_index,
+                &final_range,
+            )? {
                 VariantRefinementBaseSymbol::Alias(alias)
                     if alias.package.is_none() && alias.name == name =>
                 {
-                    Some(alias.clone())
+                    Some(alias)
                 }
                 _ => None,
             };
@@ -670,10 +683,15 @@ impl SymbolIndex {
                             .variant_refinement_final_range_for_base(file, &tokens[token_index])
                         {
                             return self
-                                .variant_refinement_identity_for_final_range(file, &final_range)
-                                .is_some_and(|identity| {
+                                .variant_refinement_base_for_range(
+                                    file,
+                                    tokens,
+                                    token_index,
+                                    &final_range,
+                                )
+                                .is_some_and(|base| {
                                     matches!(
-                                        &identity.base,
+                                        &base,
                                         VariantRefinementBaseSymbol::Type(candidate)
                                             if same_type(candidate, symbol)
                                     )
@@ -692,6 +710,9 @@ impl SymbolIndex {
     }
 
     fn type_alias_references(&self, symbol: &TypeAliasSymbol) -> Vec<SourceSpan> {
+        if symbol.package.is_none() {
+            return self.workspace_type_alias_references(symbol);
+        }
         if !self.type_alias_references_supported(symbol) {
             return Vec::new();
         }
@@ -817,10 +838,15 @@ impl SymbolIndex {
                     self.variant_refinement_final_range_for_base(file, &tokens[*index])
                 {
                     return self
-                        .variant_refinement_identity_for_final_range(file, &final_range)
-                        .is_some_and(|identity| {
+                        .variant_refinement_base_for_range(
+                            file,
+                            tokens,
+                            *index,
+                            &final_range,
+                        )
+                        .is_some_and(|base| {
                             matches!(
-                                &identity.base,
+                                &base,
                                 VariantRefinementBaseSymbol::Type(candidate)
                                     if same_type(candidate, symbol)
                             )
@@ -867,12 +893,16 @@ impl SymbolIndex {
         if let Some(final_range) =
             self.variant_refinement_final_range_for_base(file, &tokens[token_index])
         {
-            let identity = self.variant_refinement_identity_for_final_range(file, &final_range)?;
-            return match &identity.base {
+            return match self.variant_refinement_base_for_range(
+                file,
+                tokens,
+                token_index,
+                &final_range,
+            )? {
                 VariantRefinementBaseSymbol::Alias(alias)
                     if alias.package.is_some() && alias.name == name =>
                 {
-                    Some(alias.clone())
+                    Some(alias)
                 }
                 _ => None,
             };

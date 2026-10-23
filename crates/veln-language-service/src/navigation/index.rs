@@ -118,6 +118,7 @@ impl SymbolIndex {
                         public: true,
                         standard_prelude: symbol.standard_prelude,
                         generic_arity: 0,
+                        has_variants: false,
                     })
             })
     }

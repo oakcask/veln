@@ -723,12 +723,10 @@ fn private_variant_refinement_navigation_uses_exact_companion_visibility() {
 }
 
 #[test]
-fn invalid_variant_refinement_alias_bases_do_not_prepare_or_rename() {
+fn invalid_variant_refinements_retain_only_base_navigation_and_rename() {
     let mut server = Server::default();
     let project = TempProject::new("invalid-variant-refinement-alias-base");
-    project.write(
-        "main.veln",
-        concat!(
+    let source = concat!(
             "type State\n",
             "  Ready\n",
             "end\n\n",
@@ -743,23 +741,50 @@ fn invalid_variant_refinement_alias_bases_do_not_prepare_or_rename() {
             "fn missing(value: Alias::Missing) -> Int\n  0\nend\n\n",
             "fn wrong_owner(value: Alias::Shared) -> Int\n  0\nend\n\n",
             "fn non_constructor(value: Alias::Helper) -> Int\n  0\nend\n",
-        ),
-    );
+        );
+    project.write("main.veln", source);
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
-    for (line, character) in [(21, 18), (25, 22), (29, 26)] {
+    for line in [21, 25, 29] {
+        let source_line = source.lines().nth(line).unwrap();
+        let character = source_line.find("Alias").unwrap();
         let definition = server.handle_message(&definition_request(&main_uri, line, character));
-        assert!(definition[0].contains(r#""result":null"#), "{}", definition[0]);
+        assert!(
+            definition[0].contains(
+                r#""start":{"line":11,"character":9},"end":{"line":11,"character":14}"#
+            ),
+            "{}",
+            definition[0]
+        );
+
+        let references = server.handle_message(&references_request(&main_uri, line, character));
+        assert_eq!(references[0].matches(r#""start""#).count(), 7, "{}", references[0]);
 
         let prepared =
             server.handle_message(&prepare_rename_request(&main_uri, line, character));
-        assert!(prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
+        assert!(!prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
 
         let renamed =
             server.handle_message(&rename_request(&main_uri, line, character, "RenamedAlias"));
-        assert!(renamed[0].contains(r#""changes":{}"#), "{}", renamed[0]);
+        assert_eq!(
+            renamed[0].matches(r#""newText":"RenamedAlias""#).count(),
+            7,
+            "{}",
+            renamed[0]
+        );
+
+        let final_character = source_line.rfind("::").unwrap() + 2;
+        assert_refinement_navigation_unavailable(
+            &mut server,
+            &main_uri,
+            line,
+            final_character,
+        );
+
+        let later_valid = server.handle_message(&definition_request(&main_uri, 13, 23));
+        assert!(!later_valid[0].contains(r#""result":null"#), "{}", later_valid[0]);
     }
 
     for (line, character) in [(13, 23), (17, 22), (17, 37)] {
@@ -1060,7 +1085,8 @@ fn variant_refinement_navigation_projects_generic_transitive_and_imported_aliase
             "    model::State::Ready(payload) => made\n",
             "    model::State::Closed => made\n",
             "  end\n",
-            "end\n",
+            "end\n\n",
+            "fn retained(value: model::Alias::Missing) -> Int\n  0\nend\n",
         ),
     );
     let root_uri = path_to_uri(&project.root);
@@ -1103,6 +1129,14 @@ fn variant_refinement_navigation_projects_generic_transitive_and_imported_aliase
     assert_eq!(renamed[0].matches(r#""newText":"Prepared""#).count(), 5, "{}", renamed[0]);
     let alias_renamed = server.handle_message(&rename_request(&main_uri, 7, 18, "GenericBox"));
     assert_eq!(alias_renamed[0].matches(r#""newText":"GenericBox""#).count(), 2, "{}", alias_renamed[0]);
+    assert_definition_contains(
+        &mut server,
+        &main_uri,
+        23,
+        26,
+        r#""range":{"start":{"line":7,"character":9},"end":{"line":7,"character":14}}"#,
+    );
+    assert_refinement_navigation_unavailable(&mut server, &main_uri, 23, 33);
 }
 
 fn assert_definition_contains(

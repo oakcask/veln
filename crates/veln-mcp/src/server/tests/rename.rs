@@ -123,7 +123,7 @@ fn variant_refinement_navigation_uses_shared_constructor_identity() {
 }
 
 #[test]
-fn invalid_variant_refinement_alias_bases_do_not_select_or_rename() {
+fn invalid_variant_refinements_retain_only_base_navigation_and_rename() {
     let workspace = TempWorkspace::new("invalid-variant-refinement-alias-base");
     workspace.write("veln.toml", "");
     workspace.write(
@@ -147,21 +147,66 @@ fn invalid_variant_refinement_alias_bases_do_not_select_or_rename() {
     );
     let mut server = initialized_server(&workspace);
 
-    for (line, column) in [(22, 19), (26, 23), (30, 27)] {
+    for (line, column, final_column) in [(22, 19, 26), (26, 23, 30), (30, 27, 34)] {
         let definition = server.definition_tool(&json!({
             "source": "main.veln", "line": line, "column": column
         }));
         assert_eq!(
-            definition["structuredContent"]["definition"],
-            Value::Null,
+            definition["structuredContent"]["definition"]["range"],
+            json!({"start":{"line":12,"column":10},"end":{"line":12,"column":15}}),
             "{definition:#}"
+        );
+
+        let references = server.references_tool(&json!({
+            "source": "main.veln", "line": line, "column": column,
+            "include_declaration": true
+        }));
+        assert_eq!(
+            references["structuredContent"]["references"]
+                .as_array()
+                .unwrap()
+                .len(),
+            7,
+            "{references:#}"
         );
 
         let renamed = server.rename_tool(&json!({
             "source": "main.veln", "line": line, "column": column,
             "new_name": "RenamedAlias"
         }));
-        assert!(edits(&renamed).is_empty(), "{renamed:#}");
+        assert_eq!(edits(&renamed).len(), 7, "{renamed:#}");
+
+        let final_definition = server.definition_tool(&json!({
+            "source": "main.veln", "line": line, "column": final_column
+        }));
+        assert_eq!(
+            final_definition["structuredContent"]["definition"],
+            Value::Null,
+            "{final_definition:#}"
+        );
+        let final_references = server.references_tool(&json!({
+            "source": "main.veln", "line": line, "column": final_column,
+            "include_declaration": true
+        }));
+        assert_eq!(
+            final_references["structuredContent"]["references"],
+            json!([]),
+            "{final_references:#}"
+        );
+        let final_rename = server.rename_tool(&json!({
+            "source": "main.veln", "line": line, "column": final_column,
+            "new_name": "Packed"
+        }));
+        assert!(edits(&final_rename).is_empty(), "{final_rename:#}");
+
+        let later_valid = server.definition_tool(&json!({
+            "source": "main.veln", "line": 14, "column": 24
+        }));
+        assert_ne!(
+            later_valid["structuredContent"]["definition"],
+            Value::Null,
+            "{later_valid:#}"
+        );
     }
 
     for (line, column) in [(14, 24), (18, 23), (18, 38)] {
@@ -171,6 +216,81 @@ fn invalid_variant_refinement_alias_bases_do_not_select_or_rename() {
         }));
         assert!(!edits(&renamed).is_empty(), "{renamed:#}");
     }
+}
+
+#[test]
+fn invalid_refinement_final_preserves_cursor_resources_and_later_selection() {
+    let workspace = TempWorkspace::new("invalid-refinement-preserved-state");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    let source = concat!(
+        "use dep from \"example/dep\"\n\n",
+        "type State\n  Ready\nend\n\n",
+        "fn target() -> Int\n  1\nend\n\n",
+        "fn call() -> Int\n  target()\nend\n\n",
+        "fn invalid(value: State::Missing) -> Int\n  0\nend\n\n",
+        "fn dependency(value: dep::Remote) -> Int\n  0\nend\n",
+    );
+    workspace.write("main.veln", source);
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write("vendor/dep/dep.veln", "pub type Remote\n  pub Value\nend\n");
+    let mut server = initialized_server(&workspace);
+
+    let dependency = server.definition_tool(&json!({
+        "source":"main.veln", "line":19, "column":27
+    }));
+    assert!(
+        dependency["structuredContent"]["definition"]["uri"]
+            .as_str()
+            .is_some_and(|uri| uri.starts_with("veln-pkg:///example%2Fdep/snapshot/")),
+        "{dependency:#}"
+    );
+    assert!(dependency_resource_is_listed(&mut server, "example/dep"));
+
+    let first_page = server.references_tool(&json!({
+        "source":"main.veln", "line":12, "column":4,
+        "include_declaration":true, "page_size":1
+    }));
+    let cursor = first_page["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let empty = server.references_tool(&json!({
+        "source":"main.veln", "line":15, "column":26,
+        "include_declaration":true
+    }));
+    assert_eq!(
+        empty["structuredContent"]["references"],
+        json!([]),
+        "{empty:#}"
+    );
+    assert!(dependency_resource_is_listed(&mut server, "example/dep"));
+
+    let continuation = server.references_tool(&json!({"cursor":cursor}));
+    assert_eq!(continuation["isError"], false, "{continuation:#}");
+    assert_eq!(
+        continuation["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1,
+        "{continuation:#}"
+    );
+
+    let later_base = server.definition_tool(&json!({
+        "source":"main.veln", "line":15, "column":19
+    }));
+    assert_eq!(
+        later_base["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":3,"column":6},"end":{"line":3,"column":11}}),
+        "{later_base:#}"
+    );
 }
 
 #[test]
@@ -584,7 +704,8 @@ fn variant_refinement_navigation_projects_generic_transitive_and_imported_aliase
             "    model::State::Ready(payload) => made\n",
             "    model::State::Closed => made\n",
             "  end\n",
-            "end\n",
+            "end\n\n",
+            "fn retained(value: model::Alias::Missing) -> Int\n  0\nend\n",
         ),
     );
     let mut server = initialized_server(&workspace);
@@ -641,6 +762,22 @@ fn variant_refinement_navigation_projects_generic_transitive_and_imported_aliase
         "source":"main.veln", "line":8, "column":19, "new_name":"GenericBox"
     }));
     assert_eq!(edits(&alias_renamed).len(), 2, "{alias_renamed:#}");
+    let retained = server.definition_tool(&json!({
+        "source":"main.veln", "line":24, "column":27
+    }));
+    assert_eq!(
+        retained["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":8,"column":10},"end":{"line":8,"column":15}}),
+        "{retained:#}"
+    );
+    let final_segment = server.definition_tool(&json!({
+        "source":"main.veln", "line":24, "column":34
+    }));
+    assert_eq!(
+        final_segment["structuredContent"]["definition"],
+        Value::Null,
+        "{final_segment:#}"
+    );
 }
 
 #[test]

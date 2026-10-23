@@ -51,6 +51,7 @@ impl SymbolIndex {
             public: symbol.public,
             standard_prelude: false,
             generic_arity: 0,
+            has_variants: false,
         };
         self.local_type_namespace_conflict(&selected.module, requested_name)
             .filter(|candidate| !candidate.is_selected_type(&selected))

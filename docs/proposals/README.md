@@ -18,8 +18,8 @@ also states it.
 
 - Remaining ADT variant-refinement support for qualified immutable values
   after a separate source-surface prerequisite, external or representation
-  schema decode validation, LSP invalid-refinement recovery, and MCP
-  invalid-refinement recovery with request-specific saved-state behavior. The
+  schema decode validation, lowercase-final invalid-refinement recovery, and
+  its LSP and MCP projection with request-specific saved-state behavior. The
   provider-dependent base reason requires a separate production
   provider contract before selection:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
