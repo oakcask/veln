@@ -1140,6 +1140,11 @@ while the supplied record is checked. The exception follows a generated encode
 helper through an immutable local binding initialized from that helper. It does
 not follow an ordinary function value merely because its visible function type
 is the same.
+Format-neutral generated decode helpers retain refinements in their parameter
+and successful result types but remain ordinary invariant record boundaries.
+A base ADT, an excluded constructor, or a base-typed decode result supplied at
+a refined nested position therefore reports `type.mismatch`; decode does not
+use the generated-encode variant-exclusion exception.
 This exception does not make ordinary assignment recursively covariant.
 The checked examples cover
 accepted source and compiler-known cases in
