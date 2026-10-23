@@ -12,7 +12,8 @@ lifecycle, explicit child-task context propagation, an inspectable recording
 handler, explicit channel-value context attachment, explicit fan-in parent and
 link selection, explicit carrier context propagation, and call-site-aware
 structured log helpers for four severities, named domain events, counter
-increments, and histogram samples.
+increments, histogram samples, and a configured production metric-cardinality
+policy with bounded health reporting.
 Programs choose a lexical handler for the effect; the library does not select
 an exporter implicitly.
 
@@ -109,6 +110,26 @@ The recording and no-op handlers preserve the handled program's ordinary
 result. They do not select behavior through process environment or system
 properties.
 
+Create a production policy with `observe::new_production(limit)` and install
+`observe::production(policy)` at the outer execution boundary. The limit is
+the maximum number of distinct metric series retained by that policy. A
+negative limit is normalized to zero. Read its non-consuming
+`observe::production_health(policy)` snapshot after or during handling:
+
+```veln
+let policy = observe::new_production(100)
+let result = handle measured() with observe::production(policy)
+match observe::production_health(policy)
+	observe::ProductionHealth(series, admitted, dropped) => ()
+end
+```
+
+This handler is the production cardinality-policy path. It is terminal in this
+slice: an admitted observation is accepted by the policy but is not exported.
+Export destinations, encoding, and shutdown remain separate future facilities.
+The handler and health snapshot use the `concurrency` effect. They do not use
+environment variables, system properties, or deterministic fake exporters.
+
 Use `traced::spawn(context, body)` to start a child task whose callback needs
 an explicit `observe::TraceContext`. The callback accepts that context as its
 only argument and returns `Result<(), String>`. Its effect row is forwarded:
@@ -197,6 +218,35 @@ of its call expression. A call-site-aware wrapper forwards the outer caller's
 location. The recording handler stores metric records in the same operation
 order as log, event, and span entries. Repeated snapshots retain earlier
 metric entries without consuming them.
+
+### Production metric cardinality
+
+Each production policy has an independent finite metric-series limit and
+state. A series identity consists of the metric kind, metric name, and the
+complete typed attribute multiset. Attribute order does not affect identity,
+but duplicate multiplicity and `BoolValue`, `IntValue`, and `StringValue`
+remain significant. The counter increment or histogram sample value, trace
+context, and source location do not participate in identity.
+
+The handler admits the first distinct series until the configured limit is
+full. It continues to admit observations for every known series. It drops an
+observation only when that observation has a previously unseen metric series
+and the limit is full. A zero limit therefore drops every metric observation;
+a negative configured value is treated as zero. Counter and histogram records
+with the same name and attributes remain distinct series.
+
+`ProductionHealth` reports the retained series count, admitted metric
+observation count, and dropped metric observation count. Both observation
+counts saturate at the maximum `Int` instead of overflowing. Reading health
+does not consume or reset it. Metric decisions and health updates are atomic
+across tasks that inherit the handler, and separately constructed policies do
+not share state. The retained identity list never exceeds the normalized
+series limit, and health uses a fixed number of scalar fields.
+
+Dropping a metric returns normally and does not change the handled body's
+result. Logs, events, span starts, and span finishes remain accepted terminal
+operations and do not change metric cardinality or health. A production span
+has no recording context, as with a no-op span.
 
 ### Named domain events
 
@@ -348,10 +398,11 @@ ambient. Raw task and channel operations remain unchanged.
 
 ## Limits
 
-Metric-cardinality enforcement, metric query APIs, asynchronous metric
-callbacks, production exporters, wall-time
-or resource enrichment, exporter health, and shutdown flushing are not
-available. The no-op handler does not record,
+Metric query APIs, asynchronous metric callbacks, production exporters,
+wall-time or resource enrichment, exporter failure health, and shutdown
+flushing are not available. Cardinality admission does not retain or export
+accepted observations, and its identity bound counts series rather than the
+bytes in their names and attributes. The no-op handler does not record,
 enrich, buffer, export, or report observations. `trace::in_span` currently
 accepts only a body returning `Result<(), String>`, while forwarding that
 body's effect row; it does not define rescue or exception recovery.

@@ -1,6 +1,11 @@
 use event
+use log
 use metric
 use observe
+
+type CardinalityCase
+	CardinalityCase(limit: Int, observations: List<Observation>, expected_series: Int, expected_admitted: Int, expected_drops: Int)
+end
 
 fn emit_wrapped() -> () effects [observe::Observe] callsite
 	metric::counter_increment(Some(observe::TraceContext("trace-1", "span-2", true)), "request.duration", 3, list_cons(observe::Attribute("route", observe::StringValue("checkout")), list_nil()))
@@ -25,7 +30,7 @@ test metric_records_preserve_kind_values_context_callsite_and_mixed_order() -> R
 	let second = observe::recorded(recording)
 	if result == 83
 		match first
-			Cons(observe::Emitted(observe::CounterIncrement(observe::CounterIncrementRecord("request.duration", 3, Cons(observe::Attribute("route", observe::StringValue("checkout")), Nil), Some(observe::TraceContext("trace-1", "span-2", true)), counter_source))), Cons(observe::Emitted(observe::Event(observe::EventRecord("between", Nil, None, _))), Cons(observe::Emitted(observe::HistogramSample(observe::HistogramSampleRecord("request.duration", 17, Cons(observe::Attribute("route", observe::StringValue("checkout")), Nil), Some(observe::TraceContext("trace-1", "span-2", true)), histogram_source))), Nil))) => if counter_source.file == "metric.test.veln" and counter_source.start_line == 19 and histogram_source.file == "metric.test.veln" and histogram_source.start_line == 21
+			Cons(observe::Emitted(observe::CounterIncrement(observe::CounterIncrementRecord("request.duration", 3, Cons(observe::Attribute("route", observe::StringValue("checkout")), Nil), Some(observe::TraceContext("trace-1", "span-2", true)), counter_source))), Cons(observe::Emitted(observe::Event(observe::EventRecord("between", Nil, None, _))), Cons(observe::Emitted(observe::HistogramSample(observe::HistogramSampleRecord("request.duration", 17, Cons(observe::Attribute("route", observe::StringValue("checkout")), Nil), Some(observe::TraceContext("trace-1", "span-2", true)), histogram_source))), Nil))) => if counter_source.file == "metric.test.veln" and counter_source.start_line == 24 and histogram_source.file == "metric.test.veln" and histogram_source.start_line == 26
 				match second
 					Cons(observe::Emitted(observe::CounterIncrement(_)), Cons(observe::Emitted(observe::Event(_)), Cons(observe::Emitted(observe::HistogramSample(_)), Nil))) => Ok(())
 					_ => Err("second metric snapshot consumed or reordered observations")
@@ -47,4 +52,143 @@ test noop_discards_metric_observations_and_preserves_result() -> Result<(), Stri
 	else
 		Err("no-op observation handler changed the metric body result")
 	end
+end
+
+test production_metric_cardinality_cases() -> Result<(), String> effects [concurrency]
+	let route = observe::Attribute("route", observe::StringValue("checkout"))
+	let attempt = observe::Attribute("attempt", observe::IntValue(1))
+	let reordered = list_cons(attempt, list_cons(route, list_nil()))
+	let ordered = list_cons(route, list_cons(attempt, list_nil()))
+	let typed_difference = list_cons(route, list_cons(observe::Attribute("attempt", observe::StringValue("1")), list_nil()))
+	let duplicate_difference = list_cons(route, list_cons(attempt, list_cons(attempt, list_nil())))
+	let cases = list_cons(
+		CardinalityCase(0, list_cons(counter_record("zero", 1, list_nil(), None), list_nil()), 0, 0, 1),
+		list_cons(
+			CardinalityCase(-1, list_cons(histogram_record("negative", 1, list_nil(), None), list_nil()), 0, 0, 1),
+			list_cons(
+				CardinalityCase(2, list_cons(counter_record("first", 1, list_nil(), None), list_cons(counter_record("second", 1, list_nil(), None), list_cons(counter_record("first", 99, list_nil(), Some(observe::TraceContext("different-trace", "different-span", false))), list_cons(counter_record("third", 1, list_nil(), None), list_nil())))), 2, 3, 1),
+				list_cons(
+					CardinalityCase(2, list_cons(counter_record("same-name", 1, list_nil(), None), list_cons(histogram_record("same-name", 1, list_nil(), None), list_nil())), 2, 2, 0),
+					list_cons(CardinalityCase(3, list_cons(counter_record("attributes", 1, ordered, None), list_cons(counter_record("attributes", 2, reordered, None), list_cons(counter_record("attributes", 3, typed_difference, None), list_cons(counter_record("attributes", 4, duplicate_difference, None), list_nil())))), 3, 4, 0), list_nil())
+				)
+			)
+		)
+	)
+	if cardinality_cases_pass(cases)
+		Ok(())
+	else
+		Err("production metric cardinality table did not preserve its boundary, identity, or drop rules")
+	end
+end
+
+test production_cardinality_preserves_results_and_non_metric_operations() -> Result<(), String> effects [concurrency]
+	let production = observe::new_production(1)
+	let result = handle begin
+		log::info(None, "before", list_nil())
+		event::emit(None, "domain.event", list_nil())
+		let span = perform observe::Observe::start_span(observe::SpanRequest("work", None, list_nil()))
+		perform observe::Observe::finish_span(observe::finish(span))
+		73
+	end with observe::production(production)
+	match observe::production_health(production)
+		observe::ProductionHealth(0, 0, 0) => if result == 73
+			Ok(())
+		else
+			Err("production cardinality handler changed the handled application result")
+		end
+		_ => Err("non-metric observations changed production metric health")
+	end
+end
+
+test production_cardinality_state_is_isolated_per_handler() -> Result<(), String> effects [concurrency]
+	let first = observe::new_production(1)
+	let second = observe::new_production(1)
+	let _ = handle begin
+		metric::counter_increment(None, "first", 1, list_nil())
+		metric::counter_increment(None, "second", 1, list_nil())
+	end with observe::production(first)
+	let _ = handle begin
+		metric::counter_increment(None, "second", 1, list_nil())
+		metric::counter_increment(None, "second", 2, list_nil())
+	end with observe::production(second)
+	match observe::production_health(first)
+		observe::ProductionHealth(1, 1, 1) => match observe::production_health(second)
+			observe::ProductionHealth(1, 2, 0) => Ok(())
+			_ => Err("second production handler did not retain isolated cardinality state")
+		end
+		_ => Err("first production handler did not retain isolated cardinality state")
+	end
+end
+
+test production_cardinality_serializes_concurrent_emissions() -> Result<(), String> effects [concurrency]
+	let production = observe::new_production(2)
+	let result = handle concurrent_metric_body() with observe::production(production)
+	match observe::production_health(production)
+		observe::ProductionHealth(2, 2, 0) => if result == 2
+			Ok(())
+		else
+			Err("concurrent metric workers changed their application results")
+		end
+		_ => Err("concurrent metric emissions lost or duplicated a series decision")
+	end
+end
+
+fn counter_record(name: String, value: Int, attributes: List<Attribute>, context: Option<TraceContext>) -> Observation callsite
+	observe::CounterIncrement(observe::CounterIncrementRecord(name, value, attributes, context, callsite))
+end
+
+fn histogram_record(name: String, value: Int, attributes: List<Attribute>, context: Option<TraceContext>) -> Observation callsite
+	observe::HistogramSample(observe::HistogramSampleRecord(name, value, attributes, context, callsite))
+end
+
+fn cardinality_cases_pass(cases: List<CardinalityCase>) -> Bool effects [concurrency]
+	match cases
+		Nil => true
+		Cons(case, remaining) => if cardinality_case_passes(case)
+			cardinality_cases_pass(remaining)
+		else
+			false
+		end
+	end
+end
+
+fn cardinality_case_passes(case: CardinalityCase) -> Bool effects [concurrency]
+	match case
+		CardinalityCase(limit, observations, expected_series, expected_admitted, expected_drops) => begin
+			let production = observe::new_production(limit)
+			let _ = handle emit_observations(observations) with observe::production(production)
+			match observe::production_health(production)
+				observe::ProductionHealth(series, admitted, drops) => series == expected_series and admitted == expected_admitted and drops == expected_drops
+			end
+		end
+	end
+end
+
+fn emit_observations(observations: List<Observation>) -> () effects [observe::Observe]
+	match observations
+		Nil => ()
+		Cons(observation, remaining) => begin
+			perform observe::Observe::emit(observation)
+			emit_observations(remaining)
+		end
+	end
+end
+
+fn concurrent_metric_body() -> Int effects [observe::Observe, concurrency]
+	let first = task::spawn_with<Int, String>(concurrent_metric_worker, "concurrent-first")
+	let second = task::spawn_with<Int, String>(concurrent_metric_worker, "concurrent-second")
+	let first_result = match task::join(first)
+		Ok(value) => value
+		Err(_) => 0
+	end
+	let second_result = match task::join(second)
+		Ok(value) => value
+		Err(_) => 0
+	end
+	first_result + second_result
+end
+
+fn concurrent_metric_worker(name: String) -> Int effects [observe::Observe]
+	metric::counter_increment(None, name, 1, list_nil())
+	1
 end

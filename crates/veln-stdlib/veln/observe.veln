@@ -27,6 +27,23 @@ pub type Recording
 	Recording(prefix: String, state: { tx : Sender<RecordingBuffer>, rx : Receiver<RecordingBuffer> })
 end
 
+type MetricSeries
+	CounterSeries(name: String, attributes: List<Attribute>)
+	HistogramSeries(name: String, attributes: List<Attribute>)
+end
+
+type ProductionState
+	ProductionState(series: List<MetricSeries>, series_count: Int, admitted_metric_observations: Int, dropped_metric_observations: Int)
+end
+
+pub type Production
+	Production(metric_series_limit: Int, state: { tx : Sender<ProductionState>, rx : Receiver<ProductionState> })
+end
+
+pub type ProductionHealth
+	pub ProductionHealth(metric_series: Int, admitted_metric_observations: Int, dropped_metric_observations: Int)
+end
+
 pub type AttributeValue
 	pub BoolValue(value: Bool)
 	pub IntValue(value: Int)
@@ -84,6 +101,35 @@ end
 pub handler noop() for Observe
 	start_span(request) => NoopSpan(request)
 	emit(record) => ()
+	finish_span(request) => ()
+end
+
+pub fn new_production(metric_series_limit: Int) -> Production effects [concurrency]
+	let state = channel::bounded<ProductionState>(1)
+	let limit = if metric_series_limit < 0
+		0
+	else
+		metric_series_limit
+	end
+	let _ = channel::send(state.tx, ProductionState(list_nil(), 0, 0, 0))
+	Production(limit, state)
+end
+
+pub fn production_health(production: Production) -> ProductionHealth effects [concurrency]
+	match production
+		Production(_, state) => match channel::recv(state.rx)
+			Some(ProductionState(series, series_count, admitted_metric_observations, dropped_metric_observations)) => begin
+				let _ = channel::send(state.tx, ProductionState(series, series_count, admitted_metric_observations, dropped_metric_observations))
+				ProductionHealth(series_count, admitted_metric_observations, dropped_metric_observations)
+			end
+			None => ProductionHealth(0, 0, 0)
+		end
+	end
+end
+
+pub handler production(production: Production) for Observe effects [concurrency]
+	start_span(request) => NoopSpan(request)
+	emit(record) => apply_metric_cardinality(production, record)
 	finish_span(request) => ()
 end
 
@@ -198,6 +244,126 @@ fn restore_and_read(tx: Sender<RecordingBuffer>, buffer: RecordingBuffer) -> Lis
 		RecordingBuffer(next_identity, entries) => begin
 			let _ = channel::send(tx, buffer)
 			list_reverse(entries)
+		end
+	end
+end
+
+fn apply_metric_cardinality(production: Production, record: Observation) -> () effects [concurrency]
+	match metric_series(record)
+		Some(candidate) => update_metric_cardinality(production, candidate)
+		None => ()
+	end
+end
+
+fn metric_series(record: Observation) -> Option<MetricSeries>
+	match record
+		CounterIncrement(CounterIncrementRecord(name, _, attributes, _, _)) => Some(CounterSeries(name, attributes))
+		HistogramSample(HistogramSampleRecord(name, _, attributes, _, _)) => Some(HistogramSeries(name, attributes))
+		_ => None
+	end
+end
+
+fn update_metric_cardinality(production: Production, candidate: MetricSeries) -> () effects [concurrency]
+	match production
+		Production(metric_series_limit, state) => match channel::recv(state.rx)
+			Some(ProductionState(series, series_count, admitted_metric_observations, dropped_metric_observations)) => if contains_metric_series(series, candidate)
+				begin
+					let _ = channel::send(state.tx, ProductionState(series, series_count, bounded_increment(admitted_metric_observations), dropped_metric_observations))
+					()
+				end
+			else if series_count < metric_series_limit
+				begin
+					let _ = channel::send(state.tx, ProductionState(list_cons(candidate, series), series_count + 1, bounded_increment(admitted_metric_observations), dropped_metric_observations))
+					()
+				end
+			else
+				begin
+					let _ = channel::send(state.tx, ProductionState(series, series_count, admitted_metric_observations, bounded_increment(dropped_metric_observations)))
+					()
+				end
+			end
+			None => ()
+		end
+	end
+end
+
+fn bounded_increment(value: Int) -> Int
+	if value == 9223372036854775807
+		value
+	else
+		value + 1
+	end
+end
+
+fn contains_metric_series(series: List<MetricSeries>, candidate: MetricSeries) -> Bool
+	match series
+		Nil => false
+		Cons(known, remaining) => if same_metric_series(known, candidate)
+			true
+		else
+			contains_metric_series(remaining, candidate)
+		end
+	end
+end
+
+fn same_metric_series(left: MetricSeries, right: MetricSeries) -> Bool
+	match left
+		CounterSeries(left_name, left_attributes) => match right
+			CounterSeries(right_name, right_attributes) => left_name == right_name and equivalent_attributes(left_attributes, right_attributes)
+			_ => false
+		end
+		HistogramSeries(left_name, left_attributes) => match right
+			HistogramSeries(right_name, right_attributes) => left_name == right_name and equivalent_attributes(left_attributes, right_attributes)
+			_ => false
+		end
+	end
+end
+
+fn equivalent_attributes(left: List<Attribute>, right: List<Attribute>) -> Bool
+	match left
+		Nil => list_is_empty(right)
+		Cons(attribute, remaining) => match remove_attribute(right, attribute)
+			Some(rest) => equivalent_attributes(remaining, rest)
+			None => false
+		end
+	end
+end
+
+fn remove_attribute(attributes: List<Attribute>, target: Attribute) -> Option<List<Attribute>>
+	match attributes
+		Nil => None
+		Cons(attribute, remaining) => if same_attribute(attribute, target)
+			Some(remaining)
+		else
+			match remove_attribute(remaining, target)
+				Some(rest) => Some(list_cons(attribute, rest))
+				None => None
+			end
+		end
+	end
+end
+
+fn same_attribute(left: Attribute, right: Attribute) -> Bool
+	match left
+		Attribute(left_name, left_value) => match right
+			Attribute(right_name, right_value) => left_name == right_name and same_attribute_value(left_value, right_value)
+		end
+	end
+end
+
+fn same_attribute_value(left: AttributeValue, right: AttributeValue) -> Bool
+	match left
+		BoolValue(left_value) => match right
+			BoolValue(right_value) => left_value == right_value
+			_ => false
+		end
+		IntValue(left_value) => match right
+			IntValue(right_value) => left_value == right_value
+			_ => false
+		end
+		StringValue(left_value) => match right
+			StringValue(right_value) => left_value == right_value
+			_ => false
 		end
 	end
 end
