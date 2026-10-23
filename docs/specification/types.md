@@ -732,9 +732,12 @@ but a valid sibling type cannot produce a derivative mismatch. Schema
 eligibility rejects a schema field with the same failure instead of generating
 a partially typed helper. A resolved base identity remains
 available internally for suppression and later semantic analysis, but this
-recovery does not make the invalid refinement selectable by language-service
-protocols. A source-less base retains the same semantic identity without
-acquiring a source target. The checker processes each written type-path
+semantic recovery does not itself create a language-service navigation
+identity. Shared navigation can independently retain an eligible source-backed
+base while leaving the invalid final segment unselectable, as specified by
+[editor support](editor-support.md#shared-variant-refinement-navigation). A
+source-less base retains the same semantic identity without acquiring a source
+target. The checker processes each written type-path
 occurrence once during nested recovery. Equal paths at different source spans
 remain independent occurrences. The
 early quarantine uses the same source-backed declarations as the analyzed
@@ -1163,10 +1166,10 @@ Variant-refinement semantic-token classifications are specified in
 rename behavior is specified by
 [editor support](editor-support.md#lsp-navigation-formatting-and-rename) and
 [MCP](mcp.md#saved-workspace-navigation). Qualified-value control-flow
-refinement, external or representation schema decode validation, LSP
-invalid-refinement recovery, and remaining MCP invalid-refinement recovery,
-including the saved-state behavior of those remaining requests, remain
-proposal work.
+refinement, external or representation schema decode validation, and
+lowercase-final invalid-refinement recovery with its LSP and MCP projection,
+including the saved-state behavior of those remaining requests, remain proposal
+work.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record

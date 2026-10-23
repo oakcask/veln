@@ -254,8 +254,11 @@ sources, out-of-source or inconsistent positions, or reversed ranges remain
 available only through the compiler diagnostic envelope.
 
 This projection applies to variant-refinement diagnostics, including
-`type.variant_union_base`; it does not recover navigation identities from an
-invalid refinement. The checked stdio evidence is under
+`type.variant_union_base`; diagnostic projection does not itself create a
+navigation identity. Shared navigation independently retains only the eligible
+base identity described in
+[Shared variant-refinement navigation](#shared-variant-refinement-navigation).
+The checked stdio evidence is under
 `examples/specification/lsp/adt-variant-refinement-diagnostics/`.
 
 Span-less diagnostics are published at a zero-width start range while
@@ -311,12 +314,13 @@ regardless of import order.
 The complete refinement must resolve before the final segment is selectable.
 One invalid singleton case retains only its base identity. If a direct base or
 visible alias chain resolves uniquely to a source-backed ADT, its generic arity
-is exact, and every generic argument resolves, an unknown final segment or a
-final constructor owned only by another ADT does not discard that base. The
-base supports definition, references, prepare-rename, and rename through its
-ordinary type or written-alias declaration. Its invalid final segment supports
-none of those operations. Base references and rename edits include the
-retained invalid occurrence.
+is exact, and every generic argument resolves, a final segment that does not
+name one of that ADT's constructors does not discard the base. This includes an
+unknown name, a non-constructor declaration, and a constructor owned only by
+another ADT. The base supports definition, references, prepare-rename, and
+rename through its ordinary type or written-alias declaration. Its invalid
+final segment supports none of those operations. Base references and rename
+edits include the retained invalid occurrence.
 
 Recovery does not apply when the base is unresolved, ambiguous, source-less,
 opaque, or not an ADT; when generic arity or a generic argument is invalid; or
@@ -660,10 +664,10 @@ alias identity at its declaration and at calls that resolve through the alias.
 Rename edits the alias declaration and those alias calls. It does not edit the
 target function declaration or direct calls to that target. Workspace type
 aliases remain unsupported by general LSP prepare-rename and rename. The valid
-variant-refinement exception above permits both operations when the selected
-alias is the written base of a complete refinement identity; the edit retains
-the alias identity and does not rename the target ADT or constructor. The MCP
-rename tool supports the separate alias identity as specified in
+or retained-base variant-refinement exception above permits both operations
+when the selected alias is the written base of an eligible refinement; the edit
+retains the alias identity and does not rename the target ADT or constructor.
+The MCP rename tool supports the separate alias identity as specified in
 [mcp.md](mcp.md#rename).
 
 A rename request without a selected supported workspace symbol returns an empty
@@ -732,9 +736,9 @@ Unsupported schema-alias origins or scopes and public function aliases with
 unresolved, non-function, or invalid-cased targets do not produce definition
 or reference locations. Public type aliases with transitive, unresolved,
 non-type, or invalid-cased targets do not produce ordinary type-reference
-definition or reference locations. The valid-refinement exception above
-permits only definition on the written base after the complete refinement
-resolves.
+definition or reference locations. The variant-refinement exception above
+permits definition on the written base when the refinement resolves completely
+or meets the retained-base recovery requirements.
 
 `veln/virtualDocument` accepts an exact `veln-pkg:` URI retained by the server
 and returns its UTF-8 source text. The returned text preserves the captured

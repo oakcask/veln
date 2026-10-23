@@ -288,10 +288,13 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-long-visibility-json/)
 cases verify complete presentation beyond the bounded lookup display.
 A failed base retains its resolved identity as semantic analysis state for
-suppression and later analysis. This diagnostic recovery does not make the
-invalid refinement selectable by language-service protocols. A source-less
-failed base likewise retains semantic identity without a manufactured source
-target. The failed occurrence does not emit variant, union,
+suppression and later analysis. This diagnostic recovery does not itself create
+a language-service navigation identity. Shared navigation can independently
+retain an eligible source-backed base while leaving the invalid final segment
+unselectable, as specified by
+[editor support](editor-support.md#shared-variant-refinement-navigation). A
+source-less failed base likewise retains semantic identity without a
+manufactured source target. The failed occurrence does not emit variant, union,
 visibility, or assignability diagnostics that require a refinable base.
 When a qualified source type and a compiler-known type have the same leaf
 name, the source module identity selects the source declaration. The base

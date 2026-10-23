@@ -421,8 +421,10 @@ structure.
 The `adt-variant-refinement-navigation` LSP specification case uses decoded
 assertions for direct and alias base definition, shared constructor references,
 prepare-rename, constructor and alias rename edits across singleton and union
-refinements, and empty results for invalid mixed-base or generic-argument
-unions. The adjacent `-alias-navigation` case covers generic,
+refinements, retained-base definition, references, and rename for unknown and
+wrong-owner final segments, and empty results for those final segments and for
+invalid mixed-base or generic-argument unions. The adjacent `-alias-navigation`
+case covers generic,
 transitive, and imported workspace aliases while preserving the written alias
 rename boundary and UTF-16 ranges.
 
@@ -439,7 +441,9 @@ compare the advertised closed input and result schemas.
 The `adt-variant-refinement-navigation` MCP specification case uses decoded
 assertions for shared constructor and alias definitions, declaration-inclusive
 references, constructor and alias-base rename edits, one-based ranges, and
-empty results for an invalid mixed-base union.
+retained-base navigation for unknown and wrong-owner final segments. It checks
+empty results at those final segments and an invalid mixed-base union, then
+checks that later valid definitions still use the saved navigation state.
 The `references-workspace-effect` MCP specification case uses decoded
 assertions for exact effect and effect-operation reference locations,
 declaration inclusion, Unicode-scalar coordinates, deterministic ordering, and
