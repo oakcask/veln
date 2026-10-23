@@ -39,6 +39,14 @@ cancellation stops the waiting system-handler call before join reports
 cancellation. A platform resolver that ignores interruption can remain active
 within the handler's finite resolver capacity.
 
+The JVM runtime also provides the bounded metric-series index reached by the
+embedded standard package through private `production_metric_index_*`
+compiler adapters. Application source cannot resolve those adapters as bare
+prelude names or public standard-package declarations. The
+[standard-library observability specification](standard-library-observability.md#production-metric-cardinality)
+owns the source-visible series identity, admission, health, cancellation, and
+state-bound behavior.
+
 If network-handler cleanup cannot confirm that every retained resource is
 closed, leaving the handled scope produces a cleanup failure after attempting
 the owner's other resources. That failure becomes primary after a successful

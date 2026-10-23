@@ -445,6 +445,11 @@ process or machine termination can prevent it from running.
   context coverage in `observe.test.veln`, and explicit task-, channel-value-,
   and fan-in-context coverage in
   [`traced.test.veln`](../../crates/veln-stdlib/veln/traced.test.veln).
+- Production index boundary coverage:
+  [`effect_boundary_policy.rs`](../../crates/veln-backend-jvm/src/tests/effect_boundary_policy.rs)
+  checks bounded indexed state and the absence of owner tasks, while
+  [`java_helpers_and_mapping.rs`](../../crates/veln-backend-jvm/src/tests/java_helpers_and_mapping.rs)
+  checks the private adapter mappings.
 - Public task-context execution evidence:
   [`observability-traced-task-context`](../../examples/specification/run/observability-traced-task-context/).
 - Public channel-value context execution evidence:
