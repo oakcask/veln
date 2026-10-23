@@ -100,8 +100,9 @@ contract remains owned by
 
 The `observation_json_line`, `observation_export_write`, and
 `observation_export_identity` compiler adapters back the configured JSON Lines
-handler in `std::observe`. They encode one record, write it to a configured
-host destination, and allocate a host identity, respectively. Embedded
+handler in `std::observe`. They validate and encode one record, write an
+accepted record to a configured host destination, and allocate a host identity,
+respectively. Embedded
 standard-package source calls them through the reserved `prelude_builtin`
 route. They are not bare prelude helpers or public standard-package
 declarations. The line encoder accepts nine arguments and uses its contextual

@@ -377,7 +377,9 @@ test behavior through process state.
 `ObservationExporter::write(destination, line, diagnostic)` receives the
 resolved `stderr` or `file:<path>` target, the exact newline-terminated
 payload, and whether the payload is a diagnostic summary. Its Boolean result
-reports whether the destination accepted the write.
+reports whether the destination accepted the write. A record that the JSON
+Lines export boundary rejects during validation does not perform this
+operation.
 `ObservationExporter::identity(kind, sequence)` supplies the identity used for
 an exported span. These operations let scoped Veln test support capture writes
 and provide deterministic identities. Without a handler, the runtime uses the

@@ -149,10 +149,11 @@ let result = handle measured() with observe::json_lines(exporter)
 
 The identity prefix namespaces host-generated trace and span identities. Test
 support can inject deterministic identities through the scoped exporter host
-adapter. Resource and instrumentation-scope names must be non-empty; the scope
-version and observation names may be empty. Use `observe::span_request` to
-attach the call site to an exported span request. `observe::exporter_health` reads a
-non-consuming health snapshot. `observe::report_exporter_health` writes one
+adapter. An export is accepted only when its resource and
+instrumentation-scope names are non-empty. The scope version and observation
+names may be empty. Use `observe::span_request` to attach the call site to an
+exported span request. `observe::exporter_health` reads a non-consuming health
+snapshot. `observe::report_exporter_health` writes one
 summary only to the configured diagnostic destination and returns whether that
 write was accepted. A disabled diagnostic destination makes that call a
 successful no-op. A rejected summary leaves the previously reported exporter
@@ -382,11 +383,11 @@ so it encodes `task_id` as `null`.
 The schema requires non-empty resource and instrumentation-scope names and
 non-empty trace, span, and optional parent-span identities. It also requires
 non-negative source lines and columns. The export boundary additionally
-requires non-negative source offsets even though offsets are not encoded. Compiler-produced
-locations and production-generated identities satisfy these constraints. The
-exporter rejects a directly constructed value or scoped generated identity
-that violates one of them before it calls the record destination. It does not
-substitute an invented causal or resource identity.
+requires non-negative source offsets even though offsets are not encoded.
+Compiler-produced locations and production-generated identities satisfy these
+constraints. The exporter rejects a directly constructed value or scoped
+generated identity that violates one of them before it calls the record
+destination. It does not substitute an invented causal or resource identity.
 
 Attribute count limits apply independently to observation and resource
 attribute lists. Negative limits normalize to zero. String size is measured
@@ -598,7 +599,8 @@ process or machine termination can prevent it from running.
   and the
   [`observability-json-lines-encoder`](../../examples/specification/run/observability-json-lines-encoder/)
   JVM integration case. They check every record kind, exact JSON Lines framing,
-  limit facts, and hostile-source replacement.
+  limit facts, schema-invalid export rejection, hostile-source replacement,
+  and preservation of a nested logical module and package-relative file path.
 - Production index boundary coverage:
   [`effect_boundary_policy.rs`](../../crates/veln-backend-jvm/src/tests/effect_boundary_policy.rs)
   checks bounded indexed state and the absence of owner tasks, while
