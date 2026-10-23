@@ -212,33 +212,18 @@ pub(super) fn assert_diagnostic(
         .and_then(JsonValue::as_array)
         .unwrap_or_else(|| panic!("{}: JSON diagnostics array missing", context.label()));
 
+    let diagnostic = select_diagnostic(context, diagnostics, expected);
+    assert_diagnostic_fields(context, diagnostic, expected);
+}
+
+fn select_diagnostic<'a>(
+    context: &CaseRunContext<'_>,
+    diagnostics: &'a [JsonValue],
+    expected: &DiagnosticExpectation,
+) -> &'a JsonValue {
     let mut matches = diagnostics
         .iter()
-        .filter(|diagnostic| diagnostic_field(diagnostic, "id") == Some(expected.id.as_str()))
-        .filter(|diagnostic| {
-            expected
-                .message
-                .as_deref()
-                .is_none_or(|message| diagnostic_field(diagnostic, "message") == Some(message))
-        })
-        .filter(|diagnostic| {
-            expected
-                .span
-                .as_ref()
-                .and_then(|span| span.file.as_deref())
-                .is_none_or(|file| {
-                    json_path(diagnostic, "span.file") == Some(&JsonValue::String(file.to_string()))
-                })
-        })
-        .filter(|diagnostic| {
-            expected
-                .span
-                .as_ref()
-                .and_then(|span| span.line)
-                .is_none_or(|line| {
-                    json_path_equals(diagnostic, "span.start.line", &JsonValue::Number(line))
-                })
-        });
+        .filter(|diagnostic| diagnostic_matches(diagnostic, expected));
 
     let diagnostic = matches.next().unwrap_or_else(|| {
         panic!(
@@ -254,7 +239,40 @@ pub(super) fn assert_diagnostic(
         context.label(),
         expected.id
     );
+    diagnostic
+}
 
+fn diagnostic_matches(diagnostic: &JsonValue, expected: &DiagnosticExpectation) -> bool {
+    diagnostic_field(diagnostic, "id") == Some(expected.id.as_str())
+        && optional_string_field_matches(diagnostic, "message", expected.message.as_deref())
+        && expected
+            .span
+            .as_ref()
+            .is_none_or(|span| diagnostic_span_matches(diagnostic, span))
+}
+
+fn diagnostic_span_matches(diagnostic: &JsonValue, expected: &SpanExpectation) -> bool {
+    optional_string_field_matches(diagnostic, "span.file", expected.file.as_deref())
+        && expected.line.is_none_or(|line| {
+            json_path_equals(diagnostic, "span.start.line", &JsonValue::Number(line))
+        })
+}
+
+fn optional_string_field_matches(
+    diagnostic: &JsonValue,
+    path: &str,
+    expected: Option<&str>,
+) -> bool {
+    expected.is_none_or(|expected| {
+        json_path(diagnostic, path).and_then(JsonValue::as_str) == Some(expected)
+    })
+}
+
+fn assert_diagnostic_fields(
+    context: &CaseRunContext<'_>,
+    diagnostic: &JsonValue,
+    expected: &DiagnosticExpectation,
+) {
     assert_diagnostic_field(
         context,
         diagnostic,

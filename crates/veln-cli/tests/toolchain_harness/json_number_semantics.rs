@@ -430,6 +430,34 @@ pub(super) fn diagnostic_assertions_use_common_json_equality_for_integer_tokens(
 }
 
 #[test]
+fn diagnostic_assertions_select_by_message_file_and_line() {
+    let context = CaseRunContext {
+        case_dir: Path::new("diagnostic-selection"),
+        run_number: 1,
+    };
+    let json = parse_json(
+        r#"{"diagnostics":[{"id":"type.mismatch","severity":"warning","kind":"type","message":"first mismatch","span":{"file":"other.veln","start":{"line":2,"column":3}}},{"id":"type.mismatch","severity":"error","kind":"type","message":"selected mismatch","span":{"file":"main.veln","start":{"line":4,"column":5}}}]}"#,
+    )
+    .expect("diagnostic JSON should parse");
+
+    assert_diagnostic(
+        &context,
+        &json,
+        &DiagnosticExpectation {
+            id: "type.mismatch".to_string(),
+            severity: Some("error".to_string()),
+            kind: Some("type".to_string()),
+            message: Some("selected mismatch".to_string()),
+            span: Some(SpanExpectation {
+                file: Some("main.veln".to_string()),
+                line: Some(4),
+                column: Some(5),
+            }),
+        },
+    );
+}
+
+#[test]
 pub(super) fn reordered_json_objects_compare_equal_through_every_assertion_adapter() {
     let context = CaseRunContext {
         case_dir: Path::new("json-equality-adapters"),
