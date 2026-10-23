@@ -18,13 +18,11 @@ use crate::java::{
 };
 use crate::runtime::{concurrency_method, prelude_method, standard_library_method, stdio_method};
 use crate::*;
-use veln_ast::{SurfaceModule, decode_surface_module, lower_surface_ast_with_module_identity};
+use veln_analysis::{DoctestMode, analyze_project};
+use veln_ast::{FunctionKind, lower_surface_ast_with_module_identity};
 use veln_ir::{IrCallTarget, IrExpr, IrExprKind, IrStmtKind, TypedProgram};
+use veln_project::Project;
 use veln_sema::lower_checked_surface_module;
-use veln_sema::{
-    lower_project_reachable_surface_module_with_standard_environment,
-    prepare_current_reusable_standard_surface_module_environment,
-};
 use veln_source::{SourceFile, TextRange};
 use veln_syntax::parse;
 
@@ -71,66 +69,37 @@ fn lower_source_to_ir(source: &SourceFile) -> TypedProgram {
 }
 
 fn lower_with_standard_modules_to_ir(text: &str) -> TypedProgram {
+    lower_project_entry_to_ir(text, "main")
+}
+
+fn lower_network_facade_entry_to_ir(text: &str, entry: &str) -> TypedProgram {
+    lower_project_entry_to_ir(
+        &format!(
+            "{}\n{}\n{text}",
+            include_str!("../test-support/network.veln"),
+            include_str!("../test-support/network_boundary.veln")
+        ),
+        entry,
+    )
+}
+
+fn lower_project_entry_to_ir(text: &str, entry: &str) -> TypedProgram {
     let source = SourceFile::new("main.veln", text);
-    let parsed = parse(&source);
-    assert!(
-        parsed.diagnostics.is_empty(),
-        "parse diagnostics: {:#?}",
-        parsed.diagnostics
+    let analysis = analyze_project(
+        Project {
+            root: std::path::PathBuf::new(),
+            files: vec![source],
+            manifest: None,
+        },
+        DoctestMode::Exclude,
     );
-    let application = lower_surface_ast_with_module_identity(
-        &parsed.tree,
-        "main".to_string(),
-        source.span(TextRange::at(0)),
-    );
-    let application_header = application.module.clone();
-    let mut standard = empty_surface_module();
-    for file in veln_stdlib::package_bundle().lowered_files {
-        let module = decode_surface_module(file.module).unwrap_or_else(|message| {
-            panic!(
-                "embedded standard library module `{}` should decode: {message}",
-                file.path
-            )
-        });
-        merge_surface_module(&mut standard, module);
-    }
-    let reusable = prepare_current_reusable_standard_surface_module_environment(&standard);
-    let mut reachable = standard;
-    merge_surface_module(&mut reachable, application);
-    reachable.module = application_header;
-    let lowered =
-        lower_project_reachable_surface_module_with_standard_environment(&reachable, &reusable);
-    assert!(
-        lowered.diagnostics.is_empty(),
-        "semantic diagnostics: {:#?}",
-        lowered.diagnostics
-    );
-    lowered.ir.expect("source should lower to typed IR")
-}
-
-fn empty_surface_module() -> SurfaceModule {
-    SurfaceModule {
-        module: None,
-        uses: Vec::new(),
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        types: Vec::new(),
-        functions: Vec::new(),
-        invalid_names: Vec::new(),
-    }
-}
-
-fn merge_surface_module(merged: &mut SurfaceModule, module: SurfaceModule) {
-    merged.uses.extend(module.uses);
-    merged.aliases.extend(module.aliases);
-    merged.effects.extend(module.effects);
-    merged.handlers.extend(module.handlers);
-    merged.schemas.extend(module.schemas);
-    merged.types.extend(module.types);
-    merged.functions.extend(module.functions);
-    merged.invalid_names.extend(module.invalid_names);
+    let diagnostics = analysis.checked_diagnostics();
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let lowered = analysis
+        .lower_reachable_entry(entry, FunctionKind::Function)
+        .lowered;
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    lowered.ir.expect("project entry should lower")
 }
 
 fn lower_deferred_cleanup_foundation_to_ir(text: &str) -> TypedProgram {

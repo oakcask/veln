@@ -42,11 +42,7 @@ pub(super) fn lower_with_clock(text: &str) -> TypedProgram {
 }
 
 pub(super) fn lower_with_network_facade(text: &str) -> TypedProgram {
-    lower_with_standard_modules_to_ir(&format!(
-        "{}\n{}\n{text}",
-        include_str!("../../test-support/network.veln"),
-        include_str!("../../test-support/network_boundary.veln")
-    ))
+    lower_network_facade_entry_to_ir(text, "main")
 }
 
 #[test]
