@@ -61,6 +61,11 @@ end
 pub type ExportDestination
 	pub StandardError
 	pub FileDestination(path: String)
+end
+
+pub type DiagnosticDestination
+	pub DiagnosticStandardError
+	pub DiagnosticFileDestination(path: String)
 	pub NoDiagnosticDestination
 end
 
@@ -78,7 +83,7 @@ type ExporterState
 end
 
 pub type JsonLinesExporter
-	JsonLinesExporter(resource: Resource, scope: InstrumentationScope, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: ExportDestination, identity_prefix: String, production: Production, state: { tx : Sender<ExporterState>, rx : Receiver<ExporterState> })
+	JsonLinesExporter(resource: Resource, scope: InstrumentationScope, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, production: Production, state: { tx : Sender<ExporterState>, rx : Receiver<ExporterState> })
 end
 
 pub type ExporterHealth
@@ -197,7 +202,7 @@ pub fn span_request(name: String, parent: Option<TraceContext>, links: List<Trac
 	LocatedSpanRequest(name, parent, links, callsite)
 end
 
-pub fn new_json_lines(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: ExportDestination, identity_prefix: String) -> JsonLinesExporter effects [concurrency]
+pub fn new_json_lines(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String) -> JsonLinesExporter effects [concurrency]
 	let state = channel::bounded<ExporterState>(1)
 	let _ = channel::send(state.tx, ExporterState(1, 1, 0, 0, 0, 0))
 	JsonLinesExporter(resource, scope, normalize_exporter_limits(limits), destination, diagnostic_destination, identity_prefix, new_production(metric_series_limit), state)
@@ -223,8 +228,12 @@ pub fn exporter_health(exporter: JsonLinesExporter) -> ExporterHealth effects [c
 	match exporter
 		JsonLinesExporter(_, _, _, _, _, _, production, state) => match channel::recv(state.rx)
 			Some(current) => begin
+				let committed = channel::bounded<()>(1)
+				defer
+					restore_uncommitted_exporter_state(state.tx, current, committed.rx)
+				end
 				let health = exporter_state_health(current, production_health(production))
-				let _ = channel::send(state.tx, current)
+				commit_exporter_state(state.tx, current, committed.tx)
 				health
 			end
 			None => ExporterHealth(0, 0, 0, 0, ProductionHealth(0, 0, 0))
@@ -552,25 +561,33 @@ end
 pub fn start_export_span(exporter: JsonLinesExporter, request: SpanRequest) -> Span effects [time, concurrency]
 	match exporter
 		JsonLinesExporter(_, _, _, _, _, identity_prefix, _, state) => match channel::recv(state.rx)
-			Some(ExporterState(sequence, next_identity, failed, dropped, truncated, redacted)) => begin
-				let parent = request_parent(request)
-				let trace_id = match parent
-					Some(TraceContext(parent_trace, _, _)) => parent_trace
-					None => prelude_builtin::observation_export_identity(identity_prefix, "trace", next_identity)
+			Some(current) => begin
+				let committed = channel::bounded<()>(1)
+				defer
+					restore_uncommitted_exporter_state(state.tx, current, committed.rx)
 				end
-				let parent_span_id: Option<String> = match parent
-					Some(TraceContext(_, parent_span, _)) => Some(parent_span)
-					None => None
+				match current
+					ExporterState(sequence, next_identity, failed, dropped, truncated, redacted) => begin
+						let parent = request_parent(request)
+						let trace_id = match parent
+							Some(TraceContext(parent_trace, _, _)) => parent_trace
+							None => prelude_builtin::observation_export_identity(identity_prefix, "trace", next_identity)
+						end
+						let parent_span_id: Option<String> = match parent
+							Some(TraceContext(_, parent_span, _)) => Some(parent_span)
+							None => None
+						end
+						let sampled = match parent
+							Some(TraceContext(_, _, parent_sampled)) => parent_sampled
+							None => true
+						end
+						let span_id = prelude_builtin::observation_export_identity(identity_prefix, "span", next_identity)
+						commit_exporter_state(state.tx, ExporterState(sequence, bounded_increment(next_identity), failed, dropped, truncated, redacted), committed.tx)
+						let name = request_name(request)
+						export_payload(exporter, ExportSpanStart(name, trace_id, span_id, parent_span_id, request_links(request), request_source(request)))
+						ExportSpan(name, trace_id, span_id, parent_span_id, sampled, request_source(request))
+					end
 				end
-				let sampled = match parent
-					Some(TraceContext(_, _, parent_sampled)) => parent_sampled
-					None => true
-				end
-				let span_id = prelude_builtin::observation_export_identity(identity_prefix, "span", next_identity)
-				let _ = channel::send(state.tx, ExporterState(sequence, bounded_increment(next_identity), failed, dropped, truncated, redacted))
-				let name = request_name(request)
-				export_payload(exporter, ExportSpanStart(name, trace_id, span_id, parent_span_id, request_links(request), request_source(request)))
-				ExportSpan(name, trace_id, span_id, parent_span_id, sampled, request_source(request))
 			end
 			None => NoopSpan(request)
 		end
@@ -598,19 +615,43 @@ fn export_payload(exporter: JsonLinesExporter, payload: ExportPayload) -> () eff
 	match exporter
 		JsonLinesExporter(resource, scope, limits, destination, _, _, production, state) => match production_health(production)
 			ProductionHealth(_, admitted_metrics, dropped_metrics) => match channel::recv(state.rx)
-				Some(ExporterState(sequence, next_identity, failed, dropped, truncated, redacted)) => begin
-					let encoded: { line : String, dropped : Int, truncated : Int, redacted : Int } = prelude_builtin::observation_json_line(payload, wall_time, sequence, resource, scope, limits, failed, admitted_metrics, dropped_metrics)
-					let written = prelude_builtin::observation_export_write(destination, encoded.line, false)
-					let next_failed = if written
-						failed
-					else
-						bounded_increment(failed)
+				Some(current) => begin
+					let committed = channel::bounded<()>(1)
+					defer
+						restore_uncommitted_exporter_state(state.tx, current, committed.rx)
 					end
-					let _ = channel::send(state.tx, ExporterState(bounded_increment(sequence), next_identity, next_failed, bounded_add(dropped, encoded.dropped), bounded_add(truncated, encoded.truncated), bounded_add(redacted, encoded.redacted)))
-					()
+					match current
+						ExporterState(sequence, next_identity, failed, dropped, truncated, redacted) => begin
+							let encoded: { line : String, dropped : Int, truncated : Int, redacted : Int } = prelude_builtin::observation_json_line(payload, wall_time, sequence, resource, scope, limits, failed, admitted_metrics, dropped_metrics)
+							let written = prelude_builtin::observation_export_write(destination, encoded.line, false)
+							let next_failed = if written
+								failed
+							else
+								bounded_increment(failed)
+							end
+							commit_exporter_state(state.tx, ExporterState(bounded_increment(sequence), next_identity, next_failed, bounded_add(dropped, encoded.dropped), bounded_add(truncated, encoded.truncated), bounded_add(redacted, encoded.redacted)), committed.tx)
+							()
+						end
+					end
 				end
 				None => ()
 			end
+		end
+	end
+end
+
+fn commit_exporter_state(state: Sender<ExporterState>, next: ExporterState, committed: Sender<()>) -> () effects [concurrency]
+	let _ = channel::send(committed, ())
+	let _ = channel::send(state, next)
+	()
+end
+
+fn restore_uncommitted_exporter_state(state: Sender<ExporterState>, original: ExporterState, committed: Receiver<()>) -> () effects [concurrency]
+	match channel::select_many_timeout(list_cons(committed, list_nil()), 0)
+		Some(_) => ()
+		None => begin
+			let _ = channel::send(state, original)
+			()
 		end
 	end
 end

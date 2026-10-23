@@ -61,6 +61,18 @@ fn public_network_lookup_is_removed_but_private_system_adapter_remains() {
 }
 
 #[test]
+fn observation_host_adapters_are_reserved_for_standard_package_source() {
+    for name in [
+        "observation_json_line",
+        "observation_export_write",
+        "observation_export_identity",
+    ] {
+        assert!(compiler_adapter_symbol(name).is_some());
+        assert_eq!(prelude_symbol(name), None);
+    }
+}
+
+#[test]
 fn source_lookup_registry_accepts_current_generated_tables() {
     crate::source_less_lookup::with_standard_symbol_registry(|registry| {
         assert_eq!(registry.qualified.len(), QUALIFIED_SYMBOLS.len());

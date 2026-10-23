@@ -417,7 +417,8 @@ const fn source_prelude_symbol_descriptor(name: &'static str) -> StandardSymbolD
 }
 
 pub(crate) fn private_compiler_adapter_name(name: &str) -> bool {
-    name.starts_with("production_metric_index_")
+    name.starts_with("observation_")
+        || name.starts_with("production_metric_index_")
         || name.starts_with("net_system_")
         || name == "byte_decode_http2_frame"
         || name.starts_with("http2_protocol_")

@@ -391,8 +391,7 @@ fn imported_codec_decode_does_not_resolve_as_bare_call() {
 
 fn expected_general_compiler_adapters() -> Vec<&'static str> {
     crate::standard_symbols::compiler_adapter_names()
-        .filter(|name| !name.starts_with("production_metric_index_"))
-        .filter(|name| !name.starts_with("net_system_"))
+        .filter(|name| !crate::standard_symbols::private_compiler_adapter_name(name))
         .filter(|name| *name != "stream_adapter_drain_actions")
         .filter(|name| *name != "stream_adapter_accept_loop")
         .filter(|name| *name != "stream_adapter_drain_actions_until_cancellable")

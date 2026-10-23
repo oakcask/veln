@@ -472,8 +472,8 @@
     public static Object observationExportWrite(Object destination, Object line, Object diagnostic) {
         Adt configured = (Adt) destination;
         String target;
-        if (isAdt(configured, "StandardError")) target = "stderr";
-        else if (isAdt(configured, "FileDestination")) target = "file:" + asString(configured.payloads[0]);
+        if (isAdt(configured, "StandardError") || isAdt(configured, "DiagnosticStandardError")) target = "stderr";
+        else if (isAdt(configured, "FileDestination") || isAdt(configured, "DiagnosticFileDestination")) target = "file:" + asString(configured.payloads[0]);
         else if (isAdt(configured, "NoDiagnosticDestination")) return Boolean.TRUE;
         else throw new IllegalStateException("expected observation export destination");
         HandlerFrame adapter = findHandler(OBSERVATION_EXPORTER_EFFECT);

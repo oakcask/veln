@@ -103,14 +103,13 @@ The `observation_json_line`, `observation_export_write`, and
 handler in `std::observe`. They encode one record, write it to a configured
 host destination, and allocate a host identity, respectively. Embedded
 standard-package source calls them through the reserved `prelude_builtin`
-route. The current descriptor registry also makes these three spellings
-available through bare prelude lookup; they have no ordinary standard-package
+route. They are not bare prelude helpers or public standard-package
 declarations. The line encoder accepts nine arguments and uses its contextual
 record result type. The writer accepts a destination value, line string, and
 diagnostic flag and returns `Bool`. The identity adapter accepts a string
-prefix, string kind, and integer sequence and returns `String`. The JSON
-schema, destination behavior, identity use, and failure contract remain owned
-by [Standard-library Observability](standard-library-observability.md).
+prefix, string kind, and integer sequence and returns `String`. The JSON schema,
+destination behavior, identity use, and failure contract remain owned by
+[Standard-library Observability](standard-library-observability.md).
 
 `std` is owned by the toolchain. A root package named `std` is accepted only
 when its manifest, exports, and non-test sources exactly match the embedded

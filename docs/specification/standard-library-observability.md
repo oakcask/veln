@@ -157,7 +157,11 @@ destination makes that call a successful no-op.
 `observe::StandardError` writes and flushes the process standard error stream.
 `observe::FileDestination(path)` creates the file when needed and appends
 UTF-8 bytes without truncating prior records.
-`observe::NoDiagnosticDestination` accepts a write without producing output.
+Diagnostic summaries use the separate `observe::DiagnosticStandardError`,
+`observe::DiagnosticFileDestination(path)`, and
+`observe::NoDiagnosticDestination` choices. The disabled choice accepts a
+summary without producing output and cannot be selected for observation
+records.
 The default constructor uses standard error for records and the disabled
 destination for health summaries. The explicit constructor accepts these
 choices independently for records and summaries.

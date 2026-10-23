@@ -7,6 +7,10 @@ const schemaUrl = new URL(
   import.meta.url,
 );
 const schema = JSON.parse(await readFile(schemaUrl, "utf8"));
+const hostBoundaryUrl = new URL(
+  "../examples/specification/run/observability-json-lines-host-boundary/case-text/stderr.txt",
+  import.meta.url,
+);
 
 function resolve(reference) {
   assert.match(reference, /^#\/\$defs\/[a-z_]+$/u);
@@ -15,6 +19,7 @@ function resolve(reference) {
 
 function validate(value, rule, path = "record") {
   if (rule.$ref) return validate(value, resolve(rule.$ref), path);
+  for (const constraint of rule.allOf ?? []) validate(value, constraint, path);
   if (rule.anyOf) {
     const failures = [];
     for (const choice of rule.anyOf) {
@@ -26,6 +31,25 @@ function validate(value, rule, path = "record") {
       }
     }
     assert.fail(`${path} matched no anyOf branch: ${failures.join("; ")}`);
+  }
+  if (rule.if) {
+    let matches = true;
+    try {
+      validate(value, rule.if, path);
+    } catch {
+      matches = false;
+    }
+    if (matches && rule.then) validate(value, rule.then, path);
+    if (!matches && rule.else) validate(value, rule.else, path);
+  }
+  if (rule.not) {
+    let matches = true;
+    try {
+      validate(value, rule.not, path);
+    } catch {
+      matches = false;
+    }
+    assert.equal(matches, false, `${path} matched a forbidden schema`);
   }
   if (Object.hasOwn(rule, "const")) assert.deepEqual(value, rule.const, path);
   if (rule.enum) assert.ok(rule.enum.includes(value), `${path} is outside its enum`);
@@ -44,8 +68,9 @@ function validate(value, rule, path = "record") {
     assert.ok(Array.isArray(value), path);
     value.forEach((item, index) => validate(item, rule.items, `${path}[${index}]`));
   }
-  if (rule.type === "object") {
-    assert.ok(value !== null && typeof value === "object" && !Array.isArray(value), path);
+  const objectValue = value !== null && typeof value === "object" && !Array.isArray(value);
+  if (rule.type === "object") assert.ok(objectValue, path);
+  if (objectValue) {
     for (const name of rule.required ?? []) {
       assert.ok(Object.hasOwn(value, name), `${path}.${name} is required`);
     }
@@ -107,6 +132,25 @@ test("the checked schema rejects incompatible versions and unrecognized fields",
     ...representative("event"),
     attributes: [{ name: "attempt", type: "int", value: "1" }],
   }, schema));
+  const logWithoutMessage = representative("log");
+  delete logWithoutMessage.message;
+  assert.throws(() => validate(logWithoutMessage, schema));
+  assert.throws(() => validate({ ...representative("event"), message: "unexpected" }, schema));
+  const counterWithoutValue = representative("counter");
+  delete counterWithoutValue.value;
+  assert.throws(() => validate(counterWithoutValue, schema));
+  assert.throws(() => validate({ ...representative("span_start"), trace: { trace_id: "trace-1", span_id: "span-1", sampled: true } }, schema));
+});
+
+test("the checked JVM host-boundary record satisfies the schema and path hygiene", async () => {
+  const lines = (await readFile(hostBoundaryUrl, "utf8")).trimEnd().split("\n");
+  assert.ok(lines.length > 0);
+  for (const line of lines) {
+    const record = JSON.parse(line);
+    validate(record, schema);
+    assert.equal(record.source.file.startsWith("/"), false);
+    assert.equal(/^[A-Za-z]:[\\/]/u.test(record.source.file), false);
+  }
 });
 
 test("representative source names are repository-relative or virtual", () => {

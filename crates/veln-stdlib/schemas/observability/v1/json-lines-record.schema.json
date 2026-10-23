@@ -35,6 +35,55 @@
     "message": { "type": "string" },
     "value": { "type": "integer" }
   },
+  "allOf": [
+    {
+      "if": { "type": "object", "required": ["kind"], "properties": { "kind": { "const": "log" } } },
+      "then": {
+        "required": ["message"],
+        "properties": {
+          "severity": { "enum": ["debug", "info", "warning", "error"] },
+          "span": { "type": "null" }
+        },
+        "not": { "type": "object", "required": ["value"] }
+      }
+    },
+    {
+      "if": { "type": "object", "required": ["kind"], "properties": { "kind": { "const": "event" } } },
+      "then": {
+        "properties": { "severity": { "type": "null" }, "span": { "type": "null" } },
+        "not": {
+          "anyOf": [
+            { "type": "object", "required": ["message"] },
+            { "type": "object", "required": ["value"] }
+          ]
+        }
+      }
+    },
+    {
+      "if": { "type": "object", "required": ["kind"], "properties": { "kind": { "enum": ["counter", "histogram"] } } },
+      "then": {
+        "required": ["value"],
+        "properties": { "severity": { "type": "null" }, "span": { "type": "null" } },
+        "not": { "type": "object", "required": ["message"] }
+      }
+    },
+    {
+      "if": { "type": "object", "required": ["kind"], "properties": { "kind": { "enum": ["span_start", "span_finish"] } } },
+      "then": {
+        "properties": {
+          "severity": { "type": "null" },
+          "trace": { "type": "null" },
+          "span": { "$ref": "#/$defs/span" }
+        },
+        "not": {
+          "anyOf": [
+            { "type": "object", "required": ["message"] },
+            { "type": "object", "required": ["value"] }
+          ]
+        }
+      }
+    }
+  ],
   "$defs": {
     "wall_time": {
       "type": "object",
@@ -119,7 +168,7 @@
       "additionalProperties": false,
       "required": ["name", "attributes"],
       "properties": {
-        "name": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
         "attributes": { "$ref": "#/$defs/attributes" }
       }
     },
@@ -128,7 +177,7 @@
       "additionalProperties": false,
       "required": ["name", "version"],
       "properties": {
-        "name": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
         "version": { "type": "string" }
       }
     },
