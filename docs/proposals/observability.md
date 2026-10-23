@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Buffered observation export, shutdown flushing, or shutdown drop accounting changes.
+update-when: The buffered observation-export queue bound, full-queue admission result, shutdown flushing or drop accounting, final health-summary ordering, or interrupted-shutdown behavior changes.
 ---
 
 # Buffered Observation Export Lifecycle
@@ -17,6 +17,19 @@ The remaining facility may queue accepted records before a destination write.
 It must preserve the synchronous export data contract and must not turn
 telemetry delivery into application success or failure. External telemetry
 protocol adapters and durable audit guarantees remain outside this proposal.
+
+## Related Work
+
+The OpenTelemetry [Tracing SDK specification](https://opentelemetry.io/docs/specs/otel/trace/sdk/)
+defines a finite batch queue, drops spans after that queue reaches capacity,
+and requires processor shutdown to include its force-flush behavior. Its flush
+and shutdown operations distinguish success, failure, and timeout, and may
+prioritize the timeout over completing every export. This provides a concrete
+comparison for queue admission and interrupted shutdown, but it does not define
+Veln behavior: Veln exports observation kinds beyond spans and must order a
+final health summary with its own drop accounting. The proposal therefore
+retains the finite-bound and explicit-shutdown questions while leaving their
+values and transitions undecided instead of importing OpenTelemetry defaults.
 
 ## Shutdown Contract
 

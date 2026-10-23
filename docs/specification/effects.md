@@ -340,9 +340,10 @@ or `WaitCancelled` as an ordinary value.
 
 ## Scoped host adapters
 
-The standard `host_effects` module exposes nominal `Network`, `Clock`, and
-`TaskJoin` effects for substituting or observing host boundaries. Install an
-ordinary Veln lexical handler around the calls that need controlled results:
+The standard `host_effects` module exposes nominal `Network`, `Clock`,
+`TaskJoin`, and `ObservationExporter` effects for substituting or observing
+host boundaries. Install an ordinary Veln lexical handler around the calls
+that need controlled results:
 
 ```veln
 use host_effects from "std"
@@ -372,6 +373,18 @@ No operation is performed when the task is already complete, and without a
 handler the join waits with no observation callback. This hook makes task
 waiting observable without changing production task scheduling or selecting
 test behavior through process state.
+
+`ObservationExporter::write(destination, line, diagnostic)` receives the
+resolved `stderr` or `file:<path>` target, the exact newline-terminated
+payload, and whether the payload is a diagnostic summary. Its Boolean result
+reports whether the destination accepted the write.
+`ObservationExporter::identity(kind, sequence)` supplies the identity used for
+an exported span. These operations let scoped Veln test support capture writes
+and provide deterministic identities. Without a handler, the runtime uses the
+real destination and host-generated identities described by
+[Execution Boundary](execution.md#runtime-readiness-and-host-boundaries). The
+public handler, record, and failure contracts belong to
+[Standard-library Observability](standard-library-observability.md#synchronous-json-lines-export).
 
 `Clock::request(operation, milliseconds)` returns `Result<Int, String>`.
 The bridge uses these requests:

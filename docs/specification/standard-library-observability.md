@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The standard-library Observe effect, observation handlers, scoped span helpers, explicit task, channel-value, fan-in, or carrier context propagation, structured logging, named domain events, or observation data model changes.
+update-when: The standard-library Observe effect, observation handlers, JSON Lines schema, export destinations, exporter health, scoped span helpers, explicit task, channel-value, fan-in, or carrier context propagation, structured logging, named domain events, or observation data model changes.
 specification-coverage: usage=#usage; behavior=#behavior; limits=#limits
 ---
 
@@ -69,7 +69,8 @@ end
 opaque. Construct a request with a stable name, an optional parent
 `TraceContext`, and an ordered list of linked `TraceContext` values. Pass an
 empty list when the new span has no causal links. `observe::context(span)`
-returns the context of a recording span and returns `None` for a no-op span.
+returns the context of a recording or exported span and returns `None` for a
+no-op span.
 `trace::in_span<effect E>` accepts a body of type
 `fn(Span) -> Result<(), String> effects [...E]`. It starts the span, passes its
 opaque handle to the body, forwards the callback effect row beside `Observe`,
@@ -151,8 +152,10 @@ support can inject deterministic identities through the scoped exporter host
 adapter. Use `observe::span_request` to attach the call site to an exported
 span request. `observe::exporter_health` reads a
 non-consuming health snapshot. `observe::report_exporter_health` writes one
-summary only to the configured diagnostic destination; a disabled diagnostic
-destination makes that call a successful no-op.
+summary only to the configured diagnostic destination and returns whether that
+write was accepted. A disabled diagnostic destination makes that call a
+successful no-op. A rejected summary leaves the previously reported exporter
+health unchanged, so reporting cannot recursively add its own failure.
 
 `observe::StandardError` writes and flushes the process standard error stream.
 `observe::FileDestination(path)` creates the file when needed and appends
@@ -365,7 +368,7 @@ of one versioned JSON object followed by `\n`. Accepted operations consume
 handler sequence values in operation order, including a write that the
 destination rejects.
 
-Each record follows the checked
+The interoperable record contract is checked by
 [`json-lines-record.schema.json`](../../crates/veln-stdlib/schemas/observability/v1/json-lines-record.schema.json).
 It contains the observation kind and name, wall-clock seconds and nanoseconds,
 handler sequence, nullable severity and trace/span identity, ordered links,
@@ -374,6 +377,13 @@ instrumentation-scope identity, cumulative cardinality and exporter failure
 facts, and per-record attribute facts. Log records add `message`; metric
 records add `value`. The current host does not expose a stable task identity,
 so it encodes `task_id` as `null`.
+
+The schema requires non-empty trace and span identities and non-negative
+source coordinates. Compiler-produced locations and host-generated root
+identities satisfy those constraints. Directly constructed public records,
+contexts, and span requests are encoded without validating identity contents
+or numeric source coordinates; values outside those constraints can therefore
+produce a line that does not satisfy the schema.
 
 Attribute count limits apply independently to observation and resource
 attribute lists. Negative limits normalize to zero. String size is measured
@@ -387,10 +397,12 @@ matching value is replaced by the fixed string `[REDACTED]` until the finite
 redaction limit is reached and increments `redacted`. The encoded facts
 aggregate changes to both observation and resource attributes.
 
-A destination rejection or host write failure increments `failed_exports`
-and leaves the handled application's ordinary result unchanged. The
-cumulative failed, dropped, truncated, and redacted health totals saturate at
-the maximum `Int`. Health reads do not consume those totals. Saturation does
+A record-destination rejection or host write failure increments
+`failed_exports` and leaves the handled application's ordinary result
+unchanged. A diagnostic-summary rejection is instead exposed as the `false`
+result of `observe::report_exporter_health` and does not change that counter.
+The cumulative failed, dropped, truncated, and redacted health totals saturate
+at the maximum `Int`. Health reads do not consume those totals. Saturation does
 not prevent a later export or health read. Export and health-summary writes do
 not perform `Observe`, so a failure cannot recursively create telemetry.
 
