@@ -78,6 +78,11 @@ type ExportPayload
 	ExportSpanFinish(name: String, trace_id: String, span_id: String, parent_span_id: Option<String>, source: Option<SourceLocation>)
 end
 
+type ExportStateBoundaryHook
+	NoExportStateBoundaryHook
+	TestExportStateBoundaryHook(callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], entered: Sender<()>, release: Receiver<()>)
+end
+
 type ExporterState
 	ExporterState(next_sequence: Int, next_identity: Int, failed_exports: Int, dropped_attributes: Int, truncated_attributes: Int, redacted_attributes: Int)
 end
@@ -619,36 +624,64 @@ pub fn export_observation(exporter: JsonLinesExporter, record: Observation) -> (
 end
 
 fn export_payload(exporter: JsonLinesExporter, payload: ExportPayload) -> () effects [time, concurrency]
+	export_payload_with_boundary_hook(exporter, payload, NoExportStateBoundaryHook)
+end
+
+fn export_metric_with_boundary_hook_for_test(exporter: JsonLinesExporter, record: Observation, callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], entered: Sender<()>, release: Receiver<()>) -> () effects [time, concurrency]
+	match exporter
+		JsonLinesExporter(_, _, _, _, _, _, production, _) => if apply_metric_cardinality(production, record)
+			match record
+				CounterIncrement(value) => export_payload_with_boundary_hook(exporter, ExportCounter(value), TestExportStateBoundaryHook(callback, entered, release))
+				HistogramSample(value) => export_payload_with_boundary_hook(exporter, ExportHistogram(value), TestExportStateBoundaryHook(callback, entered, release))
+				_ => ()
+			end
+		else
+			()
+		end
+	end
+end
+
+fn export_payload_with_boundary_hook(exporter: JsonLinesExporter, payload: ExportPayload, boundary_hook: ExportStateBoundaryHook) -> () effects [time, concurrency]
 	let wall_time = time::wall_time()
 	match exporter
-		JsonLinesExporter(resource, scope, limits, destination, _, _, production, state) => match production_health(production)
-			ProductionHealth(_, admitted_metrics, dropped_metrics) => match channel::recv(state.rx)
+		JsonLinesExporter(resource, scope, limits, destination, _, _, production, state) => begin
+			run_export_state_boundary_hook(boundary_hook)
+			match channel::recv(state.rx)
 				Some(current) => begin
 					let committed = channel::bounded<()>(1)
 					defer
 						restore_uncommitted_exporter_state(state.tx, current, committed.rx)
 					end
-					match current
-						ExporterState(sequence, next_identity, failed, dropped, truncated, redacted) => begin
-							let encoded: { valid : Bool, line : String, dropped : Int, truncated : Int, redacted : Int } = prelude_builtin::observation_json_line(payload, wall_time, sequence, resource, scope, limits, failed, admitted_metrics, dropped_metrics)
-							let written = if encoded.valid
-								prelude_builtin::observation_export_write(destination, encoded.line, false)
-							else
-								false
+					match production_health(production)
+						ProductionHealth(_, admitted_metrics, dropped_metrics) => match current
+							ExporterState(sequence, next_identity, failed, dropped, truncated, redacted) => begin
+								let encoded: { valid : Bool, line : String, dropped : Int, truncated : Int, redacted : Int } = prelude_builtin::observation_json_line(payload, wall_time, sequence, resource, scope, limits, failed, admitted_metrics, dropped_metrics)
+								let written = if encoded.valid
+									prelude_builtin::observation_export_write(destination, encoded.line, false)
+								else
+									false
+								end
+								let next_failed = if written
+									failed
+								else
+									bounded_increment(failed)
+								end
+								commit_exporter_state(state.tx, ExporterState(bounded_increment(sequence), next_identity, next_failed, bounded_add(dropped, encoded.dropped), bounded_add(truncated, encoded.truncated), bounded_add(redacted, encoded.redacted)), committed.tx)
+								()
 							end
-							let next_failed = if written
-								failed
-							else
-								bounded_increment(failed)
-							end
-							commit_exporter_state(state.tx, ExporterState(bounded_increment(sequence), next_identity, next_failed, bounded_add(dropped, encoded.dropped), bounded_add(truncated, encoded.truncated), bounded_add(redacted, encoded.redacted)), committed.tx)
-							()
 						end
 					end
 				end
 				None => ()
 			end
 		end
+	end
+end
+
+fn run_export_state_boundary_hook(boundary_hook: ExportStateBoundaryHook) -> () effects [concurrency]
+	match boundary_hook
+		NoExportStateBoundaryHook => ()
+		TestExportStateBoundaryHook(callback, entered, release) => callback(entered, release)
 	end
 end
 

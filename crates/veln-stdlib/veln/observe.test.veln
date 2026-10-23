@@ -341,6 +341,10 @@ test cardinality_rejection_happens_before_attribute_limits_and_export() -> Resul
 	observe_export_test_support_test::cardinality_rejection_happens_before_attribute_limits_and_export()
 end
 
+test concurrent_metric_health_is_monotonic_in_sequence_order() -> Result<(), String> effects [time, concurrency]
+	observe_export_test_support_test::concurrent_metric_health_is_monotonic_in_sequence_order()
+end
+
 test cancellation_during_write_restores_exporter_state() -> Result<(), String> effects [time, concurrency]
 	observe_export_test_support_test::cancellation_during_write_restores_exporter_state()
 end
