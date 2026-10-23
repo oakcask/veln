@@ -242,9 +242,7 @@ does not consume or reset it. Metric decisions and health snapshots are
 serialized across tasks that share the policy, and separately constructed
 policies do not share state. If a task observes cancellation before it enters
 the metric decision's commit phase, that decision leaves the policy state
-unchanged; later metric emissions and health reads remain available. Once the
-commit phase begins, it publishes the complete decision even if a concurrent
-cancellation request causes the task's join to report cancellation. The
+unchanged; later metric emissions and health reads remain available. The
 retained identity index never exceeds the normalized series limit, and health
 uses a fixed number of scalar fields. Identity lookup uses a bounded ordered
 index rather than scanning all retained series. Each emission or health read
