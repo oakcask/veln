@@ -22,10 +22,9 @@ and retrieve a listed URI with `resources/read`.
 
 From the repository root, run
 `cargo run -p veln-repo-language-reference -- . generate` to regenerate the
-catalog and digest files after changing their source authorities. `check`
-validates the checked digest; `check-fresh` regenerates in memory and compares
-the checked artifact and rendered resources. Failures exit with status `1`;
-invalid command arguments exit with status `2`.
+catalog and digest files after changing their source authorities. `check-fresh`
+regenerates in memory and compares the checked artifact and rendered resources.
+Failures exit with status `1`; invalid command arguments exit with status `2`.
 
 ## Current Contract
 
