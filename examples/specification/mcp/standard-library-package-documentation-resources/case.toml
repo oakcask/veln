@@ -99,12 +99,12 @@ contains = "- Package identity: std"
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/639b864d694cb3119fac71fbc3cf9a0121cfbcf832c300edd5d23126e93c4b00/documentation/cee9143cf753f2b25da91c28f462d268a7191981adbca4ef193a89d122f01b0a/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
+contains = "veln-doc:///package/std/snapshot/759517b62cafdac084021172a7268f033b19739290491bba07d9e12cbfda3ab5/documentation/4d65ec06e2157e32240d453af2f5b09987a0c9c3b9aa72cd71e00da011a21f0a/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
 
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/639b864d694cb3119fac71fbc3cf9a0121cfbcf832c300edd5d23126e93c4b00/documentation/cee9143cf753f2b25da91c28f462d268a7191981adbca4ef193a89d122f01b0a/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
+contains = "veln-doc:///package/std/snapshot/759517b62cafdac084021172a7268f033b19739290491bba07d9e12cbfda3ab5/documentation/4d65ec06e2157e32240d453af2f5b09987a0c9c3b9aa72cd71e00da011a21f0a/module/b76f1dae409249d092e9058952820bf79c902ccb50812b25f8f8974f93849f78"
 
 [[mcp_assert]]
 id = 5
@@ -114,17 +114,17 @@ contains = "- Source path: prelude.veln"
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/639b864d694cb3119fac71fbc3cf9a0121cfbcf832c300edd5d23126e93c4b00/documentation/cee9143cf753f2b25da91c28f462d268a7191981adbca4ef193a89d122f01b0a/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
+contains = "veln-doc:///package/std/snapshot/759517b62cafdac084021172a7268f033b19739290491bba07d9e12cbfda3ab5/documentation/4d65ec06e2157e32240d453af2f5b09987a0c9c3b9aa72cd71e00da011a21f0a/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
 
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/639b864d694cb3119fac71fbc3cf9a0121cfbcf832c300edd5d23126e93c4b00/documentation/cee9143cf753f2b25da91c28f462d268a7191981adbca4ef193a89d122f01b0a/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
+contains = "veln-doc:///package/std/snapshot/759517b62cafdac084021172a7268f033b19739290491bba07d9e12cbfda3ab5/documentation/4d65ec06e2157e32240d453af2f5b09987a0c9c3b9aa72cd71e00da011a21f0a/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
 
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/639b864d694cb3119fac71fbc3cf9a0121cfbcf832c300edd5d23126e93c4b00/documentation/cee9143cf753f2b25da91c28f462d268a7191981adbca4ef193a89d122f01b0a/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
+contains = "veln-doc:///package/std/snapshot/759517b62cafdac084021172a7268f033b19739290491bba07d9e12cbfda3ab5/documentation/4d65ec06e2157e32240d453af2f5b09987a0c9c3b9aa72cd71e00da011a21f0a/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
 
 [[mcp_assert]]
 id = 6
@@ -355,3 +355,31 @@ contains = "# Function in_span"
 id = 23
 path = "/result/contents/0/text"
 contains = "fn in_span<effect E>(request: SpanRequest, body: fn(Span) -> Result<(), String> effects [...E]) -> Result<(), String> effects [observe::Observe, ...E]"
+
+# Integration contract: the refreshed standard-library package catalog
+# publishes the complete production cardinality-policy surface through exact
+# declaration resources.
+[[mcp_assert]]
+id = 24
+path = "/result/contents/0/text"
+contains = "# Type Production"
+
+[[mcp_assert]]
+id = 25
+path = "/result/contents/0/text"
+contains = "ProductionHealth { metric_series: Int, admitted_metric_observations: Int, dropped_metric_observations: Int }"
+
+[[mcp_assert]]
+id = 26
+path = "/result/contents/0/text"
+contains = "fn new_production(metric_series_limit: Int) -> Production effects [concurrency]"
+
+[[mcp_assert]]
+id = 27
+path = "/result/contents/0/text"
+contains = "fn production_health(production: Production) -> ProductionHealth effects [concurrency]"
+
+[[mcp_assert]]
+id = 28
+path = "/result/contents/0/text"
+contains = "handler production(production: Production) for Observe effects [concurrency]"

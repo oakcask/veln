@@ -33,7 +33,8 @@ subset.
 
 The descriptor-backed subset covers stdio effect metadata, concurrency effect
 metadata, minimal `fs`, `time`, and `process` intrinsics, private network host
-adapters, and opaque `NetListener` and `NetStream` resource type identities.
+adapters, private production metric-index adapters, and opaque `NetListener`
+and `NetStream` resource type identities.
 Public network operations are ordinary declarations in the exported
 `std::net` module, not compiler-known descriptors. The resource descriptors
 have no constructors and allow exported standard-package aliases to name host
@@ -87,6 +88,15 @@ The private `net_system_*` compiler adapters back the operation clauses of
 standard-package declarations. Each adapter checks its operation arity and
 uses the enclosing handler clause's expected result type; the public
 operation parameter and result types remain owned by `std::net::IO`.
+
+The private `production_metric_index_*` compiler adapters back the bounded
+metric-series index used by `std::observe::production`. They create an index,
+test and insert internal series identities, and expose deterministic comparison
+work to standard-package companion tests. They are available only through the
+reserved `prelude_builtin` route. They are not bare prelude helpers or public
+standard-package declarations. The public policy, identity, health, and effect
+contract remains owned by
+[Standard-library Observability](standard-library-observability.md).
 
 `std` is owned by the toolchain. A root package named `std` is accepted only
 when its manifest, exports, and non-test sources exactly match the embedded

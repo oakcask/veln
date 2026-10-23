@@ -828,9 +828,11 @@ The checked
 [`standard-library-package-documentation-resources`](../../examples/specification/mcp/standard-library-package-documentation-resources/)
 transcript covers discovery and exact reads for the embedded package catalog,
 including the public `net::system()`, `observe::noop()`, and
-`observe::recording(Recording)` handler declaration resources, the public
-`trace` module and `trace::in_span` function resource, and the exclusion of
-private host adapters and private `Span` constructors.
+`observe::recording(Recording)` handler declaration resources, the production
+policy and health types, the production constructor and health snapshot
+functions, the `observe::production(Production)` handler declaration resource,
+the public `trace` module and `trace::in_span` function resource, and the
+exclusion of private host adapters and private `Span` constructors.
 The checked
 [`callsite-presentation`](../../examples/specification/mcp/callsite-presentation/)
 transcript covers modifier and empty-body built-in completion, an ordinary-body

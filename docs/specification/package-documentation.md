@@ -258,7 +258,9 @@ The checked
 [`standard-library-package-documentation-resources`](../../examples/specification/mcp/standard-library-package-documentation-resources/)
 transcript covers the public `net::system()` handler resource, its canonical
 signature and visible examples, the public `observe::noop()` and
-`observe::recording(Recording)` handler resources, and the public `trace`
+`observe::recording(Recording)` handler resources, the production policy and
+health types, the production constructor and health snapshot functions, the
+`observe::production(Production)` handler resource, and the public `trace`
 module and `trace::in_span` function resource. It also covers exclusion of
 handler operation clauses, private host adapters, and private `Span`
 constructors.

@@ -106,7 +106,8 @@ discovery guidance; the linked subject pages own behavior and evidence.
   context propagation, explicit channel-value context attachment, explicit
   fan-in parent and link selection, carrier context injection and extraction,
   and call-site-aware structured logs, named domain events, counter increments,
-  and histogram samples:
+  histogram samples, and production metric-cardinality admission with bounded
+  health reporting:
   [standard-library-observability.md](standard-library-observability.md).
 - JVM execution behavior, values, calls, control flow, schema execution and
   codecs, and host boundaries:

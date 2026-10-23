@@ -118,6 +118,24 @@ fn concurrent_task_cancellation_uses_one_atomic_initiation_claim() {
 }
 
 #[test]
+fn production_metric_cardinality_uses_bounded_indexed_state_without_owner_tasks() {
+    let observe = include_str!("../../../veln-stdlib/veln/observe.veln");
+    let runtime = include_str!("../runtime/observability.java.inc");
+
+    assert!(observe.contains("channel::recv(state_channel.rx)"));
+    assert!(observe.contains("restore_uncommitted_production_state"));
+    assert!(!observe.contains("task::spawn_with"));
+    assert!(!observe.contains("production_transaction"));
+
+    assert!(runtime.contains("java.util.TreeSet<MetricSeriesIdentity>"));
+    assert!(runtime.contains("java.util.TreeMap<MetricAttribute, Long>"));
+    assert!(runtime.contains("private final long limit"));
+    assert!(runtime.contains("series.size()) < limit"));
+    assert!(runtime.contains("private synchronized boolean contains"));
+    assert!(runtime.contains("private synchronized void insert"));
+}
+
+#[test]
 fn network_system_cleanup_uses_one_ordered_identity_ledger_without_activation_races() {
     let values = include_str!("../runtime/values.java.inc");
     let effects = include_str!("../runtime/effects.java.inc");

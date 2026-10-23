@@ -1,6 +1,8 @@
 use event
 use log
+use metric
 use observe
+use observe_test_support_test
 
 test noop_preserves_a_handled_body_result() -> Result<(), String>
 	let observed = handle 42 with observe::noop()
@@ -217,6 +219,84 @@ test recording_context_defaults_roots_to_sampled_and_inherits_parent_sampling() 
 		end
 		_ => Err("recording root context did not default to sampled")
 	end
+end
+
+test production_large_reversed_attribute_multiset_remains_one_known_series() -> Result<(), String> effects [concurrency]
+	let production = observe::new_production(1)
+	let attributes = large_metric_attributes(4000, list_nil())
+	let reversed = list_reverse(attributes)
+	let result = handle begin
+		metric::counter_increment(None, "large-series", 1, attributes)
+		metric::counter_increment(None, "large-series", 2, reversed)
+		47
+	end with observe::production(production)
+	match observe::production_health(production)
+		observe::ProductionHealth(1, 2, 0) => if result == 47
+			Ok(())
+		else
+			Err("large known-series admission changed the handled result")
+		end
+		_ => Err("large reversed attributes created a new series or stranded production state")
+	end
+end
+
+test production_cancellation_aborts_one_decision_and_keeps_state_available() -> Result<(), String> effects [concurrency]
+	let production = observe::new_production(1)
+	let entered = channel::bounded<()>(1)
+	let release = channel::bounded<()>(1)
+	let worker = task::spawn_with<(), { production : Production, entered : Sender<()>, release : Receiver<()> }>(cancelled_production_decision, { production: production, entered: entered.tx, release: release.rx })
+	let started: Option<()> = channel::recv(entered.rx)
+	task::cancel(worker)
+	let _ = channel::send(release.tx, ())
+	let joined = task::join(worker)
+	let before_retry = observe::production_health(production)
+	let _ = handle metric::counter_increment(None, "after-cancellation", 1, list_nil()) with observe::production(production)
+	let after_retry = observe::production_health(production)
+	match started
+		Some(_) => match joined
+			Err(error) => if task::join_error_is_cancelled(error)
+				match before_retry
+					observe::ProductionHealth(0, 0, 0) => match after_retry
+						observe::ProductionHealth(1, 1, 0) => Ok(())
+						_ => Err("production state did not admit a metric after cancellation")
+					end
+					_ => Err("cancelled production decision committed partial state")
+				end
+			else
+				Err("cancelled production decision reported a non-cancellation join error")
+			end
+			Ok(_) => Err("cancelled production decision completed normally")
+		end
+		None => Err("production decision did not reach the deterministic cancellation barrier")
+	end
+end
+
+test production_health_counters_saturate_at_maximum_int() -> Result<(), String> effects [concurrency]
+	let maximum = 9223372036854775807
+	let production = observe::new_production_for_test(1, maximum - 1, maximum - 1)
+	let _ = handle begin
+		metric::counter_increment(None, "admitted", 1, list_nil())
+		metric::counter_increment(None, "admitted", 2, list_nil())
+		metric::counter_increment(None, "dropped", 1, list_nil())
+		metric::counter_increment(None, "still-dropped", 1, list_nil())
+	end with observe::production(production)
+	match observe::production_health(production)
+		observe::ProductionHealth(1, 9223372036854775807, 9223372036854775807) => Ok(())
+		_ => Err("production health counters did not saturate at maximum Int")
+	end
+end
+
+fn large_metric_attributes(remaining: Int, attributes: List<observe::Attribute>) -> List<observe::Attribute>
+	if remaining == 0
+		attributes
+	else
+		large_metric_attributes(remaining - 1, list_cons(observe::Attribute("index", observe::IntValue(remaining)), attributes))
+	end
+end
+
+fn cancelled_production_decision(context: { production : Production, entered : Sender<()>, release : Receiver<()> }) -> () effects [concurrency] callsite
+	let record = observe::CounterIncrement(observe::CounterIncrementRecord("cancelled", 1, list_nil(), None, callsite))
+	observe::apply_metric_cardinality_for_test(context.production, record, observe_test_support_test::decision_barrier, context.entered, context.release)
 end
 
 fn callsite_location() -> SourceLocation callsite

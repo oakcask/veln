@@ -58,7 +58,8 @@ fn core_compiler_adapter_signature(
     expected: Option<&CoreType>,
 ) -> Option<(CoreCallTarget, Vec<CoreType>, CoreType)> {
     let expected = ExpectedCorePreludeParts::from_expected(expected);
-    let signature = core_net_system_signature(descriptor.name, &expected.direct)
+    let signature = core_production_metric_index_signature(descriptor.name)
+        .or_else(|| core_net_system_signature(descriptor.name, &expected.direct))
         .or_else(|| core_prelude_float_signature(descriptor.name))
         .or_else(|| core_prelude_byte_signature(descriptor.name))
         .or_else(|| core_prelude_string_signature(descriptor.name))
@@ -73,6 +74,21 @@ fn core_compiler_adapter_signature(
         signature.0,
         signature.1,
     ))
+}
+
+fn core_production_metric_index_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> {
+    match name {
+        "production_metric_index_new" => Some((vec![CoreType::int()], CoreType::int())),
+        "production_metric_index_contains" => {
+            Some((vec![CoreType::int(), CoreType::Unknown], CoreType::bool()))
+        }
+        "production_metric_index_insert" => {
+            Some((vec![CoreType::int(), CoreType::Unknown], CoreType::unit()))
+        }
+        "production_metric_index_work" => Some((vec![CoreType::int()], CoreType::int())),
+        "production_metric_index_reset_work" => Some((vec![CoreType::int()], CoreType::unit())),
+        _ => None,
+    }
 }
 
 fn compiler_adapter_core_callback_signature(

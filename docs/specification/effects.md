@@ -171,7 +171,10 @@ The exported standard `observe` module declares the public nominal
 `observe::Observe` effect. Handling a body with `observe::noop()` removes that
 effect without adding another effect. Handling it with
 `observe::recording(recording)` removes `observe::Observe` and adds `time` and
-`concurrency` from the handler clauses. The `trace::in_span<effect E>` helper
+`concurrency` from the handler clauses. Handling it with
+`observe::production(policy)` removes `observe::Observe` and adds
+`concurrency`; constructing the policy and reading its health snapshot also
+require `concurrency`. The `trace::in_span<effect E>` helper
 retains `observe::Observe` together with the effect row `E` of its callback
 until an enclosing handler discharges the observation effect. The
 [standard-library observability specification](standard-library-observability.md)

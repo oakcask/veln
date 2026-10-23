@@ -15,7 +15,8 @@ effect-polymorphic scoped span lifecycle, and call-site-aware structured log
 records at debug, info, warning, and error severities, named domain events,
 counter increments and histogram samples with recording and no-op handler
 support, plus explicit direct child-task and channel-value context propagation
-and protocol-neutral carrier context propagation are implemented in the
+and protocol-neutral carrier context propagation, and production metric
+cardinality admission with bounded health reporting are implemented in the
 [current observability specification](../specification/standard-library-observability.md).
 This proposal covers only the remaining facilities described below.
 
@@ -63,9 +64,11 @@ Applications install an observation handler at their outer execution boundary.
 Future exporter tests can replace resource attributes and exporter outcomes
 with deterministic values.
 
-Normal telemetry is best effort. `emit` and `finish_span` return `()`. An
-export failure does not change the application result and does not recursively
-perform `Observe`. The handler records bounded internal drop and failure
+Normal telemetry is best effort. `emit` and `finish_span` return `()`. The
+implemented production cardinality policy drops only an unseen metric series
+after its configured limit without changing the application result. A future
+export failure also does not change the application result and does not
+recursively perform `Observe`. Export handlers will record bounded failure
 counters and can report a final exporter health summary on a separately
 configured diagnostic channel.
 
@@ -74,9 +77,9 @@ this effect. A future audit facility must return an ordinary typed result.
 
 ## Structured Data Contract
 
-Production handlers apply configured size, count, redaction, and
-metric-cardinality limits before export. A record then reports whether
-attributes were dropped or truncated.
+The production cardinality policy is applied before a future exporter.
+Exporters will also apply configured size, count, and redaction limits. A
+record then reports whether attributes were dropped or truncated.
 
 The JSON Lines handler emits one versioned object per line to a configured
 destination that is separate from application stdout by default. Its checked
@@ -101,16 +104,15 @@ invent a version before a checked schema exists.
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |
 | O9 | An exporter rejects or drops a record. | The application result is unchanged and bounded health facts reflect the failure. | Forced-export-failure case. |
-| O10 | Metric input exceeds a configured production cardinality limit. | The production handler applies the limit without changing the application result and reports bounded drop facts. | Table-driven cardinality and drop cases. |
 | O12 | JSON Lines export is enabled. | Each line validates against the checked schema and contains no machine-specific absolute source path. | Schema and relocation cases. |
 | O14 | Handler shutdown follows buffered emission. | Accepted records are flushed or counted as dropped before shutdown returns. | Deterministic exporter lifecycle case. |
 
 ## Verification and Promotion
 
-The next implementation work starts with production metric-cardinality policy.
-The JSON Lines schema and fixtures then
-establish the machine-readable contract. An external protocol adapter is
-verified against that protocol's conformance fixtures and remains replaceable.
+The remaining implementation work starts with exporter failure behavior and
+the JSON Lines schema and fixtures that establish the machine-readable
+contract. An external protocol adapter is verified against that protocol's
+conformance fixtures and remains replaceable.
 
 Standard-library API behavior belongs in companion tests under
 `crates/veln-stdlib/veln/`. Executable cases under `examples/specification/`

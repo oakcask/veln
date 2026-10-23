@@ -189,6 +189,11 @@ pub(crate) const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor
 pub(crate) const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
 
 compiler_adapter_symbol_set! {
+    "production_metric_index_new",
+    "production_metric_index_contains",
+    "production_metric_index_insert",
+    "production_metric_index_work",
+    "production_metric_index_reset_work",
     "net_system_resolve",
     "net_system_listen",
     "net_system_connect",
@@ -409,7 +414,8 @@ const fn source_prelude_symbol_descriptor(name: &'static str) -> StandardSymbolD
 }
 
 pub(crate) fn private_compiler_adapter_name(name: &str) -> bool {
-    name.starts_with("net_system_")
+    name.starts_with("production_metric_index_")
+        || name.starts_with("net_system_")
         || name == "byte_decode_http2_frame"
         || name.starts_with("http2_protocol_")
         || name.starts_with("http2_peer_limit_")

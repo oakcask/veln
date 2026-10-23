@@ -27,6 +27,23 @@ pub type Recording
 	Recording(prefix: String, state: { tx : Sender<RecordingBuffer>, rx : Receiver<RecordingBuffer> })
 end
 
+type MetricSeries
+	CounterSeries(name: String, attributes: List<Attribute>)
+	HistogramSeries(name: String, attributes: List<Attribute>)
+end
+
+type ProductionState
+	ProductionState(series_index: Int, series_count: Int, admitted_metric_observations: Int, dropped_metric_observations: Int)
+end
+
+pub type Production
+	Production(metric_series_limit: Int, state: { tx : Sender<ProductionState>, rx : Receiver<ProductionState> })
+end
+
+pub type ProductionHealth
+	pub ProductionHealth(metric_series: Int, admitted_metric_observations: Int, dropped_metric_observations: Int)
+end
+
 pub type AttributeValue
 	pub BoolValue(value: Bool)
 	pub IntValue(value: Int)
@@ -84,6 +101,51 @@ end
 pub handler noop() for Observe
 	start_span(request) => NoopSpan(request)
 	emit(record) => ()
+	finish_span(request) => ()
+end
+
+pub fn new_production(metric_series_limit: Int) -> Production effects [concurrency]
+	start_production(metric_series_limit, 0, 0)
+end
+
+fn new_production_for_test(metric_series_limit: Int, admitted_metric_observations: Int, dropped_metric_observations: Int) -> Production effects [concurrency]
+	start_production(metric_series_limit, admitted_metric_observations, dropped_metric_observations)
+end
+
+fn start_production(metric_series_limit: Int, admitted_metric_observations: Int, dropped_metric_observations: Int) -> Production effects [concurrency]
+	let state = channel::bounded<ProductionState>(1)
+	let limit = if metric_series_limit < 0
+		0
+	else
+		metric_series_limit
+	end
+	let initial = ProductionState(prelude_builtin::production_metric_index_new(limit), 0, admitted_metric_observations, dropped_metric_observations)
+	let _ = channel::send(state.tx, initial)
+	Production(limit, state)
+end
+
+pub fn production_health(production: Production) -> ProductionHealth effects [concurrency]
+	match production
+		Production(_, state_channel) => begin
+			match channel::recv(state_channel.rx)
+				Some(current) => begin
+					let committed = channel::bounded<()>(1)
+					defer
+						restore_uncommitted_production_state(state_channel.tx, current, committed.rx)
+					end
+					let health = production_state_health(current)
+					commit_production_state(state_channel.tx, current, committed.tx, None)
+					health
+				end
+				None => ProductionHealth(0, 0, 0)
+			end
+		end
+	end
+end
+
+pub handler production(production: Production) for Observe effects [concurrency]
+	start_span(request) => NoopSpan(request)
+	emit(record) => apply_metric_cardinality(production, record)
 	finish_span(request) => ()
 end
 
@@ -198,6 +260,152 @@ fn restore_and_read(tx: Sender<RecordingBuffer>, buffer: RecordingBuffer) -> Lis
 		RecordingBuffer(next_identity, entries) => begin
 			let _ = channel::send(tx, buffer)
 			list_reverse(entries)
+		end
+	end
+end
+
+fn apply_metric_cardinality(production: Production, record: Observation) -> () effects [concurrency]
+	match metric_series(record)
+		Some(candidate) => update_metric_cardinality(production, candidate)
+		None => ()
+	end
+end
+
+fn metric_series(record: Observation) -> Option<MetricSeries>
+	match record
+		CounterIncrement(CounterIncrementRecord(name, _, attributes, _, _)) => Some(CounterSeries(name, attributes))
+		HistogramSample(HistogramSampleRecord(name, _, attributes, _, _)) => Some(HistogramSeries(name, attributes))
+		_ => None
+	end
+end
+
+fn update_metric_cardinality(production: Production, candidate: MetricSeries) -> () effects [concurrency]
+	match production
+		Production(metric_series_limit, state_channel) => match channel::recv(state_channel.rx)
+			Some(current) => begin
+				let committed = channel::bounded<()>(1)
+				defer
+					restore_uncommitted_production_state(state_channel.tx, current, committed.rx)
+				end
+				match decide_metric_cardinality(metric_series_limit, current, candidate)
+					{ state: next, retained: retained } => commit_production_state(state_channel.tx, next, committed.tx, retained)
+				end
+			end
+			None => ()
+		end
+	end
+end
+
+fn apply_metric_cardinality_for_test(production: Production, record: Observation, decision_hook: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], entered: Sender<()>, release: Receiver<()>) -> () effects [concurrency]
+	match metric_series(record)
+		Some(candidate) => update_metric_cardinality_with_hook(production, candidate, decision_hook, entered, release)
+		None => ()
+	end
+end
+
+fn update_metric_cardinality_with_hook(production: Production, candidate: MetricSeries, decision_hook: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], entered: Sender<()>, release: Receiver<()>) -> () effects [concurrency]
+	match production
+		Production(metric_series_limit, state_channel) => begin
+			match channel::recv(state_channel.rx)
+				Some(current) => begin
+					let committed = channel::bounded<()>(1)
+					defer
+						restore_uncommitted_production_state(state_channel.tx, current, committed.rx)
+					end
+					decision_hook(entered, release)
+					match decide_metric_cardinality(metric_series_limit, current, candidate)
+						{ state: next, retained: retained } => commit_production_state(state_channel.tx, next, committed.tx, retained)
+					end
+				end
+				None => ()
+			end
+		end
+	end
+end
+
+fn commit_production_state(state: Sender<ProductionState>, next: ProductionState, committed: Sender<()>, retained: Option<MetricSeries>) -> () effects [concurrency]
+	match retained
+		Some(candidate) => match next
+			ProductionState(series_index, _, _, _) => prelude_builtin::production_metric_index_insert(series_index, candidate)
+		end
+		None => ()
+	end
+	let _ = channel::send(committed, ())
+	let _ = channel::send(state, next)
+	()
+end
+
+fn restore_uncommitted_production_state(state: Sender<ProductionState>, original: ProductionState, committed: Receiver<()>) -> () effects [concurrency]
+	match channel::select_many_timeout(list_cons(committed, list_nil()), 0)
+		Some(_) => ()
+		None => begin
+			let _ = channel::send(state, original)
+			()
+		end
+	end
+end
+
+fn decide_metric_cardinality(metric_series_limit: Int, state: ProductionState, candidate: MetricSeries) -> { state : ProductionState, retained : Option<MetricSeries> }
+	match state
+		ProductionState(series_index, series_count, admitted_metric_observations, dropped_metric_observations) => if prelude_builtin::production_metric_index_contains(series_index, candidate)
+			{ state: ProductionState(series_index, series_count, bounded_increment(admitted_metric_observations), dropped_metric_observations), retained: None }
+		else if series_count < metric_series_limit
+			{ state: ProductionState(series_index, series_count + 1, bounded_increment(admitted_metric_observations), dropped_metric_observations), retained: Some(candidate) }
+		else
+			{ state: ProductionState(series_index, series_count, admitted_metric_observations, bounded_increment(dropped_metric_observations)), retained: None }
+		end
+	end
+end
+
+fn production_state_health(state: ProductionState) -> ProductionHealth
+	match state
+		ProductionState(_, series_count, admitted_metric_observations, dropped_metric_observations) => ProductionHealth(series_count, admitted_metric_observations, dropped_metric_observations)
+	end
+end
+
+fn bounded_increment(value: Int) -> Int
+	if value == 9223372036854775807
+		value
+	else
+		value + 1
+	end
+end
+
+fn production_index_work_for_test(production: Production) -> Int effects [concurrency]
+	match production
+		Production(_, state_channel) => match channel::recv(state_channel.rx)
+			Some(current) => begin
+				let committed = channel::bounded<()>(1)
+				defer
+					restore_uncommitted_production_state(state_channel.tx, current, committed.rx)
+				end
+				match current
+					ProductionState(series_index, _, _, _) => begin
+						let work = prelude_builtin::production_metric_index_work(series_index)
+						commit_production_state(state_channel.tx, current, committed.tx, None)
+						work
+					end
+				end
+			end
+			None => 0
+		end
+	end
+end
+
+fn reset_production_index_work_for_test(production: Production) -> () effects [concurrency]
+	match production
+		Production(_, state_channel) => match channel::recv(state_channel.rx)
+			Some(current) => begin
+				let committed = channel::bounded<()>(1)
+				defer
+					restore_uncommitted_production_state(state_channel.tx, current, committed.rx)
+				end
+				match current
+					ProductionState(series_index, _, _, _) => prelude_builtin::production_metric_index_reset_work(series_index)
+				end
+				commit_production_state(state_channel.tx, current, committed.tx, None)
+			end
+			None => ()
 		end
 	end
 end
