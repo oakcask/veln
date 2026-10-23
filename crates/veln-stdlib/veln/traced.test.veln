@@ -66,12 +66,12 @@ end
 
 fn fan_in_worker(creation_context: TraceContext) -> Result<(), String> effects [observe::Observe, concurrency]
 	let _ = match creation_context
-		observe::TraceContext("creation-trace", "creation-span") => Ok(())
+		observe::TraceContext("creation-trace", "creation-span", true) => Ok(())
 		_ => Err("fan-in worker did not receive its explicit creation context")
 	end?
 	let values = channel::bounded<Traced<String>>(2)
-	let first_input: { output : Sender<Traced<String>>, value : Traced<String> } = { output: values.tx, value: Traced("linked-input", observe::TraceContext("trace-first", "span-first")) }
-	let second_input: { output : Sender<Traced<String>>, value : Traced<String> } = { output: values.tx, value: Traced("chosen-parent", observe::TraceContext("trace-second", "span-second")) }
+	let first_input: { output : Sender<Traced<String>>, value : Traced<String> } = { output: values.tx, value: Traced("linked-input", observe::TraceContext("trace-first", "span-first", true)) }
+	let second_input: { output : Sender<Traced<String>>, value : Traced<String> } = { output: values.tx, value: Traced("chosen-parent", observe::TraceContext("trace-second", "span-second", true)) }
 	let first_producer = task::spawn_with<(), { output : Sender<Traced<String>>, value : Traced<String> }>(fan_in_producer, first_input)
 	let _ = task::join(first_producer)
 	let second_producer = task::spawn_with<(), { output : Sender<Traced<String>>, value : Traced<String> }>(fan_in_producer, second_input)
@@ -89,12 +89,12 @@ end
 
 fn fan_in_worker_parent_first(creation_context: TraceContext) -> Result<(), String> effects [observe::Observe, concurrency]
 	let _ = match creation_context
-		observe::TraceContext("parent-first-creation-trace", "parent-first-creation-span") => Ok(())
+		observe::TraceContext("parent-first-creation-trace", "parent-first-creation-span", true) => Ok(())
 		_ => Err("parent-first fan-in worker did not receive its explicit creation context")
 	end?
 	let values = channel::bounded<Traced<String>>(2)
-	let first_input: { output : Sender<Traced<String>>, value : Traced<String> } = { output: values.tx, value: Traced("chosen-parent", observe::TraceContext("trace-parent", "span-parent")) }
-	let second_input: { output : Sender<Traced<String>>, value : Traced<String> } = { output: values.tx, value: Traced("linked-input", observe::TraceContext("trace-linked", "span-linked")) }
+	let first_input: { output : Sender<Traced<String>>, value : Traced<String> } = { output: values.tx, value: Traced("chosen-parent", observe::TraceContext("trace-parent", "span-parent", true)) }
+	let second_input: { output : Sender<Traced<String>>, value : Traced<String> } = { output: values.tx, value: Traced("linked-input", observe::TraceContext("trace-linked", "span-linked", true)) }
 	let first_producer = task::spawn_with<(), { output : Sender<Traced<String>>, value : Traced<String> }>(fan_in_producer, first_input)
 	let _ = task::join(first_producer)
 	let second_producer = task::spawn_with<(), { output : Sender<Traced<String>>, value : Traced<String> }>(fan_in_producer, second_input)
@@ -112,12 +112,12 @@ end
 
 test spawn_passes_the_supplied_context_and_preserves_join_result() -> Result<(), String> effects [time, concurrency]
 	let recording = observe::new_recording("traced-task")
-	let context = observe::TraceContext("supplied-trace", "supplied-span")
+	let context = observe::TraceContext("supplied-trace", "supplied-span", true)
 	let worker = handle traced::spawn(context, traced_child) with observe::recording(recording)
 	let joined = task::join(worker)
 	match joined
 		Ok(Err("child-result")) => match observe::recorded(recording)
-			Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "child", Nil, Some(observe::TraceContext("supplied-trace", "supplied-span")), _))), Nil) => Ok(())
+			Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "child", Nil, Some(observe::TraceContext("supplied-trace", "supplied-span", true)), _))), Nil) => Ok(())
 			_ => Err("traced spawn did not pass the supplied context to the inherited observation handler")
 		end
 		_ => Err("traced spawn changed the task result or join behavior")
@@ -141,11 +141,11 @@ test channel_values_preserve_their_explicit_contexts() -> Result<(), String> eff
 	let recording = observe::new_recording("traced-channel")
 	let values = channel::bounded<Traced<String>>(2)
 	let worker = handle task::spawn_with<Result<(), String>, Receiver<Traced<String>>>(traced_channel_worker, values.rx) with observe::recording(recording)
-	let _ = channel::send(values.tx, Traced("first", observe::TraceContext("trace-first", "span-first")))
-	let _ = channel::send(values.tx, Traced("second", observe::TraceContext("trace-second", "span-second")))
+	let _ = channel::send(values.tx, Traced("first", observe::TraceContext("trace-first", "span-first", true)))
+	let _ = channel::send(values.tx, Traced("second", observe::TraceContext("trace-second", "span-second", true)))
 	match task::join(worker)
 		Ok(Ok(())) => match observe::recorded(recording)
-			Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "first", Nil, Some(observe::TraceContext("trace-first", "span-first")), _))), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "second", Nil, Some(observe::TraceContext("trace-second", "span-second")), _))), Nil)) => Ok(())
+			Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "first", Nil, Some(observe::TraceContext("trace-first", "span-first", true)), _))), Cons(observe::Emitted(observe::Log(observe::LogRecord("log", observe::Info, "second", Nil, Some(observe::TraceContext("trace-second", "span-second", true)), _))), Nil)) => Ok(())
 			_ => Err("channel values did not preserve their attached contexts in receive order")
 		end
 		_ => Err("traced channel worker did not complete successfully")
@@ -168,15 +168,15 @@ end
 
 test fan_in_uses_the_selected_parent_and_retains_other_inputs_as_links() -> Result<(), String> effects [time, concurrency]
 	let recording = observe::new_recording("fan-in")
-	let creation_context = observe::TraceContext("creation-trace", "creation-span")
+	let creation_context = observe::TraceContext("creation-trace", "creation-span", true)
 	let worker = handle traced::spawn(creation_context, fan_in_worker) with observe::recording(recording)
 	match task::join(worker)
 		Ok(Err("consumer-result")) => begin
 			let first = observe::recorded(recording)
 			let second = observe::recorded(recording)
 			match first
-				Cons(observe::SpanStarted("consume", "trace-second", "fan-in-0", Some("span-second"), Cons(observe::TraceContext("trace-first", "span-first"), Nil), _), Cons(observe::SpanFinished("trace-second", "fan-in-0", _), Nil)) => match second
-					Cons(observe::SpanStarted("consume", "trace-second", "fan-in-0", Some("span-second"), Cons(observe::TraceContext("trace-first", "span-first"), Nil), _), Cons(observe::SpanFinished("trace-second", "fan-in-0", _), Nil)) => Ok(())
+				Cons(observe::SpanStarted("consume", "trace-second", "fan-in-0", Some("span-second"), Cons(observe::TraceContext("trace-first", "span-first", true), Nil), _), Cons(observe::SpanFinished("trace-second", "fan-in-0", _), Nil)) => match second
+					Cons(observe::SpanStarted("consume", "trace-second", "fan-in-0", Some("span-second"), Cons(observe::TraceContext("trace-first", "span-first", true), Nil), _), Cons(observe::SpanFinished("trace-second", "fan-in-0", _), Nil)) => Ok(())
 					_ => Err("repeated fan-in recording snapshot changed parent or links")
 				end
 				_ => Err("fan-in did not preserve the explicit parent, link identities, and lifecycle")
@@ -188,11 +188,11 @@ end
 
 test fan_in_parent_choice_is_independent_of_parent_arriving_first() -> Result<(), String> effects [time, concurrency]
 	let recording = observe::new_recording("fan-in-parent-first")
-	let creation_context = observe::TraceContext("parent-first-creation-trace", "parent-first-creation-span")
+	let creation_context = observe::TraceContext("parent-first-creation-trace", "parent-first-creation-span", true)
 	let worker = handle traced::spawn(creation_context, fan_in_worker_parent_first) with observe::recording(recording)
 	match task::join(worker)
 		Ok(Err("consumer-result")) => match observe::recorded(recording)
-			Cons(observe::SpanStarted("consume", "trace-parent", "fan-in-parent-first-0", Some("span-parent"), Cons(observe::TraceContext("trace-linked", "span-linked"), Nil), _), Cons(observe::SpanFinished("trace-parent", "fan-in-parent-first-0", _), Nil)) => Ok(())
+			Cons(observe::SpanStarted("consume", "trace-parent", "fan-in-parent-first-0", Some("span-parent"), Cons(observe::TraceContext("trace-linked", "span-linked", true), Nil), _), Cons(observe::SpanFinished("trace-parent", "fan-in-parent-first-0", _), Nil)) => Ok(())
 			_ => Err("fan-in parent choice changed when the selected parent arrived first")
 		end
 		_ => Err("parent-first fan-in span changed the consumer result or join behavior")

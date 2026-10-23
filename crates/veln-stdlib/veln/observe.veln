@@ -6,7 +6,7 @@ end
 
 pub type Span
 	NoopSpan(request: SpanRequest)
-	RecordingSpan(trace_id: String, span_id: String)
+	RecordingSpan(trace_id: String, span_id: String, sampled: Bool)
 end
 
 pub type SpanFinish
@@ -38,7 +38,11 @@ pub type Attribute
 end
 
 pub type TraceContext
-	pub TraceContext(trace_id: String, span_id: String)
+	pub TraceContext(trace_id: String, span_id: String, sampled: Bool)
+end
+
+pub type TraceCarrier
+	pub TraceCarrier(trace_id: Option<String>, span_id: Option<String>, sampled: Option<Bool>)
 end
 
 pub type Severity
@@ -104,20 +108,20 @@ pub handler recording(recording: Recording) for Observe effects [time, concurren
 			let monotonic_ms = time::monotonic_ms()
 			match channel::recv(state.rx)
 				Some(RecordingBuffer(next_identity, entries)) => match request
-					SpanRequest(name, Some(TraceContext(trace_id, parent_span_id)), links) => begin
+					SpanRequest(name, Some(TraceContext(trace_id, parent_span_id, sampled)), links) => begin
 						let candidate = string::concat(string::concat(prefix, "-"), int_to_string(next_identity))
 						if candidate == parent_span_id
 							begin
 								let span_id = string::concat(string::concat(prefix, "-"), int_to_string(next_identity + 1))
 								let entry = SpanStarted(name, trace_id, span_id, Some(parent_span_id), links, monotonic_ms)
 								let _ = channel::send(state.tx, RecordingBuffer(next_identity + 2, list_cons(entry, entries)))
-								RecordingSpan(trace_id, span_id)
+								RecordingSpan(trace_id, span_id, sampled)
 							end
 						else
 							begin
 								let entry = SpanStarted(name, trace_id, candidate, Some(parent_span_id), links, monotonic_ms)
 								let _ = channel::send(state.tx, RecordingBuffer(next_identity + 1, list_cons(entry, entries)))
-								RecordingSpan(trace_id, candidate)
+								RecordingSpan(trace_id, candidate, sampled)
 							end
 						end
 					end
@@ -126,7 +130,7 @@ pub handler recording(recording: Recording) for Observe effects [time, concurren
 						let span_id = string::concat(string::concat(prefix, "-"), int_to_string(next_identity + 1))
 						let entry = SpanStarted(name, trace_id, span_id, None, links, monotonic_ms)
 						let _ = channel::send(state.tx, RecordingBuffer(next_identity + 2, list_cons(entry, entries)))
-						RecordingSpan(trace_id, span_id)
+						RecordingSpan(trace_id, span_id, true)
 					end
 				end
 				None => NoopSpan(request)
@@ -145,7 +149,7 @@ pub handler recording(recording: Recording) for Observe effects [time, concurren
 	finish_span(request) => begin
 		let monotonic_ms = time::monotonic_ms()
 		match request
-			SpanFinish(RecordingSpan(trace_id, span_id)) => match recording
+			SpanFinish(RecordingSpan(trace_id, span_id, _)) => match recording
 				Recording(prefix, state) => match channel::recv(state.rx)
 					Some(RecordingBuffer(next_identity, entries)) => begin
 						let _ = channel::send(state.tx, RecordingBuffer(next_identity, list_cons(SpanFinished(trace_id, span_id, monotonic_ms), entries)))
@@ -165,8 +169,27 @@ end
 
 pub fn context(span: Span) -> Option<TraceContext>
 	match span
-		RecordingSpan(trace_id, span_id) => Some(TraceContext(trace_id, span_id))
+		RecordingSpan(trace_id, span_id, sampled) => Some(TraceContext(trace_id, span_id, sampled))
 		NoopSpan(_) => None
+	end
+end
+
+pub fn inject_context(context: TraceContext) -> TraceCarrier
+	match context
+		TraceContext(trace_id, span_id, sampled) => TraceCarrier(Some(trace_id), Some(span_id), Some(sampled))
+	end
+end
+
+pub fn extract_context(carrier: TraceCarrier) -> Option<TraceContext>
+	match carrier
+		TraceCarrier(Some(trace_id), Some(span_id), Some(sampled)) => if trace_id == ""
+			None
+		else if span_id == ""
+			None
+		else
+			Some(TraceContext(trace_id, span_id, sampled))
+		end
+		_ => None
 	end
 end
 

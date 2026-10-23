@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The standard-library Observe effect, observation handlers, scoped span helpers, explicit task, channel-value, or fan-in context propagation, structured logging, named domain events, or observation data model changes.
+update-when: The standard-library Observe effect, observation handlers, scoped span helpers, explicit task, channel-value, fan-in, or carrier context propagation, structured logging, named domain events, or observation data model changes.
 specification-coverage: usage=#usage; behavior=#behavior; limits=#limits
 ---
 
@@ -10,7 +10,7 @@ specification-coverage: usage=#usage; behavior=#behavior; limits=#limits
 The standard library provides a substitutable observation effect, scoped span
 lifecycle, explicit child-task context propagation, an inspectable recording
 handler, explicit channel-value context attachment, explicit fan-in parent and
-link selection, and call-site-aware
+link selection, explicit carrier context propagation, and call-site-aware
 structured log helpers for four severities, named domain events, counter
 increments, and histogram samples.
 Programs choose a lexical handler for the effect; the library does not select
@@ -162,6 +162,24 @@ let request = observe::SpanRequest(
 trace::in_span(request, consume)
 ```
 
+Use `observe::inject_context` before an adapter sends trace context across a
+process boundary. It returns a protocol-neutral `TraceCarrier` with optional
+trace identity, span identity, and sampling fields. The adapter maps those
+fields to its external protocol. On receipt, map the external fields back to a
+carrier and call `observe::extract_context`:
+
+```veln
+let context = observe::TraceContext("trace-1", "span-2", false)
+let carrier = observe::inject_context(context)
+match observe::extract_context(carrier)
+	Some(observe::TraceContext(trace_id, span_id, sampled)) => ()
+	None => ()
+end
+```
+
+Extraction returns `None` when any carrier field is absent or either identity
+is empty. Callers must handle that result as absent context.
+
 ## Behavior
 
 ### Metrics
@@ -211,8 +229,9 @@ supplied message, the supplied attributes in order, the supplied optional
 
 An attribute value is exactly one of `BoolValue(Bool)`, `IntValue(Int)`, or
 `StringValue(String)`. A trace context contains its trace and span identity
-strings. The standard library preserves these values; policy such as
-redaction, truncation, or export encoding belongs to a future handler.
+strings and Boolean sampling state. The standard library preserves these
+values; policy such as redaction, truncation, or export encoding belongs to a
+future handler.
 
 Each log helper is call-site-aware. An ordinary caller records the complete
 span of its call expression. A call-site-aware wrapper forwards its own hidden
@@ -241,9 +260,10 @@ the recording preserves linked trace and span identities in caller-supplied
 order. Each recording allocates identities in order from its caller-supplied
 prefix and retains state in its own channel-backed scope. If a recording's
 next span-identity candidate equals the supplied parent span identity, the
-handler skips that candidate. Children accepted by one recording therefore
-remain distinct from their parent and siblings. This local guarantee does not
-make identities globally unique across unrelated recordings or processes.
+handler skips that candidate without changing the sampling state inherited
+from the parent. Children accepted by one recording therefore remain distinct
+from their parent and siblings. This local guarantee does not make identities
+globally unique across unrelated recordings or processes.
 A no-op span has no recording context, so `observe::context` returns `None`
 for it.
 
@@ -307,10 +327,29 @@ unwrapped `A` does not add a context, even when the task inherited an active
 observation handler. Raw channel and task operations do not inspect payloads,
 infer ambient context, or apply a context to later observations.
 
+### Explicit carrier context
+
+`TraceContext` contains an opaque trace identity string, an opaque span
+identity string, and a Boolean sampling state. `inject_context` copies all
+three values into the corresponding `TraceCarrier` fields. It performs no
+effect and selects no external encoding.
+
+`extract_context` returns a context only when the carrier has all three fields
+and both identity strings are non-empty. A successful extraction preserves
+the two identities and the sampling state unchanged. A missing field or empty
+identity returns `None`; malformed carrier data therefore does not produce a
+valid context. Injection does not validate a directly constructed context, so
+injecting an empty identity and then extracting it also returns `None`.
+
+A recording root span uses `true` as its sampling state. A recording child
+span inherits its parent's sampling state. Carrier injection and extraction
+do not create spans, allocate identities, install handlers, or make context
+ambient. Raw task and channel operations remain unchanged.
+
 ## Limits
 
 Metric-cardinality enforcement, metric query APIs, asynchronous metric
-callbacks, carrier propagation, production exporters, wall-time
+callbacks, production exporters, wall-time
 or resource enrichment, exporter health, and shutdown flushing are not
 available. The no-op handler does not record,
 enrich, buffer, export, or report observations. `trace::in_span` currently
@@ -319,6 +358,13 @@ body's effect row; it does not define rescue or exception recovery.
 `traced::spawn` has the same callback-result restriction. `Traced<A>` does not
 provide send, receive, fan-in, or context-selection helpers and does not
 propagate context through raw task or channel operations.
+
+`TraceCarrier` is a normalized library representation, not an external wire
+format. External adapters remain responsible for protocol-specific field
+names, serialization, identifier syntax and width, and malformed-input
+decoding before constructing a carrier. Carrier extraction validates only
+field presence and non-empty identities. Direct construction of
+`TraceContext` does not perform validation.
 
 An unhandled `Observe` effect follows the ordinary nominal-effect runnable
 boundary in [Effects](effects.md): a runnable entry must handle it before
@@ -336,8 +382,9 @@ process or machine termination can prevent it from running.
   coverage in
   [`metric.test.veln`](../../crates/veln-stdlib/veln/metric.test.veln), plus scoped
   span lifecycle coverage in
-  [`trace.test.veln`](../../crates/veln-stdlib/veln/trace.test.veln) and explicit
-  task-, channel-value-, and fan-in-context coverage in
+  [`trace.test.veln`](../../crates/veln-stdlib/veln/trace.test.veln), carrier
+  context coverage in `observe.test.veln`, and explicit task-, channel-value-,
+  and fan-in-context coverage in
   [`traced.test.veln`](../../crates/veln-stdlib/veln/traced.test.veln).
 - Public task-context execution evidence:
   [`observability-traced-task-context`](../../examples/specification/run/observability-traced-task-context/).

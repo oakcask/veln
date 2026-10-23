@@ -8,7 +8,7 @@ test emit_preserves_name_typed_attributes_context_and_user_callsite_once() -> Re
 	let _ = handle event::emit(observe_test_support_test::o1_context(), "checkout.completed", attributes) with observe_test_support_test::recording(records.tx)
 	channel::close(records.tx)
 	match channel::recv(records.rx)
-		Some(observe::Event(observe::EventRecord("checkout.completed", Cons(observe::Attribute("enabled", observe::BoolValue(true)), Cons(observe::Attribute("attempt", observe::IntValue(3)), Cons(observe::Attribute("route", observe::StringValue("checkout")), Nil))), Some(observe::TraceContext("trace-1", "span-2")), source))) => if source.file == "event.test.veln" and source.start_line == 8
+		Some(observe::Event(observe::EventRecord("checkout.completed", Cons(observe::Attribute("enabled", observe::BoolValue(true)), Cons(observe::Attribute("attempt", observe::IntValue(3)), Cons(observe::Attribute("route", observe::StringValue("checkout")), Nil))), Some(observe::TraceContext("trace-1", "span-2", true)), source))) => if source.file == "event.test.veln" and source.start_line == 8
 			match channel::recv(records.rx)
 				None => Ok(())
 				Some(_) => Err("event emitted more than one observation")

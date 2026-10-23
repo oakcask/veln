@@ -2,5 +2,5 @@ use event from "std"
 use observe from "std"
 
 pub fn emit_checkout() -> () effects [observe::Observe] callsite
-	event::emit(Some(observe::TraceContext("trace-1", "span-2")), "checkout.completed", list_cons(observe::Attribute("attempt", observe::IntValue(3)), list_nil()))
+	event::emit(Some(observe::TraceContext("trace-1", "span-2", true)), "checkout.completed", list_cons(observe::Attribute("attempt", observe::IntValue(3)), list_nil()))
 end
