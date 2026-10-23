@@ -15,16 +15,19 @@ parameters.
 
 ## Selection and jobs
 
-Without targets, `test` selects top-level tests in discovered
-`*_test.veln` files and in any other discovered source containing a top-level
-test. Explicit files and recursive directories select tests from those files,
-including non-test source files.
+Without targets, `test` selects top-level tests in discovered `.test.veln`
+companion files, `*_test.veln` integration files, and any other discovered
+source containing a top-level test. Explicit files and recursive directories
+select tests from those files, including non-test source files.
 
-An explicit non-test source adds its same-directory `*_test.veln` peer when
-the base names match. For explicit source targets, `use` declarations form a
-dependency graph: tests that transitively import a selected source are added.
-If graph evidence is incomplete, the command widens to all discovered tests and
-reports unknown selection confidence in JSON rather than under-selecting.
+An explicit non-test source adds existing same-directory `.test.veln` and
+`*_test.veln` peers when the base names match. An explicit test companion or
+integration-test file is already a test target and does not seed source
+dependency expansion. For explicit non-test source targets, `use` declarations
+form a dependency graph: tests that transitively import a selected source are
+added. If graph evidence is incomplete, the command widens to all discovered
+tests and reports unknown selection confidence in JSON rather than
+under-selecting.
 
 `-j JOBS` and `--jobs JOBS` set the maximum concurrent runnable cases.
 `JOBS` is a positive decimal integer. Without it, the command uses available
@@ -113,12 +116,23 @@ Workers capture output per case. The coordinator waits for all workers and
 renders human status, JSON cases, diagnostics, events, summaries, failures, and
 exit status in discovered-case order regardless of completion order.
 
+When `VELN_TEST_TIMINGS` is present, the command emits diagnostic timing lines
+to standard error after the report. Each line starts with
+`veln: test timing:` and identifies a stage plus `duration_seconds` with nine
+fractional digits. Selection-analysis stages use a `selection_` prefix, and
+suite-analysis stages use a `suite_` prefix, so the two analysis passes remain
+distinguishable. Timing diagnostics do not enter captured case events. With
+`--json`, standard output remains the single test JSON envelope.
+
 ## Limits
 
 Runtime expectations cover only contract, ensure, and result failures. They do
 not match arbitrary panics, raw stderr, or process exit status. Output matching
 does not satisfy a runtime expectation, and satisfying an expectation does not
 satisfy an output fence.
+
+Timing stage durations are diagnostic measurements rather than stable
+performance thresholds. Their values depend on the host and selected workload.
 
 ## References
 

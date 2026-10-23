@@ -189,6 +189,9 @@ pub(crate) const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor
 pub(crate) const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
 
 compiler_adapter_symbol_set! {
+    "observation_json_line",
+    "observation_export_write",
+    "observation_export_identity",
     "production_metric_index_new",
     "production_metric_index_contains",
     "production_metric_index_insert",
@@ -414,7 +417,8 @@ const fn source_prelude_symbol_descriptor(name: &'static str) -> StandardSymbolD
 }
 
 pub(crate) fn private_compiler_adapter_name(name: &str) -> bool {
-    name.starts_with("production_metric_index_")
+    name.starts_with("observation_")
+        || name.starts_with("production_metric_index_")
         || name.starts_with("net_system_")
         || name == "byte_decode_http2_frame"
         || name.starts_with("http2_protocol_")

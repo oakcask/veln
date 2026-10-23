@@ -385,6 +385,7 @@ dependencies = [
 name = "veln-backend-jvm"
 version = "0.1.0"
 dependencies = [
+ "unicode-normalization",
  "veln-analysis",
  "veln-ast",
  "veln-core",

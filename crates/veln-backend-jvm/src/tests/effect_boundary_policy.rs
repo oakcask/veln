@@ -136,6 +136,22 @@ fn production_metric_cardinality_uses_bounded_indexed_state_without_owner_tasks(
 }
 
 #[test]
+fn observation_source_validation_uses_pinned_portable_unicode_without_host_paths() {
+    let runtime = include_str!("../runtime/observability.java.inc");
+    let build = include_str!("../../build.rs");
+
+    assert!(runtime.contains("observationCanonicalPackage"));
+    assert!(runtime.contains("observationCanonicalFile"));
+    assert!(runtime.contains("portableUnicodeIsNfc"));
+    assert!(!runtime.contains("java.nio.file.Paths.get(value)"));
+    assert!(!runtime.contains("java.text.Normalizer"));
+    assert!(!runtime.contains("Character.isWhitespace"));
+    assert!(!runtime.contains("Character.isISOControl"));
+    assert!(build.contains("unicode_normalization::UNICODE_VERSION, (17, 0, 0)"));
+    assert!(build.contains("private static final String PORTABLE_UNICODE_VERSION = \"17.0.0\""));
+}
+
+#[test]
 fn network_system_cleanup_uses_one_ordered_identity_ledger_without_activation_races() {
     let values = include_str!("../runtime/values.java.inc");
     let effects = include_str!("../runtime/effects.java.inc");

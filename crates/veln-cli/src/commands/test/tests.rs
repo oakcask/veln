@@ -1,7 +1,7 @@
 use super::process_discovered_test_cases;
 use super::{
     JvmExecution, SchedulerError, TestCaseJob, TestExecution, TestJvmExecution,
-    TestProgramHookGuard, TestRunFiles, execute_test_case_job, execute_test_program,
+    TestProgramHookGuard, TestRunFiles, TestTimings, execute_test_case_job, execute_test_program,
     preflight_runnable_test_case_jobs, prepare_test_case_job, resolve_test_jobs,
     run_test_case_jobs,
 };
@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
+use std::time::Duration;
 use veln_analysis::{DoctestMode, ProjectAnalysis, analyze_project};
 use veln_backend_jvm::{JvmProgram, generate_classfiles_with_test_entries};
 use veln_diagnostics::JsonValue;
@@ -28,6 +29,34 @@ mod execution;
 mod scheduling;
 #[path = "tests/selection.rs"]
 mod selection;
+
+#[test]
+fn test_timings_distinguish_selection_and_suite_analysis() {
+    let mut timings = TestTimings {
+        records: Some(Vec::new()),
+    };
+    let records = vec![veln_analysis::AnalysisTiming {
+        stage: "surface_parse_lower",
+        duration: Duration::from_millis(125),
+    }];
+
+    timings.extend("selection_", records.clone());
+    timings.extend("suite_", records);
+
+    assert_eq!(
+        timings.records,
+        Some(vec![
+            (
+                "selection_surface_parse_lower".to_string(),
+                Duration::from_millis(125),
+            ),
+            (
+                "suite_surface_parse_lower".to_string(),
+                Duration::from_millis(125),
+            ),
+        ])
+    );
+}
 
 fn assert_stdio_event(case: &TestCase, stream: &str, text: &str) {
     assert!(

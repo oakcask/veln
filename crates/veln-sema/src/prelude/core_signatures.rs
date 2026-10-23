@@ -58,7 +58,8 @@ fn core_compiler_adapter_signature(
     expected: Option<&CoreType>,
 ) -> Option<(CoreCallTarget, Vec<CoreType>, CoreType)> {
     let expected = ExpectedCorePreludeParts::from_expected(expected);
-    let signature = core_production_metric_index_signature(descriptor.name)
+    let signature = core_observation_export_signature(descriptor.name, &expected.direct)
+        .or_else(|| core_production_metric_index_signature(descriptor.name))
         .or_else(|| core_net_system_signature(descriptor.name, &expected.direct))
         .or_else(|| core_prelude_float_signature(descriptor.name))
         .or_else(|| core_prelude_byte_signature(descriptor.name))
@@ -74,6 +75,24 @@ fn core_compiler_adapter_signature(
         signature.0,
         signature.1,
     ))
+}
+
+fn core_observation_export_signature(
+    name: &str,
+    expected: &CoreType,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    match name {
+        "observation_json_line" => Some((vec![CoreType::Unknown; 9], expected.clone())),
+        "observation_export_write" => Some((
+            vec![CoreType::Unknown, CoreType::string(), CoreType::bool()],
+            CoreType::bool(),
+        )),
+        "observation_export_identity" => Some((
+            vec![CoreType::string(), CoreType::string(), CoreType::int()],
+            CoreType::string(),
+        )),
+        _ => None,
+    }
 }
 
 fn core_production_metric_index_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> {

@@ -32,9 +32,9 @@ labels, lowering identity, and stability class for the descriptor-backed
 subset.
 
 The descriptor-backed subset covers stdio effect metadata, concurrency effect
-metadata, minimal `fs`, `time`, and `process` intrinsics, private network host
-adapters, private production metric-index adapters, and opaque `NetListener`
-and `NetStream` resource type identities.
+metadata, minimal `fs`, `time`, and `process` intrinsics, observation-export
+adapters, private network host adapters, private production metric-index
+adapters, and opaque `NetListener` and `NetStream` resource type identities.
 Public network operations are ordinary declarations in the exported
 `std::net` module, not compiler-known descriptors. The resource descriptors
 have no constructors and allow exported standard-package aliases to name host
@@ -96,6 +96,20 @@ work to standard-package companion tests. They are available only through the
 reserved `prelude_builtin` route. They are not bare prelude helpers or public
 standard-package declarations. The public policy, identity, health, and effect
 contract remains owned by
+[Standard-library Observability](standard-library-observability.md).
+
+The `observation_json_line`, `observation_export_write`, and
+`observation_export_identity` compiler adapters back the configured JSON Lines
+handler in `std::observe`. They validate and encode one record, write an
+accepted record to a configured host destination, and allocate a host identity,
+respectively. Embedded
+standard-package source calls them through the reserved `prelude_builtin`
+route. They are not bare prelude helpers or public standard-package
+declarations. The line encoder accepts nine arguments and uses its contextual
+record result type. The writer accepts a destination value, line string, and
+diagnostic flag and returns `Bool`. The identity adapter accepts a string
+prefix, string kind, and integer sequence and returns `String`. The JSON schema,
+destination behavior, identity use, and failure contract remain owned by
 [Standard-library Observability](standard-library-observability.md).
 
 `std` is owned by the toolchain. A root package named `std` is accepted only

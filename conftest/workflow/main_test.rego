@@ -42,12 +42,85 @@ workflow_with_reusable(paths, uses) := {
   },
 }
 
+observability_schema_workflow(paths) := {
+  "name": "workflow / test scripts",
+  "on": {
+    "push": {
+      "branches": ["main"],
+      "paths": paths,
+    },
+    "pull_request": {"paths": paths},
+  },
+  "permissions": {"contents": "read"},
+  "jobs": {
+    "test": {
+      "runs-on": "ubuntu-latest",
+      "timeout-minutes": 5,
+      "steps": [{"run": "node --test workflow-scripts/*.test.mjs"}],
+    },
+  },
+}
+
+observability_schema_paths := [
+  ".github/workflows/workflow--test-scripts.yaml",
+  "crates/veln-stdlib/schemas/observability/v1/json-lines-exporter-health.schema.json",
+  "crates/veln-stdlib/schemas/observability/v1/json-lines-record.schema.json",
+  "examples/specification/run/observability-json-lines-encoder/case-text/records.jsonl",
+  "examples/specification/run/observability-json-lines-host-boundary/case-text/health.jsonl",
+  "workflow-scripts/**/*.mjs",
+]
+
 test_accepts_exact_local_action_manifest_in_filtered_trigger if {
   violations := deny with input as workflow_with(
     [".github/workflows/test--local-action.yaml", ".github/actions/example/action.yaml"],
     "./.github/actions/example",
   )
   count(violations) == 0
+}
+
+test_observability_schema_inputs_independently_select_checker if {
+  violations := deny with input as observability_schema_workflow(observability_schema_paths)
+  count(violations) == 0
+}
+
+test_rejects_schema_input_that_does_not_select_checker if {
+  paths := array.concat(
+    array.slice(observability_schema_paths, 0, 2),
+    array.slice(observability_schema_paths, 3, count(observability_schema_paths)),
+  )
+  violations := deny with input as observability_schema_workflow(paths)
+  violations["add \"crates/veln-stdlib/schemas/observability/v1/json-lines-record.schema.json\" to on.push.paths because the observability schema checker reads it; otherwise changes to this input can bypass validation"]
+  violations["add \"crates/veln-stdlib/schemas/observability/v1/json-lines-record.schema.json\" to on.pull_request.paths because the observability schema checker reads it; otherwise changes to this input can bypass validation"]
+}
+
+test_rejects_captured_records_input_that_does_not_select_checker if {
+  paths := array.concat(
+    array.slice(observability_schema_paths, 0, 3),
+    array.slice(observability_schema_paths, 4, count(observability_schema_paths)),
+  )
+  violations := deny with input as observability_schema_workflow(paths)
+  violations["add \"examples/specification/run/observability-json-lines-encoder/case-text/records.jsonl\" to on.push.paths because the observability schema checker reads it; otherwise changes to this input can bypass validation"]
+  violations["add \"examples/specification/run/observability-json-lines-encoder/case-text/records.jsonl\" to on.pull_request.paths because the observability schema checker reads it; otherwise changes to this input can bypass validation"]
+}
+
+test_rejects_health_schema_input_that_does_not_select_checker if {
+  paths := array.concat(
+    array.slice(observability_schema_paths, 0, 1),
+    array.slice(observability_schema_paths, 2, count(observability_schema_paths)),
+  )
+  violations := deny with input as observability_schema_workflow(paths)
+  violations["add \"crates/veln-stdlib/schemas/observability/v1/json-lines-exporter-health.schema.json\" to on.push.paths because the observability schema checker reads it; otherwise changes to this input can bypass validation"]
+  violations["add \"crates/veln-stdlib/schemas/observability/v1/json-lines-exporter-health.schema.json\" to on.pull_request.paths because the observability schema checker reads it; otherwise changes to this input can bypass validation"]
+}
+
+test_rejects_captured_health_input_that_does_not_select_checker if {
+  paths := array.concat(
+    array.slice(observability_schema_paths, 0, 4),
+    array.slice(observability_schema_paths, 5, count(observability_schema_paths)),
+  )
+  violations := deny with input as observability_schema_workflow(paths)
+  violations["add \"examples/specification/run/observability-json-lines-host-boundary/case-text/health.jsonl\" to on.push.paths because the observability schema checker reads it; otherwise changes to this input can bypass validation"]
+  violations["add \"examples/specification/run/observability-json-lines-host-boundary/case-text/health.jsonl\" to on.pull_request.paths because the observability schema checker reads it; otherwise changes to this input can bypass validation"]
 }
 
 test_accepts_job_timeout if {

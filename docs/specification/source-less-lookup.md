@@ -100,14 +100,15 @@ no generated format-neutral encode helper and reports
 eligible schema shapes.
 
 Private compiler adapters, including the `net_system_*` operations used by
-`std::net::system()` and the `production_metric_index_*` operations used by
-`std::observe::production`, publish only their qualified
+`std::net::system()`, the `production_metric_index_*` operations used by
+`std::observe::production`, and the `observation_*` operations used by
+`std::observe::json_lines`, publish only their qualified
 `prelude_builtin::name` keys. Bare prelude lookup does not publish those names.
 This keeps the host adapters out of the public prelude surface while allowing
 embedded standard-package source to resolve the reserved qualified route.
-Public `net::...` and `observe::...` calls have no source-less compiler-adapter
-lookup route. Application source must import their modules from `std`; the
-public operations retain their declared nominal effects.
+Public `net::...` and `observe::...` declarations remain separate from these
+source-less routes: application source imports their modules from `std`, and
+the public operations retain their declared nominal effects.
 
 ## Limits
 

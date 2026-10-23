@@ -5,14 +5,17 @@ use std::process::{ExitCode, Output};
 use std::sync::{Arc, Mutex};
 #[cfg(test)]
 use std::sync::{MutexGuard, OnceLock};
+use std::time::{Duration, Instant};
 
-use veln_analysis::{DoctestMode, ProjectAnalysis, analyze_project};
+use veln_analysis::{
+    AnalysisTiming, DoctestMode, ProjectAnalysis, analyze_project, analyze_project_with_timings,
+};
 use veln_ast::{FunctionKind, SurfaceModule};
 use veln_backend_jvm::{
     JvmProgram, generate_classfiles_with_entry, generate_classfiles_with_test_entries,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope};
-use veln_project::{Project, discover_source_paths};
+use veln_project::{Project, classify_companion_source, discover_source_paths};
 use veln_test::{
     SuiteError, TestCase, TestCaseStatus, TestFailure, TestReport, TestRunStatus, TestSelection,
     TestSelectionPlan, apply_runtime_result, attach_doctest_expectations, compare_expected_output,
@@ -38,16 +41,21 @@ pub(crate) fn test(
     jobs: Option<usize>,
     targets: Vec<PathBuf>,
 ) -> Result<ExitCode, String> {
+    let invocation_start = Instant::now();
+    let mut timings = TestTimings::from_env();
     let targets = start.resolve_inputs(targets);
     let root = start.package_root;
-    let suite = prepare_test_suite(root, &targets)?;
-    let report = run_test_suite(suite, jobs)?;
+    let suite = prepare_test_suite(root, &targets, &mut timings)?;
+    let report = run_test_suite(suite, jobs, &mut timings)?;
 
     if json {
         println!("{}", report.to_json());
     } else {
         print_test_human(&report)?;
     }
+
+    timings.push("test_invocation", invocation_start.elapsed());
+    timings.write();
 
     Ok(if report.status == TestRunStatus::Passed {
         ExitCode::SUCCESS
@@ -66,17 +74,32 @@ struct PreparedTestSuite {
     suite_errors: Vec<SuiteError>,
 }
 
-fn prepare_test_suite(root: PathBuf, targets: &[PathBuf]) -> Result<PreparedTestSuite, String> {
+fn prepare_test_suite(
+    root: PathBuf,
+    targets: &[PathBuf],
+    timings: &mut TestTimings,
+) -> Result<PreparedTestSuite, String> {
     let explicit = !targets.is_empty();
     let target_expansion = expand_test_targets(&root, targets);
-    let selection_plan = selection_plan(&root, targets, explicit, &target_expansion)?;
+    let selection_start = Instant::now();
+    let selection_plan = selection_plan(&root, targets, explicit, &target_expansion, timings)?;
+    timings.push("selection_planning", selection_start.elapsed());
     let analysis_targets = if harness_source_diagnostic_artifact_requested() {
         &[]
     } else {
         selection_plan.analysis_targets.as_slice()
     };
+    let source_start = Instant::now();
     let project = Project::discover(root, analysis_targets).map_err(|error| error.to_string())?;
-    let analysis = analyze_project(project, DoctestMode::Include);
+    timings.push("suite_source_loading", source_start.elapsed());
+    let analysis = if timings.enabled() {
+        let (analysis, analysis_timings) =
+            analyze_project_with_timings(project, DoctestMode::Include);
+        timings.extend("suite_", analysis_timings);
+        analysis
+    } else {
+        analyze_project(project, DoctestMode::Include)
+    };
     let test_files = selected_test_files(
         &analysis.project,
         &analysis.module,
@@ -106,7 +129,11 @@ fn prepare_test_suite(root: PathBuf, targets: &[PathBuf]) -> Result<PreparedTest
     })
 }
 
-fn run_test_suite(suite: PreparedTestSuite, jobs: Option<usize>) -> Result<TestReport, String> {
+fn run_test_suite(
+    suite: PreparedTestSuite,
+    jobs: Option<usize>,
+    timings: &mut TestTimings,
+) -> Result<TestReport, String> {
     let PreparedTestSuite {
         explicit,
         selection_plan,
@@ -127,7 +154,8 @@ fn run_test_suite(suite: PreparedTestSuite, jobs: Option<usize>) -> Result<TestR
             let analysis = analysis_slot
                 .take()
                 .expect("analysis state should be available before test execution");
-            let (analysis, cases) = execute_runnable_test_cases(analysis, runnable_cases, jobs)?;
+            let (analysis, cases) =
+                execute_runnable_test_cases(analysis, runnable_cases, jobs, timings)?;
             analysis_slot = Some(analysis);
             Ok::<_, String>(cases)
         },
@@ -147,7 +175,9 @@ fn execute_runnable_test_cases(
     analysis: ProjectAnalysis,
     runnable_cases: Vec<TestCase>,
     jobs: Option<usize>,
+    timings: &mut TestTimings,
 ) -> Result<(ProjectAnalysis, Vec<TestCase>), String> {
+    let generation_start = Instant::now();
     let reusable_program = analysis.reusable_standard_ir().map(|ir| {
         generate_classfiles_with_test_entries(
             ir,
@@ -157,6 +187,7 @@ fn execute_runnable_test_cases(
                 .collect::<Vec<_>>(),
         )
     });
+    timings.push("jvm_generation", generation_start.elapsed());
     let execution = Arc::new(TestJvmExecution::new());
     let has_ready_job =
         preflight_runnable_test_case_jobs(&analysis, reusable_program.as_ref(), &runnable_cases);
@@ -301,6 +332,7 @@ fn selection_plan(
     targets: &[PathBuf],
     explicit: bool,
     target_expansion: &veln_test::TestTargetExpansion,
+    timings: &mut TestTimings,
 ) -> Result<TestSelectionPlan, String> {
     if !explicit {
         return Ok(TestSelectionPlan::discovered());
@@ -321,7 +353,7 @@ fn selection_plan(
 
     let source_roots = discovered_source_set(root, targets)?
         .into_iter()
-        .filter(|path| !path.ends_with("_test.veln"))
+        .filter(|path| !path.ends_with("_test.veln") && classify_companion_source(path).is_none())
         .collect::<std::collections::BTreeSet<_>>();
 
     if source_roots.is_empty() {
@@ -334,7 +366,14 @@ fn selection_plan(
     }
 
     let graph_project = Project::discover(root, &[]).map_err(|error| error.to_string())?;
-    let graph_analysis = analyze_project(graph_project, DoctestMode::Exclude);
+    let graph_analysis = if timings.enabled() {
+        let (analysis, analysis_timings) =
+            analyze_project_with_timings(graph_project, DoctestMode::Exclude);
+        timings.extend("selection_", analysis_timings);
+        analysis
+    } else {
+        analyze_project(graph_project, DoctestMode::Exclude)
+    };
     let mut plan = dependency_aware_selection_plan(
         &graph_analysis.project,
         &graph_analysis.module,
@@ -344,6 +383,51 @@ fn selection_plan(
     );
     preserve_standard_package_analysis(root, &mut plan)?;
     Ok(plan)
+}
+
+struct TestTimings {
+    records: Option<Vec<(String, Duration)>>,
+}
+
+impl TestTimings {
+    fn from_env() -> Self {
+        Self {
+            records: std::env::var_os("VELN_TEST_TIMINGS").map(|_| Vec::new()),
+        }
+    }
+
+    fn enabled(&self) -> bool {
+        self.records.is_some()
+    }
+
+    fn push(&mut self, stage: &str, duration: Duration) {
+        if let Some(records) = self.records.as_mut() {
+            records.push((stage.to_string(), duration));
+        }
+    }
+
+    fn extend(&mut self, prefix: &str, records: Vec<AnalysisTiming>) {
+        for record in records {
+            self.push(&format!("{prefix}{}", record.stage), record.duration);
+        }
+    }
+
+    fn write(&self) {
+        let Some(records) = &self.records else {
+            return;
+        };
+        for (stage, duration) in records {
+            eprintln!(
+                "veln: test timing: stage={stage} duration_seconds={}",
+                duration_seconds(*duration)
+            );
+        }
+    }
+}
+
+fn duration_seconds(duration: Duration) -> String {
+    let nanos = duration.as_nanos();
+    format!("{}.{:09}", nanos / 1_000_000_000, nanos % 1_000_000_000)
 }
 
 mod execution;

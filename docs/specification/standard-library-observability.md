@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The standard-library Observe effect, observation handlers, scoped span helpers, explicit task, channel-value, fan-in, or carrier context propagation, structured logging, named domain events, or observation data model changes.
+update-when: The standard-library Observe effect, observation handlers, JSON Lines schema, export destinations, exporter health, scoped span helpers, explicit task, channel-value, fan-in, or carrier context propagation, structured logging, named domain events, or observation data model changes.
 specification-coverage: usage=#usage; behavior=#behavior; limits=#limits
 ---
 
@@ -13,7 +13,9 @@ handler, explicit channel-value context attachment, explicit fan-in parent and
 link selection, explicit carrier context propagation, and call-site-aware
 structured log helpers for four severities, named domain events, counter
 increments, histogram samples, and a configured production metric-cardinality
-policy with bounded health reporting.
+policy with bounded health reporting. It also provides a synchronous JSON
+Lines handler with configured resource identity, scope identity, attribute
+limits, destinations, and exporter health.
 Programs choose a lexical handler for the effect; the library does not select
 an exporter implicitly.
 
@@ -67,7 +69,8 @@ end
 opaque. Construct a request with a stable name, an optional parent
 `TraceContext`, and an ordered list of linked `TraceContext` values. Pass an
 empty list when the new span has no causal links. `observe::context(span)`
-returns the context of a recording span and returns `None` for a no-op span.
+returns the context of a recording or exported span and returns `None` for a
+no-op span.
 `trace::in_span<effect E>` accepts a body of type
 `fn(Span) -> Result<(), String> effects [...E]`. It starts the span, passes its
 opaque handle to the body, forwards the callback effect row beside `Observe`,
@@ -124,11 +127,57 @@ match observe::production_health(policy)
 end
 ```
 
-This handler is the production cardinality-policy path. It is terminal in this
-slice: an admitted observation is accepted by the policy but is not exported.
-Export destinations, encoding, and shutdown remain separate future facilities.
-The handler and health snapshot use the `concurrency` effect. They do not use
-environment variables, system properties, or deterministic fake exporters.
+This handler remains useful when an application needs admission without
+export. To export synchronously, construct a `Resource`, an
+`InstrumentationScope`, finite `ExporterLimits`, and a JSON Lines exporter.
+Install `observe::json_lines(exporter)` at the application's outer effect
+boundary. `observe::new_json_lines_default` writes records to standard error,
+which keeps application standard output separate. `observe::new_json_lines`
+accepts an explicit record destination and a separate diagnostic destination:
+
+```veln
+let limits = observe::ExporterLimits(32, 1024, 8, list_cons("password", list_nil()))
+let exporter = observe::new_json_lines_default(
+	observe::Resource("checkout", list_nil()),
+	observe::InstrumentationScope("checkout.web", "1"),
+	100,
+	limits,
+	"checkout",
+)
+let result = handle measured() with observe::json_lines(exporter)
+```
+
+The identity prefix namespaces host-generated trace and span identities. Test
+support can inject deterministic identities through the scoped exporter host
+adapter. An export is accepted only when its resource and
+instrumentation-scope names are non-empty. The scope version and observation
+names may be empty. Use `observe::span_request` to attach the call site to an
+exported span request. `observe::exporter_health` reads a non-consuming health
+snapshot. `observe::report_exporter_health` writes one
+summary only to the configured diagnostic destination and returns whether that
+write was accepted. A disabled diagnostic destination makes that call a
+successful no-op. A rejected summary leaves the previously reported exporter
+health unchanged, so reporting cannot recursively add its own failure.
+
+`observe::StandardError` writes and flushes the process standard error stream.
+`observe::FileDestination(path)` creates the file when needed and appends
+UTF-8 bytes without truncating prior records.
+Diagnostic summaries use the separate `observe::DiagnosticStandardError`,
+`observe::DiagnosticFileDestination(path)`, and
+`observe::NoDiagnosticDestination` choices. The disabled choice accepts a
+summary without producing output and cannot be selected for observation
+records.
+The default constructor uses standard error for records and the disabled
+destination for health summaries. The explicit constructor accepts these
+choices independently for records and summaries.
+
+For direct composition, `observe::apply_metric_cardinality` applies one
+record to a production policy and returns whether that record is admitted.
+`observe::export_observation` writes one observation without applying that
+policy. `observe::start_export_span` writes a span-start record and returns its
+span handle. `observe::finish_export_span` writes a finish record for a span
+returned by `observe::start_export_span`. The `observe::json_lines` handler
+combines these lower-level operations and is the ordinary installation route.
 
 Use `traced::spawn(context, body)` to start a child task whose callback needs
 an explicit `observe::TraceContext`. The callback accepts that context as its
@@ -289,9 +338,9 @@ supplied message, the supplied attributes in order, the supplied optional
 
 An attribute value is exactly one of `BoolValue(Bool)`, `IntValue(Int)`, or
 `StringValue(String)`. A trace context contains its trace and span identity
-strings and Boolean sampling state. The standard library preserves these
-values; policy such as redaction, truncation, or export encoding belongs to a
-future handler.
+strings and Boolean sampling state. The recording handler preserves these
+values. The JSON Lines handler applies its configured attribute policy during
+export.
 
 Each log helper is call-site-aware. An ordinary caller records the complete
 span of its call expression. A call-site-aware wrapper forwards its own hidden
@@ -309,6 +358,136 @@ construct or pattern-match the span representation. They can call
 returns `None` for a no-op span. Installing the handler preserves the handled
 program's result and opens no output destination. Counter increments and
 histogram samples follow the same discard rule.
+
+### Synchronous JSON Lines export
+
+The JSON Lines handler applies metric-cardinality admission to the original
+metric kind, name, and complete typed attribute multiset. It does this before
+redaction, truncation, or attribute-count limits. A rejected unseen metric
+series produces no line. Every accepted log, event, counter, histogram,
+span-start, and span-finish operation attempts exactly one synchronous write
+of one versioned JSON object followed by `\n`. Accepted operations consume
+handler sequence values in operation order, including a write that the
+destination rejects.
+
+The interoperable record contract is checked by
+[`json-lines-record.schema.json`](../../crates/veln-stdlib/schemas/observability/v1/json-lines-record.schema.json).
+It contains the observation kind and name, wall-clock seconds and nanoseconds,
+handler sequence, nullable severity and trace/span identity, ordered links,
+source, nullable task identity, typed attributes, resource identity,
+instrumentation-scope identity, cumulative cardinality and exporter failure
+facts, and per-record attribute facts. Log records add `message`; metric
+records add `value`. The current host does not expose a stable task identity,
+so it encodes `task_id` as `null`.
+
+The diagnostic health summary has a separate closed contract in
+[`json-lines-exporter-health.schema.json`](../../crates/veln-stdlib/schemas/observability/v1/json-lines-exporter-health.schema.json).
+An enabled, accepted call to `observe::report_exporter_health` writes exactly
+one object followed by one `\n`. The object has no fields beyond this table:
+
+| Field | Value |
+| --- | --- |
+| `schema_version` | The integer `1`. |
+| `kind` | The string `exporter_health`. |
+| `failed_exports` | The cumulative rejected or failed observation-export attempts. |
+| `dropped_attributes` | The cumulative attributes omitted by count limits. |
+| `truncated_attributes` | The cumulative names and values shortened by size limits. |
+| `redacted_attributes` | The cumulative values replaced by the redaction policy. |
+| `metric_series` | The current retained metric-series count. |
+| `admitted_metric_observations` | The cumulative admitted metric observations. |
+| `dropped_metric_observations` | The cumulative metric observations rejected by cardinality admission. |
+
+Every counter is a non-negative Veln `Int` and can reach the maximum signed
+64-bit value. `NoDiagnosticDestination` accepts the call without output. A
+diagnostic write rejection returns `false`, leaves these health values
+unchanged, and does not retry through `Observe`.
+
+The exporter captures the cumulative admitted and dropped metric-observation
+facts while it assigns each record's handler sequence. Across records from one
+exporter in ascending sequence order, neither fact decreases, including when
+concurrent metric decisions reach export in a different order. A rejected
+metric series produces no record, but its dropped fact is visible in records
+whose sequence is assigned after that decision commits.
+
+The schema requires non-empty resource and instrumentation-scope names and
+non-empty trace, span, and optional parent-span identities. It also requires
+non-negative source lines and columns. The export boundary additionally
+requires non-negative source offsets even though offsets are not encoded.
+Compiler-produced locations and production-generated identities satisfy these
+constraints. The exporter rejects a directly constructed value or scoped
+generated identity that violates one of them before it calls the record
+destination. It does not substitute an invented causal or resource identity.
+
+Attribute count limits apply independently to observation and resource
+attribute lists. Negative limits normalize to zero. String size is measured
+in JVM UTF-16 code units. The size limit applies to every retained observation
+and resource attribute name and to every retained, non-redacted `StringValue`
+payload. Each name or value beyond the limit is shortened to the configured
+size and increments `truncated`; one attribute can therefore add two to that
+fact. Attributes after the count limit are omitted and increment `dropped`.
+Redaction matching uses the original attribute name before name shortening. A
+matching value is replaced by the fixed string `[REDACTED]` until the finite
+redaction limit is reached and increments `redacted`. The encoded facts
+aggregate changes to both observation and resource attributes.
+
+A validation rejection, record-destination rejection, or host write failure
+increments `failed_exports` and leaves the handled application's ordinary
+result unchanged. Each rejected attempt consumes its handler sequence value.
+A validation rejection does not call the destination and does not add dropped,
+truncated, or redacted attribute facts. Handler-driven metric-cardinality
+admission still occurs before export validation. A rejected span start retains
+its allocated identity state and returns its span handle; finishing a handle
+that contains an invalid identity is a separate rejected export attempt. A
+diagnostic-summary rejection is instead exposed as the `false` result of
+`observe::report_exporter_health` and does not change that counter.
+The cumulative failed, dropped, truncated, and redacted health totals saturate
+at the maximum `Int`. Health reads do not consume those totals. Saturation does
+not prevent a later export or health read. Export and health-summary writes do
+not perform `Observe`, so a failure cannot recursively create telemetry.
+
+Every direct or handler-driven export validates all public `SourceLocation`
+components before encoding. A dependency `package` uses the
+[portable package identity](package-snapshots.md#portable-package-identity)
+domain and retains its exact spelling, including punctuation such as
+`acme:lib`. The empty workspace identity and embedded `std` identity also
+remain valid.
+
+`module` is a logical path whose non-empty segments are separated by `::`; it
+is validated independently of host filesystem syntax. `file` uses the pinned
+portable source-path domain specified by
+[package snapshot capture](package-snapshots.md#filesystem-capture-and-exclusions),
+whether it is a package-relative path or a compiler-produced canonical virtual
+name. Validation does not consult the host filesystem. An invalid package,
+module, or file becomes `<invalid-source>` without changing valid components
+of the same location. Module validation rejects slash, backslash, traversal,
+empty-segment, NUL, and stray-colon spellings. It preserves canonical values
+such as nested module `a::b` and its slash-separated package-relative file.
+Equivalent source trees at different absolute roots therefore encode the same
+source identity.
+
+### Direct exporter operations
+
+`observe::apply_metric_cardinality(production, record)` returns `true` for a
+non-metric observation, a known metric series, or a new series admitted below
+the configured limit. It returns `false` for an unseen series after the limit
+is full. Metric calls update the same admitted, dropped, and retained-series
+state read by `observe::production_health`.
+
+`observe::export_observation(exporter, record)` synchronously writes the
+matching log, event, counter, or histogram record. It does not apply
+metric-cardinality admission. A direct caller that needs the handler's metric
+policy must call `observe::apply_metric_cardinality` first and export only an
+admitted record.
+
+`observe::start_export_span(exporter, request)` allocates the span identities,
+writes the span-start record, and returns a span whose context is available
+through `observe::context`. A located request created by
+`observe::span_request` supplies the call site; an ordinary `SpanRequest`
+produces the exporter fallback source. `observe::finish_export_span` writes a
+span-finish record only when its `SpanFinish` contains an exporter span. Other
+span representations are accepted as a no-op. Each direct start, finish, or
+observation export uses the same sequence, destination, attribute-limit, and
+failure-health rules as handler-driven export.
 
 ### Span lifecycle and recording
 
@@ -408,11 +587,12 @@ ambient. Raw task and channel operations remain unchanged.
 
 ## Limits
 
-Metric query APIs, asynchronous metric callbacks, production exporters,
-wall-time or resource enrichment, exporter failure health, and shutdown
-flushing are not available. Cardinality admission does not retain or export
-accepted observations, and its identity bound counts series rather than the
-bytes in their names and attributes. The no-op handler does not record,
+Metric query APIs, asynchronous metric callbacks, buffered export, automatic
+shutdown flushing, and external telemetry-protocol adapters are not
+available. The synchronous exporter has no retry or durable-audit guarantee.
+Its identity bound counts series rather than the bytes in their names and
+attributes. The standalone cardinality handler does not retain or export
+accepted observations. The no-op handler does not record,
 enrich, buffer, export, or report observations. `trace::in_span` currently
 accepts only a body returning `Result<(), String>`, while forwarding that
 body's effect row; it does not define rescue or exception recovery.
@@ -447,6 +627,21 @@ process or machine termination can prevent it from running.
   context coverage in `observe.test.veln`, and explicit task-, channel-value-,
   and fan-in-context coverage in
   [`traced.test.veln`](../../crates/veln-stdlib/veln/traced.test.veln).
+- JSON Lines API, ordering, limit, cardinality, and failure-health coverage:
+  [`observe.test.veln`](../../crates/veln-stdlib/veln/observe.test.veln), with
+  scoped fakes in `observe_export_test_support_test.veln`.
+  The checked record and exporter-health schemas, six captured encoder records,
+  and one real diagnostic summary are owned by
+  [`observability-schema.test.mjs`](../../workflow-scripts/observability-schema.test.mjs)
+  and the
+  [`observability-json-lines-encoder`](../../examples/specification/run/observability-json-lines-encoder/)
+  and
+  [`observability-json-lines-host-boundary`](../../examples/specification/run/observability-json-lines-host-boundary/)
+  JVM integration cases. They check every record kind, both closed object
+  shapes, exact JSON Lines framing, `Int` counter bounds, limit facts,
+  schema-invalid export rejection, portable hostile-source replacement, and
+  preservation of package, nested logical module, and package-relative file
+  identity.
 - Production index boundary coverage:
   [`effect_boundary_policy.rs`](../../crates/veln-backend-jvm/src/tests/effect_boundary_policy.rs)
   checks bounded indexed state and the absence of owner tasks, while

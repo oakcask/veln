@@ -1,133 +1,70 @@
 ---
 role: proposal
-update-when: Structured logging, events, metrics, tracing, observation context propagation, exporter behavior, or the observability proposal dependencies change.
+update-when: The buffered observation-export queue bound, full-queue admission result, shutdown flushing or drop accounting, final health-summary ordering, or interrupted-shutdown behavior changes.
 ---
 
-# Standard-library Observability
+# Buffered Observation Export Lifecycle
 
-Veln programs need structured runtime evidence that tools and AI agents can
-correlate with source, tasks, requests, and external services. The language
-core must not prescribe an exporter or an external telemetry protocol.
-
-The public observation effect, no-op and recording handlers, non-consuming
-recording snapshots, typed scalar attributes, optional trace context,
-effect-polymorphic scoped span lifecycle, and call-site-aware structured log
-records at debug, info, warning, and error severities, named domain events,
-counter increments and histogram samples with recording and no-op handler
-support, plus explicit direct child-task and channel-value context propagation
-and protocol-neutral carrier context propagation, and production metric
-cardinality admission with bounded health reporting are implemented in the
+The synchronous configured JSON Lines exporter, its checked schema,
+metric-cardinality ordering, attribute limits, and bounded failure health are
+implemented in the
 [current observability specification](../specification/standard-library-observability.md).
-This proposal covers only the remaining facilities described below.
-
-## Dependencies
-
-This proposal depends on:
-
-- implemented [lexical deferred cleanup](../specification/execution.md#runtime-readiness-and-host-boundaries), so every started
-  span can finish across normal and abrupt exits;
-- the implemented [wall-clock boundary](../specification/effects.md#network-and-time-boundary-calls),
-  so exported records can be correlated across processes; and
-- implemented [direct, indirect, and runtime-callback call-site
-  propagation](../specification/call-site-declarations.md), so library wrappers
-  preserve the user's call expression and dependency locations remain stable
-  across package relocation. The same implemented contract gives generated
-  sources canonical virtual names and keeps retained locations meaningful
-  during later observation.
-
-The existing monotonic clock remains the source for elapsed duration.
+This proposal contains only the remaining buffered lifecycle work.
 
 ## Boundary
 
-Observability is a standard-library facility built from ordinary Veln types,
-an ordinary public effect, and substitutable handlers. The proposal does not
-add log, event, metric, span, or trace syntax to the language core.
+The remaining facility may queue accepted records before a destination write.
+It must preserve the synchronous export data contract and must not turn
+telemetry delivery into application success or failure. External telemetry
+protocol adapters and durable audit guarantees remain outside this proposal.
 
-The runtime may provide narrow host operations for identifier generation,
-buffering, export, and shutdown flushing. Those operations are implementation
-support for the library and do not define a global ambient observability API.
+## Related Work
 
-## Observation Effect Remainder
+The OpenTelemetry [Tracing SDK specification](https://opentelemetry.io/docs/specs/otel/trace/sdk/)
+defines a finite batch queue, drops spans after that queue reaches capacity,
+and requires processor shutdown to include its force-flush behavior. Its flush
+and shutdown operations distinguish success, failure, and timeout, and may
+prioritize the timeout over completing every export. This provides a concrete
+comparison for queue admission and interrupted shutdown, but it does not define
+Veln behavior: Veln exports observation kinds beyond spans and must order a
+final health summary with its own drop accounting. The proposal therefore
+retains the finite-bound and explicit-shutdown questions while leaving their
+values and transitions undecided instead of importing OpenTelemetry defaults.
 
-Export handlers add wall time, resource identity, sequence information, and
-exporter-specific encoding.
+## Shutdown Contract
 
-## Library Surface
+When a buffered handler shuts down, it must finish processing every record
+that it reports as accepted or increment bounded drop accounting before
+shutdown returns. A write or flush failure must leave the handled
+application's ordinary result unchanged and must not recursively perform
+`Observe`.
 
-The remaining standard-library work supplies this group:
-
-- `observe`: JSON Lines and configured export handlers.
-
-## Handler and Failure Contract
-
-Applications install an observation handler at their outer execution boundary.
-Future exporter tests can replace resource attributes and exporter outcomes
-with deterministic values.
-
-Normal telemetry is best effort. `emit` and `finish_span` return `()`. The
-implemented production cardinality policy drops only an unseen metric series
-after its configured limit without changing the application result. A future
-export failure also does not change the application result and does not
-recursively perform `Observe`. Export handlers will record bounded failure
-counters and can report a final exporter health summary on a separately
-configured diagnostic channel.
-
-Audit records whose persistence determines application success are outside
-this effect. A future audit facility must return an ordinary typed result.
-
-## Structured Data Contract
-
-The production cardinality policy is applied before a future exporter.
-Exporters will also apply configured size, count, and redaction limits. A
-record then reports whether attributes were dropped or truncated.
-
-The JSON Lines handler emits one versioned object per line to a configured
-destination that is separate from application stdout by default. Its checked
-schema must include:
-
-- observation kind and stable name;
-- wall-clock seconds and nanoseconds;
-- per-handler sequence;
-- severity for log records;
-- trace, span, parent-span, and link identities when present;
-- canonical source location;
-- task identity when available;
-- typed attributes;
-- resource and instrumentation-scope identity; and
-- drop, truncation, redaction, and exporter-health facts when applicable.
-
-The first implementation establishes the schema version. The proposal does not
-invent a version before a checked schema exists.
+The lifecycle must define a finite queue bound, the admission result at that
+bound, the ordering relationship between queued records and a final health
+summary, and the behavior when shutdown itself is interrupted. These values
+remain undecided and must be established by executable evidence before they
+become current behavior.
 
 ## Acceptance Model
 
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |
-| O9 | An exporter rejects or drops a record. | The application result is unchanged and bounded health facts reflect the failure. | Forced-export-failure case. |
-| O12 | JSON Lines export is enabled. | Each line validates against the checked schema and contains no machine-specific absolute source path. | Schema and relocation cases. |
-| O14 | Handler shutdown follows buffered emission. | Accepted records are flushed or counted as dropped before shutdown returns. | Deterministic exporter lifecycle case. |
+| O14 | Handler shutdown follows buffered emission. | Accepted records are flushed or counted as dropped before shutdown returns. | Deterministic buffered exporter lifecycle case. |
 
 ## Verification and Promotion
 
-The remaining implementation work starts with exporter failure behavior and
-the JSON Lines schema and fixtures that establish the machine-readable
-contract. An external protocol adapter is verified against that protocol's
-conformance fixtures and remains replaceable.
+Companion tests under `crates/veln-stdlib/veln/` must inject scoped Veln test
+support for queue admission, destination outcomes, interruption, and health.
+Production behavior must use real host effects by default and must not select
+fakes through environment variables or system properties. A toolchain case is
+appropriate only for a separately identified CLI, backend, or host-lifecycle
+contract.
 
-Standard-library API behavior belongs in companion tests under
-`crates/veln-stdlib/veln/`. Executable cases under `examples/specification/`
-must verify an independently identified compiler, backend, CLI, or host
-integration contract. When implementation is complete, focused current
-specification pages must explain usage, handler installation, propagation,
-failure behavior, limits, and the checked JSON schema. This proposal and its
-catalog entry must then be removed.
+When O14 is implemented, update the current observability specification and
+executable evidence, then remove this proposal and its catalog entry.
 
 ## Non-goals
 
-- Raw task spawn and channel send do not implicitly propagate context.
-- The compiler does not automatically trace every call or effect operation.
-- The core language does not depend on OpenTelemetry or another telemetry
-  protocol.
-- Observability does not provide durable audit guarantees.
-- This proposal does not add asynchronous metric callbacks or a metric query
-  language.
+- External telemetry-protocol adapters.
+- Durable audit guarantees.
+- Unrelated changes to observation records or context propagation.

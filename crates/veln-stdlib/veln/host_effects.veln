@@ -11,3 +11,8 @@ end
 pub effect TaskJoin
 	waiting() -> ()
 end
+
+pub effect ObservationExporter
+	write(destination: String, line: String, diagnostic: Bool) -> Bool
+	identity(kind: String, sequence: Int) -> String
+end

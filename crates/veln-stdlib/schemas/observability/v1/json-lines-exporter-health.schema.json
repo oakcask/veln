@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://veln.dev/schemas/observability/v1/json-lines-exporter-health.schema.json",
+  "title": "Veln JSON Lines exporter health summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "failed_exports",
+    "dropped_attributes",
+    "truncated_attributes",
+    "redacted_attributes",
+    "metric_series",
+    "admitted_metric_observations",
+    "dropped_metric_observations"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": { "const": "exporter_health" },
+    "failed_exports": { "$ref": "#/$defs/counter" },
+    "dropped_attributes": { "$ref": "#/$defs/counter" },
+    "truncated_attributes": { "$ref": "#/$defs/counter" },
+    "redacted_attributes": { "$ref": "#/$defs/counter" },
+    "metric_series": { "$ref": "#/$defs/counter" },
+    "admitted_metric_observations": { "$ref": "#/$defs/counter" },
+    "dropped_metric_observations": { "$ref": "#/$defs/counter" }
+  },
+  "$defs": {
+    "counter": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    }
+  }
+}

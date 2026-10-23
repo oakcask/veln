@@ -27,6 +27,9 @@ runtime_method_table!(stdio_method, "stdioPrintln", {
 });
 
 runtime_method_table!(prelude_method, "vecLen", {
+    "observation_json_line" => "observationJsonLine",
+    "observation_export_write" => "observationExportWrite",
+    "observation_export_identity" => "observationExportIdentity",
     "production_metric_index_new" => "productionMetricIndexNew",
     "production_metric_index_contains" => "productionMetricIndexContains",
     "production_metric_index_insert" => "productionMetricIndexInsert",

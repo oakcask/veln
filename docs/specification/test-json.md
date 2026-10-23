@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The `veln test --json` output schema, static gate behavior, case records, runtime failure details, expected-output details, stdio event fields, or executable test JSON evidence changes.
+update-when: The `veln test --json` output schema, selection behavior, static gate behavior, case records, runtime failure details, expected-output details, stdio event fields, or executable test JSON evidence changes.
 specification-coverage: usage=#test-json; behavior=#selection; limits=#usage-and-limits
 ---
 
@@ -39,17 +39,20 @@ Selection fields are:
   `widened_dependency_graph`
 - `notes`: optional human-readable selection notes
 
-With no explicit targets, `veln test --json` discovers selected `*_test.veln`
-files and any other discovered source file that contains a top-level `test`
-declaration, including multiple test-bearing files in one run. It reports
-`confidence: "complete"`. The selected target list is sorted and includes each
-selected test-bearing file path once.
+With no explicit targets, `veln test --json` discovers selected `.test.veln`
+companion files, `*_test.veln` integration files, and any other discovered
+source file that contains a top-level `test` declaration, including multiple
+test-bearing files in one run. It reports `confidence: "complete"`. The
+selected target list is sorted and includes each selected test-bearing file
+path once.
 
 With explicit targets, the command treats the caller's direct file or recursive
 directory list as intentional selection and reports `reason: "user_selected"`
 unless it adds tests by convention or dependency graph. If an explicit non-test
-`.veln` file has a same-directory `*_test.veln` peer with the same base name,
-the peer is added to the selected targets and the run records a selection note.
+`.veln` file has a same-directory `.test.veln` or `*_test.veln` peer with the
+same base name, each existing peer is added to the selected targets and the run
+records a selection note. An explicitly selected companion or integration-test
+file does not seed dependency-graph expansion as a production source.
 
 For explicit non-test source targets with path-derived module identities,
 `test` also uses source-level `use` declarations as a dependency graph. A
@@ -278,4 +281,12 @@ command boundary.
 
 ## Usage and limits
 
-Read `selection` before `cases`: explicit targets may add companions or dependency-selected tests, and incomplete graph evidence widens selection with `confidence: "unknown"`. Static failures block execution; runtime expectations apply only to doctests. Output matching and runtime expectations are independent.
+Read `selection` before `cases`: explicit targets may add companions or
+dependency-selected tests. Incomplete graph evidence widens selection with
+`confidence: "unknown"`. Static failures block execution. Runtime expectations
+apply only to doctests. Output matching and runtime expectations are
+independent.
+
+When `VELN_TEST_TIMINGS` is present, timing diagnostics are written to standard
+error after the report. They are not fields in the JSON envelope or case event
+records, and standard output remains one JSON envelope.

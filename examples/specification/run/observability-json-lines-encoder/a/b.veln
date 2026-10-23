@@ -1,0 +1,8 @@
+use observe from "std"
+use log from "std"
+
+# This nested selected source proves the JVM exporter preserves compiler-derived
+# logical module and package-relative file identities independently of host paths.
+pub fn emit_nested_log() -> () effects [observe::Observe]
+	log::info(None, "ready", list_cons(observe::Attribute("secret-name", observe::StringValue("hidden")), list_cons(observe::Attribute("both-name", observe::StringValue("abcdef")), list_cons(observe::Attribute("dropped", observe::IntValue(1)), list_nil()))))
+end

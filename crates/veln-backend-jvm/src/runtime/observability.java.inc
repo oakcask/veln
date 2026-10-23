@@ -188,3 +188,494 @@
         asProductionMetricIndex(index).resetWork();
         return UNIT;
     }
+
+    private static final String OBSERVATION_EXPORTER_EFFECT =
+        "std::host_effects::ObservationExporter";
+
+    private static final class ExportAttributeFacts {
+        long dropped;
+        long truncated;
+        long redacted;
+    }
+
+    private static String observationJsonString(String value) {
+        StringBuilder output = new StringBuilder(value.length() + 8);
+        output.append('"');
+        for (int index = 0; index < value.length(); index += 1) {
+            char character = value.charAt(index);
+            switch (character) {
+                case '"': output.append("\\\""); break;
+                case '\\': output.append("\\\\"); break;
+                case '\b': output.append("\\b"); break;
+                case '\f': output.append("\\f"); break;
+                case '\n': output.append("\\n"); break;
+                case '\r': output.append("\\r"); break;
+                case '\t': output.append("\\t"); break;
+                default:
+                    if (character < 0x20) {
+                        output.append(String.format("\\u%04x", Integer.valueOf(character)));
+                    } else {
+                        output.append(character);
+                    }
+            }
+        }
+        return output.append('"').toString();
+    }
+
+    private static String observationOptionalString(Object value) {
+        Option option = asOption(value);
+        return option.some ? observationJsonString(asString(option.value)) : "null";
+    }
+
+    private static java.util.Set<String> observationRedactedNames(Object names) {
+        java.util.HashSet<String> result = new java.util.HashSet<String>();
+        ListValue remaining = asListValue(names);
+        while (remaining.cons) {
+            result.add(asString(remaining.head));
+            remaining = asListValue(remaining.tail);
+        }
+        return result;
+    }
+
+    private static String observationAttributes(
+        Object attributes,
+        long maximumCount,
+        long maximumStringSize,
+        long maximumRedacted,
+        java.util.Set<String> redactedNames,
+        ExportAttributeFacts facts
+    ) {
+        StringBuilder output = new StringBuilder("[");
+        ListValue remaining = asListValue(attributes);
+        long retained = 0L;
+        boolean first = true;
+        while (remaining.cons) {
+            Adt attribute = asAdt(remaining.head, "Attribute");
+            remaining = asListValue(remaining.tail);
+            if (retained >= maximumCount) {
+                facts.dropped += 1L;
+                continue;
+            }
+            retained += 1L;
+            String originalName = asString(attribute.payloads[0]);
+            Adt scalar = (Adt) attribute.payloads[1];
+            String type;
+            String value;
+            if (redactedNames.contains(originalName) && facts.redacted < maximumRedacted) {
+                type = "string";
+                value = observationJsonString("[REDACTED]");
+                facts.redacted += 1L;
+            } else if (isAdt(scalar, "BoolValue")) {
+                type = "bool";
+                value = Boolean.TRUE.equals(scalar.payloads[0]) ? "true" : "false";
+            } else if (isAdt(scalar, "IntValue")) {
+                type = "int";
+                value = Long.toString(asLong(scalar.payloads[0]));
+            } else if (isAdt(scalar, "StringValue")) {
+                type = "string";
+                String text = asString(scalar.payloads[0]);
+                int limit = (int) Math.min(Integer.MAX_VALUE, maximumStringSize);
+                if (text.length() > limit) {
+                    text = text.substring(0, limit);
+                    facts.truncated += 1L;
+                }
+                value = observationJsonString(text);
+            } else {
+                throw new IllegalStateException("expected observation attribute scalar");
+            }
+            int nameLimit = (int) Math.min(Integer.MAX_VALUE, maximumStringSize);
+            String name = originalName;
+            if (name.length() > nameLimit) {
+                name = name.substring(0, nameLimit);
+                facts.truncated += 1L;
+            }
+            if (!first) output.append(',');
+            first = false;
+            output.append("{\"name\":").append(observationJsonString(name))
+                .append(",\"type\":").append(observationJsonString(type))
+                .append(",\"value\":").append(value).append('}');
+        }
+        return output.append(']').toString();
+    }
+
+    private static String observationCanonicalPackage(String value) {
+        if (value.isEmpty()) return value;
+        if (value.codePointCount(0, value.length()) > 255 || !portableUnicodeIsNfc(value)) {
+            return "<invalid-source>";
+        }
+        String[] segments = value.split("/", -1);
+        for (String segment : segments) {
+            if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) {
+                return "<invalid-source>";
+            }
+            for (int offset = 0; offset < segment.length();) {
+                int character = segment.codePointAt(offset);
+                if (PORTABLE_UNICODE.whitespace.contains(Integer.valueOf(character))) {
+                    return "<invalid-source>";
+                }
+                offset += Character.charCount(character);
+            }
+        }
+        return value;
+    }
+
+    private static boolean observationReservedDevice(String segment) {
+        int dot = segment.indexOf('.');
+        String stem = dot < 0 ? segment : segment.substring(0, dot);
+        int end = stem.length();
+        while (end > 0) {
+            char character = stem.charAt(end - 1);
+            if (character != ' ' && character != '\t' && character != '\n'
+                && character != '\u000b' && character != '\f' && character != '\r') break;
+            end -= 1;
+        }
+        stem = stem.substring(0, end);
+        StringBuilder upper = new StringBuilder(stem.length());
+        for (int index = 0; index < stem.length(); index++) {
+            char character = stem.charAt(index);
+            upper.append(character >= 'a' && character <= 'z' ? (char) (character - 32) : character);
+        }
+        String name = upper.toString();
+        if (name.equals("CON") || name.equals("PRN") || name.equals("AUX")
+            || name.equals("NUL") || name.equals("CONIN$") || name.equals("CONOUT$")) {
+            return true;
+        }
+        if (!(name.startsWith("COM") || name.startsWith("LPT"))) return false;
+        String number = name.substring(3);
+        return number.equals("1") || number.equals("2") || number.equals("3")
+            || number.equals("4") || number.equals("5") || number.equals("6")
+            || number.equals("7") || number.equals("8") || number.equals("9")
+            || number.equals("¹") || number.equals("²") || number.equals("³");
+    }
+
+    private static String observationCanonicalFile(String value) {
+        if (value.isEmpty() || !portableUnicodeIsNfc(value)) return "<invalid-source>";
+        String[] segments = value.split("/", -1);
+        for (String segment : segments) {
+            if (segment.isEmpty() || segment.equals(".") || segment.equals("..")
+                || segment.endsWith(" ") || segment.endsWith(".")
+                || observationReservedDevice(segment)) {
+                return "<invalid-source>";
+            }
+            for (int offset = 0; offset < segment.length();) {
+                int character = segment.codePointAt(offset);
+                if (PORTABLE_UNICODE.controls.contains(Integer.valueOf(character))
+                    || character == '\\' || character == ':') {
+                    return "<invalid-source>";
+                }
+                offset += Character.charCount(character);
+            }
+        }
+        return value;
+    }
+
+    private static String observationCanonicalModule(String value) {
+        if (value.isEmpty() || value.indexOf('/') >= 0 || value.indexOf('\\') >= 0
+            || value.indexOf('\0') >= 0) {
+            return "<invalid-source>";
+        }
+        String[] segments = value.split("::", -1);
+        for (String segment : segments) {
+            if (segment.isEmpty() || segment.equals(".") || segment.equals("..")
+                || segment.indexOf(':') >= 0) {
+                return "<invalid-source>";
+            }
+        }
+        return value;
+    }
+
+    private static String observationSource(Object source) {
+        String packageName = observationCanonicalPackage(
+            asString(recordField(source, "package")));
+        String moduleName = observationCanonicalModule(
+            asString(recordField(source, "module")));
+        String file = observationCanonicalFile(
+            asString(recordField(source, "file")));
+        return "{\"package\":" + observationJsonString(packageName)
+            + ",\"module\":" + observationJsonString(moduleName)
+            + ",\"file\":" + observationJsonString(file)
+            + ",\"start_line\":" + asLong(recordField(source, "start_line"))
+            + ",\"start_column\":" + asLong(recordField(source, "start_column"))
+            + ",\"end_line\":" + asLong(recordField(source, "end_line"))
+            + ",\"end_column\":" + asLong(recordField(source, "end_column")) + "}";
+    }
+
+    private static String observationOptionalSource(Object source) {
+        Option option = asOption(source);
+        if (option.some) return observationSource(option.value);
+        return "{\"package\":\"std\",\"module\":\"observe\",\"file\":\"<observe>\","
+            + "\"start_line\":0,\"start_column\":0,\"end_line\":0,\"end_column\":0}";
+    }
+
+    private static String observationContext(Object context) {
+        Option option = asOption(context);
+        if (!option.some) return "null";
+        Adt trace = asAdt(option.value, "TraceContext");
+        return "{\"trace_id\":" + observationJsonString(asString(trace.payloads[0]))
+            + ",\"span_id\":" + observationJsonString(asString(trace.payloads[1]))
+            + ",\"sampled\":" + (Boolean.TRUE.equals(trace.payloads[2]) ? "true" : "false") + "}";
+    }
+
+    private static String observationLinks(Object links) {
+        StringBuilder output = new StringBuilder("[");
+        ListValue remaining = asListValue(links);
+        boolean first = true;
+        while (remaining.cons) {
+            Adt trace = asAdt(remaining.head, "TraceContext");
+            if (!first) output.append(',');
+            first = false;
+            output.append("{\"trace_id\":").append(observationJsonString(asString(trace.payloads[0])))
+                .append(",\"span_id\":").append(observationJsonString(asString(trace.payloads[1])))
+                .append(",\"sampled\":").append(Boolean.TRUE.equals(trace.payloads[2]) ? "true" : "false")
+                .append('}');
+            remaining = asListValue(remaining.tail);
+        }
+        return output.append(']').toString();
+    }
+
+    private static boolean observationTraceValid(Object trace) {
+        Adt context = asAdt(trace, "TraceContext");
+        return !asString(context.payloads[0]).isEmpty()
+            && !asString(context.payloads[1]).isEmpty();
+    }
+
+    private static boolean observationOptionalTraceValid(Object trace) {
+        Option option = asOption(trace);
+        return !option.some || observationTraceValid(option.value);
+    }
+
+    private static boolean observationLinksValid(Object links) {
+        ListValue remaining = asListValue(links);
+        while (remaining.cons) {
+            if (!observationTraceValid(remaining.head)) return false;
+            remaining = asListValue(remaining.tail);
+        }
+        return true;
+    }
+
+    private static boolean observationOptionalIdentityValid(Object identity) {
+        Option option = asOption(identity);
+        return !option.some || !asString(option.value).isEmpty();
+    }
+
+    private static boolean observationSourceValid(Object source) {
+        return asLong(recordField(source, "start_line")) >= 0L
+            && asLong(recordField(source, "start_column")) >= 0L
+            && asLong(recordField(source, "start_offset")) >= 0L
+            && asLong(recordField(source, "end_line")) >= 0L
+            && asLong(recordField(source, "end_column")) >= 0L
+            && asLong(recordField(source, "end_offset")) >= 0L;
+    }
+
+    private static boolean observationOptionalSourceValid(Object source) {
+        Option option = asOption(source);
+        return !option.some || observationSourceValid(option.value);
+    }
+
+    private static boolean observationPayloadValid(Object payload) {
+        Adt exportPayload = (Adt) payload;
+        if (isAdt(exportPayload, "ExportLog")) {
+            Adt record = asAdt(exportPayload.payloads[0], "LogRecord");
+            return observationOptionalTraceValid(record.payloads[4])
+                && observationSourceValid(record.payloads[5]);
+        }
+        if (isAdt(exportPayload, "ExportEvent")) {
+            Adt record = asAdt(exportPayload.payloads[0], "EventRecord");
+            return observationOptionalTraceValid(record.payloads[2])
+                && observationSourceValid(record.payloads[3]);
+        }
+        if (isAdt(exportPayload, "ExportCounter")) {
+            Adt record = asAdt(exportPayload.payloads[0], "CounterIncrementRecord");
+            return observationOptionalTraceValid(record.payloads[3])
+                && observationSourceValid(record.payloads[4]);
+        }
+        if (isAdt(exportPayload, "ExportHistogram")) {
+            Adt record = asAdt(exportPayload.payloads[0], "HistogramSampleRecord");
+            return observationOptionalTraceValid(record.payloads[3])
+                && observationSourceValid(record.payloads[4]);
+        }
+        if (isAdt(exportPayload, "ExportSpanStart")) {
+            return !asString(exportPayload.payloads[1]).isEmpty()
+                && !asString(exportPayload.payloads[2]).isEmpty()
+                && observationOptionalIdentityValid(exportPayload.payloads[3])
+                && observationLinksValid(exportPayload.payloads[4])
+                && observationOptionalSourceValid(exportPayload.payloads[5]);
+        }
+        if (isAdt(exportPayload, "ExportSpanFinish")) {
+            return !asString(exportPayload.payloads[1]).isEmpty()
+                && !asString(exportPayload.payloads[2]).isEmpty()
+                && observationOptionalIdentityValid(exportPayload.payloads[3])
+                && observationOptionalSourceValid(exportPayload.payloads[4]);
+        }
+        throw new IllegalStateException("expected observation export payload");
+    }
+
+    public static Object observationJsonLine(
+        Object payload,
+        Object wallTime,
+        Object sequence,
+        Object resource,
+        Object scope,
+        Object limits,
+        Object failedExports,
+        Object admittedMetrics,
+        Object droppedMetrics
+    ) {
+        Adt exportPayload = (Adt) payload;
+        Adt exportResource = asAdt(resource, "Resource");
+        Adt exportScope = asAdt(scope, "InstrumentationScope");
+        Adt exportLimits = asAdt(limits, "ExporterLimits");
+        boolean valid = !asString(exportResource.payloads[0]).isEmpty()
+            && !asString(exportScope.payloads[0]).isEmpty()
+            && observationPayloadValid(exportPayload);
+        if (!valid) {
+            return record(
+                "valid", Boolean.FALSE,
+                "line", "",
+                "dropped", Long.valueOf(0L),
+                "truncated", Long.valueOf(0L),
+                "redacted", Long.valueOf(0L)
+            );
+        }
+        long maximumCount = Math.max(0L, asLong(exportLimits.payloads[0]));
+        long maximumStringSize = Math.max(0L, asLong(exportLimits.payloads[1]));
+        long maximumRedacted = Math.max(0L, asLong(exportLimits.payloads[2]));
+        java.util.Set<String> redactedNames = observationRedactedNames(exportLimits.payloads[3]);
+        ExportAttributeFacts facts = new ExportAttributeFacts();
+
+        String kind;
+        String name;
+        String severity = "null";
+        String trace = "null";
+        String span = "null";
+        String links = "[]";
+        String source;
+        String attributes;
+        String data = "";
+        if (isAdt(exportPayload, "ExportLog")) {
+            Adt record = asAdt(exportPayload.payloads[0], "LogRecord");
+            kind = "log";
+            name = asString(record.payloads[0]);
+            String severityName = ((Adt) record.payloads[1]).name;
+            int severitySeparator = severityName.lastIndexOf("::");
+            if (severitySeparator >= 0) severityName = severityName.substring(severitySeparator + 2);
+            severity = observationJsonString(severityName.toLowerCase(java.util.Locale.ROOT));
+            data = ",\"message\":" + observationJsonString(asString(record.payloads[2]));
+            attributes = observationAttributes(record.payloads[3], maximumCount, maximumStringSize, maximumRedacted, redactedNames, facts);
+            trace = observationContext(record.payloads[4]);
+            source = observationSource(record.payloads[5]);
+        } else if (isAdt(exportPayload, "ExportEvent")) {
+            Adt record = asAdt(exportPayload.payloads[0], "EventRecord");
+            kind = "event";
+            name = asString(record.payloads[0]);
+            attributes = observationAttributes(record.payloads[1], maximumCount, maximumStringSize, maximumRedacted, redactedNames, facts);
+            trace = observationContext(record.payloads[2]);
+            source = observationSource(record.payloads[3]);
+        } else if (isAdt(exportPayload, "ExportCounter")) {
+            Adt record = asAdt(exportPayload.payloads[0], "CounterIncrementRecord");
+            kind = "counter";
+            name = asString(record.payloads[0]);
+            data = ",\"value\":" + asLong(record.payloads[1]);
+            attributes = observationAttributes(record.payloads[2], maximumCount, maximumStringSize, maximumRedacted, redactedNames, facts);
+            trace = observationContext(record.payloads[3]);
+            source = observationSource(record.payloads[4]);
+        } else if (isAdt(exportPayload, "ExportHistogram")) {
+            Adt record = asAdt(exportPayload.payloads[0], "HistogramSampleRecord");
+            kind = "histogram";
+            name = asString(record.payloads[0]);
+            data = ",\"value\":" + asLong(record.payloads[1]);
+            attributes = observationAttributes(record.payloads[2], maximumCount, maximumStringSize, maximumRedacted, redactedNames, facts);
+            trace = observationContext(record.payloads[3]);
+            source = observationSource(record.payloads[4]);
+        } else if (isAdt(exportPayload, "ExportSpanStart")) {
+            kind = "span_start";
+            name = asString(exportPayload.payloads[0]);
+            String traceId = asString(exportPayload.payloads[1]);
+            String spanId = asString(exportPayload.payloads[2]);
+            span = "{\"trace_id\":" + observationJsonString(traceId)
+                + ",\"span_id\":" + observationJsonString(spanId)
+                + ",\"parent_span_id\":" + observationOptionalString(exportPayload.payloads[3]) + "}";
+            links = observationLinks(exportPayload.payloads[4]);
+            source = observationOptionalSource(exportPayload.payloads[5]);
+            attributes = "[]";
+        } else if (isAdt(exportPayload, "ExportSpanFinish")) {
+            kind = "span_finish";
+            name = asString(exportPayload.payloads[0]);
+            span = "{\"trace_id\":" + observationJsonString(asString(exportPayload.payloads[1]))
+                + ",\"span_id\":" + observationJsonString(asString(exportPayload.payloads[2]))
+                + ",\"parent_span_id\":" + observationOptionalString(exportPayload.payloads[3]) + "}";
+            source = observationOptionalSource(exportPayload.payloads[4]);
+            attributes = "[]";
+        } else {
+            throw new IllegalStateException("expected observation export payload");
+        }
+        String resourceAttributes = observationAttributes(exportResource.payloads[1], maximumCount, maximumStringSize, maximumRedacted, redactedNames, facts);
+        String line = "{\"schema_version\":1,\"kind\":" + observationJsonString(kind)
+            + ",\"name\":" + observationJsonString(name)
+            + ",\"wall_time\":{\"unix_seconds\":" + asLong(recordField(wallTime, "unix_seconds"))
+            + ",\"nanosecond\":" + asLong(recordField(wallTime, "nanosecond")) + "}"
+            + ",\"sequence\":" + asLong(sequence)
+            + ",\"severity\":" + severity
+            + ",\"trace\":" + trace
+            + ",\"span\":" + span
+            + ",\"links\":" + links
+            + ",\"source\":" + source
+            + ",\"task_id\":null"
+            + ",\"attributes\":" + attributes
+            + ",\"resource\":{\"name\":" + observationJsonString(asString(exportResource.payloads[0]))
+            + ",\"attributes\":" + resourceAttributes + "}"
+            + ",\"instrumentation_scope\":{\"name\":" + observationJsonString(asString(exportScope.payloads[0]))
+            + ",\"version\":" + observationJsonString(asString(exportScope.payloads[1])) + "}"
+            + ",\"cardinality\":{\"admitted_metric_observations\":" + asLong(admittedMetrics)
+            + ",\"dropped_metric_observations\":" + asLong(droppedMetrics) + "}"
+            + ",\"exporter_health\":{\"failed_exports\":" + asLong(failedExports) + "}"
+            + ",\"attribute_facts\":{\"dropped\":" + facts.dropped
+            + ",\"truncated\":" + facts.truncated + ",\"redacted\":" + facts.redacted + "}"
+            + data + "}\n";
+        return record(
+            "valid", Boolean.TRUE,
+            "line", line,
+            "dropped", Long.valueOf(facts.dropped),
+            "truncated", Long.valueOf(facts.truncated),
+            "redacted", Long.valueOf(facts.redacted)
+        );
+    }
+
+    public static Object observationExportWrite(Object destination, Object line, Object diagnostic) {
+        Adt configured = (Adt) destination;
+        String target;
+        if (isAdt(configured, "StandardError") || isAdt(configured, "DiagnosticStandardError")) target = "stderr";
+        else if (isAdt(configured, "FileDestination") || isAdt(configured, "DiagnosticFileDestination")) target = "file:" + asString(configured.payloads[0]);
+        else if (isAdt(configured, "NoDiagnosticDestination")) return Boolean.TRUE;
+        else throw new IllegalStateException("expected observation export destination");
+        HandlerFrame adapter = findHandler(OBSERVATION_EXPORTER_EFFECT);
+        if (adapter != null) {
+            Object result = invokeHandler(adapter, "write", new Object[] { target, asString(line), diagnostic });
+            return (Boolean) result;
+        }
+        try {
+            if (target.equals("stderr")) {
+                System.err.print(asString(line));
+                System.err.flush();
+                if (System.err.checkError()) return Boolean.FALSE;
+            } else {
+                java.nio.file.Files.write(
+                    java.nio.file.Paths.get(target.substring("file:".length())),
+                    asString(line).getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                    java.nio.file.StandardOpenOption.CREATE,
+                    java.nio.file.StandardOpenOption.APPEND
+                );
+            }
+            return Boolean.TRUE;
+        } catch (java.io.IOException | RuntimeException error) {
+            return Boolean.FALSE;
+        }
+    }
+
+    public static Object observationExportIdentity(Object prefix, Object kind, Object sequence) {
+        HandlerFrame adapter = findHandler(OBSERVATION_EXPORTER_EFFECT);
+        if (adapter != null) {
+            return invokeHandler(adapter, "identity", new Object[] { kind, sequence });
+        }
+        return asString(prefix) + "-" + asString(kind) + "-" + java.util.UUID.randomUUID();
+    }

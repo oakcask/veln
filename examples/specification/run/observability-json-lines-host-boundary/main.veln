@@ -1,0 +1,111 @@
+use observe from "std"
+use log from "std"
+use clock
+
+# This case checks the real JVM observation-exporter boundary. Companion tests
+# own the standard-library API and limit semantics; no exporter handler is
+# installed here, so destinations and identities use their production host
+# implementations.
+pub fn main() -> () effects [fs, stdio, time, concurrency]
+	let exporter = configured(observe::FileDestination("records.jsonl"), observe::NoDiagnosticDestination)
+	let identities = handle export_span(exporter) with clock::fixed()
+	let failed = configured(observe::FileDestination("."), observe::DiagnosticFileDestination("health.jsonl"))
+	let application_result = handle handle failing_application() with observe::json_lines(failed) with clock::fixed()
+	stdio::println(application_result)
+	stdio::println(if failed_once(failed) "health-bounded" else "health-unexpected" end)
+	stdio::println(if observe::report_exporter_health(failed) "health-reported" else "health-rejected" end)
+	inspect_files(identities)
+end
+
+fn configured(destination: ExportDestination, diagnostic: DiagnosticDestination) -> JsonLinesExporter effects [concurrency]
+	observe::new_json_lines(
+		observe::Resource("checkout", list_nil()),
+		observe::InstrumentationScope("example", "1"),
+		1,
+		observe::ExporterLimits(4, 32, 1, list_nil()),
+		destination,
+		diagnostic,
+		"example",
+	)
+end
+
+fn export_span(exporter: JsonLinesExporter) -> { trace_id : String, span_id : String } effects [time, concurrency]
+	let span = observe::start_export_span(exporter, observe::span_request("request", None, list_nil()))
+	let identities = match observe::context(span)
+		Some(observe::TraceContext(trace_id, span_id, _)) => { trace_id: trace_id, span_id: span_id }
+		None => { trace_id: "", span_id: "" }
+	end
+	observe::finish_export_span(exporter, observe::finish(span))
+	identities
+end
+
+fn failing_application() -> String effects [observe::Observe]
+	log::info(None, "rejected", list_nil())
+	"application-result"
+end
+
+fn failed_once(exporter: JsonLinesExporter) -> Bool effects [concurrency]
+	match observe::exporter_health(exporter)
+		observe::ExporterHealth(1, 0, 0, 0, _) => true
+		_ => false
+	end
+end
+
+fn inspect_files(identities: { trace_id : String, span_id : String }) -> () effects [fs, stdio]
+	match fs::read_to_string(fs::path("records.jsonl"))
+		Ok(records) => begin
+			stdio::println(if records_appended(records) "records-created-appended" else "records-invalid" end)
+			stdio::println(if identities_valid(identities, records) "host-identities" else "identities-invalid" end)
+			stdio::println(if not has(records, "\"kind\":\"exporter_health\"") "health-separated" else "health-leaked" end)
+		end
+		Err(_) => begin
+			stdio::println("records-missing")
+			stdio::println("identities-invalid")
+			stdio::println("health-leaked")
+		end
+	end
+end
+
+fn records_appended(records: String) -> Bool
+	match string_split_once(records, "\"kind\":\"span_start\"")
+		Some(start) => match string_split_once(start.right, "\"kind\":\"span_finish\"")
+			Some(_) => true
+			None => false
+		end
+		None => false
+	end
+end
+
+fn identities_valid(identities: { trace_id : String, span_id : String }, records: String) -> Bool
+	uuid_identity(identities.trace_id, "example-trace-") and uuid_identity(identities.span_id, "example-span-") and has(records, string::concat(string::concat("\"trace_id\":\"", identities.trace_id), "\"")) and has(records, string::concat(string::concat("\"span_id\":\"", identities.span_id), "\""))
+end
+
+fn uuid_identity(value: String, prefix: String) -> Bool
+	match string_split_once(value, prefix)
+		Some(prefixed) => prefixed.left == "" and uuid_groups(prefixed.right)
+		None => false
+	end
+end
+
+fn uuid_groups(value: String) -> Bool
+	match string_split_once(value, "-")
+		Some(first) => first.left != "" and match string_split_once(first.right, "-")
+			Some(second) => second.left != "" and match string_split_once(second.right, "-")
+				Some(third) => third.left != "" and match string_split_once(third.right, "-")
+					Some(fourth) => fourth.left != "" and fourth.right != "" and not has(fourth.right, "-")
+					None => false
+				end
+			None => false
+		end
+		None => false
+	end
+		None => false
+	end
+end
+
+fn has(text: String, fragment: String) -> Bool
+	match string_split_once(text, fragment)
+		Some(_) => true
+		None => false
+	end
+end

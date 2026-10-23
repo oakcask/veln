@@ -50,9 +50,10 @@ environment-derived values.
 
 Catalog identity uses canonical result bytes and a `doc-digest`. Successful
 resources use stable `veln-doc:` URIs for index, module, declaration, and
-status resources. Snapshot byte changes affect package snapshot identity.
-Catalog-semantic, schema, or generator-contract changes affect the
-documentation digest.
+status resources. Snapshot byte changes affect package snapshot identity and
+the documentation digest because the canonical result contains that snapshot
+digest. Catalog-semantic, schema, or generator-contract changes also affect
+the documentation digest.
 
 The implemented gates are parse, manifest, export, semantic visibility,
 documentation-reference, doctest, and identity.
@@ -71,9 +72,10 @@ canonical result bytes
 
 The digest has exactly 64 lowercase hexadecimal digits. A package snapshot
 byte change changes the package snapshot digest and the documentation URI
-snapshot segment. A catalog-semantic, schema, or generator-contract change
-changes the `doc-digest`. A renderer-only change preserves the `doc-digest`
-only when it preserves the canonical result bytes.
+snapshot segment. It also changes the `doc-digest` because the snapshot digest
+is part of the canonical result bytes. A catalog-semantic, schema, or
+generator-contract change changes the `doc-digest`. A renderer-only change
+preserves the `doc-digest` only when it preserves the canonical result bytes.
 
 Canonical result bytes contain the catalog semantics or failure status. They
 do not contain the resource URIs that are derived from the `doc-digest`.

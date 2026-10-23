@@ -9,6 +9,9 @@ veln-ast.workspace = true
 veln-ir.workspace = true
 veln-literals.workspace = true
 
+[build-dependencies]
+unicode-normalization.workspace = true
+
 [dev-dependencies]
 veln-analysis.workspace = true
 veln-core.workspace = true

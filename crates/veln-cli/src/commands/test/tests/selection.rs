@@ -1,4 +1,4 @@
-use super::super::selection_plan;
+use super::super::{TestTimings, selection_plan};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -16,7 +16,10 @@ fn explicit_standard_companion_preserves_full_package_analysis() {
     let targets = vec![PathBuf::from("math.test.veln")];
     let expansion = expand_test_targets(&project.root, &targets);
 
-    let plan = selection_plan(&project.root, &targets, true, &expansion)
+    let mut timings = TestTimings {
+        records: Some(Vec::new()),
+    };
+    let plan = selection_plan(&project.root, &targets, true, &expansion, &mut timings)
         .expect("standard companion selection should succeed");
 
     assert!(
@@ -26,6 +29,13 @@ fn explicit_standard_companion_preserves_full_package_analysis() {
     assert_eq!(
         plan.selected_roots,
         Some(["math.test.veln".to_string()].into_iter().collect())
+    );
+    assert!(
+        timings
+            .records
+            .expect("timings should be enabled")
+            .is_empty(),
+        "an explicit companion should not trigger dependency-selection analysis"
     );
 }
 
