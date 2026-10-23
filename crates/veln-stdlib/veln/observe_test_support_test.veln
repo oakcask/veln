@@ -23,6 +23,12 @@ pub fn o1_context() -> Option<TraceContext>
 	Some(observe::TraceContext("trace-1", "span-2", true))
 end
 
+pub fn decision_barrier(entered: Sender<()>, release: Receiver<()>) -> () effects [concurrency]
+	let _ = channel::send(entered, ())
+	let _ = channel::recv(release)
+	()
+end
+
 pub fn is_o1_debug(record: Observation, expected_file: String, expected_line: Int) -> Bool
 	match record
 		observe::Log(observe::LogRecord("log", observe::Debug, "accepted", attributes, Some(observe::TraceContext("trace-1", "span-2", true)), source)) => has_o1_attributes(attributes) and source.file == expected_file and source.start_line == expected_line
