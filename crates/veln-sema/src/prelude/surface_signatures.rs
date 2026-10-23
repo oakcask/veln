@@ -10,7 +10,8 @@ pub(super) fn surface_prelude_signature(
     descriptor: &StandardSymbolDescriptor,
     expected: &ExpectedPreludeParts,
 ) -> Option<(Vec<Type>, Type)> {
-    prelude_net_system_signature(descriptor.name, expected)
+    prelude_production_metric_index_signature(descriptor.name)
+        .or_else(|| prelude_net_system_signature(descriptor.name, expected))
         .or_else(|| prelude_float_signature(descriptor.name))
         .or_else(|| prelude_byte_signature(descriptor.name))
         .or_else(|| prelude_string_signature(descriptor.name))
@@ -20,6 +21,19 @@ pub(super) fn surface_prelude_signature(
         .or_else(|| prelude_option_signature(descriptor.name, expected))
         .or_else(|| prelude_result_signature(descriptor.name, expected))
         .or_else(|| compiler_adapter_callback_signature(descriptor))
+}
+
+fn prelude_production_metric_index_signature(name: &str) -> Option<(Vec<Type>, Type)> {
+    match name {
+        "production_metric_index_new" => Some((vec![Type::int()], Type::int())),
+        "production_metric_index_contains" => {
+            Some((vec![Type::int(), Type::Unknown], Type::bool()))
+        }
+        "production_metric_index_insert" => Some((vec![Type::int(), Type::Unknown], Type::unit())),
+        "production_metric_index_work" => Some((vec![Type::int()], Type::int())),
+        "production_metric_index_reset_work" => Some((vec![Type::int()], Type::unit())),
+        _ => None,
+    }
 }
 
 fn prelude_net_system_signature(

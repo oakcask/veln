@@ -242,9 +242,14 @@ does not consume or reset it. Metric decisions and health snapshots are
 serialized across tasks that share the policy, and separately constructed
 policies do not share state. If a task is cancelled before its metric decision
 commits, that decision leaves the policy state unchanged; later metric
-emissions and health reads remain available. The retained identity list never
+emissions and health reads remain available. The retained identity index never
 exceeds the normalized series limit, and health uses a fixed number of scalar
-fields.
+fields. Identity lookup uses a bounded ordered index rather than scanning all
+retained series. Each emission or health read uses its calling task as the
+scoped transaction owner: a policy creates neither a permanent owner task nor
+an auxiliary task per operation. Across all concurrent operations on one
+policy, at most one acquired state token and one commit marker are live;
+cancellation before commit restores that token before the operation exits.
 
 Dropping a metric returns normally and does not change the handled body's
 result. Logs, events, span starts, and span finishes remain accepted terminal

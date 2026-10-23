@@ -7,6 +7,7 @@ use std::process::Command;
 const RUNTIME_FRAGMENTS: &[&str] = &[
     "values.java.inc",
     "concurrency.java.inc",
+    "observability.java.inc",
     "effects.java.inc",
     "accessors.java.inc",
     "collections.java.inc",

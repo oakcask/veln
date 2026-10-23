@@ -27,6 +27,11 @@ runtime_method_table!(stdio_method, "stdioPrintln", {
 });
 
 runtime_method_table!(prelude_method, "vecLen", {
+    "production_metric_index_new" => "productionMetricIndexNew",
+    "production_metric_index_contains" => "productionMetricIndexContains",
+    "production_metric_index_insert" => "productionMetricIndexInsert",
+    "production_metric_index_work" => "productionMetricIndexWork",
+    "production_metric_index_reset_work" => "productionMetricIndexResetWork",
     "net_system_resolve" => "netSystemResolve",
     "net_system_listen" => "netSystemListen",
     "net_system_connect" => "netSystemConnect",

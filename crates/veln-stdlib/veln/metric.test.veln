@@ -69,7 +69,10 @@ test production_metric_cardinality_cases() -> Result<(), String> effects [concur
 				CardinalityCase(2, list_cons(counter_record("first", 1, list_nil(), None), list_cons(counter_record("second", 1, list_nil(), None), list_cons(counter_record("first", 99, list_nil(), Some(observe::TraceContext("different-trace", "different-span", false))), list_cons(counter_record("third", 1, list_nil(), None), list_nil())))), 2, 3, 1),
 				list_cons(
 					CardinalityCase(2, list_cons(counter_record("same-name", 1, list_nil(), None), list_cons(histogram_record("same-name", 1, list_nil(), None), list_nil())), 2, 2, 0),
-					list_cons(CardinalityCase(3, list_cons(counter_record("attributes", 1, ordered, None), list_cons(counter_record("attributes", 2, reordered, None), list_cons(counter_record("attributes", 3, typed_difference, None), list_cons(counter_record("attributes", 4, duplicate_difference, None), list_nil())))), 3, 4, 0), list_nil())
+					list_cons(
+						CardinalityCase(1, list_cons(histogram_record("histogram-value", 7, ordered, Some(observe::TraceContext("trace-a", "span-a", true))), list_cons(histogram_record("histogram-value", 99, reordered, Some(observe::TraceContext("trace-b", "span-b", false))), list_nil())), 1, 2, 0),
+						list_cons(CardinalityCase(3, list_cons(counter_record("attributes", 1, ordered, None), list_cons(counter_record("attributes", 2, reordered, None), list_cons(counter_record("attributes", 3, typed_difference, None), list_cons(counter_record("attributes", 4, duplicate_difference, None), list_nil())))), 3, 4, 0), list_nil())
+					)
 				)
 			)
 		)
@@ -78,6 +81,20 @@ test production_metric_cardinality_cases() -> Result<(), String> effects [concur
 		Ok(())
 	else
 		Err("production metric cardinality table did not preserve its boundary, identity, or drop rules")
+	end
+end
+
+test production_cardinality_index_work_scales_below_complete_series_scans() -> Result<(), String> effects [concurrency]
+	let small = indexed_cardinality_work(256, 64)
+	let large = indexed_cardinality_work(1024, 64)
+	if small.correct and large.correct and small.fill_work <= 96 * 512 and large.fill_work <= 96 * 2048 and large.fill_work <= 7 * small.fill_work + 256 and small.full_work <= 64 * 128 and large.full_work <= 64 * 128 and large.full_work <= 2 * small.full_work + 256
+		Ok(())
+	else
+		begin
+			let fill = string::concat(string::concat("small fill ", int_to_string(small.fill_work)), string::concat(", large fill ", int_to_string(large.fill_work)))
+			let full = string::concat(string::concat(", small full ", int_to_string(small.full_work)), string::concat(", large full ", int_to_string(large.full_work)))
+			Err(string::concat("production metric identity index work grew like a complete retained-series scan: ", string::concat(fill, full)))
+		end
 	end
 end
 
@@ -143,6 +160,14 @@ test production_cardinality_serializes_concurrent_emissions() -> Result<(), Stri
 	end
 end
 
+test production_cardinality_serializes_increasing_mixed_emission_and_health_batches() -> Result<(), String> effects [concurrency]
+	if mixed_production_batch_passes(2) and mixed_production_batch_passes(8) and mixed_production_batch_passes(32)
+		Ok(())
+	else
+		Err("production cardinality did not bound mixed concurrent transaction ownership")
+	end
+end
+
 fn counter_record(name: String, value: Int, attributes: List<Attribute>, context: Option<TraceContext>) -> Observation callsite
 	observe::CounterIncrement(observe::CounterIncrementRecord(name, value, attributes, context, callsite))
 end
@@ -201,4 +226,128 @@ end
 fn concurrent_metric_worker(name: String) -> Int effects [observe::Observe]
 	metric::counter_increment(None, name, 1, list_nil())
 	1
+end
+
+fn mixed_production_batch_passes(worker_count: Int) -> Bool effects [concurrency]
+	let production = observe::new_production(1)
+	let entered = channel::bounded<()>(worker_count)
+	let release = channel::bounded<()>(worker_count)
+	let workers = handle spawn_mixed_production_workers(worker_count, true, production, entered.tx, release.rx, list_nil()) with observe::production(production)
+	let entered_count = receive_units(worker_count, entered.rx, 0)
+	let _ = send_units(worker_count, release.tx)
+	let completed = join_mixed_production_workers(workers, 0)
+	match observe::production_health(production)
+		observe::ProductionHealth(series, admitted, dropped) => entered_count == worker_count and completed == worker_count and series == 1 and admitted == (worker_count + 1) / 2 and dropped == 0
+	end
+end
+
+fn spawn_mixed_production_workers(remaining: Int, emit_metric: Bool, production: Production, entered: Sender<()>, release: Receiver<()>, workers: List<Task<Int>>) -> List<Task<Int>> effects [observe::Observe, concurrency]
+	if remaining == 0
+		workers
+	else
+		begin
+			let worker = task::spawn_with<Int, { emit_metric : Bool, production : Production, entered : Sender<()>, release : Receiver<()> }>(mixed_production_worker, { emit_metric: emit_metric, production: production, entered: entered, release: release })
+			let next_emit_metric = if emit_metric
+				false
+			else
+				true
+			end
+			spawn_mixed_production_workers(remaining - 1, next_emit_metric, production, entered, release, list_cons(worker, workers))
+		end
+	end
+end
+
+fn mixed_production_worker(context: { emit_metric : Bool, production : Production, entered : Sender<()>, release : Receiver<()> }) -> Int effects [observe::Observe, concurrency]
+	let _ = channel::send(context.entered, ())
+	let _ = channel::recv(context.release)
+	let _ = if context.emit_metric
+		metric::counter_increment(None, "mixed-known", 1, list_nil())
+	else
+		begin
+			let _ = observe::production_health(context.production)
+			()
+		end
+	end
+	1
+end
+
+fn receive_units(remaining: Int, receiver: Receiver<()>, received: Int) -> Int effects [concurrency]
+	if remaining == 0
+		received
+	else
+		match channel::recv(receiver)
+			Some(_) => receive_units(remaining - 1, receiver, received + 1)
+			None => received
+		end
+	end
+end
+
+fn send_units(remaining: Int, sender: Sender<()>) -> () effects [concurrency]
+	if remaining == 0
+		()
+	else
+		begin
+			let _ = channel::send(sender, ())
+			send_units(remaining - 1, sender)
+		end
+	end
+end
+
+fn join_mixed_production_workers(workers: List<Task<Int>>, completed: Int) -> Int effects [concurrency]
+	match workers
+		Nil => completed
+		Cons(worker, remaining) => match task::join(worker)
+			Ok(value) => join_mixed_production_workers(remaining, completed + value)
+			Err(_) => join_mixed_production_workers(remaining, completed)
+		end
+	end
+end
+
+fn indexed_cardinality_work(distinct_values: Int, fixed_checks: Int) -> { fill_work : Int, full_work : Int, correct : Bool } effects [concurrency]
+	let production = observe::new_production(distinct_values * 2)
+	let _ = handle emit_indexed_distinct_series(distinct_values) with observe::production(production)
+	let fill_work = observe::production_index_work_for_test(production)
+	observe::reset_production_index_work_for_test(production)
+	let _ = handle begin
+		emit_indexed_known_series(fixed_checks, distinct_values)
+		emit_indexed_unseen_series(fixed_checks, distinct_values)
+	end with observe::production(production)
+	let full_work = observe::production_index_work_for_test(production)
+	match observe::production_health(production)
+		observe::ProductionHealth(series, admitted, dropped) => { fill_work: fill_work, full_work: full_work, correct: series == distinct_values * 2 and admitted == distinct_values * 2 + fixed_checks and dropped == fixed_checks }
+	end
+end
+
+fn emit_indexed_distinct_series(remaining: Int) -> () effects [observe::Observe] callsite
+	if remaining == 0
+		()
+	else
+		begin
+			metric::counter_increment(None, "indexed", 1, list_cons(observe::Attribute("value", observe::IntValue(remaining)), list_nil()))
+			metric::counter_increment(None, "indexed", 1, list_cons(observe::Attribute("value", observe::StringValue(int_to_string(remaining))), list_nil()))
+			emit_indexed_distinct_series(remaining - 1)
+		end
+	end
+end
+
+fn emit_indexed_known_series(remaining: Int, distinct_values: Int) -> () effects [observe::Observe] callsite
+	if remaining == 0
+		()
+	else
+		begin
+			metric::counter_increment(None, "indexed", remaining, list_cons(observe::Attribute("value", observe::IntValue(distinct_values - remaining + 1)), list_nil()))
+			emit_indexed_known_series(remaining - 1, distinct_values)
+		end
+	end
+end
+
+fn emit_indexed_unseen_series(remaining: Int, distinct_values: Int) -> () effects [observe::Observe] callsite
+	if remaining == 0
+		()
+	else
+		begin
+			metric::counter_increment(None, "indexed", remaining, list_cons(observe::Attribute("value", observe::IntValue(distinct_values + remaining)), list_nil()))
+			emit_indexed_unseen_series(remaining - 1, distinct_values)
+		end
+	end
 end

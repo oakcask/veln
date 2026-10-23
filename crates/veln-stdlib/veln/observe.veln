@@ -28,21 +28,12 @@ pub type Recording
 end
 
 type MetricSeries
-	CounterSeries(name: String, attributes: AttributeMultiset)
-	HistogramSeries(name: String, attributes: AttributeMultiset)
-end
-
-type AttributeMultiset
-	AttributeMultiset(count: Int, bools: Dict<String, { false_count : Int, true_count : Int }>, ints: Dict<String, Dict<Int, Int>>, strings: Dict<String, Dict<String, Int>>)
+	CounterSeries(name: String, attributes: List<Attribute>)
+	HistogramSeries(name: String, attributes: List<Attribute>)
 end
 
 type ProductionState
-	ProductionState(series: List<MetricSeries>, series_count: Int, admitted_metric_observations: Int, dropped_metric_observations: Int)
-end
-
-type ProductionDecision
-	CommitProductionState(state: ProductionState, completed: Sender<()>)
-	AbortProductionDecision
+	ProductionState(series_index: Int, series_count: Int, admitted_metric_observations: Int, dropped_metric_observations: Int)
 end
 
 pub type Production
@@ -128,7 +119,7 @@ fn start_production(metric_series_limit: Int, admitted_metric_observations: Int,
 	else
 		metric_series_limit
 	end
-	let initial = ProductionState(list_nil(), 0, admitted_metric_observations, dropped_metric_observations)
+	let initial = ProductionState(prelude_builtin::production_metric_index_new(limit), 0, admitted_metric_observations, dropped_metric_observations)
 	let _ = channel::send(state.tx, initial)
 	Production(limit, state)
 end
@@ -136,19 +127,14 @@ end
 pub fn production_health(production: Production) -> ProductionHealth effects [concurrency]
 	match production
 		Production(_, state_channel) => begin
-			let snapshot = channel::bounded<ProductionState>(1)
-			let decision = channel::bounded<ProductionDecision>(2)
-			let completed = channel::bounded<()>(1)
-			defer
-				let _ = channel::send(decision.tx, AbortProductionDecision)
-				()
-			end
-			let _ = task::spawn_with<(), { state : { tx : Sender<ProductionState>, rx : Receiver<ProductionState> }, snapshot : Sender<ProductionState>, decision : Receiver<ProductionDecision> }>(production_transaction, { state: state_channel, snapshot: snapshot.tx, decision: decision.rx })
-			match channel::recv(snapshot.rx)
+			match channel::recv(state_channel.rx)
 				Some(current) => begin
+					let committed = channel::bounded<()>(1)
+					defer
+						restore_uncommitted_production_state(state_channel.tx, current, committed.rx)
+					end
 					let health = production_state_health(current)
-					let _ = channel::send(decision.tx, CommitProductionState(current, completed.tx))
-					let _ = channel::recv(completed.rx)
+					commit_production_state(state_channel.tx, current, committed.tx, None)
 					health
 				end
 				None => ProductionHealth(0, 0, 0)
@@ -287,19 +273,27 @@ end
 
 fn metric_series(record: Observation) -> Option<MetricSeries>
 	match record
-		CounterIncrement(CounterIncrementRecord(name, _, attributes, _, _)) => match attribute_multiset(attributes)
-			normalized => Some(CounterSeries(name, normalized))
-		end
-		HistogramSample(HistogramSampleRecord(name, _, attributes, _, _)) => match attribute_multiset(attributes)
-			normalized => Some(HistogramSeries(name, normalized))
-		end
+		CounterIncrement(CounterIncrementRecord(name, _, attributes, _, _)) => Some(CounterSeries(name, attributes))
+		HistogramSample(HistogramSampleRecord(name, _, attributes, _, _)) => Some(HistogramSeries(name, attributes))
 		_ => None
 	end
 end
 
 fn update_metric_cardinality(production: Production, candidate: MetricSeries) -> () effects [concurrency]
-	let hook = channel::bounded<()>(1)
-	update_metric_cardinality_with_hook(production, candidate, production_decision_noop, hook.tx, hook.rx)
+	match production
+		Production(metric_series_limit, state_channel) => match channel::recv(state_channel.rx)
+			Some(current) => begin
+				let committed = channel::bounded<()>(1)
+				defer
+					restore_uncommitted_production_state(state_channel.tx, current, committed.rx)
+				end
+				match decide_metric_cardinality(metric_series_limit, current, candidate)
+					{ state: next, retained: retained } => commit_production_state(state_channel.tx, next, committed.tx, retained)
+				end
+			end
+			None => ()
+		end
+	end
 end
 
 fn apply_metric_cardinality_for_test(production: Production, record: Observation, decision_hook: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], entered: Sender<()>, release: Receiver<()>) -> () effects [concurrency]
@@ -311,22 +305,17 @@ end
 
 fn update_metric_cardinality_with_hook(production: Production, candidate: MetricSeries, decision_hook: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], entered: Sender<()>, release: Receiver<()>) -> () effects [concurrency]
 	match production
-		Production(_, state_channel) => begin
-			let snapshot = channel::bounded<ProductionState>(1)
-			let decision = channel::bounded<ProductionDecision>(2)
-			let completed = channel::bounded<()>(1)
-			defer
-				let _ = channel::send(decision.tx, AbortProductionDecision)
-				()
-			end
-			let _ = task::spawn_with<(), { state : { tx : Sender<ProductionState>, rx : Receiver<ProductionState> }, snapshot : Sender<ProductionState>, decision : Receiver<ProductionDecision> }>(production_transaction, { state: state_channel, snapshot: snapshot.tx, decision: decision.rx })
-			match channel::recv(snapshot.rx)
+		Production(metric_series_limit, state_channel) => begin
+			match channel::recv(state_channel.rx)
 				Some(current) => begin
+					let committed = channel::bounded<()>(1)
+					defer
+						restore_uncommitted_production_state(state_channel.tx, current, committed.rx)
+					end
 					decision_hook(entered, release)
-					let next = decide_metric_cardinality(production_limit(production), current, candidate)
-					let _ = channel::send(decision.tx, CommitProductionState(next, completed.tx))
-					let _ = channel::recv(completed.rx)
-					()
+					match decide_metric_cardinality(metric_series_limit, current, candidate)
+						{ state: next, retained: retained } => commit_production_state(state_channel.tx, next, committed.tx, retained)
+					end
 				end
 				None => ()
 			end
@@ -334,48 +323,36 @@ fn update_metric_cardinality_with_hook(production: Production, candidate: Metric
 	end
 end
 
-fn production_transaction(context: { state : { tx : Sender<ProductionState>, rx : Receiver<ProductionState> }, snapshot : Sender<ProductionState>, decision : Receiver<ProductionDecision> }) -> () effects [concurrency]
-	match channel::recv(context.state.rx)
-		Some(state) => begin
-			let _ = channel::send(context.snapshot, state)
-			match channel::recv(context.decision)
-				Some(CommitProductionState(next, completed)) => begin
-					let _ = channel::send(context.state.tx, next)
-					let _ = channel::send(completed, ())
-					()
-				end
-				Some(AbortProductionDecision) => begin
-					let _ = channel::send(context.state.tx, state)
-					()
-				end
-				None => begin
-					let _ = channel::send(context.state.tx, state)
-					()
-				end
-			end
+fn commit_production_state(state: Sender<ProductionState>, next: ProductionState, committed: Sender<()>, retained: Option<MetricSeries>) -> () effects [concurrency]
+	match retained
+		Some(candidate) => match next
+			ProductionState(series_index, _, _, _) => prelude_builtin::production_metric_index_insert(series_index, candidate)
 		end
 		None => ()
 	end
-end
-
-fn production_decision_noop(entered: Sender<()>, release: Receiver<()>) -> () effects [concurrency]
+	let _ = channel::send(committed, ())
+	let _ = channel::send(state, next)
 	()
 end
 
-fn production_limit(production: Production) -> Int
-	match production
-		Production(metric_series_limit, _) => metric_series_limit
+fn restore_uncommitted_production_state(state: Sender<ProductionState>, original: ProductionState, committed: Receiver<()>) -> () effects [concurrency]
+	match channel::select_many_timeout(list_cons(committed, list_nil()), 0)
+		Some(_) => ()
+		None => begin
+			let _ = channel::send(state, original)
+			()
+		end
 	end
 end
 
-fn decide_metric_cardinality(metric_series_limit: Int, state: ProductionState, candidate: MetricSeries) -> ProductionState
+fn decide_metric_cardinality(metric_series_limit: Int, state: ProductionState, candidate: MetricSeries) -> { state : ProductionState, retained : Option<MetricSeries> }
 	match state
-		ProductionState(series, series_count, admitted_metric_observations, dropped_metric_observations) => if contains_metric_series(series, candidate)
-			ProductionState(series, series_count, bounded_increment(admitted_metric_observations), dropped_metric_observations)
+		ProductionState(series_index, series_count, admitted_metric_observations, dropped_metric_observations) => if prelude_builtin::production_metric_index_contains(series_index, candidate)
+			{ state: ProductionState(series_index, series_count, bounded_increment(admitted_metric_observations), dropped_metric_observations), retained: None }
 		else if series_count < metric_series_limit
-			ProductionState(list_cons(candidate, series), series_count + 1, bounded_increment(admitted_metric_observations), dropped_metric_observations)
+			{ state: ProductionState(series_index, series_count + 1, bounded_increment(admitted_metric_observations), dropped_metric_observations), retained: Some(candidate) }
 		else
-			ProductionState(series, series_count, admitted_metric_observations, bounded_increment(dropped_metric_observations))
+			{ state: ProductionState(series_index, series_count, admitted_metric_observations, bounded_increment(dropped_metric_observations)), retained: None }
 		end
 	end
 end
@@ -394,147 +371,42 @@ fn bounded_increment(value: Int) -> Int
 	end
 end
 
-fn contains_metric_series(series: List<MetricSeries>, candidate: MetricSeries) -> Bool
-	match series
-		Nil => false
-		Cons(known, remaining) => if same_metric_series(known, candidate)
-			true
-		else
-			contains_metric_series(remaining, candidate)
+fn production_index_work_for_test(production: Production) -> Int effects [concurrency]
+	match production
+		Production(_, state_channel) => match channel::recv(state_channel.rx)
+			Some(current) => begin
+				let committed = channel::bounded<()>(1)
+				defer
+					restore_uncommitted_production_state(state_channel.tx, current, committed.rx)
+				end
+				match current
+					ProductionState(series_index, _, _, _) => begin
+						let work = prelude_builtin::production_metric_index_work(series_index)
+						commit_production_state(state_channel.tx, current, committed.tx, None)
+						work
+					end
+				end
+			end
+			None => 0
 		end
 	end
 end
 
-fn same_metric_series(left: MetricSeries, right: MetricSeries) -> Bool
-	match left
-		CounterSeries(left_name, left_attributes) => match right
-			CounterSeries(right_name, right_attributes) => left_name == right_name and equivalent_attributes(left_attributes, right_attributes)
-			_ => false
+fn reset_production_index_work_for_test(production: Production) -> () effects [concurrency]
+	match production
+		Production(_, state_channel) => match channel::recv(state_channel.rx)
+			Some(current) => begin
+				let committed = channel::bounded<()>(1)
+				defer
+					restore_uncommitted_production_state(state_channel.tx, current, committed.rx)
+				end
+				match current
+					ProductionState(series_index, _, _, _) => prelude_builtin::production_metric_index_reset_work(series_index)
+				end
+				commit_production_state(state_channel.tx, current, committed.tx, None)
+			end
+			None => ()
 		end
-		HistogramSeries(left_name, left_attributes) => match right
-			HistogramSeries(right_name, right_attributes) => left_name == right_name and equivalent_attributes(left_attributes, right_attributes)
-			_ => false
-		end
-	end
-end
-
-fn attribute_multiset(attributes: List<Attribute>) -> AttributeMultiset
-	attribute_multiset_step(attributes, AttributeMultiset(0, {}, {}, {}))
-end
-
-fn attribute_multiset_step(attributes: List<Attribute>, multiset: AttributeMultiset) -> AttributeMultiset
-	match attributes
-		Nil => multiset
-		Cons(attribute, remaining) => attribute_multiset_step(remaining, insert_attribute(multiset, attribute))
-	end
-end
-
-fn insert_attribute(multiset: AttributeMultiset, attribute: Attribute) -> AttributeMultiset
-	match multiset
-		AttributeMultiset(count, bools, ints, strings) => match attribute
-			Attribute(name, BoolValue(value)) => AttributeMultiset(count + 1, insert_bool_attribute(bools, name, value), ints, strings)
-			Attribute(name, IntValue(value)) => AttributeMultiset(count + 1, bools, insert_int_attribute(ints, name, value), strings)
-			Attribute(name, StringValue(value)) => AttributeMultiset(count + 1, bools, ints, insert_string_attribute(strings, name, value))
-		end
-	end
-end
-
-fn insert_bool_attribute(bools: Dict<String, { false_count : Int, true_count : Int }>, name: String, value: Bool) -> Dict<String, { false_count : Int, true_count : Int }>
-	let counts = match dict_get(bools, name)
-		Some(existing) => existing
-		None => { false_count: 0, true_count: 0 }
-	end
-	if value
-		dict_insert(bools, name, { false_count: counts.false_count, true_count: counts.true_count + 1 })
-	else
-		dict_insert(bools, name, { false_count: counts.false_count + 1, true_count: counts.true_count })
-	end
-end
-
-fn insert_int_attribute(ints: Dict<String, Dict<Int, Int>>, name: String, value: Int) -> Dict<String, Dict<Int, Int>>
-	let values = option_unwrap_or(dict_get(ints, name), {})
-	let multiplicity = option_unwrap_or(dict_get(values, value), 0)
-	dict_insert(ints, name, dict_insert(values, value, multiplicity + 1))
-end
-
-fn insert_string_attribute(strings: Dict<String, Dict<String, Int>>, name: String, value: String) -> Dict<String, Dict<String, Int>>
-	let values = option_unwrap_or(dict_get(strings, name), {})
-	let multiplicity = option_unwrap_or(dict_get(values, value), 0)
-	dict_insert(strings, name, dict_insert(values, value, multiplicity + 1))
-end
-
-fn equivalent_attributes(left: AttributeMultiset, right: AttributeMultiset) -> Bool
-	match left
-		AttributeMultiset(left_count, left_bools, left_ints, left_strings) => match right
-			AttributeMultiset(right_count, right_bools, right_ints, right_strings) => left_count == right_count and equivalent_bool_attributes(left_bools, right_bools) and equivalent_int_attributes(left_ints, right_ints) and equivalent_string_attributes(left_strings, right_strings)
-		end
-	end
-end
-
-fn equivalent_bool_attributes(left: Dict<String, { false_count : Int, true_count : Int }>, right: Dict<String, { false_count : Int, true_count : Int }>) -> Bool
-	dict_fold_with(right, left, true, same_bool_attribute_counts)
-end
-
-fn same_bool_attribute_counts(right: Dict<String, { false_count : Int, true_count : Int }>, equal: Bool, name: String, counts: { false_count : Int, true_count : Int }) -> Bool
-	if equal
-		match dict_get(right, name)
-			Some(right_counts) => counts.false_count == right_counts.false_count and counts.true_count == right_counts.true_count
-			None => false
-		end
-	else
-		false
-	end
-end
-
-fn equivalent_int_attributes(left: Dict<String, Dict<Int, Int>>, right: Dict<String, Dict<Int, Int>>) -> Bool
-	dict_fold_with(right, left, true, same_int_attribute_values)
-end
-
-fn same_int_attribute_values(right: Dict<String, Dict<Int, Int>>, equal: Bool, name: String, values: Dict<Int, Int>) -> Bool
-	if equal
-		match dict_get(right, name)
-			Some(right_values) => dict_fold_with(right_values, values, true, same_int_multiplicity)
-			None => false
-		end
-	else
-		false
-	end
-end
-
-fn same_int_multiplicity(right: Dict<Int, Int>, equal: Bool, value: Int, multiplicity: Int) -> Bool
-	if equal
-		match dict_get(right, value)
-			Some(right_multiplicity) => multiplicity == right_multiplicity
-			None => false
-		end
-	else
-		false
-	end
-end
-
-fn equivalent_string_attributes(left: Dict<String, Dict<String, Int>>, right: Dict<String, Dict<String, Int>>) -> Bool
-	dict_fold_with(right, left, true, same_string_attribute_values)
-end
-
-fn same_string_attribute_values(right: Dict<String, Dict<String, Int>>, equal: Bool, name: String, values: Dict<String, Int>) -> Bool
-	if equal
-		match dict_get(right, name)
-			Some(right_values) => dict_fold_with(right_values, values, true, same_string_multiplicity)
-			None => false
-		end
-	else
-		false
-	end
-end
-
-fn same_string_multiplicity(right: Dict<String, Int>, equal: Bool, value: String, multiplicity: Int) -> Bool
-	if equal
-		match dict_get(right, value)
-			Some(right_multiplicity) => multiplicity == right_multiplicity
-			None => false
-		end
-	else
-		false
 	end
 end
 

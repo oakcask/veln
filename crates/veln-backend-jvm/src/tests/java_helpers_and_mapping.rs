@@ -253,6 +253,20 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("string_split_once", "stringSplitOnce"),
         ("string_parse_int", "stringParseInt"),
         ("int_to_string", "intToString"),
+        ("production_metric_index_new", "productionMetricIndexNew"),
+        (
+            "production_metric_index_contains",
+            "productionMetricIndexContains",
+        ),
+        (
+            "production_metric_index_insert",
+            "productionMetricIndexInsert",
+        ),
+        ("production_metric_index_work", "productionMetricIndexWork"),
+        (
+            "production_metric_index_reset_work",
+            "productionMetricIndexResetWork",
+        ),
         ("vec_len", "vecLen"),
         ("vec_is_empty", "vecIsEmpty"),
         ("vec_push", "vecPush"),
