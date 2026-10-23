@@ -493,11 +493,11 @@ invalid final segment return the ordinary empty result. Invalid arity,
 arguments, terminal ADT identity, canonical union arguments, visibility, or
 same-owner uniqueness also prevents recovery.
 
-A failed invalid-final request preserves the exact saved selection, prior tool
-result, complete retained dependency-resource metadata and contents, and every
-existing references cursor. Continuing a cursor after the failure returns the
-next page from its original captured result. The failed request admits no new
-dependency resource.
+A failed request after an invalid-final recovery preserves the exact saved
+selection, prior tool result, complete retained dependency-resource metadata
+and contents, and every existing references cursor. Continuing a cursor after
+the failure returns the next page from its original captured result. The
+failed request admits no new dependency resource.
 
 The checked `adt-variant-refinement-navigation` MCP case asserts the exact
 ordered constructor references and rename edits across direct and
