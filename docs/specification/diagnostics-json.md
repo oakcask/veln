@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The `veln check --json` diagnostic schema, human `veln check` rendering, stable `veln check` detail fields, or `veln check` diagnostic producers change.
+update-when: The `veln check --json` diagnostic schema, human `veln check` rendering, stable `veln check` detail fields, `veln check` diagnostic producers, or the boundary between variant-refinement diagnostic recovery and language-service navigation identity changes.
 specification-coverage: usage=#usage; behavior=#diagnostic-families; limits=#limits
 ---
 

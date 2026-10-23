@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The standard-library test placement policy, CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, structured JSON-RPC input directives, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, scoped Veln effect fixture support, fixture command timeout or process-tree termination behavior, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
+update-when: The standard-library test placement policy, CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, structured JSON-RPC input directives, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, documented executable LSP or MCP case coverage, scoped Veln effect fixture support, fixture command timeout or process-tree termination behavior, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
