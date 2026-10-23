@@ -10,16 +10,57 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 export VELN_CACHE_DIR="$cache_root"
+export VELN_TEST_TIMINGS=1
 
 cd "$standard_root"
-# Keep each generated JVM test entry bounded as companion coverage grows.
-shopt -s globstar nullglob
-companions=(**/*.test.veln)
-for companion in "${companions[@]}"; do
-  bash ../../../scripts/agent-run \
+# Build Cargo's entry point once, then keep each explicit companion batch below
+# the observed combined-entry JVM boundary. Every batch retains its own time
+# and memory guard while sharing one whole-package analysis among related files.
+TIMEFORMAT='veln: stdlib timing: stage=cargo_invocation duration_seconds=%R'
+time bash ../../../scripts/agent-run \
+  cargo build \
+  --manifest-path ../../../Cargo.toml \
+  --locked \
+  -p veln-cli
+
+run_batch() {
+  local batch="$1"
+  shift
+  printf 'veln: stdlib timing: batch=%s companions=%s\n' "$batch" "$#" >&2
+  TIMEFORMAT='veln: stdlib timing: stage=batch_invocation duration_seconds=%R'
+  time bash ../../../scripts/agent-run \
     cargo run \
     --manifest-path ../../../Cargo.toml \
     --locked \
     -p veln-cli \
-    -- test "$companion"
+    -- test "$@"
+}
+
+shopt -s globstar nullglob
+companions=(**/*.test.veln)
+remaining_companions=()
+for companion in "${companions[@]}"; do
+  case "$companion" in
+    http2/core.test.veln|http2/connection.test.veln|http2/hpack.test.veln|net.test.veln|observe.test.veln|prelude.test.veln)
+      ;;
+    *)
+      remaining_companions+=("$companion")
+      ;;
+  esac
 done
+
+if [ "${#remaining_companions[@]}" -eq 0 ]; then
+  printf 'veln: standard library companion discovery produced no remaining batch\n' >&2
+  exit 1
+fi
+
+run_batch http2-core \
+  http2/core.test.veln
+run_batch http2-support \
+  http2/connection.test.veln \
+  http2/hpack.test.veln
+run_batch large-companions \
+  net.test.veln \
+  observe.test.veln \
+  prelude.test.veln
+run_batch remaining-companions "${remaining_companions[@]}"

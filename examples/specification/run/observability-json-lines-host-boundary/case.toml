@@ -25,3 +25,7 @@ equals_file = "case-text/stderr.txt"
 [[json_assert]]
 path = "error"
 equals = null
+
+[[file_assert]]
+path = "health.jsonl"
+equals_file = "case-text/health.jsonl"

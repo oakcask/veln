@@ -19,6 +19,18 @@ local_reusable_workflow_paths contains workflow_path if {
   workflow_path := trim_prefix(uses, "./")
 }
 
+observability_schema_checker_inputs := {
+  "crates/veln-stdlib/schemas/observability/v1/json-lines-record.schema.json",
+  "examples/specification/run/observability-json-lines-encoder/case-text/records.jsonl",
+}
+
+runs_observability_schema_checker if {
+  some job_name
+  job := input.jobs[job_name]
+  some step in object.get(job, "steps", [])
+  contains(object.get(step, "run", ""), "node --test workflow-scripts/*.test.mjs")
+}
+
 workflow_name_parts(name) := parts if {
   regex.match(`^[^/]+ / [^/]+$`, name)
   parts := split(name, " / ")
@@ -133,6 +145,19 @@ deny contains msg if {
   pull_request_paths != null
   push_paths != pull_request_paths
   msg := "workflow push.paths and pull_request.paths must match"
+}
+
+deny contains msg if {
+  runs_observability_schema_checker
+  some event_name, event in workflow_trigger
+  paths := object.get(event, "paths", null)
+  paths != null
+  some required_path in observability_schema_checker_inputs
+  not required_path in paths
+  msg := sprintf("add %q to on.%s.paths because the observability schema checker reads it; otherwise changes to this input can bypass validation", [
+    required_path,
+    event_name,
+  ])
 }
 
 deny contains msg if {
