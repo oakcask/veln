@@ -1055,8 +1055,8 @@ fn invalid_final_recovery_uses_inbound_utf16_and_preserves_unsaved_snapshot() {
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
     server.handle_message(&format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":{}}}}}}}"#,
-        format!(r#""{}""#, escape_json(overlay))
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"{}"}}}}}}"#,
+        escape_json(overlay)
     ));
 
     let line = overlay.lines().nth(5).unwrap();
