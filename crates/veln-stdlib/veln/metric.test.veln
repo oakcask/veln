@@ -88,15 +88,20 @@ test production_cardinality_preserves_results_and_non_metric_operations() -> Res
 		event::emit(None, "domain.event", list_nil())
 		let span = perform observe::Observe::start_span(observe::SpanRequest("work", None, list_nil()))
 		perform observe::Observe::finish_span(observe::finish(span))
+		metric::counter_increment(None, "admitted", 1, list_nil())
+		metric::counter_increment(None, "dropped", 1, list_nil())
 		73
 	end with observe::production(production)
 	match observe::production_health(production)
-		observe::ProductionHealth(0, 0, 0) => if result == 73
-			Ok(())
-		else
-			Err("production cardinality handler changed the handled application result")
+		observe::ProductionHealth(1, 1, 1) => match observe::production_health(production)
+			observe::ProductionHealth(1, 1, 1) => if result == 73
+				Ok(())
+			else
+				Err("dropping a metric changed the handled application result")
+			end
+			_ => Err("production health snapshot consumed or changed metric state")
 		end
-		_ => Err("non-metric observations changed production metric health")
+		_ => Err("non-metric observations changed production metric health or a full policy admitted an unseen series")
 	end
 end
 
@@ -121,15 +126,20 @@ test production_cardinality_state_is_isolated_per_handler() -> Result<(), String
 end
 
 test production_cardinality_serializes_concurrent_emissions() -> Result<(), String> effects [concurrency]
-	let production = observe::new_production(2)
-	let result = handle concurrent_metric_body() with observe::production(production)
-	match observe::production_health(production)
-		observe::ProductionHealth(2, 2, 0) => if result == 2
-			Ok(())
-		else
-			Err("concurrent metric workers changed their application results")
+	let distinct = observe::new_production(1)
+	let distinct_result = handle concurrent_metric_body("concurrent-first", "concurrent-second") with observe::production(distinct)
+	let repeated = observe::new_production(1)
+	let repeated_result = handle concurrent_metric_body("concurrent-known", "concurrent-known") with observe::production(repeated)
+	match observe::production_health(distinct)
+		observe::ProductionHealth(1, 1, 1) => match observe::production_health(repeated)
+			observe::ProductionHealth(1, 2, 0) => if distinct_result == 2 and repeated_result == 2
+				Ok(())
+			else
+				Err("concurrent metric workers changed their application results")
+			end
+			_ => Err("concurrent known-series emissions were not both admitted")
 		end
-		_ => Err("concurrent metric emissions lost or duplicated a series decision")
+		_ => Err("concurrent distinct emissions oversubscribed the final series slot")
 	end
 end
 
@@ -174,9 +184,9 @@ fn emit_observations(observations: List<Observation>) -> () effects [observe::Ob
 	end
 end
 
-fn concurrent_metric_body() -> Int effects [observe::Observe, concurrency]
-	let first = task::spawn_with<Int, String>(concurrent_metric_worker, "concurrent-first")
-	let second = task::spawn_with<Int, String>(concurrent_metric_worker, "concurrent-second")
+fn concurrent_metric_body(first_name: String, second_name: String) -> Int effects [observe::Observe, concurrency]
+	let first = task::spawn_with<Int, String>(concurrent_metric_worker, first_name)
+	let second = task::spawn_with<Int, String>(concurrent_metric_worker, second_name)
 	let first_result = match task::join(first)
 		Ok(value) => value
 		Err(_) => 0
