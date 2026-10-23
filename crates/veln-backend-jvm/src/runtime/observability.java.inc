@@ -298,34 +298,17 @@
         return output.append(']').toString();
     }
 
-    private static String observationCanonicalSourceComponent(
-        String value,
-        boolean allowEmpty,
-        boolean module
-    ) {
+    private static String observationCanonicalSourcePath(String value, boolean allowEmpty) {
         if (value.isEmpty()) return allowEmpty ? value : "<invalid-source>";
         if (value.startsWith("/") || value.startsWith("\\")
             || value.matches("^[A-Za-z]:.*") || value.indexOf('\\') >= 0
-            || value.indexOf('\0') >= 0) {
-            return "<invalid-source>";
-        }
-        if (!module && value.indexOf(':') >= 0) return "<invalid-source>";
-        if (module && (value.indexOf('/') >= 0 || value.startsWith(":") || value.endsWith(":")
-            || value.replace("::", "").indexOf(':') >= 0)) {
+            || value.indexOf('\0') >= 0 || value.indexOf(':') >= 0) {
             return "<invalid-source>";
         }
         String[] pathSegments = value.split("/", -1);
         for (String segment : pathSegments) {
             if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) {
                 return "<invalid-source>";
-            }
-        }
-        if (module) {
-            String[] moduleSegments = value.split("::", -1);
-            for (String segment : moduleSegments) {
-                if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) {
-                    return "<invalid-source>";
-                }
             }
         }
         try {
@@ -336,13 +319,28 @@
         return value;
     }
 
+    private static String observationCanonicalModule(String value) {
+        if (value.isEmpty() || value.indexOf('/') >= 0 || value.indexOf('\\') >= 0
+            || value.indexOf('\0') >= 0) {
+            return "<invalid-source>";
+        }
+        String[] segments = value.split("::", -1);
+        for (String segment : segments) {
+            if (segment.isEmpty() || segment.equals(".") || segment.equals("..")
+                || segment.indexOf(':') >= 0) {
+                return "<invalid-source>";
+            }
+        }
+        return value;
+    }
+
     private static String observationSource(Object source) {
-        String packageName = observationCanonicalSourceComponent(
-            asString(recordField(source, "package")), true, false);
-        String moduleName = observationCanonicalSourceComponent(
-            asString(recordField(source, "module")), false, true);
-        String file = observationCanonicalSourceComponent(
-            asString(recordField(source, "file")), false, false);
+        String packageName = observationCanonicalSourcePath(
+            asString(recordField(source, "package")), true);
+        String moduleName = observationCanonicalModule(
+            asString(recordField(source, "module")));
+        String file = observationCanonicalSourcePath(
+            asString(recordField(source, "file")), false);
         return "{\"package\":" + observationJsonString(packageName)
             + ",\"module\":" + observationJsonString(moduleName)
             + ",\"file\":" + observationJsonString(file)
@@ -385,6 +383,83 @@
         return output.append(']').toString();
     }
 
+    private static boolean observationTraceValid(Object trace) {
+        Adt context = asAdt(trace, "TraceContext");
+        return !asString(context.payloads[0]).isEmpty()
+            && !asString(context.payloads[1]).isEmpty();
+    }
+
+    private static boolean observationOptionalTraceValid(Object trace) {
+        Option option = asOption(trace);
+        return !option.some || observationTraceValid(option.value);
+    }
+
+    private static boolean observationLinksValid(Object links) {
+        ListValue remaining = asListValue(links);
+        while (remaining.cons) {
+            if (!observationTraceValid(remaining.head)) return false;
+            remaining = asListValue(remaining.tail);
+        }
+        return true;
+    }
+
+    private static boolean observationOptionalIdentityValid(Object identity) {
+        Option option = asOption(identity);
+        return !option.some || !asString(option.value).isEmpty();
+    }
+
+    private static boolean observationSourceValid(Object source) {
+        return asLong(recordField(source, "start_line")) >= 0L
+            && asLong(recordField(source, "start_column")) >= 0L
+            && asLong(recordField(source, "start_offset")) >= 0L
+            && asLong(recordField(source, "end_line")) >= 0L
+            && asLong(recordField(source, "end_column")) >= 0L
+            && asLong(recordField(source, "end_offset")) >= 0L;
+    }
+
+    private static boolean observationOptionalSourceValid(Object source) {
+        Option option = asOption(source);
+        return !option.some || observationSourceValid(option.value);
+    }
+
+    private static boolean observationPayloadValid(Object payload) {
+        Adt exportPayload = (Adt) payload;
+        if (isAdt(exportPayload, "ExportLog")) {
+            Adt record = asAdt(exportPayload.payloads[0], "LogRecord");
+            return observationOptionalTraceValid(record.payloads[4])
+                && observationSourceValid(record.payloads[5]);
+        }
+        if (isAdt(exportPayload, "ExportEvent")) {
+            Adt record = asAdt(exportPayload.payloads[0], "EventRecord");
+            return observationOptionalTraceValid(record.payloads[2])
+                && observationSourceValid(record.payloads[3]);
+        }
+        if (isAdt(exportPayload, "ExportCounter")) {
+            Adt record = asAdt(exportPayload.payloads[0], "CounterIncrementRecord");
+            return observationOptionalTraceValid(record.payloads[3])
+                && observationSourceValid(record.payloads[4]);
+        }
+        if (isAdt(exportPayload, "ExportHistogram")) {
+            Adt record = asAdt(exportPayload.payloads[0], "HistogramSampleRecord");
+            return observationOptionalTraceValid(record.payloads[3])
+                && observationSourceValid(record.payloads[4]);
+        }
+        if (isAdt(exportPayload, "ExportSpanStart")) {
+            return !asString(exportPayload.payloads[1]).isEmpty()
+                && !asString(exportPayload.payloads[2]).isEmpty()
+                && observationOptionalIdentityValid(exportPayload.payloads[3])
+                && observationLinksValid(exportPayload.payloads[4])
+                && observationOptionalSourceValid(exportPayload.payloads[5]);
+        }
+        if (isAdt(exportPayload, "ExportSpanFinish")) {
+            return !asString(exportPayload.payloads[1]).isEmpty()
+                && !asString(exportPayload.payloads[2]).isEmpty()
+                && observationOptionalIdentityValid(exportPayload.payloads[3])
+                && observationOptionalSourceValid(exportPayload.payloads[4]);
+        }
+        throw new IllegalStateException("expected observation export payload");
+    }
+
     public static Object observationJsonLine(
         Object payload,
         Object wallTime,
@@ -400,6 +475,18 @@
         Adt exportResource = asAdt(resource, "Resource");
         Adt exportScope = asAdt(scope, "InstrumentationScope");
         Adt exportLimits = asAdt(limits, "ExporterLimits");
+        boolean valid = !asString(exportResource.payloads[0]).isEmpty()
+            && !asString(exportScope.payloads[0]).isEmpty()
+            && observationPayloadValid(exportPayload);
+        if (!valid) {
+            return record(
+                "valid", Boolean.FALSE,
+                "line", "",
+                "dropped", Long.valueOf(0L),
+                "truncated", Long.valueOf(0L),
+                "redacted", Long.valueOf(0L)
+            );
+        }
         long maximumCount = Math.max(0L, asLong(exportLimits.payloads[0]));
         long maximumStringSize = Math.max(0L, asLong(exportLimits.payloads[1]));
         long maximumRedacted = Math.max(0L, asLong(exportLimits.payloads[2]));
@@ -496,6 +583,7 @@
             + ",\"truncated\":" + facts.truncated + ",\"redacted\":" + facts.redacted + "}"
             + data + "}\n";
         return record(
+            "valid", Boolean.TRUE,
             "line", line,
             "dropped", Long.valueOf(facts.dropped),
             "truncated", Long.valueOf(facts.truncated),

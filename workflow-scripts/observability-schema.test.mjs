@@ -134,6 +134,38 @@ test("the checked schema rejects incompatible versions and unrecognized fields",
   delete counterWithoutValue.value;
   assert.throws(() => validate(counterWithoutValue, schema));
   assert.throws(() => validate({ ...representative("span_start"), trace: { trace_id: "trace-1", span_id: "span-1", sampled: true } }, schema));
+  assert.throws(() => validate({
+    ...representative("log"),
+    trace: { trace_id: "", span_id: "span-1", sampled: true },
+  }, schema));
+  assert.throws(() => validate({
+    ...representative("log"),
+    trace: { trace_id: "trace-1", span_id: "", sampled: true },
+  }, schema));
+  assert.throws(() => validate({
+    ...representative("span_start"),
+    span: { trace_id: "trace-1", span_id: "span-2", parent_span_id: "" },
+  }, schema));
+  assert.throws(() => validate({
+    ...representative("span_start"),
+    links: [{ trace_id: "", span_id: "span-3", sampled: false }],
+  }, schema));
+  assert.throws(() => validate({
+    ...representative("event"),
+    source: { ...representative("event").source, start_line: -1 },
+  }, schema));
+  assert.throws(() => validate({
+    ...representative("event"),
+    source: { ...representative("event").source, end_column: -1 },
+  }, schema));
+  assert.throws(() => validate({
+    ...representative("event"),
+    resource: { name: "", attributes: [] },
+  }, schema));
+  assert.throws(() => validate({
+    ...representative("event"),
+    instrumentation_scope: { name: "", version: "1" },
+  }, schema));
 });
 
 test("six captured JVM encoder records satisfy schema, branch, framing, and path contracts", async () => {
@@ -164,6 +196,15 @@ test("six captured JVM encoder records satisfy schema, branch, framing, and path
     { name: "both", type: "string", value: "abcd" },
   ]);
   assert.deepEqual(records[0].attribute_facts, { dropped: 1, truncated: 5, redacted: 1 });
+  assert.deepEqual(records[0].source, {
+    package: "",
+    module: "a::b",
+    file: "a/b.veln",
+    start_line: 7,
+    start_column: 2,
+    end_line: 7,
+    end_column: 256,
+  });
   assert.deepEqual(records[1].source, {
     package: "<invalid-source>",
     module: "<invalid-source>",

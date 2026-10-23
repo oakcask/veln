@@ -316,6 +316,14 @@ test json_lines_replaces_hostile_public_source_components() -> Result<(), String
 	observe_export_test_support_test::hostile_public_source_components_are_replaced()
 end
 
+test json_lines_rejects_schema_invalid_public_values_before_writing() -> Result<(), String> effects [time, concurrency]
+	observe_export_test_support_test::invalid_public_values_are_rejected_before_destination_write()
+end
+
+test json_lines_rejects_empty_resource_and_scope_names_with_bounded_health() -> Result<(), String> effects [time, concurrency]
+	observe_export_test_support_test::invalid_exporter_identity_is_rejected_and_health_saturates()
+end
+
 test exporter_health_totals_saturate_at_maximum_int() -> Result<(), String> effects [time, concurrency]
 	let maximum = 9223372036854775807
 	let resource = observe::Resource("checkout", list_nil())

@@ -630,8 +630,12 @@ fn export_payload(exporter: JsonLinesExporter, payload: ExportPayload) -> () eff
 					end
 					match current
 						ExporterState(sequence, next_identity, failed, dropped, truncated, redacted) => begin
-							let encoded: { line : String, dropped : Int, truncated : Int, redacted : Int } = prelude_builtin::observation_json_line(payload, wall_time, sequence, resource, scope, limits, failed, admitted_metrics, dropped_metrics)
-							let written = prelude_builtin::observation_export_write(destination, encoded.line, false)
+							let encoded: { valid : Bool, line : String, dropped : Int, truncated : Int, redacted : Int } = prelude_builtin::observation_json_line(payload, wall_time, sequence, resource, scope, limits, failed, admitted_metrics, dropped_metrics)
+							let written = if encoded.valid
+								prelude_builtin::observation_export_write(destination, encoded.line, false)
+							else
+								false
+							end
 							let next_failed = if written
 								failed
 							else

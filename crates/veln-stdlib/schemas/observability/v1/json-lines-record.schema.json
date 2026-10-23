@@ -168,7 +168,7 @@
       "additionalProperties": false,
       "required": ["name", "attributes"],
       "properties": {
-        "name": { "type": "string" },
+        "name": { "type": "string", "minLength": 1 },
         "attributes": { "$ref": "#/$defs/attributes" }
       }
     },
@@ -177,7 +177,7 @@
       "additionalProperties": false,
       "required": ["name", "version"],
       "properties": {
-        "name": { "type": "string" },
+        "name": { "type": "string", "minLength": 1 },
         "version": { "type": "string" }
       }
     },

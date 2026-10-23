@@ -78,6 +78,72 @@ pub fn hostile_public_source_components_are_replaced() -> Result<(), String> eff
 	expect_invalid_sources(lines.rx, 3)
 end
 
+fn invalid_public_exports(configured: JsonLinesExporter, lines: Sender<String>) -> Int effects [observe::Observe, time, concurrency]
+	perform observe::Observe::emit(observe::Log(observe::LogRecord("log", observe::Info, "invalid trace", list_nil(), Some(observe::TraceContext("", "span", true)), source("", "main", "main.veln"))))
+	perform observe::Observe::emit(observe::Event(observe::EventRecord("event", list_nil(), Some(observe::TraceContext("trace", "", true)), source("", "main", "main.veln"))))
+	perform observe::Observe::emit(observe::CounterIncrement(observe::CounterIncrementRecord("counter", 1, list_nil(), None, source_coordinates(-1, 1, 1, 2))))
+	perform observe::Observe::emit(observe::HistogramSample(observe::HistogramSampleRecord("histogram", 1, list_nil(), None, source_coordinates(1, 1, 1, -1))))
+	observe::export_observation(configured, observe::Event(observe::EventRecord("negative-start-column", list_nil(), None, source_full(1, -1, 0, 1, 2, 1))))
+	observe::export_observation(configured, observe::Event(observe::EventRecord("negative-start-offset", list_nil(), None, source_full(1, 1, -1, 1, 2, 1))))
+	observe::export_observation(configured, observe::Event(observe::EventRecord("negative-end-line", list_nil(), None, source_full(1, 1, 0, -1, 2, 1))))
+	observe::export_observation(configured, observe::Event(observe::EventRecord("negative-end-offset", list_nil(), None, source_full(1, 1, 0, 1, 2, -1))))
+	let invalid_parent = perform observe::Observe::start_span(observe::SpanRequest("invalid-parent", Some(observe::TraceContext("trace", "", true)), list_nil()))
+	perform observe::Observe::finish_span(observe::finish(invalid_parent))
+	let _ = perform observe::Observe::start_span(observe::SpanRequest("invalid-link", None, list_cons(observe::TraceContext("", "span", true), list_nil())))
+	let _ = perform observe::Observe::start_span(observe::SpanRequest("invalid-link-span", None, list_cons(observe::TraceContext("trace", "", true), list_nil())))
+	let empty_trace_span = handle observe::start_export_span(configured, observe::SpanRequest("invalid-generated-trace", None, list_nil())) with observe_test_support_test::exporter_with_empty_identity(lines, "trace")
+	observe::finish_export_span(configured, observe::finish(empty_trace_span))
+	let empty_span = handle observe::start_export_span(configured, observe::SpanRequest("invalid-generated-span", Some(observe::TraceContext("trace", "parent", true)), list_nil())) with observe_test_support_test::exporter_with_empty_identity(lines, "span")
+	observe::finish_export_span(configured, observe::finish(empty_span))
+	42
+end
+
+pub fn invalid_public_values_are_rejected_before_destination_write() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(20)
+	let configured = exporter(lines.tx, 4)
+	let result = handle handle handle invalid_public_exports(configured, lines.tx) with observe::json_lines(configured) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, true)
+	let valid = observe::Event(observe::EventRecord("valid", list_nil(), None, source("", "main", "main.veln")))
+	let _ = handle handle observe::export_observation(configured, valid) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, true)
+	match observe::exporter_health(configured)
+		observe::ExporterHealth(16, 0, 2, 0, observe::ProductionHealth(2, 2, 0)) => if result == 42
+			match channel::recv(lines.rx)
+				Some(line) => if has(line, "\"sequence\":17") and has(line, "\"name\":\"valid\"")
+					match channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
+						None => Ok(())
+						Some(_) => Err("schema-invalid export reached the record destination")
+					end
+				else
+					Err("valid export did not follow rejected attempts in sequence")
+				end
+				None => Err("later valid export did not reach the destination")
+			end
+		else
+			Err("schema-invalid export changed the handled result")
+		end
+		_ => Err("schema-invalid export health or metric admission changed")
+	end
+end
+
+pub fn invalid_exporter_identity_is_rejected_and_health_saturates() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(3)
+	let maximum = 9223372036854775807
+	let invalid_resource = observe::new_json_lines_for_test(observe::Resource("", list_nil()), observe::InstrumentationScope("scope", "1"), 1, observe::ExporterLimits(1, 4, 1, list_nil()), observe::StandardError, observe::NoDiagnosticDestination, "resource", maximum, 0, 0, 0)
+	let invalid_scope = observe::new_json_lines_for_test(observe::Resource("resource", list_nil()), observe::InstrumentationScope("", "1"), 1, observe::ExporterLimits(1, 4, 1, list_nil()), observe::StandardError, observe::NoDiagnosticDestination, "scope", maximum, 0, 0, 0)
+	let record = observe::Event(observe::EventRecord("invalid-configuration", list_nil(), None, source("", "main", "main.veln")))
+	let _ = handle handle observe::export_observation(invalid_resource, record) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, true)
+	let _ = handle handle observe::export_observation(invalid_scope, record) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, true)
+	match observe::exporter_health(invalid_resource)
+		observe::ExporterHealth(9223372036854775807, 0, 0, 0, _) => match observe::exporter_health(invalid_scope)
+			observe::ExporterHealth(9223372036854775807, 0, 0, 0, _) => match channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
+				None => Ok(())
+				Some(_) => Err("invalid exporter configuration reached the destination")
+			end
+			_ => Err("invalid scope rejection did not preserve bounded failure health")
+		end
+		_ => Err("invalid resource rejection did not preserve bounded failure health")
+	end
+end
+
 fn export_event(configured: JsonLinesExporter, lines: Sender<String>, location: SourceLocation) -> () effects [time, concurrency]
 	let record = observe::Event(observe::EventRecord("hostile", list_nil(), None, location))
 	handle handle observe::export_observation(configured, record) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines, true)
@@ -148,6 +214,14 @@ end
 
 fn source(package: String, module: String, file: String) -> SourceLocation
 	{ package: package, module: module, file: file, start_line: 1, start_column: 1, start_offset: 0, end_line: 1, end_column: 2, end_offset: 1 }
+end
+
+fn source_coordinates(start_line: Int, start_column: Int, end_line: Int, end_column: Int) -> SourceLocation
+	{ package: "", module: "main", file: "main.veln", start_line: start_line, start_column: start_column, start_offset: 0, end_line: end_line, end_column: end_column, end_offset: 1 }
+end
+
+fn source_full(start_line: Int, start_column: Int, start_offset: Int, end_line: Int, end_column: Int, end_offset: Int) -> SourceLocation
+	{ package: "", module: "main", file: "main.veln", start_line: start_line, start_column: start_column, start_offset: start_offset, end_line: end_line, end_column: end_column, end_offset: end_offset }
 end
 
 fn has(text: String, fragment: String) -> Bool

@@ -149,8 +149,9 @@ let result = handle measured() with observe::json_lines(exporter)
 
 The identity prefix namespaces host-generated trace and span identities. Test
 support can inject deterministic identities through the scoped exporter host
-adapter. Use `observe::span_request` to attach the call site to an exported
-span request. `observe::exporter_health` reads a
+adapter. Resource and instrumentation-scope names must be non-empty; the scope
+version and observation names may be empty. Use `observe::span_request` to
+attach the call site to an exported span request. `observe::exporter_health` reads a
 non-consuming health snapshot. `observe::report_exporter_health` writes one
 summary only to the configured diagnostic destination and returns whether that
 write was accepted. A disabled diagnostic destination makes that call a
@@ -378,12 +379,14 @@ facts, and per-record attribute facts. Log records add `message`; metric
 records add `value`. The current host does not expose a stable task identity,
 so it encodes `task_id` as `null`.
 
-The schema requires non-empty trace and span identities and non-negative
-source coordinates. Compiler-produced locations and host-generated root
-identities satisfy those constraints. Directly constructed public records,
-contexts, and span requests are encoded without validating identity contents
-or numeric source coordinates; values outside those constraints can therefore
-produce a line that does not satisfy the schema.
+The schema requires non-empty resource and instrumentation-scope names and
+non-empty trace, span, and optional parent-span identities. It also requires
+non-negative source lines and columns. The export boundary additionally
+requires non-negative source offsets even though offsets are not encoded. Compiler-produced
+locations and production-generated identities satisfy these constraints. The
+exporter rejects a directly constructed value or scoped generated identity
+that violates one of them before it calls the record destination. It does not
+substitute an invented causal or resource identity.
 
 Attribute count limits apply independently to observation and resource
 attribute lists. Negative limits normalize to zero. String size is measured
@@ -397,10 +400,16 @@ matching value is replaced by the fixed string `[REDACTED]` until the finite
 redaction limit is reached and increments `redacted`. The encoded facts
 aggregate changes to both observation and resource attributes.
 
-A record-destination rejection or host write failure increments
-`failed_exports` and leaves the handled application's ordinary result
-unchanged. A diagnostic-summary rejection is instead exposed as the `false`
-result of `observe::report_exporter_health` and does not change that counter.
+A validation rejection, record-destination rejection, or host write failure
+increments `failed_exports` and leaves the handled application's ordinary
+result unchanged. Each rejected attempt consumes its handler sequence value.
+A validation rejection does not call the destination and does not add dropped,
+truncated, or redacted attribute facts. Handler-driven metric-cardinality
+admission still occurs before export validation. A rejected span start retains
+its allocated identity state and returns its span handle; finishing a handle
+that contains an invalid identity is a separate rejected export attempt. A
+diagnostic-summary rejection is instead exposed as the `false` result of
+`observe::report_exporter_health` and does not change that counter.
 The cumulative failed, dropped, truncated, and redacted health totals saturate
 at the maximum `Int`. Health reads do not consume those totals. Saturation does
 not prevent a later export or health read. Export and health-summary writes do
@@ -408,13 +417,16 @@ not perform `Observe`, so a failure cannot recursively create telemetry.
 
 Every direct or handler-driven export validates all public `SourceLocation`
 components before encoding. A workspace source has an empty `package`; a
-dependency source has its public package identity. `module` is a logical
-module path. `file` is package-relative or a canonical virtual name. For each
-component independently, the encoder replaces an absolute Unix, Windows, or
-UNC spelling, a `.` or `..` traversal segment, an invalid path, or another
-noncanonical component with `<invalid-source>`. It preserves compiler-produced
-canonical values. Equivalent source trees at different absolute roots
-therefore encode the same source identity.
+dependency source has its public package identity. `module` is a logical path
+whose non-empty segments are separated by `::`; it is validated independently
+of host filesystem syntax. `file` is package-relative or a canonical virtual
+name. Package and file validation replaces an absolute Unix, Windows, or UNC
+spelling, a `.` or `..` traversal segment, an invalid host path, or another
+noncanonical component with `<invalid-source>`. Module validation replaces
+slash, backslash, traversal, empty-segment, NUL, or stray-colon spellings. It
+preserves compiler-produced canonical values such as nested module `a::b` and
+its slash-separated package-relative file. Equivalent source trees at
+different absolute roots therefore encode the same source identity.
 
 ### Direct exporter operations
 

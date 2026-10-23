@@ -31,6 +31,22 @@ pub handler exporter(lines: Sender<String>, accepted: Bool) for host_effects::Ob
 	identity(kind, sequence) => string::concat(string::concat(string::concat("fixed-", kind), "-"), int_to_string(sequence))
 end
 
+pub handler exporter_with_empty_identity(lines: Sender<String>, empty_kind: String) for host_effects::ObservationExporter effects [concurrency]
+	write(destination, line, diagnostic) => begin
+		let _ = channel::send(lines, string::concat(string::concat(if diagnostic
+			"diagnostic:"
+		else
+			"record:"
+		end, destination), string::concat(":", line)))
+		true
+	end
+	identity(kind, sequence) => if kind == empty_kind
+		""
+	else
+		string::concat(string::concat(string::concat("fixed-", kind), "-"), int_to_string(sequence))
+	end
+end
+
 pub handler stalling_exporter(entered: Sender<()>, release: Receiver<()>) for host_effects::ObservationExporter effects [concurrency]
 	write(destination, line, diagnostic) => begin
 		let _ = channel::send(entered, ())
