@@ -1,6 +1,13 @@
 use super::*;
 use crate::server::tests::dependency_resources::fill_dependency_resource_capacity_completely;
 
+const DOCUMENTED_DEPENDENCY_SOURCE: &str = concat!(
+    "## Stable recovery dependency module.\n",
+    "## Its package documentation must survive failed requests.\n",
+    "## Return the stable recovery value.\n",
+    "pub fn value() -> Int\n  1\nend\n",
+);
+
 struct RecoveryCase {
     name: &'static str,
     source: &'static str,
@@ -203,7 +210,7 @@ fn recovery_reference_failures_preserve_results_resources_selection_and_live_cur
     assert_recovery_request_failures_preserve_state(&mut server, &expected);
     assert_resource_capacity_failure_preserves_state(&workspace, &mut server);
 
-    workspace.write("vendor/dep/dep.veln", "pub fn value() -> Int\n  1\nend\n");
+    workspace.write("vendor/dep/dep.veln", DOCUMENTED_DEPENDENCY_SOURCE);
     assert_eq!(recovery_reference_result(&mut server), expected);
 }
 
@@ -232,7 +239,7 @@ fn recovery_reference_failure_workspace() -> TempWorkspace {
         "vendor/dep/veln.toml",
         "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
     );
-    workspace.write("vendor/dep/dep.veln", "pub fn value() -> Int\n  1\nend\n");
+    workspace.write("vendor/dep/dep.veln", DOCUMENTED_DEPENDENCY_SOURCE);
     workspace
 }
 
@@ -279,8 +286,8 @@ fn assert_resource_capacity_failure_preserves_state(
         .to_owned();
     let resources = complete_resource_state(server);
     assert!(
-        !resources["dependency_reads"].as_array().unwrap().is_empty(),
-        "saved recovery must retain dependency resource contents"
+        !resources["listed_reads"].as_array().unwrap().is_empty(),
+        "saved recovery must retain listed dependency resource contents"
     );
     let selection = server.selection_result();
     workspace.write("vendor/dep/dep.veln", "pub fn value() -> Int\n  2\nend\n");
@@ -332,8 +339,8 @@ fn assert_recovery_failure_preserves_state(
         .to_owned();
     let resources = complete_resource_state(server);
     assert!(
-        !resources["dependency_reads"].as_array().unwrap().is_empty(),
-        "saved recovery must retain dependency resource contents"
+        !resources["listed_reads"].as_array().unwrap().is_empty(),
+        "saved recovery must retain listed dependency resource contents"
     );
     let selection = server.selection_result();
 

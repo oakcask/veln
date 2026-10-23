@@ -1,5 +1,9 @@
+## Stable recovery dependency module.
+## Its package documentation must survive failed requests.
 pub type Remote
+	## A remotely ready state retained in package documentation.
 	pub Ready
 end
 
+## A documented alias retained beside the type declaration.
 pub type RemoteAlias = Remote

@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::BTreeSet;
 
 pub(super) fn references_result(
     workspace: &TempWorkspace,
@@ -30,25 +31,74 @@ pub(super) fn all_resource_state(server: &mut Server) -> Value {
 
 pub(super) fn complete_resource_state(server: &mut Server) -> Value {
     let resources = all_resource_state(server);
-    let dependency_reads = resources
+    let listed_uris = resources
         .as_array()
         .unwrap()
         .iter()
         .filter_map(|resource| resource["uri"].as_str())
-        .filter(|uri| uri.starts_with("veln-pkg:///"))
-        .map(|uri| {
-            let read = server
-                .handle_request(json!({
-                    "jsonrpc":"2.0",
-                    "id":"complete-resource-state",
-                    "method":"resources/read",
-                    "params":{"uri":uri}
-                }))
-                .unwrap();
-            json!({"uri":uri,"response":read})
+        .filter(|uri| {
+            (uri.starts_with("veln-pkg:///") && !uri.starts_with("veln-pkg:///std/"))
+                || (uri.starts_with("veln-doc:///package/")
+                    && !uri.starts_with("veln-doc:///package/std/"))
         })
+        .map(str::to_owned)
         .collect::<Vec<_>>();
-    json!({"resources":resources,"dependency_reads":dependency_reads})
+    let listed_reads = read_resource_responses(server, listed_uris.iter());
+    let module_uris = linked_resource_uris(&listed_reads, "/module/");
+    let module_reads = read_resource_responses(server, module_uris.iter());
+    let declaration_uris = linked_resource_uris(&module_reads, "/declaration/");
+    let declaration_reads = read_resource_responses(server, declaration_uris.iter());
+    assert!(
+        !module_reads.is_empty() && !declaration_reads.is_empty(),
+        "saved recovery fixture must publish linked dependency documentation"
+    );
+    json!({
+        "resources":resources,
+        "listed_reads":listed_reads,
+        "module_reads":module_reads,
+        "declaration_reads":declaration_reads
+    })
+}
+
+fn read_resource_responses<'a>(
+    server: &mut Server,
+    uris: impl Iterator<Item = &'a String>,
+) -> Vec<Value> {
+    uris.map(|uri| {
+        let response = server
+            .handle_request(json!({
+                "jsonrpc":"2.0",
+                "id":"complete-resource-state",
+                "method":"resources/read",
+                "params":{"uri":uri}
+            }))
+            .unwrap();
+        json!({"uri":uri,"response":response})
+    })
+    .collect()
+}
+
+fn linked_resource_uris(reads: &[Value], segment: &str) -> BTreeSet<String> {
+    reads
+        .iter()
+        .filter_map(|read| read["response"]["result"]["contents"][0]["text"].as_str())
+        .flat_map(extract_package_documentation_uris)
+        .filter(|uri| uri.contains(segment))
+        .collect()
+}
+
+fn extract_package_documentation_uris(text: &str) -> BTreeSet<String> {
+    let mut uris = BTreeSet::new();
+    let mut rest = text;
+    while let Some(start) = rest.find("veln-doc:///package/") {
+        let after_start = &rest[start..];
+        let end = after_start
+            .find(|character: char| character == ')' || character.is_whitespace())
+            .unwrap_or(after_start.len());
+        uris.insert(after_start[..end].to_string());
+        rest = &after_start[end..];
+    }
+    uris
 }
 
 pub(super) fn dependency_resource_is_listed(server: &mut Server, identity: &str) -> bool {
