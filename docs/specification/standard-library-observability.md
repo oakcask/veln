@@ -380,6 +380,13 @@ facts, and per-record attribute facts. Log records add `message`; metric
 records add `value`. The current host does not expose a stable task identity,
 so it encodes `task_id` as `null`.
 
+The exporter captures the cumulative admitted and dropped metric-observation
+facts while it assigns each record's handler sequence. Across records from one
+exporter in ascending sequence order, neither fact decreases, including when
+concurrent metric decisions reach export in a different order. A rejected
+metric series produces no record, but its dropped fact is visible in records
+whose sequence is assigned after that decision commits.
+
 The schema requires non-empty resource and instrumentation-scope names and
 non-empty trace, span, and optional parent-span identities. It also requires
 non-negative source lines and columns. The export boundary additionally
