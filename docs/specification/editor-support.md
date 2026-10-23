@@ -401,7 +401,7 @@ preservation through canonically equal generic aliases, and separation of alias
 and constructor edits.
 The checked
 [`adt-variant-refinement-invalid-final-recovery`](../../examples/specification/lsp/adt-variant-refinement-invalid-final-recovery/)
-case covers direct and alias base-only projection, empty final segments, the
+case covers direct base-only projection, empty final segments, the
 empty external-origin boundary, inbound UTF-16 after a non-BMP scalar, and
 preservation of an unsaved overlay after a failed request.
 The character position at the end of a line is valid and preserves half-open
