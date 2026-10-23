@@ -759,6 +759,93 @@
     }
 
     #[test]
+    fn invalid_same_adt_unions_retain_only_eligible_base_occurrences() {
+        let text = concat!(
+            "type State\n  Ready\nend\n\n",
+            "type Other\n  Shared\nend\n\n",
+            "pub type Alias = State\n\n",
+            "fn direct(value: State::Ready | State::Missing) -> Int\n  0\nend\n\n",
+            "fn alias(value: Alias::Ready | Alias::Shared) -> Int\n  0\nend\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", text)]);
+        let position = |line_text: &str, needle: &str, last: bool| {
+            let (line, source_line) = text
+                .lines()
+                .enumerate()
+                .find(|(_, line)| line.contains(line_text))
+                .unwrap();
+            let column = if last {
+                source_line.rfind(needle)
+            } else {
+                source_line.find(needle)
+            }
+            .unwrap();
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: line + 1,
+                column: column + 1,
+            }
+        };
+
+        for (line_text, base, final_segment, definition_line, definition_column) in [
+            ("fn direct", "State::", "Missing", 1, 6),
+            ("fn alias", "Alias::", "Shared", 9, 10),
+        ] {
+            let base_position = || position(line_text, base, true);
+            let definition = definition_at(&snapshot, base_position()).unwrap();
+            assert_location(
+                &definition,
+                "main.veln",
+                definition_line,
+                definition_column,
+            );
+            assert!(navigate(&snapshot, base_position()).is_some());
+            let rename = navigate_for_rename(&snapshot, base_position()).unwrap();
+            assert!(validate_rename_in_snapshot(&snapshot, &rename, "Renamed").is_ok());
+
+            let final_position = || position(line_text, final_segment, false);
+            assert!(definition_at(&snapshot, final_position()).is_none());
+            assert!(navigate(&snapshot, final_position()).is_none());
+            assert!(navigate_for_rename(&snapshot, final_position()).is_none());
+        }
+    }
+
+    #[test]
+    fn inaccessible_same_owner_constructor_withholds_direct_and_alias_bases() {
+        let main = concat!(
+            "use model\n\n",
+            "fn direct(value: model::State::Hidden) -> Int\n  0\nend\n\n",
+            "fn alias(value: model::Alias::Hidden) -> Int\n  0\nend\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "model.veln",
+                concat!(
+                    "pub type State\n",
+                    "  pub Ready\n",
+                    "  Hidden\n",
+                    "end\n\n",
+                    "pub type Alias = State\n",
+                ),
+            ),
+            source("main.veln", main),
+        ]);
+        for (line, base) in [(3, "State"), (7, "Alias")] {
+            let source_line = main.lines().nth(line - 1).unwrap();
+            for needle in [base, "Hidden"] {
+                let position = || SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line,
+                    column: source_line.find(needle).unwrap() + 1,
+                };
+                assert!(definition_at(&snapshot, position()).is_none());
+                assert!(navigate(&snapshot, position()).is_none());
+                assert!(navigate_for_rename(&snapshot, position()).is_none());
+            }
+        }
+    }
+
+    #[test]
     fn variant_refinement_navigation_requires_exact_terminal_adt_arity() {
         let text = concat!(
             "pub type Box<A>\n",
@@ -1531,6 +1618,42 @@
             assert!(larger.1 <= smaller.1 * 2 + 32, "{smaller:?} -> {larger:?}");
         }
         eprintln!("nested refinement production construction evidence: {evidence:?}");
+    }
+
+    #[test]
+    fn invalid_recovery_with_nested_valid_refinements_has_bounded_canonical_work() {
+        let evidence = [64, 128, 256].map(|depth| {
+            let nested = nested_refinement_source(depth);
+            let text = format!(
+                "{}\ntype Other\n  Shared\nend\n\nfn recover(value: Box<Int>::Shared) -> Int\n  0\nend\n",
+                nested.text()
+            );
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &text)]);
+            snapshot.navigation_index();
+            reset_variant_refinement_navigation_work();
+            let line = text
+                .lines()
+                .position(|line| line.contains("fn recover"))
+                .unwrap()
+                + 1;
+            let definition = definition_at(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line,
+                    column: text.lines().nth(line - 1).unwrap().find("Box").unwrap() + 1,
+                },
+            )
+            .expect("wrong-owner recovery retains the selected base");
+            assert_location(&definition, "main.veln", 1, 6);
+            let submitted_bytes = variant_refinement_construction_work().2;
+            assert_eq!(submitted_bytes, 3, "depth={depth}");
+            (depth, submitted_bytes)
+        });
+        for window in evidence.windows(2) {
+            assert_eq!(window[0].1, window[1].1, "{evidence:?}");
+        }
+        eprintln!("invalid recovery canonical work: {evidence:?}");
     }
 
     fn workspace_variant_refinement_alias_depth_work(

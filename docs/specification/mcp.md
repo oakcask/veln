@@ -472,8 +472,8 @@ empty definition. A public constructor selected through a visible type alias
 returns the constructor declaration, not the alias declaration. Definition
 exposes a recovery record's retained source range.
 
-Valid singleton and union variant refinements, plus the eligible retained base
-of an invalid singleton refinement, use the
+Valid singleton and union variant refinements, plus each eligible retained base
+of an invalid singleton or same-ADT union refinement, use the
 [shared navigation contract](editor-support.md#shared-variant-refinement-navigation).
 MCP supplies and returns positive one-based Unicode-scalar coordinates and does
 not resolve a second refinement identity. Definition projects the shared
@@ -492,12 +492,13 @@ workspace snapshot. Definition, references, and rename on the retained base
 remain eligible under the shared rules and preserve the same state invariants
 if their request fails.
 
-The checked `adt-variant-refinement-navigation` MCP case asserts the exact
-ordered constructor references and rename edits across direct and
-alias-qualified refinements. It also asserts alias-base definition and rename
-edits without target-ADT or constructor edits, exclusion of a same-spelled
-constructor from another ADT, retained alias-base navigation for unknown and
-wrong-owner final segments, empty results for those final segments and for an
+The checked `adt-variant-refinement-navigation` MCP case and adapter tests
+assert the exact ordered constructor references and rename edits across direct
+and alias-qualified refinements. They also assert alias-base definition and
+rename edits without target-ADT or constructor edits, exclusion of a
+same-spelled constructor from another ADT, retained direct and alias-base
+navigation for unknown and wrong-owner final segments in same-ADT unions, empty
+results for those final segments, inaccessible same-owner constructors, and an
 invalid mixed-ADT union, and a valid result after an empty recovery request.
 
 ### Source presentation

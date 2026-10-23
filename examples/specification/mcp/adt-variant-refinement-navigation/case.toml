@@ -345,3 +345,48 @@ equals = {"start":{"line":4,"column":7},"end":{"line":4,"column":12}}
 id = 21
 path = "/result/structuredContent/definition/range"
 equals = {"start":{"line":8,"column":10},"end":{"line":8,"column":15}}
+
+[[mcp_assert]]
+id = 22
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":49,"column":10},"end":{"line":49,"column":23}}
+
+[[mcp_assert]]
+id = 23
+path = "/result/structuredContent/references"
+length = 3
+
+[[mcp_assert]]
+id = 24
+path = "/result/structuredContent/edits"
+length = 3
+
+[[mcp_assert]]
+id = 25
+path = "/result/structuredContent/definition"
+equals = null
+
+[[mcp_assert]]
+id = 26
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":53,"column":10},"end":{"line":53,"column":23}}
+
+[[mcp_assert]]
+id = 27
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 28
+path = "/result/structuredContent/edits"
+length = 2
+
+[[mcp_assert]]
+id = 29
+path = "/result/structuredContent/definition"
+equals = null
+
+[[mcp_assert]]
+id = 30
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":50,"column":7},"end":{"line":50,"column":12}}

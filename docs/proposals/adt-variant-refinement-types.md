@@ -250,11 +250,12 @@ recovery never makes the annotation valid.
 
 The current [editor-support](../specification/editor-support.md#shared-variant-refinement-navigation)
 and [MCP](../specification/mcp.md#saved-workspace-navigation) specifications own
-retained-base navigation when an otherwise eligible singleton refinement has
-an unknown final segment, a non-constructor final declaration, or a constructor
-owned by another ADT. The remaining LSP and MCP work must define whether the
-planned lowercase-final recovery identity is safe to expose through definition,
-references, prepare-rename, and rename. A
+retained-base navigation when an otherwise eligible singleton or same-ADT union
+occurrence has an unknown final segment, a non-constructor final declaration,
+or a constructor owned by another ADT. A same-owner constructor that is
+inaccessible or non-unique does not retain the base. The remaining LSP and MCP
+work must define whether the planned lowercase-final recovery identity is safe
+to expose through definition, references, prepare-rename, and rename. A
 source-less type has no source definition, reference, or rename target. The
 current package-documentation and MCP specifications own publication
 atomicity and preservation after failed stable capture or analysis. The

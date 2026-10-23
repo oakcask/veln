@@ -219,6 +219,131 @@ fn invalid_variant_refinements_retain_only_base_navigation_and_rename() {
 }
 
 #[test]
+fn invalid_union_recovery_and_private_constructor_boundaries_project_through_mcp() {
+    let workspace = TempWorkspace::new("invalid-union-recovery-boundaries");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "model.veln",
+        concat!(
+            "pub type State\n  pub Ready\n  Hidden\nend\n\n",
+            "pub type Other\n  pub Shared\nend\n\n",
+            "pub type Alias = State\n",
+        ),
+    );
+    let source = concat!(
+        "use model\n\n",
+        "fn direct(value: model::State::Ready | model::State::Missing) -> Int\n  0\nend\n\n",
+        "fn alias(value: model::Alias::Ready | model::Alias::Shared) -> Int\n  0\nend\n\n",
+        "fn private_direct(value: model::State::Hidden) -> Int\n  0\nend\n\n",
+        "fn private_alias(value: model::Alias::Hidden) -> Int\n  0\nend\n\n",
+        "fn later(value: model::State::Ready) -> Int\n  0\nend\n",
+    );
+    workspace.write("main.veln", source);
+    let mut server = initialized_server(&workspace);
+    let position = |line_text: &str, needle: &str, last: bool| {
+        let (line, text) = source
+            .lines()
+            .enumerate()
+            .find(|(_, line)| line.contains(line_text))
+            .unwrap();
+        let byte = if last {
+            text.rfind(needle)
+        } else {
+            text.find(needle)
+        }
+        .unwrap();
+        (line + 1, text[..byte].chars().count() + 1)
+    };
+
+    for (line_text, base, final_segment) in [
+        ("fn direct", "State", "Missing"),
+        ("fn alias", "Alias", "Shared"),
+    ] {
+        let (line, column) = position(line_text, base, true);
+        let definition = server.definition_tool(&json!({
+            "source":"main.veln", "line":line, "column":column
+        }));
+        assert_ne!(
+            definition["structuredContent"]["definition"],
+            Value::Null,
+            "{definition:#}"
+        );
+        let references = server.references_tool(&json!({
+            "source":"main.veln", "line":line, "column":column,
+            "include_declaration":true
+        }));
+        assert!(
+            !references["structuredContent"]["references"]
+                .as_array()
+                .unwrap()
+                .is_empty(),
+            "{references:#}"
+        );
+        let renamed = server.rename_tool(&json!({
+            "source":"main.veln", "line":line, "column":column,
+            "new_name":"Recovered"
+        }));
+        assert!(!edits(&renamed).is_empty(), "{renamed:#}");
+
+        let (final_line, final_column) = position(line_text, final_segment, false);
+        let final_definition = server.definition_tool(&json!({
+            "source":"main.veln", "line":final_line, "column":final_column
+        }));
+        assert_eq!(
+            final_definition["structuredContent"]["definition"],
+            Value::Null,
+            "{final_definition:#}"
+        );
+        let final_rename = server.rename_tool(&json!({
+            "source":"main.veln", "line":final_line, "column":final_column,
+            "new_name":"Unavailable"
+        }));
+        assert!(edits(&final_rename).is_empty(), "{final_rename:#}");
+    }
+
+    for (line_text, base) in [
+        ("fn private_direct", "State"),
+        ("fn private_alias", "Alias"),
+    ] {
+        for needle in [base, "Hidden"] {
+            let (line, column) = position(line_text, needle, false);
+            let definition = server.definition_tool(&json!({
+                "source":"main.veln", "line":line, "column":column
+            }));
+            assert_eq!(
+                definition["structuredContent"]["definition"],
+                Value::Null,
+                "{definition:#}"
+            );
+            let references = server.references_tool(&json!({
+                "source":"main.veln", "line":line, "column":column,
+                "include_declaration":true
+            }));
+            assert_eq!(
+                references["structuredContent"]["references"],
+                json!([]),
+                "{references:#}"
+            );
+            let renamed = server.rename_tool(&json!({
+                "source":"main.veln", "line":line, "column":column,
+                "new_name":"Unavailable"
+            }));
+            assert!(edits(&renamed).is_empty(), "{renamed:#}");
+        }
+    }
+
+    let (line, column) = position("fn later", "Ready", false);
+    let later = server.definition_tool(&json!({
+        "source":"main.veln", "line":line, "column":column
+    }));
+    assert_ne!(
+        later["structuredContent"]["definition"],
+        Value::Null,
+        "{later:#}"
+    );
+}
+
+#[test]
 fn invalid_refinement_final_preserves_cursor_resources_and_later_selection() {
     let workspace = TempWorkspace::new("invalid-refinement-preserved-state");
     workspace.write(

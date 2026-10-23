@@ -19,3 +19,12 @@
 {"jsonrpc":"2.0","id":19,"method":"resources/list","params":{}}
 {"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":10,"column":27}}}
 {"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":41,"column":32}}}
+{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":55,"column":49}}}
+{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":55,"column":49,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":55,"column":49,"new_name":"RecoveredState"}}}
+{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":55,"column":64}}}
+{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":59,"column":55}}}
+{"jsonrpc":"2.0","id":27,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":59,"column":55,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":28,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":59,"column":55,"new_name":"RecoveredAlias"}}}
+{"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":59,"column":70}}}
+{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":50,"column":7}}}

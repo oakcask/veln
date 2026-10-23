@@ -287,9 +287,6 @@ impl SymbolIndex {
                 file.variant_refinement_union_final_range_groups
                     .get(*group_index)
             })?;
-        if union_ranges.len() != 1 {
-            return None;
-        }
         let base = self.variant_refinement_base_symbol(
             file,
             tokens,
@@ -300,85 +297,124 @@ impl SymbolIndex {
             VariantRefinementBaseSymbol::Type(symbol) => symbol.clone(),
             VariantRefinementBaseSymbol::Alias(symbol) => self.terminal_type_for_alias(symbol)?,
         };
-        let written_generic_arity = file
-            .variant_refinement_type_argument_count_by_final_range
-            .get(final_range)?;
+        let type_arguments = self.variant_refinement_type_argument_identities(file, final_range)?;
+        let final_index = variant_refinement_token_index_for_range(tokens, final_range)?;
         if !terminal.has_variants
-            || *written_generic_arity != terminal.generic_arity
-            || !self.variant_refinement_type_arguments_resolve(file, final_range)
+            || type_arguments.len() != terminal.generic_arity
+            || self.variant_refinement_final_has_same_owner_constructor(
+                &terminal,
+                &tokens[final_index],
+            )
         {
             return None;
+        }
+        for range in union_ranges {
+            let final_index = variant_refinement_token_index_for_range(tokens, range)?;
+            let alternative_base_index = variant_refinement_base_index(tokens, final_index)?;
+            let alternative_base = self.variant_refinement_base_symbol(
+                file,
+                tokens,
+                alternative_base_index,
+                &tokens[alternative_base_index].text,
+            )?;
+            let alternative_terminal = match alternative_base {
+                VariantRefinementBaseSymbol::Type(symbol) => symbol,
+                VariantRefinementBaseSymbol::Alias(symbol) => {
+                    self.terminal_type_for_alias(&symbol)?
+                }
+            };
+            if !alternative_terminal.has_variants
+                || !same_type(&alternative_terminal, &terminal)
+                || self.variant_refinement_type_argument_identities(file, range)? != type_arguments
+            {
+                return None;
+            }
         }
         Some(base)
     }
 
-    fn variant_refinement_type_arguments_resolve(
+    fn variant_refinement_type_argument_identities(
         &self,
         file: &IndexedFile,
         final_range: &(usize, usize),
-    ) -> bool {
-        if file
+    ) -> Option<Vec<veln_sema::CanonicalTypeAnnotationIdentity>> {
+        if let Some(identities) = file
             .canonical_variant_refinement_type_arguments_by_final_range
-            .contains_key(final_range)
+            .get(final_range)
         {
-            return true;
+            return Some(identities.clone());
         }
-        self.variant_refinement_resolved_type_arguments
-            .get_or_init(|| self.resolve_classified_variant_refinement_type_arguments())
-            .contains(&variant_refinement_range_identity(file, *final_range))
-    }
-
-    fn resolve_classified_variant_refinement_type_arguments(
-        &self,
-    ) -> BTreeSet<VariantRefinementRangeIdentity> {
-        let mut annotations = Vec::<(&str, Option<&str>, &[String])>::new();
-        let mut groups = Vec::<(VariantRefinementRangeIdentity, usize, usize)>::new();
-        for file in &self.files {
-            for (range, argument_ranges) in
-                &file.variant_refinement_type_argument_ranges_by_final_range
-            {
-                if file
-                    .canonical_variant_refinement_type_arguments_by_final_range
-                    .contains_key(range)
-                {
-                    continue;
-                }
-                let start = annotations.len();
-                let type_parameters = file
-                    .variant_refinement_type_parameter_context_index_by_final_range
-                    .get(range)
-                    .and_then(|context_index| {
-                        file.variant_refinement_type_parameter_contexts
-                            .get(*context_index)
-                    })
-                    .map_or(&[][..], Vec::as_slice);
-                annotations.extend(argument_ranges.iter().map(|(start, end)| {
-                    (
-                        &file.source.text()[*start..*end],
-                        Some(file.module.as_str()),
-                        type_parameters,
-                    )
-                }));
-                groups.push((
-                    variant_refinement_range_identity(file, *range),
-                    start,
-                    annotations.len(),
-                ));
-            }
+        let identity = variant_refinement_range_identity(file, *final_range);
+        if let Some(identities) = self
+            .variant_refinement_type_argument_identities
+            .lock()
+            .ok()?
+            .get(&identity)
+            .cloned()
+        {
+            return identities;
         }
-        let resolved = veln_sema::canonical_type_annotation_identities_with_context(
+        let argument_ranges = file
+            .variant_refinement_type_argument_ranges_by_final_range
+            .get(final_range)?;
+        let type_parameters = file
+            .variant_refinement_type_parameter_context_index_by_final_range
+            .get(final_range)
+            .and_then(|context_index| {
+                file.variant_refinement_type_parameter_contexts
+                    .get(*context_index)
+            })
+            .map_or(&[][..], Vec::as_slice);
+        let annotations = argument_ranges
+            .iter()
+            .map(|(start, end)| {
+                (
+                    &file.source.text()[*start..*end],
+                    Some(file.module.as_str()),
+                    type_parameters,
+                )
+            })
+            .collect::<Vec<_>>();
+        record_variant_refinement_canonical_annotation_bytes(
+            annotations
+                .iter()
+                .map(|(annotation, _, _)| annotation.len())
+                .sum(),
+        );
+        let identities: Option<Vec<veln_sema::CanonicalTypeAnnotationIdentity>> =
+            veln_sema::canonical_type_annotation_identities_with_context(
             &self.type_resolution_project,
             &annotations,
+        )
+        .into_iter()
+        .collect();
+        self.variant_refinement_type_argument_identities
+            .lock()
+            .ok()?
+            .insert(identity, identities.clone());
+        identities
+    }
+
+    fn variant_refinement_final_has_same_owner_constructor(
+        &self,
+        terminal: &TypeSymbol,
+        variant_token: &Token,
+    ) -> bool {
+        let key = (
+            terminal.package.clone(),
+            terminal.package_origin,
+            terminal.module.clone(),
+            terminal.name.clone(),
+            variant_token.text.clone(),
         );
-        groups
-            .into_iter()
-            .filter_map(|(identity, start, end)| {
-                resolved[start..end]
-                    .iter()
-                    .all(Option::is_some)
-                    .then_some(identity)
+        self.constructor_indices_by_identity
+            .get(&key)
+            .is_some_and(|indices| {
+                indices.iter().any(|index| {
+                    self.constructors[*index].declaration_kind
+                        == SymbolDeclarationKind::Declaration
+                })
             })
-            .collect()
     }
 
     fn variant_refinement_constructor_for_selection(
@@ -580,6 +616,16 @@ impl SymbolIndex {
         };
         self.files.get(*index)
     }
+}
+
+fn variant_refinement_token_index_for_range(
+    tokens: &[Token],
+    range: &(usize, usize),
+) -> Option<usize> {
+    let index = tokens
+        .binary_search_by_key(&range.0, |token| token.range.start)
+        .ok()?;
+    (tokens[index].range.end == range.1).then_some(index)
 }
 
 fn variant_refinement_range_identity(

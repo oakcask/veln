@@ -158,7 +158,7 @@ impl SymbolIndex {
             workspace_type_alias_indices_by_module_and_name,
             package_type_alias_indices_by_module_and_name,
             variant_refinement_alias_index: OnceLock::new(),
-            variant_refinement_resolved_type_arguments: OnceLock::new(),
+            variant_refinement_type_argument_identities: Mutex::new(BTreeMap::new()),
             type_resolution_project,
             eligible_workspace_effect_indices,
             eligible_workspace_effect_operation_indices,

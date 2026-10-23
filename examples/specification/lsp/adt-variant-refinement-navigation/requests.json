@@ -28,6 +28,16 @@
   {"jsonrpc":"2.0","id":27,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":36,"character":18}}},
   {"jsonrpc":"2.0","id":28,"method":"textDocument/prepareRename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":36,"character":18}}},
   {"jsonrpc":"2.0","id":29,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":36,"character":25}}},
-  {"jsonrpc":"2.0","id":30,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","id":30,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":53,"character":48}}},
+  {"jsonrpc":"2.0","id":31,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":53,"character":48},"context":{"includeDeclaration":true}}},
+  {"jsonrpc":"2.0","id":32,"method":"textDocument/prepareRename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":53,"character":48}}},
+  {"jsonrpc":"2.0","id":33,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":53,"character":48},"newName":"RecoveredState"}},
+  {"jsonrpc":"2.0","id":34,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":53,"character":63}}},
+  {"jsonrpc":"2.0","id":35,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":57,"character":54}}},
+  {"jsonrpc":"2.0","id":36,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":57,"character":54},"context":{"includeDeclaration":true}}},
+  {"jsonrpc":"2.0","id":37,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":57,"character":54},"newName":"RecoveredAlias"}},
+  {"jsonrpc":"2.0","id":38,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":57,"character":69}}},
+  {"jsonrpc":"2.0","id":39,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":48,"character":6}}},
+  {"jsonrpc":"2.0","id":40,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

@@ -795,6 +795,95 @@ fn invalid_variant_refinements_retain_only_base_navigation_and_rename() {
 }
 
 #[test]
+fn invalid_union_recovery_and_private_constructor_boundaries_project_through_lsp() {
+    let mut server = Server::default();
+    let project = TempProject::new("invalid-union-recovery-boundaries");
+    project.write(
+        "model.veln",
+        concat!(
+            "pub type State\n  pub Ready\n  Hidden\nend\n\n",
+            "pub type Other\n  pub Shared\nend\n\n",
+            "pub type Alias = State\n",
+        ),
+    );
+    let source = concat!(
+        "use model\n\n",
+        "fn direct(value: model::State::Ready | model::State::Missing) -> Int\n  0\nend\n\n",
+        "fn alias(value: model::Alias::Ready | model::Alias::Shared) -> Int\n  0\nend\n\n",
+        "fn private_direct(value: model::State::Hidden) -> Int\n  0\nend\n\n",
+        "fn private_alias(value: model::Alias::Hidden) -> Int\n  0\nend\n\n",
+        "fn utf16(value: model::State::Ready) -> Int\n",
+        "  label(\"😀\", keep<model::Alias::Missing>(\"x\", value))\n",
+        "end\n\n",
+        "fn later(value: model::State::Ready) -> Int\n  0\nend\n",
+    );
+    project.write("main.veln", source);
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let position = |line_text: &str, needle: &str, last: bool| {
+        let (line, text) = source
+            .lines()
+            .enumerate()
+            .find(|(_, line)| line.contains(line_text))
+            .unwrap();
+        let byte = if last {
+            text.rfind(needle)
+        } else {
+            text.find(needle)
+        }
+        .unwrap();
+        (line, text[..byte].encode_utf16().count())
+    };
+
+    for (line_text, base, final_segment) in [
+        ("fn direct", "State", "Missing"),
+        ("fn alias", "Alias", "Shared"),
+        ("label(", "Alias", "Missing"),
+    ] {
+        let (line, character) = position(line_text, base, true);
+        let definition = server.handle_message(&definition_request(&main_uri, line, character));
+        assert!(!definition[0].contains(r#""result":null"#), "{}", definition[0]);
+        let references = server.handle_message(&references_request(&main_uri, line, character));
+        assert!(!references[0].contains(r#""result":[]"#), "{}", references[0]);
+        let prepared =
+            server.handle_message(&prepare_rename_request(&main_uri, line, character));
+        assert!(!prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
+        let renamed =
+            server.handle_message(&rename_request(&main_uri, line, character, "Recovered"));
+        assert!(renamed[0].contains("Recovered"), "{}", renamed[0]);
+
+        let (final_line, final_character) = position(line_text, final_segment, false);
+        assert_refinement_navigation_unavailable(
+            &mut server,
+            &main_uri,
+            final_line,
+            final_character,
+        );
+    }
+
+    for (line_text, base) in [
+        ("fn private_direct", "State"),
+        ("fn private_alias", "Alias"),
+    ] {
+        for needle in [base, "Hidden"] {
+            let (line, character) = position(line_text, needle, false);
+            assert_refinement_navigation_unavailable(
+                &mut server,
+                &main_uri,
+                line,
+                character,
+            );
+        }
+    }
+
+    let (line, character) = position("fn later", "Ready", false);
+    let later = server.handle_message(&definition_request(&main_uri, line, character));
+    assert!(!later[0].contains(r#""result":null"#), "{}", later[0]);
+}
+
+#[test]
 fn ambiguous_package_refinement_bases_do_not_select_or_rename() {
     let source = concat!(
         "use shared from \"first/pkg\"\n",

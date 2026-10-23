@@ -45,3 +45,17 @@ end
 fn dependency(value: dep::Remote) -> Int
   0
 end
+
+pub type RecoveryState
+  pub Known
+end
+
+pub type RecoveryAlias = RecoveryState
+
+fn retained_union(value: RecoveryState::Known | RecoveryState::Missing) -> Int
+  0
+end
+
+fn retained_alias_union(value: RecoveryAlias::Known | RecoveryAlias::Shared) -> Int
+  0
+end

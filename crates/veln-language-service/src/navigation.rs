@@ -1,7 +1,7 @@
 #[cfg(test)]
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::{DirectDependencySnapshot, EffectiveProjectSnapshot};
 use veln_ast::{InvalidName, NameClass, QualifiedPathSegment};
@@ -1092,6 +1092,9 @@ fn record_variant_refinement_canonical_annotation_bytes(bytes: usize) {
     VARIANT_REFINEMENT_CANONICAL_ANNOTATION_BYTES
         .set(VARIANT_REFINEMENT_CANONICAL_ANNOTATION_BYTES.get() + bytes);
 }
+
+#[cfg(not(test))]
+fn record_variant_refinement_canonical_annotation_bytes(_bytes: usize) {}
 
 #[cfg(test)]
 pub(crate) fn variant_refinement_construction_work() -> (usize, usize, usize) {

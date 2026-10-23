@@ -1111,8 +1111,12 @@ pub(crate) struct SymbolIndex {
     workspace_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     package_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     variant_refinement_alias_index: OnceLock<VariantRefinementAliasIndex>,
-    variant_refinement_resolved_type_arguments:
-        OnceLock<BTreeSet<VariantRefinementRangeIdentity>>,
+    variant_refinement_type_argument_identities: Mutex<
+        BTreeMap<
+            VariantRefinementRangeIdentity,
+            Option<Vec<veln_sema::CanonicalTypeAnnotationIdentity>>,
+        >,
+    >,
     type_resolution_project: veln_ast::SurfaceModule,
     eligible_workspace_effect_indices: BTreeMap<(String, String), usize>,
     eligible_workspace_effect_operation_indices: BTreeMap<(String, String, String), usize>,

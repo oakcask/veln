@@ -312,22 +312,26 @@ from multiple packages, the base is ambiguous. The direct base, an alias chain
 that depends on it, and their final variants expose no navigation identity,
 regardless of import order.
 The complete refinement must resolve before the final segment is selectable.
-One invalid singleton case retains only its base identity. If a direct base or
-visible alias chain resolves uniquely to a source-backed ADT, its generic arity
-is exact, and every generic argument resolves, a final segment that does not
-name one of that ADT's constructors does not discard the base. This includes an
-unknown name, a non-constructor declaration, and a constructor owned only by
-another ADT. The base supports definition, references, prepare-rename, and
-rename through its ordinary type or written-alias declaration. Its invalid
-final segment supports none of those operations. Base references and rename
-edits include the retained invalid occurrence.
+An eligible invalid occurrence retains only its base identity. The direct base
+or visible alias chain must resolve uniquely to a source-backed ADT, its generic
+arity must be exact, and every generic argument must resolve. In a union, every
+alternative must resolve through those rules to the same terminal ADT and the
+same canonical generic arguments. Under those conditions, an unknown final
+name, a non-constructor declaration, or a constructor owned only by another ADT
+does not discard that occurrence's base. The base supports definition,
+references, prepare-rename, and rename through its ordinary type or written
+alias declaration. Its invalid final segment supports none of those operations.
+Base references and rename edits include each eligible retained invalid
+occurrence.
 
 Recovery does not apply when the base is unresolved, ambiguous, source-less,
 opaque, or not an ADT; when generic arity or a generic argument is invalid; or
-when the refinement is a union. A missing final segment remains a syntax
-failure without a retained refinement selection. If any of these conditions
-applies, definition and references return no selection for the direct or alias
-base or final segment.
+when union alternatives have different terminal ADTs or canonical generic
+arguments. It also does not apply when the final spelling names a constructor
+of the terminal ADT but that constructor is inaccessible or does not resolve
+uniquely. A missing final segment remains a syntax failure without a retained
+refinement selection. If any of these conditions applies, definition and
+references return no selection for the direct or alias base or final segment.
 Generic arguments resolve recursively; a type parameter declared by the
 enclosing ADT is resolved in that ADT's payload annotation. A union is also
 invalid when its alternatives resolve to different terminal ADT identities or
@@ -385,14 +389,15 @@ segment does not borrow the retained base identity. A segment without a shared
 identity produces no definition or references, no
 prepare-rename range, and no rename edits.
 
-The checked LSP cases cover direct and union selection in
+The checked LSP cases and adapter tests cover direct and union selection in
 [`adt-variant-refinement-navigation`](../../examples/specification/lsp/adt-variant-refinement-navigation/)
 and generic, transitive, and imported aliases in
 [`adt-variant-refinement-alias-navigation`](../../examples/specification/lsp/adt-variant-refinement-alias-navigation/).
-They verify retained direct and alias bases for unknown and wrong-owner final
-segments, empty projected results for those final segments and for invalid
-arity and union identity, preservation through canonically equal generic
-aliases, and separation of alias and constructor edits.
+Together they verify retained direct and alias bases for unknown and wrong-owner
+final segments in singleton and same-ADT union refinements, empty projected
+results for those final segments and for inaccessible same-owner constructors,
+invalid arity, and mixed union identity, preservation through canonically equal
+generic aliases, and separation of alias and constructor edits.
 The character position at the end of a line is valid and preserves half-open
 selection behavior. After `params.textDocument.uri` selects a retained source,
 the request must contain exactly one direct `params.position` object. That
