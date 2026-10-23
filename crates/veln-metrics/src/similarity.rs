@@ -12,22 +12,6 @@ pub(super) struct NormalizedToken {
     pub(super) text: String,
 }
 
-pub(super) fn similarity_instances(
-    project: &Project,
-    selected_paths: &BTreeSet<String>,
-    min_tokens: usize,
-) -> (Vec<SimilarityInstanceMetric>, usize) {
-    let candidates = similarity_candidates(project, selected_paths)
-        .into_iter()
-        .filter(|candidate| candidate.tokens.len() >= min_tokens)
-        .collect::<Vec<_>>();
-    let fingerprint_count = candidates.len();
-    (
-        similarity_instances_from_candidates(candidates),
-        fingerprint_count,
-    )
-}
-
 pub(super) fn similarity_instances_from_candidates(
     candidates: Vec<SimilarityCandidate>,
 ) -> Vec<SimilarityInstanceMetric> {
@@ -75,44 +59,6 @@ pub(super) fn similarity_instances_from_candidates(
     }
     instances.sort_by(compare_similarity_instances);
     instances
-}
-
-pub(super) fn similarity_candidates(
-    project: &Project,
-    selected_paths: &BTreeSet<String>,
-) -> Vec<SimilarityCandidate> {
-    let mut candidates = Vec::new();
-    for source in &project.files {
-        let path = source.path().as_str().to_string();
-        if !selected_paths.contains(&path) || is_generated_or_doctest_path(&path) {
-            continue;
-        }
-        let parsed = parse(source);
-        if !parsed.diagnostics.is_empty() {
-            continue;
-        }
-        let lexed = lex(source);
-        for item in parsed.tree.items {
-            let SyntaxItem::Function(function) = item else {
-                continue;
-            };
-            let Some(body_range) = function_body_range(&function) else {
-                continue;
-            };
-            let tokens = normalized_body_tokens(&lexed.tokens, body_range);
-            if tokens.is_empty() {
-                continue;
-            }
-            let declaration = similarity_declaration(source, &path, &function, body_range);
-            let fingerprint = similarity_fingerprint(&tokens);
-            candidates.push(SimilarityCandidate {
-                declaration,
-                tokens,
-                fingerprint,
-            });
-        }
-    }
-    candidates
 }
 
 pub(super) fn function_body_range(function: &FunctionDecl) -> Option<TextRange> {
