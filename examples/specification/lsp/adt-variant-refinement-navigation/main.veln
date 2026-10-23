@@ -34,7 +34,7 @@ fn invalid_base(value: State::Ready | Other::Shared) -> Int
 end
 
 fn retained_unknown(value: Alias::Missing) -> Int
-	0
+	label("😀", keep<Alias::Missing>("x", value))
 end
 
 fn retained_wrong_owner(value: Alias::Shared) -> Int

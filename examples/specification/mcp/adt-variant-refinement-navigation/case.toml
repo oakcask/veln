@@ -9,7 +9,7 @@ format = "empty"
 [[mcp_assert]]
 id = 2
 path = "/result/structuredContent/definition/range"
-equals = {"start":{"line":2,"column":7},"end":{"line":2,"column":12}}
+equals = {"start":{"line":4,"column":7},"end":{"line":4,"column":12}}
 
 [[mcp_assert]]
 id = 3
@@ -24,7 +24,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 3
 path = "/result/structuredContent/references/0/range"
-equals = {"start":{"line":2,"column":7},"end":{"line":2,"column":12}}
+equals = {"start":{"line":4,"column":7},"end":{"line":4,"column":12}}
 
 [[mcp_assert]]
 id = 3
@@ -34,7 +34,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 3
 path = "/result/structuredContent/references/1/range"
-equals = {"start":{"line":8,"column":26},"end":{"line":8,"column":31}}
+equals = {"start":{"line":10,"column":26},"end":{"line":10,"column":31}}
 
 [[mcp_assert]]
 id = 3
@@ -44,7 +44,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 3
 path = "/result/structuredContent/references/2/range"
-equals = {"start":{"line":9,"column":21},"end":{"line":9,"column":26}}
+equals = {"start":{"line":11,"column":21},"end":{"line":11,"column":26}}
 
 [[mcp_assert]]
 id = 3
@@ -54,7 +54,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 3
 path = "/result/structuredContent/references/3/range"
-equals = {"start":{"line":11,"column":12},"end":{"line":11,"column":17}}
+equals = {"start":{"line":13,"column":12},"end":{"line":13,"column":17}}
 
 [[mcp_assert]]
 id = 3
@@ -64,7 +64,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 3
 path = "/result/structuredContent/references/4/range"
-equals = {"start":{"line":15,"column":31},"end":{"line":15,"column":36}}
+equals = {"start":{"line":17,"column":31},"end":{"line":17,"column":36}}
 
 [[mcp_assert]]
 id = 3
@@ -74,7 +74,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 3
 path = "/result/structuredContent/references/5/range"
-equals = {"start":{"line":19,"column":30},"end":{"line":19,"column":35}}
+equals = {"start":{"line":21,"column":30},"end":{"line":21,"column":35}}
 
 [[mcp_assert]]
 id = 4
@@ -84,7 +84,7 @@ length = 6
 [[mcp_assert]]
 id = 4
 path = "/result/structuredContent/edits/0/range"
-equals = {"start":{"line":2,"column":7},"end":{"line":2,"column":12}}
+equals = {"start":{"line":4,"column":7},"end":{"line":4,"column":12}}
 
 [[mcp_assert]]
 id = 4
@@ -99,7 +99,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 4
 path = "/result/structuredContent/edits/1/range"
-equals = {"start":{"line":8,"column":26},"end":{"line":8,"column":31}}
+equals = {"start":{"line":10,"column":26},"end":{"line":10,"column":31}}
 
 [[mcp_assert]]
 id = 4
@@ -114,7 +114,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 4
 path = "/result/structuredContent/edits/2/range"
-equals = {"start":{"line":9,"column":21},"end":{"line":9,"column":26}}
+equals = {"start":{"line":11,"column":21},"end":{"line":11,"column":26}}
 
 [[mcp_assert]]
 id = 4
@@ -129,7 +129,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 4
 path = "/result/structuredContent/edits/3/range"
-equals = {"start":{"line":11,"column":12},"end":{"line":11,"column":17}}
+equals = {"start":{"line":13,"column":12},"end":{"line":13,"column":17}}
 
 [[mcp_assert]]
 id = 4
@@ -144,7 +144,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 4
 path = "/result/structuredContent/edits/4/range"
-equals = {"start":{"line":15,"column":31},"end":{"line":15,"column":36}}
+equals = {"start":{"line":17,"column":31},"end":{"line":17,"column":36}}
 
 [[mcp_assert]]
 id = 4
@@ -159,7 +159,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 4
 path = "/result/structuredContent/edits/5/range"
-equals = {"start":{"line":19,"column":30},"end":{"line":19,"column":35}}
+equals = {"start":{"line":21,"column":30},"end":{"line":21,"column":35}}
 
 [[mcp_assert]]
 id = 4
@@ -174,7 +174,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 5
 path = "/result/structuredContent/definition/range"
-equals = {"start":{"line":6,"column":10},"end":{"line":6,"column":15}}
+equals = {"start":{"line":8,"column":10},"end":{"line":8,"column":15}}
 
 [[mcp_assert]]
 id = 6
@@ -204,7 +204,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 9
 path = "/result/structuredContent/edits/0/range"
-equals = {"start":{"line":6,"column":10},"end":{"line":6,"column":15}}
+equals = {"start":{"line":8,"column":10},"end":{"line":8,"column":15}}
 
 [[mcp_assert]]
 id = 9
@@ -219,7 +219,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 9
 path = "/result/structuredContent/edits/1/range"
-equals = {"start":{"line":15,"column":24},"end":{"line":15,"column":29}}
+equals = {"start":{"line":17,"column":24},"end":{"line":17,"column":29}}
 
 [[mcp_assert]]
 id = 9
@@ -234,7 +234,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 9
 path = "/result/structuredContent/edits/2/range"
-equals = {"start":{"line":19,"column":23},"end":{"line":19,"column":28}}
+equals = {"start":{"line":21,"column":23},"end":{"line":21,"column":28}}
 
 [[mcp_assert]]
 id = 9
@@ -249,7 +249,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 9
 path = "/result/structuredContent/edits/3/range"
-equals = {"start":{"line":19,"column":38},"end":{"line":19,"column":43}}
+equals = {"start":{"line":21,"column":38},"end":{"line":21,"column":43}}
 
 [[mcp_assert]]
 id = 9
@@ -259,22 +259,27 @@ equals = "Phase"
 [[mcp_assert]]
 id = 9
 path = "/result/structuredContent/edits/4/range"
-equals = {"start":{"line":35,"column":28},"end":{"line":35,"column":33}}
+equals = {"start":{"line":37,"column":28},"end":{"line":37,"column":33}}
 
 [[mcp_assert]]
 id = 9
 path = "/result/structuredContent/edits/5/range"
-equals = {"start":{"line":39,"column":32},"end":{"line":39,"column":37}}
+equals = {"start":{"line":41,"column":32},"end":{"line":41,"column":37}}
 
 [[mcp_assert]]
 id = 10
 path = "/result/structuredContent/definition/range"
-equals = {"start":{"line":6,"column":10},"end":{"line":6,"column":15}}
+equals = {"start":{"line":8,"column":10},"end":{"line":8,"column":15}}
 
 [[mcp_assert]]
 id = 11
 path = "/result/structuredContent/references"
-length = 6
+length = 1
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/next_cursor"
+contains = "."
 
 [[mcp_assert]]
 id = 12
@@ -283,25 +288,60 @@ length = 6
 
 [[mcp_assert]]
 id = 13
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":1,"column":10},"end":{"line":1,"column":16}}
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/definition/uri"
+contains = "veln-pkg:///example%2Fdep/snapshot/"
+
+[[mcp_assert]]
+id = 14
+path = "/result/resources"
+length = 74
+
+[[mcp_assert]]
+id = 14
+path = "/result/resources/13/name"
+equals = "dep.veln"
+
+[[mcp_assert]]
+id = 15
 path = "/result/structuredContent/definition"
 equals = null
 
 [[mcp_assert]]
-id = 14
+id = 16
 path = "/result/structuredContent/references"
 equals = []
 
 [[mcp_assert]]
-id = 15
+id = 17
 path = "/result/structuredContent/edits"
 equals = []
 
 [[mcp_assert]]
-id = 16
-path = "/result/structuredContent/definition/range"
-equals = {"start":{"line":2,"column":7},"end":{"line":2,"column":12}}
+id = 18
+path = "/result/structuredContent/references"
+length = 1
 
 [[mcp_assert]]
-id = 17
+id = 19
+path = "/result/resources"
+length = 74
+
+[[mcp_assert]]
+id = 19
+path = "/result/resources/13/name"
+equals = "dep.veln"
+
+[[mcp_assert]]
+id = 20
 path = "/result/structuredContent/definition/range"
-equals = {"start":{"line":6,"column":10},"end":{"line":6,"column":15}}
+equals = {"start":{"line":4,"column":7},"end":{"line":4,"column":12}}
+
+[[mcp_assert]]
+id = 21
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":8,"column":10},"end":{"line":8,"column":15}}

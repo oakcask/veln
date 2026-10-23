@@ -1,3 +1,5 @@
+use dep from "example/dep"
+
 pub type State
   pub Ready(Int)
   pub Closed
@@ -37,5 +39,9 @@ fn retained_unknown(value: Alias::Missing) -> Int
 end
 
 fn retained_wrong_owner(value: Alias::Shared) -> Int
+  0
+end
+
+fn dependency(value: dep::Remote) -> Int
   0
 end
