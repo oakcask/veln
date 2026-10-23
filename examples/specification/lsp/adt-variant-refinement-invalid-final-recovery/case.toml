@@ -8,7 +8,7 @@ format = "empty"
 [[lsp_assert]]
 id = 2
 path = "/result/range"
-equals = {"start":{"line":0,"character":5},"end":{"line":0,"character":6}}
+equals = {"start":{"line":2,"character":5},"end":{"line":2,"character":6}}
 
 [[lsp_assert]]
 id = 3
@@ -18,7 +18,7 @@ length = 4
 [[lsp_assert]]
 id = 4
 path = "/result"
-equals = {"start":{"line":5,"character":27},"end":{"line":5,"character":28}}
+equals = {"start":{"line":7,"character":27},"end":{"line":7,"character":28}}
 
 [[lsp_assert]]
 id = 5
@@ -53,4 +53,124 @@ equals = -32602
 [[lsp_assert]]
 id = 11
 path = "/result/range"
-equals = {"start":{"line":0,"character":5},"end":{"line":0,"character":6}}
+equals = {"start":{"line":2,"character":5},"end":{"line":2,"character":6}}
+
+[[lsp_assert]]
+id = 12
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 13
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 14
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 15
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 16
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 17
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 18
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 19
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 20
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 21
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 22
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 23
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 24
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 25
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 26
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 27
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 28
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 29
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 30
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 31
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 32
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 33
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 34
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 35
+path = "/result/changes"
+equals = {}

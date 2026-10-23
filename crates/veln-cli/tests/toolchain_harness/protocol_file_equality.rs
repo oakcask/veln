@@ -320,6 +320,59 @@ pub(super) fn mcp_file_backed_text_equality_reports_content_mismatches() {
 }
 
 #[test]
+pub(super) fn mcp_response_equality_compares_exact_selected_subtrees() {
+    let assertions = parsed_mcp_assertions(
+        r#"command = ["mcp"]
+exit = 0
+[[mcp_assert]]
+id = 2
+path = "/result/state"
+equals_response = {"id":1,"path":"/result/saved"}
+"#,
+    );
+    let equal_messages = decode_mcp_stdout(
+        r#"{"jsonrpc":"2.0","id":1,"result":{"saved":{"items":[1,2],"complete":true}}}
+{"jsonrpc":"2.0","id":2,"result":{"state":{"complete":true,"items":[1,2]}}}
+"#,
+    )
+    .expect("MCP responses should decode");
+    evaluate_mcp_assertion(&equal_messages, &assertions[0], Path::new("."))
+        .expect("object member order should not affect response equality");
+
+    let changed_messages = decode_mcp_stdout(
+        r#"{"jsonrpc":"2.0","id":1,"result":{"saved":{"items":[1,2],"complete":true}}}
+{"jsonrpc":"2.0","id":2,"result":{"state":{"complete":true,"items":[1,3]}}}
+"#,
+    )
+    .expect("MCP responses should decode");
+    let error = evaluate_mcp_assertion(&changed_messages, &assertions[0], Path::new("."))
+        .expect_err("different response subtrees should fail");
+    assert!(error.contains("value mismatch"), "{error}");
+}
+
+#[test]
+pub(super) fn manifest_mcp_response_equality_rejects_invalid_references() {
+    for (operand, expected) in [
+        ("[]", "must be an object"),
+        (r#"{"id":1}"#, "exactly `id` and `path`"),
+        (r#"{"id":1,"id":2}"#, "exactly `id` and `path`"),
+        (r#"{"id":null,"path":"/result"}"#, "equals_response.id"),
+        (r#"{"id":1,"path":1}"#, "equals_response.path"),
+        (r#"{"id":1,"path":"result"}"#, "must start with `/`"),
+    ] {
+        let manifest = format!(
+            "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 2\npath = \"/result\"\nequals_response = {operand}\n"
+        );
+        assert_manifest_parse_error(&manifest, expected);
+    }
+
+    assert_manifest_parse_error(
+        "command = [\"lsp\"]\nexit = 0\n[[lsp_assert]]\nid = 2\npath = \"/result\"\nequals_response = {\"id\":1,\"path\":\"/result\"}\n",
+        "lsp_assert 0 needs exactly one",
+    );
+}
+
+#[test]
 pub(super) fn lsp_and_mcp_shared_operations_produce_the_same_result() {
     let expected_object = parse_json(r#"{"a":2}"#).expect("expected object should parse");
     let cases = [

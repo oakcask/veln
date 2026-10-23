@@ -690,6 +690,166 @@
     }
 
     #[test]
+    fn invalid_final_external_origins_have_the_complete_empty_operation_boundary() {
+        let dependency_text = concat!(
+            "pub type DependencyState\n",
+            "  pub Ready\n",
+            "end\n\n",
+            "pub type PackageAlias = DependencyState\n\n",
+            "pub fn invalid(value: DependencyState::Missing) -> Int\n",
+            "  0\n",
+            "end\n",
+        );
+        let standard_text = concat!(
+            "pub type StandardState\n",
+            "  pub Ready\n",
+            "end\n\n",
+            "pub fn invalid(value: StandardState::Missing) -> Int\n",
+            "  0\n",
+            "end\n",
+        );
+        let workspace_text = concat!(
+            "use dep from \"example/dep\"\n\n",
+            "pub type DependencyAlias = dep::DependencyState\n",
+            "pub type StandardAlias = StandardState\n\n",
+            "fn dependency(value: dep::DependencyState::Missing) -> Int\n  0\nend\n\n",
+            "fn package_alias(value: dep::PackageAlias::Missing) -> Int\n  0\nend\n\n",
+            "fn standard(value: StandardState::Missing) -> Int\n  0\nend\n\n",
+            "fn dependency_alias(value: DependencyAlias::Missing) -> Int\n  0\nend\n\n",
+            "fn standard_alias(value: StandardAlias::Missing) -> Int\n  0\nend\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source("main.veln", workspace_text)],
+            vec![dependency_snapshot(
+                "example/dep",
+                &[("dep.veln", dependency_text)],
+                ["dep.veln"],
+            )],
+        )
+        .with_standard_library(standard_library_snapshot(
+            &[("prelude.veln", standard_text)],
+            ["prelude.veln"],
+        ));
+        let position = |path: &str, text: &str, line_text: &str, needle: &str| {
+            let (line, source_line) = text
+                .lines()
+                .enumerate()
+                .find(|(_, candidate)| candidate.contains(line_text))
+                .unwrap();
+            SourcePosition {
+                source: SourcePath::new(path),
+                line: line + 1,
+                column: source_line.find(needle).unwrap() + 1,
+            }
+        };
+        let assert_all_empty = |position: SourcePosition| {
+            let same_position = || SourcePosition {
+                source: position.source.clone(),
+                line: position.line,
+                column: position.column,
+            };
+            assert!(definition_at(&snapshot, same_position()).is_none());
+            assert!(navigate(&snapshot, same_position()).is_none());
+            assert!(navigate_for_rename(&snapshot, position).is_none());
+        };
+
+        for (path, text, line_text, base, final_name) in [
+            (
+                "main.veln",
+                workspace_text,
+                "fn dependency(",
+                "DependencyState",
+                "Missing",
+            ),
+            (
+                "main.veln",
+                workspace_text,
+                "fn package_alias(",
+                "PackageAlias",
+                "Missing",
+            ),
+            (
+                "main.veln",
+                workspace_text,
+                "fn standard(",
+                "StandardState",
+                "Missing",
+            ),
+            (
+                "dep.veln",
+                dependency_text,
+                "pub fn invalid(",
+                "DependencyState",
+                "Missing",
+            ),
+            (
+                "prelude.veln",
+                standard_text,
+                "pub fn invalid(",
+                "StandardState",
+                "Missing",
+            ),
+        ] {
+            assert_all_empty(position(path, text, line_text, base));
+            assert_all_empty(position(path, text, line_text, final_name));
+        }
+
+        for (line_text, base) in [
+            ("fn dependency_alias(", "DependencyAlias"),
+            ("fn standard_alias(", "StandardAlias"),
+        ] {
+            let base = position("main.veln", workspace_text, line_text, base);
+            let same_base = || SourcePosition {
+                source: base.source.clone(),
+                line: base.line,
+                column: base.column,
+            };
+            assert!(definition_at(&snapshot, same_base()).is_some());
+            assert!(navigate(&snapshot, same_base()).is_some());
+            assert!(navigate_for_rename(&snapshot, base).is_some());
+        }
+
+        let source_less_text =
+            "fn source_less(value: Option<Int>::Missing) -> Int\n  0\nend\n";
+        let source_less = source("source_less.veln", source_less_text);
+        let semantic_module = veln_ast::lower_surface_ast(&veln_syntax::parse(&source_less).tree);
+        let lowered = veln_sema::lower_checked_surface_module(&semantic_module);
+        assert!(
+            lowered.diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "type.invalid_annotation"
+                    && diagnostic.message.contains("Option<Int>::Missing")
+            }),
+            "source-less Option must resolve before its invalid final is rejected: {:#?}",
+            lowered.diagnostics
+        );
+        assert!(
+            lowered
+                .diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.id.contains("unresolved")),
+            "source-less Option must not be treated as unresolved: {:#?}",
+            lowered.diagnostics
+        );
+        let source_less_snapshot = EffectiveProjectSnapshot::new(vec![source_less]);
+        for needle in ["Option", "Missing"] {
+            let source_less_position = position(
+                "source_less.veln",
+                source_less_text,
+                "fn source_less(",
+                needle,
+            );
+            let same_position = || SourcePosition {
+                source: source_less_position.source.clone(),
+                line: source_less_position.line,
+                column: source_less_position.column,
+            };
+            assert!(definition_at(&source_less_snapshot, same_position()).is_none());
+            assert!(navigate(&source_less_snapshot, same_position()).is_none());
+            assert!(navigate_for_rename(&source_less_snapshot, source_less_position).is_none());
+        }
+    }
+
+    #[test]
     fn variant_refinement_navigation_requires_exact_terminal_adt_arity() {
         let text = concat!(
             "pub type Box<A>\n",

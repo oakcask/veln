@@ -306,6 +306,11 @@ equals_file = "case-text/missing-sidecar.txt"
         "missing-sidecar",
     );
     for (command, section) in [("lsp", "lsp_assert"), ("mcp", "mcp_assert")] {
+        let response_equality = if command == "mcp" {
+            ", `equals_response`"
+        } else {
+            ""
+        };
         assert_manifest_parse_error_without(
             &format!(
                 r#"
@@ -323,7 +328,7 @@ equals_file = "case-text/missing-sidecar.txt"
 "#
             ),
             &format!(
-                "{section} 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
+                "{section} 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`{response_equality}, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
             ),
             "missing-sidecar",
         );

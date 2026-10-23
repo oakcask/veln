@@ -206,6 +206,122 @@ fn invalid_variant_refinement_alias_bases_project_saved_navigation() {
 }
 
 #[test]
+fn invalid_final_external_origins_project_the_complete_empty_operation_boundary() {
+    let workspace = TempWorkspace::new("invalid-final-external-origin-matrix");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    let source = concat!(
+        "use dep from \"example/dep\"\n\n",
+        "pub type DependencyAlias = dep::State\n",
+        "pub type StandardAlias = StandardState\n\n",
+        "fn dependency(value: dep::State::Missing) -> Int\n  0\nend\n\n",
+        "fn package_alias(value: dep::PackageAlias::Missing) -> Int\n  0\nend\n\n",
+        "fn standard(value: StandardState::Missing) -> Int\n  0\nend\n\n",
+        "fn dependency_alias(value: DependencyAlias::Missing) -> Int\n  0\nend\n\n",
+        "fn standard_alias(value: StandardAlias::Missing) -> Int\n  0\nend\n",
+    );
+    workspace.write("main.veln", source);
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready\n",
+            "end\n\n",
+            "pub type PackageAlias = State\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "prelude.veln",
+            b"pub type StandardState\n  pub Ready\nend\n",
+        )],
+    );
+    let position = |line_text: &str, needle: &str| {
+        let (line, source_line) = source
+            .lines()
+            .enumerate()
+            .find(|(_, candidate)| candidate.contains(line_text))
+            .unwrap();
+        (line + 1, source_line.find(needle).unwrap() + 1)
+    };
+
+    for (line_text, base, final_name) in [
+        ("fn dependency(", "State", "Missing"),
+        ("fn package_alias(", "PackageAlias", "Missing"),
+        ("fn standard(", "StandardState", "Missing"),
+    ] {
+        for needle in [base, final_name] {
+            let (line, column) = position(line_text, needle);
+            let definition = server.definition_tool(&json!({
+                "source":"main.veln", "line":line, "column":column
+            }));
+            assert_eq!(
+                definition["structuredContent"]["definition"],
+                Value::Null,
+                "{line_text} {needle}: {definition:#}"
+            );
+            let references = server.references_tool(&json!({
+                "source":"main.veln", "line":line, "column":column,
+                "include_declaration":true
+            }));
+            assert_eq!(
+                references["structuredContent"]["references"],
+                json!([]),
+                "{line_text} {needle}: {references:#}"
+            );
+            let renamed = server.rename_tool(&json!({
+                "source":"main.veln", "line":line, "column":column,
+                "new_name":"Packed"
+            }));
+            assert!(
+                edits(&renamed).is_empty(),
+                "{line_text} {needle}: {renamed:#}"
+            );
+        }
+    }
+
+    for (line_text, base) in [
+        ("fn dependency_alias(", "DependencyAlias"),
+        ("fn standard_alias(", "StandardAlias"),
+    ] {
+        let (line, column) = position(line_text, base);
+        let definition = server.definition_tool(&json!({
+            "source":"main.veln", "line":line, "column":column
+        }));
+        assert_ne!(
+            definition["structuredContent"]["definition"],
+            Value::Null,
+            "{line_text}: {definition:#}"
+        );
+        let references = server.references_tool(&json!({
+            "source":"main.veln", "line":line, "column":column,
+            "include_declaration":true
+        }));
+        assert_eq!(
+            references["structuredContent"]["references"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2,
+            "{line_text}: {references:#}"
+        );
+        let renamed = server.rename_tool(&json!({
+            "source":"main.veln", "line":line, "column":column,
+            "new_name":"Packed"
+        }));
+        assert_eq!(edits(&renamed).len(), 2, "{line_text}: {renamed:#}");
+    }
+}
+
+#[test]
 fn ambiguous_package_refinement_bases_do_not_select_or_rename() {
     let source = concat!(
         "use shared from \"first/pkg\"\n",

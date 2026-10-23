@@ -1,0 +1,5 @@
+pub type State
+	pub Ready
+end
+
+pub type RemoteAlias = State

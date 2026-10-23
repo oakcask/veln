@@ -1,7 +1,21 @@
+use dep from "example/dep"
+
 type S
 	Ready
 end
 
 fn observe(value: S::Missing) -> {label: String, state: S}
 	{label: "😀", state: keep<S::Missing>(value)}
+end
+
+fn dependency(value: dep::State::Missing) -> Int
+	0
+end
+
+fn package_alias(value: dep::RemoteAlias::Missing) -> Int
+	0
+end
+
+fn standard(value: AcceptOutcome::Missing) -> Int
+	0
 end

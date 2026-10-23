@@ -777,6 +777,95 @@ fn invalid_variant_refinement_alias_bases_project_all_four_operations() {
 }
 
 #[test]
+fn invalid_final_external_origins_project_the_complete_empty_operation_boundary() {
+    let mut server = Server::default();
+    let project = TempProject::new("invalid-final-external-origin-matrix");
+    project.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    let source = concat!(
+        "use dep from \"example/dep\"\n\n",
+        "pub type DependencyAlias = dep::State\n",
+        "pub type StandardAlias = AcceptOutcome\n\n",
+        "fn dependency(value: dep::State::Missing) -> Int\n  0\nend\n\n",
+        "fn package_alias(value: dep::PackageAlias::Missing) -> Int\n  0\nend\n\n",
+        "fn standard(value: AcceptOutcome::Missing) -> Int\n  0\nend\n\n",
+        "fn dependency_alias(value: DependencyAlias::Missing) -> Int\n  0\nend\n\n",
+        "fn standard_alias(value: StandardAlias::Missing) -> Int\n  0\nend\n",
+    );
+    project.write("main.veln", source);
+    project.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    let dependency_source = concat!(
+        "pub type State\n",
+        "  pub Ready\n",
+        "end\n\n",
+        "pub type PackageAlias = State\n\n",
+        "pub fn invalid(value: State::Missing) -> Int\n  0\nend\n",
+    );
+    project.write("vendor/dep/dep.veln", dependency_source);
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let dependency_uri = path_to_uri(&project.root.join("vendor/dep/dep.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let location = |text: &str, line_text: &str, needle: &str| {
+        let (line, source_line) = text
+            .lines()
+            .enumerate()
+            .find(|(_, candidate)| candidate.contains(line_text))
+            .unwrap();
+        (line, source_line.find(needle).unwrap())
+    };
+    for (uri, text, line_text, base, final_name) in [
+        (
+            main_uri.as_str(),
+            source,
+            "fn dependency(",
+            "State",
+            "Missing",
+        ),
+        (
+            main_uri.as_str(),
+            source,
+            "fn package_alias(",
+            "PackageAlias",
+            "Missing",
+        ),
+        (
+            main_uri.as_str(),
+            source,
+            "fn standard(",
+            "AcceptOutcome",
+            "Missing",
+        ),
+        (
+            dependency_uri.as_str(),
+            dependency_source,
+            "pub fn invalid(",
+            "State",
+            "Missing",
+        ),
+    ] {
+        for needle in [base, final_name] {
+            let (line, character) = location(text, line_text, needle);
+            assert_refinement_navigation_unavailable(&mut server, uri, line, character);
+        }
+    }
+
+    for (line_text, base) in [
+        ("fn dependency_alias(", "DependencyAlias"),
+        ("fn standard_alias(", "StandardAlias"),
+    ] {
+        let (line, character) = location(source, line_text, base);
+        assert_refinement_navigation_available(&mut server, &main_uri, line, character, 2);
+    }
+}
+
+#[test]
 fn ambiguous_package_refinement_bases_do_not_select_or_rename() {
     let source = concat!(
         "use shared from \"first/pkg\"\n",

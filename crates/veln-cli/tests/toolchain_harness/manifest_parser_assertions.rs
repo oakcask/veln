@@ -283,6 +283,62 @@ fn parse_rpc_assertion_operation(
         "equals_json_file" => RpcAssertionOperation::EqualsJsonFileRef(parse_case_text_reference(
             path, value, section, key,
         )),
+        "equals_response" if section == "mcp_assert" => {
+            let operand = parse_manifest_json_value_allow_decimal(path, value);
+            let JsonValue::Object(entries) = &operand else {
+                manifest_error(
+                    path,
+                    line_number,
+                    "mcp_assert `equals_response` must be an object with `id` and `path`",
+                );
+            };
+            if entries.len() != 2
+                || entries.iter().filter(|(key, _)| key == "id").count() != 1
+                || entries.iter().filter(|(key, _)| key == "path").count() != 1
+            {
+                manifest_error(
+                    path,
+                    line_number,
+                    "mcp_assert `equals_response` must contain exactly `id` and `path`",
+                );
+            }
+            let id = operand
+                .object_field("id")
+                .expect("validated equals_response id")
+                .clone();
+            if !matches!(id, JsonValue::Number(_) | JsonValue::String(_))
+                && !matches!(&id, JsonValue::Decimal(raw) if is_json_integer_token(raw))
+            {
+                manifest_error(
+                    path,
+                    line_number,
+                    "mcp_assert `equals_response.id` must be a JSON string or integer",
+                );
+            }
+            let response_path = operand
+                .object_field("path")
+                .and_then(JsonValue::as_str)
+                .unwrap_or_else(|| {
+                    manifest_error(
+                        path,
+                        line_number,
+                        "mcp_assert `equals_response.path` must be a string",
+                    )
+                })
+                .to_string();
+            let pointer_tokens = parse_json_pointer(
+                path,
+                line_number,
+                "mcp_assert equals_response",
+                index,
+                &response_path,
+            );
+            RpcAssertionOperation::EqualsResponse(McpResponseReference {
+                id,
+                path: response_path,
+                pointer_tokens,
+            })
+        }
         "contains" => RpcAssertionOperation::Contains(parse_string(path, value)),
         "length" => {
             let context = unresolved_assertion_operation_context(section, index, key);
