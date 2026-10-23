@@ -1,0 +1,33 @@
+use observe from "std"
+use log from "std"
+use clock
+use exporter
+
+# This case captures every JVM encoder branch through a scoped host adapter.
+# Companion tests own the standard-library API, source, limit, and health
+# permutations; this case owns encoder/schema integration and exact framing.
+pub fn main() -> () effects [stdio, time, concurrency]
+	let configured = observe::new_json_lines_default(
+		observe::Resource("checkout", list_cons(observe::Attribute("resource-name", observe::StringValue("uvwxyz")), list_nil())),
+		observe::InstrumentationScope("example", "1"),
+		2,
+		observe::ExporterLimits(2, 4, 1, list_cons("secret-name", list_nil())),
+		"capture",
+	)
+	let _ = handle handle handle emit_all(configured) with observe::json_lines(configured) with clock::fixed() with exporter::capture()
+	()
+end
+
+fn emit_all(configured: JsonLinesExporter) -> () effects [observe::Observe, time, concurrency] callsite
+	log::info(None, "ready", list_cons(observe::Attribute("secret-name", observe::StringValue("hidden")), list_cons(observe::Attribute("both-name", observe::StringValue("abcdef")), list_cons(observe::Attribute("dropped", observe::IntValue(1)), list_nil()))))
+	observe::export_observation(configured, observe::Event(observe::EventRecord("checkout.completed", list_nil(), None, hostile_source())))
+	observe::export_observation(configured, observe::CounterIncrement(observe::CounterIncrementRecord("request.count", 3, list_nil(), None, callsite)))
+	observe::export_observation(configured, observe::HistogramSample(observe::HistogramSampleRecord("request.duration", 7, list_nil(), None, callsite)))
+	let span = observe::start_export_span(configured, observe::span_request("request", Some(observe::TraceContext("trace-parent", "span-parent", true)), list_cons(observe::TraceContext("trace-link", "span-link", false), list_nil())))
+	observe::finish_export_span(configured, observe::finish(span))
+	()
+end
+
+fn hostile_source() -> SourceLocation
+	{ package: "/machine/package", module: "../private", file: "C:\\machine\\main.veln", start_line: 1, start_column: 2, start_offset: 0, end_line: 1, end_column: 3, end_offset: 1 }
+end

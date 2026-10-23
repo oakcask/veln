@@ -377,19 +377,32 @@ so it encodes `task_id` as `null`.
 
 Attribute count limits apply independently to observation and resource
 attribute lists. Negative limits normalize to zero. String size is measured
-in JVM UTF-16 code units. A string beyond the limit is shortened to the
-configured size and increments `truncated`. Attributes after the count limit
-are omitted and increment `dropped`. A matching attribute name is replaced by
-the string `[REDACTED]` until the finite redaction limit is reached and
-increments `redacted`. The encoded facts include changes to both observation
-and resource attributes.
+in JVM UTF-16 code units. The size limit applies to every retained observation
+and resource attribute name and to every retained, non-redacted `StringValue`
+payload. Each name or value beyond the limit is shortened to the configured
+size and increments `truncated`; one attribute can therefore add two to that
+fact. Attributes after the count limit are omitted and increment `dropped`.
+Redaction matching uses the original attribute name before name shortening. A
+matching value is replaced by the fixed string `[REDACTED]` until the finite
+redaction limit is reached and increments `redacted`. The encoded facts
+aggregate changes to both observation and resource attributes.
 
-A destination rejection or host write failure increments the saturating
-`failed_exports` counter and leaves the handled application's ordinary result
-unchanged. Export and health-summary writes do not perform `Observe`, so a
-failure cannot recursively create telemetry. Exported source files use the
-compiler's canonical repository or virtual name. The host boundary replaces
-an unexpected absolute source with its final path component before encoding.
+A destination rejection or host write failure increments `failed_exports`
+and leaves the handled application's ordinary result unchanged. The
+cumulative failed, dropped, truncated, and redacted health totals saturate at
+the maximum `Int`. Health reads do not consume those totals. Saturation does
+not prevent a later export or health read. Export and health-summary writes do
+not perform `Observe`, so a failure cannot recursively create telemetry.
+
+Every direct or handler-driven export validates all public `SourceLocation`
+components before encoding. A workspace source has an empty `package`; a
+dependency source has its public package identity. `module` is a logical
+module path. `file` is package-relative or a canonical virtual name. For each
+component independently, the encoder replaces an absolute Unix, Windows, or
+UNC spelling, a `.` or `..` traversal segment, an invalid path, or another
+noncanonical component with `<invalid-source>`. It preserves compiler-produced
+canonical values. Equivalent source trees at different absolute roots
+therefore encode the same source identity.
 
 ### Direct exporter operations
 
@@ -556,8 +569,12 @@ process or machine termination can prevent it from running.
 - JSON Lines API, ordering, limit, cardinality, and failure-health coverage:
   [`observe.test.veln`](../../crates/veln-stdlib/veln/observe.test.veln), with
   scoped fakes in `observe_export_test_support_test.veln`.
-  The checked schema and representative validation are owned by
-  [`observability-schema.test.mjs`](../../workflow-scripts/observability-schema.test.mjs).
+  The checked schema and six captured encoder records are owned by
+  [`observability-schema.test.mjs`](../../workflow-scripts/observability-schema.test.mjs)
+  and the
+  [`observability-json-lines-encoder`](../../examples/specification/run/observability-json-lines-encoder/)
+  JVM integration case. They check every record kind, exact JSON Lines framing,
+  limit facts, and hostile-source replacement.
 - Production index boundary coverage:
   [`effect_boundary_policy.rs`](../../crates/veln-backend-jvm/src/tests/effect_boundary_policy.rs)
   checks bounded indexed state and the absence of owner tasks, while

@@ -8,7 +8,7 @@ const schemaUrl = new URL(
 );
 const schema = JSON.parse(await readFile(schemaUrl, "utf8"));
 const hostBoundaryUrl = new URL(
-  "../examples/specification/run/observability-json-lines-host-boundary/case-text/stderr.txt",
+  "../examples/specification/run/observability-json-lines-encoder/case-text/records.jsonl",
   import.meta.url,
 );
 
@@ -119,12 +119,6 @@ function representative(kind) {
   };
 }
 
-test("representative JSON Lines observation records satisfy the checked schema", () => {
-  for (const kind of ["log", "event", "counter", "histogram", "span_start", "span_finish"]) {
-    validate(representative(kind), schema);
-  }
-});
-
 test("the checked schema rejects incompatible versions and unrecognized fields", () => {
   assert.throws(() => validate({ ...representative("event"), schema_version: 2 }, schema));
   assert.throws(() => validate({ ...representative("event"), unexpected: true }, schema));
@@ -142,20 +136,65 @@ test("the checked schema rejects incompatible versions and unrecognized fields",
   assert.throws(() => validate({ ...representative("span_start"), trace: { trace_id: "trace-1", span_id: "span-1", sampled: true } }, schema));
 });
 
-test("the checked JVM host-boundary record satisfies the schema and path hygiene", async () => {
-  const lines = (await readFile(hostBoundaryUrl, "utf8")).trimEnd().split("\n");
-  assert.ok(lines.length > 0);
-  for (const line of lines) {
+test("six captured JVM encoder records satisfy schema, branch, framing, and path contracts", async () => {
+  const raw = await readFile(hostBoundaryUrl, "utf8");
+  assert.equal(raw.includes("\r"), false);
+  assert.equal(raw.endsWith("\n"), true);
+  const parts = raw.split("\n");
+  assert.equal(parts.length, 7);
+  assert.equal(parts[6], "");
+  const records = parts.slice(0, 6).map((line) => {
+    assert.notEqual(line, "");
+    assert.equal(line.includes("\n"), false);
     const record = JSON.parse(line);
     validate(record, schema);
-    assert.equal(record.source.file.startsWith("/"), false);
-    assert.equal(/^[A-Za-z]:[\\/]/u.test(record.source.file), false);
-  }
-});
+    return record;
+  });
 
-test("representative source names are repository-relative or virtual", () => {
-  for (const name of ["src/main.veln", "dependency/pkg.veln", "<observe>"]) {
-    assert.equal(name.startsWith("/"), false);
-    assert.equal(/^[A-Za-z]:[\\/]/u.test(name), false);
+  assert.deepEqual(records.map(({ kind }) => kind), [
+    "log", "event", "counter", "histogram", "span_start", "span_finish",
+  ]);
+  assert.deepEqual(records.map(({ sequence }) => sequence), [1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(records.map(({ name }) => name), [
+    "log", "checkout.completed", "request.count", "request.duration", "request", "request",
+  ]);
+  assert.equal(records[0].message, "ready");
+  assert.deepEqual(records[0].attributes, [
+    { name: "secr", type: "string", value: "[REDACTED]" },
+    { name: "both", type: "string", value: "abcd" },
+  ]);
+  assert.deepEqual(records[0].attribute_facts, { dropped: 1, truncated: 5, redacted: 1 });
+  assert.deepEqual(records[1].source, {
+    package: "<invalid-source>",
+    module: "<invalid-source>",
+    file: "<invalid-source>",
+    start_line: 1,
+    start_column: 2,
+    end_line: 1,
+    end_column: 3,
+  });
+  assert.equal(records[2].value, 3);
+  assert.equal(records[3].value, 7);
+  assert.deepEqual(records[4].span, {
+    trace_id: "trace-parent",
+    span_id: "captured-span-1",
+    parent_span_id: "span-parent",
+  });
+  assert.deepEqual(records[4].links, [
+    { trace_id: "trace-link", span_id: "span-link", sampled: false },
+  ]);
+  assert.deepEqual(records[5].span, records[4].span);
+  assert.deepEqual(records[5].links, []);
+
+  for (const { source } of records) {
+    for (const component of [source.package, source.module, source.file]) {
+      assert.equal(component.startsWith("/"), false);
+      assert.equal(component.startsWith("\\\\"), false);
+      assert.equal(/^[A-Za-z]:[\\/]/u.test(component), false);
+      assert.equal(component.split(/[\\/]|::/u).some((segment) => segment === "." || segment === ".."), false);
+    }
   }
+  assert.equal(raw.includes("/machine/"), false);
+  assert.equal(raw.includes("../private"), false);
+  assert.equal(raw.includes("C:\\machine"), false);
 });

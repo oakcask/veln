@@ -203,8 +203,16 @@ pub fn span_request(name: String, parent: Option<TraceContext>, links: List<Trac
 end
 
 pub fn new_json_lines(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String) -> JsonLinesExporter effects [concurrency]
+	start_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, 0, 0, 0, 0)
+end
+
+fn new_json_lines_for_test(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, failed_exports: Int, dropped_attributes: Int, truncated_attributes: Int, redacted_attributes: Int) -> JsonLinesExporter effects [concurrency]
+	start_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, failed_exports, dropped_attributes, truncated_attributes, redacted_attributes)
+end
+
+fn start_json_lines(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, failed_exports: Int, dropped_attributes: Int, truncated_attributes: Int, redacted_attributes: Int) -> JsonLinesExporter effects [concurrency]
 	let state = channel::bounded<ExporterState>(1)
-	let _ = channel::send(state.tx, ExporterState(1, 1, 0, 0, 0, 0))
+	let _ = channel::send(state.tx, ExporterState(1, 1, failed_exports, dropped_attributes, truncated_attributes, redacted_attributes))
 	JsonLinesExporter(resource, scope, normalize_exporter_limits(limits), destination, diagnostic_destination, identity_prefix, new_production(metric_series_limit), state)
 end
 

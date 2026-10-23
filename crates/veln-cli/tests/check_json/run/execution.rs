@@ -113,6 +113,51 @@ fn run_forwards_stdout_and_stderr_when_jdk_is_available() {
 }
 
 #[test]
+fn json_lines_source_identity_is_stable_across_independent_project_roots() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    // This exercises the compiler-to-JVM source-location boundary. Companion
+    // tests own the public exporter API and hostile structural values.
+    let main_source = concat!(
+        "use observe from \"std\"\n",
+        "use log from \"std\"\n",
+        "use clock\n",
+        "pub fn main() -> () effects [time, concurrency]\n",
+        "  let configured = observe::new_json_lines_default(observe::Resource(\"app\", list_nil()), observe::InstrumentationScope(\"relocation\", \"1\"), 1, observe::ExporterLimits(1, 8, 0, list_nil()), \"relocation\")\n",
+        "  let _ = handle handle log::info(None, \"stable\", list_nil()) with observe::json_lines(configured) with clock::fixed()\n",
+        "  ()\n",
+        "end\n",
+    );
+    let clock_source = concat!(
+        "use host_effects from \"std\"\n",
+        "pub handler fixed() for host_effects::Clock\n",
+        "  request(operation, milliseconds) => Ok(0)\n",
+        "  wall_time() => Ok({ unix_seconds: 7, nanosecond: 9 })\n",
+        "end\n",
+    );
+    let first = TestProject::new("observability-relocation-first");
+    first.write("main.veln", main_source);
+    first.write("clock.veln", clock_source);
+    let second = TestProject::new("observability-relocation-second");
+    second.write("main.veln", main_source);
+    second.write("clock.veln", clock_source);
+
+    let first_output = first.run(&["main", "main.veln", "clock.veln"]);
+    let second_output = second.run(&["main", "main.veln", "clock.veln"]);
+
+    assert!(first_output.status.success(), "{}", stderr(&first_output));
+    assert!(second_output.status.success(), "{}", stderr(&second_output));
+    assert_eq!(first_output.stderr, second_output.stderr);
+    let encoded = stderr(&first_output);
+    assert!(encoded.ends_with('\n'));
+    assert!(encoded.contains("\"package\":\"\",\"module\":\"main\",\"file\":\"main.veln\""));
+    assert!(!encoded.contains(first.root.to_string_lossy().as_ref()));
+    assert!(!encoded.contains(second.root.to_string_lossy().as_ref()));
+}
+
+#[test]
 fn run_passes_string_entry_arguments_when_jdk_is_available() {
     if !jdk_is_available() {
         return;

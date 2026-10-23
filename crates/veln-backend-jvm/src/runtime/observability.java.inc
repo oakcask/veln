@@ -257,11 +257,11 @@
                 continue;
             }
             retained += 1L;
-            String name = asString(attribute.payloads[0]);
+            String originalName = asString(attribute.payloads[0]);
             Adt scalar = (Adt) attribute.payloads[1];
             String type;
             String value;
-            if (redactedNames.contains(name) && facts.redacted < maximumRedacted) {
+            if (redactedNames.contains(originalName) && facts.redacted < maximumRedacted) {
                 type = "string";
                 value = observationJsonString("[REDACTED]");
                 facts.redacted += 1L;
@@ -283,6 +283,12 @@
             } else {
                 throw new IllegalStateException("expected observation attribute scalar");
             }
+            int nameLimit = (int) Math.min(Integer.MAX_VALUE, maximumStringSize);
+            String name = originalName;
+            if (name.length() > nameLimit) {
+                name = name.substring(0, nameLimit);
+                facts.truncated += 1L;
+            }
             if (!first) output.append(',');
             first = false;
             output.append("{\"name\":").append(observationJsonString(name))
@@ -292,25 +298,53 @@
         return output.append(']').toString();
     }
 
-    private static String observationSource(Object source) {
-        String file = asString(recordField(source, "file"));
-        try {
-            java.nio.file.Path path = java.nio.file.Paths.get(file);
-            boolean windowsAbsolute = file.matches("^[A-Za-z]:[\\\\/].*") || file.startsWith("\\\\");
-            if (path.isAbsolute() || windowsAbsolute) {
-                java.nio.file.Path name = path.getFileName();
-                if (windowsAbsolute && !path.isAbsolute()) {
-                    int separator = Math.max(file.lastIndexOf('/'), file.lastIndexOf('\\'));
-                    file = separator < 0 ? "<unknown>" : file.substring(separator + 1);
-                } else {
-                    file = name == null ? "<unknown>" : name.toString();
+    private static String observationCanonicalSourceComponent(
+        String value,
+        boolean allowEmpty,
+        boolean module
+    ) {
+        if (value.isEmpty()) return allowEmpty ? value : "<invalid-source>";
+        if (value.startsWith("/") || value.startsWith("\\")
+            || value.matches("^[A-Za-z]:.*") || value.indexOf('\\') >= 0
+            || value.indexOf('\0') >= 0) {
+            return "<invalid-source>";
+        }
+        if (!module && value.indexOf(':') >= 0) return "<invalid-source>";
+        if (module && (value.indexOf('/') >= 0 || value.startsWith(":") || value.endsWith(":")
+            || value.replace("::", "").indexOf(':') >= 0)) {
+            return "<invalid-source>";
+        }
+        String[] pathSegments = value.split("/", -1);
+        for (String segment : pathSegments) {
+            if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) {
+                return "<invalid-source>";
+            }
+        }
+        if (module) {
+            String[] moduleSegments = value.split("::", -1);
+            for (String segment : moduleSegments) {
+                if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) {
+                    return "<invalid-source>";
                 }
             }
-        } catch (java.nio.file.InvalidPathException ignored) {
-            file = "<invalid-source>";
         }
-        return "{\"package\":" + observationJsonString(asString(recordField(source, "package")))
-            + ",\"module\":" + observationJsonString(asString(recordField(source, "module")))
+        try {
+            java.nio.file.Paths.get(value);
+        } catch (java.nio.file.InvalidPathException ignored) {
+            return "<invalid-source>";
+        }
+        return value;
+    }
+
+    private static String observationSource(Object source) {
+        String packageName = observationCanonicalSourceComponent(
+            asString(recordField(source, "package")), true, false);
+        String moduleName = observationCanonicalSourceComponent(
+            asString(recordField(source, "module")), false, true);
+        String file = observationCanonicalSourceComponent(
+            asString(recordField(source, "file")), false, false);
+        return "{\"package\":" + observationJsonString(packageName)
+            + ",\"module\":" + observationJsonString(moduleName)
             + ",\"file\":" + observationJsonString(file)
             + ",\"start_line\":" + asLong(recordField(source, "start_line"))
             + ",\"start_column\":" + asLong(recordField(source, "start_column"))

@@ -35,7 +35,7 @@ pub fn json_lines_exports_all_operations_in_order_and_reports_limits() -> Result
 	else
 		match channel::recv(lines.rx)
 			Some(first) => match string_split_once(first, "\"sequence\":1")
-				Some(_) => match string_split_once(first, "\"attribute_facts\":{\"dropped\":1,\"truncated\":2,\"redacted\":1}")
+				Some(_) => match string_split_once(first, "\"attribute_facts\":{\"dropped\":1,\"truncated\":4,\"redacted\":1}")
 					Some(_) => expect_remaining_lines(lines.rx, 2, 6)
 					None => Err("JSON Lines attribute limit facts changed")
 				end
@@ -43,6 +43,117 @@ pub fn json_lines_exports_all_operations_in_order_and_reports_limits() -> Result
 			end
 			None => Err("JSON Lines exporter emitted no log record")
 		end
+	end
+end
+
+pub fn attribute_names_and_values_share_the_finite_string_limit() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(2)
+	let configured = observe::new_json_lines(
+		observe::Resource("checkout", list_cons(observe::Attribute("resource-name", observe::StringValue("uvwxyz")), list_nil())),
+		observe::InstrumentationScope("checkout.web", "1"),
+		1,
+		observe::ExporterLimits(3, 4, 1, list_cons("secret-name", list_nil())),
+		observe::StandardError,
+		observe::NoDiagnosticDestination,
+		"fixed",
+	)
+	let record = observe::Event(observe::EventRecord("bounded", list_cons(observe::Attribute("secret-name", observe::StringValue("hidden")), list_cons(observe::Attribute("integer-name", observe::IntValue(3)), list_cons(observe::Attribute("both-name", observe::StringValue("abcdef")), list_nil()))), None, source("", "main", "main.veln")))
+	let _ = handle handle observe::export_observation(configured, record) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, true)
+	match channel::recv(lines.rx)
+		Some(line) => if has(line, "\"attributes\":[{\"name\":\"secr\",\"type\":\"string\",\"value\":\"[REDACTED]\"},{\"name\":\"inte\",\"type\":\"int\",\"value\":3},{\"name\":\"both\",\"type\":\"string\",\"value\":\"abcd\"}]") and has(line, "\"resource\":{\"name\":\"checkout\",\"attributes\":[{\"name\":\"reso\",\"type\":\"string\",\"value\":\"uvwx\"}]}") and has(line, "\"attribute_facts\":{\"dropped\":0,\"truncated\":6,\"redacted\":1}")
+			Ok(())
+		else
+			Err("attribute name, value, resource, redaction, or exact limit facts changed")
+		end
+		None => Err("bounded attribute export produced no record")
+	end
+end
+
+pub fn hostile_public_source_components_are_replaced() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(4)
+	let configured = exporter(lines.tx, 1)
+	let _ = export_event(configured, lines.tx, source("/home/alice/pkg", "../private", "/home/alice/main.veln"))
+	let _ = export_event(configured, lines.tx, source("C:\\Users\\alice", "safe::..", "..\\secret.veln"))
+	let _ = export_event(configured, lines.tx, source("\\\\server\\share", ".::private", "safe/./main.veln"))
+	expect_invalid_sources(lines.rx, 3)
+end
+
+fn export_event(configured: JsonLinesExporter, lines: Sender<String>, location: SourceLocation) -> () effects [time, concurrency]
+	let record = observe::Event(observe::EventRecord("hostile", list_nil(), None, location))
+	handle handle observe::export_observation(configured, record) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines, true)
+end
+
+fn expect_invalid_sources(lines: Receiver<String>, remaining: Int) -> Result<(), String> effects [concurrency]
+	if remaining == 0
+		Ok(())
+	else
+		match channel::recv(lines)
+			Some(line) => if has(line, "\"source\":{\"package\":\"<invalid-source>\",\"module\":\"<invalid-source>\",\"file\":\"<invalid-source>\"") and not has(line, "/home/") and not has(line, "..") and not has(line, "server")
+				expect_invalid_sources(lines, remaining - 1)
+			else
+				Err("hostile public source component crossed the encoder boundary")
+			end
+			None => Err("hostile source case produced no record")
+		end
+	end
+end
+
+pub fn saturating_exporter_health(single: JsonLinesExporter, crossing: JsonLinesExporter) -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(8)
+	let one = list_cons(observe::Attribute("long-name", observe::StringValue("secret")), list_cons(observe::Attribute("drop", observe::IntValue(1)), list_nil()))
+	let _ = export_with_result(single, lines.tx, one, false)
+	let _ = export_with_result(single, lines.tx, one, false)
+	match observe::exporter_health(single)
+		observe::ExporterHealth(9223372036854775807, 9223372036854775807, 9223372036854775807, 9223372036854775807, _) => begin
+			let many = list_cons(observe::Attribute("first-long", observe::StringValue("secret")), list_cons(observe::Attribute("second-long", observe::StringValue("secret")), list_cons(observe::Attribute("drop-one", observe::IntValue(1)), list_cons(observe::Attribute("drop-two", observe::IntValue(2)), list_nil()))))
+			let _ = export_with_result(crossing, lines.tx, many, false)
+			let _ = export_with_result(crossing, lines.tx, many, false)
+			let _ = export_with_result(crossing, lines.tx, many, true)
+			match observe::exporter_health(crossing)
+				observe::ExporterHealth(9223372036854775807, 9223372036854775807, 9223372036854775807, 9223372036854775807, _) => expect_saturated_success(lines.rx)
+				_ => Err("multi-fact exporter health did not saturate across maximum Int")
+			end
+		end
+		_ => Err("single-fact exporter health did not reach and remain at maximum Int")
+	end
+end
+
+fn export_with_result(configured: JsonLinesExporter, lines: Sender<String>, attributes: List<Attribute>, accepted: Bool) -> () effects [time, concurrency]
+	let record = observe::Event(observe::EventRecord("health", attributes, None, source("", "main", "main.veln")))
+	handle handle observe::export_observation(configured, record) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines, accepted)
+end
+
+fn expect_saturated_success(lines: Receiver<String>) -> Result<(), String> effects [concurrency]
+	match channel::recv(lines)
+		Some(_) => match channel::recv(lines)
+			Some(_) => match channel::recv(lines)
+				Some(_) => match channel::recv(lines)
+					Some(_) => match channel::recv(lines)
+						Some(line) => if has(line, "\"exporter_health\":{\"failed_exports\":9223372036854775807}")
+							Ok(())
+						else
+							Err("successful export after saturation did not retain saturated health")
+						end
+						None => Err("successful export after saturation was not attempted")
+					end
+					None => Err("later saturated export was not attempted")
+				end
+				None => Err("crossing saturated export was not attempted")
+			end
+			None => Err("later single-fact saturated export was not attempted")
+		end
+		None => Err("single-fact saturated export was not attempted")
+	end
+end
+
+fn source(package: String, module: String, file: String) -> SourceLocation
+	{ package: package, module: module, file: file, start_line: 1, start_column: 1, start_offset: 0, end_line: 1, end_column: 2, end_offset: 1 }
+end
+
+fn has(text: String, fragment: String) -> Bool
+	match string_split_once(text, fragment)
+		Some(_) => true
+		None => false
 	end
 end
 
@@ -71,7 +182,7 @@ pub fn rejected_export_preserves_result_and_reports_bounded_health_to_diagnostic
 	let result = handle handle handle failing_body() with observe::json_lines(configured) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, false)
 	let reported = handle observe::report_exporter_health(configured) with observe_test_support_test::exporter(lines.tx, true)
 	match observe::exporter_health(configured)
-		observe::ExporterHealth(1, 0, 1, 0, observe::ProductionHealth(0, 0, 0)) => if result == "unchanged" and reported
+		observe::ExporterHealth(1, 0, 2, 0, observe::ProductionHealth(0, 0, 0)) => if result == "unchanged" and reported
 			match channel::recv(lines.rx)
 				Some(_) => match channel::recv(lines.rx)
 					Some(summary) => match string_split_once(summary, "diagnostic:stderr:{\"schema_version\":1,\"kind\":\"exporter_health\",\"failed_exports\":1")
@@ -98,7 +209,7 @@ pub fn cardinality_rejection_happens_before_attribute_limits_and_export() -> Res
 		7
 	end with observe::json_lines(configured) with observe_test_support_test::clock(0) with observe_test_support_test::exporter(lines.tx, true)
 	match observe::exporter_health(configured)
-		observe::ExporterHealth(0, 0, 2, 0, observe::ProductionHealth(1, 1, 1)) => if result == 7
+		observe::ExporterHealth(0, 0, 4, 0, observe::ProductionHealth(1, 1, 1)) => if result == 7
 			match channel::recv(lines.rx)
 				Some(_) => match channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
 					None => Ok(())

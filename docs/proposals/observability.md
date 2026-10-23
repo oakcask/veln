@@ -48,7 +48,7 @@ appropriate only for a separately identified CLI, backend, or host-lifecycle
 contract.
 
 When O14 is implemented, update the current observability specification and
-executable evidence, then remove this proposal and its Ready catalog entry.
+executable evidence, then remove this proposal and its catalog entry.
 
 ## Non-goals
 

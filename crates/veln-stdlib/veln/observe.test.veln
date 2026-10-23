@@ -308,6 +308,23 @@ test json_lines_exports_all_operations_in_order_and_reports_limits() -> Result<(
 	observe_export_test_support_test::json_lines_exports_all_operations_in_order_and_reports_limits()
 end
 
+test json_lines_bounds_attribute_names_and_values() -> Result<(), String> effects [time, concurrency]
+	observe_export_test_support_test::attribute_names_and_values_share_the_finite_string_limit()
+end
+
+test json_lines_replaces_hostile_public_source_components() -> Result<(), String> effects [time, concurrency]
+	observe_export_test_support_test::hostile_public_source_components_are_replaced()
+end
+
+test exporter_health_totals_saturate_at_maximum_int() -> Result<(), String> effects [time, concurrency]
+	let maximum = 9223372036854775807
+	let resource = observe::Resource("checkout", list_nil())
+	let scope = observe::InstrumentationScope("checkout.web", "1")
+	let single = observe::new_json_lines_for_test(resource, scope, 1, observe::ExporterLimits(1, 4, 1, list_cons("long-name", list_nil())), observe::StandardError, observe::NoDiagnosticDestination, "single", maximum - 1, maximum - 1, maximum - 1, maximum - 1)
+	let crossing = observe::new_json_lines_for_test(resource, scope, 1, observe::ExporterLimits(2, 4, 2, list_cons("first-long", list_cons("second-long", list_nil()))), observe::StandardError, observe::NoDiagnosticDestination, "crossing", maximum - 1, maximum - 1, maximum - 1, maximum - 1)
+	observe_export_test_support_test::saturating_exporter_health(single, crossing)
+end
+
 test rejected_export_preserves_result_and_reports_bounded_health_to_diagnostics() -> Result<(), String> effects [time, concurrency]
 	observe_export_test_support_test::rejected_export_preserves_result_and_reports_bounded_health_to_diagnostics()
 end

@@ -1,0 +1,9 @@
+use host_effects from "std"
+
+pub handler capture() for host_effects::ObservationExporter effects [stdio]
+	write(destination, line, diagnostic) => begin
+		stdio::print(line)
+		true
+	end
+	identity(kind, sequence) => string::concat(string::concat("captured-", kind), string::concat("-", int_to_string(sequence)))
+end

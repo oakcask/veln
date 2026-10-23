@@ -16,8 +16,6 @@ also states it.
 
 ## Ready
 
-- Buffered observation export and shutdown flushing or drop accounting:
-  [observability.md](observability.md).
 - Remaining ADT variant-refinement support for qualified immutable values
   after a separate source-surface prerequisite, external or representation
   schema decode validation, LSP invalid-refinement recovery, and MCP
@@ -28,6 +26,10 @@ also states it.
 
 ## Blocked
 
+- Buffered observation export and shutdown flushing or drop accounting is
+  blocked until the finite queue bound, full-queue admission result, ordering
+  between queued records and the final health summary, and interrupted-shutdown
+  behavior are decided: [observability.md](observability.md).
 - Generic named-type and function variance remains separate from ADT variant
   refinement and is blocked until its constructor classifications and complete
   callable composition table are decided:
