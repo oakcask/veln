@@ -410,6 +410,11 @@ established relative order and can remain between the casing and base failures
 of one alternative. The checked human and JSON cases below preserve the full
 sequence around unrelated public-signature and casing diagnostics as well as
 refinement failures.
+When one alternative has an unknown final segment and its retained base also
+differs from the union base, `type.variant_refinement_unknown` precedes
+`type.variant_union_base`. The union-base diagnostic still uses the complete
+alternative as its primary span. The checked unknown-refinement human and JSON
+cases above preserve this order and both spans.
 An independently provable generic-arity failure keeps
 `type.invalid_annotation` instead of adding the base diagnostic. This applies
 to exact and uniquely casing-recovered source-backed or source-less base types;
