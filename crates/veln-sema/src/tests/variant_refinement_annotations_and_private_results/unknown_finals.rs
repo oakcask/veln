@@ -246,7 +246,7 @@ fn unknown_final_quarantines_dependent_failures_and_invalid_children_suppress_ou
 }
 
 #[test]
-fn unknown_final_related_variants_follow_constructor_visibility() {
+fn unknown_final_related_variants_include_private_constructors_in_exact_companions() {
     let target = lower_surface_ast(
         &parse(&SourceFile::new(
             "math.veln",
@@ -296,7 +296,10 @@ fn unknown_final_related_variants_follow_constructor_visibility() {
     assert_eq!(related.len(), 3, "{related:#?}");
     assert!(related[1].contains("\"variant\":\"Hidden\""));
     assert!(related[2].contains("\"variant\":\"Ready\""));
+}
 
+#[test]
+fn unknown_final_related_variants_hide_private_constructors_from_foreign_modules() {
     let foreign = lower_surface_ast(
         &parse(&SourceFile::new(
             "consumer.veln",
