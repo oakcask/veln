@@ -723,49 +723,66 @@ fn collect_refinement_alternative_type(
         );
         crate::pipeline::record_variant_refinement_recovery_materialization(written.len());
         errors.push((written, error, alternative_span(alternative)));
-        return AlternativeRecovery {
-            recovered: None,
-            invalid: true,
-        };
+        return invalid_alternative_recovery();
     }
     if own_base_failure || argument_types.is_none() {
-        return AlternativeRecovery {
-            recovered: None,
-            invalid: true,
-        };
+        return invalid_alternative_recovery();
     }
-    let argument_types = argument_types.expect("checked recovered argument types");
+    recover_refinement_alternative(
+        alternative,
+        current_module,
+        environment,
+        errors,
+        unknown_variant_occurrences,
+        base,
+        argument_types.expect("checked recovered argument types"),
+    )
+}
+
+fn invalid_alternative_recovery() -> AlternativeRecovery {
+    AlternativeRecovery {
+        recovered: None,
+        invalid: true,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn recover_refinement_alternative(
+    alternative: &veln_ast::VariantRefinementAlternative,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    errors: &mut Vec<(String, String, SourceSpan)>,
+    unknown_variant_occurrences: &mut HashSet<PathOccurrence>,
+    base: String,
+    argument_types: Vec<RecoveredType>,
+) -> AlternativeRecovery {
     let argument_nodes: usize = argument_types.iter().map(|argument| argument.nodes).sum();
     let argument_types = argument_types
         .into_iter()
         .map(|argument| argument.ty)
         .collect::<Vec<_>>();
+    let argument_types = match recover_unknown_variant_alternative(
+        alternative,
+        current_module,
+        environment,
+        &base,
+        argument_nodes,
+        argument_types,
+        unknown_variant_occurrences,
+    ) {
+        Ok(recovered) => {
+            return AlternativeRecovery {
+                recovered: Some(recovered),
+                invalid: true,
+            };
+        }
+        Err(argument_types) => argument_types,
+    };
     let shell = Type::variant_refinement(
-        base.clone(),
+        base,
         vec![Type::Unknown; argument_types.len()],
         vec![alternative.variant.clone()],
     );
-    if let Some(descriptor) = environment.variant_refinement_unknown_descriptor(
-        &base,
-        argument_types.len(),
-        &alternative.variant,
-        current_module,
-    ) {
-        unknown_variant_occurrences.insert(span_occurrence(&alternative.span));
-        return AlternativeRecovery {
-            recovered: Some(RecoveredType {
-                ty: Type::resolved_named(
-                    environment
-                        .adts
-                        .canonical_type_name_for_descriptor(descriptor),
-                    descriptor.identity(),
-                    argument_types,
-                ),
-                nodes: argument_nodes + 1,
-            }),
-            invalid: true,
-        };
-    }
     if let Some(error) = environment.variant_refinement_annotation_error(&shell, current_module) {
         let written = format!(
             "{}::{}",
@@ -774,10 +791,7 @@ fn collect_refinement_alternative_type(
         );
         crate::pipeline::record_variant_refinement_recovery_materialization(written.len());
         errors.push((written, error, alternative_span(alternative)));
-        return AlternativeRecovery {
-            recovered: None,
-            invalid: true,
-        };
+        return invalid_alternative_recovery();
     }
     crate::pipeline::record_variant_refinement_recovery_materialization(argument_types.len() + 1);
     let recovered = refinement_with_arguments(
@@ -793,6 +807,37 @@ fn collect_refinement_alternative_type(
         invalid: recovered.is_none(),
         recovered,
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn recover_unknown_variant_alternative(
+    alternative: &veln_ast::VariantRefinementAlternative,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    base: &str,
+    argument_nodes: usize,
+    argument_types: Vec<Type>,
+    unknown_variant_occurrences: &mut HashSet<PathOccurrence>,
+) -> Result<RecoveredType, Vec<Type>> {
+    let Some(descriptor) = environment.variant_refinement_unknown_descriptor(
+        base,
+        argument_types.len(),
+        &alternative.variant,
+        current_module,
+    ) else {
+        return Err(argument_types);
+    };
+    unknown_variant_occurrences.insert(span_occurrence(&alternative.span));
+    Ok(RecoveredType {
+        ty: Type::resolved_named(
+            environment
+                .adts
+                .canonical_type_name_for_descriptor(descriptor),
+            descriptor.identity(),
+            argument_types,
+        ),
+        nodes: argument_nodes + 1,
+    })
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -99,12 +99,12 @@ type-checking contract defines the comparison and quarantine boundary, and the
 [diagnostic contract](diagnostics-json.md#diagnostic-families) defines the
 focused failure and independently retained diagnostics.
 
-An uppercase refinement final that does not select a unique constructor owned
-by its resolved finite ADT is also a checked-core and typed-IR blocker. The
-invalid annotation retains the base identity for independent semantic checks,
-but it retains no constructor identity and quarantines the complete containing
-declaration. The type-checking and diagnostic contracts define the suppression
-and unknown-final reporting boundaries.
+An uppercase refinement final that is unknown, resolves to a non-constructor,
+or names a constructor owned by another ADT is also a checked-core and typed-IR
+blocker. The invalid annotation retains the base identity for independent
+semantic checks, but it retains no constructor identity and quarantines the
+complete containing declaration. The type-checking and diagnostic contracts
+define the suppression and unknown-final reporting boundaries.
 
 Direct and indirect calls to call-site-aware functions enter checked core with
 a hidden `SourceLocation` argument. Calls from ordinary functions construct

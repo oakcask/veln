@@ -149,8 +149,8 @@ record, and function positions.
 | `not_adt` | The resolved named type has no finite ADT variants. | A source-backed type uses `base_type_declaration` with the canonical target's `resolved_identity` and declaration span, including when the written base is a public alias or alias chain. A source-less type published by the type-syntax provider uses spanless `base_type_origin` with `resolved_identity` and `provider: "type_syntax"`. |
 | `opaque` | The resolved compiler-known type intentionally hides its variants. | A spanless `base_type_origin` contains `resolved_identity` and `provider: "adt"`. |
 
-When an uppercase final segment does not select a unique constructor owned by
-its resolved finite ADT, the checker reports
+When an uppercase final segment is unknown, resolves to a non-constructor, or
+names a constructor owned by another ADT, the checker reports
 `type.variant_refinement_unknown` at that final segment. This includes an
 unknown name, a name that resolves as a non-constructor, and a constructor
 owned by another ADT. Its closed details contain exactly `base_type` and
