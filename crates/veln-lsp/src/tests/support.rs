@@ -108,6 +108,26 @@ fn standard_source_text(path: &str) -> &'static str {
         .text
 }
 
+// Keep tests whose contract excludes standard-library navigation from indexing
+// the unrelated production bundle under coverage instrumentation.
+fn server_with_empty_standard_library() -> Server {
+    static EMPTY_STANDARD_LIBRARY: OnceLock<DirectDependencySnapshot> = OnceLock::new();
+    let standard_library = EMPTY_STANDARD_LIBRARY.get_or_init(|| {
+        let manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = []\n";
+        let snapshot = capture_embedded_package_snapshot(
+            manifest.as_bytes(),
+            std::iter::empty::<PackageSnapshotSource>(),
+        )
+        .expect("empty standard library snapshot should be captured");
+        DirectDependencySnapshot::from_validated_standard_library(
+            snapshot,
+            parse_manifest_text("veln.toml", manifest),
+        )
+        .expect("empty standard library snapshot should be valid")
+    });
+    Server::default().with_standard_library(standard_library.clone())
+}
+
 fn assert_null_result(response: &str) {
     assert!(response.contains(r#""result":null"#), "{response}");
 }

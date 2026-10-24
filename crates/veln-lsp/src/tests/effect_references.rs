@@ -183,7 +183,7 @@ fn imported_workspace_effect_operation_navigation_preserves_utf16_and_declaratio
     let root_uri = path_to_uri(&project.root);
     let foreign_uri = path_to_uri(&project.root.join("foreign.veln"));
     let main_uri = path_to_uri(&project.root.join("main.veln"));
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     server.handle_message(&initialize_request(&root_uri));
 
     let definition = server.handle_message(&definition_request(&main_uri, 3, 36));
@@ -832,7 +832,7 @@ fn assert_empty_effect_references(
     project.write("main.veln", text);
     let root = path_to_uri(&project.root);
     let uri = path_to_uri(&project.root.join("main.veln"));
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     server.handle_message(&initialize_request(&root));
 
     for &(line, character, include_declaration) in positions {
