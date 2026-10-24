@@ -177,6 +177,50 @@ fn combined_recovery_in_explicit_type_arguments_retains_parser_details() {
 }
 
 #[test]
+fn combined_return_recovery_retains_declaration_specific_parser_details() {
+    let source = concat!(
+        "type State\n  Ready\nend\n",
+        "test recovered() -> Result<(), state::ready>\n",
+        "  Ok(())\n",
+        "end\n",
+        "fn ordinary() -> state::ready\n",
+        "  Ready\n",
+        "end\n",
+    );
+    let parsed = parse(&SourceFile::new("main.veln", source));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+    let parse_details = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+        .map(|diagnostic| diagnostic.details.to_json())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        parse_details,
+        [
+            concat!(
+                "{\"phase\":\"parse\",\"node_id\":null,",
+                "\"parser_context\":\"test_return\",",
+                "\"unexpected\":{\"kind\":\"identifier\",\"text\":\"ready\"},",
+                "\"expected\":[\"NamedAdtType::Variant\"],",
+                "\"recovery\":{\"strategy\":\"insert_token\",",
+                "\"anchor\":\"type annotation\",\"dropped_token_count\":0}}"
+            ),
+            concat!(
+                "{\"phase\":\"parse\",\"node_id\":null,",
+                "\"parser_context\":\"function_return\",",
+                "\"unexpected\":{\"kind\":\"identifier\",\"text\":\"ready\"},",
+                "\"expected\":[\"NamedAdtType::Variant\"],",
+                "\"recovery\":{\"strategy\":\"insert_token\",",
+                "\"anchor\":\"type annotation\",\"dropped_token_count\":0}}"
+            ),
+        ],
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn combined_base_and_final_recovery_retains_constructor_identity() {
     let source = concat!(
         "pub type State\n",

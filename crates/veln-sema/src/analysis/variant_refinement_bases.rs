@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use veln_ast::{BodyLine, BodyLineKind, Expr, ExprKind, SurfaceModule, TypePathSegments};
+use veln_ast::{
+    BodyLine, BodyLineKind, Expr, ExprKind, FunctionKind, SurfaceModule, TypePathSegments,
+};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
@@ -248,7 +250,10 @@ fn collect_function_annotations(
             function.module_name.as_deref(),
             environment,
             &[],
-            ParseDiagnosticLocation::type_annotation("function_return"),
+            ParseDiagnosticLocation::type_annotation(match function.kind {
+                FunctionKind::Function => "function_return",
+                FunctionKind::Test => "test_return",
+            }),
             diagnostics,
         );
         for line in &function.body {
