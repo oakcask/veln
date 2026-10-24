@@ -1,6 +1,8 @@
 use super::*;
 use crate::semantic_model::Type;
 
+type SuppressedQualifiedPathLocations = HashMap<String, HashSet<(usize, usize, usize)>>;
+
 thread_local! {
     static VARIANT_REFINEMENT_CLASSIFICATION_WORK:
         std::cell::Cell<Option<VariantRefinementClassificationWork>> = const { std::cell::Cell::new(None) };
@@ -27,12 +29,9 @@ pub(super) fn valid_qualified_path_segments(
     environment: &TypeEnvironment,
     include_variant_refinements: bool,
     require_valid_variant_refinements: bool,
-) -> (
-    Vec<QualifiedPathSegment>,
-    HashMap<String, HashSet<(usize, usize, usize)>>,
-) {
+) -> (Vec<QualifiedPathSegment>, SuppressedQualifiedPathLocations) {
     let mut segments = Vec::new();
-    let mut suppressed_locations = HashMap::<String, HashSet<(usize, usize, usize)>>::new();
+    let mut suppressed_locations = SuppressedQualifiedPathLocations::new();
     for type_decl in &module.types {
         let current_module = type_decl.module_name.as_deref();
         for variant in &type_decl.variants {
