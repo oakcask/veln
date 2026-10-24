@@ -150,7 +150,14 @@ during source loading and another is emitted after semantic recovery. Recovery
 never validates the annotation. The same rules apply independently to every
 union alternative and when the base and final segment both need unique
 initial-only repairs. A non-generic lowercase qualified path remains ordinary
-named-type text unless base resolution selects its refinement interpretation. The checked
+named-type text unless base resolution selects its refinement interpretation.
+The parse diagnostic retains the annotation's declaration context. A recovered
+test result uses `parser_context: "test_return"`; an ordinary function result
+uses `parser_context: "function_return"`. The checked
+[`immediate test-result`](../../examples/specification/check/adt-variant-refinement-test-return-immediate-recovery-json/)
+and
+[`delayed test-result`](../../examples/specification/check/adt-variant-refinement-test-return-delayed-recovery-json/)
+outputs fix that distinction. The checked
 combined-casing
 [`human`](../../examples/specification/check/adt-variant-refinement-combined-case-recovery-human/)
 and

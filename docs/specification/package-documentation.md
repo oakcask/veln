@@ -135,7 +135,11 @@ including a reference through a transparent alias. The gate does not synthesize
 a privacy diagnostic at each ordinary reference. If this closure makes any
 manifest-exported declaration unavailable, retained causal privacy diagnostics
 are eligible for the package-atomic failure even when their primary spans are
-in non-exported sources.
+in non-exported sources. A parse-clean non-generic path with lowercase base and
+final segments participates in this gate when unique initial-only base and
+constructor recovery selects it as a refinement. The recovery retains the
+privacy diagnostic and quarantines the declaration, but it does not validate
+the annotation or publish its signature.
 
 The catalog excludes non-exported modules, private declarations, handler
 operation clauses and bodies, exact test companions, integration-test sources,

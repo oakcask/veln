@@ -94,8 +94,13 @@ produce typed IR and execute; their cleanup behavior is specified by the
 [execution boundary](execution.md#runtime-readiness-and-host-boundaries).
 Variant-refinement errors in the selected analysis are static diagnostics,
 including errors for which recovery retains a type or constructor identity.
-They start no test worker. Human and JSON output derive the diagnostic code,
-details, primary span, and related notes from the same diagnostic.
+They start no test worker. A structurally complete lowercase final remains a
+parse error, but the shared analysis retains its declaration when no unrelated
+parse error is present. A retained test declaration is discovered and then
+blocked by the static gate; a parse-clean lowercase base and final follows the
+same path after unique base recovery inserts the delayed parse diagnostic.
+Human and JSON output derive the diagnostic code, details, primary span, and
+related notes from the same diagnostic.
 A documentation source that cannot form a canonical virtual doctest path
 reports `module.invalid_source_path` and exposes no doctest case or output
 expectation for that source. Discovery and analysis continue for other selected
