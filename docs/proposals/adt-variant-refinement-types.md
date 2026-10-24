@@ -154,21 +154,21 @@ repair guidance belong in `related` notes rather than the primary message.
 | `type.variant_refinement_base` | The ADT identity is known, but its selected production provider has no public finite variant descriptor. | `written_type`, `reason` | The selected provider and its provenance. |
 | `schema.variant_refinement_decode_unsupported` | A decode target contains a refinement that the selected decoder can neither construct directly nor validate from the decoded ADT tag. | `target_type`, `base_type`, `expected_variants`, `decoder` | The decoder or codec declaration whose result cannot establish the refinement. |
 
-Parser failures that cannot form a base type, `::`, and an uppercase final
-constructor name remain syntax diagnostics. A source with any such incomplete
-parse failure does not proceed to semantic analysis.
+Parser failures that cannot form a complete base, `::`, and final segment
+remain syntax-only. A source with any such incomplete parse failure does not
+proceed to semantic analysis.
 Existing generic arity, name ambiguity, duplicate, and invalid-casing
 diagnostics remain independently reportable. Diagnostic order must be
 deterministic, and failure must not publish a partially typed declaration.
 
-The casing overlap below applies only to carriers that the current
+The planned provider and schema diagnostics do not expand the current
+casing-analysis boundary. The current
 [name-resolution contract](../specification/name-resolution.md#resolution-rules)
-classifies for casing analysis. Explicit expression type arguments remain
-navigation-only casing carriers and do not emit `name.invalid_case`. The
-current diagnostic specification owns the independent casing failure for a
-qualified type nested in a refinement base, the enclosing base-eligibility
-failure, focused union-base comparison, and their per-alternative order. The
-planned diagnostics do not expand that current casing boundary.
+and
+[diagnostic specification](../specification/diagnostics-json.md#diagnostic-families)
+own casing carriers, recovery, overlap, and ordering. Explicit expression type
+arguments remain navigation-only casing carriers and do not emit
+`name.invalid_case`.
 
 ### Diagnostic Overlap And Recovery
 
@@ -326,9 +326,8 @@ current behavior:
 ## Completion
 
 This proposal is complete only when every remaining acceptance row passes and
-the smallest current specification pages for types, execution, diagnostics,
-and the package-documentation catalog describe the
-implemented contract. Completion also requires the public examples to explain both the
+the smallest matching current specification pages describe the implemented
+contract. Completion also requires the public examples to explain both the
 state-machine benefit and the testing boundary.
 
 This page remains the authority for the unimplemented rows, and no stage may
