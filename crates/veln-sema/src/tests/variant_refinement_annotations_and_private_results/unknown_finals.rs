@@ -113,6 +113,27 @@ fn casing_recovered_unknown_final_keeps_visible_variant_context() {
 }
 
 #[test]
+fn type_alias_unknown_final_keeps_visible_variant_context() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "end\n",
+        "pub type Alias = State\n",
+        "fn rejected(value: Alias::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.variant_refinement_unknown");
+    assert!(diagnostics[0].related.iter().any(|entry| {
+        let json = entry.to_json();
+        json.contains("\"kind\":\"visible_variant_declaration\"")
+            && json.contains("\"variant\":\"Ready\"")
+    }));
+}
+
+#[test]
 fn source_less_unknown_final_keeps_ordered_spanless_variant_context() {
     let diagnostics = diagnostics_for(concat!(
         "fn rejected(value: Option<Int>::Missing) -> ()\n",

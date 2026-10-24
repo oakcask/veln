@@ -505,6 +505,13 @@ fn check_project_result_schema_closes_diagnostics_summary_and_analysis_modes() {
                     {"kind": "schema", "name": "Packet"},
                     {"kind": "field", "name": "kind"}
                 ]
+            },
+            {
+                "kind": "visible_variant_declaration",
+                "message": "Visible variant `Ready` is declared here.",
+                "resolved_identity": "example/state::State",
+                "variant": "Ready",
+                "span": span()
             }
         ],
         "details": {"expected": "Int"}
@@ -568,6 +575,10 @@ fn check_project_result_schema_closes_diagnostics_summary_and_analysis_modes() {
     invalid_related_path_extra["diagnostics"][0]["related"][4]["field_path"][0]["unexpected"] =
         serde_json::json!(true);
     assert!(!tool.accepts_result(&invalid_related_path_extra));
+
+    let mut invalid_related_variant = project_success.clone();
+    invalid_related_variant["diagnostics"][0]["related"][5]["variant"] = serde_json::json!(1);
+    assert!(!tool.accepts_result(&invalid_related_variant));
 
     let mut invalid_summary = project_success;
     invalid_summary["summary"]["by_kind"]["type"] = serde_json::json!("one");

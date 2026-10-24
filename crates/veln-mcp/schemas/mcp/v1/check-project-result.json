@@ -172,6 +172,12 @@
                     },
                     "target_module": {
                       "type": "string"
+                    },
+                    "resolved_identity": {
+                      "type": "string"
+                    },
+                    "variant": {
+                      "type": "string"
                     }
                   },
                   "type": "object"
