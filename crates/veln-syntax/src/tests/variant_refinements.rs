@@ -754,6 +754,7 @@ fn rejects_lowercase_final_variants_after_generic_adt_bases() {
         "fn invalid(value: protocol::State::ready) -> ()\n  ()\nend\n",
         "fn invalid(value: Result<Int, Error>::ok) -> ()\n  ()\nend\n",
         "fn invalid(value: protocol::Result<Int, Error>::error) -> ()\n  ()\nend\n",
+        "fn invalid(value: State::ready | State::Closed) -> ()\n  ()\nend\n",
         "fn invalid(value: State) -> ()\n  sink<Result<Int, Error>::ok>(value)\nend\n",
     ];
 
@@ -784,6 +785,53 @@ fn rejects_lowercase_final_variants_after_generic_adt_bases() {
             matches!(written_name, "ready" | "ok" | "error"),
             "diagnostic should point at the lowercase final segment, got `{written_name}`"
         );
+
+        let function = first_function(&output);
+        let refinement = if text.contains("sink<") {
+            let SyntaxItem::Function(function) = &output.tree.items[0] else {
+                panic!("expected function");
+            };
+            let BodyLine::Expr { expr, .. } = &function.body[0] else {
+                panic!("expected expression body line");
+            };
+            let ExprKind::Call { callee, .. } = &expr.kind else {
+                panic!("expected call");
+            };
+            let ExprKind::TypeApply {
+                type_arg_refinements,
+                ..
+            } = &callee.kind
+            else {
+                panic!("expected explicit type application");
+            };
+            &type_arg_refinements[0][0]
+        } else {
+            &function.params[0].ty_refinements[0]
+        };
+        let alternative = &refinement.alternatives[0];
+        assert_eq!(alternative.variant, written_name);
+        assert_eq!(alternative.variant_span, *span);
+        if text.contains(" | ") {
+            assert_eq!(
+                refinement
+                    .alternatives
+                    .iter()
+                    .map(|alternative| alternative.variant.as_str())
+                    .collect::<Vec<_>>(),
+                ["ready", "Closed"]
+            );
+            assert_eq!(refinement.pipe_spans.len(), 1);
+            assert_eq!(
+                output
+                    .diagnostics
+                    .iter()
+                    .filter(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+                    .count(),
+                1,
+                "{:#?}",
+                output.diagnostics
+            );
+        }
     }
 }
 

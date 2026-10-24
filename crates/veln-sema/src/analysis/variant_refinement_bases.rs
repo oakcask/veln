@@ -290,7 +290,8 @@ pub(crate) fn annotation_has_invalid_refinement(
     environment: &TypeEnvironment,
     type_parameters: &[String],
 ) -> bool {
-    annotation_has_base_failure(refinements, paths, current_module, environment)
+    annotation_has_lowercase_final(refinements)
+        || annotation_has_base_failure(refinements, paths, current_module, environment)
         || (annotation_needs_recovery(refinements, paths, current_module, environment) && {
             let recovery = analyze_annotation(
                 refinements,
@@ -302,6 +303,44 @@ pub(crate) fn annotation_has_invalid_refinement(
             !recovery.unknown_variant_occurrences.is_empty()
                 || !recovery.union_base_failures.is_empty()
         })
+}
+
+pub(crate) fn annotation_has_unavailable_refinement_identity(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    type_parameters: &[String],
+) -> bool {
+    annotation_has_base_failure(refinements, paths, current_module, environment)
+        || (annotation_needs_recovery(refinements, paths, current_module, environment) && {
+            let recovery = analyze_annotation(
+                refinements,
+                paths,
+                current_module,
+                environment,
+                type_parameters,
+            );
+            (annotation_has_lowercase_final(refinements) && !recovery.errors.is_empty())
+                || !recovery.unknown_variant_occurrences.is_empty()
+                || !recovery.union_base_failures.is_empty()
+        })
+}
+
+fn annotation_has_lowercase_final(refinements: &[veln_ast::VariantRefinementType]) -> bool {
+    refinements.iter().any(|refinement| {
+        refinement.alternatives.iter().any(|alternative| {
+            alternative
+                .variant
+                .as_bytes()
+                .first()
+                .is_some_and(u8::is_ascii_lowercase)
+                || alternative
+                    .type_arguments
+                    .iter()
+                    .any(|argument| annotation_has_lowercase_final(&argument.ty_refinements))
+        })
+    })
 }
 
 fn annotation_needs_recovery(
@@ -326,6 +365,14 @@ fn annotation_needs_recovery(
             return true;
         }
         for alternative in &refinement.alternatives {
+            if alternative
+                .variant
+                .as_bytes()
+                .first()
+                .is_some_and(u8::is_ascii_lowercase)
+            {
+                return true;
+            }
             let base = alternative.base.segments.join("::");
             if environment
                 .variant_refinement_base_failure(
@@ -803,7 +850,12 @@ fn recover_refinement_alternative(
     });
     crate::pipeline::record_variant_refinement_recovery_type_materialization(1);
     AlternativeRecovery {
-        invalid: recovered.is_none(),
+        invalid: recovered.is_none()
+            || alternative
+                .variant
+                .as_bytes()
+                .first()
+                .is_some_and(u8::is_ascii_lowercase),
         recovered,
     }
 }

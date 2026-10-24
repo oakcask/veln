@@ -262,7 +262,14 @@ impl TypeCanonicalizer<'_> {
             .adts
             .variant_declaration_order_for_descriptor(descriptor)?;
         record_variant_canonicalization_lookup();
-        declaration_order.rank(variant)?;
+        let variant = if declaration_order.rank(variant).is_some() {
+            variant.to_string()
+        } else {
+            let recovered = uppercase_initial(variant)?;
+            found_variant(self.adts.variant_for_descriptor(descriptor, &recovered))?
+                .name
+                .clone()
+        };
         let canonical_args = self.canonicalize_args(args.to_vec());
         if declaration_order.len() == 1 {
             return Some(Type::resolved_named(
@@ -275,7 +282,7 @@ impl TypeCanonicalizer<'_> {
             &descriptor.type_name,
             descriptor.identity(),
             canonical_args,
-            vec![variant.to_string()],
+            vec![variant],
         ))
     }
 
@@ -298,13 +305,23 @@ impl TypeCanonicalizer<'_> {
         else {
             return Type::Unknown;
         };
-        if variants.iter().any(|variant| {
-            crate::type_relations::record_variant_set_lookup();
-            record_variant_canonicalization_lookup();
-            declaration_order.rank(variant).is_none()
-        }) {
+        let variants = variants
+            .into_iter()
+            .map(|variant| {
+                crate::type_relations::record_variant_set_lookup();
+                record_variant_canonicalization_lookup();
+                if declaration_order.rank(&variant).is_some() {
+                    Some(variant)
+                } else {
+                    let recovered = uppercase_initial(&variant)?;
+                    found_variant(self.adts.variant_for_descriptor(descriptor, &recovered))
+                        .map(|variant| variant.name.clone())
+                }
+            })
+            .collect::<Option<Vec<_>>>();
+        let Some(variants) = variants else {
             return Type::Unknown;
-        }
+        };
         let canonical_args = self.canonicalize_args(args);
         let Some((variants, presentation_name, canonical_args)) = self
             .resolve_refinement_alternatives(
@@ -383,6 +400,24 @@ impl TypeCanonicalizer<'_> {
 
     fn canonicalize_args(&self, args: Vec<Type>) -> Vec<Type> {
         args.into_iter().map(|arg| self.canonicalize(arg)).collect()
+    }
+}
+
+fn uppercase_initial(name: &str) -> Option<String> {
+    let (first, rest) = name.split_at_checked(1)?;
+    let first = first.as_bytes()[0];
+    first
+        .is_ascii_lowercase()
+        .then(|| (first as char).to_ascii_uppercase().to_string() + rest)
+}
+
+fn found_variant(
+    lookup: crate::adt::registry::VariantLookup<'_>,
+) -> Option<&crate::adt::descriptors::AdtVariantDescriptor> {
+    match lookup {
+        crate::adt::registry::VariantLookup::Found(variant) => Some(variant),
+        crate::adt::registry::VariantLookup::Ambiguous
+        | crate::adt::registry::VariantLookup::Missing => None,
     }
 }
 

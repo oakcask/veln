@@ -124,9 +124,24 @@ impl TypeEnvironment {
     ) -> Option<&'a crate::adt::descriptors::AdtVariantDescriptor> {
         match self.adts.variant_for_descriptor(descriptor, variant) {
             crate::adt::registry::VariantLookup::Found(variant) => Some(variant),
-            crate::adt::registry::VariantLookup::Ambiguous
-            | crate::adt::registry::VariantLookup::Missing => None,
+            crate::adt::registry::VariantLookup::Ambiguous => None,
+            crate::adt::registry::VariantLookup::Missing => {
+                match self.variant_refinement_variant_case_recovery(descriptor, variant)? {
+                    crate::adt::registry::VariantLookup::Found(variant) => Some(variant),
+                    crate::adt::registry::VariantLookup::Ambiguous
+                    | crate::adt::registry::VariantLookup::Missing => None,
+                }
+            }
         }
+    }
+
+    fn variant_refinement_variant_case_recovery<'a>(
+        &'a self,
+        descriptor: &'a crate::adt::descriptors::AdtDescriptor,
+        variant: &str,
+    ) -> Option<crate::adt::registry::VariantLookup<'a>> {
+        let recovered = recover_variant_case(variant)?;
+        Some(self.adts.variant_for_descriptor(descriptor, &recovered))
     }
 
     pub(crate) fn variant_refinement_variant_visible(
@@ -175,6 +190,13 @@ impl TypeEnvironment {
             .adts
             .terminal_descriptor_for_alias(written)
             .unwrap_or_else(|| self.adts.canonical_descriptor_for(written));
+        if let Some(recovery) = self.variant_refinement_variant_case_recovery(descriptor, variant) {
+            match recovery {
+                crate::adt::registry::VariantLookup::Found(_)
+                | crate::adt::registry::VariantLookup::Ambiguous => return None,
+                crate::adt::registry::VariantLookup::Missing => {}
+            }
+        }
         if descriptor.refinement_availability
             != crate::adt::descriptors::VariantRefinementAvailability::Finite
             || !matches!(
@@ -640,6 +662,14 @@ impl TypeEnvironment {
             _ => false,
         }
     }
+}
+
+fn recover_variant_case(name: &str) -> Option<String> {
+    let (first, rest) = name.split_at_checked(1)?;
+    let first = first.as_bytes()[0];
+    first
+        .is_ascii_lowercase()
+        .then(|| (first as char).to_ascii_uppercase().to_string() + rest)
 }
 
 fn recover_type_case(name: &str) -> Option<String> {

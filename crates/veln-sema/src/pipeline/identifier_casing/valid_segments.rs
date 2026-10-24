@@ -340,12 +340,10 @@ fn collect_variant_refinement_alternative<'a>(
             push_constructor_path_segments(&segments, &spans, current_module, environment, output);
         }
     } else if environment
-        .adts
-        .descriptor_for_type_path(
+        .variant_refinement_descriptor_identity(
             &base,
             alternative.type_arguments.len(),
             current_module,
-            &environment.uses,
         )
         .is_some()
         || environment.non_adt_refinement_base_resolves(

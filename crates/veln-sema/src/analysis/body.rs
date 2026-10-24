@@ -443,7 +443,7 @@ impl<'a> FunctionChecker<'a> {
         supports_callsite_modifier: bool,
         variant_diagnostics: &'a mut VariantDiagnosticInterner,
     ) -> Self {
-        let declaration_types_are_quarantined = annotation_has_invalid_refinement(
+        let declaration_types_are_quarantined = annotation_has_unavailable_refinement_identity(
             &function.return_type_refinements,
             &function.return_type_paths,
             function.module_name.as_deref(),
@@ -451,7 +451,7 @@ impl<'a> FunctionChecker<'a> {
             &[],
         ) || (function.kind == FunctionKind::Function
             && function.params.iter().any(|param| {
-                annotation_has_invalid_refinement(
+                annotation_has_unavailable_refinement_identity(
                     &param.ty_refinements,
                     &param.ty_paths,
                     function.module_name.as_deref(),

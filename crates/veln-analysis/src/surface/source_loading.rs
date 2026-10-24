@@ -28,7 +28,11 @@ pub(super) fn load_project_sources(
         {
             checked_export_source_paths.insert(source.path().as_str().to_string());
         }
-        if !parsed.diagnostics.is_empty() {
+        if parsed
+            .diagnostics
+            .iter()
+            .any(|diagnostic| !diagnostic.allows_semantic_analysis())
+        {
             derive_source_module(source, diagnostics, is_exported_source);
             record_rejected_source_module(source, parts, package);
             continue;
@@ -238,7 +242,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn lowercase_final_parse_failure_excludes_the_source_from_semantic_loading() {
+    fn lowercase_final_parse_failure_retains_the_source_for_semantic_loading() {
         let project = Project {
             root: ".".into(),
             files: vec![SourceFile::new(
@@ -263,6 +267,53 @@ mod tests {
             diagnostics
                 .iter()
                 .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
+            "{diagnostics:#?}"
+        );
+        assert_eq!(parts.module.types.len(), 1, "{:#?}", parts.module.types);
+        assert_eq!(
+            parts.module.functions.len(),
+            1,
+            "{:#?}",
+            parts.module.functions
+        );
+        assert_eq!(parts.module.functions[0].params[0].ty_refinements.len(), 1);
+        assert_eq!(
+            parts.module.functions[0].params[0].ty_refinements[0].alternatives[0].variant,
+            "hidden"
+        );
+    }
+
+    #[test]
+    fn unrelated_variant_refinement_parse_failure_still_excludes_semantic_loading() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "pub type State\n",
+                    "  Hidden\n",
+                    "end\n",
+                    "pub fn recoverable(value: State::hidden) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                    "pub fn exposed(value: State::) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+        let mut diagnostics = Vec::new();
+        let mut parts = SurfaceParts::new();
+
+        load_project_sources(&project, &mut diagnostics, &mut parts, None, None, None);
+
+        assert!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+                .count()
+                >= 2,
             "{diagnostics:#?}"
         );
         assert!(parts.module.types.is_empty(), "{:#?}", parts.module.types);

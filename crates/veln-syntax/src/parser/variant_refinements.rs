@@ -522,9 +522,12 @@ fn refinement_alternative_shape(
             (base_end, None, variant_index)
         };
     let base_leaf = tokens.get(base_end)?;
-    let variant = tokens.get(variant_index)?;
-    if (generic_open.is_none() && !starts_uppercase(&base_leaf.text))
-        || !starts_uppercase(&variant.text)
+    tokens.get(variant_index)?;
+    if generic_open.is_none() && !starts_uppercase(&base_leaf.text) {
+        return None;
+    }
+    if !starts_uppercase(&tokens[variant_index].text)
+        && !starts_lowercase(&tokens[variant_index].text)
     {
         return None;
     }
@@ -666,4 +669,8 @@ fn owned_type_argument_tokens(
 
 pub(super) fn starts_uppercase(text: &str) -> bool {
     text.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
+}
+
+pub(super) fn starts_lowercase(text: &str) -> bool {
+    text.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
 }

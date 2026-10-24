@@ -459,7 +459,7 @@ impl<'a> FunctionChecker<'a> {
         origin_message: &'static str,
     ) -> Option<ExpectedType> {
         let (refinements, paths) = structure;
-        let invalid_refinement = super::super::annotation_has_invalid_refinement(
+        let invalid_refinement = super::super::annotation_has_unavailable_refinement_identity(
             refinements,
             paths,
             self.function.module_name.as_deref(),

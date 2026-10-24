@@ -419,10 +419,10 @@ variant-refinement eligibility. For a refinement anywhere in a public function
 parameter or result, or in a public source-ADT payload, that unique recovered
 terminal ADT identity also participates in the visibility check when the
 written base names it directly or reaches it through a finite transparent
-type-alias chain, and when the written final segment starts with an ASCII
-uppercase letter and resolves exactly to one constructor of that ADT. A
-lowercase final segment is a parse failure and does not reach casing or
-visibility analysis. The privacy diagnostic
+type-alias chain. An uppercase final must resolve exactly. An ASCII-lowercase
+final remains a parse failure, but an initial-only repair that selects exactly
+one constructor reaches casing and visibility analysis without making the
+annotation valid. The privacy diagnostic
 retains the written base casing. Ambiguous or unresolved base recovery, or an
 ambiguous or missing exact final segment, does not manufacture a privacy
 diagnostic. This includes a source-less base

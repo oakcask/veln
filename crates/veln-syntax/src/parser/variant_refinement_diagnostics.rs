@@ -1,7 +1,8 @@
 use super::generic_type_syntax::{GenericSyntax, TypeArgumentRange, scan_generic_syntax};
 use super::type_paths::is_type_path_segment;
 use super::variant_refinements::{
-    RawRefinementCandidate, refinement_alternatives, refinement_candidate_depths, starts_uppercase,
+    RawRefinementCandidate, refinement_alternatives, refinement_candidate_depths, starts_lowercase,
+    starts_uppercase,
 };
 use super::*;
 
@@ -230,10 +231,7 @@ fn diagnose_variant_separator(
         ));
     }
     if lowercase_final_after_uppercase_base(tokens, index) {
-        errors.push((
-            index + 1,
-            "variant refinement final segment must start with an ASCII uppercase letter",
-        ));
+        errors.push((index + 1, LOWERCASE_VARIANT_REFINEMENT_MESSAGE));
     }
 }
 
@@ -244,7 +242,7 @@ fn lowercase_final_after_uppercase_base(tokens: &[Token], index: usize) -> bool 
             .is_some_and(|token| is_type_path_segment(token) && starts_uppercase(&token.text))
         && tokens
             .get(index + 1)
-            .is_some_and(|token| is_type_path_segment(token) && !starts_uppercase(&token.text))
+            .is_some_and(|token| is_type_path_segment(token) && starts_lowercase(&token.text))
         && tokens.get(index + 2).map(|token| token.kind) != Some(TokenKind::DoubleColon)
 }
 
@@ -330,12 +328,9 @@ fn diagnose_lowercase_generic_variant(
         tokens.get(matched.token_index + 1).map(|token| token.kind) == Some(TokenKind::DoubleColon);
     let lowercase_variant = tokens
         .get(variant_index)
-        .is_some_and(|token| is_type_path_segment(token) && !starts_uppercase(&token.text));
+        .is_some_and(|token| is_type_path_segment(token) && starts_lowercase(&token.text));
     if exact_close && uppercase_base && has_separator && lowercase_variant {
-        errors.push((
-            variant_index,
-            "variant refinement final segment must start with an ASCII uppercase letter",
-        ));
+        errors.push((variant_index, LOWERCASE_VARIANT_REFINEMENT_MESSAGE));
     }
 }
 

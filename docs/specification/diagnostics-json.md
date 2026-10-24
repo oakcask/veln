@@ -136,6 +136,23 @@ recovery retains the surrounding declaration and lossless source tree. This
 diagnostic does not assert that a structurally valid base or final name resolves
 semantically.
 
+For a structurally complete refinement with an ASCII-lowercase final segment,
+`parse.variant_refinement_type` remains first. Semantic recovery then reports
+`name.invalid_case` on carriers classified for casing analysis. A unique
+initial-only constructor repair suppresses lookup and
+`type.variant_refinement_unknown` failures caused only by that casing, retains
+the constructor identity, and permits independent arity, base, union,
+visibility, and assignability diagnostics. A repair with no unique result
+retains only independently selected identities and suppresses
+constructor-dependent failures. Diagnostics keep written-alternative and
+per-alternative check order, and recovery never validates the annotation. The
+checked
+[`human`](../../examples/specification/check/adt-variant-refinement-lowercase-final-recovery-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-lowercase-final-recovery-json/)
+outputs fix the ordering, final-segment spans, retained identity, suppression,
+and closed existing detail objects.
+
 A structurally valid refinement whose base resolves uniquely but cannot expose
 a finite ADT variant set reports `type.variant_refinement_base`. The primary
 span is the written base path and excludes its type arguments, `::`, and final
@@ -149,8 +166,8 @@ record, and function positions.
 | `not_adt` | The resolved named type has no finite ADT variants. | A source-backed type uses `base_type_declaration` with the canonical target's `resolved_identity` and declaration span, including when the written base is a public alias or alias chain. A source-less type published by the type-syntax provider uses spanless `base_type_origin` with `resolved_identity` and `provider: "type_syntax"`. |
 | `opaque` | The resolved compiler-known type intentionally hides its variants. | A spanless `base_type_origin` contains `resolved_identity` and `provider: "adt"`. |
 
-When an uppercase final segment is unknown, resolves to a non-constructor, or
-names a constructor owned by another ADT, the checker reports
+When a final segment is unknown, resolves to a non-constructor, or names a
+constructor owned by another ADT, the checker reports
 `type.variant_refinement_unknown` at that final segment. This includes an
 unknown name, a name that resolves as a non-constructor, and a constructor
 owned by another ADT. Its closed details contain exactly `base_type` and
@@ -176,7 +193,9 @@ therefore suppresses privacy, assignability, and other failures that require a
 selected constructor. An invalid nested type
 argument suppresses an enclosing unknown-final failure that would require that
 argument to instantiate the base. A uniquely casing-recovered base keeps the
-independent `name.invalid_case` before this diagnostic.
+independent `name.invalid_case` before this diagnostic. A lowercase final whose
+initial-only repair is ambiguous does not add this lookup diagnostic because
+no constructor identity was selected.
 The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-unknown-human/)
 and
