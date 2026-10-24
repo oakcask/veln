@@ -16,11 +16,12 @@ also states it.
 
 ## Ready
 
-- External or representation schema decode validation for ADT variant
-  refinements. The same proposal records qualified immutable-value refinement
-  and the provider-dependent base reason, but those slices are not selectable
-  until their separate source-surface and production-provider prerequisites
-  land:
+- Runtime validation of ADT variant refinements after external or
+  representation schema base decoding succeeds. Decoder capability admission
+  is current behavior. The same proposal records qualified immutable-value
+  refinement and the provider-dependent base reason, but those slices are not
+  selectable until their separate source-surface and production-provider
+  prerequisites land:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 
 ## Blocked

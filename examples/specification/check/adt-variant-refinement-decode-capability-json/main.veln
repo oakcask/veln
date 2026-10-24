@@ -1,0 +1,29 @@
+pub type State
+	pub Ready
+	pub Closed
+end
+
+pub type Wrapper<A>
+	pub Wrapped(value: A)
+end
+
+schema SingletonPacket
+	format binary
+	state: State::Ready
+end
+
+schema UnionPacket
+	format binary
+	state: State::Ready | State::Closed
+end
+
+schema NestedPacket
+	format binary
+	state: Wrapper<State::Ready>::Wrapped
+end
+
+schema PassThroughPacket
+	singleton: State::Ready
+	union: State::Ready | State::Closed
+	nested: Option<List<State::Ready>>
+end

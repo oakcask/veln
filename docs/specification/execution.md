@@ -360,6 +360,17 @@ install that production client boundary.
   helper whose signature contains a private refinement, but a public helper
   signature cannot expose a private constructor and ordinary importers gain no
   private access.
+- A representation decoder can produce a refined ADT only when it directly
+  constructs an admitted variant or can inspect and validate the decoded ADT
+  tag. A `format binary` schema selects a generated representation decoder.
+  That decoder cannot establish a finite ADT refinement written in one of its
+  fields, so analysis rejects the innermost such resolved target with
+  `schema.variant_refinement_decode_unsupported` before execution. Merely
+  observing a constructor tag does not strengthen a decoder result declared as
+  the base ADT. Format-neutral generated decode helpers are the supported
+  contrast: their refined parameter statically requires the caller to supply
+  an admitted value, and the typed pass-through result retains that refinement
+  without inspecting a runtime tag.
 - Format-neutral generated encode helpers for schemas without a `format`
   clause accept the schema-local record defined by the
   [format-neutral field eligibility rules](source-surface.md#format-neutral-fields)
@@ -590,6 +601,13 @@ than degrading it to a generic rendered result value.
   Its public/private helper boundary is checked together with encode visibility
   by
   [`adt-variant-refinement-format-neutral-schema-encode-visibility`](../../examples/specification/check/adt-variant-refinement-format-neutral-schema-encode-visibility/).
+  The positive capability-admission boundary is checked independently by
+  [`adt-variant-refinement-decode-capable`](../../examples/specification/check/adt-variant-refinement-decode-capable/).
+- Unsupported generated binary decoder capabilities, including singleton,
+  union, and innermost nested selection, are checked in human and JSON form by
+  [`adt-variant-refinement-decode-capability-human`](../../examples/specification/check/adt-variant-refinement-decode-capability-human/)
+  and
+  [`adt-variant-refinement-decode-capability-json`](../../examples/specification/check/adt-variant-refinement-decode-capability-json/).
 - JVM networking execution evidence compiles checked programs with the
   exported standard modules. The backend cases exercise real socket and task
   cancellation through `net::IO` and `net::system()`. Separate Veln support

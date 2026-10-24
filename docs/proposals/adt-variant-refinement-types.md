@@ -24,9 +24,9 @@ unavailable, only retained privacy diagnostics in that declaration's causal
 dependency closure participate in the package-atomic failure.
 
 This proposal retains only the unfinished work: qualified-value match
-refinement, external or representation schema decode validation, and the
-provider-dependent unavailable-descriptor diagnostic. Qualified
-immutable-value refinement depends
+refinement, runtime validation after external or representation schema base
+decoding, and the provider-dependent unavailable-descriptor diagnostic.
+Qualified immutable-value refinement depends
 on a separately specified source form for module-addressable immutable data
 values; current qualified constructor and function expressions do not satisfy
 that dependency.
@@ -39,7 +39,7 @@ The remaining proposal has these intended outcomes:
   refinement only after a separate source-surface and name-resolution contract
   provides module-addressable immutable data values.
 - External or representation schema decode preserves the base ADT wire format
-  while validating the annotated variant set.
+  while validating the annotated variant set after base decoding succeeds.
 - Production inputs with a known ADT identity but no public finite variant
   descriptor report the defined provider-dependent diagnostic after that
   provider contract exists.
@@ -152,7 +152,6 @@ repair guidance belong in `related` notes rather than the primary message.
 | Code | Primary span and failed fact | Stable structured details | Planned related context |
 | --- | --- | --- | --- |
 | `type.variant_refinement_base` | The ADT identity is known, but its selected production provider has no public finite variant descriptor. | `written_type`, `reason` | The selected provider and its provenance. |
-| `schema.variant_refinement_decode_unsupported` | A decode target contains a refinement that the selected decoder can neither construct directly nor validate from the decoded ADT tag. | `target_type`, `base_type`, `expected_variants`, `decoder` | The decoder or codec declaration whose result cannot establish the refinement. |
 
 The current
 [source-surface specification](../specification/source-surface.md#variant-refinement-shaped-type-text)
@@ -163,7 +162,7 @@ ambiguity, duplicate, and invalid-casing diagnostics remain independently
 reportable. Diagnostic order must be deterministic, and failure must not
 publish a partially typed declaration.
 
-The planned provider and schema diagnostics do not expand the current
+The planned provider diagnostic does not expand the current
 casing-analysis boundary. The current
 [name-resolution contract](../specification/name-resolution.md#resolution-rules)
 and
@@ -224,9 +223,10 @@ that contract:
 Machine-readable diagnostics use the existing diagnostic envelope and
 half-open spans. The new provider detail object is a closed schema. Human and
 JSON cases must cover the provider row, including overlap with one independently
-provable name or arity failure. A schema refinement diagnostic selects the
-refinement annotation as its primary span. If the refinement is nested, it
-selects the innermost refinement that the decoder cannot establish.
+provable name or arity failure. The current
+[diagnostic specification](../specification/diagnostics-json.md#diagnostic-families)
+owns decoder capability rejection, including its innermost span, closed
+details, and decoder provenance.
 
 ## Schema Decode Soundness
 
@@ -235,24 +235,17 @@ It does not define a new wire shape, omit an existing constructor tag, or change
 the underlying ADT representation.
 
 The current [execution specification](../specification/execution.md#schema-execution)
-owns format-neutral encode helpers and typed pass-through decode helpers. Those
+owns format-neutral encode helpers, typed pass-through decode helpers, and
+capability admission for refinement-bearing representation decoders. Those
 helpers retain eligible source-ADT refinements, reject base or excluded values
 statically, preserve their result types, and do not change runtime
-representation. This section retains only external or representation decode
-behavior.
+representation. This section retains only runtime validation after external or
+representation base decoding succeeds.
 
 | Boundary | Refinement behavior |
 | --- | --- |
 | External or representation decode | Decode the complete base value first. After successful base decoding, validate that every refinement-bearing position contains an admitted variant. Return the refined result only after every validation succeeds. |
 | Base-typed external decode result | Preserve the declared base type unless the decoder performs the specified validation or directly constructs an admitted variant. Observing a runtime tag alone does not silently strengthen the declared result. |
-
-An external decoder can produce a refinement only when it directly constructs
-an admitted variant or can inspect the existing ADT tag after decoding. If it
-can do neither, the schema or decode operation is rejected with
-`schema.variant_refinement_decode_unsupported`. A handwritten Veln function can
-return a refinement through ordinary constructor, match, and result-type
-checking; its signature alone does not grant an opaque or host decoder this
-capability.
 
 Singleton targets accept only their selected variant. Union targets accept any
 variant in their set. Validation is recursive through record fields, ADT
@@ -289,7 +282,7 @@ current behavior:
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
 | Qualified immutable values | After a separate Ready proposal adds module-addressable immutable data values, matching a qualified reference to such a declaration has the same stable-value refinement as the corresponding direct binding. A same-shaped qualified constructor or function expression remains outside this rule. | Accepted and rejected source-grammar fixtures and name-resolution cases for the prerequisite declaration, followed by match cases that resolve an actual qualified immutable data-value declaration and distinguish it from constructors and functions. Public state-machine examples must include match-based recovery of a refined value. |
-| External schema decode | Refinement annotations preserve the base ADT wire representation. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant reports `schema.variant_refinement_decode_unsupported` at the innermost unsupported refinement. Its closed details contain only `target_type`, `base_type`, `expected_variants`, and `decoder`; related context identifies the selected decoder or codec. | Binary and incremental decoder cases for singleton, union, nested record, payload, option, result, collection, and dictionary positions; runtime cases for excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, unchanged wire bytes, and unsupported decoder capabilities; and human and JSON command fixtures for the static diagnostic, closed details, primary span, and related context. |
+| External schema decode | Refinement annotations preserve the base ADT wire representation. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. | Binary and incremental decoder cases for singleton, union, nested record, payload, option, result, collection, and dictionary positions; runtime cases for excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, and unchanged wire bytes. |
 | Provider descriptor unavailable | After the separate provider prerequisite lands, a production compiler or package input with a known ADT identity and no public finite variant descriptor reports `type.variant_refinement_base` with reason `variant_descriptor_unavailable`. Its closed details contain only `written_type` and `reason`; related context identifies the selected provider and its provenance. A local source declaration with no lowered variants does not establish this reason. | Human and JSON command fixtures that select the production provider and check the diagnostic details and related provenance, plus semantic cases that distinguish compiler or package provenance from local source declarations and unit-only provider injection. |
 
 ## Non-Goals

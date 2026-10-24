@@ -1,0 +1,17 @@
+command = ["check", "--json", "main.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+equals_file = "case-text/stdout-1.json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "ok"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 0

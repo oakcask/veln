@@ -80,6 +80,12 @@ resolved ADT identities or canonical generic arguments is also a semantic
 error. It blocks command success and quarantines the complete containing
 function, effect operation, handler, or ADT-constructor signature according to
 the same type and diagnostic contracts.
+A `format binary` schema field whose generated decoder cannot establish a
+resolved finite ADT refinement also fails the semantic gate. The
+[execution specification](execution.md#schema-execution) defines the decoder
+capability boundary, and the
+[diagnostic specification](diagnostics-json.md#diagnostic-families) defines
+the human and JSON output.
 The checked
 [`publication-closure`](../../examples/specification/check/adt-variant-refinement-publication-closure-human/)
 case verifies that one causal diagnostic blocks command success. Focused

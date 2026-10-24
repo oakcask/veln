@@ -1219,9 +1219,13 @@ Variant-refinement semantic-token classifications are specified in
 [editor-support.md](editor-support.md#token-classes), and its navigation and
 rename behavior is specified by
 [editor support](editor-support.md#lsp-navigation-formatting-and-rename) and
-[MCP](mcp.md#saved-workspace-navigation). Qualified-value control-flow
-refinement, external or representation schema decode validation, the
-provider-dependent unavailable-descriptor diagnostic remain proposal work.
+[MCP](mcp.md#saved-workspace-navigation). Decoder capability admission for
+refinement-bearing representation schemas is current behavior under the
+[execution](execution.md#schema-execution) and
+[diagnostic](diagnostics-json.md#diagnostic-families) specifications.
+Qualified-value control-flow refinement, runtime refinement validation after
+successful base decoding, and the provider-dependent unavailable-descriptor
+diagnostic remain proposal work.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record

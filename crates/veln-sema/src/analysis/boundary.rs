@@ -32,7 +32,7 @@ use crate::types::schema_types::{
     format_neutral_schema_field_type_for_schema,
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, recursive_dispatch_payload_is_eligible,
-    schema_decode_step_function_name, schema_decode_value_type,
+    schema_decode_function_name, schema_decode_step_function_name, schema_decode_value_type,
     schema_dispatch_has_recursive_payload, schema_dispatch_payload_schema,
     schema_encode_function_name, schema_encode_value_type, schema_field_target,
     schema_field_uses_existing_grammar, schema_has_eligible_recursive_dispatch_payload,
@@ -58,6 +58,7 @@ mod schema_repeat;
 pub(crate) mod schema_repeat_resolution;
 mod schema_type_references;
 mod schema_validation;
+mod schema_variant_refinement_decode;
 
 pub(crate) use effects::check_declared_effect_labels;
 pub(crate) use module_boundaries::{
@@ -87,6 +88,7 @@ use schema_repeat::*;
 use schema_repeat_resolution::*;
 use schema_type_references::*;
 use schema_validation::*;
+use schema_variant_refinement_decode::*;
 
 pub(crate) fn check_public_function_boundary(
     function: &Function,
