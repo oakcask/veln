@@ -363,8 +363,8 @@ install that production client boundary.
 - A representation decoder can produce a refined ADT only when it directly
   constructs an admitted variant or can inspect and validate the decoded ADT
   tag. A `format binary` schema selects a generated representation decoder.
-  That decoder cannot establish a source-ADT refinement written in one of its
-  fields, so analysis rejects the innermost such target with
+  That decoder cannot establish a finite ADT refinement written in one of its
+  fields, so analysis rejects the innermost such resolved target with
   `schema.variant_refinement_decode_unsupported` before execution. Merely
   observing a constructor tag does not strengthen a decoder result declared as
   the base ADT. Format-neutral generated decode helpers are the supported

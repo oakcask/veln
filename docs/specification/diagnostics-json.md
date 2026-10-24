@@ -688,11 +688,11 @@ covers all three boundaries.
 
 A refinement-bearing `format binary` field requires a decoder that can either
 construct an admitted variant or inspect and validate the decoded ADT tag. The
-generated binary decoder has neither capability for a source ADT, so analysis
-reports `schema.variant_refinement_decode_unsupported`. The primary span is the
-innermost unsupported refinement. For a union, that span covers the complete
-union. The diagnostic does not replace an independently applicable invalid
-base or unknown-variant diagnostic.
+generated binary decoder has neither capability for a resolved finite ADT, so
+analysis reports `schema.variant_refinement_decode_unsupported`. The primary
+span is the innermost unsupported refinement. For a union, that span covers the
+complete union. The diagnostic does not replace an independently applicable
+invalid base or unknown-variant diagnostic.
 
 The diagnostic details object is closed and contains only `target_type`,
 `base_type`, `expected_variants`, and `decoder`. `target_type` renders the
