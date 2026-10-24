@@ -269,7 +269,31 @@ fn collect_type_path_segments(
     output: &mut Vec<QualifiedPathSegment>,
     suppressed_locations: &mut HashMap<String, HashSet<(usize, usize, usize)>>,
 ) {
-    let selected_refinement_fallbacks = refinements
+    let selected_refinement_fallbacks =
+        selected_refinement_fallback_spans(refinements, current_module, environment);
+    for path in paths {
+        if type_path_span_key(&path.segment_spans)
+            .is_some_and(|span| selected_refinement_fallbacks.contains(&span))
+        {
+            suppress_type_path_locations(path, suppressed_locations);
+            continue;
+        }
+        if path.segments.len() < 2 {
+            continue;
+        }
+        if collect_recovered_refinement_path_segments(path, current_module, environment, output) {
+            continue;
+        }
+        collect_syntax_type_path_segments(path, current_module, environment, output);
+    }
+}
+
+fn selected_refinement_fallback_spans(
+    refinements: &[veln_ast::VariantRefinementType],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> HashSet<(String, usize, usize)> {
+    refinements
         .iter()
         .flat_map(|refinement| &refinement.alternatives)
         .filter(|alternative| {
@@ -287,81 +311,93 @@ fn collect_type_path_segments(
                 alternative.span.end.offset,
             )
         })
-        .collect::<HashSet<_>>();
-    for path in paths {
-        let selected_refinement_fallback = path
-            .segment_spans
-            .first()
-            .zip(path.segment_spans.last())
-            .is_some_and(|(first, last)| {
-                selected_refinement_fallbacks.contains(&(
-                    first.file.as_str().to_string(),
-                    first.start.offset,
-                    last.end.offset,
-                ))
-            });
-        if selected_refinement_fallback {
-            for (segment_index, span) in path.segment_spans.iter().enumerate() {
-                suppressed_locations
-                    .entry(span.file.as_str().to_string())
-                    .or_default()
-                    .insert((span.start.offset, span.end.offset, segment_index));
-            }
+        .collect()
+}
+
+fn type_path_span_key(spans: &[veln_source::SourceSpan]) -> Option<(String, usize, usize)> {
+    spans.first().zip(spans.last()).map(|(first, last)| {
+        (
+            first.file.as_str().to_string(),
+            first.start.offset,
+            last.end.offset,
+        )
+    })
+}
+
+fn suppress_type_path_locations(
+    path: &veln_ast::TypePathSegments,
+    suppressed_locations: &mut SuppressedQualifiedPathLocations,
+) {
+    for (segment_index, span) in path.segment_spans.iter().enumerate() {
+        suppressed_locations
+            .entry(span.file.as_str().to_string())
+            .or_default()
+            .insert((span.start.offset, span.end.offset, segment_index));
+    }
+}
+
+fn collect_recovered_refinement_path_segments(
+    path: &veln_ast::TypePathSegments,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    output: &mut Vec<QualifiedPathSegment>,
+) -> bool {
+    if !environment.recovered_variant_refinement_candidate(&path.segments, current_module) {
+        return false;
+    }
+    let base_index = path.segments.len() - 2;
+    for (index, (segment, span)) in path.segments.iter().zip(&path.segment_spans).enumerate() {
+        let role = if index == base_index {
+            NameClass::Type
+        } else if index + 1 == path.segments.len() {
+            NameClass::Constructor
+        } else {
+            NameClass::Module
+        };
+        output.push(qualified_path_segment_from_parts(
+            segment,
+            role,
+            span,
+            index,
+            QualifiedPathSegmentEvidence::UniqueRecovery,
+        ));
+    }
+    true
+}
+
+fn collect_syntax_type_path_segments(
+    path: &veln_ast::TypePathSegments,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    output: &mut Vec<QualifiedPathSegment>,
+) {
+    let quarantined_import_lacks_leaf =
+        environment.quarantined_import_type_path_lacks_visible_leaf(&path.segments, current_module);
+    if quarantined_import_lacks_leaf
+        && !environment
+            .quarantined_import_type_path_uses_nested_alias(&path.segments, current_module)
+    {
+        return;
+    }
+    for index in 0..path.segments.len() {
+        if quarantined_import_lacks_leaf && index + 1 == path.segments.len() {
             continue;
         }
-        if path.segments.len() < 2 {
+        let Some(span) = path.segment_spans.get(index) else {
             continue;
-        }
-        if environment.recovered_variant_refinement_candidate(&path.segments, current_module) {
-            let base_index = path.segments.len() - 2;
-            for (index, (segment, span)) in
-                path.segments.iter().zip(&path.segment_spans).enumerate()
-            {
-                let role = if index == base_index {
-                    NameClass::Type
-                } else if index + 1 == path.segments.len() {
-                    NameClass::Constructor
-                } else {
-                    NameClass::Module
-                };
-                output.push(qualified_path_segment_from_parts(
-                    segment,
-                    role,
-                    span,
-                    index,
-                    QualifiedPathSegmentEvidence::UniqueRecovery,
-                ));
-            }
-            continue;
-        }
-        let quarantined_import_lacks_leaf = environment
-            .quarantined_import_type_path_lacks_visible_leaf(&path.segments, current_module);
-        if quarantined_import_lacks_leaf
-            && !environment
-                .quarantined_import_type_path_uses_nested_alias(&path.segments, current_module)
-        {
-            continue;
-        }
-        for index in 0..path.segments.len() {
-            if quarantined_import_lacks_leaf && index + 1 == path.segments.len() {
-                continue;
-            }
-            let Some(span) = path.segment_spans.get(index) else {
-                continue;
-            };
-            let role = if index + 1 == path.segments.len() {
-                NameClass::Type
-            } else {
-                NameClass::Module
-            };
-            output.push(qualified_path_segment_from_parts(
-                &path.segments[index],
-                role,
-                span,
-                index,
-                QualifiedPathSegmentEvidence::Syntax,
-            ));
-        }
+        };
+        let role = if index + 1 == path.segments.len() {
+            NameClass::Type
+        } else {
+            NameClass::Module
+        };
+        output.push(qualified_path_segment_from_parts(
+            &path.segments[index],
+            role,
+            span,
+            index,
+            QualifiedPathSegmentEvidence::Syntax,
+        ));
     }
 }
 
