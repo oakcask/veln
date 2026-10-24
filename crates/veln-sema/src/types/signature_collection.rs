@@ -7,6 +7,7 @@ use crate::name_recovery::normal_use_decls;
 use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_or_unknown;
 use crate::types::TypeParameterIdentityContext;
+use crate::types::type_case_recovery::recover_type_case;
 
 use super::effect_call_resolution::push_unique_effect;
 use super::effect_inference::{canonical_user_effect_label, quarantined_public_user_effect_label};
@@ -256,7 +257,7 @@ impl TypeCanonicalizer<'_> {
             .adts
             .descriptor_for_type_path(base_name, args.len(), self.current_module, self.uses)
             .or_else(|| {
-                let recovered = super::environment::recover_type_case(base_name)?;
+                let recovered = recover_type_case(base_name)?;
                 self.adts.unique_descriptor_for_type_path(
                     &recovered,
                     args.len(),
@@ -303,7 +304,7 @@ impl TypeCanonicalizer<'_> {
             .adts
             .descriptor_for_type_path(&name, args.len(), self.current_module, self.uses)
             .or_else(|| {
-                let recovered = super::environment::recover_type_case(&name)?;
+                let recovered = recover_type_case(&name)?;
                 self.adts.unique_descriptor_for_type_path(
                     &recovered,
                     args.len(),

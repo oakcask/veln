@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::type_case_recovery::recover_type_case;
 
 impl TypeEnvironment {
     pub(crate) fn canonicalize_type_annotation(
@@ -742,21 +743,6 @@ fn recover_variant_case(name: &str) -> Option<String> {
     first
         .is_ascii_lowercase()
         .then(|| (first as char).to_ascii_uppercase().to_string() + rest)
-}
-
-pub(in crate::types) fn recover_type_case(name: &str) -> Option<String> {
-    let (prefix, leaf) = name.rsplit_once("::").unwrap_or(("", name));
-    let mut chars = leaf.chars();
-    let first = chars.next()?;
-    if !first.is_ascii_lowercase() {
-        return None;
-    }
-    let recovered_leaf = format!("{}{}", first.to_ascii_uppercase(), chars.as_str());
-    Some(if prefix.is_empty() {
-        recovered_leaf
-    } else {
-        format!("{prefix}::{recovered_leaf}")
-    })
 }
 
 fn type_children(ty: &Type) -> Vec<&Type> {

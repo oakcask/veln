@@ -5,6 +5,7 @@ mod expression_effects;
 pub(crate) mod private_inference;
 pub(crate) mod schema_types;
 mod signature_collection;
+mod type_case_recovery;
 pub(crate) use signature_collection::canonicalize_type_effects;
 #[cfg(test)]
 pub(crate) use signature_collection::{
