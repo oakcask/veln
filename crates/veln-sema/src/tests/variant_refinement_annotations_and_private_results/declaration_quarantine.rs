@@ -294,7 +294,7 @@ fn declaration_carriers_preserve_independent_union_recovery_errors() {
         .filter(|diagnostic| {
             matches!(
                 diagnostic.id.as_str(),
-                "type.variant_refinement_base" | "type.invalid_annotation"
+                "type.variant_refinement_base" | "type.variant_refinement_unknown"
             )
         })
         .collect::<Vec<_>>();
@@ -305,13 +305,13 @@ fn declaration_carriers_preserve_independent_union_recovery_errors() {
             .collect::<Vec<_>>(),
         [
             "type.variant_refinement_base",
-            "type.invalid_annotation",
+            "type.variant_refinement_unknown",
             "type.variant_refinement_base",
-            "type.invalid_annotation",
+            "type.variant_refinement_unknown",
             "type.variant_refinement_base",
-            "type.invalid_annotation",
+            "type.variant_refinement_unknown",
             "type.variant_refinement_base",
-            "type.invalid_annotation",
+            "type.variant_refinement_unknown",
         ],
         "{diagnostics:#?}"
     );
@@ -326,11 +326,9 @@ fn declaration_carriers_preserve_independent_union_recovery_errors() {
     assert!(
         relevant
             .iter()
-            .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
-            .all(|diagnostic| diagnostic.message.contains("`State::Missing`")
-                && diagnostic
-                    .message
-                    .contains("alternatives must resolve to declared variants of one ADT"))
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_unknown")
+            .all(|diagnostic| diagnostic.message.contains("`Missing`")
+                && diagnostic.message.contains("not a variant"))
     );
 }
 

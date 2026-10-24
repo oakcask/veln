@@ -22,6 +22,7 @@ mod casing_base_failures;
 mod declaration_quarantine;
 mod public_visibility;
 mod scaling;
+mod unknown_finals;
 
 #[test]
 fn explicitly_refined_nested_positions_remain_invariant() {

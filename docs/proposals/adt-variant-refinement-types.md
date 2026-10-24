@@ -25,10 +25,9 @@ dependency closure participate in the package-atomic failure.
 
 This proposal retains only the unfinished work: qualified-value match
 refinement, external or representation schema decode validation, the
-provider-dependent unavailable-descriptor diagnostic, the
-`type.variant_refinement_unknown` diagnostic, and semantic identity recovery
-for a lowercase final segment. The last two items are compiler diagnostics and
-semantic recovery; they are distinct from the implemented protocol-visible
+provider-dependent unavailable-descriptor diagnostic, and semantic identity
+recovery for a lowercase final segment. That compiler recovery is distinct
+from the implemented protocol-visible
 workspace-base navigation recovery for an invalid final segment. Qualified
 immutable-value refinement depends
 on a separately specified source form for module-addressable immutable data
@@ -47,10 +46,6 @@ The remaining proposal has these intended outcomes:
 - Production inputs with a known ADT identity but no public finite variant
   descriptor report the defined provider-dependent diagnostic after that
   provider contract exists.
-- An uppercase final segment that does not identify a constructor owned by its
-  resolved ADT reports `type.variant_refinement_unknown`, retains the
-  independently resolved base identity, and does not trigger failures that
-  require a selected constructor.
 - A lowercase final segment participates in deterministic parser and semantic
   diagnostic overlap. A unique casing recovery retains its constructor
   identity without adding a lookup or unknown-variant failure caused only by
@@ -165,7 +160,6 @@ repair guidance belong in `related` notes rather than the primary message.
 | Code | Primary span and failed fact | Stable structured details | Planned related context |
 | --- | --- | --- | --- |
 | `type.variant_refinement_base` | The ADT identity is known, but its selected production provider has no public finite variant descriptor. | `written_type`, `reason` | The selected provider and its provenance. |
-| `type.variant_refinement_unknown` | The final segment does not name a variant owned by the resolved ADT. | `base_type`, `variant` | The ADT declaration and visible variant names. |
 | `schema.variant_refinement_decode_unsupported` | A decode target contains a refinement that the selected decoder can neither construct directly nor validate from the decoded ADT tag. | `target_type`, `base_type`, `expected_variants`, `decoder` | The decoder or codec declaration whose result cannot establish the refinement. |
 
 Parser failures that cannot form a base type, `::`, and an uppercase final
@@ -237,7 +231,6 @@ analysis; it does not by itself publish protocol-visible navigation.
 | The base is unresolved. | The existing unresolved-name diagnostic. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | None. |
 | The base is ambiguous. | The existing ambiguity diagnostic with its candidates. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | No selected base or variant identity; candidates remain related context. |
 | A provider-backed ADT identity has no public finite variant descriptor. | `type.variant_refinement_base` with `reason: "variant_descriptor_unavailable"`. | Variant, visibility, union comparison involving that alternative, and assignability diagnostics. | The resolved base identity only. |
-| The final segment is not a variant of the resolved ADT. | `type.variant_refinement_unknown`, plus an independently applicable casing diagnostic. | Visibility and assignability diagnostics that require a selected constructor. | The base declaration only. |
 | Under the planned invalid-refinement recovery, a lowercase final segment has one recovery identity. | `parse.variant_refinement_type`, followed by `name.invalid_case` and independent semantic failures discovered through that identity. | A lookup or unknown-variant diagnostic whose only cause is the recovered casing. | The uniquely recovered constructor declaration. |
 | Under the planned invalid-refinement recovery, a lowercase final segment has no unique recovery. | `parse.variant_refinement_type`, followed by the independently provable casing or lookup diagnostic. | Downstream failures that require a selected constructor identity. | Only identities selected independently of the failed final segment. |
 
@@ -326,7 +319,6 @@ current behavior:
 | Qualified immutable values | After a separate Ready proposal adds module-addressable immutable data values, matching a qualified reference to such a declaration has the same stable-value refinement as the corresponding direct binding. A same-shaped qualified constructor or function expression remains outside this rule. | Accepted and rejected source-grammar fixtures and name-resolution cases for the prerequisite declaration, followed by match cases that resolve an actual qualified immutable data-value declaration and distinguish it from constructors and functions. Public state-machine examples must include match-based recovery of a refined value. |
 | External schema decode | Refinement annotations preserve the base ADT wire representation. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant reports `schema.variant_refinement_decode_unsupported` at the innermost unsupported refinement. Its closed details contain only `target_type`, `base_type`, `expected_variants`, and `decoder`; related context identifies the selected decoder or codec. | Binary and incremental decoder cases for singleton, union, nested record, payload, option, result, collection, and dictionary positions; runtime cases for excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, unchanged wire bytes, and unsupported decoder capabilities; and human and JSON command fixtures for the static diagnostic, closed details, primary span, and related context. |
 | Provider descriptor unavailable | After the separate provider prerequisite lands, a production compiler or package input with a known ADT identity and no public finite variant descriptor reports `type.variant_refinement_base` with reason `variant_descriptor_unavailable`. Its closed details contain only `written_type` and `reason`; related context identifies the selected provider and its provenance. A local source declaration with no lowered variants does not establish this reason. | Human and JSON command fixtures that select the production provider and check the diagnostic details and related provenance, plus semantic cases that distinguish compiler or package provenance from local source declarations and unit-only provider injection. |
-| Unknown final diagnostic | An uppercase final segment that is unknown, is not a constructor, or belongs to another ADT reports `type.variant_refinement_unknown` at that segment. Its closed details contain only `base_type` and `variant`. Related locations identify the resolved ADT declaration and its visible variants. The failure retains the independently resolved base identity and suppresses visibility, assignability, and other failures that require a selected constructor. | Planned human and JSON command fixtures for the diagnostic id, closed details, primary span, and related locations, plus focused semantic cases for unknown, wrong-kind, and wrong-owner finals, retained base identity, and dependent-failure suppression. |
 | Lowercase-final semantic recovery | A lowercase final always keeps `parse.variant_refinement_type` first in the deterministic overlap order. If initial-only casing repair selects one constructor, `name.invalid_case` and independently provable semantic failures follow, the constructor identity is retained, and no lookup or unknown-variant failure is added solely because of the recovered casing. If repair has no unique result, only the independently provable casing or lookup diagnostic follows, downstream failures that require a constructor are suppressed, and only identities selected independently of the final segment are retained. Recovery never makes the annotation valid. | Planned accepted and rejected parser cases, focused semantic cases for both unique and no-unique recovery, and human and JSON command overlap fixtures that check order, suppression, and the retained identity for each case. |
 
 ## Non-Goals
@@ -348,8 +340,7 @@ current behavior:
 ## Completion
 
 This proposal is complete only when every remaining acceptance row passes,
-including the unknown-final diagnostic and both lowercase-final semantic
-recovery outcomes, and
+including both lowercase-final semantic recovery outcomes, and
 the smallest current specification pages for types, execution, diagnostics,
 and the package-documentation catalog describe the
 implemented contract. Completion also requires the public examples to explain both the

@@ -129,6 +129,46 @@ impl TypeEnvironment {
         }
     }
 
+    pub(crate) fn variant_refinement_unknown_descriptor(
+        &self,
+        base: &str,
+        args_len: usize,
+        variant: &str,
+        current_module: Option<&str>,
+    ) -> Option<&crate::adt::descriptors::AdtDescriptor> {
+        let written =
+            self.variant_refinement_descriptor_identity(base, args_len, current_module)?;
+        if written.type_parameters.len() != args_len {
+            return None;
+        }
+        let descriptor = self
+            .adts
+            .terminal_descriptor_for_alias(written)
+            .unwrap_or_else(|| self.adts.canonical_descriptor_for(written));
+        if descriptor.refinement_availability
+            != crate::adt::descriptors::VariantRefinementAvailability::Finite
+            || !matches!(
+                self.adts.variant_for_descriptor(descriptor, variant),
+                crate::adt::registry::VariantLookup::Missing
+            )
+        {
+            return None;
+        }
+        Some(descriptor)
+    }
+
+    pub(crate) fn recovered_variant_refinement_unknown_descriptor(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> Option<&crate::adt::descriptors::AdtDescriptor> {
+        if segments.len() < 2 {
+            return None;
+        }
+        let recovered = recover_type_case(&segments[..segments.len() - 1].join("::"))?;
+        self.variant_refinement_unknown_descriptor(&recovered, 0, segments.last()?, current_module)
+    }
+
     fn variant_refinement_descriptor_failure(
         &self,
         descriptor: &crate::adt::descriptors::AdtDescriptor,

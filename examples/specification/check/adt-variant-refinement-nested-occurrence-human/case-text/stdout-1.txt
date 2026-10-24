@@ -1,12 +1,18 @@
 main.veln:8:21: error[name.invalid_case]: type name `state` must start with an ASCII uppercase letter
 main.veln:8:15: error[type.variant_refinement_base]: variant-refinement base `Empty<state::Missing>` is not a finite ADT
   note: main.veln:1:1: Type `Empty` is declared here without finite ADT variants.
+main.veln:8:28: error[type.variant_refinement_unknown]: variant `Missing` is not a variant of `State`
+  note: main.veln:4:1: Type `State` is the resolved ADT for this refinement.
+  note: main.veln:5:2: Visible variant `Ready` is declared here.
 main.veln:12:21: error[name.invalid_case]: type name `state` must start with an ASCII uppercase letter
-main.veln:12:61: error[name.invalid_case]: type name `state` must start with an ASCII uppercase letter
-main.veln:8:21: error[type.invalid_annotation]: invalid type annotation `state::Missing`: variant refinement alternatives must resolve to declared variants of one ADT
 main.veln:12:15: error[type.variant_refinement_base]: variant-refinement base `Empty<state::Missing>` is not a finite ADT
   note: main.veln:1:1: Type `Empty` is declared here without finite ADT variants.
-main.veln:12:21: error[type.invalid_annotation]: invalid type annotation `state::Missing`: variant refinement alternatives must resolve to declared variants of one ADT
+main.veln:12:28: error[type.variant_refinement_unknown]: variant `Missing` is not a variant of `State`
+  note: main.veln:4:1: Type `State` is the resolved ADT for this refinement.
+  note: main.veln:5:2: Visible variant `Ready` is declared here.
+main.veln:12:61: error[name.invalid_case]: type name `state` must start with an ASCII uppercase letter
 main.veln:12:55: error[type.variant_refinement_base]: variant-refinement base `Empty<state::Missing>` is not a finite ADT
   note: main.veln:1:1: Type `Empty` is declared here without finite ADT variants.
-main.veln:12:61: error[type.invalid_annotation]: invalid type annotation `state::Missing`: variant refinement alternatives must resolve to declared variants of one ADT
+main.veln:12:68: error[type.variant_refinement_unknown]: variant `Missing` is not a variant of `State`
+  note: main.veln:4:1: Type `State` is the resolved ADT for this refinement.
+  note: main.veln:5:2: Visible variant `Ready` is declared here.

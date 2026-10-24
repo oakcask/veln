@@ -1,0 +1,4 @@
+main.veln:6:27: error[type.variant_refinement_unknown]: variant `Missing` is not a variant of `State`
+  note: main.veln:1:1: Type `State` is the resolved ADT for this refinement.
+  note: main.veln:2:2: Visible variant `Ready` is declared here.
+  note: main.veln:3:2: Visible variant `Closed` is declared here.

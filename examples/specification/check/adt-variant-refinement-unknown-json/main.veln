@@ -1,0 +1,8 @@
+type State
+	Ready
+	Closed
+end
+
+fn rejected(value: State::Missing) -> ()
+	()
+end

@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn invalid_refinement_annotations_are_diagnosed_instead_of_becoming_unknown() {
+fn invalid_refinement_annotations_use_specific_final_and_arity_diagnostics() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
@@ -17,9 +17,17 @@ fn invalid_refinement_annotations_are_diagnosed_instead_of_becoming_unknown() {
     assert_eq!(
         diagnostics
             .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_unknown")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
             .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
             .count(),
-        3,
+        1,
         "{diagnostics:#?}"
     );
 }
@@ -206,10 +214,7 @@ fn invalid_cased_bases_recover_one_identity_and_keep_independent_failures() {
     assert!(base_json[0].contains("\"resolved_identity\":\"Empty\""));
     let recovered_final = diagnostics
         .iter()
-        .filter(|diagnostic| {
-            diagnostic.id == "type.invalid_annotation"
-                && diagnostic.message.contains("state::Missing")
-        })
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_unknown")
         .count();
     assert_eq!(recovered_final, 1, "{diagnostics:#?}");
 }
@@ -812,13 +817,7 @@ fn base_failures_preserve_independent_sibling_and_nested_annotation_errors() {
         .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
         .map(|diagnostic| diagnostic.message.as_str())
         .collect::<Vec<_>>();
-    assert_eq!(annotation_messages.len(), 2, "{diagnostics:#?}");
-    assert!(
-        annotation_messages
-            .iter()
-            .any(|message| message.contains("State::Missing")),
-        "{diagnostics:#?}"
-    );
+    assert_eq!(annotation_messages.len(), 1, "{diagnostics:#?}");
     assert!(
         annotation_messages
             .iter()
@@ -958,7 +957,9 @@ fn nested_recovery_visits_each_source_path_occurrence_once() {
         .filter(|diagnostic| {
             matches!(
                 diagnostic.id.as_str(),
-                "name.invalid_case" | "type.variant_refinement_base" | "type.invalid_annotation"
+                "name.invalid_case"
+                    | "type.variant_refinement_base"
+                    | "type.variant_refinement_unknown"
             )
         })
         .collect::<Vec<_>>();
@@ -970,13 +971,13 @@ fn nested_recovery_visits_each_source_path_occurrence_once() {
         [
             "name.invalid_case",
             "type.variant_refinement_base",
-            "type.invalid_annotation",
+            "type.variant_refinement_unknown",
         ],
         "{diagnostics:#?}"
     );
     let invalid = relevant[2];
-    assert!(invalid.message.contains("state::Missing"), "{invalid:#?}");
-    assert_diagnostic_span(invalid, 6, 19, 6, 33);
+    assert!(invalid.message.contains("Missing"), "{invalid:#?}");
+    assert_diagnostic_span(invalid, 6, 26, 6, 33);
 }
 
 #[test]
@@ -994,14 +995,11 @@ fn equal_nested_recovery_failures_at_distinct_spans_are_each_reported_once() {
 
     let invalid = diagnostics
         .iter()
-        .filter(|diagnostic| {
-            diagnostic.id == "type.invalid_annotation"
-                && diagnostic.message.contains("state::Missing")
-        })
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_unknown")
         .collect::<Vec<_>>();
     assert_eq!(invalid.len(), 2, "{diagnostics:#?}");
-    assert_diagnostic_span(invalid[0], 6, 19, 6, 33);
-    assert_diagnostic_span(invalid[1], 6, 59, 6, 73);
+    assert_diagnostic_span(invalid[0], 6, 26, 6, 33);
+    assert_diagnostic_span(invalid[1], 6, 66, 6, 73);
 }
 
 #[test]

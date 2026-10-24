@@ -186,7 +186,7 @@ fn failed_union_alternatives_keep_linear_recovery_and_merge_work() {
         );
         assert_eq!(
             work.recovery_comparison,
-            count * 5 + 1,
+            count * 6 + 2,
             "count={count} work={work:?}"
         );
         eprintln!("variant refinement union recovery: alternatives={count} work={work:?}");

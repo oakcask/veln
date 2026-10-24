@@ -8,6 +8,6 @@ format = "empty"
 [stderr]
 format = "text"
 contains = [
-  "error[type.invalid_annotation]: invalid type annotation `State::Missing`",
+  "error[type.variant_refinement_unknown]: variant `Missing` is not a variant of `State`",
 ]
 not_contains = ["# Veln Project", "##### fn recovered"]

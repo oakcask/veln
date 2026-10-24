@@ -739,6 +739,16 @@ A source-less base retains the same semantic identity without acquiring a
 source target. The checker processes each written type-path
 occurrence once during nested recovery. Equal paths at different source spans
 remain independent occurrences. The
+final uppercase segment of a finite ADT refinement must select one constructor
+owned by that ADT. An unknown name, a non-constructor name, or a constructor
+owned by another ADT makes the annotation invalid. The checker retains the
+base identity for an independent union-base comparison, but it does not retain
+a constructor identity. The containing declaration is quarantined without
+deriving privacy or assignability failures from the missing selection. A
+failed nested argument prevents the enclosing final segment from being checked
+as though the base had been instantiated.
+
+The
 early quarantine uses the same source-backed declarations as the analyzed
 module, including declarations selected from the reusable standard
 environment. Private return inference therefore cannot publish a result that
@@ -1165,12 +1175,11 @@ Variant-refinement semantic-token classifications are specified in
 rename behavior is specified by
 [editor support](editor-support.md#lsp-navigation-formatting-and-rename) and
 [MCP](mcp.md#saved-workspace-navigation). Qualified-value control-flow
-refinement, external or representation schema decode validation, and the
-provider-dependent unavailable-descriptor diagnostic remain proposal work.
-The `type.variant_refinement_unknown` diagnostic and semantic identity recovery
-for a lowercase final segment also remain proposal work. Those compiler items
-are distinct from the implemented workspace-base navigation recovery for an
-invalid final segment.
+refinement, external or representation schema decode validation, the
+provider-dependent unavailable-descriptor diagnostic, and semantic identity
+recovery for a lowercase final segment remain proposal work. The
+lowercase-final compiler item is distinct from the implemented workspace-base
+navigation recovery for an invalid final segment.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record

@@ -149,6 +149,24 @@ record, and function positions.
 | `not_adt` | The resolved named type has no finite ADT variants. | A source-backed type uses `base_type_declaration` with the canonical target's `resolved_identity` and declaration span, including when the written base is a public alias or alias chain. A source-less type published by the type-syntax provider uses spanless `base_type_origin` with `resolved_identity` and `provider: "type_syntax"`. |
 | `opaque` | The resolved compiler-known type intentionally hides its variants. | A spanless `base_type_origin` contains `resolved_identity` and `provider: "adt"`. |
 
+When an uppercase final segment does not select a unique constructor owned by
+its resolved finite ADT, the checker reports
+`type.variant_refinement_unknown` at that final segment. This includes an
+unknown name, a name that resolves as a non-constructor, and a constructor
+owned by another ADT. Its closed details contain exactly `base_type` and
+`variant`. Related entries identify the resolved ADT declaration and each
+variant visible from the annotation, in declaration order. A source-less ADT
+uses the same entries without a source span when no declaration location
+exists.
+
+The failed final segment retains the independently resolved base identity for
+later union-base comparison and declaration quarantine. It does not select a
+constructor. The checker therefore suppresses privacy, assignability, and
+other failures that require a selected constructor. An invalid nested type
+argument suppresses an enclosing unknown-final failure that would require that
+argument to instantiate the base. A uniquely casing-recovered base keeps the
+independent `name.invalid_case` before this diagnostic.
+
 A variant refinement anywhere in a public function parameter or result, or in
 a payload of a public variant of a public source ADT, reports
 `type.variant_refinement_private` when its uniquely resolved terminal ADT is
