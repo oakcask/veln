@@ -133,6 +133,35 @@ pub(crate) fn check_variant_refinement_bases(
     diagnostics
 }
 
+pub(crate) fn variant_refinement_is_fully_resolved(
+    refinement: &veln_ast::VariantRefinementType,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    let mut errors = Vec::new();
+    let mut visited_paths = HashMap::new();
+    let mut union_base_failures = Vec::new();
+    let mut unknown_variant_occurrences = HashSet::new();
+    let mut unavailable_variant_occurrences = HashSet::new();
+    let mut unresolved_base_occurrences = HashSet::new();
+    let declaration_type_parameters = TypeParameterIdentityContext::new(&[]);
+    let mut materialized_refinements = HashMap::new();
+    let (_, recovered) = collect_refinement_union(
+        refinement,
+        current_module,
+        environment,
+        &mut errors,
+        &mut visited_paths,
+        &mut union_base_failures,
+        &mut unknown_variant_occurrences,
+        &mut unavailable_variant_occurrences,
+        &mut unresolved_base_occurrences,
+        &declaration_type_parameters,
+        &mut materialized_refinements,
+    );
+    recovered.is_some()
+}
+
 fn collect_type_annotations(
     module: &SurfaceModule,
     environment: &TypeEnvironment,

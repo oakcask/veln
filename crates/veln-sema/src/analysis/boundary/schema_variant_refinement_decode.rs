@@ -77,6 +77,9 @@ fn unsupported_refinement(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
 ) -> Option<UnsupportedRefinement> {
+    if !variant_refinement_is_fully_resolved(refinement, current_module, environment) {
+        return None;
+    }
     let first = refinement.alternatives.first()?;
     let first_base = written_refinement_base(first);
     let descriptor = environment.variant_refinement_descriptor_identity(

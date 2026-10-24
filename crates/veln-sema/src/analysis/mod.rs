@@ -89,7 +89,7 @@ pub(crate) use variant_refinement_bases::{
 pub(crate) use variant_refinement_bases::{
     VariantRefinementBaseDiagnostic, annotation_has_invalid_refinement,
     annotation_has_unavailable_refinement_identity, check_variant_refinement_bases,
-    independent_annotation_errors,
+    independent_annotation_errors, variant_refinement_is_fully_resolved,
 };
 pub(crate) use variant_refinement_visibility::{
     adt_has_private_variant_refinement_exposure, adt_publication_dependency_identities,

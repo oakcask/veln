@@ -60,6 +60,66 @@ fn binary_schema_decoders_reject_refinements_they_cannot_establish() {
 }
 
 #[test]
+fn binary_schema_decoder_capability_does_not_mask_invalid_refinements() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type Wrapper<A>\n",
+            "  pub Wrapped(value: A)\n",
+            "end\n",
+            "\n",
+            "schema MissingArgument\n",
+            "  format binary\n",
+            "  state: Wrapper<Missing>::Wrapped\n",
+            "end\n",
+            "\n",
+            "schema WrongArity\n",
+            "  format binary\n",
+            "  state: Wrapper<Int, String>::Wrapped\n",
+            "end\n",
+            "\n",
+            "schema MismatchedUnion\n",
+            "  format binary\n",
+            "  state: Wrapper<Int>::Wrapped | Wrapper<String>::Wrapped\n",
+            "end\n",
+            "\n",
+            "schema UnknownVariant\n",
+            "  format binary\n",
+            "  state: Wrapper<Int>::Absent\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "schema.variant_refinement_decode_unsupported"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.invalid_annotation"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.variant_union_base"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.variant_refinement_unknown"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn format_neutral_decoder_can_establish_refinements_from_its_typed_input() {
     let source = SourceFile::new(
         "main.veln",
