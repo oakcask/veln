@@ -383,6 +383,11 @@ diagnostic contract routed by [diagnostics-json.md](diagnostics-json.md),
 including span-less `toolchain.invalid_symbol_case` entries with diagnostic
 kind `toolchain` and details for `provider`, `name`, `name_class`, and
 `required_initial`.
+For `type.variant_refinement_unknown`, `check_project` preserves the closed
+`base_type` and `variant` details. Its related entries preserve
+`resolved_identity` for the resolved ADT and each visible variant, and
+`variant` for each visible-variant entry. Source-backed entries also preserve
+their declaration spans; source-less entries do not invent spans.
 When analysis returns `type.variant_refinement_private`, `check_project`
 returns the diagnostic but does not admit the captured dependency snapshot.
 Previously retained dependency source, package-documentation, search, and
@@ -510,7 +515,9 @@ rename. It also asserts cursor continuation and unchanged saved results and
 listed dependency-resource metadata, source bytes, and linked
 package-documentation index, module, and declaration bytes after a failed
 request. The case also asserts empty final selection and the empty direct
-dependency, package-alias, and standard-library written-base boundaries.
+dependency, package-alias, and standard-library written-base boundaries. Its
+`check_project` request fixes the unknown-final details and source-backed
+related-entry projection.
 
 ### Source presentation
 
