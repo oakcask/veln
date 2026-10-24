@@ -7,6 +7,10 @@ fn rejected(value: State::Missing) -> ()
 	()
 end
 
+fn recovered(value: State::Ready | State::Missing | State::Closed) -> ()
+	()
+end
+
 type Left
 	A
 end

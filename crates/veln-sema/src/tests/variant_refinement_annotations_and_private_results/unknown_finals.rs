@@ -136,6 +136,98 @@ fn unknown_final_precedes_union_base_failure_for_the_same_alternative() {
 }
 
 #[test]
+fn unknown_final_union_recovery_preserves_the_comparison_base_across_positions() {
+    let cases = [
+        (
+            "State::Missing | State::Ready | State::Closed",
+            vec!["type.variant_refinement_unknown"],
+            vec![(27, 34)],
+        ),
+        (
+            "State::Ready | State::Missing | State::Closed",
+            vec!["type.variant_refinement_unknown"],
+            vec![(42, 49)],
+        ),
+        (
+            "State::Ready | State::Closed | State::Missing",
+            vec!["type.variant_refinement_unknown"],
+            vec![(58, 65)],
+        ),
+        (
+            "State::Missing | State::Missing | State::Ready",
+            vec![
+                "type.variant_refinement_unknown",
+                "type.variant_refinement_unknown",
+            ],
+            vec![(27, 34), (44, 51)],
+        ),
+        (
+            "State::Ready | State::Missing | Other::OtherOnly",
+            vec!["type.variant_refinement_unknown", "type.variant_union_base"],
+            vec![(42, 49), (52, 68)],
+        ),
+    ];
+
+    for (annotation, expected_ids, expected_spans) in cases {
+        let diagnostics = diagnostics_for(&format!(
+            "{}fn rejected(value: {annotation}) -> ()\n  ()\nend\n",
+            concat!(
+                "type State\n",
+                "  Ready\n",
+                "  Closed\n",
+                "end\n",
+                "type Other\n",
+                "  OtherOnly\n",
+                "end\n",
+            )
+        ));
+
+        assert_eq!(
+            diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.id.as_str())
+                .collect::<Vec<_>>(),
+            expected_ids,
+            "{annotation}: {diagnostics:#?}"
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .map(|diagnostic| {
+                    let span = diagnostic.span.as_ref().expect("diagnostic has a span");
+                    (span.start.column, span.end.column)
+                })
+                .collect::<Vec<_>>(),
+            expected_spans,
+            "{annotation}: {diagnostics:#?}"
+        );
+        assert!(diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "type.variant_refinement_private"
+                && diagnostic.id != "type.invalid_annotation"
+                && diagnostic.id != "type.mismatch"
+        }));
+        for diagnostic in diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_unknown")
+        {
+            assert_eq!(
+                diagnostic.details.to_json(),
+                "{\"base_type\":\"State\",\"variant\":\"Missing\"}"
+            );
+        }
+        if let Some(union_failure) = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.id == "type.variant_union_base")
+        {
+            assert_eq!(
+                union_failure.details.to_json(),
+                "{\"expected_base_type\":\"State\",\"actual_base_type\":\"Other\"}"
+            );
+        }
+    }
+}
+
+#[test]
 fn casing_recovered_unknown_final_keeps_visible_variant_context() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",

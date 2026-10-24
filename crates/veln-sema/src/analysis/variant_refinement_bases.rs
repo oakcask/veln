@@ -679,9 +679,8 @@ fn merge_recovered_union_alternative(
         .take()
         .expect("an expected span has a recovered refinement");
     let nodes = expected.nodes;
-    *recovered_refinement =
-        merge_refinement_alternative(expected.ty, canonical.ty, recovered_variants)
-            .map(|ty| RecoveredType { ty, nodes });
+    let ty = merge_refinement_alternative(expected.ty, canonical.ty, recovered_variants);
+    *recovered_refinement = Some(RecoveredType { ty, nodes });
     false
 }
 
@@ -1149,9 +1148,9 @@ fn merge_refinement_alternative(
     expected: Type,
     actual: Type,
     seen_variants: &mut HashSet<String>,
-) -> Option<Type> {
+) -> Type {
     if matches!(expected, Type::Named { .. }) {
-        return Some(expected);
+        return expected;
     }
     let Type::VariantRefinement {
         name,
@@ -1161,14 +1160,20 @@ fn merge_refinement_alternative(
         unresolved_alternatives,
     } = expected
     else {
-        return None;
+        unreachable!("union alternatives have a recovered variant-refinement base");
     };
     let Type::VariantRefinement {
         variants: actual_variants,
         ..
     } = actual
     else {
-        return None;
+        return Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            variants,
+            unresolved_alternatives,
+        };
     };
     let mut variants = variants.to_vec();
     for variant in actual_variants.iter() {
@@ -1176,13 +1181,13 @@ fn merge_refinement_alternative(
             variants.push(variant.clone());
         }
     }
-    Some(Type::VariantRefinement {
+    Type::VariantRefinement {
         name,
         identity,
         args,
         variants: variants.into(),
         unresolved_alternatives,
-    })
+    }
 }
 
 fn canonicalize_recovered_refinement(ty: Type, environment: &TypeEnvironment) -> Type {
