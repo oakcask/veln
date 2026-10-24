@@ -408,12 +408,14 @@ not produce source identifier casing diagnostics. An unresolved or
 ambiguous intermediate segment is not assigned a role from spelling alone.
 An ordinary qualified generic type such as `Alias::Container<Int>` keeps
 `Container` as its final type segment. Structural variant-refinement metadata
-does not change the existing qualified-type path records used by casing
-analysis. When a variant-refinement base resolves, casing analysis classifies
-its qualifiers as modules, its base leaf as a type, and its selected final
-segment as a constructor. Each classification retains the written segment,
-span, and segment index. If changing only an invalid-cased base leaf selects
-exactly one type, casing analysis retains that type classification. It reports
+that resolution does not select leaves those ordinary qualified-type roles
+unchanged. A selected variant-refinement candidate uses its refinement roles
+instead of also assigning the same written segments ordinary qualified-type
+roles. When its base resolves, casing analysis classifies the qualifiers as
+modules, the base leaf as a type, and the selected final segment as a
+constructor. Each classification retains the written segment, span, and
+segment index. If changing only an invalid-cased base leaf selects exactly one
+type, casing analysis retains that type classification. It reports
 `name.invalid_case` and still checks the recovered base's independent
 variant-refinement eligibility. For a refinement anywhere in a public function
 parameter or result, or in a public source-ADT payload, that unique recovered
