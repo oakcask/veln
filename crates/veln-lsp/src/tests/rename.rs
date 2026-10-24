@@ -370,7 +370,7 @@ fn companion_private_function_rename_edits_target_and_matching_companion_referen
 
 #[test]
 fn rename_accepts_same_class_replacements_for_cased_symbols() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("rename-cased-symbol-success");
     project.write(
         "main.veln",
@@ -414,7 +414,7 @@ fn rename_accepts_same_class_replacements_for_cased_symbols() {
 
 #[test]
 fn rename_workspace_edit_locations_match_shared_navigation() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("rename-shared-location-comparison");
     let source = concat!(
         "type Item\n",
@@ -883,7 +883,7 @@ fn ambiguous_package_refinement_bases_do_not_select_or_rename() {
         ("ambiguous-package-refinement-forward", ["first/pkg", "second/pkg"]),
         ("ambiguous-package-refinement-reverse", ["second/pkg", "first/pkg"]),
     ] {
-        let mut server = Server::default();
+        let mut server = server_with_empty_standard_library();
         let project = TempProject::new(name);
         project.write(
             "veln.toml",
@@ -1072,7 +1072,7 @@ fn variant_refinement_navigation_rejects_unresolved_generic_arguments() {
 
 #[test]
 fn variant_refinement_navigation_projects_utf16_ranges() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("variant-refinement-utf16-ranges");
     project.write(
         "main.veln",

@@ -206,7 +206,7 @@ fn companion_private_function_rename_keeps_target_references_after_nested_blocks
 
 #[test]
 fn companion_private_function_rename_skips_local_callable_bindings() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("rename-local-callable-shadow");
     project.write(
         "math.veln",
@@ -350,7 +350,7 @@ fn companion_private_function_rename_limits_pattern_binding_shadow_to_branch() {
 
 #[test]
 fn companion_private_function_rename_skips_record_fields() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("rename-record-field-isolation");
     project.write(
         "math.veln",

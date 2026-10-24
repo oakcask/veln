@@ -345,7 +345,7 @@ fn handler_operation_clause_binding_rename_covers_multiline_body_references() {
 
 #[test]
 fn handler_operation_clause_binding_rename_keeps_else_if_body_scope_bounded() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("rename-handler-operation-clause-else-if-body");
     project.write(
         "main.veln",
@@ -442,7 +442,7 @@ fn handler_operation_clause_binding_definition_uses_multiline_body_scope() {
 
 #[test]
 fn handler_context_callable_binding_shadows_top_level_function_in_clause_body() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("handler-context-callable-binding");
     project.write(
         "main.veln",

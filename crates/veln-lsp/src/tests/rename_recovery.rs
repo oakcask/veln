@@ -64,7 +64,7 @@ fn recovery_rename_edits_declaration_and_linked_references() {
 
 #[test]
 fn recovery_rename_failures_return_no_workspace_edits() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("rename-recovery-symbol-failure");
     project.write(
         "main.veln",

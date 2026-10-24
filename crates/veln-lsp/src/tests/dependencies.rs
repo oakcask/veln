@@ -722,7 +722,7 @@ fn standard_library_schema_recovery_collision_keeps_all_reference_roles_empty() 
 
 #[test]
 fn invalid_handler_bindings_use_lsp_recovery_navigation() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("invalid-handler-binding-navigation");
     project.write(
         "main.veln",
@@ -782,7 +782,7 @@ fn invalid_handler_bindings_use_lsp_recovery_navigation() {
 
 #[test]
 fn invalid_cased_dependency_export_does_not_discard_valid_sibling_navigation() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("mixed-dependency-export-navigation");
     project.write(
         "veln.toml",
@@ -846,7 +846,7 @@ fn invalid_cased_dependency_export_does_not_discard_valid_sibling_navigation() {
 
 #[test]
 fn dependency_type_alias_definition_support_matches_lsp_boundary() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("dependency-type-alias-lsp-definition-boundary");
     project.write(
         "veln.toml",
@@ -1056,7 +1056,7 @@ fn companion_private_function_lsp_rejects_companion_function_values_and_aliases(
 
 #[test]
 fn companion_private_function_requests_ignore_comment_and_string_origins() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = TempProject::new("request-origin");
     project.write(
         "math.veln",
@@ -1149,7 +1149,7 @@ fn companion_private_function_lsp_rejects_other_private_boundaries() {
 
 #[test]
 fn companion_private_function_definition_uses_open_document_overlay() {
-    let mut server = Server::default();
+    let mut server = server_with_empty_standard_library();
     let project = companion_private_function_project("definition-overlay");
     let root_uri = path_to_uri(&project.root);
     let math_uri = path_to_uri(&project.root.join("math.veln"));
