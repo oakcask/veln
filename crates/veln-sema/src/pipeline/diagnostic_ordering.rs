@@ -279,23 +279,20 @@ fn radix_sort_base_diagnostic_indices(
 ) {
     record_variant_refinement_base_work(indices.len());
     let mut scratch = vec![0; indices.len()];
+    radix_sort_base_diagnostic_phase(indices, &mut scratch, diagnostics);
     for use_end in [true, false] {
         for shift in (0..usize::BITS).step_by(8) {
             let mut counts = [0usize; 256];
             record_variant_refinement_base_work(counts.len());
             for &index in indices.iter() {
                 record_variant_refinement_base_work(1);
-                let span = diagnostics[index]
-                    .diagnostic
-                    .span
-                    .as_ref()
-                    .expect("indexed base diagnostic has a source span");
-                let key = if use_end {
+                let span = base_diagnostic_ordering_span(&diagnostics[index]);
+                let value = if use_end {
                     span.end.offset
                 } else {
                     span.start.offset
                 };
-                counts[(key >> shift) as u8 as usize] += 1;
+                counts[(value >> shift) as u8 as usize] += 1;
             }
             let mut next = 0;
             for count in &mut counts {
@@ -306,23 +303,61 @@ fn radix_sort_base_diagnostic_indices(
             }
             for &index in indices.iter() {
                 record_variant_refinement_base_work(1);
-                let span = diagnostics[index]
-                    .diagnostic
-                    .span
-                    .as_ref()
-                    .expect("indexed base diagnostic has a source span");
-                let key = if use_end {
+                let span = base_diagnostic_ordering_span(&diagnostics[index]);
+                let value = if use_end {
                     span.end.offset
                 } else {
                     span.start.offset
                 };
-                let bucket = (key >> shift) as u8 as usize;
+                let bucket = (value >> shift) as u8 as usize;
                 scratch[counts[bucket]] = index;
                 counts[bucket] += 1;
             }
             std::mem::swap(indices, &mut scratch);
         }
     }
+}
+
+fn base_diagnostic_ordering_span(
+    diagnostic: &VariantRefinementBaseDiagnostic,
+) -> &veln_source::SourceSpan {
+    if diagnostic.diagnostic.id == "type.variant_refinement_unknown" {
+        &diagnostic.ordering_scope
+    } else {
+        diagnostic
+            .diagnostic
+            .span
+            .as_ref()
+            .expect("indexed base diagnostic has a source span")
+    }
+}
+
+fn radix_sort_base_diagnostic_phase(
+    indices: &mut Vec<usize>,
+    scratch: &mut Vec<usize>,
+    diagnostics: &[VariantRefinementBaseDiagnostic],
+) {
+    let mut counts = [0usize; 2];
+    record_variant_refinement_base_work(counts.len());
+    for &index in indices.iter() {
+        record_variant_refinement_base_work(1);
+        let phase = usize::from(diagnostics[index].diagnostic.id == "type.variant_union_base");
+        counts[phase] += 1;
+    }
+    let mut next = 0;
+    for count in &mut counts {
+        record_variant_refinement_base_work(1);
+        let start = next;
+        next += *count;
+        *count = start;
+    }
+    for &index in indices.iter() {
+        record_variant_refinement_base_work(1);
+        let phase = usize::from(diagnostics[index].diagnostic.id == "type.variant_union_base");
+        scratch[counts[phase]] = index;
+        counts[phase] += 1;
+    }
+    std::mem::swap(indices, scratch);
 }
 
 fn base_precedes_existing(base: &VariantRefinementBaseDiagnostic, existing: &Diagnostic) -> bool {

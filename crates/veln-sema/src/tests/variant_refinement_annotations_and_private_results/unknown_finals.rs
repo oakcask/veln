@@ -91,6 +91,51 @@ fn unknown_final_retains_only_the_base_for_independent_union_comparison() {
 }
 
 #[test]
+fn unknown_final_precedes_union_base_failure_for_the_same_alternative() {
+    let diagnostics = diagnostics_for(concat!(
+        "type Left\n",
+        "  A\n",
+        "end\n",
+        "type Right\n",
+        "  B\n",
+        "end\n",
+        "fn rejected(value: Left::A | Right::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["type.variant_refinement_unknown", "type.variant_union_base"],
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| {
+                let span = diagnostic.span.as_ref().expect("diagnostic has a span");
+                (span.start.column, span.end.column)
+            })
+            .collect::<Vec<_>>(),
+        [(37, 44), (30, 44)],
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.details.to_json())
+            .collect::<Vec<_>>(),
+        [
+            "{\"base_type\":\"Right\",\"variant\":\"Missing\"}",
+            "{\"expected_base_type\":\"Left\",\"actual_base_type\":\"Right\"}",
+        ]
+    );
+}
+
+#[test]
 fn casing_recovered_unknown_final_keeps_visible_variant_context() {
     let diagnostics = diagnostics_for(concat!(
         "type State\n",

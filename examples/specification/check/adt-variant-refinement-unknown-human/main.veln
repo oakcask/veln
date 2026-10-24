@@ -6,3 +6,15 @@ end
 fn rejected(value: State::Missing) -> ()
 	()
 end
+
+type Left
+	A
+end
+
+type Right
+	B
+end
+
+fn overlapping(value: Left::A | Right::Missing) -> ()
+	()
+end
