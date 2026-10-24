@@ -156,6 +156,15 @@ fn counts_abc_constructs_from_function_bodies() {
                 conditionals: 2,
             },
         ),
+        (
+            "structural expression traversal",
+            "fn subject() -> Int\n  let result = begin\n    let nested = outer<Int>([inner()], {\"key\": value()})\n    defer\n      cleanup(nested)\n    end\n    -nested.field?\n  end\n  result\nend\n",
+            AbcVector {
+                assignments: 2,
+                branches: 4,
+                conditionals: 1,
+            },
+        ),
     ];
 
     for (name, source, expected) in cases {
