@@ -88,6 +88,18 @@ fn unknown_final_retains_only_the_base_for_independent_union_comparison() {
         diagnostics[1].details.to_json(),
         "{\"expected_base_type\":\"State\",\"actual_base_type\":\"Other\"}"
     );
+    assert_eq!(diagnostics[1].related.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics[1].related[0].to_json(),
+        concat!(
+            "{\"kind\":\"expected_variant_union_base\",",
+            "\"message\":\"The earliest independently instantiated base identity ",
+            "established `State` as the union base.\",",
+            "\"span\":{\"file\":\"main.veln\",",
+            "\"start\":{\"line\":7,\"column\":20,\"offset\":69},",
+            "\"end\":{\"line\":7,\"column\":34,\"offset\":83}}}"
+        )
+    );
 }
 
 #[test]

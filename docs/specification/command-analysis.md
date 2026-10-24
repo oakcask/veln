@@ -37,13 +37,8 @@ recursive ADT dependency cycles. A dependent ordinary named-type reference
 does not duplicate the causal privacy diagnostic. The pipeline also
 quarantines every type exposed by a function, effect operation, handler, or ADT
 constructor whose signature contains a refinement union with different
-resolved ADT identities or canonical generic arguments. The pipeline also
-quarantines a declaration whose uppercase refinement final is unknown,
-resolves to a non-constructor, or names a constructor owned by another ADT.
-That recovery retains
-the base identity for independent analysis but does not publish a constructor
-identity. The affected structural positions, declaration boundaries, and
-publication closure are
+resolved ADT identities or canonical generic arguments. The affected
+structural positions, declaration boundaries, and publication closure are
 defined by the
 [type specification](types.md#compatibility-and-limits); diagnostic order,
 spans, and related context are defined by the

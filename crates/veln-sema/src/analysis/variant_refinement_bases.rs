@@ -1657,7 +1657,7 @@ fn variant_union_base_diagnostic(
         (
             "message",
             JsonValue::string(format!(
-                "The first successfully instantiated alternative established `{expected_base_type}` as the union base."
+                "The earliest independently instantiated base identity established `{expected_base_type}` as the union base."
             )),
         ),
         ("span", span_json(expected_span)),

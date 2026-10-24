@@ -55,9 +55,6 @@ document.
 
 Variant-refinement errors remain semantic diagnostics when recovery retains a
 type or constructor identity. Such an error produces no generated document.
-An unknown, non-constructor, or wrong-owner uppercase refinement final reports
-`type.variant_refinement_unknown` at the final segment, retains only the base
-identity, and leaves standard output and generated document content empty.
 A private refinement in any structural position of a public function parameter
 or result, or in a public variant payload of a public source ADT, therefore
 blocks the complete document. Publication quarantine also blocks the document

@@ -73,16 +73,14 @@ context parameter annotations use the same variant-refinement validity rules
 as other type positions. An ineligible base reports its base failure. A union
 whose successfully instantiated alternatives have different resolved ADT
 identities or canonical generic arguments reports `type.variant_union_base`.
-An unknown, non-constructor, or wrong-owner uppercase final reports
-`type.variant_refinement_unknown` and retains no constructor identity. If one
-operation parameter or result has any of these failures, every parameter and
+If one operation parameter or result has either failure, every parameter and
 the result of that operation is unknown to
 `perform` expressions and handler clauses. If one handler context parameter
-has any of these failures, every context parameter is unknown in handler
-clauses and at handler application sites. These boundaries preserve
-independently provable declaration diagnostics and suppress mismatches derived
-only from a sibling annotation, as specified by
-[Types](types.md#compatibility-and-limits) and the
+has either failure, every context parameter is unknown in handler clauses and
+at handler application sites. These boundaries preserve independently
+provable declaration diagnostics and suppress mismatches derived only from a
+sibling annotation, as specified by [Types](types.md#compatibility-and-limits)
+and the
 [diagnostic contract](diagnostics-json.md#diagnostic-families). The effect name
 is owned by its module. Same-module declarations may use the short name in
 `effects [...]` lists and `perform` expressions.

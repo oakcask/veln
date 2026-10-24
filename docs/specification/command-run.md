@@ -43,10 +43,6 @@ identity. Human and JSON output derive the diagnostic code, details, primary
 span, and related notes from the same diagnostic. Entry resolution and argument
 validation gate reachable lowering, so an invalid invocation reports its entry
 or argument failure before a reachable refinement error.
-An unknown, non-constructor, or wrong-owner uppercase refinement final reports
-`type.variant_refinement_unknown` at the final segment. Recovery retains only
-the independently resolved base identity, and the run creates no backend
-artifact or Java process.
 
 A reachable `begin` expression or `defer` statement proceeds through
 checked-core and typed-IR readiness and executes through the JVM backend. Its

@@ -345,16 +345,18 @@ that traversal. A failure in one generic argument does not suppress an
 independently complete union-base comparison in a later sibling argument. An
 exact or uniquely casing-recovered type application in a separate sibling
 position still reports its independently provable generic-arity failure.
-Within one refinement union, a failed alternative does not establish or clear
-the expected base. The earliest successfully instantiated alternative
-establishes that base. Each later successfully instantiated alternative is
-compared with it in written order. A different ADT identity or different
-canonical generic arguments report `type.variant_union_base` at the complete
-later alternative, even when a failed alternative occurs before or between the
-successful alternatives. Successful instantiation requires every nested named
-type to resolve uniquely. An unresolved or ambiguous nested name therefore
-does not establish the expected base. An in-scope declaration type parameter
-is resolved in that declaration context and remains eligible for comparison.
+Within one refinement union, the earliest independently instantiated base
+identity and canonical generic arguments establish the expected base. Each
+later independently instantiated base is compared with it in written order. A
+different ADT identity or different canonical generic arguments report
+`type.variant_union_base` at the complete later alternative. An unknown final
+segment does not prevent its independently resolved base from participating in
+that comparison. An alternative without a comparable base does not establish
+or clear the expected base. In particular, every nested named type must resolve
+uniquely before the enclosing base can participate. An unresolved or ambiguous
+nested name therefore does not establish the expected base. An in-scope
+declaration type parameter is resolved in that declaration context and remains
+eligible for comparison.
 It remains distinct from a same-spelled nominal type. The type parameter keeps
 its source spelling in diagnostic details, while the nominal type uses its
 stable qualified identity when that qualification is needed to expose the
@@ -364,9 +366,9 @@ the compiler-known spelling concise and qualify the source type to expose the
 conflict. Adding or renaming a source declaration whose name does not occur in
 the union annotation leaves the expected-base selection and reported conflicts
 unchanged. Its closed details contain exactly
-`expected_base_type` and `actual_base_type`. The expected type is the base of
-the earliest successfully instantiated alternative. The actual type is the
-base of the conflicting alternative. These values use concise canonical names
+`expected_base_type` and `actual_base_type`. The expected type is the earliest
+independently instantiated base. The actual type is the base of the conflicting
+alternative. These values use concise canonical names
 when those names distinguish the bases. When equal concise names would hide a
 different nominal identity, the conflicting position uses its stable qualified
 identity. Each rendered base retains its complete generic argument list when

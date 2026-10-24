@@ -238,8 +238,9 @@ Within one annotation, the checker visits union alternatives in written order.
 It checks each alternative in this order: casing, base resolution, generic
 arity, base eligibility, final-segment resolution, and visibility. The current
 [diagnostic specification](../specification/diagnostics-json.md#diagnostic-families)
-owns comparison of successfully instantiated union bases, including retained
-identities, failed-alternative suppression, and focused diagnostic details.
+owns comparison of independently instantiated union bases, including retained
+base identities, failed-alternative suppression, and focused diagnostic
+details.
 
 Diagnostics for one annotation follow the written alternative order and check
 order above. Diagnostics with the same primary span use that check order,

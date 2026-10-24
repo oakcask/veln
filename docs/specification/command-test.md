@@ -96,10 +96,6 @@ Variant-refinement errors in the selected analysis are static diagnostics,
 including errors for which recovery retains a type or constructor identity.
 They start no test worker. Human and JSON output derive the diagnostic code,
 details, primary span, and related notes from the same diagnostic.
-An unknown, non-constructor, or wrong-owner uppercase refinement final reports
-`type.variant_refinement_unknown` at the final segment, retains only the base
-identity, and, when retained in the selected analysis, blocks runnable cases
-before a worker starts.
 A documentation source that cannot form a canonical virtual doctest path
 reports `module.invalid_source_path` and exposes no doctest case or output
 expectation for that source. Discovery and analysis continue for other selected

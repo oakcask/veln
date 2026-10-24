@@ -57,7 +57,7 @@ length = 1
 method = "textDocument/publishDiagnostics"
 occurrence = 2
 path = "/params/diagnostics/2/relatedInformation/0/message"
-equals = "The first successfully instantiated alternative established `Left` as the union base."
+equals = "The earliest independently instantiated base identity established `Left` as the union base."
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"

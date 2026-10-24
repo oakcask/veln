@@ -22,3 +22,7 @@ end
 fn overlapping(value: Left::A | Right::Missing) -> ()
 	()
 end
+
+fn base_only_provenance(value: State::Missing | Right::B) -> ()
+	()
+end

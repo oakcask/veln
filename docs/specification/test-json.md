@@ -163,11 +163,6 @@ IR. The doctest case is then reported with `status: "blocked"` and
 `reason: "static_gate"`. The implemented runtime expectation kinds are limited
 to contract, ensure, and result failures. There is no test JSON expectation
 record for arbitrary panics, raw stderr matching, or process exit status.
-An unknown, non-constructor, or wrong-owner uppercase refinement final keeps
-`type.variant_refinement_unknown` in the top-level `diagnostics` array with the
-shared final-segment span, details, and related context when it remains a
-selected-analysis error. The same static gate blocks runnable cases before
-runtime expectation matching.
 
 Doctest expected-output mismatches are reported as failed cases with
 `reason: "expected_output"` and `failure.kind: "output"`. The failure details

@@ -383,10 +383,6 @@ diagnostic contract routed by [diagnostics-json.md](diagnostics-json.md),
 including span-less `toolchain.invalid_symbol_case` entries with diagnostic
 kind `toolchain` and details for `provider`, `name`, `name_class`, and
 `required_initial`.
-It also preserves `type.variant_refinement_unknown`, its final-segment span,
-closed base and variant details, and source-backed related entries. This
-diagnostic does not admit a constructor navigation identity;
-the invalid-final navigation boundary below remains separate.
 When analysis returns `type.variant_refinement_private`, `check_project`
 returns the diagnostic but does not admit the captured dependency snapshot.
 Previously retained dependency source, package-documentation, search, and

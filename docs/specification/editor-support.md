@@ -254,14 +254,10 @@ sources, out-of-source or inconsistent positions, or reversed ranges remain
 available only through the compiler diagnostic envelope.
 
 This projection applies to variant-refinement diagnostics, including
-`type.variant_union_base` and `type.variant_refinement_unknown`. The latter
-uses the final-segment range. Source-backed visible-variant notes become
-related information when their source is available; source-less
-visible-variant notes have no location and remain only in the compiler
-diagnostic envelope. Diagnostic projection alone
-does not establish a navigation identity; the shared navigation rules below
-separately define the eligible workspace-base identity retained for an invalid
-final segment. The checked stdio evidence is under
+`type.variant_union_base`. Diagnostic projection alone does not establish a
+navigation identity; the shared navigation rules below separately define the
+eligible workspace-base identity retained for an invalid final segment. The
+checked stdio evidence is under
 `examples/specification/lsp/adt-variant-refinement-diagnostics/`.
 
 Span-less diagnostics are published at a zero-width start range while

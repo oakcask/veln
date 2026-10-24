@@ -540,7 +540,7 @@ fn declaration_type_parameter_identity_survives_a_same_named_adt() {
     );
     assert!(
         json.contains(
-            "The first successfully instantiated alternative established `Box<State>` as the union base."
+            "The earliest independently instantiated base identity established `Box<State>` as the union base."
         ),
         "{json}"
     );
@@ -584,7 +584,7 @@ fn compiler_known_and_qualified_source_arguments_have_distinct_identities() {
             && observed.contains("\"start\":{\"line\":11,\"column\":20")
             && observed.contains("\"end\":{\"line\":11,\"column\":37")
             && observed.contains(
-                "The first successfully instantiated alternative established `Box<Int>` as the union base."
+                "The earliest independently instantiated base identity established `Box<Int>` as the union base."
             ),
         "{observed}"
     );
@@ -629,7 +629,7 @@ fn recovery_slots_cannot_be_captured_by_source_declarations() {
                 && json.contains("\"start\":{\"line\":17,\"column\":18")
                 && json.contains("\"end\":{\"line\":17,\"column\":51")
                 && json.contains(
-                    "The first successfully instantiated alternative established `Box<State>` as the union base."
+                    "The earliest independently instantiated base identity established `Box<State>` as the union base."
                 ),
             "{json}"
         );
@@ -772,7 +772,7 @@ fn invalid_generic_argument_preserves_a_later_sibling_union_base_failure() {
             && observed.contains("\"start\":{\"line\":10,\"column\":32")
             && observed.contains("\"end\":{\"line\":10,\"column\":39")
             && observed.contains(
-                "The first successfully instantiated alternative established `Left` as the union base."
+                "The earliest independently instantiated base identity established `Left` as the union base."
             ),
         "{observed}"
     );
