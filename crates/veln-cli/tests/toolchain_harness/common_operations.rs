@@ -1,6 +1,48 @@
 use super::*;
 
 #[test]
+pub(super) fn json_and_result_value_adapters_parse_common_operations_identically() {
+    let root = test_temp_root("common-value-operation-parsing");
+    fs::write(root.join("main.veln"), "").expect("workspace file should be written");
+    fs::write(root.join("expected.txt"), "expected text")
+        .expect("text expectation should be written");
+    fs::write(root.join("expected.json"), r#"{"answer":42}"#)
+        .expect("JSON expectation should be written");
+    let manifest_path = root.join("case.toml");
+
+    for operation in [
+        "equals = {\"answer\": 42}",
+        "equals_file = \"expected.txt\"",
+        "equals_json_file = \"expected.json\"",
+        "contains = \"needle\"",
+        "length = 2",
+        "missing = true",
+        "workspace_file_uri = \"main.veln\"",
+    ] {
+        let json_manifest = parse_manifest(
+            &manifest_path,
+            &format!(
+                "command = [\"check\"]\nexit = 0\n[[json_assert]]\npath = \"value\"\n{operation}\n"
+            ),
+        );
+        let result_manifest = parse_manifest(
+            &manifest_path,
+            &format!(
+                "command = [\"run\"]\nexit = 0\n[[result_value_assert]]\nvalue_path = \"rendered\"\npath = \"value\"\n{operation}\n"
+            ),
+        );
+
+        assert_eq!(
+            json_manifest.expectations.json_assertions[0].operation,
+            result_manifest.expectations.result_value_assertions[0].operation,
+            "common operation should have adapter-independent parsing: {operation}"
+        );
+    }
+
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
 pub(super) fn json_and_result_value_operation_before_path_errors_keep_resolved_context() {
     let root = test_temp_root("json-result-operation-before-path-error");
     fs::write(root.join("main.veln"), "").expect("workspace file should be written");
