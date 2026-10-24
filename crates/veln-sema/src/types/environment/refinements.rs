@@ -209,6 +209,38 @@ impl TypeEnvironment {
         Some(descriptor)
     }
 
+    pub(crate) fn variant_refinement_ambiguous_recovery_descriptor(
+        &self,
+        base: &str,
+        args_len: usize,
+        variant: &str,
+        current_module: Option<&str>,
+    ) -> Option<&crate::adt::descriptors::AdtDescriptor> {
+        let written =
+            self.variant_refinement_descriptor_identity(base, args_len, current_module)?;
+        if written.type_parameters.len() != args_len {
+            return None;
+        }
+        let descriptor = self
+            .adts
+            .terminal_descriptor_for_alias(written)
+            .unwrap_or_else(|| self.adts.canonical_descriptor_for(written));
+        if descriptor.refinement_availability
+            != crate::adt::descriptors::VariantRefinementAvailability::Finite
+            || !matches!(
+                self.adts.variant_for_descriptor(descriptor, variant),
+                crate::adt::registry::VariantLookup::Missing
+            )
+            || !matches!(
+                self.variant_refinement_variant_case_recovery(descriptor, variant),
+                Some(crate::adt::registry::VariantLookup::Ambiguous)
+            )
+        {
+            return None;
+        }
+        Some(descriptor)
+    }
+
     pub(crate) fn recovered_variant_refinement_unknown_descriptor(
         &self,
         segments: &[String],

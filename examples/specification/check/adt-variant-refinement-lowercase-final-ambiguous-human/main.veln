@@ -1,0 +1,12 @@
+type Ambiguous
+	Same
+	Same
+end
+
+type Other
+	OtherOnly
+end
+
+fn rejected(value: Ambiguous::same | Other::OtherOnly) -> ()
+	()
+end

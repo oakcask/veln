@@ -824,6 +824,26 @@ fn recover_refinement_alternative(
         }
         Err(argument_types) => argument_types,
     };
+    if let Some(descriptor) = environment.variant_refinement_ambiguous_recovery_descriptor(
+        &base,
+        argument_types.len(),
+        &alternative.variant,
+        current_module,
+    ) {
+        return AlternativeRecovery {
+            recovered: Some(RecoveredType {
+                ty: Type::resolved_named(
+                    environment
+                        .adts
+                        .canonical_type_name_for_descriptor(descriptor),
+                    descriptor.identity(),
+                    argument_types,
+                ),
+                nodes: argument_nodes + 1,
+            }),
+            invalid: true,
+        };
+    }
     let shell = Type::variant_refinement(
         base,
         vec![Type::Unknown; argument_types.len()],

@@ -151,7 +151,12 @@ checked
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-lowercase-final-recovery-json/)
 outputs fix the ordering, final-segment spans, retained identity, suppression,
-and closed existing detail objects.
+and closed existing detail objects. The focused ambiguous-repair
+[`human`](../../examples/specification/check/adt-variant-refinement-lowercase-final-ambiguous-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-lowercase-final-ambiguous-json/)
+outputs verify that a non-unique constructor repair retains only the base
+identity for later union comparison.
 
 A structurally valid refinement whose base resolves uniquely but cannot expose
 a finite ADT variant set reports `type.variant_refinement_base`. The primary

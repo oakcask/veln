@@ -108,7 +108,10 @@ fn ambiguous_lowercase_repair_suppresses_constructor_dependent_failures() {
         "  Ready\n",
         "  Ready\n",
         "end\n",
-        "pub fn rejected(value: State::ready) -> ()\n",
+        "type Other\n",
+        "  OtherOnly\n",
+        "end\n",
+        "fn rejected(value: State::ready | Other::OtherOnly) -> ()\n",
         "  ()\n",
         "end\n",
     ));
@@ -119,9 +122,21 @@ fn ambiguous_lowercase_repair_suppresses_constructor_dependent_failures() {
             .any(|diagnostic| diagnostic.id == "name.invalid_case"),
         "{diagnostics:#?}"
     );
-    assert!(diagnostics.iter().all(|diagnostic| {
-        diagnostic.id != "type.variant_refinement_unknown"
-            && diagnostic.id != "type.variant_refinement_private"
-            && diagnostic.id != "type.mismatch"
-    }));
+    let union_failure = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.variant_union_base")
+        .expect("ambiguous final recovery retains the independently resolved base");
+    assert_eq!(
+        union_failure.details.to_json(),
+        "{\"expected_base_type\":\"State\",\"actual_base_type\":\"Other\"}"
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "type.variant_refinement_unknown"
+                && diagnostic.id != "type.variant_refinement_private"
+                && diagnostic.id != "type.mismatch"
+                && diagnostic.id != "type.invalid_annotation"
+        }),
+        "{diagnostics:#?}"
+    );
 }

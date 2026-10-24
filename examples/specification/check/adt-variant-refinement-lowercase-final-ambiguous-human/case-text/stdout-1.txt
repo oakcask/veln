@@ -1,0 +1,6 @@
+main.veln:10:31: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:10:31: error[name.invalid_case]: constructor name `same` must start with an ASCII uppercase letter
+main.veln:3:2: error[name.duplicate]: duplicate constructor declaration name `Same`
+  note: main.veln:2:2: First constructor declaration with this name is here.
+main.veln:10:38: error[type.variant_union_base]: variant-refinement base `Other` does not match expected base `Ambiguous`
+  note: main.veln:10:20: The earliest independently instantiated base identity established `Ambiguous` as the union base.
