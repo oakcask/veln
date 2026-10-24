@@ -695,19 +695,27 @@ initial character to uppercase selects exactly one constructor of an exact or
 uniquely casing-recovered base, the checker retains that constructor identity.
 It can then report independently provable arity, base eligibility, union-base,
 visibility, and assignability failures without adding an unknown-variant
-failure caused only by the written casing. If that repair has no unique
-constructor, the checker retains only identities selected without the final
-segment and suppresses failures that require a constructor. The same recovery
-is applied independently to every written union alternative while preserving
-canonical ADT identity, generic arguments, and constructor names. Written union
-alternative order and the existing per-alternative check order do not change.
-The containing declaration remains unpublished in both cases. The checked
+failure caused only by the written casing. A fully recovered refinement nested
+in a named generic argument can instantiate that enclosing base for an
+independent union-base comparison. The lowercase final still makes the
+annotation invalid. If that repair has no unique constructor, the checker
+retains only identities selected without the final segment and suppresses
+failures that require a constructor. An incomplete nested refinement does not
+become a complete generic argument. The same recovery is applied independently
+to every written union alternative while preserving canonical ADT identity,
+generic arguments, and constructor names. Written union alternative order and
+the existing per-alternative check order do not change. The containing
+declaration remains unpublished in both cases. The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-lowercase-final-recovery-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-lowercase-final-recovery-json/)
 cases cover unique and missing recovery, mixed-alternative recovery,
 correct-arity generic non-ADT failure, suppression, declaration quarantine,
-and retained base and constructor identities. The checked combined-casing
+and retained base and constructor identities. The nested generic argument
+[`human`](../../examples/specification/check/adt-variant-refinement-nested-lowercase-recovery-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-nested-lowercase-recovery-json/)
+cases cover the retained enclosing comparison. The checked combined-casing
 [`human`](../../examples/specification/check/adt-variant-refinement-combined-case-recovery-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-combined-case-recovery-json/)

@@ -1,0 +1,13 @@
+type State
+  Ready
+  Closed
+end
+type Box<A>
+  Boxed(A)
+end
+type Other<A>
+  OtherOnly(A)
+end
+fn rejected(value: Box<State::ready>::Boxed | Other<State::Ready>::OtherOnly) -> ()
+  ()
+end

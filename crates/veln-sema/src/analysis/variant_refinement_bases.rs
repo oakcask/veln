@@ -93,6 +93,7 @@ struct AnnotationRecovery {
 struct AlternativeRecovery {
     recovered: Option<RecoveredType>,
     invalid: bool,
+    complete: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -902,6 +903,7 @@ fn collect_refinement_union(
     let mut recovered_refinement: Option<RecoveredType> = None;
     let mut recovered_variants = HashSet::new();
     let mut refinement_is_invalid = false;
+    let mut refinement_is_complete = true;
     for alternative in &refinement.alternatives {
         if !alternative_is_selected(alternative, current_module, environment) {
             continue;
@@ -920,14 +922,16 @@ fn collect_refinement_union(
             materialized_refinements,
         );
         refinement_is_invalid |= alternative_recovery.invalid;
+        refinement_is_complete &= alternative_recovery.complete;
         let Some(canonical) = alternative_recovery.recovered else {
             continue;
         };
         if variant_refinement_base_identity_and_arguments(&canonical.ty).is_none() {
             refinement_is_invalid = true;
+            refinement_is_complete = false;
             continue;
         }
-        refinement_is_invalid |= merge_recovered_union_alternative(
+        let alternative_is_invalid = merge_recovered_union_alternative(
             refinement,
             alternative,
             canonical,
@@ -936,8 +940,10 @@ fn collect_refinement_union(
             &mut recovered_variants,
             union_base_failures,
         );
+        refinement_is_invalid |= alternative_is_invalid;
+        refinement_is_complete &= !alternative_is_invalid;
     }
-    let recovered_refinement = (!refinement_is_invalid)
+    let recovered_refinement = refinement_is_complete
         .then_some(recovered_refinement)
         .flatten()
         .map(|recovered| RecoveredType {
@@ -1065,6 +1071,7 @@ fn invalid_alternative_recovery() -> AlternativeRecovery {
     AlternativeRecovery {
         recovered: None,
         invalid: true,
+        complete: false,
     }
 }
 
@@ -1097,6 +1104,7 @@ fn recover_refinement_alternative(
             return AlternativeRecovery {
                 recovered: Some(recovered),
                 invalid: true,
+                complete: false,
             };
         }
         Err(argument_types) => argument_types,
@@ -1132,14 +1140,16 @@ fn recover_refinement_alternative(
         nodes: argument_nodes + 1,
     });
     crate::pipeline::record_variant_refinement_recovery_type_materialization(1);
+    let complete = recovered.is_some();
     AlternativeRecovery {
-        invalid: recovered.is_none()
+        invalid: !complete
             || alternative
                 .variant
                 .as_bytes()
                 .first()
                 .is_some_and(u8::is_ascii_lowercase),
         recovered,
+        complete,
     }
 }
 
@@ -1193,6 +1203,7 @@ fn recover_ambiguous_variant_base(
             nodes: argument_nodes + 1,
         }),
         invalid: true,
+        complete: false,
     })
 }
 
@@ -1280,7 +1291,7 @@ fn collect_refinement_argument_type(
     materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
 ) -> Option<RecoveredType> {
     let argument_errors_start = errors.len();
-    let argument_is_invalid = collect_independent_refinement_errors(
+    collect_independent_refinement_errors(
         &argument.ty_refinements,
         &argument.ty_paths,
         current_module,
@@ -1294,7 +1305,7 @@ fn collect_refinement_argument_type(
         declaration_type_parameters,
         materialized_refinements,
     );
-    if argument_is_invalid || errors.len() != argument_errors_start {
+    if errors.len() != argument_errors_start {
         return None;
     }
     let (skeleton, recovery_slots) = type_argument_skeleton(argument);

@@ -70,6 +70,143 @@ fn unique_lowercase_final_retains_identity_for_independent_checks() {
 }
 
 #[test]
+fn nested_unique_lowercase_final_instantiates_an_outer_union_base() {
+    let source = concat!(
+        "type State\n",
+        "  Ready\n",
+        "  Closed\n",
+        "end\n",
+        "type Box<A>\n",
+        "  Boxed(A)\n",
+        "end\n",
+        "type Other<A>\n",
+        "  OtherOnly(A)\n",
+        "end\n",
+        "fn rejected(value: Box<State::ready>::Boxed | Other<State::Ready>::OtherOnly) -> ()\n",
+        "  ()\n",
+        "end\n",
+    );
+    let parsed = parse(&SourceFile::new("main.veln", source));
+    assert_eq!(parsed.diagnostics.len(), 1, "{:#?}", parsed.diagnostics);
+    assert_eq!(parsed.diagnostics[0].id, "parse.variant_refinement_type");
+    assert!(parsed.diagnostics[0].allows_semantic_analysis());
+
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("rejected")
+            .expect("invalid declaration retains its symbol")
+            .params,
+        [Type::Unknown]
+    );
+
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case", "type.variant_union_base"],
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics[1].details.to_json(),
+        concat!(
+            "{\"expected_base_type\":\"Box<State::Ready>\",",
+            "\"actual_base_type\":\"Other<State::Ready>\"}"
+        )
+    );
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "type.invalid_annotation"
+            && diagnostic.id != "type.variant_refinement_unknown"
+    }));
+}
+
+#[test]
+fn incomplete_nested_refinements_do_not_instantiate_outer_union_bases() {
+    let cases = [
+        (
+            concat!(
+                "type State\n  Ready\nend\n",
+                "type Box<A>\n  Boxed(A)\nend\n",
+                "type Other<A>\n  OtherOnly(A)\nend\n",
+                "fn rejected(value: Box<State::missing>::Boxed | Other<State::Ready>::OtherOnly) -> ()\n",
+                "  ()\nend\n",
+            ),
+            None,
+        ),
+        (
+            concat!(
+                "type State\n  Ready\nend\n",
+                "type Box<A>\n  Boxed(A)\nend\n",
+                "type Other<A>\n  OtherOnly(A)\nend\n",
+                "fn rejected(value: Box<State::Ready | State::missing>::Boxed | Other<State::Ready>::OtherOnly) -> ()\n",
+                "  ()\nend\n",
+            ),
+            None,
+        ),
+        (
+            concat!(
+                "type State\n  Ready\n  Ready\nend\n",
+                "type Box<A>\n  Boxed(A)\nend\n",
+                "type Other<A>\n  OtherOnly(A)\nend\n",
+                "fn rejected(value: Box<State::ready>::Boxed | Other<State::Ready>::OtherOnly) -> ()\n",
+                "  ()\nend\n",
+            ),
+            None,
+        ),
+        (
+            concat!(
+                "type State\n  Ready\nend\n",
+                "type InnerOther\n  OtherOnly\nend\n",
+                "type Box<A>\n  Boxed(A)\nend\n",
+                "type OuterOther<A>\n  OuterOnly(A)\nend\n",
+                "fn rejected(value: Box<State::Ready | InnerOther::OtherOnly>::Boxed | OuterOther<State::Ready>::OuterOnly) -> ()\n",
+                "  ()\nend\n",
+            ),
+            Some("{\"expected_base_type\":\"State\",\"actual_base_type\":\"InnerOther\"}"),
+        ),
+        (
+            concat!(
+                "type State<A>\n  Ready(A)\nend\n",
+                "type Box<A>\n  Boxed(A)\nend\n",
+                "type Other<A>\n  OtherOnly(A)\nend\n",
+                "fn rejected(value: Box<State::Ready>::Boxed | Other<State<Int>::Ready>::OtherOnly) -> ()\n",
+                "  ()\nend\n",
+            ),
+            None,
+        ),
+    ];
+
+    for (source, expected_union_failure) in cases {
+        let parsed = parse(&SourceFile::new("main.veln", source));
+        assert!(
+            parsed
+                .diagnostics
+                .iter()
+                .all(veln_syntax::ParseDiagnostic::allows_semantic_analysis),
+            "{:#?}",
+            parsed.diagnostics
+        );
+        let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+        let union_failures = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
+            .map(|diagnostic| diagnostic.details.to_json())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            union_failures,
+            expected_union_failure
+                .into_iter()
+                .map(str::to_owned)
+                .collect::<Vec<_>>(),
+            "an incomplete nested refinement must not establish the outer union base: {diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
 fn missing_lowercase_final_retains_only_base_for_union_comparison() {
     let diagnostics = recoverable_diagnostics_for(concat!(
         "type State\n",
