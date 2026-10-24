@@ -83,6 +83,12 @@ struct RecoveredType {
 struct AnnotationRecovery {
     errors: Vec<(String, String, SourceSpan)>,
     union_base_failures: Vec<VariantUnionBaseFailure>,
+    unknown_variant_occurrences: HashSet<PathOccurrence>,
+}
+
+struct AlternativeRecovery {
+    recovered: Option<RecoveredType>,
+    invalid: bool,
 }
 
 pub(crate) fn check_variant_refinement_bases(
@@ -98,38 +104,6 @@ pub(crate) fn check_variant_refinement_bases(
     collect_handler_annotations(module, environment, &mut diagnostics);
 
     diagnostics
-}
-
-fn annotation_has_variant_union_base_failure(
-    refinements: &[veln_ast::VariantRefinementType],
-    current_module: Option<&str>,
-    environment: &TypeEnvironment,
-    type_parameters: &[String],
-) -> bool {
-    if !annotation_contains_union(refinements) {
-        return false;
-    }
-    !analyze_annotation(
-        refinements,
-        &[],
-        current_module,
-        environment,
-        type_parameters,
-    )
-    .union_base_failures
-    .is_empty()
-}
-
-fn annotation_contains_union(refinements: &[veln_ast::VariantRefinementType]) -> bool {
-    refinements.iter().any(|refinement| {
-        refinement.alternatives.len() > 1
-            || refinement.alternatives.iter().any(|alternative| {
-                alternative
-                    .type_arguments
-                    .iter()
-                    .any(|argument| annotation_contains_union(&argument.ty_refinements))
-            })
-    })
 }
 
 fn collect_type_annotations(
@@ -317,12 +291,69 @@ pub(crate) fn annotation_has_invalid_refinement(
     type_parameters: &[String],
 ) -> bool {
     annotation_has_base_failure(refinements, paths, current_module, environment)
-        || annotation_has_variant_union_base_failure(
-            refinements,
-            current_module,
-            environment,
-            type_parameters,
-        )
+        || (annotation_needs_recovery(refinements, paths, current_module, environment) && {
+            let recovery = analyze_annotation(
+                refinements,
+                paths,
+                current_module,
+                environment,
+                type_parameters,
+            );
+            !recovery.unknown_variant_occurrences.is_empty()
+                || !recovery.union_base_failures.is_empty()
+        })
+}
+
+fn annotation_needs_recovery(
+    refinements: &[veln_ast::VariantRefinementType],
+    paths: &[TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    if paths.iter().any(|path| {
+        environment
+            .recovered_variant_refinement_base_failure(&path.segments, current_module)
+            .is_some()
+            || environment
+                .recovered_variant_refinement_unknown_descriptor(&path.segments, current_module)
+                .is_some()
+    }) {
+        return true;
+    }
+    let mut pending = refinements.iter().collect::<Vec<_>>();
+    while let Some(refinement) = pending.pop() {
+        if refinement.alternatives.len() > 1 {
+            return true;
+        }
+        for alternative in &refinement.alternatives {
+            let base = alternative.base.segments.join("::");
+            if environment
+                .variant_refinement_base_failure(
+                    &base,
+                    alternative.type_arguments.len(),
+                    current_module,
+                )
+                .is_some()
+                || environment
+                    .variant_refinement_unknown_descriptor(
+                        &base,
+                        alternative.type_arguments.len(),
+                        &alternative.variant,
+                        current_module,
+                    )
+                    .is_some()
+            {
+                return true;
+            }
+            pending.extend(
+                alternative
+                    .type_arguments
+                    .iter()
+                    .flat_map(|argument| argument.ty_refinements.iter()),
+            );
+        }
+    }
+    false
 }
 
 fn annotation_has_base_failure(
@@ -416,6 +447,7 @@ fn analyze_annotation_unmeasured(
         &mut recovery.errors,
         &mut visited_paths,
         &mut recovery.union_base_failures,
+        &mut recovery.unknown_variant_occurrences,
         &declaration_type_parameters,
         &mut materialized_refinements,
     );
@@ -464,6 +496,7 @@ fn collect_independent_path_errors(
     environment: &TypeEnvironment,
     errors: &mut Vec<(String, String, SourceSpan)>,
     visited_paths: &mut HashMap<PathOccurrence, bool>,
+    unknown_variant_occurrences: &mut HashSet<PathOccurrence>,
     declaration_type_parameters: &TypeParameterIdentityContext<'_>,
 ) -> bool {
     let mut annotation_is_invalid = false;
@@ -487,6 +520,12 @@ fn collect_independent_path_errors(
             .recovered_variant_refinement_base_failure(&path.segments, current_module)
             .is_some()
         {
+            true
+        } else if environment
+            .recovered_variant_refinement_unknown_descriptor(&path.segments, current_module)
+            .is_some()
+        {
+            unknown_variant_occurrences.insert(occurrence.clone());
             true
         } else if let Some(error) = environment.recovered_variant_refinement_annotation_error(
             std::slice::from_ref(path),
@@ -516,6 +555,7 @@ fn collect_independent_refinement_errors(
     errors: &mut Vec<(String, String, SourceSpan)>,
     visited_paths: &mut HashMap<PathOccurrence, bool>,
     union_base_failures: &mut Vec<VariantUnionBaseFailure>,
+    unknown_variant_occurrences: &mut HashSet<PathOccurrence>,
     declaration_type_parameters: &TypeParameterIdentityContext<'_>,
     materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
 ) -> bool {
@@ -525,6 +565,7 @@ fn collect_independent_refinement_errors(
         environment,
         errors,
         visited_paths,
+        unknown_variant_occurrences,
         declaration_type_parameters,
     );
     for refinement in refinements {
@@ -535,6 +576,7 @@ fn collect_independent_refinement_errors(
             errors,
             visited_paths,
             union_base_failures,
+            unknown_variant_occurrences,
             declaration_type_parameters,
             materialized_refinements,
         );
@@ -552,6 +594,7 @@ fn collect_refinement_union(
     errors: &mut Vec<(String, String, SourceSpan)>,
     visited_paths: &mut HashMap<PathOccurrence, bool>,
     union_base_failures: &mut Vec<VariantUnionBaseFailure>,
+    unknown_variant_occurrences: &mut HashSet<PathOccurrence>,
     declaration_type_parameters: &TypeParameterIdentityContext<'_>,
     materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
 ) -> (bool, Option<RecoveredType>) {
@@ -560,17 +603,19 @@ fn collect_refinement_union(
     let mut recovered_variants = HashSet::new();
     let mut refinement_is_invalid = false;
     for alternative in &refinement.alternatives {
-        let Some(canonical) = collect_refinement_alternative_type(
+        let alternative_recovery = collect_refinement_alternative_type(
             alternative,
             current_module,
             environment,
             errors,
             visited_paths,
             union_base_failures,
+            unknown_variant_occurrences,
             declaration_type_parameters,
             materialized_refinements,
-        ) else {
-            refinement_is_invalid = true;
+        );
+        refinement_is_invalid |= alternative_recovery.invalid;
+        let Some(canonical) = alternative_recovery.recovered else {
             continue;
         };
         if variant_refinement_base_identity_and_arguments(&canonical.ty).is_none() {
@@ -634,9 +679,8 @@ fn merge_recovered_union_alternative(
         .take()
         .expect("an expected span has a recovered refinement");
     let nodes = expected.nodes;
-    *recovered_refinement =
-        merge_refinement_alternative(expected.ty, canonical.ty, recovered_variants)
-            .map(|ty| RecoveredType { ty, nodes });
+    let ty = merge_refinement_alternative(expected.ty, canonical.ty, recovered_variants);
+    *recovered_refinement = Some(RecoveredType { ty, nodes });
     false
 }
 
@@ -648,9 +692,10 @@ fn collect_refinement_alternative_type(
     errors: &mut Vec<(String, String, SourceSpan)>,
     visited_paths: &mut HashMap<PathOccurrence, bool>,
     union_base_failures: &mut Vec<VariantUnionBaseFailure>,
+    unknown_variant_occurrences: &mut HashSet<PathOccurrence>,
     declaration_type_parameters: &TypeParameterIdentityContext<'_>,
     materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
-) -> Option<RecoveredType> {
+) -> AlternativeRecovery {
     crate::pipeline::record_variant_refinement_recovery_work(1);
     let base = alternative.base.segments.join("::");
     let own_base_failure = environment
@@ -663,6 +708,7 @@ fn collect_refinement_alternative_type(
         errors,
         visited_paths,
         union_base_failures,
+        unknown_variant_occurrences,
         declaration_type_parameters,
         materialized_refinements,
     );
@@ -676,17 +722,61 @@ fn collect_refinement_alternative_type(
         );
         crate::pipeline::record_variant_refinement_recovery_materialization(written.len());
         errors.push((written, error, alternative_span(alternative)));
-        return None;
+        return invalid_alternative_recovery();
     }
     if own_base_failure || argument_types.is_none() {
-        return None;
+        return invalid_alternative_recovery();
     }
-    let argument_types = argument_types.expect("checked recovered argument types");
+    recover_refinement_alternative(
+        alternative,
+        current_module,
+        environment,
+        errors,
+        unknown_variant_occurrences,
+        base,
+        argument_types.expect("checked recovered argument types"),
+    )
+}
+
+fn invalid_alternative_recovery() -> AlternativeRecovery {
+    AlternativeRecovery {
+        recovered: None,
+        invalid: true,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn recover_refinement_alternative(
+    alternative: &veln_ast::VariantRefinementAlternative,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    errors: &mut Vec<(String, String, SourceSpan)>,
+    unknown_variant_occurrences: &mut HashSet<PathOccurrence>,
+    base: String,
+    argument_types: Vec<RecoveredType>,
+) -> AlternativeRecovery {
     let argument_nodes: usize = argument_types.iter().map(|argument| argument.nodes).sum();
     let argument_types = argument_types
         .into_iter()
         .map(|argument| argument.ty)
         .collect::<Vec<_>>();
+    let argument_types = match recover_unknown_variant_alternative(
+        alternative,
+        current_module,
+        environment,
+        &base,
+        argument_nodes,
+        argument_types,
+        unknown_variant_occurrences,
+    ) {
+        Ok(recovered) => {
+            return AlternativeRecovery {
+                recovered: Some(recovered),
+                invalid: true,
+            };
+        }
+        Err(argument_types) => argument_types,
+    };
     let shell = Type::variant_refinement(
         base,
         vec![Type::Unknown; argument_types.len()],
@@ -700,16 +790,51 @@ fn collect_refinement_alternative_type(
         );
         crate::pipeline::record_variant_refinement_recovery_materialization(written.len());
         errors.push((written, error, alternative_span(alternative)));
-        return None;
+        return invalid_alternative_recovery();
     }
     crate::pipeline::record_variant_refinement_recovery_materialization(argument_types.len() + 1);
-    let canonical = refinement_with_arguments(
+    let recovered = refinement_with_arguments(
         environment.canonicalize_type_annotation(shell, current_module),
         argument_types,
-    )?;
+    )
+    .map(|ty| RecoveredType {
+        ty,
+        nodes: argument_nodes + 1,
+    });
     crate::pipeline::record_variant_refinement_recovery_type_materialization(1);
-    Some(RecoveredType {
-        ty: canonical,
+    AlternativeRecovery {
+        invalid: recovered.is_none(),
+        recovered,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn recover_unknown_variant_alternative(
+    alternative: &veln_ast::VariantRefinementAlternative,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    base: &str,
+    argument_nodes: usize,
+    argument_types: Vec<Type>,
+    unknown_variant_occurrences: &mut HashSet<PathOccurrence>,
+) -> Result<RecoveredType, Vec<Type>> {
+    let Some(descriptor) = environment.variant_refinement_unknown_descriptor(
+        base,
+        argument_types.len(),
+        &alternative.variant,
+        current_module,
+    ) else {
+        return Err(argument_types);
+    };
+    unknown_variant_occurrences.insert(span_occurrence(&alternative.span));
+    Ok(RecoveredType {
+        ty: Type::resolved_named(
+            environment
+                .adts
+                .canonical_type_name_for_descriptor(descriptor),
+            descriptor.identity(),
+            argument_types,
+        ),
         nodes: argument_nodes + 1,
     })
 }
@@ -722,6 +847,7 @@ fn collect_refinement_argument_types(
     errors: &mut Vec<(String, String, SourceSpan)>,
     visited_paths: &mut HashMap<PathOccurrence, bool>,
     union_base_failures: &mut Vec<VariantUnionBaseFailure>,
+    unknown_variant_occurrences: &mut HashSet<PathOccurrence>,
     declaration_type_parameters: &TypeParameterIdentityContext<'_>,
     materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
 ) -> Option<Vec<RecoveredType>> {
@@ -735,6 +861,7 @@ fn collect_refinement_argument_types(
             errors,
             visited_paths,
             union_base_failures,
+            unknown_variant_occurrences,
             declaration_type_parameters,
             materialized_refinements,
         );
@@ -754,6 +881,7 @@ fn collect_refinement_argument_type(
     errors: &mut Vec<(String, String, SourceSpan)>,
     visited_paths: &mut HashMap<PathOccurrence, bool>,
     union_base_failures: &mut Vec<VariantUnionBaseFailure>,
+    unknown_variant_occurrences: &mut HashSet<PathOccurrence>,
     declaration_type_parameters: &TypeParameterIdentityContext<'_>,
     materialized_refinements: &mut HashMap<PathOccurrence, Option<RecoveredType>>,
 ) -> Option<RecoveredType> {
@@ -766,6 +894,7 @@ fn collect_refinement_argument_type(
         errors,
         visited_paths,
         union_base_failures,
+        unknown_variant_occurrences,
         declaration_type_parameters,
         materialized_refinements,
     );
@@ -1019,9 +1148,9 @@ fn merge_refinement_alternative(
     expected: Type,
     actual: Type,
     seen_variants: &mut HashSet<String>,
-) -> Option<Type> {
+) -> Type {
     if matches!(expected, Type::Named { .. }) {
-        return Some(expected);
+        return expected;
     }
     let Type::VariantRefinement {
         name,
@@ -1031,14 +1160,20 @@ fn merge_refinement_alternative(
         unresolved_alternatives,
     } = expected
     else {
-        return None;
+        unreachable!("union alternatives have a recovered variant-refinement base");
     };
     let Type::VariantRefinement {
         variants: actual_variants,
         ..
     } = actual
     else {
-        return None;
+        return Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            variants,
+            unresolved_alternatives,
+        };
     };
     let mut variants = variants.to_vec();
     for variant in actual_variants.iter() {
@@ -1046,13 +1181,13 @@ fn merge_refinement_alternative(
             variants.push(variant.clone());
         }
     }
-    Some(Type::VariantRefinement {
+    Type::VariantRefinement {
         name,
         identity,
         args,
         variants: variants.into(),
         unresolved_alternatives,
-    })
+    }
 }
 
 fn canonicalize_recovered_refinement(ty: Type, environment: &TypeEnvironment) -> Type {
@@ -1522,7 +1657,7 @@ fn variant_union_base_diagnostic(
         (
             "message",
             JsonValue::string(format!(
-                "The first successfully instantiated alternative established `{expected_base_type}` as the union base."
+                "The earliest independently instantiated base identity established `{expected_base_type}` as the union base."
             )),
         ),
         ("span", span_json(expected_span)),
@@ -1543,10 +1678,10 @@ fn collect_annotation(
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     crate::pipeline::record_variant_refinement_annotation_work(refinements.len() + paths.len() + 1);
-    let recovery = if annotation_contains_union(refinements) {
+    let recovery = if annotation_needs_recovery(refinements, paths, current_module, environment) {
         analyze_annotation(
             refinements,
-            &[],
+            paths,
             current_module,
             environment,
             type_parameters,
@@ -1581,7 +1716,13 @@ fn collect_annotation_diagnostics(
             failure.union_scope.clone(),
         )
     }));
-    collect_refinements(refinements, current_module, environment, diagnostics);
+    collect_refinements(
+        refinements,
+        current_module,
+        environment,
+        &recovery.unknown_variant_occurrences,
+        diagnostics,
+    );
     for path in paths {
         if let Some(failure) =
             environment.recovered_variant_refinement_base_failure(&path.segments, current_module)
@@ -1595,6 +1736,24 @@ fn collect_annotation_diagnostics(
                 joined_span(&path.segment_spans),
                 None,
                 failure,
+            ));
+        } else if recovery
+            .unknown_variant_occurrences
+            .contains(&span_occurrence(&joined_span(&path.segment_spans)))
+            && let Some(descriptor) = environment
+                .recovered_variant_refinement_unknown_descriptor(&path.segments, current_module)
+        {
+            let variant_index = path.segments.len() - 1;
+            diagnostics.push(unknown_variant_diagnostic_from_parts(
+                descriptor.type_name.clone(),
+                path.segments[variant_index].clone(),
+                path.segment_spans[variant_index].clone(),
+                joined_span(&path.segment_spans),
+                None,
+                &path.segments[..variant_index],
+                descriptor,
+                current_module,
+                environment,
             ));
         }
     }
@@ -1614,7 +1773,9 @@ fn collect_declaration_annotation(
     crate::pipeline::record_variant_refinement_annotation_work(refinements.len() + paths.len() + 1);
     let has_base_failure =
         annotation_has_base_failure(refinements, paths, current_module, environment);
-    let recovery = if has_base_failure || annotation_contains_union(refinements) {
+    let recovery = if has_base_failure
+        || annotation_needs_recovery(refinements, paths, current_module, environment)
+    {
         analyze_annotation(
             refinements,
             paths,
@@ -1633,7 +1794,10 @@ fn collect_declaration_annotation(
         &recovery,
         diagnostics,
     );
-    if !has_base_failure && recovery.union_base_failures.is_empty() {
+    if !has_base_failure
+        && recovery.union_base_failures.is_empty()
+        && recovery.unknown_variant_occurrences.is_empty()
+    {
         return;
     }
     for (annotation, error, span) in recovery.errors {
@@ -1665,6 +1829,7 @@ fn collect_refinements(
     refinements: &[veln_ast::VariantRefinementType],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
+    unknown_variant_occurrences: &HashSet<PathOccurrence>,
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     for refinement in refinements {
@@ -1684,16 +1849,145 @@ fn collect_refinements(
                     Some(refinement.span.clone()),
                     failure,
                 ));
+            } else if unknown_variant_occurrences.contains(&span_occurrence(&alternative.span))
+                && let Some(descriptor) = environment.variant_refinement_unknown_descriptor(
+                    &base,
+                    alternative.type_arguments.len(),
+                    &alternative.variant,
+                    current_module,
+                )
+            {
+                diagnostics.push(unknown_variant_diagnostic(
+                    alternative,
+                    refinement,
+                    descriptor,
+                    current_module,
+                    environment,
+                ));
             }
             for argument in &alternative.type_arguments {
                 collect_refinements(
                     &argument.ty_refinements,
                     current_module,
                     environment,
+                    unknown_variant_occurrences,
                     diagnostics,
                 );
             }
         }
+    }
+}
+
+fn unknown_variant_diagnostic(
+    alternative: &veln_ast::VariantRefinementAlternative,
+    refinement: &veln_ast::VariantRefinementType,
+    descriptor: &crate::adt::descriptors::AdtDescriptor,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> VariantRefinementBaseDiagnostic {
+    unknown_variant_diagnostic_from_parts(
+        resolved_refinement_base(alternative, descriptor),
+        alternative.variant.clone(),
+        alternative.variant_span.clone(),
+        alternative.span.clone(),
+        Some(refinement.span.clone()),
+        &alternative.base.segments,
+        descriptor,
+        current_module,
+        environment,
+    )
+}
+
+fn resolved_refinement_base(
+    alternative: &veln_ast::VariantRefinementAlternative,
+    descriptor: &crate::adt::descriptors::AdtDescriptor,
+) -> String {
+    if alternative.type_arguments.is_empty() {
+        return descriptor.type_name.clone();
+    }
+    let arguments = alternative
+        .type_arguments
+        .iter()
+        .map(render_type_argument)
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{}<{arguments}>", descriptor.type_name)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn unknown_variant_diagnostic_from_parts(
+    base_type: String,
+    variant: String,
+    variant_span: SourceSpan,
+    ordering_scope: SourceSpan,
+    union_scope: Option<SourceSpan>,
+    written_base_segments: &[String],
+    descriptor: &crate::adt::descriptors::AdtDescriptor,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> VariantRefinementBaseDiagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "type.variant_refinement_unknown",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!("variant `{variant}` is not a variant of `{base_type}`"),
+        Some(variant_span),
+        JsonValue::object([
+            ("base_type", JsonValue::string(base_type)),
+            ("variant", JsonValue::string(variant)),
+        ]),
+    );
+    let resolved_identity = descriptor.identity();
+    let mut base_related = vec![
+        ("kind", JsonValue::string("base_type_declaration")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Type `{}` is the resolved ADT for this refinement.",
+                descriptor.type_name
+            )),
+        ),
+        (
+            "resolved_identity",
+            JsonValue::string(resolved_identity.clone()),
+        ),
+    ];
+    if let Some(span) = environment.adts.declaration_span(descriptor) {
+        base_related.push(("span", span_json(span)));
+    }
+    diagnostic.related.push(JsonValue::object(base_related));
+    for visible in descriptor.variants.iter().filter(|candidate| {
+        environment.variant_refinement_variant_visible(
+            descriptor,
+            candidate,
+            written_base_segments,
+            current_module,
+        )
+    }) {
+        let mut related = vec![
+            ("kind", JsonValue::string("visible_variant_declaration")),
+            (
+                "message",
+                JsonValue::string(format!(
+                    "Visible variant `{}` is declared here.",
+                    visible.name
+                )),
+            ),
+            ("variant", JsonValue::string(&visible.name)),
+            ("resolved_identity", JsonValue::string(&resolved_identity)),
+        ];
+        if let Some(span) = environment
+            .adts
+            .variant_declaration_span(descriptor, visible)
+        {
+            related.push(("span", span_json(span)));
+        }
+        diagnostic.related.push(JsonValue::object(related));
+    }
+    VariantRefinementBaseDiagnostic {
+        diagnostic,
+        ordering_scope,
+        union_scope,
     }
 }
 

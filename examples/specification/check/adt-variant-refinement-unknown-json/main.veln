@@ -1,0 +1,28 @@
+type State
+	Ready
+	Closed
+end
+
+fn rejected(value: State::Missing) -> ()
+	()
+end
+
+fn recovered(value: State::Ready | State::Missing | State::Closed) -> ()
+	()
+end
+
+type Left
+	A
+end
+
+type Right
+	B
+end
+
+fn overlapping(value: Left::A | Right::Missing) -> ()
+	()
+end
+
+fn base_only_provenance(value: State::Missing | Right::B) -> ()
+	()
+end

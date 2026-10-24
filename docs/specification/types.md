@@ -739,19 +739,37 @@ A source-less base retains the same semantic identity without acquiring a
 source target. The checker processes each written type-path
 occurrence once during nested recovery. Equal paths at different source spans
 remain independent occurrences. The
-early quarantine uses the same source-backed declarations as the analyzed
+final uppercase segment of a finite ADT refinement must select one constructor
+owned by that ADT. An unknown name, a non-constructor name, or a constructor
+owned by another ADT makes the annotation invalid. The checker retains the
+base identity for an independent union-base comparison, regardless of the
+unknown final's position among the union alternatives, but it does not retain
+a constructor identity. The containing declaration is quarantined without
+deriving privacy or assignability failures from the missing selection. A
+failed nested argument prevents the enclosing final segment from being checked
+as though the base had been instantiated.
+The checked
+[`human`](../../examples/specification/check/adt-variant-refinement-unknown-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-unknown-json/)
+cases verify the rejection and diagnostic projection.
+
+The early quarantine uses the same source-backed declarations as the analyzed
 module, including declarations selected from the reusable standard
 environment. Private return inference therefore cannot publish a result that
 depends on an invalid reusable-base annotation. Recovery visits every generic
 argument even when an earlier sibling argument is invalid. It therefore keeps
 an independently complete union-base comparison in a later sibling argument,
 while the enclosing type remains invalid. Within a refinement union, the
-checker skips a failed alternative, retains the earliest successfully
-instantiated base identity and canonical generic arguments, and compares each
-later successful alternative with that pair. A later different identity or
-different canonical arguments report `type.variant_union_base`; the failed
-alternative does not suppress that independent comparison, and the failed
-alternative's independently provable generic-arity failure remains. A
+checker retains the earliest independently instantiated base identity and
+canonical generic arguments, including from an alternative whose final segment
+is unknown, and compares each later independently instantiated base with that
+pair. An alternative without a comparable base is skipped. Repeated unknown
+finals report separately and preserve the same comparison base. A later
+different identity or different canonical arguments report
+`type.variant_union_base`; an earlier failed alternative does not suppress that
+independent comparison, and its independently provable generic-arity failure
+remains. A
 mixed-base union is an invalid annotation. It quarantines the complete
 function, effect operation, handler, or ADT-constructor signature when it
 occurs in one of those declarations. The
@@ -1165,12 +1183,11 @@ Variant-refinement semantic-token classifications are specified in
 rename behavior is specified by
 [editor support](editor-support.md#lsp-navigation-formatting-and-rename) and
 [MCP](mcp.md#saved-workspace-navigation). Qualified-value control-flow
-refinement, external or representation schema decode validation, and the
-provider-dependent unavailable-descriptor diagnostic remain proposal work.
-The `type.variant_refinement_unknown` diagnostic and semantic identity recovery
-for a lowercase final segment also remain proposal work. Those compiler items
-are distinct from the implemented workspace-base navigation recovery for an
-invalid final segment.
+refinement, external or representation schema decode validation, the
+provider-dependent unavailable-descriptor diagnostic, and semantic identity
+recovery for a lowercase final segment remain proposal work. The
+lowercase-final compiler item is distinct from the implemented workspace-base
+navigation recovery for an invalid final segment.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record

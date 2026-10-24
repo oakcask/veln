@@ -689,6 +689,50 @@
         }
     }
 
+    fn source_position(
+        path: &str,
+        text: &str,
+        line_text: &str,
+        needle: &str,
+    ) -> SourcePosition {
+        let (line, source_line) = text
+            .lines()
+            .enumerate()
+            .find(|(_, candidate)| candidate.contains(line_text))
+            .unwrap();
+        SourcePosition {
+            source: SourcePath::new(path),
+            line: line + 1,
+            column: source_line.find(needle).unwrap() + 1,
+        }
+    }
+
+    fn assert_empty_operation_boundary(
+        snapshot: &EffectiveProjectSnapshot,
+        position: SourcePosition,
+    ) {
+        assert!(definition_at(snapshot, copy_position(&position)).is_none());
+        assert!(navigate(snapshot, copy_position(&position)).is_none());
+        assert!(navigate_for_rename(snapshot, position).is_none());
+    }
+
+    fn assert_complete_operation_boundary(
+        snapshot: &EffectiveProjectSnapshot,
+        position: SourcePosition,
+    ) {
+        assert!(definition_at(snapshot, copy_position(&position)).is_some());
+        assert!(navigate(snapshot, copy_position(&position)).is_some());
+        assert!(navigate_for_rename(snapshot, position).is_some());
+    }
+
+    fn copy_position(position: &SourcePosition) -> SourcePosition {
+        SourcePosition {
+            source: position.source.clone(),
+            line: position.line,
+            column: position.column,
+        }
+    }
+
     #[test]
     fn invalid_final_external_origins_have_the_complete_empty_operation_boundary() {
         let dependency_text = concat!(
@@ -730,29 +774,6 @@
             &[("prelude.veln", standard_text)],
             ["prelude.veln"],
         ));
-        let position = |path: &str, text: &str, line_text: &str, needle: &str| {
-            let (line, source_line) = text
-                .lines()
-                .enumerate()
-                .find(|(_, candidate)| candidate.contains(line_text))
-                .unwrap();
-            SourcePosition {
-                source: SourcePath::new(path),
-                line: line + 1,
-                column: source_line.find(needle).unwrap() + 1,
-            }
-        };
-        let assert_all_empty = |position: SourcePosition| {
-            let same_position = || SourcePosition {
-                source: position.source.clone(),
-                line: position.line,
-                column: position.column,
-            };
-            assert!(definition_at(&snapshot, same_position()).is_none());
-            assert!(navigate(&snapshot, same_position()).is_none());
-            assert!(navigate_for_rename(&snapshot, position).is_none());
-        };
-
         for (path, text, line_text, base, final_name) in [
             (
                 "main.veln",
@@ -790,37 +811,56 @@
                 "Missing",
             ),
         ] {
-            assert_all_empty(position(path, text, line_text, base));
-            assert_all_empty(position(path, text, line_text, final_name));
+            assert_empty_operation_boundary(
+                &snapshot,
+                source_position(path, text, line_text, base),
+            );
+            assert_empty_operation_boundary(
+                &snapshot,
+                source_position(path, text, line_text, final_name),
+            );
         }
 
         for (line_text, base) in [
             ("fn dependency_alias(", "DependencyAlias"),
             ("fn standard_alias(", "StandardAlias"),
         ] {
-            let base = position("main.veln", workspace_text, line_text, base);
-            let same_base = || SourcePosition {
-                source: base.source.clone(),
-                line: base.line,
-                column: base.column,
-            };
-            assert!(definition_at(&snapshot, same_base()).is_some());
-            assert!(navigate(&snapshot, same_base()).is_some());
-            assert!(navigate_for_rename(&snapshot, base).is_some());
+            assert_complete_operation_boundary(
+                &snapshot,
+                source_position("main.veln", workspace_text, line_text, base),
+            );
         }
+    }
 
+    #[test]
+    fn source_less_invalid_final_has_spanless_context_and_empty_operations() {
         let source_less_text =
             "fn source_less(value: Option<Int>::Missing) -> Int\n  0\nend\n";
         let source_less = source("source_less.veln", source_less_text);
         let semantic_module = veln_ast::lower_surface_ast(&veln_syntax::parse(&source_less).tree);
         let lowered = veln_sema::lower_checked_surface_module(&semantic_module);
+        let diagnostic = lowered
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.id == "type.variant_refinement_unknown")
+            .unwrap_or_else(|| {
+                panic!(
+                    "source-less Option must resolve before its invalid final is rejected: {:#?}",
+                    lowered.diagnostics
+                )
+            });
+        assert_eq!(
+            diagnostic.details.to_json(),
+            r#"{"base_type":"Option<Int>","variant":"Missing"}"#
+        );
+        assert_eq!(diagnostic.related.len(), 3, "{:#?}", diagnostic.related);
         assert!(
-            lowered.diagnostics.iter().any(|diagnostic| {
-                diagnostic.id == "type.invalid_annotation"
-                    && diagnostic.message.contains("Option<Int>::Missing")
-            }),
-            "source-less Option must resolve before its invalid final is rejected: {:#?}",
-            lowered.diagnostics
+            diagnostic
+                .related
+                .iter()
+                .all(|related| !related.to_json().contains("\"span\"")),
+            "source-less related context must not invent declaration spans: {:#?}",
+            diagnostic.related
         );
         assert!(
             lowered
@@ -832,20 +872,13 @@
         );
         let source_less_snapshot = EffectiveProjectSnapshot::new(vec![source_less]);
         for needle in ["Option", "Missing"] {
-            let source_less_position = position(
+            let source_less_position = source_position(
                 "source_less.veln",
                 source_less_text,
                 "fn source_less(",
                 needle,
             );
-            let same_position = || SourcePosition {
-                source: source_less_position.source.clone(),
-                line: source_less_position.line,
-                column: source_less_position.column,
-            };
-            assert!(definition_at(&source_less_snapshot, same_position()).is_none());
-            assert!(navigate(&source_less_snapshot, same_position()).is_none());
-            assert!(navigate_for_rename(&source_less_snapshot, source_less_position).is_none());
+            assert_empty_operation_boundary(&source_less_snapshot, source_less_position);
         }
     }
 

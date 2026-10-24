@@ -15,7 +15,7 @@ workspace_file_uri = "main.veln"
 method = "textDocument/publishDiagnostics"
 occurrence = 2
 path = "/params/diagnostics"
-length = 5
+length = 6
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
@@ -57,7 +57,7 @@ length = 1
 method = "textDocument/publishDiagnostics"
 occurrence = 2
 path = "/params/diagnostics/2/relatedInformation/0/message"
-equals = "The first successfully instantiated alternative established `Left` as the union base."
+equals = "The earliest independently instantiated base identity established `Left` as the union base."
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
@@ -110,31 +110,25 @@ equals = null
 method = "textDocument/publishDiagnostics"
 occurrence = 2
 path = "/params/diagnostics/4/code"
-equals = "type.variant_refinement_private"
-
-[[lsp_assert]]
-method = "textDocument/publishDiagnostics"
-occurrence = 2
-path = "/params/diagnostics/4/message"
-equals = "public refinement exposes private variant `model::State::Hidden`"
+equals = "type.variant_refinement_unknown"
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
 occurrence = 2
 path = "/params/diagnostics/4/range"
-equals = {"start":{"line":14,"character":28},"end":{"line":14,"character":33}}
+equals = {"start":{"line":14,"character":32},"end":{"line":14,"character":39}}
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
 occurrence = 2
 path = "/params/diagnostics/4/relatedInformation"
-length = 4
+length = 2
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
 occurrence = 2
 path = "/params/diagnostics/4/relatedInformation/0/message"
-equals = "Public type alias `model::Outer` is declared here."
+equals = "Type `State` is the resolved ADT for this refinement."
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
@@ -146,13 +140,13 @@ workspace_file_uri = "model.veln"
 method = "textDocument/publishDiagnostics"
 occurrence = 2
 path = "/params/diagnostics/4/relatedInformation/0/location/range"
-equals = {"start":{"line":14,"character":0},"end":{"line":15,"character":0}}
+equals = {"start":{"line":10,"character":4},"end":{"line":14,"character":0}}
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
 occurrence = 2
 path = "/params/diagnostics/4/relatedInformation/1/message"
-equals = "Public type alias `model::Inner` is declared here."
+equals = "Visible variant `Ready` is declared here."
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
@@ -164,40 +158,100 @@ workspace_file_uri = "model.veln"
 method = "textDocument/publishDiagnostics"
 occurrence = 2
 path = "/params/diagnostics/4/relatedInformation/1/location/range"
-equals = {"start":{"line":13,"character":0},"end":{"line":14,"character":0}}
+equals = {"start":{"line":12,"character":2},"end":{"line":13,"character":0}}
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
 occurrence = 2
-path = "/params/diagnostics/4/relatedInformation/2/message"
-equals = "Private variant `model::State::Hidden` is declared here."
+path = "/params/diagnostics/5/code"
+equals = "type.variant_refinement_private"
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
 occurrence = 2
-path = "/params/diagnostics/4/relatedInformation/2/location/uri"
+path = "/params/diagnostics/5/message"
+equals = "public refinement exposes private variant `model::State::Hidden`"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/5/range"
+equals = {"start":{"line":18,"character":28},"end":{"line":18,"character":33}}
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/5/relatedInformation"
+length = 4
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/5/relatedInformation/0/message"
+equals = "Public type alias `model::Outer` is declared here."
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/5/relatedInformation/0/location/uri"
 workspace_file_uri = "model.veln"
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
 occurrence = 2
-path = "/params/diagnostics/4/relatedInformation/2/location/range"
+path = "/params/diagnostics/5/relatedInformation/0/location/range"
+equals = {"start":{"line":15,"character":0},"end":{"line":16,"character":0}}
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/5/relatedInformation/1/message"
+equals = "Public type alias `model::Inner` is declared here."
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/5/relatedInformation/1/location/uri"
+workspace_file_uri = "model.veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/5/relatedInformation/1/location/range"
+equals = {"start":{"line":14,"character":0},"end":{"line":15,"character":0}}
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/5/relatedInformation/2/message"
+equals = "Private variant `model::State::Hidden` is declared here."
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/5/relatedInformation/2/location/uri"
+workspace_file_uri = "model.veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 2
+path = "/params/diagnostics/5/relatedInformation/2/location/range"
 equals = {"start":{"line":11,"character":2},"end":{"line":12,"character":0}}
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
 occurrence = 2
-path = "/params/diagnostics/4/relatedInformation/3/message"
+path = "/params/diagnostics/5/relatedInformation/3/message"
 equals = "Public parameter `value` of function `expose` exposes this refinement."
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
 occurrence = 2
-path = "/params/diagnostics/4/relatedInformation/3/location/uri"
+path = "/params/diagnostics/5/relatedInformation/3/location/uri"
 workspace_file_uri = "main.veln"
 
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
 occurrence = 2
-path = "/params/diagnostics/4/relatedInformation/3/location/range"
-equals = {"start":{"line":14,"character":14},"end":{"line":14,"character":41}}
+path = "/params/diagnostics/5/relatedInformation/3/location/range"
+equals = {"start":{"line":18,"character":14},"end":{"line":18,"character":41}}

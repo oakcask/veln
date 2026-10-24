@@ -129,6 +129,76 @@ impl TypeEnvironment {
         }
     }
 
+    pub(crate) fn variant_refinement_variant_visible(
+        &self,
+        descriptor: &crate::adt::descriptors::AdtDescriptor,
+        variant: &crate::adt::descriptors::AdtVariantDescriptor,
+        written_base_segments: &[String],
+        current_module: Option<&str>,
+    ) -> bool {
+        let mut candidate_segments = written_base_segments.to_vec();
+        candidate_segments.push(variant.name.clone());
+        if self
+            .adts
+            .constructor_for_descriptor(&candidate_segments, descriptor, current_module, &self.uses)
+            .is_some()
+        {
+            return true;
+        }
+        let recovered = recover_type_case(&written_base_segments.join("::"));
+        let Some(recovered) = recovered else {
+            return false;
+        };
+        let mut recovered_segments = recovered
+            .split("::")
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        recovered_segments.push(variant.name.clone());
+        self.adts
+            .constructor_for_descriptor(&recovered_segments, descriptor, current_module, &self.uses)
+            .is_some()
+    }
+
+    pub(crate) fn variant_refinement_unknown_descriptor(
+        &self,
+        base: &str,
+        args_len: usize,
+        variant: &str,
+        current_module: Option<&str>,
+    ) -> Option<&crate::adt::descriptors::AdtDescriptor> {
+        let written =
+            self.variant_refinement_descriptor_identity(base, args_len, current_module)?;
+        if written.type_parameters.len() != args_len {
+            return None;
+        }
+        let descriptor = self
+            .adts
+            .terminal_descriptor_for_alias(written)
+            .unwrap_or_else(|| self.adts.canonical_descriptor_for(written));
+        if descriptor.refinement_availability
+            != crate::adt::descriptors::VariantRefinementAvailability::Finite
+            || !matches!(
+                self.adts.variant_for_descriptor(descriptor, variant),
+                crate::adt::registry::VariantLookup::Missing
+            )
+        {
+            return None;
+        }
+        Some(descriptor)
+    }
+
+    pub(crate) fn recovered_variant_refinement_unknown_descriptor(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> Option<&crate::adt::descriptors::AdtDescriptor> {
+        if segments.len() < 2 {
+            return None;
+        }
+        let recovered = recover_type_case(&segments[..segments.len() - 1].join("::"))?;
+        self.variant_refinement_unknown_descriptor(&recovered, 0, segments.last()?, current_module)
+    }
+
     fn variant_refinement_descriptor_failure(
         &self,
         descriptor: &crate::adt::descriptors::AdtDescriptor,

@@ -15,7 +15,7 @@ contains = ["blocked selected_case"]
 [stderr]
 format = "text"
 contains = [
-  "selected_test.veln:6:21: error[type.invalid_annotation]: invalid type annotation `State::Missing`: variant refinement alternatives must resolve to declared variants of one ADT",
+  "selected_test.veln:6:35: error[type.variant_refinement_unknown]: variant `Missing` is not a variant of `State`",
 ]
 
 [[file_assert]]

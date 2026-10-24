@@ -1,0 +1,5 @@
+use math
+
+fn inspect(value: math::State::Missing) -> ()
+	()
+end

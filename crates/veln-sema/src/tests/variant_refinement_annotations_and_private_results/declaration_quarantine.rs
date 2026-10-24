@@ -294,7 +294,7 @@ fn declaration_carriers_preserve_independent_union_recovery_errors() {
         .filter(|diagnostic| {
             matches!(
                 diagnostic.id.as_str(),
-                "type.variant_refinement_base" | "type.invalid_annotation"
+                "type.variant_refinement_base" | "type.variant_refinement_unknown"
             )
         })
         .collect::<Vec<_>>();
@@ -305,13 +305,13 @@ fn declaration_carriers_preserve_independent_union_recovery_errors() {
             .collect::<Vec<_>>(),
         [
             "type.variant_refinement_base",
-            "type.invalid_annotation",
+            "type.variant_refinement_unknown",
             "type.variant_refinement_base",
-            "type.invalid_annotation",
+            "type.variant_refinement_unknown",
             "type.variant_refinement_base",
-            "type.invalid_annotation",
+            "type.variant_refinement_unknown",
             "type.variant_refinement_base",
-            "type.invalid_annotation",
+            "type.variant_refinement_unknown",
         ],
         "{diagnostics:#?}"
     );
@@ -326,12 +326,67 @@ fn declaration_carriers_preserve_independent_union_recovery_errors() {
     assert!(
         relevant
             .iter()
-            .filter(|diagnostic| diagnostic.id == "type.invalid_annotation")
-            .all(|diagnostic| diagnostic.message.contains("`State::Missing`")
-                && diagnostic
-                    .message
-                    .contains("alternatives must resolve to declared variants of one ADT"))
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_unknown")
+            .all(|diagnostic| diagnostic.message.contains("`Missing`")
+                && diagnostic.message.contains("not a variant"))
     );
+}
+
+#[test]
+fn declaration_carriers_preserve_errors_independent_of_unknown_finals() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "end\n",
+        "type Holder\n",
+        "  Built(value: {state: State::Missing, bad: Vec<Int, String>})\n",
+        "end\n",
+        "effect Broken\n",
+        "  apply(value: {state: State::Missing, bad: Vec<Int, String>}) -> {state: State::Missing, bad: Vec<Int, String>}\n",
+        "end\n",
+        "schema Packet\n",
+        "  value: {state: State::Missing, bad: Vec<Int, String>}\n",
+        "end\n",
+        "effect Ask\n",
+        "  value() -> Int\n",
+        "end\n",
+        "handler broken(input: {state: State::Missing, bad: Vec<Int, String>}) for Ask\n",
+        "  value() => 0\n",
+        "end\n",
+        "fn sink(value: Int) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "fn explicit() -> ()\n",
+        "  sink<{state: State::Missing, bad: Vec<Int, String>}>(1)\n",
+        "end\n",
+    ));
+
+    let relevant = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "type.variant_refinement_unknown" | "type.invalid_annotation"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(relevant.len(), 12, "{diagnostics:#?}");
+    for pair in relevant.as_chunks::<2>().0 {
+        assert_eq!(
+            pair[0].id, "type.variant_refinement_unknown",
+            "{diagnostics:#?}"
+        );
+        assert_eq!(pair[1].id, "type.invalid_annotation", "{diagnostics:#?}");
+        assert!(
+            pair[1]
+                .message
+                .contains("`Vec` expects 1 type argument(s), found 2"),
+            "{diagnostics:#?}"
+        );
+    }
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "type.variant_refinement_private" && diagnostic.id != "type.mismatch"
+    }));
 }
 
 #[test]

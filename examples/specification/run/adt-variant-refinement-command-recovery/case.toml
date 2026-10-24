@@ -20,11 +20,11 @@ equals = "error"
 
 [[json_assert]]
 path = "diagnostics.0.id"
-equals = "type.invalid_annotation"
+equals = "type.variant_refinement_unknown"
 
 [[json_assert]]
 path = "diagnostics.0.message"
-contains = "State::Missing"
+equals = "variant `Missing` is not a variant of `State`"
 
 [[json_assert]]
 path = "diagnostics.0.span.file"
@@ -36,31 +36,27 @@ equals = 7
 
 [[json_assert]]
 path = "diagnostics.0.span.start.column"
-equals = 2
+equals = 20
 
 [[json_assert]]
 path = "diagnostics.0.span.end.line"
-equals = 8
+equals = 7
 
 [[json_assert]]
 path = "diagnostics.0.span.end.column"
-equals = 1
+equals = 27
 
 [[json_assert]]
-path = "diagnostics.0.details.actual_type"
-equals = "State::Missing"
+path = "diagnostics.0.details.base_type"
+equals = "State"
 
 [[json_assert]]
-path = "diagnostics.0.details.expected_type"
-equals = "valid_type"
-
-[[json_assert]]
-path = "diagnostics.0.details.constraint"
-equals = "assignable"
+path = "diagnostics.0.details.variant"
+equals = "Missing"
 
 [[json_assert]]
 path = "diagnostics.0.related"
-equals = []
+length = 3
 
 [[file_assert]]
 path = ".veln-harness-cache/jvm"

@@ -684,7 +684,7 @@ fn variant_union_diagnostics_render_complete_bases_with_different_arities() {
     );
     assert!(
         json.contains(
-            "The first successfully instantiated alternative established `Pair<Int, String>` as the union base."
+            "The earliest independently instantiated base identity established `Pair<Int, String>` as the union base."
         ),
         "{json}"
     );

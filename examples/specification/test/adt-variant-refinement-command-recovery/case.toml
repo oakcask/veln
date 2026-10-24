@@ -20,11 +20,11 @@ equals = "blocked"
 
 [[json_assert]]
 path = "diagnostics.0.id"
-equals = "type.invalid_annotation"
+equals = "type.variant_refinement_unknown"
 
 [[json_assert]]
 path = "diagnostics.0.message"
-contains = "State::Missing"
+equals = "variant `Missing` is not a variant of `State`"
 
 [[json_assert]]
 path = "diagnostics.0.span.file"
@@ -36,7 +36,7 @@ equals = 6
 
 [[json_assert]]
 path = "diagnostics.0.span.start.column"
-equals = 21
+equals = 35
 
 [[json_assert]]
 path = "diagnostics.0.span.end.line"
@@ -47,20 +47,16 @@ path = "diagnostics.0.span.end.column"
 equals = 42
 
 [[json_assert]]
-path = "diagnostics.0.details.actual_type"
-equals = "State::Missing"
+path = "diagnostics.0.details.base_type"
+equals = "State"
 
 [[json_assert]]
-path = "diagnostics.0.details.expected_type"
-equals = "valid_type"
-
-[[json_assert]]
-path = "diagnostics.0.details.constraint"
-equals = "assignable"
+path = "diagnostics.0.details.variant"
+equals = "Missing"
 
 [[json_assert]]
 path = "diagnostics.0.related"
-equals = []
+length = 3
 
 [[json_assert]]
 path = "cases.0.status"

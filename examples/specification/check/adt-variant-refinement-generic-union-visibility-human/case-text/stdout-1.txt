@@ -5,7 +5,7 @@ main.veln:15:81: error[type.variant_refinement_private]: public refinement expos
   note: main.veln:12:2: Private variant `main::State::Hidden` is declared here.
   note: main.veln:15:15: Public parameter `value` of function `expose` exposes this refinement.
 main.veln:15:66: error[type.variant_union_base]: variant-refinement base `State<String>` does not match expected base `State<Alias>`
-  note: main.veln:15:22: The first successfully instantiated alternative established `State<Alias>` as the union base.
+  note: main.veln:15:22: The earliest independently instantiated base identity established `State<Alias>` as the union base.
 main.veln:19:52: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
   note: main.veln:12:2: Private variant `main::State::Hidden` is declared here.
   note: main.veln:19:26: Public parameter `value` of function `expose_unresolved` exposes this refinement.

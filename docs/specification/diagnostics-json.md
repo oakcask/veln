@@ -149,6 +149,45 @@ record, and function positions.
 | `not_adt` | The resolved named type has no finite ADT variants. | A source-backed type uses `base_type_declaration` with the canonical target's `resolved_identity` and declaration span, including when the written base is a public alias or alias chain. A source-less type published by the type-syntax provider uses spanless `base_type_origin` with `resolved_identity` and `provider: "type_syntax"`. |
 | `opaque` | The resolved compiler-known type intentionally hides its variants. | A spanless `base_type_origin` contains `resolved_identity` and `provider: "adt"`. |
 
+When an uppercase final segment is unknown, resolves to a non-constructor, or
+names a constructor owned by another ADT, the checker reports
+`type.variant_refinement_unknown` at that final segment. This includes an
+unknown name, a name that resolves as a non-constructor, and a constructor
+owned by another ADT. Its closed details contain exactly `base_type` and
+`variant`. Related entries identify the resolved ADT declaration and each
+variant visible from the annotation, in declaration order. The first entry has
+`kind: "base_type_declaration"` and contains `message`, `resolved_identity`,
+and the declaration `span` when one exists. Each following entry has
+`kind: "visible_variant_declaration"` and contains `message`, `variant`, the
+same `resolved_identity`, and the variant declaration `span` when one exists.
+All variants are visible within their declaring module. An ordinary foreign
+module sees only public variants. An exact test companion with the required
+explicit target import also sees the target module's private variants. A
+source-less ADT uses the same entries without source spans when no declaration
+locations exist.
+
+The failed final segment retains the independently resolved base identity for
+union-base comparison and declaration quarantine, whether the unknown final is
+the first, middle, or last union alternative. Each repeated unknown final
+reports at its own segment. Same-base alternatives before or after it do not
+add `type.variant_union_base`; a later independently instantiated different
+base still does. The failed final does not select a constructor. The checker
+therefore suppresses privacy, assignability, and other failures that require a
+selected constructor. An invalid nested type
+argument suppresses an enclosing unknown-final failure that would require that
+argument to instantiate the base. A uniquely casing-recovered base keeps the
+independent `name.invalid_case` before this diagnostic.
+The checked
+[`human`](../../examples/specification/check/adt-variant-refinement-unknown-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-unknown-json/)
+cases fix the message, final-segment span, closed details, and related-entry
+order. The checked exact-companion
+[`human`](../../examples/specification/check/adt-variant-refinement-unknown-companion-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-unknown-companion-json/)
+cases fix the target-private variant projection and its related spans.
+
 A variant refinement anywhere in a public function parameter or result, or in
 a payload of a public variant of a public source ADT, reports
 `type.variant_refinement_private` when its uniquely resolved terminal ADT is
@@ -306,16 +345,18 @@ that traversal. A failure in one generic argument does not suppress an
 independently complete union-base comparison in a later sibling argument. An
 exact or uniquely casing-recovered type application in a separate sibling
 position still reports its independently provable generic-arity failure.
-Within one refinement union, a failed alternative does not establish or clear
-the expected base. The earliest successfully instantiated alternative
-establishes that base. Each later successfully instantiated alternative is
-compared with it in written order. A different ADT identity or different
-canonical generic arguments report `type.variant_union_base` at the complete
-later alternative, even when a failed alternative occurs before or between the
-successful alternatives. Successful instantiation requires every nested named
-type to resolve uniquely. An unresolved or ambiguous nested name therefore
-does not establish the expected base. An in-scope declaration type parameter
-is resolved in that declaration context and remains eligible for comparison.
+Within one refinement union, the earliest independently instantiated base
+identity and canonical generic arguments establish the expected base. Each
+later independently instantiated base is compared with it in written order. A
+different ADT identity or different canonical generic arguments report
+`type.variant_union_base` at the complete later alternative. An unknown final
+segment does not prevent its independently resolved base from participating in
+that comparison. An alternative without a comparable base does not establish
+or clear the expected base. In particular, every nested named type must resolve
+uniquely before the enclosing base can participate. An unresolved or ambiguous
+nested name therefore does not establish the expected base. An in-scope
+declaration type parameter is resolved in that declaration context and remains
+eligible for comparison.
 It remains distinct from a same-spelled nominal type. The type parameter keeps
 its source spelling in diagnostic details, while the nominal type uses its
 stable qualified identity when that qualification is needed to expose the
@@ -325,9 +366,9 @@ the compiler-known spelling concise and qualify the source type to expose the
 conflict. Adding or renaming a source declaration whose name does not occur in
 the union annotation leaves the expected-base selection and reported conflicts
 unchanged. Its closed details contain exactly
-`expected_base_type` and `actual_base_type`. The expected type is the base of
-the earliest successfully instantiated alternative. The actual type is the
-base of the conflicting alternative. These values use concise canonical names
+`expected_base_type` and `actual_base_type`. The expected type is the earliest
+independently instantiated base. The actual type is the base of the conflicting
+alternative. These values use concise canonical names
 when those names distinguish the bases. When equal concise names would hide a
 different nominal identity, the conflicting position uses its stable qualified
 identity. Each rendered base retains its complete generic argument list when
@@ -375,6 +416,13 @@ established relative order and can remain between the casing and base failures
 of one alternative. The checked human and JSON cases below preserve the full
 sequence around unrelated public-signature and casing diagnostics as well as
 refinement failures.
+When one alternative has an unknown final segment and its retained base also
+differs from the union base, `type.variant_refinement_unknown` precedes
+`type.variant_union_base`. The union-base diagnostic still uses the complete
+alternative as its primary span. An unknown final with the established base
+does not interrupt comparison of a later alternative. The checked
+unknown-refinement human and JSON cases above preserve these recovery outcomes,
+the diagnostic order, and both spans.
 An independently provable generic-arity failure keeps
 `type.invalid_annotation` instead of adding the base diagnostic. This applies
 to exact and uniquely casing-recovered source-backed or source-less base types;

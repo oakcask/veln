@@ -213,3 +213,43 @@ equals_response = {"id":17,"path":"/result/structuredContent"}
 id = 33
 path = "/result/structuredContent"
 equals_response = {"id":18,"path":"/result/structuredContent"}
+
+[[mcp_assert]]
+id = 42
+path = "/result/structuredContent/diagnostics"
+length = 5
+
+[[mcp_assert]]
+id = 42
+path = "/result/structuredContent/diagnostics/0/id"
+equals = "type.variant_refinement_unknown"
+
+[[mcp_assert]]
+id = 42
+path = "/result/structuredContent/diagnostics/0/details"
+equals = {"base_type":"Remote","variant":"Missing"}
+
+[[mcp_assert]]
+id = 42
+path = "/result/structuredContent/diagnostics/0/related"
+length = 2
+
+[[mcp_assert]]
+id = 42
+path = "/result/structuredContent/diagnostics/0/related/1/variant"
+equals = "Ready"
+
+[[mcp_assert]]
+id = 42
+path = "/result/structuredContent/diagnostics/3/details"
+equals = {"base_type":"Remote","variant":"Missing"}
+
+[[mcp_assert]]
+id = 42
+path = "/result/structuredContent/diagnostics/3/related"
+length = 2
+
+[[mcp_assert]]
+id = 42
+path = "/result/structuredContent/diagnostics/3/related/1/variant"
+equals = "Ready"

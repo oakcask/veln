@@ -12,6 +12,10 @@ fn non_adt(value: model::Empty::Missing) -> ()
   ()
 end
 
+fn unknown(value: model::State::Missing) -> ()
+  ()
+end
+
 pub fn expose(value: model::Outer::Hidden) -> ()
   ()
 end

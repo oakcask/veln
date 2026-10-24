@@ -10,6 +10,7 @@ end
 
 pub type State
   Hidden
+  pub Ready
 end
 pub type Inner = State
 pub type Outer = Inner
