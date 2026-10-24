@@ -839,17 +839,37 @@ fn rejects_lowercase_final_variants_after_generic_adt_bases() {
 fn preserves_generic_refinements_with_lowercase_base_leaves_for_semantic_recovery() {
     let source = SourceFile::new(
         "main.veln",
-        "fn invalid(value: genericEmpty<Int>::Missing) -> ()\n  ()\nend\n",
+        "fn invalid(value: genericEmpty<Int>::missing) -> ()\n  ()\nend\n",
     );
     let output = parse(&source);
-    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
 
     let refinement = &first_function(&output).params[0].ty_refinements[0];
     let alternative = &refinement.alternatives[0];
     assert_eq!(alternative.base.segments, ["genericEmpty"]);
     assert_eq!(alternative.type_arguments.len(), 1);
     assert_eq!(alternative.type_arguments[0].ty_fragments, ["Int"]);
-    assert_eq!(alternative.variant, "Missing");
+    assert_eq!(alternative.variant, "missing");
+    assert_eq!(
+        &source.text()[alternative.type_arguments[0].span.start.offset
+            ..alternative.type_arguments[0].span.end.offset],
+        "Int"
+    );
+    assert_eq!(
+        &source.text()[alternative.span.start.offset..alternative.span.end.offset],
+        "genericEmpty<Int>::missing"
+    );
+    assert_eq!(alternative.span, refinement.span);
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+        .expect("lowercase final remains a recoverable parse failure");
+    assert!(diagnostic.allows_semantic_analysis());
+    assert_eq!(diagnostic.span.as_ref(), Some(&alternative.variant_span));
+    assert_eq!(
+        &source.text()[alternative.variant_span.start.offset..alternative.variant_span.end.offset],
+        "missing"
+    );
     assert_eq!(
         &source.text()[alternative.base.segment_spans[0].start.offset
             ..alternative.base.segment_spans[0].end.offset],

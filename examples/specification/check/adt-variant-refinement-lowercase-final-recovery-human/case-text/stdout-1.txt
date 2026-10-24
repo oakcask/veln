@@ -1,33 +1,43 @@
-main.veln:22:32: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
-main.veln:22:50: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
-main.veln:27:31: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
-main.veln:31:32: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
-main.veln:35:41: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
-main.veln:39:29: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
-main.veln:22:32: error[name.invalid_case]: constructor name `hidden` must start with an ASCII uppercase letter
-main.veln:22:50: error[name.invalid_case]: constructor name `ready` must start with an ASCII uppercase letter
-main.veln:27:31: error[name.invalid_case]: constructor name `ready` must start with an ASCII uppercase letter
-main.veln:31:32: error[name.invalid_case]: constructor name `missing` must start with an ASCII uppercase letter
-main.veln:35:41: error[name.invalid_case]: constructor name `only` must start with an ASCII uppercase letter
-main.veln:39:29: error[name.invalid_case]: constructor name `missing` must start with an ASCII uppercase letter
-main.veln:23:15: error[type.variant_mismatch]: value of type `State::Hidden` is not assignable to variant type `State::Closed`
-  note: main.veln:23:15: Excluded variants: Hidden.
-  note: main.veln:18:1: Callee parameter type declared here.
-main.veln:24:2: error[type.variant_mismatch]: value of type `State::Hidden` is not assignable to variant type `State::Ready`
-  note: main.veln:24:2: Excluded variants: Hidden.
-  note: main.veln:22:1: Return type declared here.
-main.veln:22:32: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+main.veln:25:32: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:25:50: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:30:33: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:30:48: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:34:43: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:38:31: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:42:32: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:46:41: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:50:29: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:25:32: error[name.invalid_case]: constructor name `hidden` must start with an ASCII uppercase letter
+main.veln:25:50: error[name.invalid_case]: constructor name `ready` must start with an ASCII uppercase letter
+main.veln:30:26: error[name.invalid_case]: type name `state` must start with an ASCII uppercase letter
+main.veln:30:33: error[name.invalid_case]: constructor name `ready` must start with an ASCII uppercase letter
+main.veln:30:48: error[name.invalid_case]: constructor name `closed` must start with an ASCII uppercase letter
+main.veln:34:24: error[name.invalid_case]: type name `genericEmpty` must start with an ASCII uppercase letter
+main.veln:34:43: error[name.invalid_case]: constructor name `missing` must start with an ASCII uppercase letter
+main.veln:38:31: error[name.invalid_case]: constructor name `ready` must start with an ASCII uppercase letter
+main.veln:42:32: error[name.invalid_case]: constructor name `missing` must start with an ASCII uppercase letter
+main.veln:46:41: error[name.invalid_case]: constructor name `only` must start with an ASCII uppercase letter
+main.veln:50:29: error[name.invalid_case]: constructor name `missing` must start with an ASCII uppercase letter
+main.veln:26:15: error[type.variant_mismatch]: value of type `State::Hidden` is not assignable to variant type `State::Closed`
+  note: main.veln:26:15: Excluded variants: Hidden.
+  note: main.veln:21:1: Callee parameter type declared here.
+main.veln:27:2: error[type.variant_mismatch]: value of type `State::Hidden` is not assignable to variant type `State::Ready`
+  note: main.veln:27:2: Excluded variants: Hidden.
+  note: main.veln:25:1: Return type declared here.
+main.veln:25:32: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
   note: main.veln:3:2: Private variant `main::State::Hidden` is declared here.
-  note: main.veln:22:18: Public parameter `value` of function `recovered` exposes this refinement.
-main.veln:27:39: error[type.variant_union_base]: variant-refinement base `Other` does not match expected base `State`
-  note: main.veln:27:24: The earliest independently instantiated base identity established `State` as the union base.
-main.veln:31:32: error[type.variant_refinement_unknown]: variant `missing` is not a variant of `State`
+  note: main.veln:25:18: Public parameter `value` of function `recovered` exposes this refinement.
+main.veln:34:24: error[type.variant_refinement_base]: variant-refinement base `genericEmpty<Int>` is not a finite ADT
+  note: main.veln:18:1: Type `GenericEmpty` is declared here without finite ADT variants.
+main.veln:38:39: error[type.variant_union_base]: variant-refinement base `Other` does not match expected base `State`
+  note: main.veln:38:24: The earliest independently instantiated base identity established `State` as the union base.
+main.veln:42:32: error[type.variant_refinement_unknown]: variant `missing` is not a variant of `State`
   note: main.veln:1:5: Type `State` is the resolved ADT for this refinement.
   note: main.veln:2:2: Visible variant `Ready` is declared here.
   note: main.veln:3:2: Visible variant `Hidden` is declared here.
   note: main.veln:4:2: Visible variant `Closed` is declared here.
-main.veln:31:42: error[type.variant_union_base]: variant-refinement base `Other` does not match expected base `State`
-  note: main.veln:31:25: The earliest independently instantiated base identity established `State` as the union base.
-main.veln:35:23: error[type.invalid_annotation]: invalid type annotation `Box<Int, String>::only`: `Box` expects 1 type argument(s), found 2
-main.veln:39:22: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
+main.veln:42:42: error[type.variant_union_base]: variant-refinement base `Other` does not match expected base `State`
+  note: main.veln:42:25: The earliest independently instantiated base identity established `State` as the union base.
+main.veln:46:23: error[type.invalid_annotation]: invalid type annotation `Box<Int, String>::only`: `Box` expects 1 type argument(s), found 2
+main.veln:50:22: error[type.variant_refinement_base]: variant-refinement base `Empty` is not a finite ADT
   note: main.veln:15:1: Type `Empty` is declared here without finite ADT variants.

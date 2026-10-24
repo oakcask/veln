@@ -285,14 +285,31 @@ impl TypeCanonicalizer<'_> {
         let canonical_name = self.adts.canonical_type_name_for_descriptor(descriptor);
         let mut resolution = RefinementResolution::new(descriptor, canonical_args, variants);
         for (name, args, variant) in unresolved_alternatives {
-            let alternative_descriptor = self.adts.descriptor_for_type_path(
-                &name,
-                args.len(),
-                self.current_module,
-                self.uses,
-            )?;
+            let alternative_descriptor = self
+                .adts
+                .descriptor_for_type_path(&name, args.len(), self.current_module, self.uses)
+                .or_else(|| {
+                    let recovered = recover_type_case(&name)?;
+                    self.adts.unique_descriptor_for_type_path(
+                        &recovered,
+                        args.len(),
+                        self.current_module,
+                        self.uses,
+                    )
+                })?;
             crate::type_relations::record_variant_set_lookup();
             record_variant_canonicalization_lookup();
+            let variant = if declaration_order.rank(&variant).is_some() {
+                variant
+            } else {
+                let recovered = uppercase_initial(&variant)?;
+                found_variant(
+                    self.adts
+                        .variant_for_descriptor(alternative_descriptor, &recovered),
+                )?
+                .name
+                .clone()
+            };
             let alternative_args = self.canonicalize_args(args);
             if !resolution.merge_alternative(
                 descriptor,

@@ -313,6 +313,82 @@ mod tests {
     }
 
     #[test]
+    fn mixed_union_and_generic_base_failure_candidates_reach_semantic_loading() {
+        let text = concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "  Failed\n",
+            "end\n",
+            "type GenericEmpty<A>\n",
+            "end\n",
+            "fn mixed(value: state::ready | State::closed) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn generic(value: genericEmpty<Int>::missing) -> ()\n",
+            "  ()\n",
+            "end\n",
+        );
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new("main.veln", text)],
+            manifest: None,
+        };
+        let mut diagnostics = Vec::new();
+        let mut parts = SurfaceParts::new();
+
+        load_project_sources(&project, &mut diagnostics, &mut parts, None, None, None);
+
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+                .count(),
+            2,
+            "{diagnostics:#?}"
+        );
+        assert_eq!(
+            parts.module.functions.len(),
+            2,
+            "{:#?}",
+            parts.module.functions
+        );
+        let mixed = &parts.module.functions[0].params[0].ty_refinements[0];
+        assert_eq!(mixed.alternatives.len(), 2);
+        assert_eq!(mixed.alternatives[0].base.segments, ["state"]);
+        assert_eq!(mixed.alternatives[0].variant, "ready");
+        assert_eq!(mixed.alternatives[1].base.segments, ["State"]);
+        assert_eq!(mixed.alternatives[1].variant, "closed");
+        let generic = &parts.module.functions[1].params[0].ty_refinements[0].alternatives[0];
+        assert_eq!(generic.base.segments, ["genericEmpty"]);
+        assert_eq!(generic.type_arguments.len(), 1);
+        assert_eq!(generic.type_arguments[0].ty_fragments, ["Int"]);
+        assert_eq!(generic.variant, "missing");
+        assert_eq!(
+            &text[generic.base.segment_spans[0].start.offset
+                ..generic.base.segment_spans[0].end.offset],
+            "genericEmpty"
+        );
+        assert_eq!(
+            &text[generic.type_arguments[0].span.start.offset
+                ..generic.type_arguments[0].span.end.offset],
+            "Int"
+        );
+        assert_eq!(
+            &text[generic.variant_span.start.offset..generic.variant_span.end.offset],
+            "missing"
+        );
+        assert_eq!(
+            &text[generic.span.start.offset..generic.span.end.offset],
+            "genericEmpty<Int>::missing"
+        );
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "parse.variant_refinement_type"
+                && diagnostic.span.as_ref() == Some(&generic.variant_span)
+        }));
+    }
+
+    #[test]
     fn unrelated_variant_refinement_parse_failure_still_excludes_semantic_loading() {
         let project = Project {
             root: ".".into(),

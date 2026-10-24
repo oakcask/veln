@@ -145,10 +145,12 @@ the constructor identity, and permits independent arity, base, union,
 visibility, and assignability diagnostics. A repair with no unique result
 retains only independently selected identities and suppresses
 constructor-dependent failures. Diagnostics keep written-alternative and
-per-alternative check order, and recovery never validates the annotation. The
-same rules apply when the base and final segment both need unique initial-only
-repairs. A non-generic lowercase qualified path remains ordinary named-type
-text unless base resolution selects its refinement interpretation. The checked
+per-alternative check order, including when one parse diagnostic is emitted
+during source loading and another is emitted after semantic recovery. Recovery
+never validates the annotation. The same rules apply independently to every
+union alternative and when the base and final segment both need unique
+initial-only repairs. A non-generic lowercase qualified path remains ordinary
+named-type text unless base resolution selects its refinement interpretation. The checked
 combined-casing
 [`human`](../../examples/specification/check/adt-variant-refinement-combined-case-recovery-human/)
 and
@@ -159,7 +161,9 @@ identity, visibility, related context, and closed detail objects. The checked
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-lowercase-final-recovery-json/)
 outputs fix the ordering, final-segment spans, retained identity, suppression,
-and closed existing detail objects. The focused ambiguous-repair
+closed existing detail objects, mixed exact and recovered union alternatives,
+and a recovered generic non-ADT base with canonical declaration provenance.
+The focused ambiguous-repair
 [`human`](../../examples/specification/check/adt-variant-refinement-lowercase-final-ambiguous-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-lowercase-final-ambiguous-json/)

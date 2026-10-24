@@ -237,6 +237,62 @@ fn combined_base_and_final_recovery_retains_constructor_identity() {
 }
 
 #[test]
+fn every_written_union_alternative_uses_combined_case_recovery() {
+    let source = concat!(
+        "type State\n  Ready\n  Closed\n  Failed\nend\n",
+        "fn forward(value: state::ready | State::closed) -> ()\n  ()\nend\n",
+        "fn reverse(value: State::closed | state::ready) -> ()\n  ()\nend\n",
+        "fn later(value: State::Ready | state::closed) -> ()\n  ()\nend\n",
+    );
+    let parsed = parse(&SourceFile::new("main.veln", source));
+    assert!(
+        parsed
+            .diagnostics
+            .iter()
+            .all(veln_syntax::ParseDiagnostic::allows_semantic_analysis),
+        "{:#?}",
+        parsed.diagnostics
+    );
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    for annotation in [
+        "state::ready | State::closed",
+        "State::closed | state::ready",
+        "State::Ready | state::closed",
+    ] {
+        let recovered = environment.canonicalize_type_annotation(
+            parse_type_annotation(annotation).expect("variant union syntax"),
+            None,
+        );
+        assert_eq!(
+            recovered.render(),
+            "State::Ready | State::Closed",
+            "{annotation}"
+        );
+    }
+    for function in ["forward", "reverse", "later"] {
+        assert_eq!(
+            environment
+                .function(function)
+                .expect("invalid declaration retains its symbol")
+                .params,
+            [Type::Unknown],
+            "{function} must remain quarantined"
+        );
+    }
+
+    let diagnostics = analyze_surface_module(&module);
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "name.unresolved"
+                && diagnostic.id != "type.variant_refinement_unknown"
+                && diagnostic.id != "type.invalid_annotation"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn generic_combined_casing_preserves_independent_arity_failure() {
     let source = concat!(
         "type GenericState<A>\n  Ready(value: A)\nend\n",
@@ -269,6 +325,58 @@ fn generic_combined_casing_preserves_independent_arity_failure() {
             .iter()
             .all(|diagnostic| { diagnostic.id != "type.variant_refinement_unknown" })
     );
+}
+
+#[test]
+fn generic_combined_casing_preserves_independent_base_failure() {
+    let source = concat!(
+        "mod main\n",
+        "type GenericEmpty<A>\nend\n",
+        "fn rejected(value: genericEmpty<Int>::missing) -> ()\n  ()\nend\n",
+    );
+    let parsed = parse(&SourceFile::new("main.veln", source));
+    assert_eq!(parsed.diagnostics.len(), 1, "{:#?}", parsed.diagnostics);
+    assert!(parsed.diagnostics[0].allows_semantic_analysis());
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .function("rejected")
+            .expect("retained symbol")
+            .params,
+        [Type::Unknown]
+    );
+
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "name.invalid_case",
+            "name.invalid_case",
+            "type.variant_refinement_base",
+        ],
+        "{diagnostics:#?}"
+    );
+    let base = &diagnostics[2];
+    assert_eq!(
+        base.details.to_json(),
+        "{\"written_type\":\"genericEmpty<Int>\",\"reason\":\"not_adt\"}"
+    );
+    assert_eq!(base.related.len(), 1, "{base:#?}");
+    let related = base.related[0].to_json();
+    assert!(related.contains("\"kind\":\"base_type_declaration\""));
+    assert!(related.contains("Type `GenericEmpty` is declared here without finite ADT variants."));
+    assert!(related.contains("\"resolved_identity\":\"main::GenericEmpty\""));
+    assert!(related.contains("\"line\":2,\"column\":1"));
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "type.variant_refinement_unknown"
+            && diagnostic.id != "type.variant_refinement_private"
+            && diagnostic.id != "type.variant_mismatch"
+            && diagnostic.id != "type.invalid_annotation"
+    }));
 }
 
 #[test]

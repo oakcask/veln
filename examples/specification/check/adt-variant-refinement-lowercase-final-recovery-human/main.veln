@@ -15,6 +15,9 @@ end
 type Empty
 end
 
+type GenericEmpty<A>
+end
+
 fn needs_closed(value: State::Closed) -> ()
 	()
 end
@@ -22,6 +25,14 @@ end
 pub fn recovered(value: State::hidden) -> State::ready
 	needs_closed(value)
 	value
+end
+
+fn mixed_recovery(value: state::ready | State::closed) -> ()
+	()
+end
+
+fn generic_base(value: genericEmpty<Int>::missing) -> ()
+	()
 end
 
 fn unique_union(value: State::ready | Other::OtherOnly) -> ()
