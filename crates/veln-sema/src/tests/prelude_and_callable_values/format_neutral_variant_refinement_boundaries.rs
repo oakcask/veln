@@ -1,6 +1,95 @@
 use super::*;
 
 #[test]
+fn binary_schema_decoders_reject_refinements_they_cannot_establish() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready\n",
+            "  pub Closed\n",
+            "end\n",
+            "\n",
+            "pub type Wrapper<A>\n",
+            "  pub Wrapped(value: A)\n",
+            "end\n",
+            "\n",
+            "schema Packet\n",
+            "  format binary\n",
+            "  singleton: State::Ready\n",
+            "  union: State::Ready | State::Closed\n",
+            "  nested: Wrapper<State::Ready>::Wrapped\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let nested_inner = module.schemas[0].fields[2].ty_refinements[0].alternatives[0].type_arguments
+        [0]
+    .ty_refinements[0]
+        .span
+        .clone();
+
+    let diagnostics = analyze_surface_module(&module);
+    let unsupported = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.variant_refinement_decode_unsupported")
+        .collect::<Vec<_>>();
+
+    assert_eq!(unsupported.len(), 3, "{diagnostics:#?}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "schema.composition_reference"),
+        "{diagnostics:#?}"
+    );
+    assert_eq!(unsupported[2].span.as_ref(), Some(&nested_inner));
+    assert_eq!(
+        unsupported[1].details.to_json(),
+        concat!(
+            "{\"target_type\":\"State::Ready | State::Closed\",",
+            "\"base_type\":\"State\",\"expected_variants\":[\"Ready\",\"Closed\"],",
+            "\"decoder\":\"byte_decode_packet\"}"
+        )
+    );
+    assert!(unsupported.iter().all(|diagnostic| {
+        diagnostic.related.len() == 1
+            && diagnostic.related[0]
+                .to_json()
+                .contains("\"provenance\":\"generated_binary_schema\"")
+    }));
+}
+
+#[test]
+fn format_neutral_decoder_can_establish_refinements_from_its_typed_input() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready\n",
+            "  pub Closed\n",
+            "end\n",
+            "\n",
+            "schema Packet\n",
+            "  singleton: State::Ready\n",
+            "  union: State::Ready | State::Closed\n",
+            "  nested: Option<List<State::Ready>>\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(
+        schema_decode_value_type(&module, &module.schemas[0])
+            .expect("typed pass-through decoder should establish its refined input")
+            .render(),
+        "{singleton: State::Ready, union: State, nested: Option<List<State::Ready>>}"
+    );
+}
+
+#[test]
 fn composed_format_neutral_schema_encode_helpers_resolve_child_refinements() {
     let source = SourceFile::new(
         "main.veln",

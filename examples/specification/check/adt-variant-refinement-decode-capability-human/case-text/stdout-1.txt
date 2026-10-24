@@ -1,0 +1,6 @@
+main.veln:12:9: error[schema.variant_refinement_decode_unsupported]: generated binary decoder `byte_decode_singleton_packet` cannot establish variant refinement `State::Ready`
+  note: main.veln:11:2: `format binary` selects generated decoder `byte_decode_singleton_packet`, which cannot construct an admitted `State` variant or validate its decoded tag (Ready).
+main.veln:17:9: error[schema.variant_refinement_decode_unsupported]: generated binary decoder `byte_decode_union_packet` cannot establish variant refinement `State::Ready | State::Closed`
+  note: main.veln:16:2: `format binary` selects generated decoder `byte_decode_union_packet`, which cannot construct an admitted `State` variant or validate its decoded tag (Ready | Closed).
+main.veln:22:17: error[schema.variant_refinement_decode_unsupported]: generated binary decoder `byte_decode_nested_packet` cannot establish variant refinement `State::Ready`
+  note: main.veln:21:2: `format binary` selects generated decoder `byte_decode_nested_packet`, which cannot construct an admitted `State` variant or validate its decoded tag (Ready).

@@ -424,7 +424,7 @@ fn check_module_declarations(
             environment,
         ));
     }
-    diagnostics.extend(check_schema_field_primitives(module));
+    diagnostics.extend(check_schema_field_primitives(module, environment));
     diagnostics.extend(check_schema_type_references(module));
     diagnostics.extend(check_handler_declarations(module, environment));
 

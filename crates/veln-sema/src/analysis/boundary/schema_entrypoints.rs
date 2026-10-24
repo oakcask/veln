@@ -113,7 +113,10 @@ fn check_expr_schema_type_references(
     });
 }
 
-pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagnostic> {
+pub(crate) fn check_schema_field_primitives(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
     for schema in &module.schemas {
@@ -126,6 +129,7 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
             schema,
             format_name,
             adts: &adts,
+            environment,
         };
         let mut state = SchemaFieldPrimitiveState {
             decoded_fields: &mut decoded_fields,
@@ -147,6 +151,7 @@ struct SchemaFieldPrimitiveContext<'a> {
     schema: &'a SchemaDecl,
     format_name: Option<&'a str>,
     adts: &'a AdtRegistry,
+    environment: &'a TypeEnvironment,
 }
 
 struct SchemaFieldPrimitiveState<'a> {
@@ -167,6 +172,14 @@ fn check_schema_field_primitive(
                 context.schema,
                 field,
             ));
+        return;
+    }
+    if check_binary_schema_variant_refinement_decode(
+        context.schema,
+        field,
+        context.environment,
+        state.diagnostics,
+    ) {
         return;
     }
     if schema_field_primitive_is_handled(

@@ -686,6 +686,26 @@ The checked
 [`format-neutral decode JSON case`](../../examples/specification/check/adt-variant-refinement-format-neutral-schema-decode-json/)
 covers all three boundaries.
 
+A refinement-bearing `format binary` field requires a decoder that can either
+construct an admitted variant or inspect and validate the decoded ADT tag. The
+generated binary decoder has neither capability for a source ADT, so analysis
+reports `schema.variant_refinement_decode_unsupported`. The primary span is the
+innermost unsupported refinement. For a union, that span covers the complete
+union. The diagnostic does not replace an independently applicable invalid
+base or unknown-variant diagnostic.
+
+The diagnostic details object is closed and contains only `target_type`,
+`base_type`, `expected_variants`, and `decoder`. `target_type` renders the
+selected refinement, `base_type` renders its written ADT base,
+`expected_variants` preserves annotation order, and `decoder` names the
+generated decoder selected for the schema. One `decoder_provenance` related
+entry identifies the selected decoder, its `generated_binary_schema`
+provenance, and the `format binary` clause that selected it. The checked
+[`human capability case`](../../examples/specification/check/adt-variant-refinement-decode-capability-human/)
+and
+[`JSON capability case`](../../examples/specification/check/adt-variant-refinement-decode-capability-json/)
+cover singleton, union, nested selection, the closed details, and provenance.
+
 A valid constructor arm for a stable match scrutinee refines the matched place
 to the constructor singleton while checking the arm. A stable scrutinee is an
 immutable binding written as a bare name or with redundant parentheses, or a

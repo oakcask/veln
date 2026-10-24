@@ -1,0 +1,10 @@
+pub type State
+	pub Ready
+	pub Closed
+end
+
+schema PassThroughPacket
+	singleton: State::Ready
+	union: State::Ready | State::Closed
+	nested: Option<List<State::Ready>>
+end
