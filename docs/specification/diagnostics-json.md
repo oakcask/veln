@@ -167,9 +167,13 @@ source-less ADT uses the same entries without source spans when no declaration
 locations exist.
 
 The failed final segment retains the independently resolved base identity for
-later union-base comparison and declaration quarantine. It does not select a
-constructor. The checker therefore suppresses privacy, assignability, and
-other failures that require a selected constructor. An invalid nested type
+union-base comparison and declaration quarantine, whether the unknown final is
+the first, middle, or last union alternative. Each repeated unknown final
+reports at its own segment. Same-base alternatives before or after it do not
+add `type.variant_union_base`; a later independently instantiated different
+base still does. The failed final does not select a constructor. The checker
+therefore suppresses privacy, assignability, and other failures that require a
+selected constructor. An invalid nested type
 argument suppresses an enclosing unknown-final failure that would require that
 argument to instantiate the base. A uniquely casing-recovered base keeps the
 independent `name.invalid_case` before this diagnostic.
@@ -413,8 +417,10 @@ refinement failures.
 When one alternative has an unknown final segment and its retained base also
 differs from the union base, `type.variant_refinement_unknown` precedes
 `type.variant_union_base`. The union-base diagnostic still uses the complete
-alternative as its primary span. The checked unknown-refinement human and JSON
-cases above preserve this order and both spans.
+alternative as its primary span. An unknown final with the established base
+does not interrupt comparison of a later alternative. The checked
+unknown-refinement human and JSON cases above preserve these recovery outcomes,
+the diagnostic order, and both spans.
 An independently provable generic-arity failure keeps
 `type.invalid_annotation` instead of adding the base diagnostic. This applies
 to exact and uniquely casing-recovered source-backed or source-less base types;
