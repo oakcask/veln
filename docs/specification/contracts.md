@@ -209,6 +209,14 @@ reports `contract.field_missing`. The
 [type specification](types.md#compatibility-and-limits) owns the annotation
 failure and declaration quarantine rules.
 
+Invalid casing alone has a narrower boundary. If initial-only recovery selects
+one base and constructor for a lowercase-final refinement, contract validation
+uses that recovered parameter or result type. It can therefore report
+independently provable predicate failures against the recovered type. The
+casing and parse diagnostics still reject the annotation and keep the
+declaration unpublished. If recovery cannot select the required identity, the
+unknown-type behavior above applies.
+
 ## References
 
 - Predicate parsing: `crates/veln-syntax/src/parser/contract_predicates.rs`.

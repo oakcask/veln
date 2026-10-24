@@ -383,6 +383,16 @@ diagnostic contract routed by [diagnostics-json.md](diagnostics-json.md),
 including span-less `toolchain.invalid_symbol_case` entries with diagnostic
 kind `toolchain` and details for `provider`, `name`, `name_class`, and
 `required_initial`.
+For a structurally complete variant refinement with an ASCII-lowercase final
+segment, `check_project` returns the parse diagnostic followed by independently
+provable semantic diagnostics from the same saved snapshot. The annotation
+remains invalid, and any unrelated parse diagnostic in that source suppresses
+its semantic diagnostics. The shared overlap and ordering are defined by the
+[diagnostic specification](diagnostics-json.md#diagnostic-families).
+A parse-clean non-generic path with lowercase base and final segments follows
+the same result contract when unique initial-only base recovery
+selects its resolution-dependent refinement candidate. `check_project` inserts
+the parse diagnostic before the casing and type diagnostics.
 For `type.variant_refinement_unknown`, `check_project` preserves the closed
 `base_type` and `variant` details. Its related entries preserve
 `resolved_identity` for the resolved ADT and each visible variant, and

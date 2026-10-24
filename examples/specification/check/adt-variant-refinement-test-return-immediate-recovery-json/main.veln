@@ -1,0 +1,7 @@
+type State
+	Ready
+end
+
+test recovered() -> Result<(), State::ready>
+	Ok(())
+end

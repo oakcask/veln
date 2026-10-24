@@ -20,6 +20,7 @@ const STATE_DECL: &str = concat!(
 mod base_failures;
 mod casing_base_failures;
 mod declaration_quarantine;
+mod lowercase_final_recovery;
 mod public_visibility;
 mod scaling;
 mod unknown_finals;

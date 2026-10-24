@@ -79,6 +79,7 @@ impl<'a> TypeParameterIdentityContext<'a> {
 mod effect_handlers;
 mod facts;
 mod quarantined_imports;
+mod refinement_case_recovery;
 mod refinements;
 mod standard_subset;
 

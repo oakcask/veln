@@ -20,6 +20,13 @@ Saved candidates remain advisory. Current candidates whose target source has a
 source-path-derived `name.invalid_case` are excluded. Current command ids are
 `repair-N`; the preserved advisory id is `source_candidate_id`.
 
+Current-source previews use the expected type and candidate queries produced
+by [hole analysis](holes.md#hole-diagnostics-and-expected-types). A uniquely
+recovered lowercase-final parameter or result can therefore supply canonical
+refinement context to a hole even though the declaration remains invalid. A
+missing or ambiguous recovery identity supplies no such context. This changes
+candidate availability and ranking, not the advisory or application boundary.
+
 Use `--candidate ID` to select a command-local, advisory, or accepted saved
 command-level id. A missing or ambiguous id refuses. Without an id, apply mode
 requires exactly one safe unapplied candidate.

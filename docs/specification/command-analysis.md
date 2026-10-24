@@ -25,9 +25,20 @@ doctest creation when requested, parse diagnostics, module loading, semantic
 diagnostics, checked-core readiness, and selected-entry typed-IR readiness.
 Selection, output, execution, and write policy remain command specific.
 
-A source with parse diagnostics is excluded from semantic analysis. Other
-parse-clean sources in the same project can still proceed to semantic
-analysis.
+A source with a parse diagnostic is excluded from semantic analysis unless
+every parse diagnostic reports a structurally complete variant refinement
+whose final segment starts with an ASCII lowercase letter. That recovery keeps
+the invalid annotation available for semantic diagnostics. A parse-clean
+non-generic path whose prospective base and final segments both start with
+ASCII lowercase letters also reaches semantic analysis as a
+resolution-dependent refinement candidate. If unique initial-only
+base recovery selects that interpretation, analysis inserts the same parse
+diagnostic before the independently provable semantic diagnostics. Neither
+path makes the annotation valid. Any unrelated parse diagnostic excludes the
+source.
+Other eligible sources in the same project can still proceed to semantic
+analysis. The recoverable syntax boundary is defined by the
+[source-surface specification](source-surface.md#variant-refinement-shaped-type-text).
 
 Shared semantic analysis keeps unambiguous type and constructor identities for
 recovery, but it does not publish a public function or ADT whose signature

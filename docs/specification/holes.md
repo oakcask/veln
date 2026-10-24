@@ -44,6 +44,14 @@ diagnostic and `details.expected_type` use the same rendered type. A hole with
 no concrete context retains `expected_type: "unknown"` and the unknown-type
 message.
 
+A function declaration with an invalid-cased variant refinement can still
+supply hole context when initial-only recovery uniquely selects its base and
+constructor identity. Recovered parameter bindings and return annotations then
+provide their canonical refinement types to holes and `satisfy` checking. The
+annotation remains invalid and the declaration remains unpublished. A missing
+or ambiguous recovery identity quarantines the declaration types instead, so
+those annotations do not supply a concrete hole expectation.
+
 The [control-flow result join](types.md#inference-rules) does not supply type
 context from one sibling branch or arm to another. A hole receives an
 independently available enclosing or declared expectation. Without one, it

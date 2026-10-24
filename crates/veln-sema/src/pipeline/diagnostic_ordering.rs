@@ -141,6 +141,15 @@ pub(super) fn merge_variant_refinement_base_diagnostics(
     }
 }
 
+pub(super) fn order_delayed_parse_diagnostics(diagnostics: &mut Vec<Diagnostic>) {
+    let existing = std::mem::take(diagnostics);
+    let (mut parse, semantic): (Vec<_>, Vec<_>) = existing
+        .into_iter()
+        .partition(|diagnostic| diagnostic.kind == veln_diagnostics::DiagnosticKind::Parse);
+    parse.extend(semantic);
+    *diagnostics = parse;
+}
+
 type BaseDiagnosticsByFile = HashMap<SourcePath, (Vec<usize>, usize)>;
 type DiagnosticSpansByFile = HashMap<SourcePath, HashMap<(usize, usize), usize>>;
 
@@ -266,6 +275,16 @@ fn future_existing_precedes_base(
                     && existing_span.end.offset <= union_scope.end.offset
             })
         });
+    if base.diagnostic.id == "parse.variant_refinement_type"
+        && existing.id == "name.invalid_case"
+        && existing.span.as_ref().is_some_and(|existing_span| {
+            existing_span.file == base.ordering_scope.file
+                && existing_span.start.offset >= base.ordering_scope.start.offset
+                && existing_span.end.offset <= base.ordering_scope.end.offset
+        })
+    {
+        return false;
+    }
     (future_min_end.is_some_and(|end| end <= span.start.offset) && !later_alternative_casing)
         || last_same_span
             .get(&span.file)
@@ -365,6 +384,14 @@ fn base_precedes_existing(base: &VariantRefinementBaseDiagnostic, existing: &Dia
     else {
         return false;
     };
+    if base.diagnostic.id == "parse.variant_refinement_type"
+        && existing.id == "name.invalid_case"
+        && existing_span.file == base.ordering_scope.file
+        && existing_span.start.offset >= base.ordering_scope.start.offset
+        && existing_span.end.offset <= base.ordering_scope.end.offset
+    {
+        return true;
+    }
     if existing.id == "name.invalid_case"
         && existing_span.file == base.ordering_scope.file
         && existing_span.start.offset >= base.ordering_scope.start.offset

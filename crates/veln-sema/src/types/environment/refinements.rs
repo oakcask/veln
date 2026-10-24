@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::type_case_recovery::recover_type_case;
 
 impl TypeEnvironment {
     pub(crate) fn canonicalize_type_annotation(
@@ -124,8 +125,14 @@ impl TypeEnvironment {
     ) -> Option<&'a crate::adt::descriptors::AdtVariantDescriptor> {
         match self.adts.variant_for_descriptor(descriptor, variant) {
             crate::adt::registry::VariantLookup::Found(variant) => Some(variant),
-            crate::adt::registry::VariantLookup::Ambiguous
-            | crate::adt::registry::VariantLookup::Missing => None,
+            crate::adt::registry::VariantLookup::Ambiguous => None,
+            crate::adt::registry::VariantLookup::Missing => {
+                match self.variant_refinement_variant_case_recovery(descriptor, variant)? {
+                    crate::adt::registry::VariantLookup::Found(variant) => Some(variant),
+                    crate::adt::registry::VariantLookup::Ambiguous
+                    | crate::adt::registry::VariantLookup::Missing => None,
+                }
+            }
         }
     }
 
@@ -175,11 +182,50 @@ impl TypeEnvironment {
             .adts
             .terminal_descriptor_for_alias(written)
             .unwrap_or_else(|| self.adts.canonical_descriptor_for(written));
+        if let Some(recovery) = self.variant_refinement_variant_case_recovery(descriptor, variant) {
+            match recovery {
+                crate::adt::registry::VariantLookup::Found(_)
+                | crate::adt::registry::VariantLookup::Ambiguous => return None,
+                crate::adt::registry::VariantLookup::Missing => {}
+            }
+        }
         if descriptor.refinement_availability
             != crate::adt::descriptors::VariantRefinementAvailability::Finite
             || !matches!(
                 self.adts.variant_for_descriptor(descriptor, variant),
                 crate::adt::registry::VariantLookup::Missing
+            )
+        {
+            return None;
+        }
+        Some(descriptor)
+    }
+
+    pub(crate) fn variant_refinement_ambiguous_recovery_descriptor(
+        &self,
+        base: &str,
+        args_len: usize,
+        variant: &str,
+        current_module: Option<&str>,
+    ) -> Option<&crate::adt::descriptors::AdtDescriptor> {
+        let written =
+            self.variant_refinement_descriptor_identity(base, args_len, current_module)?;
+        if written.type_parameters.len() != args_len {
+            return None;
+        }
+        let descriptor = self
+            .adts
+            .terminal_descriptor_for_alias(written)
+            .unwrap_or_else(|| self.adts.canonical_descriptor_for(written));
+        if descriptor.refinement_availability
+            != crate::adt::descriptors::VariantRefinementAvailability::Finite
+            || !matches!(
+                self.adts.variant_for_descriptor(descriptor, variant),
+                crate::adt::registry::VariantLookup::Missing
+            )
+            || !matches!(
+                self.variant_refinement_variant_case_recovery(descriptor, variant),
+                Some(crate::adt::registry::VariantLookup::Ambiguous)
             )
         {
             return None;
@@ -428,60 +474,6 @@ impl TypeEnvironment {
         })
     }
 
-    pub(crate) fn recovered_variant_refinement_candidate(
-        &self,
-        segments: &[String],
-        current_module: Option<&str>,
-    ) -> bool {
-        if segments.len() < 2 {
-            return false;
-        }
-        let base = segments[..segments.len() - 1].join("::");
-        if self
-            .adts
-            .descriptor_for_type_path_any_arity(&base, current_module, &self.uses)
-            .is_some()
-        {
-            return false;
-        }
-        let Some(recovered) = recover_type_case(&base) else {
-            return false;
-        };
-        self.variant_refinement_base_name_resolves(&recovered, current_module)
-    }
-
-    pub(crate) fn recovered_variant_refinement_base_resolves(
-        &self,
-        base: &str,
-        current_module: Option<&str>,
-    ) -> bool {
-        recover_type_case(base).is_some_and(|recovered| {
-            self.variant_refinement_base_name_resolves(&recovered, current_module)
-        })
-    }
-
-    fn variant_refinement_base_name_resolves(
-        &self,
-        base: &str,
-        current_module: Option<&str>,
-    ) -> bool {
-        if self
-            .adts
-            .descriptor_for_type_path_any_arity(base, current_module, &self.uses)
-            .is_some()
-        {
-            return self
-                .adts
-                .unique_descriptor_for_type_path_any_arity(base, current_module, &self.uses)
-                .is_some();
-        }
-        crate::source_less_lookup::with_builtin_type_syntax_registry(|registry| {
-            registry.arity(base).is_some()
-        })
-        .unwrap_or(false)
-            || matches!(base, "WallTime" | "SourceLocation")
-    }
-
     pub(crate) fn recovered_variant_refinement_base_failure(
         &self,
         segments: &[String],
@@ -640,21 +632,6 @@ impl TypeEnvironment {
             _ => false,
         }
     }
-}
-
-fn recover_type_case(name: &str) -> Option<String> {
-    let (prefix, leaf) = name.rsplit_once("::").unwrap_or(("", name));
-    let mut chars = leaf.chars();
-    let first = chars.next()?;
-    if !first.is_ascii_lowercase() {
-        return None;
-    }
-    let recovered_leaf = format!("{}{}", first.to_ascii_uppercase(), chars.as_str());
-    Some(if prefix.is_empty() {
-        recovered_leaf
-    } else {
-        format!("{prefix}::{recovered_leaf}")
-    })
 }
 
 fn type_children(ty: &Type) -> Vec<&Type> {

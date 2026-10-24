@@ -419,15 +419,22 @@ variant-refinement eligibility. For a refinement anywhere in a public function
 parameter or result, or in a public source-ADT payload, that unique recovered
 terminal ADT identity also participates in the visibility check when the
 written base names it directly or reaches it through a finite transparent
-type-alias chain, and when the written final segment starts with an ASCII
-uppercase letter and resolves exactly to one constructor of that ADT. A
-lowercase final segment is a parse failure and does not reach casing or
-visibility analysis. The privacy diagnostic
+type-alias chain. An uppercase final must resolve exactly. An ASCII-lowercase
+final remains a parse failure, but an initial-only repair that selects exactly
+one constructor reaches casing and visibility analysis without making the
+annotation valid. The privacy diagnostic
 retains the written base casing. Ambiguous or unresolved base recovery, or an
 ambiguous or missing exact final segment, does not manufacture a privacy
 diagnostic. This includes a source-less base
 published by the type-syntax provider: an invalid-cased generic spelling
 reports casing and keeps an independently provable generic-arity failure.
+For a non-generic path whose prospective base and final segments both start
+with ASCII lowercase letters, unique initial-only base recovery first
+selects the refinement interpretation. A unique initial-only final recovery
+then selects the constructor. Both segments report `name.invalid_case`, the
+parse diagnostic remains first, and the selected constructor participates in
+the same independent checks. Without a selected base, the path remains an
+ordinary named type and its final segment is not assigned a constructor role.
 Qualified type arguments nested in the base retain their own type-path
 records. A uniquely recovered invalid-cased type in such an argument reports
 `name.invalid_case` without
@@ -528,15 +535,19 @@ zero-based `segment_index`. The `source_kind` value is `regular`,
 `export`, `companion`, `doctest`, or `generated`. A source with an invalid
 origin segment is not registered as a normal derived module identity.
 Source-path casing validation still runs for selected regular and companion
-sources that also have parse diagnostics, but those parse-failing sources are
-not lowered or registered as normal derived module identities. A rejected
+sources that also have parse diagnostics. A source whose only parse diagnostics
+are recoverable ASCII-lowercase variant-refinement final segments is lowered
+and registered under its valid derived module identity for semantic diagnostic
+recovery. The invalid annotation remains an error. Any unrelated parse
+diagnostic prevents lowering and normal module registration. A rejected
 derived-module identity is recorded only when visible module derivation itself
-fails solely with source-path `name.invalid_case` diagnostics. A parse-failing
-source whose source path casing is accepted does not record a rejected
-derived-module identity and does not suppress a single-segment unresolved
-local import. A source path segment that starts with an ASCII lowercase letter
-but contains another invalid module-identifier character reports
-`module.invalid_source_path` instead of `name.invalid_case`.
+fails solely with source-path `name.invalid_case` diagnostics. A source
+excluded by an unrelated parse diagnostic whose source path casing is accepted
+does not record a rejected derived-module identity and does not suppress a
+single-segment unresolved local import. A source path segment that starts with
+an ASCII lowercase letter but contains another invalid module-identifier
+character reports `module.invalid_source_path` instead of
+`name.invalid_case`.
 Before executable doctest extraction, the documented source path must also be
 a canonical package-relative virtual-source origin. An invalid origin reports
 `module.invalid_source_path` once against the documented source and creates no

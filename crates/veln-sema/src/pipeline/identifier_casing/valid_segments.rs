@@ -297,6 +297,14 @@ fn collect_variant_refinement_segments(
             );
         let mut nested_refinements = Vec::new();
         for alternative in &refinement.alternatives {
+            if !environment.variant_refinement_syntax_candidate_is_selected(
+                &alternative.base.segments,
+                alternative.type_arguments.len(),
+                &alternative.variant,
+                current_module,
+            ) {
+                continue;
+            }
             collect_variant_refinement_alternative(
                 alternative,
                 refinement_is_valid,
@@ -340,12 +348,10 @@ fn collect_variant_refinement_alternative<'a>(
             push_constructor_path_segments(&segments, &spans, current_module, environment, output);
         }
     } else if environment
-        .adts
-        .descriptor_for_type_path(
+        .variant_refinement_descriptor_identity(
             &base,
             alternative.type_arguments.len(),
             current_module,
-            &environment.uses,
         )
         .is_some()
         || environment.non_adt_refinement_base_resolves(
