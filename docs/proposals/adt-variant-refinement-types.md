@@ -154,12 +154,14 @@ repair guidance belong in `related` notes rather than the primary message.
 | `type.variant_refinement_base` | The ADT identity is known, but its selected production provider has no public finite variant descriptor. | `written_type`, `reason` | The selected provider and its provenance. |
 | `schema.variant_refinement_decode_unsupported` | A decode target contains a refinement that the selected decoder can neither construct directly nor validate from the decoded ADT tag. | `target_type`, `base_type`, `expected_variants`, `decoder` | The decoder or codec declaration whose result cannot establish the refinement. |
 
-Parser failures that cannot form a complete base, `::`, and final segment
-remain syntax-only. A source with any such incomplete parse failure does not
-proceed to semantic analysis.
-Existing generic arity, name ambiguity, duplicate, and invalid-casing
-diagnostics remain independently reportable. Diagnostic order must be
-deterministic, and failure must not publish a partially typed declaration.
+The current
+[source-surface specification](../specification/source-surface.md#variant-refinement-shaped-type-text)
+owns parser recovery. Incomplete refinement syntax and a final segment whose
+initial is neither ASCII uppercase nor ASCII lowercase remain syntax-only and
+prevent semantic analysis of that source. Existing generic arity, name
+ambiguity, duplicate, and invalid-casing diagnostics remain independently
+reportable. Diagnostic order must be deterministic, and failure must not
+publish a partially typed declaration.
 
 The planned provider and schema diagnostics do not expand the current
 casing-analysis boundary. The current
@@ -218,7 +220,7 @@ analysis; it does not by itself publish protocol-visible navigation.
 | Condition | Emitted diagnostics | Suppressed diagnostics | Retained identity |
 | --- | --- | --- | --- |
 | The refinement syntax is incomplete and no current recovery applies. | The responsible syntax diagnostic. | All semantic refinement diagnostics for that type occurrence. | None from the incomplete refinement. |
-| The base is unresolved. | The existing unresolved-name diagnostic. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | None. |
+| The base, including a generic base, is unresolved. | The existing unresolved-name diagnostic. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | None. |
 | The base is ambiguous. | The existing ambiguity diagnostic with its candidates. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | No selected base or variant identity; candidates remain related context. |
 | A provider-backed ADT identity has no public finite variant descriptor. | `type.variant_refinement_base` with `reason: "variant_descriptor_unavailable"`. | Variant, visibility, union comparison involving that alternative, and assignability diagnostics. | The resolved base identity only. |
 
