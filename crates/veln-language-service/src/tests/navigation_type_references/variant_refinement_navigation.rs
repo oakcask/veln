@@ -1462,6 +1462,21 @@
         }
     }
 
+    #[test]
+    fn canonical_constructor_classification_distinguishes_union_groups_and_singletons() {
+        reset_variant_refinement_navigation_work();
+        let text = concat!(
+            "type State<A>\n  Ready(A)\n  Empty\nend\n\n",
+            "fn grouped(value: State<Int>::Ready | State<Int>::Empty) -> Int\n  0\nend\n\n",
+            "fn singleton(value: State<Int>::Ready) -> Int\n  0\nend\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", text)]);
+
+        snapshot.navigation_index();
+
+        assert_eq!(variant_refinement_canonical_group_work(), (2, 3));
+    }
+
     fn variant_refinement_union_retention(
         type_parameter_count: usize,
         width: usize,
