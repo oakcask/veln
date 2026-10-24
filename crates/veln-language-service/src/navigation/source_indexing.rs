@@ -327,61 +327,15 @@ fn attach_canonical_variant_refinement_type_arguments(
     files: &mut [IndexedFile],
     project: &veln_ast::SurfaceModule,
 ) {
-    let mut annotations = Vec::<(&str, Option<&str>, &[String])>::new();
-    let mut groups = Vec::<(usize, (usize, usize), usize, usize)>::new();
+    let mut annotations = Vec::<CanonicalVariantAnnotation<'_>>::new();
+    let mut groups = Vec::<CanonicalVariantAnnotationGroup>::new();
     for (file_index, file) in files.iter().enumerate() {
-        let union_groups_are_constructor_only = file
-            .variant_refinement_union_final_range_groups
-            .iter()
-            .map(|union_ranges| {
-                record_variant_refinement_canonical_group_classification(union_ranges.len());
-                union_ranges.iter().all(|range| {
-                    file.classified_paths
-                        .by_range
-                        .get(range)
-                        .is_some_and(|segment| segment.role == veln_ast::NameClass::Constructor)
-                })
-            })
-            .collect::<Vec<_>>();
-        for (range, argument_ranges) in
-            &file.variant_refinement_type_argument_ranges_by_final_range
-        {
-            let union_is_constructor_only = file
-                .variant_refinement_union_group_index_by_final_range
-                .get(range)
-                .and_then(|group_index| {
-                    union_groups_are_constructor_only
-                        .get(*group_index)
-                })
-                .copied()
-                .unwrap_or_else(|| {
-                    record_variant_refinement_canonical_group_classification(1);
-                file.classified_paths
-                    .by_range
-                    .get(range)
-                    .is_some_and(|segment| segment.role == veln_ast::NameClass::Constructor)
-                });
-            if !argument_ranges.is_empty() && union_is_constructor_only {
-                continue;
-            }
-            let start = annotations.len();
-            let type_parameters = file
-                .variant_refinement_type_parameter_context_index_by_final_range
-                .get(range)
-                .and_then(|context_index| {
-                    file.variant_refinement_type_parameter_contexts
-                        .get(*context_index)
-                })
-                .map_or(&[][..], Vec::as_slice);
-            annotations.extend(argument_ranges.iter().map(|(start, end)| {
-                (
-                    &file.source.text()[*start..*end],
-                    Some(file.module.as_str()),
-                    type_parameters,
-                )
-            }));
-            groups.push((file_index, *range, start, annotations.len()));
-        }
+        collect_file_canonical_variant_annotations(
+            file_index,
+            file,
+            &mut annotations,
+            &mut groups,
+        );
     }
     #[cfg(test)]
     record_variant_refinement_canonical_annotation_bytes(
@@ -396,6 +350,79 @@ fn attach_canonical_variant_refinement_type_arguments(
                 .insert(range, identities);
         }
     }
+}
+
+type CanonicalVariantAnnotation<'a> = (&'a str, Option<&'a str>, &'a [String]);
+type CanonicalVariantAnnotationGroup = (usize, (usize, usize), usize, usize);
+
+fn collect_file_canonical_variant_annotations<'a>(
+    file_index: usize,
+    file: &'a IndexedFile,
+    annotations: &mut Vec<CanonicalVariantAnnotation<'a>>,
+    groups: &mut Vec<CanonicalVariantAnnotationGroup>,
+) {
+    let union_groups_are_constructor_only = classify_variant_refinement_union_groups(file);
+    for (range, argument_ranges) in &file.variant_refinement_type_argument_ranges_by_final_range {
+        let union_is_constructor_only = variant_refinement_range_is_constructor_only(
+            file,
+            range,
+            &union_groups_are_constructor_only,
+        );
+        if !argument_ranges.is_empty() && union_is_constructor_only {
+            continue;
+        }
+        let start = annotations.len();
+        let type_parameters = file
+            .variant_refinement_type_parameter_context_index_by_final_range
+            .get(range)
+            .and_then(|context_index| {
+                file.variant_refinement_type_parameter_contexts
+                    .get(*context_index)
+            })
+            .map_or(&[][..], Vec::as_slice);
+        annotations.extend(argument_ranges.iter().map(|(start, end)| {
+            (
+                &file.source.text()[*start..*end],
+                Some(file.module.as_str()),
+                type_parameters,
+            )
+        }));
+        groups.push((file_index, *range, start, annotations.len()));
+    }
+}
+
+fn classify_variant_refinement_union_groups(file: &IndexedFile) -> Vec<bool> {
+    file.variant_refinement_union_final_range_groups
+        .iter()
+        .map(|union_ranges| {
+            record_variant_refinement_canonical_group_classification(union_ranges.len());
+            union_ranges
+                .iter()
+                .all(|range| classified_range_is_constructor(file, range))
+        })
+        .collect()
+}
+
+fn variant_refinement_range_is_constructor_only(
+    file: &IndexedFile,
+    range: &(usize, usize),
+    union_groups_are_constructor_only: &[bool],
+) -> bool {
+    file.variant_refinement_union_group_index_by_final_range
+        .get(range)
+        .and_then(|group_index| union_groups_are_constructor_only.get(*group_index))
+        .copied()
+        .unwrap_or_else(|| {
+            record_variant_refinement_canonical_group_classification(1);
+            classified_range_is_constructor(file, range)
+        })
+}
+
+fn classified_range_is_constructor(file: &IndexedFile, range: &(usize, usize)) -> bool {
+    file.classified_paths
+        .by_range
+        .get(range)
+        .is_some_and(|segment| segment.role == veln_ast::NameClass::Constructor)
 }
 
 fn append_parsed_surface_module(
