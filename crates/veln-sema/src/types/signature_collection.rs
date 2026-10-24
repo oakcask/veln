@@ -252,12 +252,18 @@ impl TypeCanonicalizer<'_> {
 
     fn canonicalize_named_variant(&self, name: &str, args: &[Type]) -> Option<Type> {
         let (base_name, variant) = name.rsplit_once("::")?;
-        let descriptor = self.adts.descriptor_for_type_path(
-            base_name,
-            args.len(),
-            self.current_module,
-            self.uses,
-        )?;
+        let descriptor = self
+            .adts
+            .descriptor_for_type_path(base_name, args.len(), self.current_module, self.uses)
+            .or_else(|| {
+                let recovered = super::environment::recover_type_case(base_name)?;
+                self.adts.unique_descriptor_for_type_path(
+                    &recovered,
+                    args.len(),
+                    self.current_module,
+                    self.uses,
+                )
+            })?;
         let declaration_order = self
             .adts
             .variant_declaration_order_for_descriptor(descriptor)?;
@@ -293,10 +299,19 @@ impl TypeCanonicalizer<'_> {
         variants: Vec<String>,
         unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
     ) -> Type {
-        let Some(descriptor) =
-            self.adts
-                .descriptor_for_type_path(&name, args.len(), self.current_module, self.uses)
-        else {
+        let descriptor = self
+            .adts
+            .descriptor_for_type_path(&name, args.len(), self.current_module, self.uses)
+            .or_else(|| {
+                let recovered = super::environment::recover_type_case(&name)?;
+                self.adts.unique_descriptor_for_type_path(
+                    &recovered,
+                    args.len(),
+                    self.current_module,
+                    self.uses,
+                )
+            });
+        let Some(descriptor) = descriptor else {
             return Type::Unknown;
         };
         let Some(declaration_order) = self

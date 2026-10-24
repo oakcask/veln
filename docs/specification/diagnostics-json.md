@@ -146,7 +146,15 @@ visibility, and assignability diagnostics. A repair with no unique result
 retains only independently selected identities and suppresses
 constructor-dependent failures. Diagnostics keep written-alternative and
 per-alternative check order, and recovery never validates the annotation. The
-checked
+same rules apply when the base and final segment both need unique initial-only
+repairs. A non-generic lowercase qualified path remains ordinary named-type
+text unless base resolution selects its refinement interpretation. The checked
+combined-casing
+[`human`](../../examples/specification/check/adt-variant-refinement-combined-case-recovery-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-combined-case-recovery-json/)
+outputs fix parse-first ordering, both casing failures, retained constructor
+identity, visibility, related context, and closed detail objects. The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-lowercase-final-recovery-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-lowercase-final-recovery-json/)

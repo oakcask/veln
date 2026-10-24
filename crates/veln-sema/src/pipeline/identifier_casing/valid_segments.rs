@@ -297,6 +297,14 @@ fn collect_variant_refinement_segments(
             );
         let mut nested_refinements = Vec::new();
         for alternative in &refinement.alternatives {
+            if !environment.variant_refinement_syntax_candidate_is_selected(
+                &alternative.base.segments,
+                alternative.type_arguments.len(),
+                &alternative.variant,
+                current_module,
+            ) {
+                continue;
+            }
             collect_variant_refinement_alternative(
                 alternative,
                 refinement_is_valid,

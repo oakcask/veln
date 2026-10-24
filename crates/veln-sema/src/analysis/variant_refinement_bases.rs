@@ -126,6 +126,7 @@ fn collect_type_annotations(
                         variant.node_id.display("variant"),
                         field.node_id.display("field"),
                     ],
+                    "type_variant",
                     diagnostics,
                 );
             }
@@ -153,6 +154,7 @@ fn collect_effect_annotations(
                         operation.node_id.display("operation"),
                         param.node_id.display("param"),
                     ],
+                    "effect_operation",
                     diagnostics,
                 );
             }
@@ -167,6 +169,7 @@ fn collect_effect_annotations(
                     effect.node_id.display("effect"),
                     operation.node_id.display("operation"),
                 ],
+                "effect_operation",
                 diagnostics,
             );
         }
@@ -191,6 +194,7 @@ fn collect_schema_annotations(
                     schema.node_id.display("schema"),
                     field.node_id.display("schema-field"),
                 ],
+                "schema_field",
                 diagnostics,
             );
         }
@@ -212,6 +216,7 @@ fn collect_function_annotations(
                 function.module_name.as_deref(),
                 environment,
                 &[],
+                "function_parameters",
                 diagnostics,
             );
         }
@@ -221,6 +226,7 @@ fn collect_function_annotations(
             function.module_name.as_deref(),
             environment,
             &[],
+            "function_return",
             diagnostics,
         );
         for line in &function.body {
@@ -253,6 +259,7 @@ fn collect_handler_annotations(
                     handler.node_id.display("handler"),
                     param.node_id.display("param"),
                 ],
+                "handler_parameters",
                 diagnostics,
             );
         }
@@ -270,6 +277,7 @@ fn collect_handler_annotations(
                         clause.node_id.display("clause"),
                         param.node_id.display("param"),
                     ],
+                    "handler_operation",
                     diagnostics,
                 );
             }
@@ -290,7 +298,7 @@ pub(crate) fn annotation_has_invalid_refinement(
     environment: &TypeEnvironment,
     type_parameters: &[String],
 ) -> bool {
-    annotation_has_lowercase_final(refinements)
+    annotation_has_lowercase_final(refinements, current_module, environment)
         || annotation_has_base_failure(refinements, paths, current_module, environment)
         || (annotation_needs_recovery(refinements, paths, current_module, environment) && {
             let recovery = analyze_annotation(
@@ -321,26 +329,48 @@ pub(crate) fn annotation_has_unavailable_refinement_identity(
                 environment,
                 type_parameters,
             );
-            (annotation_has_lowercase_final(refinements) && !recovery.errors.is_empty())
+            (annotation_has_lowercase_final(refinements, current_module, environment)
+                && !recovery.errors.is_empty())
                 || !recovery.unknown_variant_occurrences.is_empty()
                 || !recovery.union_base_failures.is_empty()
         })
 }
 
-fn annotation_has_lowercase_final(refinements: &[veln_ast::VariantRefinementType]) -> bool {
+fn annotation_has_lowercase_final(
+    refinements: &[veln_ast::VariantRefinementType],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
     refinements.iter().any(|refinement| {
         refinement.alternatives.iter().any(|alternative| {
-            alternative
-                .variant
-                .as_bytes()
-                .first()
-                .is_some_and(u8::is_ascii_lowercase)
-                || alternative
-                    .type_arguments
-                    .iter()
-                    .any(|argument| annotation_has_lowercase_final(&argument.ty_refinements))
+            alternative_is_selected(alternative, current_module, environment)
+                && (alternative
+                    .variant
+                    .as_bytes()
+                    .first()
+                    .is_some_and(u8::is_ascii_lowercase)
+                    || alternative.type_arguments.iter().any(|argument| {
+                        annotation_has_lowercase_final(
+                            &argument.ty_refinements,
+                            current_module,
+                            environment,
+                        )
+                    }))
         })
     })
+}
+
+fn alternative_is_selected(
+    alternative: &veln_ast::VariantRefinementAlternative,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    environment.variant_refinement_syntax_candidate_is_selected(
+        &alternative.base.segments,
+        alternative.type_arguments.len(),
+        &alternative.variant,
+        current_module,
+    )
 }
 
 fn annotation_needs_recovery(
@@ -361,10 +391,22 @@ fn annotation_needs_recovery(
     }
     let mut pending = refinements.iter().collect::<Vec<_>>();
     while let Some(refinement) = pending.pop() {
-        if refinement.alternatives.len() > 1 {
+        if refinement.alternatives.len() > 1
+            && refinement
+                .alternatives
+                .iter()
+                .filter(|alternative| {
+                    alternative_is_selected(alternative, current_module, environment)
+                })
+                .count()
+                > 1
+        {
             return true;
         }
         for alternative in &refinement.alternatives {
+            if !alternative_is_selected(alternative, current_module, environment) {
+                continue;
+            }
             if alternative
                 .variant
                 .as_bytes()
@@ -415,6 +457,9 @@ fn annotation_has_base_failure(
             .is_some()
     }) || refinements.iter().any(|refinement| {
         refinement.alternatives.iter().any(|alternative| {
+            if !alternative_is_selected(alternative, current_module, environment) {
+                return false;
+            }
             let base = alternative.base.segments.join("::");
             environment
                 .variant_refinement_base_failure(
@@ -574,6 +619,10 @@ fn collect_independent_path_errors(
         {
             unknown_variant_occurrences.insert(occurrence.clone());
             true
+        } else if environment
+            .recovered_variant_refinement_has_ambiguous_final(&path.segments, current_module)
+        {
+            true
         } else if let Some(error) = environment.recovered_variant_refinement_annotation_error(
             std::slice::from_ref(path),
             current_module,
@@ -650,6 +699,9 @@ fn collect_refinement_union(
     let mut recovered_variants = HashSet::new();
     let mut refinement_is_invalid = false;
     for alternative in &refinement.alternatives {
+        if !alternative_is_selected(alternative, current_module, environment) {
+            continue;
+        }
         let alternative_recovery = collect_refinement_alternative_type(
             alternative,
             current_module,
@@ -1747,6 +1799,7 @@ fn collect_annotation(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     type_parameters: &[String],
+    parser_context: &'static str,
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     crate::pipeline::record_variant_refinement_annotation_work(refinements.len() + paths.len() + 1);
@@ -1767,6 +1820,7 @@ fn collect_annotation(
         current_module,
         environment,
         &recovery,
+        parser_context,
         diagnostics,
     );
 }
@@ -1777,6 +1831,7 @@ fn collect_annotation_diagnostics(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     recovery: &AnnotationRecovery,
+    parser_context: &'static str,
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     diagnostics.extend(recovery.union_base_failures.iter().map(|failure| {
@@ -1793,6 +1848,7 @@ fn collect_annotation_diagnostics(
         current_module,
         environment,
         &recovery.unknown_variant_occurrences,
+        parser_context,
         diagnostics,
     );
     for path in paths {
@@ -1840,6 +1896,7 @@ fn collect_declaration_annotation(
     type_parameters: &[String],
     node_id: String,
     origin_node_ids: impl IntoIterator<Item = String> + Clone,
+    parser_context: &'static str,
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     crate::pipeline::record_variant_refinement_annotation_work(refinements.len() + paths.len() + 1);
@@ -1864,6 +1921,7 @@ fn collect_declaration_annotation(
         current_module,
         environment,
         &recovery,
+        parser_context,
         diagnostics,
     );
     if !has_base_failure
@@ -1902,11 +1960,33 @@ fn collect_refinements(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     unknown_variant_occurrences: &HashSet<PathOccurrence>,
+    parser_context: &'static str,
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     for refinement in refinements {
         crate::pipeline::record_variant_refinement_annotation_work(1);
         for alternative in &refinement.alternatives {
+            if !alternative_is_selected(alternative, current_module, environment) {
+                continue;
+            }
+            if alternative.type_arguments.is_empty()
+                && alternative
+                    .base
+                    .segments
+                    .last()
+                    .and_then(|segment| segment.as_bytes().first())
+                    .is_some_and(u8::is_ascii_lowercase)
+                && alternative
+                    .variant
+                    .as_bytes()
+                    .first()
+                    .is_some_and(u8::is_ascii_lowercase)
+            {
+                diagnostics.push(lowercase_final_parse_diagnostic(
+                    alternative,
+                    parser_context,
+                ));
+            }
             crate::pipeline::record_variant_refinement_annotation_work(1);
             let base = alternative.base.segments.join("::");
             if let Some(failure) = environment.variant_refinement_base_failure(
@@ -1943,6 +2023,7 @@ fn collect_refinements(
                     current_module,
                     environment,
                     unknown_variant_occurrences,
+                    parser_context,
                     diagnostics,
                 );
             }
@@ -1968,6 +2049,48 @@ fn unknown_variant_diagnostic(
         current_module,
         environment,
     )
+}
+
+fn lowercase_final_parse_diagnostic(
+    alternative: &veln_ast::VariantRefinementAlternative,
+    parser_context: &'static str,
+) -> VariantRefinementBaseDiagnostic {
+    let diagnostic = Diagnostic::new(
+        "parse.variant_refinement_type",
+        Severity::Error,
+        DiagnosticKind::Parse,
+        "variant refinement final segment must start with an ASCII uppercase letter",
+        Some(alternative.variant_span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("parse")),
+            ("node_id", JsonValue::Null),
+            ("parser_context", JsonValue::string(parser_context)),
+            (
+                "unexpected",
+                JsonValue::object([
+                    ("kind", JsonValue::string("identifier")),
+                    ("text", JsonValue::string(alternative.variant.clone())),
+                ]),
+            ),
+            (
+                "expected",
+                JsonValue::array([JsonValue::string("NamedAdtType::Variant")]),
+            ),
+            (
+                "recovery",
+                JsonValue::object([
+                    ("strategy", JsonValue::string("insert_token")),
+                    ("anchor", JsonValue::string("type annotation")),
+                    ("dropped_token_count", JsonValue::Number(0)),
+                ]),
+            ),
+        ]),
+    );
+    VariantRefinementBaseDiagnostic {
+        diagnostic,
+        ordering_scope: alternative.span.clone(),
+        union_scope: None,
+    }
 }
 
 fn resolved_refinement_base(
@@ -2081,6 +2204,7 @@ fn collect_body_line(
                 current_module,
                 environment,
                 &[],
+                "let_statement",
                 diagnostics,
             );
             collect_expr(expr, current_module, environment, diagnostics);
@@ -2117,6 +2241,7 @@ fn collect_expr(
                 &[],
                 expr.node_id.display("expr"),
                 [expr.node_id.display("expr")],
+                "expression",
                 diagnostics,
             );
         }

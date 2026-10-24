@@ -858,6 +858,42 @@ fn preserves_generic_refinements_with_lowercase_base_leaves_for_semantic_recover
 }
 
 #[test]
+fn preserves_combined_lowercase_refinement_candidates_without_reclassifying_them() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn latent(value: state::ready) -> ()\n  ()\nend\n",
+            "fn generic(value: genericState<Int>::ready) -> ()\n  ()\nend\n",
+        ),
+    );
+    let output = parse(&source);
+
+    let latent = &first_function(&output).params[0];
+    assert_eq!(latent.ty_paths[0].segments, ["state", "ready"]);
+    let latent_alternative = &latent.ty_refinements[0].alternatives[0];
+    assert_eq!(latent_alternative.base.segments, ["state"]);
+    assert_eq!(latent_alternative.variant, "ready");
+    assert!(
+        output.diagnostics.iter().all(|diagnostic| {
+            diagnostic.span.as_ref() != Some(&latent_alternative.variant_span)
+        }),
+        "a non-generic candidate remains resolution-dependent: {:#?}",
+        output.diagnostics
+    );
+
+    let SyntaxItem::Function(generic) = &output.tree.items[1] else {
+        panic!("expected generic function");
+    };
+    let generic_alternative = &generic.params[0].ty_refinements[0].alternatives[0];
+    assert_eq!(generic_alternative.base.segments, ["genericState"]);
+    assert_eq!(generic_alternative.variant, "ready");
+    assert!(output.diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "parse.variant_refinement_type"
+            && diagnostic.span.as_ref() == Some(&generic_alternative.variant_span)
+    }));
+}
+
+#[test]
 fn rejects_refinement_nesting_beyond_the_lowering_and_wire_limit() {
     let mut annotation = "Leaf::Value".to_string();
     for _ in 0..4_096 {

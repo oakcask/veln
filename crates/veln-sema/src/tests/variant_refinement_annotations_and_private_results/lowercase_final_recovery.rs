@@ -140,3 +140,162 @@ fn ambiguous_lowercase_repair_suppresses_constructor_dependent_failures() {
         "{diagnostics:#?}"
     );
 }
+
+#[test]
+fn combined_base_and_final_recovery_retains_constructor_identity() {
+    let source = concat!(
+        "pub type State\n",
+        "  pub Ready\n",
+        "  Hidden\n",
+        "  pub Closed\n",
+        "end\n",
+        "fn needs_closed(value: State::Closed) -> ()\n  ()\nend\n",
+        "pub fn rejected(value: state::hidden) -> state::ready\n",
+        "  needs_closed(value)\n",
+        "  value\n",
+        "end\n",
+    );
+    let parsed = parse(&SourceFile::new("main.veln", source));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment
+            .canonicalize_type_annotation(
+                parse_type_annotation("state::hidden").expect("named candidate syntax"),
+                None,
+            )
+            .render(),
+        "State::Hidden"
+    );
+
+    let diagnostics = analyze_surface_module(&module);
+    let ids = diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(ids[0], "parse.variant_refinement_type", "{diagnostics:#?}");
+    assert_eq!(
+        ids.iter().filter(|id| **id == "name.invalid_case").count(),
+        4,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        ids.contains(&"type.variant_refinement_private"),
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        ids.iter()
+            .filter(|id| **id == "type.variant_mismatch")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "type.variant_refinement_unknown"
+            && diagnostic.id != "type.invalid_annotation"
+            && diagnostic.id != "name.unresolved"
+    }));
+    let signature = environment.function("rejected").expect("retained symbol");
+    assert_eq!(signature.params, [Type::Unknown]);
+    assert_eq!(signature.return_type, Type::Unknown);
+}
+
+#[test]
+fn generic_combined_casing_preserves_independent_arity_failure() {
+    let source = concat!(
+        "type GenericState<A>\n  Ready(value: A)\nend\n",
+        "fn rejected(value: genericState<Int, String>::ready) -> ()\n  ()\nend\n",
+    );
+    let parsed = parse(&SourceFile::new("main.veln", source));
+    assert!(
+        parsed
+            .diagnostics
+            .iter()
+            .any(|diagnostic| { diagnostic.id == "parse.variant_refinement_type" })
+    );
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.invalid_annotation"
+            && diagnostic
+                .message
+                .contains("expects 1 type argument(s), found 2")
+    }));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| { diagnostic.id != "type.variant_refinement_unknown" })
+    );
+}
+
+#[test]
+fn combined_missing_and_ambiguous_finals_retain_only_the_base() {
+    let source = concat!(
+        "type State\n  Ready\n  Ready\nend\n",
+        "type Other\n  OtherOnly\nend\n",
+        "fn missing(value: state::missing | Other::OtherOnly) -> ()\n  ()\nend\n",
+        "fn ambiguous(value: state::ready | Other::OtherOnly) -> ()\n  ()\nend\n",
+    );
+    let parsed = parse(&SourceFile::new("main.veln", source));
+    assert!(
+        parsed
+            .diagnostics
+            .iter()
+            .all(veln_syntax::ParseDiagnostic::allows_semantic_analysis),
+        "{:#?}",
+        parsed.diagnostics
+    );
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_union_base")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.variant_refinement_unknown"
+            && diagnostic.details.to_json() == "{\"base_type\":\"State\",\"variant\":\"missing\"}"
+    }));
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "type.invalid_annotation"
+                && diagnostic.id != "type.variant_refinement_private"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn lowercase_qualified_named_type_is_not_selected_without_a_refinement_base() {
+    let source = "fn ordinary(value: packet::item) -> ()\n  ()\nend\n";
+    let parsed = parse(&SourceFile::new("main.veln", source));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    assert_eq!(
+        parsed.tree.items.first().and_then(|item| {
+            let veln_syntax::SyntaxItem::Function(function) = item else {
+                return None;
+            };
+            Some(function.params[0].ty_refinements.len())
+        }),
+        Some(1)
+    );
+
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "parse.variant_refinement_type"
+                && !diagnostic.id.starts_with("type.variant_refinement")
+        }),
+        "{diagnostics:#?}"
+    );
+}

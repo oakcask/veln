@@ -80,6 +80,7 @@ mod effect_handlers;
 mod facts;
 mod quarantined_imports;
 mod refinements;
+pub(in crate::types) use refinements::recover_type_case;
 mod standard_subset;
 
 #[derive(Clone)]

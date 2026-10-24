@@ -253,6 +253,26 @@ impl TypeEnvironment {
         self.variant_refinement_unknown_descriptor(&recovered, 0, segments.last()?, current_module)
     }
 
+    pub(crate) fn recovered_variant_refinement_has_ambiguous_final(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> bool {
+        if segments.len() < 2 {
+            return false;
+        }
+        let Some(recovered) = recover_type_case(&segments[..segments.len() - 1].join("::")) else {
+            return false;
+        };
+        self.variant_refinement_ambiguous_recovery_descriptor(
+            &recovered,
+            0,
+            segments.last().expect("checked final segment"),
+            current_module,
+        )
+        .is_some()
+    }
+
     fn variant_refinement_descriptor_failure(
         &self,
         descriptor: &crate::adt::descriptors::AdtDescriptor,
@@ -504,6 +524,26 @@ impl TypeEnvironment {
         self.variant_refinement_base_name_resolves(&recovered, current_module)
     }
 
+    pub(crate) fn variant_refinement_syntax_candidate_is_selected(
+        &self,
+        base_segments: &[String],
+        type_argument_count: usize,
+        variant: &str,
+        current_module: Option<&str>,
+    ) -> bool {
+        let latent_non_generic = type_argument_count == 0
+            && base_segments
+                .last()
+                .and_then(|segment| segment.as_bytes().first())
+                .is_some_and(u8::is_ascii_lowercase);
+        if !latent_non_generic {
+            return true;
+        }
+        let mut segments = base_segments.to_vec();
+        segments.push(variant.to_string());
+        self.recovered_variant_refinement_candidate(&segments, current_module)
+    }
+
     pub(crate) fn recovered_variant_refinement_base_resolves(
         &self,
         base: &str,
@@ -704,7 +744,7 @@ fn recover_variant_case(name: &str) -> Option<String> {
         .then(|| (first as char).to_ascii_uppercase().to_string() + rest)
 }
 
-fn recover_type_case(name: &str) -> Option<String> {
+pub(in crate::types) fn recover_type_case(name: &str) -> Option<String> {
     let (prefix, leaf) = name.rsplit_once("::").unwrap_or(("", name));
     let mut chars = leaf.chars();
     let first = chars.next()?;

@@ -284,6 +284,35 @@ mod tests {
     }
 
     #[test]
+    fn combined_lowercase_candidate_retains_dual_source_metadata() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "pub type State\n",
+                    "  Ready\n",
+                    "end\n",
+                    "pub fn exposed(value: state::ready) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+        let mut diagnostics = Vec::new();
+        let mut parts = SurfaceParts::new();
+
+        load_project_sources(&project, &mut diagnostics, &mut parts, None, None, None);
+
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        let param = &parts.module.functions[0].params[0];
+        assert_eq!(param.ty_paths[0].segments, ["state", "ready"]);
+        assert_eq!(param.ty_refinements.len(), 1);
+        assert_eq!(param.ty_refinements[0].alternatives[0].variant, "ready");
+    }
+
+    #[test]
     fn unrelated_variant_refinement_parse_failure_still_excludes_semantic_loading() {
         let project = Project {
             root: ".".into(),

@@ -320,16 +320,13 @@ fn diagnose_lowercase_generic_variant(
     let exact_close =
         matched.close_offset + 1 == closing_angle_count(tokens[matched.token_index].kind);
     let variant_index = matched.token_index + 2;
-    let uppercase_base = open > 0
-        && tokens
-            .get(open - 1)
-            .is_some_and(|token| is_type_path_segment(token) && starts_uppercase(&token.text));
+    let named_base = open > 0 && tokens.get(open - 1).is_some_and(is_type_path_segment);
     let has_separator =
         tokens.get(matched.token_index + 1).map(|token| token.kind) == Some(TokenKind::DoubleColon);
     let lowercase_variant = tokens
         .get(variant_index)
         .is_some_and(|token| is_type_path_segment(token) && starts_lowercase(&token.text));
-    if exact_close && uppercase_base && has_separator && lowercase_variant {
+    if exact_close && named_base && has_separator && lowercase_variant {
         errors.push((variant_index, LOWERCASE_VARIANT_REFINEMENT_MESSAGE));
     }
 }
