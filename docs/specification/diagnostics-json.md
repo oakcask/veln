@@ -136,6 +136,79 @@ recovery retains the surrounding declaration and lossless source tree. This
 diagnostic does not assert that a structurally valid base or final name resolves
 semantically.
 
+For a structurally complete refinement with an ASCII-lowercase final segment,
+`parse.variant_refinement_type` remains first. Semantic recovery then reports
+`name.invalid_case` on carriers classified for casing analysis. A unique
+initial-only constructor repair suppresses lookup and
+`type.variant_refinement_unknown` failures caused only by that casing, retains
+the constructor identity, and permits independent arity, base, union,
+visibility, and assignability diagnostics. A repair with no unique result
+retains only independently selected identities and suppresses
+constructor-dependent failures. Diagnostics keep written-alternative and
+per-alternative check order, including when one parse diagnostic is emitted
+during source loading and another is emitted after semantic recovery. Recovery
+never validates the annotation. The same rules apply independently to every
+union alternative and when the base and final segment both need unique
+initial-only repairs. A non-generic lowercase qualified path remains ordinary
+named-type text unless base resolution selects its refinement interpretation.
+When a uniquely recovered lowercase refinement is a named generic argument,
+its complete semantic type can instantiate the enclosing refinement base for
+an independent union comparison. The output order is the parse diagnostic,
+the final-segment casing diagnostic, and then `type.variant_union_base` on the
+later outer alternative. That union diagnostic names the fully instantiated
+outer bases in its closed details and relates the earliest outer base. It does
+not add `type.invalid_annotation` solely because the recovered inner final was
+lowercase. A missing, ambiguous, mixed-base, or otherwise incomplete nested
+refinement does not instantiate an enclosing base for this comparison.
+The parse diagnostic retains the annotation's declaration context. A recovered
+test result uses `parser_context: "test_return"`; an ordinary function result
+uses `parser_context: "function_return"`. The checked
+[`immediate test-result`](../../examples/specification/check/adt-variant-refinement-test-return-immediate-recovery-json/)
+and
+[`delayed test-result`](../../examples/specification/check/adt-variant-refinement-test-return-delayed-recovery-json/)
+outputs fix that distinction. The checked
+combined-casing
+[`human`](../../examples/specification/check/adt-variant-refinement-combined-case-recovery-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-combined-case-recovery-json/)
+outputs fix parse-first ordering, both casing failures, retained constructor
+identity, visibility, related context, and closed detail objects. The checked
+[`human`](../../examples/specification/check/adt-variant-refinement-lowercase-final-recovery-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-lowercase-final-recovery-json/)
+outputs fix the ordering, final-segment spans, retained identity, suppression,
+closed existing detail objects, mixed exact and recovered union alternatives,
+and a recovered generic non-ADT base with canonical declaration provenance.
+The nested generic argument
+[`human`](../../examples/specification/check/adt-variant-refinement-nested-lowercase-recovery-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-nested-lowercase-recovery-json/)
+outputs fix the outer-alternative span, expected-base related span, diagnostic
+order, suppression, and fully instantiated closed union-base details.
+The focused ambiguous-repair
+[`human`](../../examples/specification/check/adt-variant-refinement-lowercase-final-ambiguous-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-lowercase-final-ambiguous-json/)
+outputs verify that a non-unique constructor repair retains only the base
+identity for later union comparison.
+
+An unresolved refinement base, with or without type arguments, uses
+`name.unresolved` instead of `type.invalid_annotation`. Its primary span is the
+written base path and its ordinary unresolved-name details identify the `type`
+namespace. The alternative does not establish or participate in union-base
+comparison, and its final segment does not receive constructor casing, lookup,
+privacy, or assignability diagnostics. A declaration type parameter is instead
+a known zero-arity identity: applying type arguments preserves that identity
+and reports the ordinary invalid-annotation arity failure before suppressing
+constructor-dependent checks. For a lowercase final, the recoverable parse
+diagnostic remains first. The checked unresolved-base
+[`human`](../../examples/specification/check/adt-variant-refinement-unresolved-generic-base-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-unresolved-generic-base-json/)
+outputs fix the order, half-open spans, suppression, closed detail objects, and
+the declaration-type-parameter arity boundary for lowercase and uppercase
+finals.
+
 A structurally valid refinement whose base resolves uniquely but cannot expose
 a finite ADT variant set reports `type.variant_refinement_base`. The primary
 span is the written base path and excludes its type arguments, `::`, and final
@@ -149,8 +222,8 @@ record, and function positions.
 | `not_adt` | The resolved named type has no finite ADT variants. | A source-backed type uses `base_type_declaration` with the canonical target's `resolved_identity` and declaration span, including when the written base is a public alias or alias chain. A source-less type published by the type-syntax provider uses spanless `base_type_origin` with `resolved_identity` and `provider: "type_syntax"`. |
 | `opaque` | The resolved compiler-known type intentionally hides its variants. | A spanless `base_type_origin` contains `resolved_identity` and `provider: "adt"`. |
 
-When an uppercase final segment is unknown, resolves to a non-constructor, or
-names a constructor owned by another ADT, the checker reports
+When a final segment is unknown, resolves to a non-constructor, or names a
+constructor owned by another ADT, the checker reports
 `type.variant_refinement_unknown` at that final segment. This includes an
 unknown name, a name that resolves as a non-constructor, and a constructor
 owned by another ADT. Its closed details contain exactly `base_type` and
@@ -173,10 +246,12 @@ reports at its own segment. Same-base alternatives before or after it do not
 add `type.variant_union_base`; a later independently instantiated different
 base still does. The failed final does not select a constructor. The checker
 therefore suppresses privacy, assignability, and other failures that require a
-selected constructor. An invalid nested type
-argument suppresses an enclosing unknown-final failure that would require that
-argument to instantiate the base. A uniquely casing-recovered base keeps the
-independent `name.invalid_case` before this diagnostic.
+selected constructor. A nested type argument that remains unresolved or
+incomplete suppresses an enclosing unknown-final failure that would require
+that argument to instantiate the base. A uniquely casing-recovered base keeps
+the independent `name.invalid_case` before this diagnostic. A lowercase final
+whose initial-only repair is ambiguous does not add this lookup diagnostic
+because no constructor identity was selected.
 The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-unknown-human/)
 and
@@ -396,10 +471,11 @@ constructor signature, every type exposed by that declaration is unknown to
 its body and consumers. These boundaries suppress only diagnostics derived
 from the rejected signature. Other independently provable declaration
 diagnostics also remain.
-When a nested type argument is invalid, the checker still reports an enclosing
-base-eligibility failure that can be proved from the enclosing base identity
-alone. It suppresses an enclosing annotation or final-segment failure that
-would require the invalid child to form a valid type.
+When a nested type argument remains unresolved or incomplete, the checker still
+reports an enclosing base-eligibility failure that can be proved from the
+enclosing base identity alone. It suppresses an enclosing annotation or
+final-segment failure that would require the incomplete child to form a valid
+type.
 The checker visits each written type-path occurrence once during recovery.
 Repeated traversal of one source span does not duplicate its diagnostic, while
 equal path text at distinct spans remains distinct and can report once at each
@@ -501,7 +577,8 @@ The checked nested-recovery
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-nested-recovery-json/)
 cases cover independent enclosing base failures, nested generic-arity failures,
-suppression of failures derived from an invalid child type, one diagnostic per
+suppression of failures derived from an unresolved or incomplete child type,
+one diagnostic per
 written path occurrence, and independent diagnostics for equal paths at
 distinct spans.
 The qualified source-collision

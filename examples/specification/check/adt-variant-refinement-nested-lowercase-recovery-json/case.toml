@@ -1,0 +1,10 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+source_errors = "expected"
+
+[stdout]
+format = "json"
+equals_file = "case-text/stdout-1.json"
+
+[stderr]
+format = "empty"

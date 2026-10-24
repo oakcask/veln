@@ -18,11 +18,11 @@ length = 2
 
 [[json_assert]]
 path = "diagnostics.0.id"
-equals = "name.invalid_case"
+equals = "name.unresolved"
 
 [[json_assert]]
 path = "diagnostics.0.message"
-equals = "module name `Missing` must start with an ASCII lowercase letter"
+equals = "unresolved type `Missing`"
 
 [[json_assert]]
 path = "diagnostics.0.span.start.line"
@@ -41,20 +41,20 @@ path = "diagnostics.0.span.end.column"
 equals = 26
 
 [[json_assert]]
-path = "diagnostics.0.details.occurrence"
-equals = "path_segment"
+path = "diagnostics.0.details.phase"
+equals = "name"
 
 [[json_assert]]
-path = "diagnostics.0.details.name"
+path = "diagnostics.0.details.symbol"
 equals = "Missing"
 
 [[json_assert]]
-path = "diagnostics.0.details.name_class"
-equals = "module"
+path = "diagnostics.0.details.namespace"
+equals = "type"
 
 [[json_assert]]
-path = "diagnostics.0.details.segment_index"
-equals = 0
+path = "diagnostics.0.details.resolution_status"
+equals = "unresolved"
 
 [[json_assert]]
 path = "diagnostics.1.id"

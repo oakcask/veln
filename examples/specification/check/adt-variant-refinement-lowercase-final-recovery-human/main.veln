@@ -1,0 +1,52 @@
+pub type State
+	pub Ready
+	Hidden
+	pub Closed
+end
+
+type Other
+	OtherOnly
+end
+
+type Box<A>
+	Only(value: A)
+end
+
+type Empty
+end
+
+type GenericEmpty<A>
+end
+
+fn needs_closed(value: State::Closed) -> ()
+	()
+end
+
+pub fn recovered(value: State::hidden) -> State::ready
+	needs_closed(value)
+	value
+end
+
+fn mixed_recovery(value: state::ready | State::closed) -> ()
+	()
+end
+
+fn generic_base(value: genericEmpty<Int>::missing) -> ()
+	()
+end
+
+fn unique_union(value: State::ready | Other::OtherOnly) -> ()
+	()
+end
+
+fn missing_union(value: State::missing | Other::OtherOnly) -> ()
+	()
+end
+
+fn wrong_arity(value: Box<Int, String>::only) -> ()
+	()
+end
+
+fn wrong_base(value: Empty::missing) -> ()
+	()
+end

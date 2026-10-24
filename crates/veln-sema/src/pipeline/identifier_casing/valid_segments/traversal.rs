@@ -7,6 +7,7 @@ pub(super) fn collect_valid_segments_from_body_line(
     include_variant_refinements: bool,
     require_valid_variant_refinements: bool,
     output: &mut Vec<QualifiedPathSegment>,
+    suppressed_locations: &mut HashMap<String, HashSet<(usize, usize, usize)>>,
 ) {
     match &line.kind {
         veln_ast::BodyLineKind::Let {
@@ -18,9 +19,11 @@ pub(super) fn collect_valid_segments_from_body_line(
             collect_valid_segments_from_pattern(pattern, current_module, environment, output);
             collect_type_path_segments(
                 &annotation_structure.paths,
+                &annotation_structure.variant_refinements,
                 current_module,
                 environment,
                 output,
+                suppressed_locations,
             );
             if include_variant_refinements {
                 collect_variant_refinement_segments(
@@ -30,6 +33,7 @@ pub(super) fn collect_valid_segments_from_body_line(
                     &[],
                     require_valid_variant_refinements,
                     output,
+                    suppressed_locations,
                 );
             }
             collect_valid_segments_from_expr(
@@ -39,6 +43,7 @@ pub(super) fn collect_valid_segments_from_body_line(
                 include_variant_refinements,
                 require_valid_variant_refinements,
                 output,
+                suppressed_locations,
             );
         }
         veln_ast::BodyLineKind::Expr { expr } => {
@@ -49,6 +54,7 @@ pub(super) fn collect_valid_segments_from_body_line(
                 include_variant_refinements,
                 require_valid_variant_refinements,
                 output,
+                suppressed_locations,
             );
         }
         veln_ast::BodyLineKind::Defer { body, .. } => {
@@ -60,6 +66,7 @@ pub(super) fn collect_valid_segments_from_body_line(
                     include_variant_refinements,
                     require_valid_variant_refinements,
                     output,
+                    suppressed_locations,
                 );
             }
         }
@@ -73,6 +80,7 @@ pub(super) fn collect_valid_segments_from_expr(
     include_variant_refinements: bool,
     require_valid_variant_refinements: bool,
     output: &mut Vec<QualifiedPathSegment>,
+    suppressed_locations: &mut HashMap<String, HashSet<(usize, usize, usize)>>,
 ) {
     match &expr.kind {
         veln_ast::ExprKind::NamePath {
@@ -108,6 +116,7 @@ pub(super) fn collect_valid_segments_from_expr(
                     include_variant_refinements,
                     require_valid_variant_refinements,
                     output,
+                    suppressed_locations,
                 );
             }
             for arg in args {
@@ -118,6 +127,7 @@ pub(super) fn collect_valid_segments_from_expr(
                     include_variant_refinements,
                     require_valid_variant_refinements,
                     output,
+                    suppressed_locations,
                 );
             }
         }
@@ -133,6 +143,7 @@ pub(super) fn collect_valid_segments_from_expr(
                 include_variant_refinements,
                 require_valid_variant_refinements,
                 output,
+                suppressed_locations,
             );
             if include_variant_refinements && require_valid_variant_refinements {
                 for refinements in type_arg_refinements {
@@ -143,6 +154,7 @@ pub(super) fn collect_valid_segments_from_expr(
                         &[],
                         require_valid_variant_refinements,
                         output,
+                        suppressed_locations,
                     );
                 }
             }
@@ -155,6 +167,7 @@ pub(super) fn collect_valid_segments_from_expr(
                 include_variant_refinements,
                 require_valid_variant_refinements,
                 output,
+                suppressed_locations,
             );
             for arm in arms {
                 collect_valid_segments_from_pattern(
@@ -170,6 +183,7 @@ pub(super) fn collect_valid_segments_from_expr(
                     include_variant_refinements,
                     require_valid_variant_refinements,
                     output,
+                    suppressed_locations,
                 );
             }
         }
@@ -182,6 +196,7 @@ pub(super) fn collect_valid_segments_from_expr(
                     include_variant_refinements,
                     require_valid_variant_refinements,
                     output,
+                    suppressed_locations,
                 );
             }
         }
@@ -193,6 +208,7 @@ pub(super) fn collect_valid_segments_from_expr(
                 include_variant_refinements,
                 require_valid_variant_refinements,
                 output,
+                suppressed_locations,
             );
         }),
     }

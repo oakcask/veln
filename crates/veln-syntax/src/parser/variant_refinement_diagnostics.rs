@@ -229,15 +229,12 @@ fn diagnose_variant_separator(
             "variant refinement is missing its final variant name",
         ));
     }
-    if lowercase_final_after_uppercase_base(tokens, index) {
-        errors.push((
-            index + 1,
-            "variant refinement final segment must start with an ASCII uppercase letter",
-        ));
+    if invalid_final_after_uppercase_base(tokens, index) {
+        errors.push((index + 1, LOWERCASE_VARIANT_REFINEMENT_MESSAGE));
     }
 }
 
-fn lowercase_final_after_uppercase_base(tokens: &[Token], index: usize) -> bool {
+fn invalid_final_after_uppercase_base(tokens: &[Token], index: usize) -> bool {
     index > 0
         && tokens
             .get(index - 1)
@@ -322,20 +319,14 @@ fn diagnose_lowercase_generic_variant(
     let exact_close =
         matched.close_offset + 1 == closing_angle_count(tokens[matched.token_index].kind);
     let variant_index = matched.token_index + 2;
-    let uppercase_base = open > 0
-        && tokens
-            .get(open - 1)
-            .is_some_and(|token| is_type_path_segment(token) && starts_uppercase(&token.text));
+    let named_base = open > 0 && tokens.get(open - 1).is_some_and(is_type_path_segment);
     let has_separator =
         tokens.get(matched.token_index + 1).map(|token| token.kind) == Some(TokenKind::DoubleColon);
-    let lowercase_variant = tokens
+    let invalid_variant = tokens
         .get(variant_index)
         .is_some_and(|token| is_type_path_segment(token) && !starts_uppercase(&token.text));
-    if exact_close && uppercase_base && has_separator && lowercase_variant {
-        errors.push((
-            variant_index,
-            "variant refinement final segment must start with an ASCII uppercase letter",
-        ));
+    if exact_close && named_base && has_separator && invalid_variant {
+        errors.push((variant_index, LOWERCASE_VARIANT_REFINEMENT_MESSAGE));
     }
 }
 

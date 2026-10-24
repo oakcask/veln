@@ -1,0 +1,20 @@
+fn lower(value: Missing<Int>::lower) -> ()
+	()
+end
+
+fn upper(value: Missing<Int>::Lower) -> ()
+	()
+end
+
+fn non_generic_lower(value: Missing::lower) -> ()
+	()
+end
+
+fn non_generic_upper(value: Missing::Lower) -> ()
+	()
+end
+
+type Holder<T>
+	Lower(T<Int>::lower)
+	Upper(T<Int>::Lower)
+end

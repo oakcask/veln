@@ -42,6 +42,8 @@ use integer_literal_diagnostics::integer_literal_diagnostics;
 use type_argument_lists::TypeArgumentListState;
 use type_paths::type_paths_from_tokens;
 const MAX_CLEANUP_NESTING: usize = 128;
+const LOWERCASE_VARIANT_REFINEMENT_MESSAGE: &str =
+    "variant refinement final segment must start with an ASCII uppercase letter";
 
 #[cfg(test)]
 thread_local! {
@@ -190,6 +192,19 @@ pub struct ParseDiagnostic {
     pub expected: Vec<&'static str>,
     pub recovery: Recovery,
     pub repair_candidates: Vec<ParseRepairCandidate>,
+}
+
+impl ParseDiagnostic {
+    pub fn allows_semantic_analysis(&self) -> bool {
+        self.id == "parse.variant_refinement_type"
+            && self.message == LOWERCASE_VARIANT_REFINEMENT_MESSAGE
+            && self
+                .unexpected
+                .text
+                .as_bytes()
+                .first()
+                .is_some_and(u8::is_ascii_lowercase)
+    }
 }
 
 #[derive(Clone, Debug)]

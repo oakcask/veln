@@ -31,7 +31,8 @@ mod identifier_casing;
 mod publication;
 
 use diagnostic_ordering::{
-    merge_variant_refinement_base_diagnostics, order_variant_refinement_visibility_diagnostics,
+    merge_variant_refinement_base_diagnostics, order_delayed_parse_diagnostics,
+    order_variant_refinement_visibility_diagnostics,
 };
 use identifier_casing::check_invalid_name_casing;
 pub use identifier_casing::{
@@ -277,6 +278,7 @@ fn analyze_surface_module_with_environment(
         &mut diagnostics,
         check_variant_refinement_bases(module, environment),
     );
+    order_delayed_parse_diagnostics(&mut diagnostics);
 
     diagnostics
 }

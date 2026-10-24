@@ -1,18 +1,18 @@
 use std::collections::{BTreeMap, HashSet};
 
-use veln_ast::{FunctionKind, HandlerDecl, SurfaceModule, UseDecl, Visibility};
+use veln_ast::{HandlerDecl, SurfaceModule, UseDecl, Visibility};
 
 use crate::adt::registry::AdtRegistry;
 use crate::name_recovery::normal_use_decls;
 use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_or_unknown;
 use crate::types::TypeParameterIdentityContext;
+use crate::types::type_case_recovery::recover_type_case;
 
 use super::effect_call_resolution::push_unique_effect;
 use super::effect_inference::{canonical_user_effect_label, quarantined_public_user_effect_label};
-use super::private_inference::function_signature_params;
 use super::signatures::{
-    CompanionAccessTarget, EffectOperationSignature, EffectSignature, FunctionSignature,
+    CompanionAccessTarget, EffectOperationSignature, EffectSignature,
     HandlerOperationClauseSignature, HandlerSignature, synthetic_handler_clause_function_name,
 };
 use super::symbols::imported_use_for_path;
@@ -26,93 +26,9 @@ pub(crate) use instrumentation::{
 use refinement_resolution::RefinementResolution;
 
 mod instrumentation;
+mod ordinary_functions;
 mod refinement_resolution;
-
-pub(super) fn ordinary_function_signatures(
-    module: &SurfaceModule,
-    effects: &[EffectSignature],
-    adts: &AdtRegistry,
-    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
-) -> Vec<FunctionSignature> {
-    let uses = normal_use_decls(module);
-    let quarantined_uses = module
-        .uses
-        .iter()
-        .filter(|use_decl| {
-            crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
-        })
-        .cloned()
-        .collect::<Vec<_>>();
-    module
-        .functions
-        .iter()
-        .filter(|function| function.kind == FunctionKind::Function)
-        .filter_map(|function| {
-            let name = function.name.clone()?;
-            if !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase) {
-                return None;
-            }
-            let (params, variadic) = function_signature_params(function);
-            let params = params
-                .into_iter()
-                .map(|ty| {
-                    canonicalize_type_effects(
-                        ty,
-                        &uses,
-                        &quarantined_uses,
-                        function.module_name.as_deref(),
-                        effects,
-                        adts,
-                        companion_effect_access_targets,
-                    )
-                })
-                .collect();
-            let variadic = variadic.map(|ty| {
-                canonicalize_type_effects(
-                    ty,
-                    &uses,
-                    &quarantined_uses,
-                    function.module_name.as_deref(),
-                    effects,
-                    adts,
-                    companion_effect_access_targets,
-                )
-            });
-            let return_type = canonicalize_type_effects(
-                parse_type_or_unknown(function.return_type.as_deref()),
-                &uses,
-                &quarantined_uses,
-                function.module_name.as_deref(),
-                effects,
-                adts,
-                companion_effect_access_targets,
-            );
-            Some(FunctionSignature {
-                target_name: crate::standard_symbols::standard_function_link_name(
-                    function.module_name.as_deref(),
-                    &name,
-                ),
-                name,
-                module_name: function.module_name.clone(),
-                visibility: function.visibility,
-                params,
-                variadic,
-                return_type,
-                effects: canonical_declared_effects(
-                    function.effects.clone().unwrap_or_default(),
-                    &uses,
-                    &quarantined_uses,
-                    function.module_name.as_deref(),
-                    effects,
-                    companion_effect_access_targets,
-                ),
-                callsite: function.callsite.is_some(),
-                node_id: function.node_id,
-                span: function.span.clone(),
-            })
-        })
-        .collect()
-}
+pub(super) use ordinary_functions::ordinary_function_signatures;
 
 pub(crate) fn canonicalize_type_effects(
     ty: Type,
@@ -252,17 +168,30 @@ impl TypeCanonicalizer<'_> {
 
     fn canonicalize_named_variant(&self, name: &str, args: &[Type]) -> Option<Type> {
         let (base_name, variant) = name.rsplit_once("::")?;
-        let descriptor = self.adts.descriptor_for_type_path(
-            base_name,
-            args.len(),
-            self.current_module,
-            self.uses,
-        )?;
+        let descriptor = self
+            .adts
+            .descriptor_for_type_path(base_name, args.len(), self.current_module, self.uses)
+            .or_else(|| {
+                let recovered = recover_type_case(base_name)?;
+                self.adts.unique_descriptor_for_type_path(
+                    &recovered,
+                    args.len(),
+                    self.current_module,
+                    self.uses,
+                )
+            })?;
         let declaration_order = self
             .adts
             .variant_declaration_order_for_descriptor(descriptor)?;
         record_variant_canonicalization_lookup();
-        declaration_order.rank(variant)?;
+        let variant = if declaration_order.rank(variant).is_some() {
+            variant.to_string()
+        } else {
+            let recovered = uppercase_initial(variant)?;
+            found_variant(self.adts.variant_for_descriptor(descriptor, &recovered))?
+                .name
+                .clone()
+        };
         let canonical_args = self.canonicalize_args(args.to_vec());
         if declaration_order.len() == 1 {
             return Some(Type::resolved_named(
@@ -275,7 +204,7 @@ impl TypeCanonicalizer<'_> {
             &descriptor.type_name,
             descriptor.identity(),
             canonical_args,
-            vec![variant.to_string()],
+            vec![variant],
         ))
     }
 
@@ -286,10 +215,19 @@ impl TypeCanonicalizer<'_> {
         variants: Vec<String>,
         unresolved_alternatives: Vec<(String, Vec<Type>, String)>,
     ) -> Type {
-        let Some(descriptor) =
-            self.adts
-                .descriptor_for_type_path(&name, args.len(), self.current_module, self.uses)
-        else {
+        let descriptor = self
+            .adts
+            .descriptor_for_type_path(&name, args.len(), self.current_module, self.uses)
+            .or_else(|| {
+                let recovered = recover_type_case(&name)?;
+                self.adts.unique_descriptor_for_type_path(
+                    &recovered,
+                    args.len(),
+                    self.current_module,
+                    self.uses,
+                )
+            });
+        let Some(descriptor) = descriptor else {
             return Type::Unknown;
         };
         let Some(declaration_order) = self
@@ -298,13 +236,23 @@ impl TypeCanonicalizer<'_> {
         else {
             return Type::Unknown;
         };
-        if variants.iter().any(|variant| {
-            crate::type_relations::record_variant_set_lookup();
-            record_variant_canonicalization_lookup();
-            declaration_order.rank(variant).is_none()
-        }) {
+        let variants = variants
+            .into_iter()
+            .map(|variant| {
+                crate::type_relations::record_variant_set_lookup();
+                record_variant_canonicalization_lookup();
+                if declaration_order.rank(&variant).is_some() {
+                    Some(variant)
+                } else {
+                    let recovered = uppercase_initial(&variant)?;
+                    found_variant(self.adts.variant_for_descriptor(descriptor, &recovered))
+                        .map(|variant| variant.name.clone())
+                }
+            })
+            .collect::<Option<Vec<_>>>();
+        let Some(variants) = variants else {
             return Type::Unknown;
-        }
+        };
         let canonical_args = self.canonicalize_args(args);
         let Some((variants, presentation_name, canonical_args)) = self
             .resolve_refinement_alternatives(
@@ -337,14 +285,31 @@ impl TypeCanonicalizer<'_> {
         let canonical_name = self.adts.canonical_type_name_for_descriptor(descriptor);
         let mut resolution = RefinementResolution::new(descriptor, canonical_args, variants);
         for (name, args, variant) in unresolved_alternatives {
-            let alternative_descriptor = self.adts.descriptor_for_type_path(
-                &name,
-                args.len(),
-                self.current_module,
-                self.uses,
-            )?;
+            let alternative_descriptor = self
+                .adts
+                .descriptor_for_type_path(&name, args.len(), self.current_module, self.uses)
+                .or_else(|| {
+                    let recovered = recover_type_case(&name)?;
+                    self.adts.unique_descriptor_for_type_path(
+                        &recovered,
+                        args.len(),
+                        self.current_module,
+                        self.uses,
+                    )
+                })?;
             crate::type_relations::record_variant_set_lookup();
             record_variant_canonicalization_lookup();
+            let variant = if declaration_order.rank(&variant).is_some() {
+                variant
+            } else {
+                let recovered = uppercase_initial(&variant)?;
+                found_variant(
+                    self.adts
+                        .variant_for_descriptor(alternative_descriptor, &recovered),
+                )?
+                .name
+                .clone()
+            };
             let alternative_args = self.canonicalize_args(args);
             if !resolution.merge_alternative(
                 descriptor,
@@ -383,6 +348,24 @@ impl TypeCanonicalizer<'_> {
 
     fn canonicalize_args(&self, args: Vec<Type>) -> Vec<Type> {
         args.into_iter().map(|arg| self.canonicalize(arg)).collect()
+    }
+}
+
+fn uppercase_initial(name: &str) -> Option<String> {
+    let (first, rest) = name.split_at_checked(1)?;
+    let first = first.as_bytes()[0];
+    first
+        .is_ascii_lowercase()
+        .then(|| (first as char).to_ascii_uppercase().to_string() + rest)
+}
+
+fn found_variant(
+    lookup: crate::adt::registry::VariantLookup<'_>,
+) -> Option<&crate::adt::descriptors::AdtVariantDescriptor> {
+    match lookup {
+        crate::adt::registry::VariantLookup::Found(variant) => Some(variant),
+        crate::adt::registry::VariantLookup::Ambiguous
+        | crate::adt::registry::VariantLookup::Missing => None,
     }
 }
 

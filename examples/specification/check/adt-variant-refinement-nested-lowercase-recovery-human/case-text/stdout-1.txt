@@ -1,0 +1,4 @@
+main.veln:11:31: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:11:31: error[name.invalid_case]: constructor name `ready` must start with an ASCII uppercase letter
+main.veln:11:47: error[type.variant_union_base]: variant-refinement base `Other<State::Ready>` does not match expected base `Box<State::Ready>`
+  note: main.veln:11:20: The earliest independently instantiated base identity established `Box<State::Ready>` as the union base.

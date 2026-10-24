@@ -754,6 +754,7 @@ fn rejects_lowercase_final_variants_after_generic_adt_bases() {
         "fn invalid(value: protocol::State::ready) -> ()\n  ()\nend\n",
         "fn invalid(value: Result<Int, Error>::ok) -> ()\n  ()\nend\n",
         "fn invalid(value: protocol::Result<Int, Error>::error) -> ()\n  ()\nend\n",
+        "fn invalid(value: State::ready | State::Closed) -> ()\n  ()\nend\n",
         "fn invalid(value: State) -> ()\n  sink<Result<Int, Error>::ok>(value)\nend\n",
     ];
 
@@ -784,6 +785,102 @@ fn rejects_lowercase_final_variants_after_generic_adt_bases() {
             matches!(written_name, "ready" | "ok" | "error"),
             "diagnostic should point at the lowercase final segment, got `{written_name}`"
         );
+
+        let function = first_function(&output);
+        let refinement = if text.contains("sink<") {
+            let SyntaxItem::Function(function) = &output.tree.items[0] else {
+                panic!("expected function");
+            };
+            let BodyLine::Expr { expr, .. } = &function.body[0] else {
+                panic!("expected expression body line");
+            };
+            let ExprKind::Call { callee, .. } = &expr.kind else {
+                panic!("expected call");
+            };
+            let ExprKind::TypeApply {
+                type_arg_refinements,
+                ..
+            } = &callee.kind
+            else {
+                panic!("expected explicit type application");
+            };
+            &type_arg_refinements[0][0]
+        } else {
+            &function.params[0].ty_refinements[0]
+        };
+        let alternative = &refinement.alternatives[0];
+        assert_eq!(alternative.variant, written_name);
+        assert_eq!(alternative.variant_span, *span);
+        if text.contains(" | ") {
+            assert_eq!(
+                refinement
+                    .alternatives
+                    .iter()
+                    .map(|alternative| alternative.variant.as_str())
+                    .collect::<Vec<_>>(),
+                ["ready", "Closed"]
+            );
+            assert_eq!(refinement.pipe_spans.len(), 1);
+            assert_eq!(
+                output
+                    .diagnostics
+                    .iter()
+                    .filter(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+                    .count(),
+                1,
+                "{:#?}",
+                output.diagnostics
+            );
+        }
+    }
+}
+
+#[test]
+fn rejects_invalid_final_initials_without_semantic_recovery() {
+    let cases = [
+        (
+            "fn invalid(value: State::_ready) -> ()\n  ()\nend\n",
+            "_ready",
+        ),
+        (
+            "fn invalid(value: State::_Ready) -> ()\n  ()\nend\n",
+            "_Ready",
+        ),
+        (
+            "fn invalid(value: State<Int>::_ready) -> ()\n  ()\nend\n",
+            "_ready",
+        ),
+        (
+            "fn invalid(value: State<Int>::_Ready) -> ()\n  ()\nend\n",
+            "_Ready",
+        ),
+    ];
+
+    for (text, final_segment) in cases {
+        let source = SourceFile::new("main.veln", text);
+        let output = parse(&source);
+        let diagnostic = output
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+            .unwrap_or_else(|| {
+                panic!(
+                    "expected invalid-final diagnostic: {:#?}",
+                    output.diagnostics
+                )
+            });
+
+        assert_eq!(
+            diagnostic.message,
+            "variant refinement final segment must start with an ASCII uppercase letter"
+        );
+        assert!(!diagnostic.allows_semantic_analysis());
+        let span = diagnostic.span.as_ref().expect("diagnostic span");
+        assert_eq!(
+            &source.text()[span.start.offset..span.end.offset],
+            final_segment
+        );
+        assert!(first_function(&output).params[0].ty_refinements.is_empty());
     }
 }
 
@@ -791,22 +888,78 @@ fn rejects_lowercase_final_variants_after_generic_adt_bases() {
 fn preserves_generic_refinements_with_lowercase_base_leaves_for_semantic_recovery() {
     let source = SourceFile::new(
         "main.veln",
-        "fn invalid(value: genericEmpty<Int>::Missing) -> ()\n  ()\nend\n",
+        "fn invalid(value: genericEmpty<Int>::missing) -> ()\n  ()\nend\n",
     );
     let output = parse(&source);
-    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
 
     let refinement = &first_function(&output).params[0].ty_refinements[0];
     let alternative = &refinement.alternatives[0];
     assert_eq!(alternative.base.segments, ["genericEmpty"]);
     assert_eq!(alternative.type_arguments.len(), 1);
     assert_eq!(alternative.type_arguments[0].ty_fragments, ["Int"]);
-    assert_eq!(alternative.variant, "Missing");
+    assert_eq!(alternative.variant, "missing");
+    assert_eq!(
+        &source.text()[alternative.type_arguments[0].span.start.offset
+            ..alternative.type_arguments[0].span.end.offset],
+        "Int"
+    );
+    assert_eq!(
+        &source.text()[alternative.span.start.offset..alternative.span.end.offset],
+        "genericEmpty<Int>::missing"
+    );
+    assert_eq!(alternative.span, refinement.span);
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+        .expect("lowercase final remains a recoverable parse failure");
+    assert!(diagnostic.allows_semantic_analysis());
+    assert_eq!(diagnostic.span.as_ref(), Some(&alternative.variant_span));
+    assert_eq!(
+        &source.text()[alternative.variant_span.start.offset..alternative.variant_span.end.offset],
+        "missing"
+    );
     assert_eq!(
         &source.text()[alternative.base.segment_spans[0].start.offset
             ..alternative.base.segment_spans[0].end.offset],
         "genericEmpty"
     );
+}
+
+#[test]
+fn preserves_combined_lowercase_refinement_candidates_without_reclassifying_them() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn latent(value: state::ready) -> ()\n  ()\nend\n",
+            "fn generic(value: genericState<Int>::ready) -> ()\n  ()\nend\n",
+        ),
+    );
+    let output = parse(&source);
+
+    let latent = &first_function(&output).params[0];
+    assert_eq!(latent.ty_paths[0].segments, ["state", "ready"]);
+    let latent_alternative = &latent.ty_refinements[0].alternatives[0];
+    assert_eq!(latent_alternative.base.segments, ["state"]);
+    assert_eq!(latent_alternative.variant, "ready");
+    assert!(
+        output.diagnostics.iter().all(|diagnostic| {
+            diagnostic.span.as_ref() != Some(&latent_alternative.variant_span)
+        }),
+        "a non-generic candidate remains resolution-dependent: {:#?}",
+        output.diagnostics
+    );
+
+    let SyntaxItem::Function(generic) = &output.tree.items[1] else {
+        panic!("expected generic function");
+    };
+    let generic_alternative = &generic.params[0].ty_refinements[0].alternatives[0];
+    assert_eq!(generic_alternative.base.segments, ["genericState"]);
+    assert_eq!(generic_alternative.variant, "ready");
+    assert!(output.diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "parse.variant_refinement_type"
+            && diagnostic.span.as_ref() == Some(&generic_alternative.variant_span)
+    }));
 }
 
 #[test]

@@ -1,0 +1,7 @@
+main.veln:6:30: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:7:26: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:6:23: error[name.invalid_case]: type name `state` must start with an ASCII uppercase letter
+main.veln:6:30: error[name.invalid_case]: constructor name `hidden` must start with an ASCII uppercase letter
+main.veln:6:30: error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`
+  note: main.veln:3:2: Private variant `main::State::Hidden` is declared here.
+  note: main.veln:6:16: Public parameter `value` of function `exposed` exposes this refinement.

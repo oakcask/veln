@@ -149,6 +149,16 @@ analysis can report and recover the invalid base-leaf casing. Once type
 arguments before `::Variant` make the refinement structure explicit, further
 type arguments after that final segment are malformed.
 
+A non-generic path whose prospective base and final segments both start with
+ASCII lowercase letters, such as `state::ready`, remains ordinary named-type
+text in the syntax tree. The parser also preserves it as a resolution-dependent
+refinement candidate. The parser does not report a refinement diagnostic for
+that candidate. If semantic analysis selects a uniquely initial-case-recovered
+base, the candidate becomes an invalid refinement and the
+diagnostic pipeline emits `parse.variant_refinement_type` before its semantic
+diagnostics. Without that base selection, the path remains an ordinary named
+type and does not acquire a refinement diagnostic.
+
 Adjacent closing angle brackets close the innermost type arguments first.
 Thus `sink<List<State::Ready>>(value)` is valid: the first `>` closes `List`
 and the second closes the call's explicit type arguments. In
@@ -157,7 +167,8 @@ recovered source.
 
 #### Malformed variant-refinement forms
 
-The parser reports `parse.variant_refinement_type` for these malformed forms:
+The parser reports `parse.variant_refinement_type` for these structurally
+selected malformed forms:
 
 - an incomplete union alternative;
 - a missing base or final segment;
@@ -169,10 +180,17 @@ The parser reports `parse.variant_refinement_type` for these malformed forms:
 - adjacent type text outside the completed structural position; or
 - `|>` between alternatives.
 
-The parser preserves a lossless tree for diagnostics and formatting recovery,
-but any parse diagnostic keeps that source out of semantic analysis. A
-lowercase final segment remains rejected syntax, including when the base has
-type arguments.
+The parser preserves a lossless tree for diagnostics and formatting recovery.
+A structurally complete refinement whose final segment starts with an ASCII
+lowercase letter also retains its refinement metadata for semantic diagnostic
+recovery. The lowercase segment remains rejected syntax, including when the
+base has type arguments, and recovery cannot make the annotation valid. If the
+same source has any unrelated parse diagnostic, that source remains excluded
+from semantic analysis. A resolution-dependent non-generic lowercase candidate
+uses the delayed diagnostic boundary described above instead of a parser
+diagnostic. A final segment whose initial is neither ASCII uppercase nor ASCII
+lowercase, such as `_ready`, reports the parser diagnostic without retaining
+refinement metadata and blocks semantic analysis of that source.
 
 Nesting beyond 256 containing generic-argument boundaries reports the same
 diagnostic and does not prevent lossless-tree construction.

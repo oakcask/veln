@@ -1,0 +1,9 @@
+pub type State
+	pub Ready
+	Hidden
+end
+
+pub fn exposed(value: state::hidden) -> () effects [concurrency]
+	channel::bounded<state::hidden>(1)
+	()
+end

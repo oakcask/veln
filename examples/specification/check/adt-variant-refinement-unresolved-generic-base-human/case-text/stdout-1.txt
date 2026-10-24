@@ -1,0 +1,9 @@
+main.veln:1:31: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:9:38: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:18:16: error[parse.variant_refinement_type]: variant refinement final segment must start with an ASCII uppercase letter
+main.veln:1:17: error[name.unresolved]: unresolved type `Missing`
+main.veln:5:17: error[name.unresolved]: unresolved type `Missing`
+main.veln:9:29: error[name.unresolved]: unresolved type `Missing`
+main.veln:13:29: error[name.unresolved]: unresolved type `Missing`
+main.veln:18:8: error[type.invalid_annotation]: invalid type annotation `T<Int>::lower`: `T` expects 0 type argument(s), found 1
+main.veln:19:8: error[type.invalid_annotation]: invalid type annotation `T<Int>::Lower`: `T` expects 0 type argument(s), found 1

@@ -375,15 +375,20 @@ impl ProjectAnalysis {
     }
 
     pub fn semantic_diagnostics(&self) -> Vec<Diagnostic> {
-        let mut diagnostics = self.source_diagnostics.clone();
-        diagnostics.extend(self.semantic_diagnostics.clone());
+        let diagnostics = self.aggregate_diagnostics(self.semantic_diagnostics.clone());
         self.reconcile_doctest_failures(diagnostics)
     }
 
     pub fn checked_diagnostics(&self) -> Vec<Diagnostic> {
-        let mut diagnostics = self.source_diagnostics.clone();
-        diagnostics.extend(self.checked.diagnostics.clone());
+        let diagnostics = self.aggregate_diagnostics(self.checked.diagnostics.clone());
         self.reconcile_doctest_failures(diagnostics)
+    }
+
+    fn aggregate_diagnostics(&self, additional: Vec<Diagnostic>) -> Vec<Diagnostic> {
+        let mut diagnostics = self.source_diagnostics.clone();
+        diagnostics.extend(additional);
+        order_combined_parse_diagnostics(&mut diagnostics, &self.project);
+        diagnostics
     }
 
     pub fn unpublished_declarations(&self) -> &[veln_sema::UnpublishedDeclaration] {
@@ -430,6 +435,44 @@ impl ProjectAnalysis {
 
     fn reconcile_doctest_failures(&self, diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
         reconcile_expected_doctest_failures(diagnostics, &self.expected_doctest_failures)
+    }
+}
+
+fn order_combined_parse_diagnostics(diagnostics: &mut [Diagnostic], project: &Project) {
+    let slots = diagnostics
+        .iter()
+        .enumerate()
+        .filter_map(|(index, diagnostic)| {
+            (diagnostic.kind == veln_diagnostics::DiagnosticKind::Parse
+                && diagnostic.span.is_some())
+            .then_some(index)
+        })
+        .collect::<Vec<_>>();
+    if slots.len() < 2 {
+        return;
+    }
+    let source_order = project
+        .files
+        .iter()
+        .enumerate()
+        .map(|(index, source)| (source.path().clone(), index))
+        .collect::<BTreeMap<_, _>>();
+    let mut ordered = slots
+        .iter()
+        .enumerate()
+        .map(|(original_order, &index)| (original_order, diagnostics[index].clone()))
+        .collect::<Vec<_>>();
+    ordered.sort_by_key(|(original_order, diagnostic)| {
+        let span = diagnostic.span.as_ref().expect("parse diagnostic span");
+        (
+            source_order.get(&span.file).copied().unwrap_or(usize::MAX),
+            span.start.offset,
+            span.end.offset,
+            *original_order,
+        )
+    });
+    for (&slot, (_, diagnostic)) in slots.iter().zip(ordered) {
+        diagnostics[slot] = diagnostic;
     }
 }
 
@@ -516,6 +559,70 @@ mod tests {
                 "\"related\":[]}"
             )]
         );
+    }
+
+    #[test]
+    fn combined_source_and_delayed_parse_diagnostics_follow_written_order() {
+        let text = concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "  Failed\n",
+            "end\n",
+            "fn rejected(value: state::ready | State::closed) -> ()\n",
+            "  ()\n",
+            "end\n",
+        );
+        let analysis = analyze_project(
+            Project {
+                root: ".".into(),
+                files: vec![SourceFile::new("main.veln", text)],
+                manifest: None,
+            },
+            DoctestMode::Exclude,
+        );
+        let source = analysis.source_diagnostics();
+        assert_eq!(source.len(), 1, "{source:#?}");
+        assert_eq!(source[0].id, "parse.variant_refinement_type");
+        assert_eq!(
+            &text[source[0].span.as_ref().unwrap().start.offset
+                ..source[0].span.as_ref().unwrap().end.offset],
+            "closed"
+        );
+
+        for diagnostics in [
+            analysis.semantic_diagnostics(),
+            analysis.checked_diagnostics(),
+        ] {
+            let parse = diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+                .collect::<Vec<_>>();
+            assert_eq!(parse.len(), 2, "{diagnostics:#?}");
+            assert_eq!(
+                parse
+                    .iter()
+                    .map(|diagnostic| {
+                        let span = diagnostic.span.as_ref().expect("parse span");
+                        &text[span.start.offset..span.end.offset]
+                    })
+                    .collect::<Vec<_>>(),
+                ["ready", "closed"],
+                "{diagnostics:#?}"
+            );
+            assert_eq!(
+                diagnostics
+                    .iter()
+                    .take(2)
+                    .map(|diagnostic| diagnostic.id.as_str())
+                    .collect::<Vec<_>>(),
+                [
+                    "parse.variant_refinement_type",
+                    "parse.variant_refinement_type",
+                ],
+                "{diagnostics:#?}"
+            );
+        }
     }
 
     #[test]

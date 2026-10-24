@@ -28,7 +28,11 @@ pub(super) fn load_project_sources(
         {
             checked_export_source_paths.insert(source.path().as_str().to_string());
         }
-        if !parsed.diagnostics.is_empty() {
+        if parsed
+            .diagnostics
+            .iter()
+            .any(|diagnostic| !diagnostic.allows_semantic_analysis())
+        {
             derive_source_module(source, diagnostics, is_exported_source);
             record_rejected_source_module(source, parts, package);
             continue;
@@ -238,7 +242,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn lowercase_final_parse_failure_excludes_the_source_from_semantic_loading() {
+    fn lowercase_final_parse_failure_retains_the_source_for_semantic_loading() {
         let project = Project {
             root: ".".into(),
             files: vec![SourceFile::new(
@@ -265,11 +269,204 @@ mod tests {
                 .any(|diagnostic| diagnostic.id == "parse.variant_refinement_type"),
             "{diagnostics:#?}"
         );
+        assert_eq!(parts.module.types.len(), 1, "{:#?}", parts.module.types);
+        assert_eq!(
+            parts.module.functions.len(),
+            1,
+            "{:#?}",
+            parts.module.functions
+        );
+        assert_eq!(parts.module.functions[0].params[0].ty_refinements.len(), 1);
+        assert_eq!(
+            parts.module.functions[0].params[0].ty_refinements[0].alternatives[0].variant,
+            "hidden"
+        );
+    }
+
+    #[test]
+    fn combined_lowercase_candidate_retains_dual_source_metadata() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "pub type State\n",
+                    "  Ready\n",
+                    "end\n",
+                    "pub fn exposed(value: state::ready) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+        let mut diagnostics = Vec::new();
+        let mut parts = SurfaceParts::new();
+
+        load_project_sources(&project, &mut diagnostics, &mut parts, None, None, None);
+
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        let param = &parts.module.functions[0].params[0];
+        assert_eq!(param.ty_paths[0].segments, ["state", "ready"]);
+        assert_eq!(param.ty_refinements.len(), 1);
+        assert_eq!(param.ty_refinements[0].alternatives[0].variant, "ready");
+    }
+
+    #[test]
+    fn mixed_union_and_generic_base_failure_candidates_reach_semantic_loading() {
+        let text = concat!(
+            "type State\n",
+            "  Ready\n",
+            "  Closed\n",
+            "  Failed\n",
+            "end\n",
+            "type GenericEmpty<A>\n",
+            "end\n",
+            "fn mixed(value: state::ready | State::closed) -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn generic(value: genericEmpty<Int>::missing) -> ()\n",
+            "  ()\n",
+            "end\n",
+        );
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new("main.veln", text)],
+            manifest: None,
+        };
+        let mut diagnostics = Vec::new();
+        let mut parts = SurfaceParts::new();
+
+        load_project_sources(&project, &mut diagnostics, &mut parts, None, None, None);
+
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+                .count(),
+            2,
+            "{diagnostics:#?}"
+        );
+        assert_eq!(
+            parts.module.functions.len(),
+            2,
+            "{:#?}",
+            parts.module.functions
+        );
+        let mixed = &parts.module.functions[0].params[0].ty_refinements[0];
+        assert_eq!(mixed.alternatives.len(), 2);
+        assert_eq!(mixed.alternatives[0].base.segments, ["state"]);
+        assert_eq!(mixed.alternatives[0].variant, "ready");
+        assert_eq!(mixed.alternatives[1].base.segments, ["State"]);
+        assert_eq!(mixed.alternatives[1].variant, "closed");
+        let generic = &parts.module.functions[1].params[0].ty_refinements[0].alternatives[0];
+        assert_eq!(generic.base.segments, ["genericEmpty"]);
+        assert_eq!(generic.type_arguments.len(), 1);
+        assert_eq!(generic.type_arguments[0].ty_fragments, ["Int"]);
+        assert_eq!(generic.variant, "missing");
+        assert_eq!(
+            &text[generic.base.segment_spans[0].start.offset
+                ..generic.base.segment_spans[0].end.offset],
+            "genericEmpty"
+        );
+        assert_eq!(
+            &text[generic.type_arguments[0].span.start.offset
+                ..generic.type_arguments[0].span.end.offset],
+            "Int"
+        );
+        assert_eq!(
+            &text[generic.variant_span.start.offset..generic.variant_span.end.offset],
+            "missing"
+        );
+        assert_eq!(
+            &text[generic.span.start.offset..generic.span.end.offset],
+            "genericEmpty<Int>::missing"
+        );
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "parse.variant_refinement_type"
+                && diagnostic.span.as_ref() == Some(&generic.variant_span)
+        }));
+    }
+
+    #[test]
+    fn unrelated_variant_refinement_parse_failure_still_excludes_semantic_loading() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "pub type State\n",
+                    "  Hidden\n",
+                    "end\n",
+                    "pub fn recoverable(value: State::hidden) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                    "pub fn exposed(value: State::) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+        let mut diagnostics = Vec::new();
+        let mut parts = SurfaceParts::new();
+
+        load_project_sources(&project, &mut diagnostics, &mut parts, None, None, None);
+
+        assert!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+                .count()
+                >= 2,
+            "{diagnostics:#?}"
+        );
         assert!(parts.module.types.is_empty(), "{:#?}", parts.module.types);
         assert!(
             parts.module.functions.is_empty(),
             "{:#?}",
             parts.module.functions
         );
+    }
+
+    #[test]
+    fn non_lowercase_invalid_final_excludes_semantic_loading() {
+        for annotation in [
+            "State::_ready",
+            "State::_Ready",
+            "State<Int>::_ready",
+            "State<Int>::_Ready",
+        ] {
+            let project = Project {
+                root: ".".into(),
+                files: vec![SourceFile::new(
+                    "main.veln",
+                    format!(
+                        "type State<A>\n  Ready(value: A)\nend\nfn rejected(value: {annotation}) -> ()\n  ()\nend\n"
+                    ),
+                )],
+                manifest: None,
+            };
+            let mut diagnostics = Vec::new();
+            let mut parts = SurfaceParts::new();
+
+            load_project_sources(&project, &mut diagnostics, &mut parts, None, None, None);
+
+            assert_eq!(diagnostics.len(), 1, "{annotation}: {diagnostics:#?}");
+            assert_eq!(
+                diagnostics[0].id, "parse.variant_refinement_type",
+                "{annotation}: {diagnostics:#?}"
+            );
+            assert!(
+                parts.module.types.is_empty(),
+                "{annotation}: {:#?}",
+                parts.module.types
+            );
+            assert!(
+                parts.module.functions.is_empty(),
+                "{annotation}: {:#?}",
+                parts.module.functions
+            );
+        }
     }
 }

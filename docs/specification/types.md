@@ -690,6 +690,37 @@ mutual assignment, inference, finite joins, and complete-domain joins. An
 unknown variant, invalid base arity, or union whose alternatives have different
 resolved ADT identities or canonical generic arguments is an invalid type
 annotation; it does not become an assignable `unknown` contract.
+An ASCII-lowercase final segment is also always invalid. If changing only its
+initial character to uppercase selects exactly one constructor of an exact or
+uniquely casing-recovered base, the checker retains that constructor identity.
+It can then report independently provable arity, base eligibility, union-base,
+visibility, and assignability failures without adding an unknown-variant
+failure caused only by the written casing. A fully recovered refinement nested
+in a named generic argument can instantiate that enclosing base for an
+independent union-base comparison. The lowercase final still makes the
+annotation invalid. If that repair has no unique constructor, the checker
+retains only identities selected without the final segment and suppresses
+failures that require a constructor. An incomplete nested refinement does not
+become a complete generic argument. The same recovery is applied independently
+to every written union alternative while preserving canonical ADT identity,
+generic arguments, and constructor names. Written union alternative order and
+the existing per-alternative check order do not change. The containing
+declaration remains unpublished in both cases. The checked
+[`human`](../../examples/specification/check/adt-variant-refinement-lowercase-final-recovery-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-lowercase-final-recovery-json/)
+cases cover unique and missing recovery, mixed-alternative recovery,
+correct-arity generic non-ADT failure, suppression, declaration quarantine,
+and retained base and constructor identities. The nested generic argument
+[`human`](../../examples/specification/check/adt-variant-refinement-nested-lowercase-recovery-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-nested-lowercase-recovery-json/)
+cases cover the retained enclosing comparison. The checked combined-casing
+[`human`](../../examples/specification/check/adt-variant-refinement-combined-case-recovery-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-combined-case-recovery-json/)
+cases cover simultaneous base and final recovery, declaration quarantine, and
+independent visibility failure.
 If a structurally valid refinement base resolves uniquely but cannot provide a
 finite ADT variant set, the checker rejects the annotation with
 `type.variant_refinement_base`. The reason is `not_adt` for a source declaration
@@ -710,9 +741,15 @@ argument, function parameter or result, nested type argument, or sibling union
 alternative does not suppress that visibility failure. Visibility checking
 uses this recovery while traversing named type arguments, function parameters
 and results, record fields, and refinement unions.
-Union comparison and assignability remain suppressed because they require a
-valid instantiation. Exact and uniquely casing-recovered source-backed or
-source-less type paths use the same arity rule. A failed refinement does not
+For these base and argument failures, union comparison and assignability remain
+suppressed because they require a valid instantiation. An unresolved base,
+with or without type arguments, supplies no identity for final selection,
+union comparison, or assignability and uses the ordinary unresolved-name
+diagnostic. A declaration type parameter remains a known zero-arity identity,
+so applying type arguments to it preserves the identity long enough to report
+the ordinary invalid-annotation arity failure. Exact and uniquely
+casing-recovered source-backed or source-less type paths use the same arity
+rule. A failed refinement does not
 suppress an independently provable arity failure in a sibling record field or
 other structural type position. The
 same eligibility rule applies recursively to parameters, results, locals, ADT
@@ -745,9 +782,9 @@ owned by another ADT makes the annotation invalid. The checker retains the
 base identity for an independent union-base comparison, regardless of the
 unknown final's position among the union alternatives, but it does not retain
 a constructor identity. The containing declaration is quarantined without
-deriving privacy or assignability failures from the missing selection. A
-failed nested argument prevents the enclosing final segment from being checked
-as though the base had been instantiated.
+deriving privacy or assignability failures from the missing selection. An
+unresolved or incomplete nested argument prevents the enclosing final segment
+from being checked as though the base had been instantiated.
 The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-unknown-human/)
 and
@@ -1184,10 +1221,7 @@ rename behavior is specified by
 [editor support](editor-support.md#lsp-navigation-formatting-and-rename) and
 [MCP](mcp.md#saved-workspace-navigation). Qualified-value control-flow
 refinement, external or representation schema decode validation, the
-provider-dependent unavailable-descriptor diagnostic, and semantic identity
-recovery for a lowercase final segment remain proposal work. The
-lowercase-final compiler item is distinct from the implemented workspace-base
-navigation recovery for an invalid final segment.
+provider-dependent unavailable-descriptor diagnostic remain proposal work.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record

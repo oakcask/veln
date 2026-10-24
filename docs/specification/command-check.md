@@ -45,12 +45,24 @@ boundary.
 
 ## Analysis gates
 
-Parse diagnostics suppress semantic diagnostics for that file, but other
-parse-clean files may still report semantic errors. Cross-file imports and
-qualified calls from analyzed files participate in the same analysis path as
-`run` and `test`. Lowering reports checked-core blockers such as missing
-expressions and call or constructor arity mismatches. Parse-clean, semantically
-valid `begin` and `defer` forms pass checked-core readiness.
+Parse diagnostics suppress semantic diagnostics for that file unless every
+parse diagnostic is the recoverable ASCII-lowercase final-segment error for a
+structurally complete variant refinement. In that case, `check` reports the
+parse diagnostic and independently provable semantic diagnostics without
+accepting the annotation. A parse-clean non-generic path with lowercase base
+and final segments follows the same output contract when unique
+initial-only base recovery selects its refinement interpretation; `check`
+inserts the parse diagnostic before casing and type diagnostics. Any unrelated
+parse diagnostic restores the file-level suppression. Other eligible files may
+still report semantic errors.
+The [source-surface specification](source-surface.md#variant-refinement-shaped-type-text)
+defines the recoverable syntax boundary, and the
+[diagnostic specification](diagnostics-json.md#diagnostic-families)
+defines the overlap and ordering. Cross-file imports and qualified calls from
+analyzed files participate in the same analysis path as `run` and `test`.
+Lowering reports checked-core blockers such as missing expressions and call or
+constructor arity mismatches. Parse-clean, semantically valid `begin` and
+`defer` forms pass checked-core readiness.
 A private variant refinement anywhere in a public-function parameter or
 result, or in a public variant payload of a public source ADT, is a semantic
 error, so `check` emits no success report. This includes refinements nested in
