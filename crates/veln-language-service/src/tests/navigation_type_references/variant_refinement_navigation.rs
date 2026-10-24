@@ -619,7 +619,7 @@
     }
 
     #[test]
-    fn invalid_variant_refinement_bases_require_complete_identity() {
+    fn invalid_variant_refinement_finals_retain_only_workspace_bases() {
         let text = concat!(
             "type State\n",
             "  Ready\n",
@@ -662,23 +662,190 @@
             column: text.lines().nth(line - 1).unwrap().find(needle).unwrap() + 1,
         };
 
-        for (line, needle) in [
-            (22, "Alias::"),
-            (26, "Alias::"),
-            (30, "Alias::"),
-            (34, "State::"),
-            (38, "State::"),
-            (42, "State::"),
+        for (line, base, final_name) in [
+            (22, "Alias::", "Missing"),
+            (26, "Alias::", "Shared"),
+            (30, "Alias::", "Helper"),
+            (34, "State::", "Missing"),
+            (38, "State::", "Shared"),
+            (42, "State::", "Helper"),
         ] {
-            assert!(definition_at(&snapshot, position(line, needle)).is_none());
-            assert!(navigate(&snapshot, position(line, needle)).is_none());
-            assert!(navigate_for_rename(&snapshot, position(line, needle)).is_none());
+            let navigation = navigate(&snapshot, position(line, base))
+                .unwrap_or_else(|| panic!("invalid-final base recovery at line {line}"));
+            assert_eq!(navigation.selected_symbol.kind, SymbolKind::Type);
+            assert!(definition_at(&snapshot, position(line, base)).is_some());
+            let rename = navigate_for_rename(&snapshot, position(line, base)).unwrap();
+            assert!(validate_rename_in_snapshot(&snapshot, &rename, "Recovered").is_ok());
+
+            assert!(definition_at(&snapshot, position(line, final_name)).is_none());
+            assert!(navigate(&snapshot, position(line, final_name)).is_none());
+            assert!(navigate_for_rename(&snapshot, position(line, final_name)).is_none());
         }
 
         for (line, needle) in [(14, "Alias::"), (18, "Alias::")] {
             let result = navigate(&snapshot, position(line, needle)).unwrap();
             assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
             assert!(navigate_for_rename(&snapshot, position(line, needle)).is_some());
+        }
+    }
+
+    #[test]
+    fn invalid_final_external_origins_have_the_complete_empty_operation_boundary() {
+        let dependency_text = concat!(
+            "pub type DependencyState\n",
+            "  pub Ready\n",
+            "end\n\n",
+            "pub type PackageAlias = DependencyState\n\n",
+            "pub fn invalid(value: DependencyState::Missing) -> Int\n",
+            "  0\n",
+            "end\n",
+        );
+        let standard_text = concat!(
+            "pub type StandardState\n",
+            "  pub Ready\n",
+            "end\n\n",
+            "pub fn invalid(value: StandardState::Missing) -> Int\n",
+            "  0\n",
+            "end\n",
+        );
+        let workspace_text = concat!(
+            "use dep from \"example/dep\"\n\n",
+            "pub type DependencyAlias = dep::DependencyState\n",
+            "pub type StandardAlias = StandardState\n\n",
+            "fn dependency(value: dep::DependencyState::Missing) -> Int\n  0\nend\n\n",
+            "fn package_alias(value: dep::PackageAlias::Missing) -> Int\n  0\nend\n\n",
+            "fn standard(value: StandardState::Missing) -> Int\n  0\nend\n\n",
+            "fn dependency_alias(value: DependencyAlias::Missing) -> Int\n  0\nend\n\n",
+            "fn standard_alias(value: StandardAlias::Missing) -> Int\n  0\nend\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source("main.veln", workspace_text)],
+            vec![dependency_snapshot(
+                "example/dep",
+                &[("dep.veln", dependency_text)],
+                ["dep.veln"],
+            )],
+        )
+        .with_standard_library(standard_library_snapshot(
+            &[("prelude.veln", standard_text)],
+            ["prelude.veln"],
+        ));
+        let position = |path: &str, text: &str, line_text: &str, needle: &str| {
+            let (line, source_line) = text
+                .lines()
+                .enumerate()
+                .find(|(_, candidate)| candidate.contains(line_text))
+                .unwrap();
+            SourcePosition {
+                source: SourcePath::new(path),
+                line: line + 1,
+                column: source_line.find(needle).unwrap() + 1,
+            }
+        };
+        let assert_all_empty = |position: SourcePosition| {
+            let same_position = || SourcePosition {
+                source: position.source.clone(),
+                line: position.line,
+                column: position.column,
+            };
+            assert!(definition_at(&snapshot, same_position()).is_none());
+            assert!(navigate(&snapshot, same_position()).is_none());
+            assert!(navigate_for_rename(&snapshot, position).is_none());
+        };
+
+        for (path, text, line_text, base, final_name) in [
+            (
+                "main.veln",
+                workspace_text,
+                "fn dependency(",
+                "DependencyState",
+                "Missing",
+            ),
+            (
+                "main.veln",
+                workspace_text,
+                "fn package_alias(",
+                "PackageAlias",
+                "Missing",
+            ),
+            (
+                "main.veln",
+                workspace_text,
+                "fn standard(",
+                "StandardState",
+                "Missing",
+            ),
+            (
+                "dep.veln",
+                dependency_text,
+                "pub fn invalid(",
+                "DependencyState",
+                "Missing",
+            ),
+            (
+                "prelude.veln",
+                standard_text,
+                "pub fn invalid(",
+                "StandardState",
+                "Missing",
+            ),
+        ] {
+            assert_all_empty(position(path, text, line_text, base));
+            assert_all_empty(position(path, text, line_text, final_name));
+        }
+
+        for (line_text, base) in [
+            ("fn dependency_alias(", "DependencyAlias"),
+            ("fn standard_alias(", "StandardAlias"),
+        ] {
+            let base = position("main.veln", workspace_text, line_text, base);
+            let same_base = || SourcePosition {
+                source: base.source.clone(),
+                line: base.line,
+                column: base.column,
+            };
+            assert!(definition_at(&snapshot, same_base()).is_some());
+            assert!(navigate(&snapshot, same_base()).is_some());
+            assert!(navigate_for_rename(&snapshot, base).is_some());
+        }
+
+        let source_less_text =
+            "fn source_less(value: Option<Int>::Missing) -> Int\n  0\nend\n";
+        let source_less = source("source_less.veln", source_less_text);
+        let semantic_module = veln_ast::lower_surface_ast(&veln_syntax::parse(&source_less).tree);
+        let lowered = veln_sema::lower_checked_surface_module(&semantic_module);
+        assert!(
+            lowered.diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "type.invalid_annotation"
+                    && diagnostic.message.contains("Option<Int>::Missing")
+            }),
+            "source-less Option must resolve before its invalid final is rejected: {:#?}",
+            lowered.diagnostics
+        );
+        assert!(
+            lowered
+                .diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.id.contains("unresolved")),
+            "source-less Option must not be treated as unresolved: {:#?}",
+            lowered.diagnostics
+        );
+        let source_less_snapshot = EffectiveProjectSnapshot::new(vec![source_less]);
+        for needle in ["Option", "Missing"] {
+            let source_less_position = position(
+                "source_less.veln",
+                source_less_text,
+                "fn source_less(",
+                needle,
+            );
+            let same_position = || SourcePosition {
+                source: source_less_position.source.clone(),
+                line: source_less_position.line,
+                column: source_less_position.column,
+            };
+            assert!(definition_at(&source_less_snapshot, same_position()).is_none());
+            assert!(navigate(&source_less_snapshot, same_position()).is_none());
+            assert!(navigate_for_rename(&source_less_snapshot, source_less_position).is_none());
         }
     }
 
@@ -1125,7 +1292,7 @@
     }
 
     type VariantRefinementNavigationWork =
-        (usize, usize, usize, usize, usize, usize, usize, usize, usize);
+        (usize, usize, usize, usize, usize, usize, usize, usize, usize, usize, usize);
 
     fn variant_refinement_lookup_work(
         annotation_count: usize,
@@ -1195,6 +1362,8 @@
         assert_eq!(larger.6, smaller.6, "{smaller:?} -> {larger:?}");
         assert!(larger.7 <= smaller.7 * 2 + 16, "{smaller:?} -> {larger:?}");
         assert!(larger.8 <= smaller.8 * 2 + 16, "{smaller:?} -> {larger:?}");
+        assert!(larger.9 <= smaller.9 * 2 + 16, "{smaller:?} -> {larger:?}");
+        assert!(larger.10 <= smaller.10 * 2 + 16, "{smaller:?} -> {larger:?}");
     }
 
     #[test]
@@ -1213,6 +1382,83 @@
                 assert_adjacent_variant_refinement_work(smaller, larger);
             }
             eprintln!("variant refinement navigation evidence rename={rename}: {evidence:?}");
+        }
+    }
+
+    fn invalid_final_generic_union_work(
+        width: usize,
+        alias_base: bool,
+        wrong_owner: bool,
+    ) -> VariantRefinementNavigationWork {
+        reset_variant_refinement_navigation_work();
+        let mut text = String::from("type State<A>\n");
+        for index in 0..width - 1 {
+            text.push_str(&format!("  Ready{index}(A)\n"));
+        }
+        text.push_str("end\n\npub type Alias = State\n\ntype Other<A>\n  Wrong(A)\nend\n\n");
+        let base = if alias_base { "Alias<Int>" } else { "State<Int>" };
+        let mut alternatives = (0..width - 1)
+            .map(|index| format!("{base}::Ready{index}"))
+            .collect::<Vec<_>>();
+        alternatives.push(format!(
+            "{base}::{}",
+            if wrong_owner { "Wrong" } else { "Missing" }
+        ));
+        text.push_str(&format!(
+            "fn observe(value: {}) -> Int\n  0\nend\n",
+            alternatives.join(" | ")
+        ));
+        let (line, source_line) = text
+            .lines()
+            .enumerate()
+            .find(|(_, line)| line.starts_with("fn observe"))
+            .unwrap();
+        let position = || SourcePosition {
+            source: SourcePath::new("main.veln"),
+            line: line + 1,
+            column: source_line.find(base).unwrap() + 1,
+        };
+        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &text)]);
+        assert!(definition_at(&snapshot, position()).is_some());
+        let navigation = navigate(&snapshot, position()).unwrap();
+        assert!(
+            navigation.references.len() >= width,
+            "base={base} wrong_owner={wrong_owner} width={width} references={}",
+            navigation.references.len()
+        );
+        let rename = navigate_for_rename(&snapshot, position()).unwrap();
+        assert!(rename.references.len() >= width);
+        assert!(validate_rename_in_snapshot(&snapshot, &rename, "Recovered").is_ok());
+        assert_eq!(variant_refinement_canonical_group_work(), (1, width));
+        variant_refinement_navigation_work()
+    }
+
+    #[test]
+    fn invalid_final_union_group_work_is_adjacent_and_reused() {
+        for alias_base in [false, true] {
+            for wrong_owner in [false, true] {
+                let smaller = invalid_final_generic_union_work(64, alias_base, wrong_owner);
+                let larger = invalid_final_generic_union_work(65, alias_base, wrong_owner);
+                for (smaller_metric, larger_metric) in [
+                    (smaller.0, larger.0),
+                    (smaller.1, larger.1),
+                    (smaller.2, larger.2),
+                    (smaller.3, larger.3),
+                    (smaller.4, larger.4),
+                    (smaller.5, larger.5),
+                    (smaller.6, larger.6),
+                    (smaller.7, larger.7),
+                    (smaller.8, larger.8),
+                ] {
+                    assert!(larger_metric >= smaller_metric, "{smaller:?} -> {larger:?}");
+                    assert!(
+                        larger_metric <= smaller_metric + 32,
+                        "{smaller:?} -> {larger:?}"
+                    );
+                }
+                assert_eq!((smaller.9, larger.9), (1, 1));
+                assert_eq!((smaller.10, larger.10), (64, 65));
+            }
         }
     }
 

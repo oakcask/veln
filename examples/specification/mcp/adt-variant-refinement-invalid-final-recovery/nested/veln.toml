@@ -1,0 +1,5 @@
+[package]
+name = "nested"
+
+[dependencies."example/fresh"]
+path = "../vendor/fresh"

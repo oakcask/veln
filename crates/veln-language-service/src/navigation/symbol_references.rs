@@ -692,6 +692,9 @@ impl SymbolIndex {
     }
 
     fn type_alias_references(&self, symbol: &TypeAliasSymbol) -> Vec<SourceSpan> {
+        if symbol.package.is_none() {
+            return self.workspace_type_alias_references(symbol);
+        }
         if !self.type_alias_references_supported(symbol) {
             return Vec::new();
         }
@@ -946,7 +949,7 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<ConstructorSymbol> {
         if let Some(identity) = self.variant_refinement_identity(file, &tokens[token_index]) {
-            return Some(identity.constructor.clone());
+            return identity.constructor.clone();
         }
         if self.is_variant_refinement_final_token(file, tokens, token_index) {
             return None;

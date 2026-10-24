@@ -484,11 +484,33 @@ an empty reference list, or an empty edit list. Invalid paths, positions,
 captures, and pagination retain the failure and state-preservation rules of the
 corresponding MCP tool.
 
+For an unknown, non-constructor, or wrong-owner final segment, MCP projects the
+shared workspace-base recovery. A written workspace ADT or workspace alias has
+definition, references, and rename results for that base only. A workspace
+alias may terminate at a dependency or standard-library ADT. A written
+dependency, standard-library, package-backed, or source-less base and every
+invalid final segment return the ordinary empty result. Invalid arity,
+arguments, terminal ADT identity, canonical union arguments, visibility, or
+same-owner uniqueness also prevents recovery.
+
+A failed request after an invalid-final recovery preserves the exact saved
+selection, prior tool result, complete retained dependency-resource metadata
+and contents, and every existing references cursor. Continuing a cursor after
+the failure returns the next page from its original captured result. The
+failed request admits no new dependency resource.
+
 The checked `adt-variant-refinement-navigation` MCP case asserts the exact
 ordered constructor references and rename edits across direct and
 alias-qualified refinements. It also asserts alias-base definition and rename
 edits without target-ADT or constructor edits, exclusion of a same-spelled
 constructor from another ADT, and empty results for an invalid mixed-ADT union.
+The checked `adt-variant-refinement-invalid-final-recovery` case asserts
+workspace-alias base recovery through definition, paginated references, and
+rename. It also asserts cursor continuation and unchanged saved results and
+listed dependency-resource metadata, source bytes, and linked
+package-documentation index, module, and declaration bytes after a failed
+request. The case also asserts empty final selection and the empty direct
+dependency, package-alias, and standard-library written-base boundaries.
 
 ### Source presentation
 
@@ -569,17 +591,19 @@ and from same-spelled type declarations. Its edits include type positions that
 resolve to that alias. They also include an alias used as the qualifier of a
 constructor that resolves through the alias, including a module-qualified
 alias. An alias qualifier followed by a missing or non-constructor member does
-not select the alias for rename. At each type use or constructor qualifier, the
-complete visible type namespace must contain exactly one candidate, and that
-candidate must be the workspace alias. A collision with a visible workspace,
-direct-dependency, or standard-library type or type alias makes that occurrence
-unselectable and excludes it from edits. The alias declaration and other
-unambiguous occurrences remain selectable. A qualified alias target must
-resolve through an import in the alias declaration's source; textual agreement
-with an unimported module does not link an alias-qualified constructor. A
-workspace function alias similarly keeps an identity separate from its target
-function: its declaration and calls that resolve through the alias are edits,
-while direct target calls are not.
+not ordinarily select the alias for rename. The invalid-final
+variant-refinement recovery above is the exception: it selects an eligible
+workspace alias base without selecting the final segment. At each type use or
+constructor qualifier, the complete visible type namespace must contain exactly
+one candidate, and that candidate must be the workspace alias. A collision with
+a visible workspace, direct-dependency, or standard-library type or type alias
+makes that occurrence unselectable and excludes it from edits. The alias
+declaration and other unambiguous occurrences remain selectable. A qualified
+alias target must resolve through an import in the alias declaration's source;
+textual agreement with an unimported module does not link an alias-qualified
+constructor. A workspace function alias similarly keeps an identity separate
+from its target function: its declaration and calls that resolve through the
+alias are edits, while direct target calls are not.
 
 A successful result is `{"edits": [...]}`. Each edit contains only a canonical
 workspace `file:` URI, a one-based Unicode-scalar half-open range, and

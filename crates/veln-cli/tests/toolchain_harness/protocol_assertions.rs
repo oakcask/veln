@@ -276,6 +276,9 @@ pub(super) fn evaluate_protocol_pointer_result(
             RpcAssertionOperation::EqualsJsonFileRef(_) => {
                 unreachable!("manifest finish resolves protocol equals_json_file operands")
             }
+            RpcAssertionOperation::EqualsResponse(_) => {
+                unreachable!("MCP response equality is evaluated with the complete stream")
+            }
             RpcAssertionOperation::Contains(expected) => expect_string_contains(actual, expected),
             RpcAssertionOperation::Length(expected) => expect_array_length(actual, *expected),
             RpcAssertionOperation::Missing(true) => {
@@ -300,14 +303,39 @@ pub(super) fn evaluate_mcp_assertion(
     let selected = select_mcp_response(messages, id)?;
     let pointer_tokens =
         materialize_workspace_file_uri_pointer_tokens(&assertion.pointer_tokens, project_root)?;
-    evaluate_protocol_pointer_result(
-        json_pointer(selected, &pointer_tokens),
-        assertion
-            .operation
-            .as_ref()
-            .expect("validated MCP assertion operation"),
-        project_root,
-    )
+    let operation = assertion
+        .operation
+        .as_ref()
+        .expect("validated MCP assertion operation");
+    let actual = json_pointer(selected, &pointer_tokens);
+    if let RpcAssertionOperation::EqualsResponse(reference) = operation {
+        let expected_response = select_mcp_response(messages, &reference.id)?;
+        let expected_tokens =
+            materialize_workspace_file_uri_pointer_tokens(&reference.pointer_tokens, project_root)?;
+        let expected = match json_pointer(expected_response, &expected_tokens) {
+            JsonPointerResult::Found(value) => value,
+            JsonPointerResult::Missing => {
+                return Err(format!(
+                    "equals_response id {} path {:?} was not found",
+                    reference.id.to_compact_string(),
+                    reference.path
+                ));
+            }
+            JsonPointerResult::Invalid(reason) => {
+                return Err(format!(
+                    "equals_response id {} path {:?} has invalid traversal: {reason}",
+                    reference.id.to_compact_string(),
+                    reference.path
+                ));
+            }
+        };
+        return match actual {
+            JsonPointerResult::Found(actual) => expect_json_value(actual, expected),
+            JsonPointerResult::Missing => Err("selected JSON path was not found".to_string()),
+            JsonPointerResult::Invalid(reason) => Err(format!("invalid traversal: {reason}")),
+        };
+    }
+    evaluate_protocol_pointer_result(actual, operation, project_root)
 }
 
 pub(super) const WORKSPACE_FILE_URI_POINTER_TOKEN_PREFIX: &str = "$workspace_file_uri:";

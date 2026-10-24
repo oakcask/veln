@@ -1,0 +1,5 @@
+use fresh from "example/fresh"
+
+fn main() -> fresh::Fresh
+	fresh::Fresh::Ready
+end

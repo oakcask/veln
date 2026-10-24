@@ -36,10 +36,18 @@ pub(super) enum RpcAssertionOperation {
     EqualsFileRef(CaseTextReference),
     EqualsJsonFile(JsonValue),
     EqualsJsonFileRef(CaseTextReference),
+    EqualsResponse(McpResponseReference),
     Contains(String),
     Length(usize),
     Missing(bool),
     WorkspaceFileUri(String),
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub(super) struct McpResponseReference {
+    pub(super) id: JsonValue,
+    pub(super) path: String,
+    pub(super) pointer_tokens: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -136,7 +144,7 @@ impl McpAssertion {
                 path,
                 0,
                 format!(
-                    "mcp_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
+                    "mcp_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `equals_response`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
                 ),
             );
         }

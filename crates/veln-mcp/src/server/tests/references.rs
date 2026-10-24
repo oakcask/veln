@@ -1,7 +1,7 @@
 use super::references_support::{
     all_resource_state, assert_package_declaration, assert_reference_ranges,
-    assert_snapshot_changed_without_references_or_scope, dependency_resource_is_listed,
-    references_result, write_workspace_with_dependency_and_sources,
+    assert_snapshot_changed_without_references_or_scope, complete_resource_state,
+    dependency_resource_is_listed, references_result, write_workspace_with_dependency_and_sources,
 };
 use super::*;
 

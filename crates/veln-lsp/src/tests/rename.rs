@@ -723,7 +723,7 @@ fn private_variant_refinement_navigation_uses_exact_companion_visibility() {
 }
 
 #[test]
-fn invalid_variant_refinement_alias_bases_do_not_prepare_or_rename() {
+fn invalid_variant_refinement_alias_bases_project_all_four_operations() {
     let mut server = Server::default();
     let project = TempProject::new("invalid-variant-refinement-alias-base");
     project.write(
@@ -749,23 +749,119 @@ fn invalid_variant_refinement_alias_bases_do_not_prepare_or_rename() {
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
-    for (line, character) in [(21, 18), (25, 22), (29, 26)] {
-        let definition = server.handle_message(&definition_request(&main_uri, line, character));
-        assert!(definition[0].contains(r#""result":null"#), "{}", definition[0]);
-
-        let prepared =
-            server.handle_message(&prepare_rename_request(&main_uri, line, character));
-        assert!(prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
-
-        let renamed =
-            server.handle_message(&rename_request(&main_uri, line, character, "RenamedAlias"));
-        assert!(renamed[0].contains(r#""changes":{}"#), "{}", renamed[0]);
+    for (line, base_character, final_character) in [
+        (21, 18, 25),
+        (25, 22, 29),
+        (29, 26, 33),
+    ] {
+        assert_refinement_navigation_available(
+            &mut server,
+            &main_uri,
+            line,
+            base_character,
+            7,
+        );
+        assert_refinement_navigation_unavailable(
+            &mut server,
+            &main_uri,
+            line,
+            final_character,
+        );
     }
 
     for (line, character) in [(13, 23), (17, 22), (17, 37)] {
         let prepared =
             server.handle_message(&prepare_rename_request(&main_uri, line, character));
         assert!(!prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
+    }
+}
+
+#[test]
+fn invalid_final_external_origins_project_the_complete_empty_operation_boundary() {
+    let mut server = Server::default();
+    let project = TempProject::new("invalid-final-external-origin-matrix");
+    project.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    let source = concat!(
+        "use dep from \"example/dep\"\n\n",
+        "pub type DependencyAlias = dep::State\n",
+        "pub type StandardAlias = AcceptOutcome\n\n",
+        "fn dependency(value: dep::State::Missing) -> Int\n  0\nend\n\n",
+        "fn package_alias(value: dep::PackageAlias::Missing) -> Int\n  0\nend\n\n",
+        "fn standard(value: AcceptOutcome::Missing) -> Int\n  0\nend\n\n",
+        "fn dependency_alias(value: DependencyAlias::Missing) -> Int\n  0\nend\n\n",
+        "fn standard_alias(value: StandardAlias::Missing) -> Int\n  0\nend\n",
+    );
+    project.write("main.veln", source);
+    project.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    let dependency_source = concat!(
+        "pub type State\n",
+        "  pub Ready\n",
+        "end\n\n",
+        "pub type PackageAlias = State\n\n",
+        "pub fn invalid(value: State::Missing) -> Int\n  0\nend\n",
+    );
+    project.write("vendor/dep/dep.veln", dependency_source);
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let dependency_uri = path_to_uri(&project.root.join("vendor/dep/dep.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let location = |text: &str, line_text: &str, needle: &str| {
+        let (line, source_line) = text
+            .lines()
+            .enumerate()
+            .find(|(_, candidate)| candidate.contains(line_text))
+            .unwrap();
+        (line, source_line.find(needle).unwrap())
+    };
+    for (uri, text, line_text, base, final_name) in [
+        (
+            main_uri.as_str(),
+            source,
+            "fn dependency(",
+            "State",
+            "Missing",
+        ),
+        (
+            main_uri.as_str(),
+            source,
+            "fn package_alias(",
+            "PackageAlias",
+            "Missing",
+        ),
+        (
+            main_uri.as_str(),
+            source,
+            "fn standard(",
+            "AcceptOutcome",
+            "Missing",
+        ),
+        (
+            dependency_uri.as_str(),
+            dependency_source,
+            "pub fn invalid(",
+            "State",
+            "Missing",
+        ),
+    ] {
+        for needle in [base, final_name] {
+            let (line, character) = location(text, line_text, needle);
+            assert_refinement_navigation_unavailable(&mut server, uri, line, character);
+        }
+    }
+
+    for (line_text, base) in [
+        ("fn dependency_alias(", "DependencyAlias"),
+        ("fn standard_alias(", "StandardAlias"),
+    ] {
+        let (line, character) = location(source, line_text, base);
+        assert_refinement_navigation_available(&mut server, &main_uri, line, character, 2);
     }
 }
 
@@ -1026,6 +1122,75 @@ fn variant_refinement_navigation_projects_utf16_ranges() {
         r#"{"range":{"start":{"line":5,"character":35},"end":{"line":5,"character":40}},"newText":"Prepared"}"#,
     );
     assert!(renamed[0].contains(expected_edits), "{}", renamed[0]);
+}
+
+#[test]
+fn invalid_final_recovery_uses_inbound_utf16_and_preserves_unsaved_snapshot() {
+    let mut server = Server::default();
+    let project = TempProject::new("invalid-final-overlay-utf16");
+    project.write(
+        "main.veln",
+        "type Disk\n  Saved\nend\n\nfn disk(value: Disk::Saved) -> Int\n  0\nend\n",
+    );
+    let overlay = concat!(
+        "type S\n",
+        "  Ready\n",
+        "end\n\n",
+        "fn observe(value: S::Missing) -> {label: String, state: S}\n",
+        "  {label: \"😀\", state: keep<S::Missing>(value)}\n",
+        "end\n",
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+    server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"{}"}}}}}}"#,
+        escape_json(overlay)
+    ));
+
+    let line = overlay.lines().nth(5).unwrap();
+    let byte = line.find("S::Missing").unwrap();
+    let character = line[..byte].encode_utf16().count();
+    assert_eq!(character, 28);
+    let definition = server.handle_message(&definition_request(&main_uri, 5, character));
+    assert!(!definition[0].contains(r#""result":null"#), "{}", definition[0]);
+    let references = server.handle_message(&references_request(&main_uri, 5, character));
+    assert!(!references[0].contains(r#""result":[]"#), "{}", references[0]);
+    let prepared =
+        server.handle_message(&prepare_rename_request(&main_uri, 5, character));
+    assert!(
+        prepared[0].contains(
+            r#""result":{"start":{"line":5,"character":28},"end":{"line":5,"character":29}}"#
+        ),
+        "{}",
+        prepared[0]
+    );
+    let renamed = server.handle_message(&rename_request(&main_uri, 5, character, "T"));
+    assert!(!renamed[0].contains(r#""changes":{}"#), "{}", renamed[0]);
+
+    project.write(
+        "main.veln",
+        "type Changed\n  Fresh\nend\n\nfn fresh(value: Changed::Fresh) -> Int\n  0\nend\n",
+    );
+    let failure = server.handle_message(&definition_request(&main_uri, 99, 0));
+    assert!(failure[0].contains(r#""code":-32602"#), "{}", failure[0]);
+
+    assert_eq!(
+        server.handle_message(&definition_request(&main_uri, 5, character)),
+        definition
+    );
+    assert_eq!(
+        server.handle_message(&references_request(&main_uri, 5, character)),
+        references
+    );
+    assert_eq!(
+        server.handle_message(&prepare_rename_request(&main_uri, 5, character)),
+        prepared
+    );
+    assert_eq!(
+        server.handle_message(&rename_request(&main_uri, 5, character, "T")),
+        renamed
+    );
 }
 
 #[test]

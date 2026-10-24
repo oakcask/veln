@@ -254,8 +254,10 @@ sources, out-of-source or inconsistent positions, or reversed ranges remain
 available only through the compiler diagnostic envelope.
 
 This projection applies to variant-refinement diagnostics, including
-`type.variant_union_base`; it does not recover navigation identities from an
-invalid refinement. The checked stdio evidence is under
+`type.variant_union_base`. Diagnostic projection alone does not establish a
+navigation identity; the shared navigation rules below separately define the
+eligible workspace-base identity retained for an invalid final segment. The
+checked stdio evidence is under
 `examples/specification/lsp/adt-variant-refinement-diagnostics/`.
 
 Span-less diagnostics are published at a zero-width start range while
@@ -308,12 +310,10 @@ When the same qualified module and type spelling is reachable through imports
 from multiple packages, the base is ambiguous. The direct base, an alias chain
 that depends on it, and their final variants expose no navigation identity,
 regardless of import order.
-The complete refinement must resolve before either segment is selectable. If
-the written generic-argument count differs from the resolved terminal ADT's
-declared parameter count, any generic argument contains an unresolved named
-type or invalid nested refinement, the final segment is missing, names a
-constructor from another ADT, or names a non-constructor declaration,
-definition and references return no selection for the direct or alias base.
+The complete refinement must resolve before the final constructor segment is
+selectable. If the written generic-argument count differs from the resolved
+terminal ADT's declared parameter count, or any generic argument contains an
+unresolved named type or invalid nested refinement, no segment is selectable.
 Generic arguments resolve recursively; a type parameter declared by the
 enclosing ADT is resolved in that ADT's payload annotation. A union is also
 invalid when its alternatives resolve to different terminal ADT identities or
@@ -326,6 +326,26 @@ equal. In an enclosing generic ADT, two arguments compare equal only when they
 refer to the same declared type-parameter position. These rules also apply
 when the refinement base resolves through a retained dependency or
 standard-library alias.
+
+When a syntactically complete final segment is unknown, names a non-constructor,
+or names a constructor owned by another ADT, the shared service retains a base
+identity only for a written workspace ADT or workspace type alias. A workspace
+alias may terminate at a dependency or standard-library ADT. Every union
+alternative must have the same terminal ADT and canonical generic arguments.
+The service exposes no constructor identity for any final segment in such an
+invalid union. An inaccessible or non-unique same-owner constructor blocks
+recovery.
+
+| Written base | Definition | References | Prepare-rename | Rename |
+| --- | --- | --- | --- | --- |
+| Workspace ADT | Workspace declaration | Declaration and workspace occurrences | Selected base | Declaration and workspace occurrences |
+| Workspace alias | Workspace alias declaration | Alias declaration and workspace occurrences | Selected base | Alias declaration and workspace occurrences |
+| Dependency, standard-library, package-backed, or source-less declaration | Empty | Empty | Empty | Empty |
+
+The index classifies each invalid union group once and reuses that result for
+selection and reference collection. Prepare-rename and rename consume the same
+selection and reference set. Deterministic adjacent-width measurements cover
+direct and alias-qualified unknown and wrong-owner finals.
 An exact `.test.veln` companion can select a private workspace ADT and its
 private constructor through a qualified refinement when it explicitly imports
 the target module. Shared selection and references then use the private
@@ -368,6 +388,9 @@ target ADT or constructor. Package source remains ineligible for workspace edits
 even when the shared service exposes its constructor identity. A refinement
 without a shared identity produces no definition or references, no
 prepare-rename range, and no rename edits.
+An invalid-final recovery projects the retained workspace base through all four
+operations in the table above. Its final segment produces the ordinary empty
+result.
 
 The checked LSP cases cover direct and union selection in
 [`adt-variant-refinement-navigation`](../../examples/specification/lsp/adt-variant-refinement-navigation/)
@@ -376,6 +399,11 @@ and generic, transitive, and imported aliases in
 They verify empty projected results for invalid arity and union identity,
 preservation through canonically equal generic aliases, and separation of alias
 and constructor edits.
+The checked
+[`adt-variant-refinement-invalid-final-recovery`](../../examples/specification/lsp/adt-variant-refinement-invalid-final-recovery/)
+case covers direct base-only projection, empty final segments, the
+empty external-origin boundary, inbound UTF-16 after a non-BMP scalar, and
+preservation of an unsaved overlay after a failed request.
 The character position at the end of a line is valid and preserves half-open
 selection behavior. After `params.textDocument.uri` selects a retained source,
 the request must contain exactly one direct `params.position` object. That
@@ -395,6 +423,10 @@ with `null`, an empty list, or an empty rename edit as appropriate for the
 request.
 An invalid completion, signature-help, or navigation request does not change
 the retained snapshot or a later result for the same valid saved selection.
+This includes an invalid-final base selected from an unsaved overlay after the
+corresponding disk text changes. Inbound positions use the overlay's UTF-16
+coordinates before shared selection, including a one-scalar token immediately
+after a non-BMP scalar.
 
 Shared navigation treats `begin` and `defer` bodies as lexical scope
 boundaries. Definition, references, prepare-rename, and rename link a local
@@ -646,12 +678,12 @@ For a workspace public function alias, prepare-rename and rename select the
 alias identity at its declaration and at calls that resolve through the alias.
 Rename edits the alias declaration and those alias calls. It does not edit the
 target function declaration or direct calls to that target. Workspace type
-aliases remain unsupported by general LSP prepare-rename and rename. The valid
-variant-refinement exception above permits both operations when the selected
-alias is the written base of a complete refinement identity; the edit retains
-the alias identity and does not rename the target ADT or constructor. The MCP
-rename tool supports the separate alias identity as specified in
-[mcp.md](mcp.md#rename).
+aliases remain unsupported by general LSP prepare-rename and rename. The shared
+variant-refinement rules above permit both operations when the selected alias
+is the written base of a complete valid refinement or an eligible invalid-final
+recovery. The edit retains the alias identity and does not rename the target
+ADT or constructor. The MCP rename tool supports the separate alias identity
+as specified in [mcp.md](mcp.md#rename).
 
 A rename request without a selected supported workspace symbol returns an empty
 workspace-edit `changes` object, and prepare-rename for the same position

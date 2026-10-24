@@ -1,6 +1,13 @@
 use super::*;
 use crate::server::tests::dependency_resources::fill_dependency_resource_capacity_completely;
 
+const DOCUMENTED_DEPENDENCY_SOURCE: &str = concat!(
+    "## Stable recovery dependency module.\n",
+    "## Its package documentation must survive failed requests.\n",
+    "## Return the stable recovery value.\n",
+    "pub fn value() -> Int\n  1\nend\n",
+);
+
 struct RecoveryCase {
     name: &'static str,
     source: &'static str,
@@ -203,7 +210,7 @@ fn recovery_reference_failures_preserve_results_resources_selection_and_live_cur
     assert_recovery_request_failures_preserve_state(&mut server, &expected);
     assert_resource_capacity_failure_preserves_state(&workspace, &mut server);
 
-    workspace.write("vendor/dep/dep.veln", "pub fn value() -> Int\n  1\nend\n");
+    workspace.write("vendor/dep/dep.veln", DOCUMENTED_DEPENDENCY_SOURCE);
     assert_eq!(recovery_reference_result(&mut server), expected);
 }
 
@@ -219,13 +226,20 @@ fn recovery_reference_failure_workspace() -> TempWorkspace {
     );
     workspace.write(
         "recovery.veln",
-        "fn Bad() -> Int\n  Bad()\nend\n\nfn read() -> Int\n  Bad()\nend\n",
+        concat!(
+            "type State\n",
+            "  Ready\n",
+            "end\n\n",
+            "pub type Alias = State\n\n",
+            "fn first(value: Alias::Missing) -> Int\n  0\nend\n\n",
+            "fn second(value: Alias::Unknown) -> Int\n  0\nend\n",
+        ),
     );
     workspace.write(
         "vendor/dep/veln.toml",
         "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
     );
-    workspace.write("vendor/dep/dep.veln", "pub fn value() -> Int\n  1\nend\n");
+    workspace.write("vendor/dep/dep.veln", DOCUMENTED_DEPENDENCY_SOURCE);
     workspace
 }
 
@@ -263,14 +277,18 @@ fn assert_resource_capacity_failure_preserves_state(
     assert_eq!(dependency["isError"], false, "{dependency:#}");
     fill_dependency_resource_capacity_completely(server);
     let first = server.references_tool(&json!({
-        "source":"recovery.veln", "line":6, "column":4,
+        "source":"recovery.veln", "line":7, "column":18,
         "include_declaration":true, "page_size":1
     }));
     let cursor = first["structuredContent"]["next_cursor"]
         .as_str()
         .unwrap()
         .to_owned();
-    let resources = all_resource_state(server);
+    let resources = complete_resource_state(server);
+    assert!(
+        !resources["listed_reads"].as_array().unwrap().is_empty(),
+        "saved recovery must retain listed dependency resource contents"
+    );
     let selection = server.selection_result();
     workspace.write("vendor/dep/dep.veln", "pub fn value() -> Int\n  2\nend\n");
     let failure = server.references_tool(&json!({
@@ -284,7 +302,7 @@ fn assert_resource_capacity_failure_preserves_state(
     );
     assert!(failure["structuredContent"].get("references").is_none());
     assert!(failure["structuredContent"].get("scope").is_none());
-    assert_eq!(all_resource_state(server), resources);
+    assert_eq!(complete_resource_state(server), resources);
     assert_eq!(server.selection_result(), selection);
     let continuation = server.references_tool(&json!({"cursor":cursor}));
     assert_eq!(continuation["isError"], false, "{continuation:#}");
@@ -300,7 +318,7 @@ fn assert_resource_capacity_failure_preserves_state(
 
 fn recovery_reference_result(server: &mut Server) -> Value {
     server.references_tool(&json!({
-        "source":"recovery.veln", "line":6, "column":4,
+        "source":"recovery.veln", "line":7, "column":18,
         "include_declaration":true
     }))
 }
@@ -312,14 +330,18 @@ fn assert_recovery_failure_preserves_state(
     fail: impl FnOnce(&mut Server) -> Value,
 ) {
     let first = server.references_tool(&json!({
-        "source":"recovery.veln", "line":6, "column":4,
+        "source":"recovery.veln", "line":7, "column":18,
         "include_declaration":true, "page_size":1
     }));
     let cursor = first["structuredContent"]["next_cursor"]
         .as_str()
         .unwrap()
         .to_owned();
-    let resources = all_resource_state(server);
+    let resources = complete_resource_state(server);
+    assert!(
+        !resources["listed_reads"].as_array().unwrap().is_empty(),
+        "saved recovery must retain listed dependency resource contents"
+    );
     let selection = server.selection_result();
 
     let failure = fail(server);
@@ -334,7 +356,7 @@ fn assert_recovery_failure_preserves_state(
         failure["structuredContent"].get("scope").is_none(),
         "{failure:#}"
     );
-    assert_eq!(all_resource_state(server), resources, "{code}");
+    assert_eq!(complete_resource_state(server), resources, "{code}");
     assert_eq!(server.selection_result(), selection, "{code}");
 
     let continuation = server.references_tool(&json!({"cursor":cursor}));

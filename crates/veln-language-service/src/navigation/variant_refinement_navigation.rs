@@ -84,11 +84,19 @@ impl SymbolIndex {
                 .map(Vec::as_slice)
                 .unwrap_or(std::slice::from_ref(final_range));
             visited.extend(union_ranges.iter().copied());
-            if self.variant_refinement_union_is_valid(file, &candidates, union_ranges)
+            record_variant_refinement_group_classification(union_ranges.len());
+            if let Some(constructor_navigation) =
+                self.variant_refinement_union_navigation(file, &candidates, union_ranges)
             {
                 for range in union_ranges {
-                    if let Some(identity) = candidates.get(range) {
-                        identities.insert(*range, identity.clone());
+                    if let Some(identity) = candidates.get(range)
+                        && (constructor_navigation || identity.base_is_workspace())
+                    {
+                        let mut identity = identity.clone();
+                        if !constructor_navigation {
+                            identity.constructor = None;
+                        }
+                        identities.insert(*range, identity);
                     }
                 }
             }
@@ -96,40 +104,32 @@ impl SymbolIndex {
         identities
     }
 
-    fn variant_refinement_union_is_valid(
+    fn variant_refinement_union_navigation(
         &self,
         file: &IndexedFile,
         candidates: &BTreeMap<(usize, usize), VariantRefinementNavigationIdentity>,
         union_ranges: &[(usize, usize)],
-    ) -> bool {
-        let Some(first_range) = union_ranges.first() else {
-            return false;
-        };
-        let Some(first) = candidates.get(first_range) else {
-            return false;
-        };
-        if union_ranges.len() == 1 {
-            return true;
-        }
+    ) -> Option<bool> {
+        let first_range = union_ranges.first()?;
+        let first = candidates.get(first_range)?;
         if !union_ranges.iter().all(|range| {
             candidates.get(range).is_some_and(|candidate| {
-                candidate.constructor.package == first.constructor.package
-                    && candidate.constructor.package_origin == first.constructor.package_origin
-                    && candidate.constructor.module == first.constructor.module
-                    && candidate.constructor.type_name == first.constructor.type_name
+                same_type(&candidate.terminal, &first.terminal)
             })
         }) {
-            return false;
+            return None;
         }
         if union_ranges.iter().all(|range| {
-            file.classified_paths
-                .by_range
+            candidates
                 .get(range)
-                .is_some_and(|segment| segment.role == NameClass::Constructor)
+                .is_some_and(|candidate| {
+                    candidate.semantically_valid && candidate.constructor.is_some()
+                })
         }) {
-            return true;
+            return Some(true);
         }
-        file.canonical_variant_refinement_type_arguments_by_final_range
+        let canonical_arguments_match = file
+            .canonical_variant_refinement_type_arguments_by_final_range
             .get(first_range)
             .is_some_and(|first| {
                 union_ranges.iter().all(|range| {
@@ -137,7 +137,15 @@ impl SymbolIndex {
                         .get(range)
                         == Some(first)
                 })
-            })
+            });
+        if !canonical_arguments_match {
+            return None;
+        }
+        Some(union_ranges.iter().all(|range| {
+            candidates
+                .get(range)
+                .is_some_and(|candidate| candidate.constructor.is_some())
+        }))
     }
 
     fn variant_refinement_identity_for_range(
@@ -161,27 +169,47 @@ impl SymbolIndex {
             VariantRefinementBaseSymbol::Type(symbol) => symbol.clone(),
             VariantRefinementBaseSymbol::Alias(symbol) => self.terminal_type_for_alias(symbol)?,
         };
-        if !semantically_valid
-            && !(terminal.package.is_some()
-                && file
-                    .canonical_variant_refinement_type_arguments_by_final_range
-                    .contains_key(final_range))
-        {
-            return None;
-        }
         let written_generic_arity = file
             .variant_refinement_type_argument_count_by_final_range
             .get(final_range)?;
         if *written_generic_arity != terminal.generic_arity {
             return None;
         }
-        let constructor = self.unique_variant_refinement_constructor(file, &terminal, variant_token)?;
+        if !semantically_valid
+            && !file
+                .canonical_variant_refinement_type_arguments_by_final_range
+                .contains_key(final_range)
+        {
+            return None;
+        }
+        let constructor = self.unique_variant_refinement_constructor(file, &terminal, variant_token);
+        if constructor.is_none()
+            && self.variant_refinement_owner_has_constructor(&terminal, variant_token)
+        {
+            return None;
+        }
         Some((
             (variant_token.range.start, variant_token.range.end),
             VariantRefinementNavigationIdentity {
                 base,
+                terminal,
+                semantically_valid,
                 constructor,
             },
+        ))
+    }
+
+    fn variant_refinement_owner_has_constructor(
+        &self,
+        terminal: &TypeSymbol,
+        variant_token: &Token,
+    ) -> bool {
+        self.constructor_indices_by_identity.contains_key(&(
+            terminal.package.clone(),
+            terminal.package_origin,
+            terminal.module.clone(),
+            terminal.name.clone(),
+            variant_token.text.clone(),
         ))
     }
 
@@ -277,7 +305,7 @@ impl SymbolIndex {
         token: &Token,
     ) -> Option<ConstructorSymbol> {
         self.variant_refinement_identity(file, token)
-            .map(|identity| identity.constructor.clone())
+            .and_then(|identity| identity.constructor.clone())
     }
 
     fn is_variant_refinement_final_token(
@@ -469,6 +497,15 @@ impl SymbolIndex {
             return None;
         };
         self.files.get(*index)
+    }
+}
+
+impl VariantRefinementNavigationIdentity {
+    fn base_is_workspace(&self) -> bool {
+        match &self.base {
+            VariantRefinementBaseSymbol::Type(symbol) => symbol.package.is_none(),
+            VariantRefinementBaseSymbol::Alias(symbol) => symbol.package.is_none(),
+        }
     }
 }
 

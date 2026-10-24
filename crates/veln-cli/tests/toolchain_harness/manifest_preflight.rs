@@ -118,6 +118,11 @@ impl<'a> ManifestAssignmentPreflight<'a> {
                     .operation
                     .record(self.path, key, value);
             }
+            Section::McpAssert(index) if key == "equals_response" => {
+                self.mcp_operations[index]
+                    .operation
+                    .record(self.path, key, value);
+            }
             Section::LspAssert(index) => {
                 self.lsp_operations[index].record_selector_or_path(self.path, key, value);
             }
@@ -230,6 +235,7 @@ impl ValueAssertionPreflight {
                 index,
                 self.selected_path.as_deref().unwrap_or(""),
             ),
+            false,
         );
     }
 }
@@ -276,7 +282,14 @@ impl AssertionOperationPreflight {
         }
     }
 
-    fn validate(&self, path: &Path, section: &str, index: usize, base_context: &str) {
+    fn validate(
+        &self,
+        path: &Path,
+        section: &str,
+        index: usize,
+        base_context: &str,
+        allows_response_equality: bool,
+    ) {
         if self.missing_false {
             manifest_error(
                 path,
@@ -285,11 +298,16 @@ impl AssertionOperationPreflight {
             );
         }
         if self.count != 1 {
+            let response_equality = if allows_response_equality {
+                ", `equals_response`"
+            } else {
+                ""
+            };
             manifest_error(
                 path,
                 0,
                 format!(
-                    "{section} {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
+                    "{section} {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`{response_equality}, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
                 ),
             );
         }
@@ -360,6 +378,7 @@ impl LspAssertionPreflight {
                 &self.selector(),
                 self.path.as_deref().unwrap_or(""),
             ),
+            false,
         );
     }
 
@@ -404,6 +423,7 @@ impl McpAssertionPreflight {
                 &self.selector(),
                 self.path.as_deref().unwrap_or(""),
             ),
+            true,
         );
     }
 

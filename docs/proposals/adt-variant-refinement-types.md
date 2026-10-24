@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: ADT variant-refinement typing, diagnostics, schema or runtime behavior, language-service support, or planned verification changes.
+update-when: ADT variant-refinement typing, diagnostics, schema or runtime behavior, or planned verification changes.
 ---
 
 # ADT Variant Refinement Types For State Transitions
@@ -25,9 +25,11 @@ dependency closure participate in the package-atomic failure.
 
 This proposal retains only the unfinished work: qualified-value match
 refinement, external or representation schema decode validation, the
-provider-dependent unavailable-descriptor diagnostic, LSP invalid-refinement
-recovery, and MCP invalid-refinement recovery with the saved-state behavior of
-those remaining requests. Qualified
+provider-dependent unavailable-descriptor diagnostic, the
+`type.variant_refinement_unknown` diagnostic, and semantic identity recovery
+for a lowercase final segment. The last two items are compiler diagnostics and
+semantic recovery; they are distinct from the implemented protocol-visible
+workspace-base navigation recovery for an invalid final segment. Qualified
 immutable-value refinement depends
 on a separately specified source form for module-addressable immutable data
 values; current qualified constructor and function expressions do not satisfy
@@ -45,9 +47,15 @@ The remaining proposal has these intended outcomes:
 - Production inputs with a known ADT identity but no public finite variant
   descriptor report the defined provider-dependent diagnostic after that
   provider contract exists.
-- Remaining LSP and MCP recovery views agree with the current package-documentation
-  catalog on the identity and visibility of a refined variant. Failures in
-  those remaining operations preserve the previous observable state.
+- An uppercase final segment that does not identify a constructor owned by its
+  resolved ADT reports `type.variant_refinement_unknown`, retains the
+  independently resolved base identity, and does not trigger failures that
+  require a selected constructor.
+- A lowercase final segment participates in deterministic parser and semantic
+  diagnostic overlap. A unique casing recovery retains its constructor
+  identity without adding a lookup or unknown-variant failure caused only by
+  the casing. A final segment without a unique recovery retains only identities
+  selected independently of that segment and suppresses dependent failures.
 
 The feature is useful for protocol phases, compiler passes, security-sensitive
 state gates, and other finite state machines. It does not prove that every
@@ -163,8 +171,8 @@ repair guidance belong in `related` notes rather than the primary message.
 Parser failures that cannot form a base type, `::`, and an uppercase final
 constructor name remain syntax diagnostics. A source with any such parse
 failure does not proceed to semantic analysis. Retaining identities from an
-invalid refinement for semantic or language-service diagnostics remains part
-of the unimplemented invalid-refinement recovery work.
+invalid lowercase final for the semantic diagnostic overlap below remains
+unimplemented.
 Existing generic arity, name ambiguity, duplicate, and invalid-casing
 diagnostics remain independently reportable. Diagnostic order must be
 deterministic, and failure must not publish a partially typed declaration.
@@ -248,18 +256,6 @@ contract in the [diagnostic specification](../specification/diagnostics-json.md#
 A uniquely recovered casing identity lets later independent checks run, but
 recovery never makes the annotation valid.
 
-The remaining LSP and MCP work exposes a retained base through definition,
-references, prepare-rename, and rename only when the written base declaration
-is in the workspace. A workspace alias remains eligible when its terminal ADT
-is supplied by an admitted dependency or the standard library. A written base
-whose selected declaration is package-backed or source-less is ineligible for
-this recovery; all four operations return their ordinary empty result. This
-boundary keeps the operation set coherent without presenting a read-only
-package declaration as a workspace rename target. The current
-package-documentation and MCP specifications own publication atomicity and
-preservation after failed stable capture or analysis. The remaining recovery
-work must not weaken those rules.
-
 Machine-readable diagnostics use the existing diagnostic envelope and
 half-open spans. New detail objects are closed schemas. Human and JSON cases
 must cover every row, including overlap with one independently provable name or
@@ -314,75 +310,6 @@ identifies the failed refined position, and the reason renders the actual
 variant and expected variant set. This is a recoverable decode failure, not a
 trap or process failure.
 
-## Language-Service Contract
-
-Valid refinement navigation and rename are specified by
-[editor support](../specification/editor-support.md#lsp-navigation-formatting-and-rename)
-and [MCP](../specification/mcp.md#saved-workspace-navigation). Recovery for an
-invalid provider-independent base remains unimplemented at those protocol
-surfaces. The future shared recovery must carry each safe, unambiguous base-type
-or constructor identity without reconstructing it from display text.
-If future recovery makes a declaration eligible for publication, its signature
-must follow the current package-documentation contract.
-
-For an unknown final segment, a non-constructor final declaration, or a
-constructor owned by another ADT, the shared service retains only an eligible
-workspace base declaration. The direct base or visible alias chain must resolve
-uniquely to an ADT, generic arity and arguments must be valid, and every union
-alternative must have the same terminal ADT and canonical arguments. The final
-segment remains non-navigable and non-renamable. A package-backed written base,
-an inaccessible or non-unique same-owner constructor, an unresolved or
-ambiguous base, and a mixed-identity union retain no recovery identity.
-
-The following operation boundary applies to an invalid-final recovery
-selection:
-
-| Written base declaration | Definition | References | Prepare-rename | Rename |
-| --- | --- | --- | --- | --- |
-| Workspace ADT | Workspace declaration | Workspace declaration and occurrences | Selected base range | Workspace declaration and occurrences |
-| Workspace alias, including an alias to a dependency or standard-library ADT | Workspace alias declaration | Workspace alias declaration and occurrences | Selected base range | Workspace alias declaration and occurrences |
-| Dependency or standard-library declaration | Empty | Empty | Empty | Empty |
-| Source-less declaration | Empty | Empty | Empty | Empty |
-
-One invalid union group must be classified once and reused by selection,
-reference collection, prepare-rename, and rename. Increasing the width of one
-eligible invalid union must not cause each base occurrence to rescan the whole
-group. Deterministic adjacent-width work measurements, rather than an elapsed
-time threshold, verify this bound for direct and alias-qualified unknown and
-wrong-owner final segments.
-
-### LSP
-
-The current [editor-support specification](../specification/editor-support.md#lsp-diagnostics)
-owns LSP publication of compiler diagnostics, including variant-refinement
-primary and related spans, UTF-16 conversion, cross-source related locations,
-and unsaved overlays. This proposal retains only invalid-refinement recovery.
-
-Invalid or recovered refinements must contribute only identities that the
-remaining shared recovery rules can establish unambiguously. An invalid request
-or analysis failure does not replace the retained document snapshot or change
-the result of a later valid request. Evidence for this rule must make the saved
-snapshot observably different from a fresh disk capture, such as by selecting
-an unsaved overlay and changing the corresponding disk text before the failed
-request. UTF-16 input evidence must select a one-scalar token or an exact token
-boundary after a non-BMP scalar so omitting inbound conversion changes the
-result.
-
-This proposal does not add hover, completion, signature-help, or inlay-hint
-capabilities. Those protocol surfaces require independent whole-language
-contracts rather than variant-only implementations.
-
-### MCP
-
-The remaining MCP surface adds invalid-refinement navigation. The current MCP
-specification owns package-documentation signatures and the state-preservation
-rules for invalid input, failed stable capture or analysis, pagination failure,
-and rename refusal. Future recovery must preserve those invariants and must not
-consume unrelated cursors or admit dependency resources after a failed request.
-The evidence must compare the exact saved selection, prior result, and complete
-resource state before and after the failure, while separately proving that an
-existing reference cursor still continues.
-
 ## Acceptance Model
 
 The current [source](../specification/source-surface.md#variant-refinement-shaped-type-text),
@@ -396,15 +323,11 @@ current behavior:
 
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
-| Qualified immutable values | After a separate Ready proposal adds module-addressable immutable data values, matching a qualified reference to such a declaration has the same stable-value refinement as the corresponding direct binding. A same-shaped qualified constructor or function expression remains outside this rule. | Accepted and rejected source-grammar fixtures and name-resolution cases for the prerequisite declaration, followed by match cases that resolve an actual qualified immutable data-value declaration and distinguish it from constructors and functions. |
-| External schema decode | Refinement annotations preserve the base ADT wire representation. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant is rejected statically. | Binary and incremental decoder cases for singleton, union, nested record, payload, option, result, collection, and dictionary positions; runtime cases for excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, unchanged wire bytes, and unsupported decoder capabilities. |
-| Provider descriptor unavailable | After the separate provider prerequisite lands, a production compiler or package input with a known ADT identity and no public finite variant descriptor reports `type.variant_refinement_base` with reason `variant_descriptor_unavailable`. A local source declaration with no lowered variants does not establish this reason. | Human and JSON command fixtures that select the production provider, plus semantic cases that distinguish compiler or package provenance from local source declarations and unit-only provider injection. |
-| Shared invalid-final recovery | An eligible invalid singleton or same-ADT union exposes only its workspace base through definition, references, prepare-rename, and rename. Package-backed written bases and invalid final segments expose none of those operations. Invalid-union reference and rename work grows with group width without a whole-group scan per occurrence. | Shared language-service success and boundary cases plus deterministic adjacent-width work measurements for direct and alias-qualified unknown and wrong-owner finals. |
-| LSP | Shared recovery projects the operation boundary above. A failed recovery request preserves an observably distinct retained overlay snapshot, and inbound UTF-16 conversion is necessary to select the asserted token or boundary. | Adapter tests and stdio request/response fixtures with an overlay-versus-disk discriminator and exact UTF-16 results after a non-BMP scalar. |
-| MCP | Shared recovery projects the operation boundary above. A failed request leaves the exact saved selection, prior result, complete dependency-resource state, and an existing reference cursor unchanged. | Adapter tests and multi-request stdio MCP fixtures that compare complete before/after state and continue the retained cursor. |
-
-The remaining state-machine examples must include match-based recovery of a
-refined value and an unchanged saved result after a failed recovery request.
+| Qualified immutable values | After a separate Ready proposal adds module-addressable immutable data values, matching a qualified reference to such a declaration has the same stable-value refinement as the corresponding direct binding. A same-shaped qualified constructor or function expression remains outside this rule. | Accepted and rejected source-grammar fixtures and name-resolution cases for the prerequisite declaration, followed by match cases that resolve an actual qualified immutable data-value declaration and distinguish it from constructors and functions. Public state-machine examples must include match-based recovery of a refined value. |
+| External schema decode | Refinement annotations preserve the base ADT wire representation. External decode validates singleton, union, and nested refined positions only after the complete base value decodes successfully. A valid base value with an excluded variant returns `schema.variant_refinement_mismatch` through the existing decode failure channel without publishing a partial result. A decoder that cannot construct or validate the required variant reports `schema.variant_refinement_decode_unsupported` at the innermost unsupported refinement. Its closed details contain only `target_type`, `base_type`, `expected_variants`, and `decoder`; related context identifies the selected decoder or codec. | Binary and incremental decoder cases for singleton, union, nested record, payload, option, result, collection, and dictionary positions; runtime cases for excluded variants, malformed tags, malformed payloads, truncation, deterministic paths, offsets, reasons, unchanged wire bytes, and unsupported decoder capabilities; and human and JSON command fixtures for the static diagnostic, closed details, primary span, and related context. |
+| Provider descriptor unavailable | After the separate provider prerequisite lands, a production compiler or package input with a known ADT identity and no public finite variant descriptor reports `type.variant_refinement_base` with reason `variant_descriptor_unavailable`. Its closed details contain only `written_type` and `reason`; related context identifies the selected provider and its provenance. A local source declaration with no lowered variants does not establish this reason. | Human and JSON command fixtures that select the production provider and check the diagnostic details and related provenance, plus semantic cases that distinguish compiler or package provenance from local source declarations and unit-only provider injection. |
+| Unknown final diagnostic | An uppercase final segment that is unknown, is not a constructor, or belongs to another ADT reports `type.variant_refinement_unknown` at that segment. Its closed details contain only `base_type` and `variant`. Related locations identify the resolved ADT declaration and its visible variants. The failure retains the independently resolved base identity and suppresses visibility, assignability, and other failures that require a selected constructor. | Planned human and JSON command fixtures for the diagnostic id, closed details, primary span, and related locations, plus focused semantic cases for unknown, wrong-kind, and wrong-owner finals, retained base identity, and dependent-failure suppression. |
+| Lowercase-final semantic recovery | A lowercase final always keeps `parse.variant_refinement_type` first in the deterministic overlap order. If initial-only casing repair selects one constructor, `name.invalid_case` and independently provable semantic failures follow, the constructor identity is retained, and no lookup or unknown-variant failure is added solely because of the recovered casing. If repair has no unique result, only the independently provable casing or lookup diagnostic follows, downstream failures that require a constructor are suppressed, and only identities selected independently of the final segment are retained. Recovery never makes the annotation valid. | Planned accepted and rejected parser cases, focused semantic cases for both unique and no-unique recovery, and human and JSON command overlap fixtures that check order, suppression, and the retained identity for each case. |
 
 ## Non-Goals
 
@@ -424,9 +347,11 @@ refined value and an unchanged saved result after a failed recovery request.
 
 ## Completion
 
-This proposal is complete only when every remaining acceptance row passes and
+This proposal is complete only when every remaining acceptance row passes,
+including the unknown-final diagnostic and both lowercase-final semantic
+recovery outcomes, and
 the smallest current specification pages for types, execution, diagnostics,
-editor support, the package-documentation catalog, and MCP describe the
+and the package-documentation catalog describe the
 implemented contract. Completion also requires the public examples to explain both the
 state-machine benefit and the testing boundary.
 
@@ -436,17 +361,6 @@ checked. After all remaining rows are complete, remove this proposal and its
 catalog entry.
 
 ## Related Work
-
-[Veln PR #1858](https://github.com/oakcask/veln/pull/1858) attempted retained-base
-recovery for unknown and wrong-owner final segments. Its shared service exposed
-package-backed identities while the LSP and MCP adapters continued to reject
-package-backed references or rename, so source backing alone did not define a
-coherent four-operation boundary. Its union follow-up also rescanned one invalid
-union for each matching base occurrence, and its protocol fixtures did not make
-state loss or omitted inbound UTF-16 conversion observably fail. This proposal
-therefore makes workspace declaration ownership, shared group work, and
-discriminating protocol state part of acceptance before the recovery moves to
-the current specification.
 
 [Veln PR #1792](https://github.com/oakcask/veln/pull/1792) used local source
 declarations with no variants as a proxy for a missing provider descriptor.

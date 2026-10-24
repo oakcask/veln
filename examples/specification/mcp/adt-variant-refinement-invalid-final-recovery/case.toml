@@ -1,0 +1,215 @@
+command = ["mcp"]
+stdin_file = "requests.jsonl"
+source_errors = "expected"
+exit = 0
+
+[stdout]
+not_contains = ["example/fresh", "fresh.veln"]
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references"
+length = 3
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/next_cursor"
+contains = "."
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/code"
+equals = "invalid_position"
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent"
+equals_response = {"id":7,"path":"/result/structuredContent"}
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent"
+equals_response = {"id":5,"path":"/result/structuredContent"}
+
+[[mcp_assert]]
+id = 11
+path = "/result"
+equals_response = {"id":3,"path":"/result"}
+
+[[mcp_assert]]
+id = 12
+path = "/result"
+equals_response = {"id":4,"path":"/result"}
+
+[[mcp_assert]]
+id = 12
+path = "/result/contents/0/text"
+equals_file = "vendor/dep/dep.veln"
+
+[[mcp_assert]]
+id = 35
+path = "/result/contents/0/text"
+contains = "declaration/3b55ad2ca7325ce6d0a47a6c3716dd78f89c637c9c1761b9639adf5382bf2eff"
+
+[[mcp_assert]]
+id = 36
+path = "/result/contents/0/text"
+contains = "A remotely ready state retained in package documentation."
+
+[[mcp_assert]]
+id = 36
+path = "/result/contents/0/text"
+contains = "Stable recovery dependency module."
+
+[[mcp_assert]]
+id = 37
+path = "/result/contents/0/text"
+contains = "A documented alias retained beside the type declaration."
+
+[[mcp_assert]]
+id = 38
+path = "/result"
+equals_response = {"id":34,"path":"/result"}
+
+[[mcp_assert]]
+id = 39
+path = "/result"
+equals_response = {"id":35,"path":"/result"}
+
+[[mcp_assert]]
+id = 40
+path = "/result"
+equals_response = {"id":36,"path":"/result"}
+
+[[mcp_assert]]
+id = 41
+path = "/result"
+equals_response = {"id":37,"path":"/result"}
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/references"
+length = 1
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":9,"column":18},"end":{"line":9,"column":23}}
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/scope"
+equals = {"mode":"project","generation":0,"project":".","project_wide":true}
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/next_cursor"
+missing = true
+
+[[mcp_assert]]
+id = 14
+path = "/result/structuredContent/edits"
+length = 3
+
+[[mcp_assert]]
+id = 15
+path = "/result/structuredContent/definition"
+equals = null
+
+[[mcp_assert]]
+id = 16
+path = "/result/structuredContent/definition"
+equals = null
+
+[[mcp_assert]]
+id = 17
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 18
+path = "/result/structuredContent/edits"
+equals = []
+
+[[mcp_assert]]
+id = 19
+path = "/result/structuredContent/definition"
+equals = null
+
+[[mcp_assert]]
+id = 20
+path = "/result/structuredContent"
+equals_response = {"id":17,"path":"/result/structuredContent"}
+
+[[mcp_assert]]
+id = 21
+path = "/result/structuredContent"
+equals_response = {"id":18,"path":"/result/structuredContent"}
+
+[[mcp_assert]]
+id = 22
+path = "/result/structuredContent/definition"
+equals = null
+
+[[mcp_assert]]
+id = 23
+path = "/result/structuredContent"
+equals_response = {"id":17,"path":"/result/structuredContent"}
+
+[[mcp_assert]]
+id = 24
+path = "/result/structuredContent"
+equals_response = {"id":18,"path":"/result/structuredContent"}
+
+[[mcp_assert]]
+id = 25
+path = "/result/structuredContent/definition"
+equals = null
+
+[[mcp_assert]]
+id = 26
+path = "/result/structuredContent"
+equals_response = {"id":17,"path":"/result/structuredContent"}
+
+[[mcp_assert]]
+id = 27
+path = "/result/structuredContent"
+equals_response = {"id":18,"path":"/result/structuredContent"}
+
+[[mcp_assert]]
+id = 28
+path = "/result/structuredContent/definition"
+equals = null
+
+[[mcp_assert]]
+id = 29
+path = "/result/structuredContent"
+equals_response = {"id":17,"path":"/result/structuredContent"}
+
+[[mcp_assert]]
+id = 30
+path = "/result/structuredContent"
+equals_response = {"id":18,"path":"/result/structuredContent"}
+
+[[mcp_assert]]
+id = 31
+path = "/result/structuredContent/definition"
+equals = null
+
+[[mcp_assert]]
+id = 32
+path = "/result/structuredContent"
+equals_response = {"id":17,"path":"/result/structuredContent"}
+
+[[mcp_assert]]
+id = 33
+path = "/result/structuredContent"
+equals_response = {"id":18,"path":"/result/structuredContent"}

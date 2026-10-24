@@ -253,12 +253,17 @@ decoded assertion select object members keyed by workspace file URI without
 storing the copied workspace path.
 
 Each MCP assertion declares exactly one of `equals`, `equals_file`,
-`equals_json_file`, `contains`, `length`, `workspace_file_uri`, or
-`missing = true`. `equals` and `equals_json_file` use the common JSON equality
-rules below. `equals_file` requires the selected value to be a JSON string and
-compares it with the exact sidecar contents. `equals_json_file` parses the
-sidecar while the manifest loads. Invalid JSON reports the manifest line plus
-the `mcp_assert` index, response selector, JSON Pointer path, and operation.
+`equals_json_file`, `equals_response`, `contains`, `length`,
+`workspace_file_uri`, or `missing = true`. `equals` and `equals_json_file` use
+the common JSON equality rules below. `equals_file` requires the selected value
+to be a JSON string and compares it with the exact sidecar contents.
+`equals_json_file` parses the sidecar while the manifest loads. Invalid JSON
+reports the manifest line plus the `mcp_assert` index, response selector, JSON
+Pointer path, and operation. `equals_response = {"id": <id>, "path":
+"<pointer>"}` compares the selected subtree with the subtree selected by that
+response identifier and JSON Pointer in the same decoded stream. Both response
+identifiers follow the MCP selector rules, and both pointers expand workspace
+file URI tokens before exact JSON comparison.
 `contains` uses the common string-containment contract below. `length`
 requires a JSON array at the selected path and checks its exact element count.
 `workspace_file_uri` requires a JSON string at the selected path and compares
