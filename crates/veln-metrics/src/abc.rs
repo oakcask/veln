@@ -54,6 +54,54 @@ fn count_body(body: &[BodyLine], vector: &mut AbcVector) {
 }
 
 pub(super) fn count_expr(expr: &Expr, vector: &mut AbcVector) {
+    let contribution = expr_contribution(expr);
+    vector.branches += contribution.branches;
+    vector.conditionals += contribution.conditionals;
+    count_expr_children(expr, vector);
+}
+
+#[derive(Clone, Copy, Default)]
+struct ExprContribution {
+    branches: usize,
+    conditionals: usize,
+}
+
+fn expr_contribution(expr: &Expr) -> ExprContribution {
+    match &expr.kind {
+        ExprKind::Call { .. }
+        | ExprKind::Perform { .. }
+        | ExprKind::Handle { .. }
+        | ExprKind::SchemaDecode { .. }
+        | ExprKind::SchemaEncode { .. } => ExprContribution {
+            branches: 1,
+            ..ExprContribution::default()
+        },
+        ExprKind::Try { .. } => ExprContribution {
+            conditionals: 1,
+            ..ExprContribution::default()
+        },
+        ExprKind::Match { arms, .. } => ExprContribution {
+            conditionals: 1 + arms.len(),
+            ..ExprContribution::default()
+        },
+        ExprKind::If {
+            else_if_branches, ..
+        } => ExprContribution {
+            conditionals: 1 + else_if_branches.len(),
+            ..ExprContribution::default()
+        },
+        ExprKind::Binary {
+            op: BinaryOp::And | BinaryOp::Or,
+            ..
+        } => ExprContribution {
+            conditionals: 1,
+            ..ExprContribution::default()
+        },
+        _ => ExprContribution::default(),
+    }
+}
+
+fn count_expr_children(expr: &Expr, vector: &mut AbcVector) {
     match &expr.kind {
         ExprKind::Missing
         | ExprKind::Hole { .. }
@@ -63,64 +111,38 @@ pub(super) fn count_expr(expr: &Expr, vector: &mut AbcVector) {
         | ExprKind::FloatLiteral(_)
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
-        ExprKind::TypeApply { callee, .. } => count_expr(callee, vector),
-        ExprKind::Call { callee, args } => {
-            vector.branches += 1;
-            count_expr(callee, vector);
-            for arg in args {
-                count_expr(arg, vector);
-            }
+        ExprKind::TypeApply { callee: child, .. }
+        | ExprKind::SchemaEncode { value: child, .. }
+        | ExprKind::FieldAccess { base: child, .. }
+        | ExprKind::Try { expr: child, .. }
+        | ExprKind::Prefix { expr: child, .. } => count_expr(child, vector),
+        ExprKind::SchemaDecode {
+            input: first,
+            base: second,
+            ..
         }
-        ExprKind::Perform { args, .. } => {
-            vector.branches += 1;
-            for arg in args {
-                count_expr(arg, vector);
-            }
+        | ExprKind::Binary {
+            left: first,
+            right: second,
+            ..
+        } => count_exprs([first.as_ref(), second.as_ref()], vector),
+        ExprKind::Perform { args, .. } | ExprKind::List(args) => count_exprs(args, vector),
+        ExprKind::Call { callee, args } => {
+            count_expr(callee, vector);
+            count_exprs(args, vector);
         }
         ExprKind::Handle { body, args, .. } => {
-            vector.branches += 1;
             count_expr(body, vector);
-            for arg in args {
-                count_expr(arg, vector);
-            }
+            count_exprs(args, vector);
         }
-        ExprKind::SchemaDecode { input, base, .. } => {
-            vector.branches += 1;
-            count_expr(input, vector);
-            count_expr(base, vector);
-        }
-        ExprKind::SchemaEncode { value, .. } => {
-            vector.branches += 1;
-            count_expr(value, vector);
-        }
-        ExprKind::FieldAccess { base, .. } | ExprKind::Try { expr: base, .. } => {
-            if matches!(expr.kind, ExprKind::Try { .. }) {
-                vector.conditionals += 1;
-            }
-            count_expr(base, vector);
-        }
-        ExprKind::Record(fields) => {
-            for field in fields {
-                count_expr(&field.expr, vector);
-            }
-        }
-        ExprKind::Dict(entries) => {
-            for entry in entries {
-                count_expr(&entry.key, vector);
-                count_expr(&entry.value, vector);
-            }
-        }
-        ExprKind::List(items) => {
-            for item in items {
-                count_expr(item, vector);
-            }
-        }
+        ExprKind::Record(fields) => count_exprs(fields.iter().map(|field| &field.expr), vector),
+        ExprKind::Dict(entries) => count_exprs(
+            entries.iter().flat_map(|entry| [&entry.key, &entry.value]),
+            vector,
+        ),
         ExprKind::Match { scrutinee, arms } => {
-            vector.conditionals += 1 + arms.len();
             count_expr(scrutinee, vector);
-            for arm in arms {
-                count_expr(&arm.expr, vector);
-            }
+            count_exprs(arms.iter().map(|arm| &arm.expr), vector);
         }
         ExprKind::If {
             condition,
@@ -128,24 +150,22 @@ pub(super) fn count_expr(expr: &Expr, vector: &mut AbcVector) {
             else_if_branches,
             else_branch,
         } => {
-            vector.conditionals += 1 + else_if_branches.len();
-            count_expr(condition, vector);
-            count_expr(then_branch, vector);
-            for branch in else_if_branches {
-                count_expr(&branch.condition, vector);
-                count_expr(&branch.expr, vector);
-            }
+            count_exprs([condition.as_ref(), then_branch.as_ref()], vector);
+            count_exprs(
+                else_if_branches
+                    .iter()
+                    .flat_map(|branch| [&branch.condition, &branch.expr]),
+                vector,
+            );
             count_expr(else_branch, vector);
         }
         ExprKind::Begin { body, .. } => count_body(body, vector),
-        ExprKind::Prefix { expr, .. } => count_expr(expr, vector),
-        ExprKind::Binary { op, left, right } => {
-            if matches!(op, BinaryOp::And | BinaryOp::Or) {
-                vector.conditionals += 1;
-            }
-            count_expr(left, vector);
-            count_expr(right, vector);
-        }
+    }
+}
+
+fn count_exprs<'a>(exprs: impl IntoIterator<Item = &'a Expr>, vector: &mut AbcVector) {
+    for expr in exprs {
+        count_expr(expr, vector);
     }
 }
 
