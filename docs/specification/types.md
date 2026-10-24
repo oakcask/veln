@@ -691,8 +691,8 @@ unknown variant, invalid base arity, or union whose alternatives have different
 resolved ADT identities or canonical generic arguments is an invalid type
 annotation; it does not become an assignable `unknown` contract.
 An ASCII-lowercase final segment is also always invalid. If changing only its
-initial character to uppercase selects exactly one constructor of the
-independently resolved base, the checker retains that constructor identity.
+initial character to uppercase selects exactly one constructor of an exact or
+uniquely casing-recovered base, the checker retains that constructor identity.
 It can then report independently provable arity, base eligibility, union-base,
 visibility, and assignability failures without adding an unknown-variant
 failure caused only by the written casing. If that repair has no unique
@@ -704,7 +704,12 @@ The containing declaration remains unpublished in both cases. The checked
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-lowercase-final-recovery-json/)
 cases cover unique and missing recovery, independent failures, suppression,
-and retained base and constructor identities.
+and retained base and constructor identities. The checked combined-casing
+[`human`](../../examples/specification/check/adt-variant-refinement-combined-case-recovery-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-combined-case-recovery-json/)
+cases cover simultaneous base and final recovery, declaration quarantine, and
+independent visibility failure.
 If a structurally valid refinement base resolves uniquely but cannot provide a
 finite ADT variant set, the checker rejects the annotation with
 `type.variant_refinement_base`. The reason is `not_adt` for a source declaration

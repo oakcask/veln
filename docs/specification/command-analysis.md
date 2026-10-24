@@ -28,8 +28,14 @@ Selection, output, execution, and write policy remain command specific.
 A source with a parse diagnostic is excluded from semantic analysis unless
 every parse diagnostic reports a structurally complete variant refinement
 whose final segment starts with an ASCII lowercase letter. That recovery keeps
-the invalid annotation available for semantic diagnostics; it does not make
-the annotation valid. Any unrelated parse diagnostic excludes the source.
+the invalid annotation available for semantic diagnostics. A parse-clean
+non-generic path whose prospective base and final segments both start with
+ASCII lowercase letters also reaches semantic analysis as a
+resolution-dependent refinement candidate. If exact or unique initial-only
+base recovery selects that interpretation, analysis inserts the same parse
+diagnostic before the independently provable semantic diagnostics. Neither
+path makes the annotation valid. Any unrelated parse diagnostic excludes the
+source.
 Other eligible sources in the same project can still proceed to semantic
 analysis. The recoverable syntax boundary is defined by the
 [source-surface specification](source-surface.md#variant-refinement-shaped-type-text).
