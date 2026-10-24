@@ -20,9 +20,9 @@ also states it.
   after a separate source-surface prerequisite, external or representation
   schema decode validation, the provider-dependent base reason, and
   lowercase-final semantic identity recovery. The provider-dependent reason
-  requires a separate production provider contract before selection. The two final-segment
-  recovery surfaces are distinct from current protocol-visible workspace-base
-  navigation recovery:
+  requires a separate production provider contract before selection. The
+  lowercase-final compiler recovery is distinct from current protocol-visible
+  workspace-base navigation recovery:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 
 ## Blocked
