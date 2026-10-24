@@ -151,6 +151,15 @@ never validates the annotation. The same rules apply independently to every
 union alternative and when the base and final segment both need unique
 initial-only repairs. A non-generic lowercase qualified path remains ordinary
 named-type text unless base resolution selects its refinement interpretation.
+When a uniquely recovered lowercase refinement is a named generic argument,
+its complete semantic type can instantiate the enclosing refinement base for
+an independent union comparison. The output order is the parse diagnostic,
+the final-segment casing diagnostic, and then `type.variant_union_base` on the
+later outer alternative. That union diagnostic names the fully instantiated
+outer bases in its closed details and relates the earliest outer base. It does
+not add `type.invalid_annotation` solely because the recovered inner final was
+lowercase. A missing, ambiguous, mixed-base, or otherwise incomplete nested
+refinement does not instantiate an enclosing base for this comparison.
 The parse diagnostic retains the annotation's declaration context. A recovered
 test result uses `parser_context: "test_return"`; an ordinary function result
 uses `parser_context: "function_return"`. The checked
@@ -170,6 +179,12 @@ and
 outputs fix the ordering, final-segment spans, retained identity, suppression,
 closed existing detail objects, mixed exact and recovered union alternatives,
 and a recovered generic non-ADT base with canonical declaration provenance.
+The nested generic argument
+[`human`](../../examples/specification/check/adt-variant-refinement-nested-lowercase-recovery-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-nested-lowercase-recovery-json/)
+outputs fix the outer-alternative span, expected-base related span, diagnostic
+order, suppression, and fully instantiated closed union-base details.
 The focused ambiguous-repair
 [`human`](../../examples/specification/check/adt-variant-refinement-lowercase-final-ambiguous-human/)
 and
@@ -231,12 +246,12 @@ reports at its own segment. Same-base alternatives before or after it do not
 add `type.variant_union_base`; a later independently instantiated different
 base still does. The failed final does not select a constructor. The checker
 therefore suppresses privacy, assignability, and other failures that require a
-selected constructor. An invalid nested type
-argument suppresses an enclosing unknown-final failure that would require that
-argument to instantiate the base. A uniquely casing-recovered base keeps the
-independent `name.invalid_case` before this diagnostic. A lowercase final whose
-initial-only repair is ambiguous does not add this lookup diagnostic because
-no constructor identity was selected.
+selected constructor. A nested type argument that remains unresolved or
+incomplete suppresses an enclosing unknown-final failure that would require
+that argument to instantiate the base. A uniquely casing-recovered base keeps
+the independent `name.invalid_case` before this diagnostic. A lowercase final
+whose initial-only repair is ambiguous does not add this lookup diagnostic
+because no constructor identity was selected.
 The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-unknown-human/)
 and
@@ -456,10 +471,11 @@ constructor signature, every type exposed by that declaration is unknown to
 its body and consumers. These boundaries suppress only diagnostics derived
 from the rejected signature. Other independently provable declaration
 diagnostics also remain.
-When a nested type argument is invalid, the checker still reports an enclosing
-base-eligibility failure that can be proved from the enclosing base identity
-alone. It suppresses an enclosing annotation or final-segment failure that
-would require the invalid child to form a valid type.
+When a nested type argument remains unresolved or incomplete, the checker still
+reports an enclosing base-eligibility failure that can be proved from the
+enclosing base identity alone. It suppresses an enclosing annotation or
+final-segment failure that would require the incomplete child to form a valid
+type.
 The checker visits each written type-path occurrence once during recovery.
 Repeated traversal of one source span does not duplicate its diagnostic, while
 equal path text at distinct spans remains distinct and can report once at each
@@ -561,7 +577,8 @@ The checked nested-recovery
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-nested-recovery-json/)
 cases cover independent enclosing base failures, nested generic-arity failures,
-suppression of failures derived from an invalid child type, one diagnostic per
+suppression of failures derived from an unresolved or incomplete child type,
+one diagnostic per
 written path occurrence, and independent diagnostics for equal paths at
 distinct spans.
 The qualified source-collision

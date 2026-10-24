@@ -782,9 +782,9 @@ owned by another ADT makes the annotation invalid. The checker retains the
 base identity for an independent union-base comparison, regardless of the
 unknown final's position among the union alternatives, but it does not retain
 a constructor identity. The containing declaration is quarantined without
-deriving privacy or assignability failures from the missing selection. A
-failed nested argument prevents the enclosing final segment from being checked
-as though the base had been instantiated.
+deriving privacy or assignability failures from the missing selection. An
+unresolved or incomplete nested argument prevents the enclosing final segment
+from being checked as though the base had been instantiated.
 The checked
 [`human`](../../examples/specification/check/adt-variant-refinement-unknown-human/)
 and
