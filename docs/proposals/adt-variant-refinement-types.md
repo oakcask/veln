@@ -210,40 +210,23 @@ invalid-annotation diagnostic. A uniquely recovered invalid-cased base keeps
 `name.invalid_case` on a carrier where casing analysis applies and remains
 eligible for an independently provable base failure.
 
-The checker reports every failure that it can prove from identities available
-without assuming that an earlier failed step succeeded. It suppresses a
-diagnostic when that diagnostic follows only from a missing or invalid result
-of an earlier step. The following table defines the observable overlap and
-identity contract. Retained semantic identity supports suppression and later
-analysis; it does not by itself publish protocol-visible navigation.
+The current
+[diagnostic specification](../specification/diagnostics-json.md#diagnostic-families)
+owns proof-dependent suppression, retained semantic identity, and diagnostic
+ordering for incomplete, unresolved, ambiguous, and otherwise recoverable
+refinements. A future provider implementation adds only this overlap row to
+that contract:
 
 | Condition | Emitted diagnostics | Suppressed diagnostics | Retained identity |
 | --- | --- | --- | --- |
-| The refinement syntax is incomplete and no current recovery applies. | The responsible syntax diagnostic. | All semantic refinement diagnostics for that type occurrence. | None from the incomplete refinement. |
-| The base, including a generic base, is unresolved. | The existing unresolved-name diagnostic. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | None. |
-| The base is ambiguous. | The existing ambiguity diagnostic with its candidates. | Base eligibility, variant, visibility, union comparison involving that alternative, and assignability diagnostics. | No selected base or variant identity; candidates remain related context. |
 | A provider-backed ADT identity has no public finite variant descriptor. | `type.variant_refinement_base` with `reason: "variant_descriptor_unavailable"`. | Variant, visibility, union comparison involving that alternative, and assignability diagnostics. | The resolved base identity only. |
 
-Within one annotation, the checker visits union alternatives in written order.
-It checks each alternative in this order: casing, base resolution, generic
-arity, base eligibility, final-segment resolution, and visibility. The current
-[diagnostic specification](../specification/diagnostics-json.md#diagnostic-families)
-owns comparison of independently instantiated union bases, including retained
-base identities, failed-alternative suppression, and focused diagnostic
-details.
-
-Diagnostics for one annotation follow the written alternative order and check
-order above. Diagnostics with the same primary span use that check order,
-followed by union-base and assignability diagnostics. The remaining
-diagnostics extend the current cross-annotation and cross-family ordering
-contract in the [diagnostic specification](../specification/diagnostics-json.md#diagnostic-families).
-
 Machine-readable diagnostics use the existing diagnostic envelope and
-half-open spans. New detail objects are closed schemas. Human and JSON cases
-must cover every row, including overlap with one independently provable name or
-arity failure. A schema refinement diagnostic selects the refinement annotation
-as its primary span. If the refinement is nested, it selects the innermost
-refinement that the decoder cannot establish.
+half-open spans. The new provider detail object is a closed schema. Human and
+JSON cases must cover the provider row, including overlap with one independently
+provable name or arity failure. A schema refinement diagnostic selects the
+refinement annotation as its primary span. If the refinement is nested, it
+selects the innermost refinement that the decoder cannot establish.
 
 ## Schema Decode Soundness
 
