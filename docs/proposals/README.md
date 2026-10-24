@@ -18,9 +18,12 @@ also states it.
 
 - Remaining ADT variant-refinement support for qualified immutable values
   after a separate source-surface prerequisite, external or representation
-  schema decode validation, and the provider-dependent base reason. The latter
-  requires a separate production
-  provider contract before selection:
+  schema decode validation, the provider-dependent base reason, the
+  `type.variant_refinement_unknown` diagnostic, and lowercase-final semantic
+  identity recovery. The provider-dependent reason requires a separate
+  production provider contract before selection. The two final-segment
+  compiler items are distinct from current protocol-visible workspace-base
+  navigation recovery:
   [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
 
 ## Blocked

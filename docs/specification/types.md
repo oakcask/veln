@@ -1167,6 +1167,10 @@ rename behavior is specified by
 [MCP](mcp.md#saved-workspace-navigation). Qualified-value control-flow
 refinement, external or representation schema decode validation, and the
 provider-dependent unavailable-descriptor diagnostic remain proposal work.
+The `type.variant_refinement_unknown` diagnostic and semantic identity recovery
+for a lowercase final segment also remain proposal work. Those compiler items
+are distinct from the implemented workspace-base navigation recovery for an
+invalid final segment.
 This slice also does not add recursive generic or function variance.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
