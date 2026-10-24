@@ -528,15 +528,19 @@ zero-based `segment_index`. The `source_kind` value is `regular`,
 `export`, `companion`, `doctest`, or `generated`. A source with an invalid
 origin segment is not registered as a normal derived module identity.
 Source-path casing validation still runs for selected regular and companion
-sources that also have parse diagnostics, but those parse-failing sources are
-not lowered or registered as normal derived module identities. A rejected
+sources that also have parse diagnostics. A source whose only parse diagnostics
+are recoverable ASCII-lowercase variant-refinement final segments is lowered
+and registered under its valid derived module identity for semantic diagnostic
+recovery. The invalid annotation remains an error. Any unrelated parse
+diagnostic prevents lowering and normal module registration. A rejected
 derived-module identity is recorded only when visible module derivation itself
-fails solely with source-path `name.invalid_case` diagnostics. A parse-failing
-source whose source path casing is accepted does not record a rejected
-derived-module identity and does not suppress a single-segment unresolved
-local import. A source path segment that starts with an ASCII lowercase letter
-but contains another invalid module-identifier character reports
-`module.invalid_source_path` instead of `name.invalid_case`.
+fails solely with source-path `name.invalid_case` diagnostics. A source
+excluded by an unrelated parse diagnostic whose source path casing is accepted
+does not record a rejected derived-module identity and does not suppress a
+single-segment unresolved local import. A source path segment that starts with
+an ASCII lowercase letter but contains another invalid module-identifier
+character reports `module.invalid_source_path` instead of
+`name.invalid_case`.
 Before executable doctest extraction, the documented source path must also be
 a canonical package-relative virtual-source origin. An invalid origin reports
 `module.invalid_source_path` once against the documented source and creates no

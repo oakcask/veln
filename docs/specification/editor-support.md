@@ -214,6 +214,14 @@ For workspace sources, saved snapshots and open-document overlays publish
 source identifier casing diagnostics for the selected workspace project only,
 including source-path-derived module segment diagnostics at the zero-width
 source-start range specified by [name-resolution.md](name-resolution.md).
+Workspace project analysis also lowers a source when every parse diagnostic is
+the recoverable ASCII-lowercase final-segment error for a structurally complete
+variant refinement. Publication then includes the parse diagnostic followed by
+independently provable semantic diagnostics; the annotation remains invalid.
+Any unrelated parse diagnostic excludes that source from semantic analysis.
+This exception belongs to workspace project analysis and does not change the
+document-scoped parse-success gate above. The shared overlap and ordering are
+defined by [diagnostics-json.md](diagnostics-json.md#diagnostic-families).
 When a workspace source has an invalid source-path-derived module identity,
 the language service does not expose that source or its declarations as normal
 workspace navigation candidates. Definition, references, prepare-rename, and
