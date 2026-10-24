@@ -678,12 +678,12 @@ For a workspace public function alias, prepare-rename and rename select the
 alias identity at its declaration and at calls that resolve through the alias.
 Rename edits the alias declaration and those alias calls. It does not edit the
 target function declaration or direct calls to that target. Workspace type
-aliases remain unsupported by general LSP prepare-rename and rename. The valid
-variant-refinement exception above permits both operations when the selected
-alias is the written base of a complete refinement identity; the edit retains
-the alias identity and does not rename the target ADT or constructor. The MCP
-rename tool supports the separate alias identity as specified in
-[mcp.md](mcp.md#rename).
+aliases remain unsupported by general LSP prepare-rename and rename. The shared
+variant-refinement rules above permit both operations when the selected alias
+is the written base of a complete valid refinement or an eligible invalid-final
+recovery. The edit retains the alias identity and does not rename the target
+ADT or constructor. The MCP rename tool supports the separate alias identity
+as specified in [mcp.md](mcp.md#rename).
 
 A rename request without a selected supported workspace symbol returns an empty
 workspace-edit `changes` object, and prepare-rename for the same position
