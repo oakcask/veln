@@ -1745,6 +1745,7 @@ fn collect_annotation_diagnostics(
                 path.segment_spans[variant_index].clone(),
                 joined_span(&path.segment_spans),
                 None,
+                &path.segments[..variant_index],
                 descriptor,
                 current_module,
                 environment,
@@ -1788,7 +1789,10 @@ fn collect_declaration_annotation(
         &recovery,
         diagnostics,
     );
-    if !has_base_failure && recovery.union_base_failures.is_empty() {
+    if !has_base_failure
+        && recovery.union_base_failures.is_empty()
+        && recovery.unknown_variant_occurrences.is_empty()
+    {
         return;
     }
     for (annotation, error, span) in recovery.errors {
@@ -1882,6 +1886,7 @@ fn unknown_variant_diagnostic(
         alternative.variant_span.clone(),
         alternative.span.clone(),
         Some(refinement.span.clone()),
+        &alternative.base.segments,
         descriptor,
         current_module,
         environment,
@@ -1911,6 +1916,7 @@ fn unknown_variant_diagnostic_from_parts(
     variant_span: SourceSpan,
     ordering_scope: SourceSpan,
     union_scope: Option<SourceSpan>,
+    written_base_segments: &[String],
     descriptor: &crate::adt::descriptors::AdtDescriptor,
     current_module: Option<&str>,
     environment: &TypeEnvironment,
@@ -1946,8 +1952,12 @@ fn unknown_variant_diagnostic_from_parts(
     }
     diagnostic.related.push(JsonValue::object(base_related));
     for visible in descriptor.variants.iter().filter(|candidate| {
-        candidate.visibility == veln_ast::Visibility::Public
-            || descriptor.module_name.as_deref() == current_module
+        environment.variant_refinement_variant_visible(
+            descriptor,
+            candidate,
+            written_base_segments,
+            current_module,
+        )
     }) {
         let mut related = vec![
             ("kind", JsonValue::string("visible_variant_declaration")),

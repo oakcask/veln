@@ -160,9 +160,11 @@ variant visible from the annotation, in declaration order. The first entry has
 and the declaration `span` when one exists. Each following entry has
 `kind: "visible_variant_declaration"` and contains `message`, `variant`, the
 same `resolved_identity`, and the variant declaration `span` when one exists.
-All variants are visible within their declaring module; only public variants
-are visible from another module. A source-less ADT uses the same entries
-without source spans when no declaration locations exist.
+All variants are visible within their declaring module. An ordinary foreign
+module sees only public variants. An exact test companion with the required
+explicit target import also sees the target module's private variants. A
+source-less ADT uses the same entries without source spans when no declaration
+locations exist.
 
 The failed final segment retains the independently resolved base identity for
 later union-base comparison and declaration quarantine. It does not select a
@@ -176,7 +178,11 @@ The checked
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-unknown-json/)
 cases fix the message, final-segment span, closed details, and related-entry
-order.
+order. The checked exact-companion
+[`human`](../../examples/specification/check/adt-variant-refinement-unknown-companion-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-unknown-companion-json/)
+cases fix the target-private variant projection and its related spans.
 
 A variant refinement anywhere in a public function parameter or result, or in
 a payload of a public variant of a public source ADT, reports

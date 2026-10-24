@@ -1,0 +1,4 @@
+math.test.veln:3:32: error[type.variant_refinement_unknown]: variant `Missing` is not a variant of `State`
+  note: math.veln:1:1: Type `State` is the resolved ADT for this refinement.
+  note: math.veln:2:2: Visible variant `Hidden` is declared here.
+  note: math.veln:3:2: Visible variant `Ready` is declared here.

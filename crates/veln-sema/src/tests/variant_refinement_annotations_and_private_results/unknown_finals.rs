@@ -91,6 +91,49 @@ fn unknown_final_retains_only_the_base_for_independent_union_comparison() {
 }
 
 #[test]
+fn casing_recovered_unknown_final_keeps_visible_variant_context() {
+    let diagnostics = diagnostics_for(concat!(
+        "type State\n",
+        "  Ready\n",
+        "end\n",
+        "fn rejected(value: state::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let unknown = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.variant_refinement_unknown")
+        .unwrap_or_else(|| panic!("{diagnostics:#?}"));
+    assert!(unknown.related.iter().any(|entry| {
+        let json = entry.to_json();
+        json.contains("\"kind\":\"visible_variant_declaration\"")
+            && json.contains("\"variant\":\"Ready\"")
+    }));
+}
+
+#[test]
+fn source_less_unknown_final_keeps_ordered_spanless_variant_context() {
+    let diagnostics = diagnostics_for(concat!(
+        "fn rejected(value: Option<Int>::Missing) -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let related = diagnostics[0]
+        .related
+        .iter()
+        .map(|entry| entry.to_json())
+        .collect::<Vec<_>>();
+    assert_eq!(related.len(), 3, "{related:#?}");
+    assert!(related[0].contains("\"kind\":\"base_type_declaration\""));
+    assert!(related[1].contains("\"variant\":\"Some\""));
+    assert!(related[2].contains("\"variant\":\"None\""));
+    assert!(related.iter().all(|entry| !entry.contains("\"span\"")));
+}
+
+#[test]
 fn unknown_final_quarantines_dependent_failures_and_invalid_children_suppress_outer_finals() {
     let diagnostics = diagnostics_for(concat!(
         "pub type State\n",
@@ -134,4 +177,105 @@ fn unknown_final_quarantines_dependent_failures_and_invalid_children_suppress_ou
         diagnostics[2].details.to_json(),
         "{\"base_type\":\"State\",\"variant\":\"Missing\"}"
     );
+}
+
+#[test]
+fn unknown_final_related_variants_follow_constructor_visibility() {
+    let target = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "math.veln",
+            concat!(
+                "mod math\n",
+                "type State\n",
+                "  Hidden\n",
+                "  pub Ready\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+    let companion = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "math.test.veln",
+            concat!(
+                "mod math__test_companion\n",
+                "use math\n",
+                "fn inspect(value: math::State::Missing) -> ()\n",
+                "  ()\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+    let module = veln_ast::SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        types: target.types,
+        functions: companion.functions,
+        invalid_names: Vec::new(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.variant_refinement_unknown");
+    let related = diagnostics[0]
+        .related
+        .iter()
+        .map(|value| value.to_json())
+        .collect::<Vec<_>>();
+    assert_eq!(related.len(), 3, "{related:#?}");
+    assert!(related[1].contains("\"variant\":\"Hidden\""));
+    assert!(related[2].contains("\"variant\":\"Ready\""));
+
+    let foreign = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "consumer.veln",
+            concat!(
+                "mod consumer\n",
+                "use math\n",
+                "fn inspect(value: math::State::Missing) -> ()\n",
+                "  ()\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+    let target = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "math.veln",
+            concat!(
+                "mod math\n",
+                "pub type State\n",
+                "  Hidden\n",
+                "  pub Ready\n",
+                "end\n",
+            ),
+        ))
+        .tree,
+    );
+    let module = veln_ast::SurfaceModule {
+        module: foreign.module,
+        uses: foreign.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        types: target.types,
+        functions: foreign.functions,
+        invalid_names: Vec::new(),
+    };
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let related = diagnostics[0]
+        .related
+        .iter()
+        .map(|value| value.to_json())
+        .collect::<Vec<_>>();
+    assert_eq!(related.len(), 2, "{related:#?}");
+    assert!(related[1].contains("\"variant\":\"Ready\""));
+    assert!(!related.iter().any(|entry| entry.contains("Hidden")));
 }
