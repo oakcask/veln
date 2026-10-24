@@ -155,9 +155,14 @@ its resolved finite ADT, the checker reports
 unknown name, a name that resolves as a non-constructor, and a constructor
 owned by another ADT. Its closed details contain exactly `base_type` and
 `variant`. Related entries identify the resolved ADT declaration and each
-variant visible from the annotation, in declaration order. A source-less ADT
-uses the same entries without a source span when no declaration location
-exists.
+variant visible from the annotation, in declaration order. The first entry has
+`kind: "base_type_declaration"` and contains `message`, `resolved_identity`,
+and the declaration `span` when one exists. Each following entry has
+`kind: "visible_variant_declaration"` and contains `message`, `variant`, the
+same `resolved_identity`, and the variant declaration `span` when one exists.
+All variants are visible within their declaring module; only public variants
+are visible from another module. A source-less ADT uses the same entries
+without source spans when no declaration locations exist.
 
 The failed final segment retains the independently resolved base identity for
 later union-base comparison and declaration quarantine. It does not select a
@@ -166,6 +171,12 @@ other failures that require a selected constructor. An invalid nested type
 argument suppresses an enclosing unknown-final failure that would require that
 argument to instantiate the base. A uniquely casing-recovered base keeps the
 independent `name.invalid_case` before this diagnostic.
+The checked
+[`human`](../../examples/specification/check/adt-variant-refinement-unknown-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-unknown-json/)
+cases fix the message, final-segment span, closed details, and related-entry
+order.
 
 A variant refinement anywhere in a public function parameter or result, or in
 a payload of a public variant of a public source ADT, reports

@@ -747,9 +747,13 @@ a constructor identity. The containing declaration is quarantined without
 deriving privacy or assignability failures from the missing selection. A
 failed nested argument prevents the enclosing final segment from being checked
 as though the base had been instantiated.
+The checked
+[`human`](../../examples/specification/check/adt-variant-refinement-unknown-human/)
+and
+[`JSON`](../../examples/specification/check/adt-variant-refinement-unknown-json/)
+cases verify the rejection and diagnostic projection.
 
-The
-early quarantine uses the same source-backed declarations as the analyzed
+The early quarantine uses the same source-backed declarations as the analyzed
 module, including declarations selected from the reusable standard
 environment. Private return inference therefore cannot publish a result that
 depends on an invalid reusable-base annotation. Recovery visits every generic

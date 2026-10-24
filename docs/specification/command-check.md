@@ -68,6 +68,11 @@ resolved ADT identities or canonical generic arguments is also a semantic
 error. It blocks command success and quarantines the complete containing
 function, effect operation, handler, or ADT-constructor signature according to
 the same type and diagnostic contracts.
+An uppercase refinement final that does not select a unique constructor owned
+by its resolved finite ADT is also a semantic error. Recovery retains only the
+base identity, quarantines the complete containing declaration, and blocks
+command success. The diagnostic contract defines the focused unknown-final
+failure and related variant context.
 The checked
 [`publication-closure`](../../examples/specification/check/adt-variant-refinement-publication-closure-human/)
 case verifies that one causal diagnostic blocks command success. Focused
