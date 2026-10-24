@@ -83,6 +83,28 @@ impl TypeEnvironment {
         })
     }
 
+    pub(crate) fn variant_refinement_base_is_unresolved(
+        &self,
+        base: &str,
+        current_module: Option<&str>,
+    ) -> bool {
+        if self
+            .adts
+            .descriptor_for_type_path_any_arity(base, current_module, &self.uses)
+            .is_some()
+            || self.variant_refinement_base_name_resolves(base, current_module)
+        {
+            return false;
+        }
+        let Some(recovered) = recover_type_case(base) else {
+            return true;
+        };
+        self.adts
+            .descriptor_for_type_path_any_arity(&recovered, current_module, &self.uses)
+            .is_none()
+            && !self.variant_refinement_base_name_resolves(&recovered, current_module)
+    }
+
     fn variant_refinement_base_name_resolves(
         &self,
         base: &str,

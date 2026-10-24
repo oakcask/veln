@@ -1,0 +1,7 @@
+fn lower(value: Missing<Int>::lower) -> ()
+	()
+end
+
+fn upper(value: Missing<Int>::Lower) -> ()
+	()
+end

@@ -147,6 +147,60 @@ fn ambiguous_lowercase_repair_suppresses_constructor_dependent_failures() {
 }
 
 #[test]
+fn single_ambiguous_parameter_quarantines_constructor_dependent_checks() {
+    let source = concat!(
+        "pub type State\n",
+        "  Ready\n",
+        "  Ready\n",
+        "  pub Closed\n",
+        "end\n",
+        "fn needs_closed(value: State::Closed) -> ()\n  ()\nend\n",
+        "pub fn rejected(value: State::ready) -> ()\n",
+        "  needs_closed(value)\n",
+        "  ()\n",
+        "end\n",
+    );
+    assert_single_ambiguous_annotation_is_quarantined(source);
+}
+
+#[test]
+fn single_ambiguous_result_quarantines_constructor_dependent_checks() {
+    let source = concat!(
+        "pub type State\n",
+        "  Ready\n",
+        "  Ready\n",
+        "  pub Closed\n",
+        "end\n",
+        "pub fn rejected() -> State::ready\n",
+        "  Closed\n",
+        "end\n",
+    );
+    assert_single_ambiguous_annotation_is_quarantined(source);
+}
+
+fn assert_single_ambiguous_annotation_is_quarantined(source: &str) {
+    let parsed = parse(&SourceFile::new("main.veln", source));
+    assert_eq!(parsed.diagnostics.len(), 1, "{:#?}", parsed.diagnostics);
+    assert_eq!(parsed.diagnostics[0].id, "parse.variant_refinement_type");
+    assert!(parsed.diagnostics[0].allows_semantic_analysis());
+    let parse_span = parsed.diagnostics[0].span.as_ref().expect("parse span");
+    assert_eq!(
+        &source[parse_span.start.offset..parse_span.end.offset],
+        "ready"
+    );
+
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case", "name.duplicate"],
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn combined_recovery_in_explicit_type_arguments_retains_parser_details() {
     let source = concat!(
         "type State\n  Ready\nend\n",
@@ -421,6 +475,75 @@ fn generic_combined_casing_preserves_independent_base_failure() {
             && diagnostic.id != "type.variant_mismatch"
             && diagnostic.id != "type.invalid_annotation"
     }));
+}
+
+#[test]
+fn unresolved_generic_bases_use_name_resolution_for_lowercase_and_uppercase_finals() {
+    for source in [
+        "fn rejected(value: Missing<Int>::lower) -> ()\n  ()\nend\n",
+        "fn rejected(value: Missing<Int>::Lower) -> ()\n  ()\nend\n",
+    ] {
+        let parsed = parse(&SourceFile::new("main.veln", source));
+        if source.contains("::lower") {
+            assert_eq!(parsed.diagnostics.len(), 1, "{:#?}", parsed.diagnostics);
+            assert!(parsed.diagnostics[0].allows_semantic_analysis());
+        } else {
+            assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        }
+        let module = lower_surface_ast(&parsed.tree);
+        let environment = TypeEnvironment::from_module(&module);
+        assert_eq!(
+            environment
+                .function("rejected")
+                .expect("unresolved declaration keeps its symbol")
+                .params,
+            [Type::Unknown]
+        );
+
+        let diagnostics = analyze_surface_module(&module);
+        assert_eq!(
+            diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.id.as_str())
+                .collect::<Vec<_>>(),
+            ["name.unresolved"],
+            "{diagnostics:#?}"
+        );
+        let unresolved = &diagnostics[0];
+        assert_eq!(unresolved.message, "unresolved type `Missing`");
+        let span = unresolved.span.as_ref().expect("unresolved base span");
+        assert_eq!(&source[span.start.offset..span.end.offset], "Missing");
+        assert_eq!(
+            unresolved.details.to_json(),
+            concat!(
+                "{\"phase\":\"name\",\"node_id\":null,",
+                "\"symbol\":\"Missing\",\"namespace\":\"type\",",
+                "\"resolution_status\":\"unresolved\",\"candidates\":[]}"
+            )
+        );
+    }
+}
+
+#[test]
+fn unresolved_generic_union_base_does_not_participate_in_comparison() {
+    let source = concat!(
+        "type Other\n  OtherOnly\nend\n",
+        "fn forward(value: Missing<Int>::lower | Other::OtherOnly) -> ()\n  ()\nend\n",
+        "fn reverse(value: Other::OtherOnly | Missing<Int>::Lower) -> ()\n  ()\nend\n",
+    );
+    let parsed = parse(&SourceFile::new("main.veln", source));
+    assert_eq!(parsed.diagnostics.len(), 1, "{:#?}", parsed.diagnostics);
+    assert!(parsed.diagnostics[0].allows_semantic_analysis());
+
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.unresolved", "name.unresolved"],
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

@@ -1,8 +1,7 @@
 use super::generic_type_syntax::{GenericSyntax, TypeArgumentRange, scan_generic_syntax};
 use super::type_paths::is_type_path_segment;
 use super::variant_refinements::{
-    RawRefinementCandidate, refinement_alternatives, refinement_candidate_depths, starts_lowercase,
-    starts_uppercase,
+    RawRefinementCandidate, refinement_alternatives, refinement_candidate_depths, starts_uppercase,
 };
 use super::*;
 
@@ -230,19 +229,19 @@ fn diagnose_variant_separator(
             "variant refinement is missing its final variant name",
         ));
     }
-    if lowercase_final_after_uppercase_base(tokens, index) {
+    if invalid_final_after_uppercase_base(tokens, index) {
         errors.push((index + 1, LOWERCASE_VARIANT_REFINEMENT_MESSAGE));
     }
 }
 
-fn lowercase_final_after_uppercase_base(tokens: &[Token], index: usize) -> bool {
+fn invalid_final_after_uppercase_base(tokens: &[Token], index: usize) -> bool {
     index > 0
         && tokens
             .get(index - 1)
             .is_some_and(|token| is_type_path_segment(token) && starts_uppercase(&token.text))
         && tokens
             .get(index + 1)
-            .is_some_and(|token| is_type_path_segment(token) && starts_lowercase(&token.text))
+            .is_some_and(|token| is_type_path_segment(token) && !starts_uppercase(&token.text))
         && tokens.get(index + 2).map(|token| token.kind) != Some(TokenKind::DoubleColon)
 }
 
@@ -323,10 +322,10 @@ fn diagnose_lowercase_generic_variant(
     let named_base = open > 0 && tokens.get(open - 1).is_some_and(is_type_path_segment);
     let has_separator =
         tokens.get(matched.token_index + 1).map(|token| token.kind) == Some(TokenKind::DoubleColon);
-    let lowercase_variant = tokens
+    let invalid_variant = tokens
         .get(variant_index)
-        .is_some_and(|token| is_type_path_segment(token) && starts_lowercase(&token.text));
-    if exact_close && named_base && has_separator && lowercase_variant {
+        .is_some_and(|token| is_type_path_segment(token) && !starts_uppercase(&token.text));
+    if exact_close && named_base && has_separator && invalid_variant {
         errors.push((variant_index, LOWERCASE_VARIANT_REFINEMENT_MESSAGE));
     }
 }

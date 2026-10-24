@@ -72,12 +72,7 @@ separate from the JSON contract.
 Variant-refinement diagnostics use this gate even when recovery retains the
 referenced type or constructor identity. The shared envelope preserves the
 same diagnostic id, details, primary span, and related notes as human output,
-and the rejected run creates no backend artifact or Java process. A
-structurally selected lowercase final stops at the source-diagnostic gate. A
-parse-clean lowercase base and final can instead produce a delayed
-`parse.variant_refinement_type` followed by independently provable semantic
-diagnostics when reachable analysis uniquely recovers the base. The shared
-envelope preserves that parse-first order.
+and the rejected run creates no backend artifact or Java process.
 
 The same envelope reports the remaining call-site execution gates. A
 call-site-aware entry and a runtime contract on an ordinary function that calls

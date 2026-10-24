@@ -51,12 +51,6 @@ Each command-level candidate contains:
 - `verification_command`: the advisory verification command when present.
 - `source`: the original advisory candidate object from diagnostic details.
 
-For candidates recomputed from current source, the projected `source` object
-retains the hole's expected type and ranking evidence. A uniquely recovered
-lowercase-final parameter or result can provide that canonical refinement
-context; a missing or ambiguous recovery identity cannot. The recovery changes
-the candidate values available to project, not this envelope's field schema.
-
 Apply eligibility, selection ids, confirmation, override, target validation,
 rollback, and post-edit verification are specified in
 [repair-application.md](repair-application.md).

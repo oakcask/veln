@@ -836,6 +836,55 @@ fn rejects_lowercase_final_variants_after_generic_adt_bases() {
 }
 
 #[test]
+fn rejects_invalid_final_initials_without_semantic_recovery() {
+    let cases = [
+        (
+            "fn invalid(value: State::_ready) -> ()\n  ()\nend\n",
+            "_ready",
+        ),
+        (
+            "fn invalid(value: State::_Ready) -> ()\n  ()\nend\n",
+            "_Ready",
+        ),
+        (
+            "fn invalid(value: State<Int>::_ready) -> ()\n  ()\nend\n",
+            "_ready",
+        ),
+        (
+            "fn invalid(value: State<Int>::_Ready) -> ()\n  ()\nend\n",
+            "_Ready",
+        ),
+    ];
+
+    for (text, final_segment) in cases {
+        let source = SourceFile::new("main.veln", text);
+        let output = parse(&source);
+        let diagnostic = output
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+            .unwrap_or_else(|| {
+                panic!(
+                    "expected invalid-final diagnostic: {:#?}",
+                    output.diagnostics
+                )
+            });
+
+        assert_eq!(
+            diagnostic.message,
+            "variant refinement final segment must start with an ASCII uppercase letter"
+        );
+        assert!(!diagnostic.allows_semantic_analysis());
+        let span = diagnostic.span.as_ref().expect("diagnostic span");
+        assert_eq!(
+            &source.text()[span.start.offset..span.end.offset],
+            final_segment
+        );
+        assert!(first_function(&output).params[0].ty_refinements.is_empty());
+    }
+}
+
+#[test]
 fn preserves_generic_refinements_with_lowercase_base_leaves_for_semantic_recovery() {
     let source = SourceFile::new(
         "main.veln",

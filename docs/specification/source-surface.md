@@ -188,7 +188,9 @@ base has type arguments, and recovery cannot make the annotation valid. If the
 same source has any unrelated parse diagnostic, that source remains excluded
 from semantic analysis. A resolution-dependent non-generic lowercase candidate
 uses the delayed diagnostic boundary described above instead of a parser
-diagnostic.
+diagnostic. A final segment whose initial is neither ASCII uppercase nor ASCII
+lowercase, such as `_ready`, reports the parser diagnostic without retaining
+refinement metadata and blocks semantic analysis of that source.
 
 Nesting beyond 256 containing generic-argument boundaries reports the same
 diagnostic and does not prevent lossless-tree construction.

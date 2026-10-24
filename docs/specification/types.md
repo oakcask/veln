@@ -734,8 +734,11 @@ alternative does not suppress that visibility failure. Visibility checking
 uses this recovery while traversing named type arguments, function parameters
 and results, record fields, and refinement unions.
 For these base and argument failures, union comparison and assignability remain
-suppressed because they require a valid instantiation. Exact and uniquely casing-recovered source-backed or
-source-less type paths use the same arity rule. A failed refinement does not
+suppressed because they require a valid instantiation. An unresolved generic
+base similarly supplies no identity for final selection, union comparison, or
+assignability and uses the ordinary unresolved-name diagnostic instead of a
+generic invalid-annotation failure. Exact and uniquely casing-recovered
+source-backed or source-less type paths use the same arity rule. A failed refinement does not
 suppress an independently provable arity failure in a sibling record field or
 other structural type position. The
 same eligibility rule applies recursively to parameters, results, locals, ADT

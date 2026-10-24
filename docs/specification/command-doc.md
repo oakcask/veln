@@ -55,11 +55,6 @@ document.
 
 Variant-refinement errors remain semantic diagnostics when recovery retains a
 type or constructor identity. Such an error produces no generated document.
-A structurally selected lowercase final remains at the command's parse gate. A
-parse-clean lowercase base and final instead reports the delayed parse
-diagnostic together with independently provable semantic diagnostics after
-unique base recovery selects the refinement interpretation. Neither recovery
-path contributes a declaration to generated output.
 A private refinement in any structural position of a public function parameter
 or result, or in a public variant payload of a public source ADT, therefore
 blocks the complete document. Publication quarantine also blocks the document

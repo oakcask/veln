@@ -428,4 +428,45 @@ mod tests {
             parts.module.functions
         );
     }
+
+    #[test]
+    fn non_lowercase_invalid_final_excludes_semantic_loading() {
+        for annotation in [
+            "State::_ready",
+            "State::_Ready",
+            "State<Int>::_ready",
+            "State<Int>::_Ready",
+        ] {
+            let project = Project {
+                root: ".".into(),
+                files: vec![SourceFile::new(
+                    "main.veln",
+                    format!(
+                        "type State<A>\n  Ready(value: A)\nend\nfn rejected(value: {annotation}) -> ()\n  ()\nend\n"
+                    ),
+                )],
+                manifest: None,
+            };
+            let mut diagnostics = Vec::new();
+            let mut parts = SurfaceParts::new();
+
+            load_project_sources(&project, &mut diagnostics, &mut parts, None, None, None);
+
+            assert_eq!(diagnostics.len(), 1, "{annotation}: {diagnostics:#?}");
+            assert_eq!(
+                diagnostics[0].id, "parse.variant_refinement_type",
+                "{annotation}: {diagnostics:#?}"
+            );
+            assert!(
+                parts.module.types.is_empty(),
+                "{annotation}: {:#?}",
+                parts.module.types
+            );
+            assert!(
+                parts.module.functions.is_empty(),
+                "{annotation}: {:#?}",
+                parts.module.functions
+            );
+        }
+    }
 }

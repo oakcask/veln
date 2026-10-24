@@ -40,15 +40,9 @@ unreachable local function does not block the selected entry.
 Variant-refinement errors inside that existing analysis boundary block backend
 launch, including errors for which recovery retains a type or constructor
 identity. Human and JSON output derive the diagnostic code, details, primary
-span, and related notes from the same diagnostic. A structurally selected
-lowercase final is a source diagnostic and stops before reachable semantic
-analysis. A parse-clean lowercase base and final can instead become a delayed
-refinement diagnostic when reachable analysis uniquely recovers the base; the
-parse diagnostic then precedes independently provable casing and type
-diagnostics. Both paths reject the annotation and prevent backend launch.
-Entry resolution and argument validation gate reachable lowering, so an
-invalid invocation reports its entry or argument failure before a reachable
-refinement error.
+span, and related notes from the same diagnostic. Entry resolution and argument
+validation gate reachable lowering, so an invalid invocation reports its entry
+or argument failure before a reachable refinement error.
 
 A reachable `begin` expression or `defer` statement proceeds through
 checked-core and typed-IR readiness and executes through the JVM backend. Its
