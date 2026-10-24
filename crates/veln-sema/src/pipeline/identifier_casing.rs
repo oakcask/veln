@@ -110,7 +110,7 @@ fn classified_qualified_path_segments_with_refinements(
     include_variant_refinements: bool,
     require_valid_variant_refinements: bool,
 ) -> Vec<QualifiedPathSegment> {
-    let mut segments = valid_qualified_path_segments(
+    let (mut segments, suppressed_locations) = valid_qualified_path_segments(
         module,
         environment,
         include_variant_refinements,
@@ -130,6 +130,9 @@ fn classified_qualified_path_segments_with_refinements(
             .filter(|invalid| invalid.occurrence == NameOccurrence::PathSegment)
             .filter(|invalid| {
                 !invalid_path_segment_is_already_classified(invalid, &classified_locations)
+            })
+            .filter(|invalid| {
+                !invalid_path_segment_is_already_classified(invalid, &suppressed_locations)
             })
             .filter_map(|invalid| {
                 classified_invalid_path_segment(invalid, &occurrence_index, module, environment)

@@ -177,18 +177,22 @@ and
 outputs verify that a non-unique constructor repair retains only the base
 identity for later union comparison.
 
-An unresolved generic refinement base uses `name.unresolved` instead of
-`type.invalid_annotation`. Its primary span is the written base path and its
-ordinary unresolved-name details identify the `type` namespace. The
-alternative does not establish or participate in union-base comparison, and
-its final segment does not receive constructor casing, lookup, privacy, or
-assignability diagnostics. For a lowercase final, the recoverable parse
+An unresolved refinement base, with or without type arguments, uses
+`name.unresolved` instead of `type.invalid_annotation`. Its primary span is the
+written base path and its ordinary unresolved-name details identify the `type`
+namespace. The alternative does not establish or participate in union-base
+comparison, and its final segment does not receive constructor casing, lookup,
+privacy, or assignability diagnostics. A declaration type parameter is instead
+a known zero-arity identity: applying type arguments preserves that identity
+and reports the ordinary invalid-annotation arity failure before suppressing
+constructor-dependent checks. For a lowercase final, the recoverable parse
 diagnostic remains first. The checked unresolved-base
 [`human`](../../examples/specification/check/adt-variant-refinement-unresolved-generic-base-human/)
 and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-unresolved-generic-base-json/)
-outputs fix the order, base spans, suppression, and closed unresolved-name
-details for lowercase and uppercase finals.
+outputs fix the order, half-open spans, suppression, closed detail objects, and
+the declaration-type-parameter arity boundary for lowercase and uppercase
+finals.
 
 A structurally valid refinement whose base resolves uniquely but cannot expose
 a finite ADT variant set reports `type.variant_refinement_base`. The primary

@@ -576,7 +576,22 @@ impl TypeEnvironment {
         args_len: usize,
         current_module: Option<&str>,
     ) -> Option<String> {
-        let expected = self.resolved_type_path_arity(name, current_module)?;
+        let type_parameters = TypeParameterIdentityContext::new(&[]);
+        self.type_path_arity_error_with_context(name, args_len, current_module, &type_parameters)
+    }
+
+    pub(crate) fn type_path_arity_error_with_context(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        type_parameters: &TypeParameterIdentityContext<'_>,
+    ) -> Option<String> {
+        let expected = if !name.contains("::") && type_parameters.ordinal(name).is_some() {
+            0
+        } else {
+            self.resolved_type_path_arity(name, current_module)?
+        };
         if expected == args_len {
             return None;
         }

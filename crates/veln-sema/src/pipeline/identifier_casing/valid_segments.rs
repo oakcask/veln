@@ -27,17 +27,23 @@ pub(super) fn valid_qualified_path_segments(
     environment: &TypeEnvironment,
     include_variant_refinements: bool,
     require_valid_variant_refinements: bool,
-) -> Vec<QualifiedPathSegment> {
+) -> (
+    Vec<QualifiedPathSegment>,
+    HashMap<String, HashSet<(usize, usize, usize)>>,
+) {
     let mut segments = Vec::new();
+    let mut suppressed_locations = HashMap::<String, HashSet<(usize, usize, usize)>>::new();
     for type_decl in &module.types {
         let current_module = type_decl.module_name.as_deref();
         for variant in &type_decl.variants {
             for field in &variant.fields {
                 collect_type_path_segments(
                     &field.ty_paths,
+                    &field.ty_refinements,
                     current_module,
                     environment,
                     &mut segments,
+                    &mut suppressed_locations,
                 );
                 if include_variant_refinements {
                     collect_variant_refinement_segments(
@@ -47,6 +53,7 @@ pub(super) fn valid_qualified_path_segments(
                         &type_decl.params,
                         require_valid_variant_refinements,
                         &mut segments,
+                        &mut suppressed_locations,
                     );
                 }
             }
@@ -58,9 +65,11 @@ pub(super) fn valid_qualified_path_segments(
             for param in &operation.params {
                 collect_type_path_segments(
                     &param.ty_paths,
+                    &param.ty_refinements,
                     current_module,
                     environment,
                     &mut segments,
+                    &mut suppressed_locations,
                 );
                 if include_variant_refinements {
                     collect_variant_refinement_segments(
@@ -70,14 +79,17 @@ pub(super) fn valid_qualified_path_segments(
                         &[],
                         require_valid_variant_refinements,
                         &mut segments,
+                        &mut suppressed_locations,
                     );
                 }
             }
             collect_type_path_segments(
                 &operation.return_type_paths,
+                &operation.return_type_refinements,
                 current_module,
                 environment,
                 &mut segments,
+                &mut suppressed_locations,
             );
             if include_variant_refinements {
                 collect_variant_refinement_segments(
@@ -87,6 +99,7 @@ pub(super) fn valid_qualified_path_segments(
                     &[],
                     require_valid_variant_refinements,
                     &mut segments,
+                    &mut suppressed_locations,
                 );
             }
         }
@@ -94,7 +107,14 @@ pub(super) fn valid_qualified_path_segments(
     for schema in &module.schemas {
         let current_module = schema.module_name.as_deref();
         for field in &schema.fields {
-            collect_type_path_segments(&field.ty_paths, current_module, environment, &mut segments);
+            collect_type_path_segments(
+                &field.ty_paths,
+                &field.ty_refinements,
+                current_module,
+                environment,
+                &mut segments,
+                &mut suppressed_locations,
+            );
             if include_variant_refinements {
                 collect_variant_refinement_segments(
                     &field.ty_refinements,
@@ -103,6 +123,7 @@ pub(super) fn valid_qualified_path_segments(
                     &[],
                     require_valid_variant_refinements,
                     &mut segments,
+                    &mut suppressed_locations,
                 );
             }
         }
@@ -112,9 +133,11 @@ pub(super) fn valid_qualified_path_segments(
         let current_module = function.module_name.as_deref();
         collect_type_path_segments(
             &function.return_type_paths,
+            &function.return_type_refinements,
             current_module,
             environment,
             &mut segments,
+            &mut suppressed_locations,
         );
         if include_variant_refinements {
             collect_variant_refinement_segments(
@@ -124,11 +147,19 @@ pub(super) fn valid_qualified_path_segments(
                 &[],
                 require_valid_variant_refinements,
                 &mut segments,
+                &mut suppressed_locations,
             );
         }
         for param in &function.params {
             crate::pipeline::record_variant_refinement_casing_work(1);
-            collect_type_path_segments(&param.ty_paths, current_module, environment, &mut segments);
+            collect_type_path_segments(
+                &param.ty_paths,
+                &param.ty_refinements,
+                current_module,
+                environment,
+                &mut segments,
+                &mut suppressed_locations,
+            );
             if include_variant_refinements {
                 collect_variant_refinement_segments(
                     &param.ty_refinements,
@@ -137,6 +168,7 @@ pub(super) fn valid_qualified_path_segments(
                     &[],
                     require_valid_variant_refinements,
                     &mut segments,
+                    &mut suppressed_locations,
                 );
             }
         }
@@ -149,6 +181,7 @@ pub(super) fn valid_qualified_path_segments(
                 include_variant_refinements,
                 require_valid_variant_refinements,
                 &mut segments,
+                &mut suppressed_locations,
             );
         }
     }
@@ -158,8 +191,9 @@ pub(super) fn valid_qualified_path_segments(
         include_variant_refinements,
         require_valid_variant_refinements,
         &mut segments,
+        &mut suppressed_locations,
     );
-    segments
+    (segments, suppressed_locations)
 }
 
 fn collect_handler_segments(
@@ -168,11 +202,19 @@ fn collect_handler_segments(
     include_variant_refinements: bool,
     require_valid_variant_refinements: bool,
     segments: &mut Vec<QualifiedPathSegment>,
+    suppressed_locations: &mut HashMap<String, HashSet<(usize, usize, usize)>>,
 ) {
     for handler in &module.handlers {
         let current_module = handler.module_name.as_deref();
         for param in &handler.params {
-            collect_type_path_segments(&param.ty_paths, current_module, environment, segments);
+            collect_type_path_segments(
+                &param.ty_paths,
+                &param.ty_refinements,
+                current_module,
+                environment,
+                segments,
+                suppressed_locations,
+            );
             if include_variant_refinements {
                 collect_variant_refinement_segments(
                     &param.ty_refinements,
@@ -181,12 +223,20 @@ fn collect_handler_segments(
                     &[],
                     require_valid_variant_refinements,
                     segments,
+                    suppressed_locations,
                 );
             }
         }
         for clause in &handler.operation_clauses {
             for param in &clause.params {
-                collect_type_path_segments(&param.ty_paths, current_module, environment, segments);
+                collect_type_path_segments(
+                    &param.ty_paths,
+                    &param.ty_refinements,
+                    current_module,
+                    environment,
+                    segments,
+                    suppressed_locations,
+                );
                 if include_variant_refinements {
                     collect_variant_refinement_segments(
                         &param.ty_refinements,
@@ -195,6 +245,7 @@ fn collect_handler_segments(
                         &[],
                         require_valid_variant_refinements,
                         segments,
+                        suppressed_locations,
                     );
                 }
             }
@@ -205,6 +256,7 @@ fn collect_handler_segments(
                 include_variant_refinements,
                 require_valid_variant_refinements,
                 segments,
+                suppressed_locations,
             );
         }
     }
@@ -212,11 +264,52 @@ fn collect_handler_segments(
 
 fn collect_type_path_segments(
     paths: &[veln_ast::TypePathSegments],
+    refinements: &[veln_ast::VariantRefinementType],
     current_module: Option<&str>,
     environment: &TypeEnvironment,
     output: &mut Vec<QualifiedPathSegment>,
+    suppressed_locations: &mut HashMap<String, HashSet<(usize, usize, usize)>>,
 ) {
+    let selected_refinement_fallbacks = refinements
+        .iter()
+        .flat_map(|refinement| &refinement.alternatives)
+        .filter(|alternative| {
+            environment.variant_refinement_syntax_candidate_is_selected(
+                &alternative.base.segments,
+                alternative.type_arguments.len(),
+                &alternative.variant,
+                current_module,
+            ) && !single_segment_base_is_module_qualifier(alternative, current_module, environment)
+        })
+        .map(|alternative| {
+            (
+                alternative.span.file.as_str().to_string(),
+                alternative.span.start.offset,
+                alternative.span.end.offset,
+            )
+        })
+        .collect::<HashSet<_>>();
     for path in paths {
+        let selected_refinement_fallback = path
+            .segment_spans
+            .first()
+            .zip(path.segment_spans.last())
+            .is_some_and(|(first, last)| {
+                selected_refinement_fallbacks.contains(&(
+                    first.file.as_str().to_string(),
+                    first.start.offset,
+                    last.end.offset,
+                ))
+            });
+        if selected_refinement_fallback {
+            for (segment_index, span) in path.segment_spans.iter().enumerate() {
+                suppressed_locations
+                    .entry(span.file.as_str().to_string())
+                    .or_default()
+                    .insert((span.start.offset, span.end.offset, segment_index));
+            }
+            continue;
+        }
         if path.segments.len() < 2 {
             continue;
         }
@@ -273,6 +366,15 @@ fn collect_type_path_segments(
     }
 }
 
+fn single_segment_base_is_module_qualifier(
+    alternative: &veln_ast::VariantRefinementAlternative,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    environment
+        .variant_refinement_base_is_module_qualifier(&alternative.base.segments, current_module)
+}
+
 fn collect_variant_refinement_segments(
     refinements: &[veln_ast::VariantRefinementType],
     current_module: Option<&str>,
@@ -280,7 +382,9 @@ fn collect_variant_refinement_segments(
     type_parameters: &[String],
     require_valid_variant_refinements: bool,
     output: &mut Vec<QualifiedPathSegment>,
+    suppressed_locations: &mut HashMap<String, HashSet<(usize, usize, usize)>>,
 ) {
+    let type_parameter_context = crate::types::TypeParameterIdentityContext::new(type_parameters);
     let mut pending = refinements
         .iter()
         .rev()
@@ -305,6 +409,21 @@ fn collect_variant_refinement_segments(
             ) {
                 continue;
             }
+            let base = alternative.base.segments.join("::");
+            if !base.contains("::") && type_parameter_context.ordinal(&base).is_some() {
+                for argument in &alternative.type_arguments {
+                    collect_type_path_segments(
+                        &argument.ty_paths,
+                        &argument.ty_refinements,
+                        current_module,
+                        environment,
+                        output,
+                        suppressed_locations,
+                    );
+                    nested_refinements.extend(&argument.ty_refinements);
+                }
+                continue;
+            }
             collect_variant_refinement_alternative(
                 alternative,
                 refinement_is_valid,
@@ -312,6 +431,7 @@ fn collect_variant_refinement_segments(
                 environment,
                 output,
                 &mut nested_refinements,
+                suppressed_locations,
             );
         }
         pending.extend(
@@ -330,6 +450,7 @@ fn collect_variant_refinement_alternative<'a>(
     environment: &TypeEnvironment,
     output: &mut Vec<QualifiedPathSegment>,
     nested_refinements: &mut Vec<&'a veln_ast::VariantRefinementType>,
+    suppressed_locations: &mut HashMap<String, HashSet<(usize, usize, usize)>>,
 ) {
     let mut segments = alternative.base.segments.clone();
     segments.push(alternative.variant.clone());
@@ -369,7 +490,14 @@ fn collect_variant_refinement_alternative<'a>(
         push_variant_refinement_path_segments(&segments, &spans, evidence, output);
     }
     for argument in &alternative.type_arguments {
-        collect_type_path_segments(&argument.ty_paths, current_module, environment, output);
+        collect_type_path_segments(
+            &argument.ty_paths,
+            &argument.ty_refinements,
+            current_module,
+            environment,
+            output,
+            suppressed_locations,
+        );
         nested_refinements.extend(&argument.ty_refinements);
     }
 }

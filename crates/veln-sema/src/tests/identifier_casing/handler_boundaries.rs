@@ -41,7 +41,7 @@ fn unresolved_handler_clause_call_does_not_guess_function_role() {
 }
 
 #[test]
-fn handler_context_parameter_type_path_validates_module_segment() {
+fn unresolved_handler_context_refinement_uses_base_resolution() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -56,21 +56,25 @@ fn handler_context_parameter_type_path_validates_module_segment() {
     );
     let module = lower_surface_ast(&parse(&source).tree);
     let diagnostics = analyze_surface_module(&module);
-    let invalid = diagnostics
+    let unresolved = diagnostics
         .iter()
         .find(|diagnostic| {
-            diagnostic.id == "name.invalid_case"
-                && diagnostic.message
-                    == "module name `Missing` must start with an ASCII lowercase letter"
+            diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved type `Missing`"
         })
-        .expect("handler context parameter type should validate the module segment");
+        .expect("handler context refinement should diagnose its unresolved base");
 
-    assert_diagnostic_span(invalid, 5, 19, 5, 26);
-    let details = invalid.details.to_json();
-    assert!(
-        details.contains("\"occurrence\":\"path_segment\""),
-        "{details}"
+    assert_diagnostic_span(unresolved, 5, 19, 5, 26);
+    assert_eq!(
+        unresolved.details.to_json(),
+        concat!(
+            "{\"phase\":\"name\",\"node_id\":null,",
+            "\"symbol\":\"Missing\",\"namespace\":\"type\",",
+            "\"resolution_status\":\"unresolved\",\"candidates\":[]}"
+        )
     );
-    assert!(details.contains("\"name_class\":\"module\""), "{details}");
-    assert!(details.contains("\"segment_index\":0"), "{details}");
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "name.invalid_case"
+            && diagnostic.id != "type.invalid_annotation"
+            && diagnostic.id != "type.variant_refinement_unknown"
+    }));
 }

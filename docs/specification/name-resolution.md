@@ -428,10 +428,13 @@ ambiguous or missing exact final segment, does not manufacture a privacy
 diagnostic. This includes a source-less base
 published by the type-syntax provider: an invalid-cased generic spelling
 reports casing and keeps an independently provable generic-arity failure.
-An unresolved generic refinement base reports `name.unresolved` at the written
-base path. The final segment receives no constructor role, and the unresolved
-alternative supplies no identity for visibility, union comparison, or
-assignability checks.
+An unresolved refinement base, including a base without type arguments,
+reports `name.unresolved` at the written base path. The final segment receives
+no constructor role, and the unresolved alternative supplies no identity for
+visibility, union comparison, or assignability checks. A declaration type
+parameter remains a known zero-arity type identity in its declaration context;
+applying arguments to it reports the ordinary arity failure without assigning
+a constructor role to the final segment.
 For a non-generic path whose prospective base and final segments both start
 with ASCII lowercase letters, unique initial-only base recovery first
 selects the refinement interpretation. A unique initial-only final recovery

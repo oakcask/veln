@@ -525,11 +525,134 @@ fn unresolved_generic_bases_use_name_resolution_for_lowercase_and_uppercase_fina
 }
 
 #[test]
+fn unresolved_non_generic_bases_use_name_resolution_for_lowercase_and_uppercase_finals() {
+    for source in [
+        "fn rejected(value: Missing::lower) -> ()\n  ()\nend\n",
+        "fn rejected(value: Missing::Lower) -> ()\n  ()\nend\n",
+    ] {
+        let parsed = parse(&SourceFile::new("main.veln", source));
+        if source.contains("::lower") {
+            assert_eq!(parsed.diagnostics.len(), 1, "{:#?}", parsed.diagnostics);
+            assert_eq!(parsed.diagnostics[0].id, "parse.variant_refinement_type");
+            assert!(parsed.diagnostics[0].allows_semantic_analysis());
+        } else {
+            assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        }
+
+        let module = lower_surface_ast(&parsed.tree);
+        let environment = TypeEnvironment::from_module(&module);
+        assert_eq!(
+            environment
+                .function("rejected")
+                .expect("unresolved declaration keeps its symbol")
+                .params,
+            [Type::Unknown]
+        );
+
+        let diagnostics = analyze_surface_module(&module);
+        assert_eq!(
+            diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.id.as_str())
+                .collect::<Vec<_>>(),
+            ["name.unresolved"],
+            "{diagnostics:#?}"
+        );
+        let unresolved = &diagnostics[0];
+        assert_eq!(unresolved.message, "unresolved type `Missing`");
+        let span = unresolved.span.as_ref().expect("unresolved base span");
+        assert_eq!(&source[span.start.offset..span.end.offset], "Missing");
+        assert_eq!(
+            unresolved.details.to_json(),
+            concat!(
+                "{\"phase\":\"name\",\"node_id\":null,",
+                "\"symbol\":\"Missing\",\"namespace\":\"type\",",
+                "\"resolution_status\":\"unresolved\",\"candidates\":[]}"
+            )
+        );
+    }
+}
+
+#[test]
+fn declaration_type_parameter_base_preserves_arity_for_lowercase_and_uppercase_finals() {
+    for final_segment in ["lower", "Lower"] {
+        let source = format!(
+            concat!(
+                "type T<A>\n  Hidden(A)\nend\n",
+                "pub type Holder<T>\n  pub Held(T<Int>::{})\nend\n",
+            ),
+            final_segment
+        );
+        let parsed = parse(&SourceFile::new("main.veln", &source));
+        if final_segment == "lower" {
+            assert_eq!(parsed.diagnostics.len(), 1, "{:#?}", parsed.diagnostics);
+            assert_eq!(parsed.diagnostics[0].id, "parse.variant_refinement_type");
+            assert!(parsed.diagnostics[0].allows_semantic_analysis());
+        } else {
+            assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        }
+
+        let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+        assert_eq!(
+            diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.id.as_str())
+                .collect::<Vec<_>>(),
+            ["type.invalid_annotation"],
+            "{diagnostics:#?}"
+        );
+        let invalid = &diagnostics[0];
+        assert_eq!(
+            invalid.message,
+            format!(
+                "invalid type annotation `T<Int>::{final_segment}`: `T` expects 0 type argument(s), found 1"
+            )
+        );
+        let span = invalid.span.as_ref().expect("invalid annotation span");
+        assert_eq!(
+            &source[span.start.offset..span.end.offset],
+            format!("T<Int>::{final_segment}")
+        );
+        assert!(diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "name.unresolved"
+                && diagnostic.id != "name.invalid_case"
+                && diagnostic.id != "type.variant_refinement_unknown"
+                && diagnostic.id != "type.variant_refinement_base"
+                && diagnostic.id != "type.variant_refinement_private"
+                && diagnostic.id != "type.variant_union_base"
+                && diagnostic.id != "type.variant_mismatch"
+        }));
+    }
+}
+
+#[test]
 fn unresolved_generic_union_base_does_not_participate_in_comparison() {
     let source = concat!(
         "type Other\n  OtherOnly\nend\n",
         "fn forward(value: Missing<Int>::lower | Other::OtherOnly) -> ()\n  ()\nend\n",
         "fn reverse(value: Other::OtherOnly | Missing<Int>::Lower) -> ()\n  ()\nend\n",
+    );
+    let parsed = parse(&SourceFile::new("main.veln", source));
+    assert_eq!(parsed.diagnostics.len(), 1, "{:#?}", parsed.diagnostics);
+    assert!(parsed.diagnostics[0].allows_semantic_analysis());
+
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.unresolved", "name.unresolved"],
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn unresolved_non_generic_union_base_does_not_participate_in_comparison() {
+    let source = concat!(
+        "type Other\n  OtherOnly\nend\n",
+        "fn forward(value: Missing::lower | Other::OtherOnly) -> ()\n  ()\nend\n",
+        "fn reverse(value: Other::OtherOnly | Missing::Lower) -> ()\n  ()\nend\n",
     );
     let parsed = parse(&SourceFile::new("main.veln", source));
     assert_eq!(parsed.diagnostics.len(), 1, "{:#?}", parsed.diagnostics);

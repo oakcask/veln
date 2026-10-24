@@ -60,6 +60,19 @@ impl TypeEnvironment {
         variant: &str,
         current_module: Option<&str>,
     ) -> bool {
+        if type_argument_count == 0
+            && self
+                .adts
+                .descriptor_for_type_path_any_arity(
+                    &base_segments.join("::"),
+                    current_module,
+                    &self.uses,
+                )
+                .is_none()
+            && self.variant_refinement_base_is_module_qualifier(base_segments, current_module)
+        {
+            return false;
+        }
         let latent_non_generic = type_argument_count == 0
             && base_segments
                 .last()
@@ -71,6 +84,36 @@ impl TypeEnvironment {
         let mut segments = base_segments.to_vec();
         segments.push(variant.to_string());
         self.recovered_variant_refinement_candidate(&segments, current_module)
+    }
+
+    pub(crate) fn variant_refinement_base_is_module_qualifier(
+        &self,
+        base_segments: &[String],
+        current_module: Option<&str>,
+    ) -> bool {
+        let [base] = base_segments else {
+            return false;
+        };
+        let recovered = lowercase_initial(base);
+        current_module.is_some_and(|module| module == base || module == recovered)
+            || self
+                .uses
+                .iter()
+                .chain(&self.quarantined_uses)
+                .any(|use_decl| {
+                    if use_decl.module_name.as_deref() != current_module {
+                        return false;
+                    }
+                    let leaf = use_decl
+                        .name
+                        .rsplit("::")
+                        .next()
+                        .unwrap_or(use_decl.name.as_str());
+                    use_decl.alias == *base
+                        || use_decl.alias == recovered
+                        || leaf == base
+                        || leaf == recovered
+                })
     }
 
     pub(crate) fn recovered_variant_refinement_base_resolves(
@@ -87,7 +130,14 @@ impl TypeEnvironment {
         &self,
         base: &str,
         current_module: Option<&str>,
+        type_parameters: &TypeParameterIdentityContext<'_>,
     ) -> bool {
+        if !base.contains("::") && type_parameters.ordinal(base).is_some() {
+            return false;
+        }
+        if self.variant_refinement_base_has_ambiguous_module_qualifier(base, current_module) {
+            return false;
+        }
         if self
             .adts
             .descriptor_for_type_path_any_arity(base, current_module, &self.uses)
@@ -105,6 +155,52 @@ impl TypeEnvironment {
             && !self.variant_refinement_base_name_resolves(&recovered, current_module)
     }
 
+    pub(crate) fn variant_refinement_base_has_unavailable_declared_identity(
+        &self,
+        base: &str,
+        current_module: Option<&str>,
+    ) -> bool {
+        !base.contains("::")
+            && self
+                .type_symbols
+                .iter()
+                .filter(|symbol| {
+                    symbol.name == base && symbol.module_name.as_deref() == current_module
+                })
+                .take(2)
+                .count()
+                == 1
+            && self
+                .adts
+                .descriptor_for_type_path_any_arity(base, current_module, &self.uses)
+                .is_none()
+    }
+
+    pub(crate) fn variant_refinement_base_has_ambiguous_module_qualifier(
+        &self,
+        base: &str,
+        current_module: Option<&str>,
+    ) -> bool {
+        let Some((qualifier, _)) = base.rsplit_once("::") else {
+            return false;
+        };
+        self.uses
+            .iter()
+            .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
+            .filter(|use_decl| {
+                use_decl.alias == qualifier
+                    || use_decl.name == qualifier
+                    || use_decl
+                        .name
+                        .rsplit("::")
+                        .next()
+                        .is_some_and(|leaf| leaf == qualifier)
+            })
+            .take(2)
+            .count()
+            > 1
+    }
+
     fn variant_refinement_base_name_resolves(
         &self,
         base: &str,
@@ -120,6 +216,19 @@ impl TypeEnvironment {
                 .unique_descriptor_for_type_path_any_arity(base, current_module, &self.uses)
                 .is_some();
         }
+        if !base.contains("::")
+            && self
+                .type_symbols
+                .iter()
+                .filter(|symbol| {
+                    symbol.name == base && symbol.module_name.as_deref() == current_module
+                })
+                .take(2)
+                .count()
+                == 1
+        {
+            return true;
+        }
         crate::source_less_lookup::with_builtin_type_syntax_registry(|registry| {
             registry.arity(base).is_some()
         })
@@ -134,4 +243,12 @@ fn recover_variant_case(name: &str) -> Option<String> {
     first
         .is_ascii_lowercase()
         .then(|| (first as char).to_ascii_uppercase().to_string() + rest)
+}
+
+fn lowercase_initial(name: &str) -> String {
+    let Some((_, first)) = name.char_indices().next() else {
+        return String::new();
+    };
+    let rest = &name[first.len_utf8()..];
+    first.to_ascii_lowercase().to_string() + rest
 }
