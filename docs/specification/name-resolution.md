@@ -429,7 +429,7 @@ diagnostic. This includes a source-less base
 published by the type-syntax provider: an invalid-cased generic spelling
 reports casing and keeps an independently provable generic-arity failure.
 For a non-generic path whose prospective base and final segments both start
-with ASCII lowercase letters, exact or unique initial-only base recovery first
+with ASCII lowercase letters, unique initial-only base recovery first
 selects the refinement interpretation. A unique initial-only final recovery
 then selects the constructor. Both segments report `name.invalid_case`, the
 parse diagnostic remains first, and the selected constructor participates in

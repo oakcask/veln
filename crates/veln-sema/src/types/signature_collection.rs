@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
 
-use veln_ast::{FunctionKind, HandlerDecl, SurfaceModule, UseDecl, Visibility};
+use veln_ast::{HandlerDecl, SurfaceModule, UseDecl, Visibility};
 
 use crate::adt::registry::AdtRegistry;
 use crate::name_recovery::normal_use_decls;
@@ -11,9 +11,8 @@ use crate::types::type_case_recovery::recover_type_case;
 
 use super::effect_call_resolution::push_unique_effect;
 use super::effect_inference::{canonical_user_effect_label, quarantined_public_user_effect_label};
-use super::private_inference::function_signature_params;
 use super::signatures::{
-    CompanionAccessTarget, EffectOperationSignature, EffectSignature, FunctionSignature,
+    CompanionAccessTarget, EffectOperationSignature, EffectSignature,
     HandlerOperationClauseSignature, HandlerSignature, synthetic_handler_clause_function_name,
 };
 use super::symbols::imported_use_for_path;
@@ -27,93 +26,9 @@ pub(crate) use instrumentation::{
 use refinement_resolution::RefinementResolution;
 
 mod instrumentation;
+mod ordinary_functions;
 mod refinement_resolution;
-
-pub(super) fn ordinary_function_signatures(
-    module: &SurfaceModule,
-    effects: &[EffectSignature],
-    adts: &AdtRegistry,
-    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
-) -> Vec<FunctionSignature> {
-    let uses = normal_use_decls(module);
-    let quarantined_uses = module
-        .uses
-        .iter()
-        .filter(|use_decl| {
-            crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
-        })
-        .cloned()
-        .collect::<Vec<_>>();
-    module
-        .functions
-        .iter()
-        .filter(|function| function.kind == FunctionKind::Function)
-        .filter_map(|function| {
-            let name = function.name.clone()?;
-            if !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase) {
-                return None;
-            }
-            let (params, variadic) = function_signature_params(function);
-            let params = params
-                .into_iter()
-                .map(|ty| {
-                    canonicalize_type_effects(
-                        ty,
-                        &uses,
-                        &quarantined_uses,
-                        function.module_name.as_deref(),
-                        effects,
-                        adts,
-                        companion_effect_access_targets,
-                    )
-                })
-                .collect();
-            let variadic = variadic.map(|ty| {
-                canonicalize_type_effects(
-                    ty,
-                    &uses,
-                    &quarantined_uses,
-                    function.module_name.as_deref(),
-                    effects,
-                    adts,
-                    companion_effect_access_targets,
-                )
-            });
-            let return_type = canonicalize_type_effects(
-                parse_type_or_unknown(function.return_type.as_deref()),
-                &uses,
-                &quarantined_uses,
-                function.module_name.as_deref(),
-                effects,
-                adts,
-                companion_effect_access_targets,
-            );
-            Some(FunctionSignature {
-                target_name: crate::standard_symbols::standard_function_link_name(
-                    function.module_name.as_deref(),
-                    &name,
-                ),
-                name,
-                module_name: function.module_name.clone(),
-                visibility: function.visibility,
-                params,
-                variadic,
-                return_type,
-                effects: canonical_declared_effects(
-                    function.effects.clone().unwrap_or_default(),
-                    &uses,
-                    &quarantined_uses,
-                    function.module_name.as_deref(),
-                    effects,
-                    companion_effect_access_targets,
-                ),
-                callsite: function.callsite.is_some(),
-                node_id: function.node_id,
-                span: function.span.clone(),
-            })
-        })
-        .collect()
-}
+pub(super) use ordinary_functions::ordinary_function_signatures;
 
 pub(crate) fn canonicalize_type_effects(
     ty: Type,

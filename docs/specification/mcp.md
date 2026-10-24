@@ -390,7 +390,7 @@ remains invalid, and any unrelated parse diagnostic in that source suppresses
 its semantic diagnostics. The shared overlap and ordering are defined by the
 [diagnostic specification](diagnostics-json.md#diagnostic-families).
 A parse-clean non-generic path with lowercase base and final segments follows
-the same result contract when exact or unique initial-only base recovery
+the same result contract when unique initial-only base recovery
 selects its resolution-dependent refinement candidate. `check_project` inserts
 the parse diagnostic before the casing and type diagnostics.
 For `type.variant_refinement_unknown`, `check_project` preserves the closed

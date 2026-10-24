@@ -107,11 +107,16 @@ fn ambiguous_lowercase_repair_suppresses_constructor_dependent_failures() {
         "pub type State\n",
         "  Ready\n",
         "  Ready\n",
+        "  pub Closed\n",
         "end\n",
-        "type Other\n",
-        "  OtherOnly\n",
+        "pub type Other\n",
+        "  pub OtherOnly\n",
         "end\n",
-        "fn rejected(value: State::ready | Other::OtherOnly) -> ()\n",
+        "fn needs_closed(value: State::Closed) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub fn rejected(value: State::ready | Other::OtherOnly) -> ()\n",
+        "  needs_closed(value)\n",
         "  ()\n",
         "end\n",
     ));
@@ -134,10 +139,40 @@ fn ambiguous_lowercase_repair_suppresses_constructor_dependent_failures() {
         diagnostics.iter().all(|diagnostic| {
             diagnostic.id != "type.variant_refinement_unknown"
                 && diagnostic.id != "type.variant_refinement_private"
-                && diagnostic.id != "type.mismatch"
+                && diagnostic.id != "type.variant_mismatch"
                 && diagnostic.id != "type.invalid_annotation"
         }),
         "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn combined_recovery_in_explicit_type_arguments_retains_parser_details() {
+    let source = concat!(
+        "type State\n  Ready\nend\n",
+        "fn sink(value: A) -> ()\n  ()\nend\n",
+        "fn invoke(value: State) -> ()\n",
+        "  sink<state::ready>(value)\n",
+        "end\n",
+    );
+    let parsed = parse(&SourceFile::new("main.veln", source));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+
+    let diagnostics = analyze_surface_module(&lower_surface_ast(&parsed.tree));
+    let parse = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.variant_refinement_type")
+        .expect("selected explicit type argument emits the delayed parse diagnostic");
+    assert_eq!(
+        parse.details.to_json(),
+        concat!(
+            "{\"phase\":\"parse\",\"node_id\":null,",
+            "\"parser_context\":\"expression_line\",",
+            "\"unexpected\":{\"kind\":\"identifier\",\"text\":\"ready\"},",
+            "\"expected\":[\"NamedAdtType::Variant\"],",
+            "\"recovery\":{\"strategy\":\"insert_token\",",
+            "\"anchor\":\"type argument\",\"dropped_token_count\":0}}"
+        )
     );
 }
 

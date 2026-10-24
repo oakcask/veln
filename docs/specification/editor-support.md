@@ -211,7 +211,7 @@ source invalid-name records are passed to that checked surface model, so
 document-scoped diagnostics include the implemented source identifier casing
 failures specified by [names-effects.md](names-effects.md).
 If that parse-clean source contains a non-generic path with lowercase base and
-final segments, exact or unique initial-only base recovery can select its
+final segments, unique initial-only base recovery can select its
 resolution-dependent refinement candidate. Document-scoped analysis then
 publishes the delayed parse diagnostic first, followed by independently
 provable casing and type diagnostics. The annotation remains invalid.

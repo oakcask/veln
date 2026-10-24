@@ -153,8 +153,8 @@ A non-generic path whose prospective base and final segments both start with
 ASCII lowercase letters, such as `state::ready`, remains ordinary named-type
 text in the syntax tree. The parser also preserves it as a resolution-dependent
 refinement candidate. The parser does not report a refinement diagnostic for
-that candidate. If semantic analysis selects an exact or uniquely
-casing-recovered base, the candidate becomes an invalid refinement and the
+that candidate. If semantic analysis selects a uniquely initial-case-recovered
+base, the candidate becomes an invalid refinement and the
 diagnostic pipeline emits `parse.variant_refinement_type` before its semantic
 diagnostics. Without that base selection, the path remains an ordinary named
 type and does not acquire a refinement diagnostic.
