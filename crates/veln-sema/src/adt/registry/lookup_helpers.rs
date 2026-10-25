@@ -91,6 +91,7 @@ impl AdtRegistry {
                     use_decl.module_name.as_deref() == current_module
                         && &use_decl.name == module
                         && use_decl.contributes_bare_members()
+                        && !crate::name_recovery::use_decl_has_qualifier_collision(uses, use_decl)
                 })
             })
     }

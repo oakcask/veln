@@ -142,6 +142,215 @@ fn unaliased_imports_with_colliding_leaf_names_remain_valid() {
 }
 
 #[test]
+fn exact_written_import_path_precedes_an_explicit_qualifier_in_both_orders() {
+    for imports in [
+        "use first as second\nuse second as exact\n",
+        "use second as exact\nuse first as second\n",
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!("mod app\n{imports}fn main() -> ()\n  ()\nend\n"),
+        );
+        let module = lower_surface_ast(&parse(&source).tree);
+        let path = vec!["second".to_string()];
+
+        let selected =
+            crate::name_recovery::normal_imported_use_for_path(&module, &path, Some("app"))
+                .expect("the exact written path must remain selectable");
+        assert_eq!(selected.written_name, "second");
+        assert_eq!(selected.alias, "exact");
+
+        let schema_selected = crate::name_recovery::schema_composition_imported_use_for_path(
+            &module,
+            &path,
+            Some("app"),
+        )
+        .expect("schema lookup must share exact-path precedence");
+        assert_eq!(schema_selected.written_name, "second");
+        assert_eq!(schema_selected.alias, "exact");
+    }
+}
+
+#[test]
+fn distinct_package_origins_make_an_exact_written_path_ambiguous_in_both_orders() {
+    for imports in [
+        "use shared as first from \"pkg-a\"\nuse shared as second from \"pkg-b\"\n",
+        "use shared as second from \"pkg-b\"\nuse shared as first from \"pkg-a\"\n",
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!("mod app\n{imports}fn main() -> ()\n  ()\nend\n"),
+        );
+        let module = lower_surface_ast(&parse(&source).tree);
+        let path = vec!["shared".to_string()];
+
+        assert!(
+            crate::name_recovery::normal_imported_use_for_path(&module, &path, Some("app"))
+                .is_none()
+        );
+        assert!(
+            crate::name_recovery::schema_composition_imported_use_for_path(
+                &module,
+                &path,
+                Some("app")
+            )
+            .is_none()
+        );
+    }
+}
+
+#[test]
+fn eligible_implicit_package_qualifiers_collide_and_remain_unresolved() {
+    for imports in [
+        "use first::net from \"pkg-a\"\nuse second::net from \"pkg-b\"\n",
+        "use second::net from \"pkg-b\"\nuse first::net from \"pkg-a\"\n",
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!("mod app\n{imports}fn main() -> ()\n  ()\nend\n"),
+        );
+        let module = lower_surface_ast(&parse(&source).tree);
+        let diagnostics = analyze_surface_module(&module);
+        let duplicates = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.duplicate")
+            .collect::<Vec<_>>();
+
+        assert_eq!(duplicates.len(), 1, "{diagnostics:#?}");
+        assert_eq!(duplicates[0].message, "duplicate import alias name `net`");
+        assert_eq!(duplicates[0].related.len(), 1);
+        assert_eq!(
+            duplicates[0]
+                .span
+                .as_ref()
+                .expect("primary span")
+                .start
+                .line,
+            3
+        );
+        assert!(
+            duplicates[0].related[0]
+                .to_json()
+                .contains("\"start\":{\"line\":2,")
+        );
+
+        let qualifier = vec!["net".to_string()];
+        assert!(
+            crate::name_recovery::normal_imported_use_for_path(&module, &qualifier, Some("app"))
+                .is_none()
+        );
+    }
+}
+
+#[test]
+fn qualifier_collisions_do_not_select_by_a_unique_member_leaf() {
+    for imports in [
+        "use first::net from \"pkg-a\"\nuse second::net from \"pkg-b\"\n",
+        "use second::net from \"pkg-b\"\nuse first::net from \"pkg-a\"\n",
+    ] {
+        let consumer = SourceFile::new(
+            "main.veln",
+            format!("{imports}fn main() -> Int\n  only_first()\nend\n"),
+        );
+        let module = merged_modules_with_identities(vec![
+            (
+                "first::net",
+                SourceFile::new("first-net.veln", "pub fn only_first() -> Int\n  1\nend\n"),
+            ),
+            (
+                "second::net",
+                SourceFile::new("second-net.veln", "pub fn other() -> Int\n  2\nend\n"),
+            ),
+            ("main", consumer),
+        ]);
+        let diagnostics = analyze_surface_module(&module);
+
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "name.duplicate")
+                .count(),
+            1,
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "name.unresolved"
+                    && diagnostic.message == "unresolved call_target `only_first`"
+            }),
+            "{diagnostics:#?}"
+        );
+        let (_, lowered) = check_project_surface_module(&module);
+        assert!(lowered.core.is_none());
+        assert!(lowered.ir.is_none());
+    }
+}
+
+#[test]
+fn combined_source_qualifier_diagnostics_use_lexical_source_order() {
+    for reversed in [false, true] {
+        let first = SourceFile::new("a.veln", "mod app\nuse first as shared\n");
+        let second = SourceFile::new("b.veln", "mod app\nuse second as shared\n");
+        let sources = if reversed {
+            vec![second, first]
+        } else {
+            vec![first, second]
+        };
+        let module = merged_modules(sources);
+        let diagnostics = analyze_surface_module(&module);
+        let duplicate = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.id == "name.duplicate")
+            .expect("qualifier collision");
+
+        assert_eq!(
+            duplicate.span.as_ref().expect("primary span").file.as_str(),
+            "b.veln"
+        );
+        assert_eq!(duplicate.related.len(), 1);
+        assert!(
+            duplicate.related[0]
+                .to_json()
+                .contains("\"file\":\"a.veln\"")
+        );
+    }
+}
+
+#[test]
+fn syntax_recovered_alias_does_not_report_reserved_or_qualifier_collision() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app\n",
+            "use prelude as\n",
+            "use target as prelude\n",
+            "fn main() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(!parsed.diagnostics.is_empty());
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.reserved")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.duplicate"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn duplicate_use_aliases_are_scoped_to_declaring_module() {
     let first_source = SourceFile::new(
         "first.veln",

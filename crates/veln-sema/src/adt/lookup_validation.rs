@@ -6,7 +6,7 @@ use veln_ast::{SurfaceModule, TypeDecl, TypeVariantDecl, UseDecl, Visibility};
 use veln_project::companion_access_target;
 
 use crate::builtin_type_syntax::{BUILTIN_TYPE_SYNTAX_DESCRIPTORS, BuiltinTypeSyntaxRegistry};
-use crate::name_recovery::use_decl_matches_import_path;
+use crate::name_recovery::{ImportSelection, select_imported_use_for_path};
 use crate::semantic_model::Type;
 use crate::source_less_names::{
     InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
@@ -423,12 +423,11 @@ pub(super) fn imported_module_path_matches(
     let Some(module_name) = descriptor.module_name.as_deref() else {
         return false;
     };
-    let module_path = module_segments.join("::");
-    uses.iter().any(|use_decl| {
-        record_import_path_comparison();
-        use_decl_matches_import_path(use_decl, &module_path, current_module)
-            && use_decl.name == module_name
-    })
+    record_import_path_comparison();
+    matches!(
+        select_imported_use_for_path(uses, module_segments, current_module),
+        ImportSelection::One(use_decl) if use_decl.name == module_name
+    )
 }
 
 pub(super) fn companion_access_targets(module: &SurfaceModule) -> BTreeMap<String, String> {
@@ -474,11 +473,10 @@ pub(super) fn import_alias_matches(
     let Some(module_name) = descriptor.module_name.as_deref() else {
         return false;
     };
-    uses.iter().any(|use_decl| {
-        use_decl.module_name.as_deref() == current_module
-            && use_decl.alias == alias
-            && use_decl.name == module_name
-    })
+    matches!(
+        select_imported_use_for_path(uses, &[alias.to_string()], current_module),
+        ImportSelection::One(use_decl) if use_decl.name == module_name
+    )
 }
 
 pub(super) fn same_descriptor(left: &AdtDescriptor, right: &AdtDescriptor) -> bool {

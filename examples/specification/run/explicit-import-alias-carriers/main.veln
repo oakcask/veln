@@ -1,10 +1,13 @@
+use alternate as helpers
 use helpers as tools
 use model as domain
+use stdio
 
-pub fn main() -> ()
-	let state: domain::State = domain::Ready(tools::answer())
+pub fn main() -> Result<(), String> effects [stdio]
+	let state: domain::State = domain::Ready(tools::answer() + helpers::answer())
 	let handled: Int = handle tools::compute() with tools::ask(1)
-	match state
-		domain::Ready(value) => ()
+	let printed: () = match state
+		domain::Ready(value) => stdio::println(int_to_string(value + handled))
 	end
+	Ok(())
 end

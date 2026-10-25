@@ -4,7 +4,8 @@ use std::sync::Arc;
 use veln_ast::{PublicAlias, PublicAliasKind, SurfaceModule, UseDecl, Visibility};
 
 use crate::name_recovery::{
-    normal_use_decls, public_alias_has_invalid_target_leaf, use_decl_matches_import_path,
+    ImportSelection, normal_use_decls, public_alias_has_invalid_target_leaf,
+    select_imported_use_for_path,
 };
 
 #[cfg(test)]
@@ -243,6 +244,8 @@ struct TypeAliasTargetIndex {
 struct TypeAliasImportTargets {
     exact: HashSet<String>,
     implicit: HashSet<String>,
+    exact_count: usize,
+    implicit_count: usize,
 }
 
 impl TypeAliasTargetIndex {
@@ -305,30 +308,33 @@ impl TypeAliasTargetIndex {
         for use_decl in uses {
             let module = use_decl.module_name.clone();
             let target = use_decl.name.clone();
-            self.imports
+            let exact = self
+                .imports
                 .entry((module.clone(), target.clone()))
-                .or_default()
-                .exact
-                .insert(target.clone());
+                .or_default();
+            exact.exact.insert(target.clone());
+            exact.exact_count += 1;
             if is_standard_import(use_decl, module.as_deref())
                 && let Some(relative) = target.strip_prefix("std::")
             {
-                self.imports
+                let exact = self
+                    .imports
                     .entry((module.clone(), relative.to_string()))
-                    .or_default()
-                    .exact
-                    .insert(target.clone());
+                    .or_default();
+                exact.exact.insert(target.clone());
+                exact.exact_count += 1;
             }
             if crate::name_recovery::use_decl_matches_implicit_import_alias(
                 use_decl,
                 &use_decl.alias,
                 module.as_deref(),
             ) {
-                self.imports
+                let implicit = self
+                    .imports
                     .entry((module, use_decl.alias.clone()))
-                    .or_default()
-                    .implicit
-                    .insert(target);
+                    .or_default();
+                implicit.implicit.insert(target);
+                implicit.implicit_count += 1;
             }
         }
     }
@@ -367,11 +373,14 @@ impl TypeAliasTargetIndex {
         let Some(imports) = self.imports.get(&key) else {
             return TypeAliasTarget::Missing;
         };
-        let candidates = if imports.exact.is_empty() {
-            &imports.implicit
+        let (candidates, count) = if imports.exact.is_empty() {
+            (&imports.implicit, imports.implicit_count)
         } else {
-            &imports.exact
+            (&imports.exact, imports.exact_count)
         };
+        if count > 1 {
+            return TypeAliasTarget::Missing;
+        }
         let mut candidates = candidates.iter();
         let Some(module) = candidates.next() else {
             return TypeAliasTarget::Missing;
@@ -462,13 +471,12 @@ pub(super) fn descriptor_for_alias_target<'a>(
             }),
         [_, .., name] => {
             let import_path = &segments[..segments.len() - 1];
-            let module_path = import_path.join("::");
-            let module_name = uses
-                .iter()
-                .find(|use_decl| {
-                    use_decl_matches_import_path(use_decl, &module_path, current_module)
-                })
-                .map(|use_decl| use_decl.name.as_str())?;
+            let ImportSelection::One(use_decl) =
+                select_imported_use_for_path(uses, import_path, current_module)
+            else {
+                return None;
+            };
+            let module_name = use_decl.name.as_str();
             descriptors.iter().find(|descriptor| {
                 descriptor.type_name == *name
                     && descriptor.module_name.as_deref() == Some(module_name)

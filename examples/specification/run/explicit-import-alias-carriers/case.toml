@@ -1,8 +1,10 @@
-command = ["run", "main", "main.veln", "helpers.veln", "model.veln"]
+command = ["run", "main", "main.veln", "alternate.veln", "helpers.veln", "model.veln"]
 exit = 0
 
 [stdout]
-format = "empty"
+format = "text"
+# The printed identity distinguishes exact-path selection from the colliding qualifier route.
+contains = ["41"]
 
 [stderr]
 format = "empty"

@@ -8,9 +8,7 @@ use veln_source::{SourcePath, SourceSpan};
 use crate::semantic_model::Type;
 
 use super::descriptors::{AdtConstructor, AdtDescriptor, AdtVariantDescriptor};
-use super::lookup_validation::{
-    constructor_matches_visible_path, imported_module_path_matches, same_descriptor,
-};
+use super::lookup_validation::{constructor_matches_visible_path, same_descriptor};
 
 mod aliases;
 mod build;
@@ -55,6 +53,8 @@ enum QualifiedSourceIdentity {
 struct QualifiedImportModules {
     exact: BTreeSet<String>,
     implicit: BTreeSet<String>,
+    exact_count: usize,
+    implicit_count: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -578,18 +578,6 @@ impl AdtRegistry {
 }
 
 mod qualified_lookup;
-
-fn imported_descriptor_path_matches(
-    descriptor: &AdtDescriptor,
-    segments: &[String],
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-) -> bool {
-    let Some(type_index) = descriptor_type_segment_index(descriptor, segments) else {
-        return false;
-    };
-    imported_module_path_matches(descriptor, &segments[..type_index], uses, current_module)
-}
 
 fn descriptor_type_segment_index(descriptor: &AdtDescriptor, segments: &[String]) -> Option<usize> {
     segments

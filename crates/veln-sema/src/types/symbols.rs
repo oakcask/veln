@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::adt::registry::AdtRegistry;
-use crate::name_recovery::use_decl_matches_import_path;
+use crate::name_recovery::{ImportSelection, select_imported_use_for_path};
 use veln_ast::{NameClass, PublicAliasKind, SchemaField, SurfaceModule, UseDecl, Visibility};
 use veln_source::SourceSpan;
 
@@ -398,9 +398,10 @@ pub(super) fn imported_use_for_path<'a>(
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
-    let module_path = segments.join("::");
-    uses.iter()
-        .find(|use_decl| use_decl_matches_import_path(use_decl, &module_path, current_module))
+    match select_imported_use_for_path(uses, segments, current_module) {
+        ImportSelection::One(use_decl) => Some(use_decl),
+        ImportSelection::None | ImportSelection::Ambiguous => None,
+    }
 }
 
 pub(super) fn companion_private_schema_access_allowed(

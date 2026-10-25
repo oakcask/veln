@@ -70,20 +70,22 @@ pub(crate) fn use_decl_is_quarantined(module: &SurfaceModule, use_decl: &UseDecl
         || ImportCollisionIndex::new(module).contains_target(use_decl)
 }
 
-struct ImportCollisionIndex {
+pub(crate) struct ImportCollisionIndex {
     targets: BTreeMap<(Option<String>, Option<String>, String), usize>,
     qualifiers: BTreeMap<(Option<String>, String), usize>,
 }
 
 impl ImportCollisionIndex {
     fn new(module: &SurfaceModule) -> Self {
+        Self::from_eligible_uses(&module.uses)
+    }
+
+    pub(crate) fn from_eligible_uses(uses: &[UseDecl]) -> Self {
         let mut targets = BTreeMap::new();
         let mut qualifiers = BTreeMap::new();
-        for use_decl in module
-            .uses
-            .iter()
-            .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
-        {
+        for use_decl in uses.iter().filter(|use_decl| {
+            use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.syntax_recovered
+        }) {
             *targets
                 .entry((
                     use_decl.module_name.clone(),
@@ -91,9 +93,11 @@ impl ImportCollisionIndex {
                     use_decl.written_name.clone(),
                 ))
                 .or_insert(0) += 1;
-            *qualifiers
-                .entry((use_decl.module_name.clone(), use_decl.alias.clone()))
-                .or_insert(0) += 1;
+            if use_decl_has_import_qualifier(use_decl) {
+                *qualifiers
+                    .entry((use_decl.module_name.clone(), use_decl.alias.clone()))
+                    .or_insert(0) += 1;
+            }
         }
         Self {
             targets,
@@ -111,7 +115,7 @@ impl ImportCollisionIndex {
             .is_some_and(|count| *count > 1)
     }
 
-    fn contains_qualifier(&self, use_decl: &UseDecl) -> bool {
+    pub(crate) fn contains_qualifier(&self, use_decl: &UseDecl) -> bool {
         self.qualifiers
             .get(&(use_decl.module_name.clone(), use_decl.alias.clone()))
             .is_some_and(|count| *count > 1)
@@ -157,53 +161,71 @@ pub(crate) fn normal_imported_use_for_path<'a>(
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
-    let module_path = segments.join("::");
     let collisions = ImportCollisionIndex::new(module);
-    let exact = module.uses.iter().filter(|use_decl| {
-        !use_decl.syntax_recovered
-            && !use_decl_has_invalid_casing(module, use_decl)
-            && !(use_decl.origin == veln_ast::UseOrigin::Source
-                && use_decl.explicit_alias
-                && use_decl.alias == "prelude")
-            && !collisions.contains_target(use_decl)
-            && use_decl_matches_exact_import_path(use_decl, &module_path, current_module)
-    });
-    match unique_use(exact) {
-        UniqueUse::One(use_decl) => return Some(use_decl),
-        UniqueUse::Many => return None,
-        UniqueUse::None => {}
-    }
-    match unique_use(module.uses.iter().filter(|use_decl| {
-        !use_decl.syntax_recovered
-            && !use_decl_has_invalid_casing(module, use_decl)
-            && !(use_decl.origin == veln_ast::UseOrigin::Source
-                && use_decl.explicit_alias
-                && use_decl.alias == "prelude")
-            && !collisions.contains_target(use_decl)
-            && !collisions.contains_qualifier(use_decl)
-            && use_decl.module_name.as_deref() == current_module
-            && simple_import_alias_matches(use_decl, &module_path)
-    })) {
-        UniqueUse::One(use_decl) => Some(use_decl),
-        UniqueUse::None | UniqueUse::Many => None,
+    let candidates = module
+        .uses
+        .iter()
+        .filter(|use_decl| {
+            !use_decl.syntax_recovered
+                && !use_decl_has_invalid_casing(module, use_decl)
+                && !(use_decl.origin == veln_ast::UseOrigin::Source
+                    && use_decl.explicit_alias
+                    && use_decl.alias == "prelude")
+                && !collisions.contains_target(use_decl)
+        })
+        .collect::<Vec<_>>();
+    match select_from_candidates(&candidates, segments, current_module, &collisions) {
+        ImportSelection::One(use_decl) => Some(use_decl),
+        ImportSelection::None | ImportSelection::Ambiguous => None,
     }
 }
 
-enum UniqueUse<'a> {
+pub(crate) enum ImportSelection<'a> {
     None,
     One(&'a UseDecl),
-    Many,
+    Ambiguous,
 }
 
-fn unique_use<'a>(mut candidates: impl Iterator<Item = &'a UseDecl>) -> UniqueUse<'a> {
+fn unique_use<'a>(mut candidates: impl Iterator<Item = &'a UseDecl>) -> ImportSelection<'a> {
     let Some(first) = candidates.next() else {
-        return UniqueUse::None;
+        return ImportSelection::None;
     };
     if candidates.next().is_some() {
-        UniqueUse::Many
+        ImportSelection::Ambiguous
     } else {
-        UniqueUse::One(first)
+        ImportSelection::One(first)
     }
+}
+
+fn select_from_candidates<'a>(
+    candidates: &[&'a UseDecl],
+    segments: &[String],
+    current_module: Option<&str>,
+    collisions: &ImportCollisionIndex,
+) -> ImportSelection<'a> {
+    let module_path = segments.join("::");
+    match unique_use(candidates.iter().copied().filter(|use_decl| {
+        use_decl_matches_exact_import_path(use_decl, &module_path, current_module)
+    })) {
+        ImportSelection::One(use_decl) => return ImportSelection::One(use_decl),
+        ImportSelection::Ambiguous => return ImportSelection::Ambiguous,
+        ImportSelection::None => {}
+    }
+    unique_use(candidates.iter().copied().filter(|use_decl| {
+        !collisions.contains_qualifier(use_decl)
+            && use_decl.module_name.as_deref() == current_module
+            && simple_import_alias_matches(use_decl, &module_path)
+    }))
+}
+
+pub(crate) fn select_imported_use_for_path<'a>(
+    uses: &'a [UseDecl],
+    segments: &[String],
+    current_module: Option<&str>,
+) -> ImportSelection<'a> {
+    let candidates = uses.iter().collect::<Vec<_>>();
+    let collisions = ImportCollisionIndex::from_eligible_uses(uses);
+    select_from_candidates(&candidates, segments, current_module, &collisions)
 }
 
 pub(crate) fn schema_composition_imported_use_for_path<'a>(
@@ -211,16 +233,17 @@ pub(crate) fn schema_composition_imported_use_for_path<'a>(
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
-    let module_path = segments.join("::");
-    module
+    let collisions = ImportCollisionIndex::new(module);
+    let candidates = module
         .uses
         .iter()
-        .find(|use_decl| {
-            !use_decl_is_quarantined(module, use_decl)
-                && use_decl_matches_exact_import_path(use_decl, &module_path, current_module)
-        })
-        .or_else(|| normal_imported_use_for_path(module, segments, current_module))
-        .or_else(|| {
+        .filter(|use_decl| !use_decl_is_quarantined(module, use_decl))
+        .collect::<Vec<_>>();
+    match select_from_candidates(&candidates, segments, current_module, &collisions) {
+        ImportSelection::One(use_decl) => Some(use_decl),
+        ImportSelection::Ambiguous => None,
+        ImportSelection::None => {
+            let module_path = segments.join("::");
             let mut candidates = module.uses.iter().filter(|use_decl| {
                 use_decl.package.is_none()
                     && use_decl.module_name.as_deref() == current_module
@@ -229,7 +252,8 @@ pub(crate) fn schema_composition_imported_use_for_path<'a>(
             });
             let candidate = candidates.next()?;
             candidates.next().is_none().then_some(candidate)
-        })
+        }
+    }
 }
 
 pub(crate) fn resolved_import_module_name(
@@ -245,16 +269,6 @@ pub(crate) fn resolved_import_module_name(
     } else {
         use_decl.name.clone()
     }
-}
-
-pub(crate) fn use_decl_matches_import_path(
-    use_decl: &UseDecl,
-    module_path: &str,
-    current_module: Option<&str>,
-) -> bool {
-    use_decl_matches_exact_import_path(use_decl, module_path, current_module)
-        || (use_decl.module_name.as_deref() == current_module
-            && simple_import_alias_matches(use_decl, module_path))
 }
 
 pub(crate) fn use_decl_matches_exact_import_path(
@@ -288,11 +302,19 @@ pub(crate) fn use_decl_matches_exact_import_path(
 }
 
 fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str) -> bool {
-    use_decl.alias == module_path
-        && (use_decl.explicit_alias
-            || use_decl.package.is_some()
-            || !use_decl.name.contains("::")
-            || use_decl.origin == veln_ast::UseOrigin::ImplicitStandardPrelude)
+    use_decl.alias == module_path && use_decl_has_import_qualifier(use_decl)
+}
+
+pub(crate) fn use_decl_has_import_qualifier(use_decl: &UseDecl) -> bool {
+    use_decl.explicit_alias
+        || use_decl.package.is_some()
+        || !use_decl.name.contains("::")
+        || use_decl.origin == veln_ast::UseOrigin::ImplicitStandardPrelude
+}
+
+pub(crate) fn use_decl_has_qualifier_collision(uses: &[UseDecl], use_decl: &UseDecl) -> bool {
+    use_decl_has_import_qualifier(use_decl)
+        && ImportCollisionIndex::from_eligible_uses(uses).contains_qualifier(use_decl)
 }
 
 pub(crate) fn use_decl_matches_implicit_import_alias(

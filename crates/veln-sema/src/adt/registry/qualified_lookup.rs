@@ -181,6 +181,7 @@ impl AdtRegistry {
                     current_module,
                 ) {
                     fallback.exact.insert(use_decl.name.clone());
+                    fallback.exact_count += 1;
                 }
                 crate::adt::lookup_validation::record_import_path_comparison();
                 if crate::name_recovery::use_decl_matches_implicit_import_alias(
@@ -189,17 +190,21 @@ impl AdtRegistry {
                     current_module,
                 ) {
                     fallback.implicit.insert(use_decl.name.clone());
+                    fallback.implicit_count += 1;
                 }
             }
             &fallback
         } else {
             return None;
         };
-        let candidates = if modules.exact.is_empty() {
-            &modules.implicit
+        let (candidates, count) = if modules.exact.is_empty() {
+            (&modules.implicit, modules.implicit_count)
         } else {
-            &modules.exact
+            (&modules.exact, modules.exact_count)
         };
+        if count > 1 {
+            return Some(QualifiedSourceIdentity::Ambiguous);
+        }
         let mut candidates = candidates.iter();
         let module = candidates.next()?;
         if candidates.next().is_some() {
@@ -327,11 +332,14 @@ impl AdtRegistry {
         type_name: &str,
         modules: &QualifiedImportModules,
     ) -> Option<QualifiedSourceIdentity> {
-        let candidates = if modules.exact.is_empty() {
-            &modules.implicit
+        let (candidates, count) = if modules.exact.is_empty() {
+            (&modules.implicit, modules.implicit_count)
         } else {
-            &modules.exact
+            (&modules.exact, modules.exact_count)
         };
+        if count > 1 {
+            return Some(QualifiedSourceIdentity::Ambiguous);
+        }
         let mut candidates = candidates.iter();
         let module = candidates.next()?;
         if candidates.next().is_some() {
@@ -507,26 +515,25 @@ impl AdtRegistry {
                 uses,
             );
         }
-        let Some(first) = segments.first() else {
-            return false;
-        };
-        if let Some(module_name) = uses
-            .iter()
-            .find(|use_decl| {
-                use_decl.module_name.as_deref() == current_module && use_decl.alias == *first
-            })
-            .map(|use_decl| use_decl.name.as_str())
-        {
-            return descriptor.module_name.as_deref() == Some(module_name);
-        }
-        if imported_descriptor_path_matches(descriptor, segments, current_module, uses) {
-            return true;
+        if let Some(module_segments) = imported_module_segments(descriptor, segments) {
+            match crate::name_recovery::select_imported_use_for_path(
+                uses,
+                module_segments,
+                current_module,
+            ) {
+                crate::name_recovery::ImportSelection::One(use_decl) => {
+                    return descriptor.module_name.as_deref() == Some(use_decl.name.as_str());
+                }
+                crate::name_recovery::ImportSelection::Ambiguous => return false,
+                crate::name_recovery::ImportSelection::None => {}
+            }
         }
         segments.len() <= 2
             && uses.iter().any(|use_decl| {
                 use_decl.module_name.as_deref() == current_module
                     && descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
                     && use_decl.contributes_bare_members()
+                    && !crate::name_recovery::use_decl_has_qualifier_collision(uses, use_decl)
             })
     }
 
@@ -571,16 +578,28 @@ impl AdtRegistry {
         {
             return false;
         }
-        let Some(first) = segments.first() else {
+        let Some(module_segments) = imported_module_segments(descriptor, segments) else {
             return false;
         };
-        uses.iter().any(|use_decl| {
-            use_decl.package.is_none()
-                && use_decl.module_name.as_deref() == Some(current_module)
-                && use_decl.alias == *first
-                && use_decl.name == target_module
-        })
+        matches!(
+            crate::name_recovery::select_imported_use_for_path(
+                uses,
+                module_segments,
+                Some(current_module),
+            ),
+            crate::name_recovery::ImportSelection::One(use_decl)
+                if use_decl.package.is_none() && use_decl.name == target_module
+        )
     }
+}
+
+fn imported_module_segments<'a>(
+    descriptor: &AdtDescriptor,
+    segments: &'a [String],
+) -> Option<&'a [String]> {
+    let end = descriptor_type_segment_index(descriptor, segments)
+        .unwrap_or_else(|| segments.len().saturating_sub(1));
+    (end > 0).then_some(&segments[..end])
 }
 
 fn normalized_qualified_segments(segments: &[String]) -> String {
@@ -653,6 +672,7 @@ fn fallback_recovery_modules(
                     .or_default()
                     .exact
                     .insert(use_decl.name.clone());
+                candidates.entry(path.to_string()).or_default().exact_count += 1;
             }
         }
         crate::adt::lookup_validation::record_qualified_path_work(use_decl.alias.len());
@@ -668,6 +688,10 @@ fn fallback_recovery_modules(
                 .or_default()
                 .implicit
                 .insert(use_decl.name.clone());
+            candidates
+                .entry(use_decl.alias.clone())
+                .or_default()
+                .implicit_count += 1;
         }
     }
     candidates

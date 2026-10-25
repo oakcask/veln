@@ -162,26 +162,42 @@ pub(super) fn alias_kind_mismatch_diagnostic(
 
 pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut seen_targets =
-        BTreeMap::<(Option<String>, String, Option<String>), (String, SourceSpan)>::new();
+    let mut seen_targets = BTreeMap::<
+        (Option<String>, String, Option<String>),
+        (String, SourceSpan, SourceSpan),
+    >::new();
     let mut seen_qualifiers =
-        BTreeMap::<(Option<String>, String), (String, SourceSpan, bool)>::new();
+        BTreeMap::<(Option<String>, String), (String, SourceSpan, SourceSpan)>::new();
 
-    for use_decl in module
+    let mut source_uses = module
         .uses
         .iter()
         .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
-    {
+        .collect::<Vec<_>>();
+    source_uses.sort_by(|left, right| {
+        left.span
+            .file
+            .as_str()
+            .cmp(right.span.file.as_str())
+            .then(left.span.start.offset.cmp(&right.span.start.offset))
+            .then(left.span.end.offset.cmp(&right.span.end.offset))
+    });
+
+    for use_decl in source_uses {
         let node_id = use_decl.node_id.display("use");
         let target_key = (
             use_decl.module_name.clone(),
             use_decl.written_name.clone(),
             use_decl.package.clone(),
         );
+        let has_qualifier = !use_decl.syntax_recovered
+            && crate::name_recovery::use_decl_has_import_qualifier(use_decl);
         let qualifier_key = (use_decl.module_name.clone(), use_decl.alias.clone());
         let target_origin = seen_targets.get(&target_key).cloned();
-        let qualifier_origin = seen_qualifiers.get(&qualifier_key).cloned();
-        if let Some((first_node_id, first_span)) = &target_origin {
+        let qualifier_origin = has_qualifier
+            .then(|| seen_qualifiers.get(&qualifier_key).cloned())
+            .flatten();
+        if let Some((first_node_id, first_span, _)) = &target_origin {
             diagnostics.push(duplicate_name_diagnostic(
                 &use_decl.written_name,
                 "module",
@@ -192,15 +208,23 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
                 first_span,
             ));
         } else {
-            seen_targets.insert(target_key, (node_id.clone(), use_decl.target_span()));
+            seen_targets.insert(
+                target_key,
+                (
+                    node_id.clone(),
+                    use_decl.target_span(),
+                    use_decl.span.clone(),
+                ),
+            );
         }
         let same_origin = match (&target_origin, &qualifier_origin) {
-            (Some((target_node, _)), Some((qualifier_node, _, _))) => target_node == qualifier_node,
+            (Some((_, _, target_decl_span)), Some((_, _, qualifier_decl_span))) => {
+                target_decl_span == qualifier_decl_span
+            }
             _ => false,
         };
-        if let Some((first_node_id, first_span, first_explicit_alias)) = &qualifier_origin
+        if let Some((first_node_id, first_span, _)) = &qualifier_origin
             && !same_origin
-            && (use_decl.explicit_alias || *first_explicit_alias)
         {
             diagnostics.push(duplicate_name_diagnostic(
                 &use_decl.alias,
@@ -211,10 +235,10 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
                 first_node_id.clone(),
                 first_span,
             ));
-        } else if qualifier_origin.is_none() {
+        } else if has_qualifier && qualifier_origin.is_none() {
             seen_qualifiers.insert(
                 qualifier_key,
-                (node_id, use_decl.qualifier_span(), use_decl.explicit_alias),
+                (node_id, use_decl.qualifier_span(), use_decl.span.clone()),
             );
         }
     }
@@ -238,11 +262,9 @@ pub(crate) fn check_reserved_prelude_aliases(module: &SurfaceModule) -> Vec<Diag
         ));
     }
 
-    for use_decl in module
-        .uses
-        .iter()
-        .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
-    {
+    for use_decl in module.uses.iter().filter(|use_decl| {
+        use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.syntax_recovered
+    }) {
         if use_decl.alias == PRELUDE_MODULE
             && (use_decl.explicit_alias
                 || !use_decl

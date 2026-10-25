@@ -38,11 +38,20 @@ without `as` keep their implicit-leaf and bare-export behavior.
 
 Exact source-written paths are selected before local qualifiers. An ambiguous
 exact path does not fall back to an alias or bare candidate. A qualifier must
-select exactly one import. Duplicate target paths and colliding qualifiers
-quarantine every conflicting import from normal lookup. The explicit alias
-`prelude` is reserved. Invalid-cased aliases, invalid target paths, and
-syntax-recovered imports are also quarantined atomically, while independently
-provable target and collision diagnostics remain visible.
+select exactly one import. A qualifier collision disables the qualifier route,
+but it does not disable an independently unique exact written-path route. A
+duplicate or otherwise ambiguous exact path remains unresolved and never falls
+back to a qualifier. Duplicate target paths and colliding qualifiers do not
+contribute bare or qualifier lookup candidates.
+
+An explicit alias must start with an ASCII lowercase letter. An uppercase or
+underscore initial reports the observed initial and the required
+`ascii_lowercase` class. The explicit alias `prelude` is reserved. Invalid-cased
+aliases, invalid target paths, and syntax-recovered imports are quarantined
+atomically. Independently provable target and collision diagnostics remain
+visible, but a syntax-recovered alias never creates a qualifier or reserved-name
+fact. Recovery suppresses diagnostics caused only by the quarantined binding;
+missing, private, wrong-kind, and ambiguous target failures remain errors.
 
 The qualifier applies to values and calls, types and refinements,
 constructors and patterns, schemas and schema operations, effects and

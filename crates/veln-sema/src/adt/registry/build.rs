@@ -580,11 +580,11 @@ fn qualified_import_modules(
         exact_paths.dedup();
         for path in exact_paths {
             crate::adt::lookup_validation::record_import_path_comparison();
-            modules
+            let entry = modules
                 .entry((use_decl.module_name.clone(), path))
-                .or_default()
-                .exact
-                .insert(use_decl.name.clone());
+                .or_default();
+            entry.exact.insert(use_decl.name.clone());
+            entry.exact_count += 1;
         }
         if crate::name_recovery::use_decl_matches_implicit_import_alias(
             use_decl,
@@ -592,11 +592,11 @@ fn qualified_import_modules(
             use_decl.module_name.as_deref(),
         ) {
             crate::adt::lookup_validation::record_import_path_comparison();
-            modules
+            let entry = modules
                 .entry((use_decl.module_name.clone(), use_decl.alias.clone()))
-                .or_default()
-                .implicit
-                .insert(use_decl.name.clone());
+                .or_default();
+            entry.implicit.insert(use_decl.name.clone());
+            entry.implicit_count += 1;
         }
     }
     modules
@@ -641,10 +641,10 @@ fn imported_descriptor_candidates(
     uses: &[UseDecl],
 ) -> ImportedDescriptorCandidates {
     let mut owners_by_imported_module = HashMap::<String, BTreeSet<Option<String>>>::new();
-    for use_decl in uses
-        .iter()
-        .filter(|use_decl| use_decl.contributes_bare_members())
-    {
+    let collisions = crate::name_recovery::ImportCollisionIndex::from_eligible_uses(uses);
+    for use_decl in uses.iter().filter(|use_decl| {
+        use_decl.contributes_bare_members() && !collisions.contains_qualifier(use_decl)
+    }) {
         crate::adt::lookup_validation::record_import_path_comparison();
         owners_by_imported_module
             .entry(use_decl.name.clone())
