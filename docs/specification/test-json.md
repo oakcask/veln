@@ -24,8 +24,10 @@ This file specifies the implemented JSON output for `veln test --json`.
 
 The `cases` array is ordered by discovered-case order for serial `--jobs 1`,
 explicit bounded `--jobs <JOBS>`, and automatic job modes, regardless of worker
-completion order. Summary counts and top-level status are computed from the
-finished case and suite records.
+completion order. Discovery orders source paths lexically and keeps declaration
+order within each source. Generated doctests participate under their virtual
+source paths. Summary counts and top-level status are computed from the finished
+case and suite records.
 
 ## Selection
 

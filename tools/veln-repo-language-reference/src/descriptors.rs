@@ -53,8 +53,10 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
             grammar: &[
                 "ModuleHeader",
                 "UseDecl",
+                "ImportAlias",
                 "ImportSource",
                 "ModulePath",
+                "Alias",
                 "PublicAlias",
             ],
             examples: &[ExampleSelection {

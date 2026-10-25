@@ -114,7 +114,10 @@ A different failure or successful execution fails with
 
 Workers capture output per case. The coordinator waits for all workers and
 renders human status, JSON cases, diagnostics, events, summaries, failures, and
-exit status in discovered-case order regardless of completion order.
+exit status in discovered-case order regardless of completion order. Discovery
+orders source paths lexically and keeps declaration order within each source.
+Generated doctests participate under their virtual source paths, so their
+relative position follows the same rule.
 
 When `VELN_TEST_TIMINGS` is present, the command emits diagnostic timing lines
 to standard error after the report. Each line starts with

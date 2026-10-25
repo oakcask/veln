@@ -58,6 +58,11 @@ the written target path. If both facts have the same earlier import, one
 duplicate diagnostic describes that repeated import; conflicts with different
 earlier imports remain independent.
 
+`module.unexported_import` selects the complete written import target as its
+primary span, excluding `use`, an explicit alias, and the package source. Alias
+casing, reserved-name, and qualifier-collision diagnostics instead select the
+alias token when one is written.
+
 Within an import, parse diagnostics precede casing diagnostics. Reserved and
 duplicate facts follow casing. Across sources belonging to the same module,
 diagnostics use lexical source-path order and token order rather than source

@@ -23,6 +23,13 @@ recovers at the declaration newline, retains parseable import components for
 diagnostics, and does not consume the following declaration or install a
 partial import.
 
+The syntax tree and lowered AST preserve the written import target, the
+effective qualifier, a separate explicit-alias span when present, whether the
+qualifier was explicit, and whether parser recovery affected the declaration.
+Encoding and decoding the lowered AST preserves those import facts and spans.
+The current wire layout rejects the preceding layout header instead of
+decoding imports with the older shape.
+
 ```veln
 use stdio
 
