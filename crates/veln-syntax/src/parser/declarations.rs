@@ -215,7 +215,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_module_value_name(&mut self) -> (Option<String>, Option<SourceSpan>) {
-        if self.at(TokenKind::Ident) {
+        if self.current().kind.is_binding_identifier() {
             let token = self.bump();
             let span = self.source.span(token.range);
             if !token

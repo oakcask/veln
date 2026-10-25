@@ -9,3 +9,5 @@ pub let defaults: { state: State, attempts: Int, labels: List<String> } = {
 	attempts: 3,
 	labels: ["ready", "steady"],
 }
+
+let callsite: Int = 1

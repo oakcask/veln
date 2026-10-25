@@ -10,6 +10,7 @@ fn parses_and_formats_typed_module_values() {
             " attempts: 3,\n",
             "}\n",
             "pub let initial: State = Active(3)\n",
+            "let callsite: Int = 1\n",
         ),
     );
 
@@ -27,6 +28,10 @@ fn parses_and_formats_typed_module_values() {
         panic!("expected public module value");
     };
     assert_eq!(initial.visibility, Visibility::Public);
+    let SyntaxItem::ModuleValue(contextual_name) = &output.tree.items[2] else {
+        panic!("expected module value with contextual binding name");
+    };
+    assert_eq!(contextual_name.name.as_deref(), Some("callsite"));
 
     let formatted = format_tree(&output.tree);
     assert_eq!(
@@ -35,6 +40,8 @@ fn parses_and_formats_typed_module_values() {
             "let defaults: { state : State, attempts : Int } = { state: Idle, attempts: 3 }\n",
             "\n",
             "pub let initial: State = Active(3)\n",
+            "\n",
+            "let callsite: Int = 1\n",
         )
     );
     let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
