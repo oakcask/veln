@@ -51,7 +51,7 @@ message = "external module `math__test_companion` is not exported by package `gi
 [diagnostics.span]
 file = "app.veln"
 line = 1
-column = 1
+column = 5
 
 [[diagnostics]]
 id = "name.unresolved"

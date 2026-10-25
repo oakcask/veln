@@ -24,7 +24,7 @@ message = "external module `private` is not exported by package `github.com/oakc
 [diagnostics.span]
 file = "app.veln"
 line = 2
-column = 1
+column = 5
 
 [[diagnostics]]
 id = "name.unresolved"

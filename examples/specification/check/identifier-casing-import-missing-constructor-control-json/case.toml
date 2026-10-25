@@ -37,7 +37,7 @@ message = "local import `missing::HTTP` has no matching selected source file"
 [diagnostics.span]
 file = "app.veln"
 line = 1
-column = 1
+column = 5
 
 [[diagnostics]]
 id = "name.invalid_case"
