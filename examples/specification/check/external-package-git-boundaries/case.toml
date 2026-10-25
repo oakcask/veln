@@ -13,7 +13,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 2
+equals = 3
 
 [[diagnostics]]
 id = "module.unexported_import"
@@ -25,6 +25,17 @@ message = "external module `private` is not exported by package `github.com/oakc
 file = "app.veln"
 line = 2
 column = 5
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `private::value`"
+
+[diagnostics.span]
+file = "app.veln"
+line = 5
+column = 3
 
 [[diagnostics]]
 id = "name.unresolved"
