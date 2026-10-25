@@ -15,35 +15,22 @@ pub fn generate(repo: &Path) -> Result<String, String> {
     let specification = read(&repo.join("docs/specification/source-surface-executable.pl"))?;
     verify_keywords(&specification)?;
     let corpus = read(&repo.join("editors/vscode/fixtures/lexical.veln"))?;
+    let metadata = editor_metadata(&corpus)?;
+    serde_json::to_string_pretty(&metadata)
+        .map(|text| text + "\n")
+        .map_err(|error| error.to_string())
+}
+
+fn editor_metadata(corpus: &str) -> Result<Value, String> {
     let keywords: Vec<_> = PUBLIC_KEYWORDS.iter().map(|token| token.spelling).collect();
     let punctuation: Vec<_> = PUBLIC_PUNCTUATION
         .iter()
         .map(|token| token.spelling)
         .collect();
-    let spelling = |kind| {
-        PUBLIC_PUNCTUATION
-            .iter()
-            .find(|token| token.kind == kind)
-            .map(|token| token.spelling)
-            .ok_or_else(|| {
-                format!("Add {kind:?} to PUBLIC_PUNCTUATION before generating editor delimiters.")
-            })
-    };
-    let brackets = DELIMITER_PAIRS
-        .iter()
-        .map(|&(open, close)| Ok([spelling(open)?, spelling(close)?]))
-        .collect::<Result<Vec<_>, String>>()?;
-    // Include every fixed spelling so a newly added token is exercised by TextMate.
-    let sources = keywords
-        .iter()
-        .chain(punctuation.iter())
-        .copied()
-        .chain([TRUE_LITERAL, FALSE_LITERAL, SATISFY_MARKER, VALIDATE_MARKER])
-        .chain(corpus.lines().filter(|line| !line.trim().is_empty()));
-    let fixtures = sources
-        .map(lexical_fixture)
-        .collect::<Result<Vec<_>, _>>()?;
-    let metadata = json!({
+    let brackets = delimiter_spellings()?;
+    let fixtures = lexical_fixtures(&keywords, &punctuation, corpus)?;
+
+    Ok(json!({
         "keywords": keywords,
         "punctuation": punctuation,
         "contextualKeywords": [SATISFY_MARKER, VALIDATE_MARKER],
@@ -55,10 +42,39 @@ pub fn generate(repo: &Path) -> Result<String, String> {
         "customSemanticTokenModifiers": veln_editor::custom_semantic_token_modifiers(),
         "customSemanticTokenTypes": veln_editor::custom_semantic_token_types(),
         "lexicalFixtures": fixtures,
-    });
-    serde_json::to_string_pretty(&metadata)
-        .map(|text| text + "\n")
-        .map_err(|error| error.to_string())
+    }))
+}
+
+fn delimiter_spellings() -> Result<Vec<[&'static str; 2]>, String> {
+    DELIMITER_PAIRS
+        .iter()
+        .map(|&(open, close)| Ok([punctuation_spelling(open)?, punctuation_spelling(close)?]))
+        .collect()
+}
+
+fn punctuation_spelling(kind: TokenKind) -> Result<&'static str, String> {
+    PUBLIC_PUNCTUATION
+        .iter()
+        .find(|token| token.kind == kind)
+        .map(|token| token.spelling)
+        .ok_or_else(|| {
+            format!("Add {kind:?} to PUBLIC_PUNCTUATION before generating editor delimiters.")
+        })
+}
+
+fn lexical_fixtures(
+    keywords: &[&str],
+    punctuation: &[&str],
+    corpus: &str,
+) -> Result<Vec<Value>, String> {
+    // Include every fixed spelling so a newly added token is exercised by TextMate.
+    let sources = keywords
+        .iter()
+        .chain(punctuation.iter())
+        .copied()
+        .chain([TRUE_LITERAL, FALSE_LITERAL, SATISFY_MARKER, VALIDATE_MARKER])
+        .chain(corpus.lines().filter(|line| !line.trim().is_empty()));
+    sources.map(lexical_fixture).collect()
 }
 
 fn lexical_fixture(text: &str) -> Result<Value, String> {
@@ -147,21 +163,7 @@ fn read(path: &Path) -> Result<String, String> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn rejects_missing_and_extra_specification_keywords() {
-        let specification = PUBLIC_KEYWORDS
-            .iter()
-            .map(|token| format!("keyword_kind(\"{}\", kind).\n", token.spelling))
-            .collect::<String>();
-        assert!(verify_keywords(&specification).is_ok());
-        assert!(
-            verify_keywords(&specification.replace("keyword_kind(\"fn\", kind).\n", "")).is_err()
-        );
-        assert!(verify_keywords(&(specification + "keyword_kind(\"extra\", kind).\n")).is_err());
-    }
-
-    #[test]
-    fn check_preserves_stale_file_and_write_repairs_projection() {
+    fn test_repo(corpus: &str) -> std::path::PathBuf {
         let suffix = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -181,7 +183,26 @@ mod tests {
             specification,
         )
         .unwrap();
-        fs::write(repo.join("editors/vscode/fixtures/lexical.veln"), "42\n").unwrap();
+        fs::write(repo.join("editors/vscode/fixtures/lexical.veln"), corpus).unwrap();
+        repo
+    }
+
+    #[test]
+    fn rejects_missing_and_extra_specification_keywords() {
+        let specification = PUBLIC_KEYWORDS
+            .iter()
+            .map(|token| format!("keyword_kind(\"{}\", kind).\n", token.spelling))
+            .collect::<String>();
+        assert!(verify_keywords(&specification).is_ok());
+        assert!(
+            verify_keywords(&specification.replace("keyword_kind(\"fn\", kind).\n", "")).is_err()
+        );
+        assert!(verify_keywords(&(specification + "keyword_kind(\"extra\", kind).\n")).is_err());
+    }
+
+    #[test]
+    fn check_preserves_stale_file_and_write_repairs_projection() {
+        let repo = test_repo("42\n");
         fs::write(repo.join(OUTPUT), "stale\n").unwrap();
         assert!(
             synchronize(&repo, false)
@@ -191,6 +212,30 @@ mod tests {
         assert_eq!(read(&repo.join(OUTPUT)).unwrap(), "stale\n");
         synchronize(&repo, true).unwrap();
         synchronize(&repo, false).unwrap();
+        fs::remove_dir_all(repo).unwrap();
+    }
+
+    #[test]
+    fn generation_projects_compiler_owned_spellings_and_fixture_lines() {
+        let repo = test_repo("Example\n");
+        let metadata: Value = serde_json::from_str(&generate(&repo).unwrap()).unwrap();
+        let expected_keywords: Vec<_> =
+            PUBLIC_KEYWORDS.iter().map(|token| token.spelling).collect();
+        let expected_punctuation: Vec<_> = PUBLIC_PUNCTUATION
+            .iter()
+            .map(|token| token.spelling)
+            .collect();
+
+        assert_eq!(metadata["keywords"], json!(expected_keywords));
+        assert_eq!(metadata["punctuation"], json!(expected_punctuation));
+        assert!(
+            metadata["lexicalFixtures"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|fixture| fixture["source"] == "Example"
+                    && fixture["tokens"] == json!([{"start": 0, "end": 7, "kind": "type"}]))
+        );
         fs::remove_dir_all(repo).unwrap();
     }
 
