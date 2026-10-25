@@ -467,6 +467,136 @@ fn repeated_target_with_distinct_explicit_aliases_is_quarantined_in_both_orders(
 }
 
 #[test]
+fn duplicate_exact_import_paths_never_fall_back_to_an_explicit_qualifier() {
+    for imports in [
+        concat!(
+            "use shared as first\n",
+            "use shared as second\n",
+            "use other as shared\n",
+        ),
+        concat!(
+            "use other as shared\n",
+            "use shared as second\n",
+            "use shared as first\n",
+        ),
+    ] {
+        let carrier_source = concat!(
+            "pub fn answer() -> Int\n  1\nend\n",
+            "pub type State\n  pub Ready(Int)\nend\n",
+            "pub effect Ask\n  value() -> Int\nend\n",
+            "pub handler ask() for Ask\n  value() => 1\nend\n",
+            "pub schema Packet\n  format binary\n  value: UInt8\nend\n",
+        );
+        let module = merged_modules_with_identities(vec![
+            ("shared", SourceFile::new("shared.veln", carrier_source)),
+            ("other", SourceFile::new("other.veln", carrier_source)),
+            (
+                "app",
+                SourceFile::new("app.veln", format!("mod app\n{imports}")),
+            ),
+        ]);
+        let shared = ["shared".to_string()];
+        assert!(
+            crate::name_recovery::normal_imported_use_for_path(&module, &shared, Some("app"))
+                .is_none()
+        );
+        assert!(
+            crate::name_recovery::schema_composition_imported_use_for_path(
+                &module,
+                &shared,
+                Some("app")
+            )
+            .is_none()
+        );
+        assert!(matches!(
+            crate::name_recovery::select_imported_use_for_path(&module.uses, &shared, Some("app")),
+            crate::name_recovery::ImportSelection::Ambiguous
+        ));
+
+        let environment = TypeEnvironment::from_module(&module);
+        let function_path = ["shared", "answer"]
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        assert!(
+            environment
+                .function_path(&function_path, Some("app"))
+                .is_none()
+        );
+        assert!(
+            environment
+                .function_path_for_value(&function_path, Some("app"))
+                .is_none()
+        );
+        assert!(
+            environment
+                .adts
+                .descriptor_for_type_path_any_arity(
+                    "shared::State",
+                    Some("app"),
+                    &environment.uses,
+                )
+                .is_none()
+        );
+        assert!(matches!(
+            environment.adts.constructor(
+                &["shared", "State", "Ready"]
+                    .into_iter()
+                    .map(str::to_string)
+                    .collect::<Vec<_>>(),
+                Some("app"),
+                &environment.uses,
+            ),
+            crate::adt::registry::ConstructorLookup::Missing
+        ));
+        assert!(
+            environment
+                .schema_decode_step_signature(
+                    &["shared", "Packet"]
+                        .into_iter()
+                        .map(str::to_string)
+                        .collect::<Vec<_>>(),
+                    Some("app"),
+                )
+                .is_none()
+        );
+        assert!(
+            environment
+                .user_effect_path(
+                    &["shared", "Ask"]
+                        .into_iter()
+                        .map(str::to_string)
+                        .collect::<Vec<_>>(),
+                    Some("app"),
+                )
+                .is_none()
+        );
+        assert!(matches!(
+            environment.handler_path(
+                &["shared", "ask"]
+                    .into_iter()
+                    .map(str::to_string)
+                    .collect::<Vec<_>>(),
+                Some("app"),
+            ),
+            HandlerPathResolution::Missing
+        ));
+        assert!(
+            environment
+                .function_path(
+                    &["other", "answer"]
+                        .into_iter()
+                        .map(str::to_string)
+                        .collect::<Vec<_>>(),
+                    Some("app"),
+                )
+                .is_some(),
+            "an independent exact route must remain available"
+        );
+    }
+}
+
+#[test]
 fn target_and_qualifier_overlap_reports_one_or_two_proven_conflicts() {
     let same_origin = lower_surface_ast(
         &parse(&SourceFile::new(

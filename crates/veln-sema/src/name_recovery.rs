@@ -166,9 +166,17 @@ pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
                 && !(use_decl.origin == veln_ast::UseOrigin::Source
                     && use_decl.explicit_alias
                     && use_decl.alias == "prelude")
-                && !collisions.contains_target(use_decl)
         })
-        .map(resolved_import_use_decl)
+        .map(|use_decl| {
+            let mut resolved = resolved_import_use_decl(use_decl);
+            if collisions.contains_target(use_decl) {
+                // Retain duplicate exact paths as ambiguity tombstones without
+                // allowing their bare or qualifier routes to participate.
+                resolved.explicit_alias = true;
+                resolved.alias.clear();
+            }
+            resolved
+        })
         .collect()
 }
 
@@ -193,7 +201,6 @@ pub(crate) fn normal_imported_use_for_path<'a>(
                 && !(use_decl.origin == veln_ast::UseOrigin::Source
                     && use_decl.explicit_alias
                     && use_decl.alias == "prelude")
-                && !collisions.contains_target(use_decl)
         })
         .collect::<Vec<_>>();
     match select_from_candidates(&candidates, segments, current_module, &collisions) {
@@ -235,6 +242,7 @@ fn select_from_candidates<'a>(
     }
     let qualifier_candidates = candidates.iter().copied().filter(|use_decl| {
         use_decl.module_name.as_deref() == current_module
+            && !collisions.contains_target(use_decl)
             && simple_import_alias_matches(use_decl, &module_path)
     });
     if qualifier_candidates
@@ -271,7 +279,11 @@ pub(crate) fn schema_composition_imported_use_for_path<'a>(
         .iter()
         .filter(|use_decl| {
             record_schema_composition_quarantine_check();
-            !use_decl_is_quarantined_with_collisions(module, use_decl, &collisions)
+            !use_decl.syntax_recovered
+                && !use_decl_has_invalid_casing(module, use_decl)
+                && !(use_decl.origin == veln_ast::UseOrigin::Source
+                    && use_decl.explicit_alias
+                    && use_decl.alias == "prelude")
         })
         .collect::<Vec<_>>();
     match select_from_candidates(&candidates, segments, current_module, &collisions) {
