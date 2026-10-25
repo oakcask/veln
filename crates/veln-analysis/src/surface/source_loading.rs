@@ -92,34 +92,6 @@ fn push_source_parse_semantic_diagnostics(
             diagnostics.push(dotted_use_decl_diagnostic(use_decl));
         }
     }
-    for item in &tree.items {
-        if let veln_syntax::SyntaxItem::ModuleValue(value) = item {
-            diagnostics.push(module_value_not_executable_diagnostic(value));
-        }
-    }
-}
-
-fn module_value_not_executable_diagnostic(value: &veln_syntax::ModuleValueDecl) -> Diagnostic {
-    let name = value.name.as_deref().unwrap_or("<missing>");
-    let mut diagnostic = Diagnostic::new(
-        "module.value_not_executable",
-        Severity::Error,
-        DiagnosticKind::Module,
-        format!("module value declaration `{name}` is not executable"),
-        Some(value.span.clone()),
-        JsonValue::object([
-            ("phase", JsonValue::string("module")),
-            ("field", JsonValue::string("module_value")),
-            ("name", JsonValue::string(name)),
-        ]),
-    );
-    diagnostic.related.push(JsonValue::object([(
-        "message",
-        JsonValue::string(
-            "The declaration is available to parsing and formatting, but semantic analysis and code generation do not support module values yet.",
-        ),
-    )]));
-    diagnostic
 }
 
 fn derive_and_record_source_module(

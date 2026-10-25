@@ -54,6 +54,44 @@ fn parses_and_formats_typed_module_values() {
 }
 
 #[test]
+fn parses_module_value_terminated_by_end_of_input() {
+    let source = SourceFile::new("main.veln", "let answer: Int = 42");
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert!(matches!(
+        output.tree.items.as_slice(),
+        [SyntaxItem::ModuleValue(value)] if value.name.as_deref() == Some("answer")
+    ));
+}
+
+#[test]
+fn module_values_require_a_newline_before_the_next_item() {
+    let source = SourceFile::new("main.veln", "let first: Int = 1 let second: Int = 2");
+
+    let output = parse(&source);
+
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.expected_newline"),
+        "{:#?}",
+        output.diagnostics
+    );
+    assert_eq!(
+        output
+            .tree
+            .items
+            .iter()
+            .filter(|item| matches!(item, SyntaxItem::ModuleValue(_)))
+            .count(),
+        1
+    );
+}
+
+#[test]
 fn rejects_malformed_module_values_without_consuming_following_item() {
     for declaration in [
         "let missing = 1",

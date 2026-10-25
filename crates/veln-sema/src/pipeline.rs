@@ -3,7 +3,7 @@ use std::hash::Hash;
 
 use veln_ast::{FunctionKind, SurfaceModule, Visibility};
 use veln_core::CheckedProgram;
-use veln_diagnostics::{Diagnostic, Severity};
+use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
 
 use crate::analysis::{
@@ -408,6 +408,12 @@ fn check_module_declarations(
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
+    diagnostics.extend(
+        module
+            .module_values
+            .iter()
+            .map(module_value_not_executable_diagnostic),
+    );
     diagnostics.extend(check_invalid_name_casing(module, environment));
     diagnostics.extend(check_duplicate_function_names(module));
     diagnostics.extend(check_duplicate_type_names(module));
@@ -429,6 +435,29 @@ fn check_module_declarations(
     diagnostics.extend(check_handler_declarations(module, environment));
 
     diagnostics
+}
+
+fn module_value_not_executable_diagnostic(value: &veln_ast::ModuleValueDecl) -> Diagnostic {
+    let name = value.name.as_deref().unwrap_or("<missing>");
+    let mut diagnostic = Diagnostic::new(
+        "module.value_not_executable",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!("module value declaration `{name}` is not executable"),
+        Some(value.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("module_value")),
+            ("name", JsonValue::string(name)),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([(
+        "message",
+        JsonValue::string(
+            "The declaration is available to parsing and formatting, but semantic analysis and code generation do not support module values yet.",
+        ),
+    )]));
+    diagnostic
 }
 
 fn check_function_declaration_and_body(
@@ -564,6 +593,15 @@ fn lower_analyzed_surface_module_with_environment(
     environment: &TypeEnvironment,
     mode: SurfaceLoweringMode,
 ) -> LoweredSurfaceModule {
+    for value in &module.module_values {
+        if diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "module.value_not_executable"
+                && diagnostic.span.as_ref() == Some(&value.span)
+        }) {
+            continue;
+        }
+        diagnostics.push(module_value_not_executable_diagnostic(value));
+    }
     let unpublished_declarations =
         unpublished_public_declarations(module, environment, &diagnostics);
     if diagnostics

@@ -116,7 +116,8 @@ grammar_line(47, "DecimalLiteral ::= ASCII decimal digit+").
 grammar_line(47, "BinaryLiteral ::= \"0b\" (\"0\" | \"1\")+").
 grammar_line(47, "HexadecimalLiteral ::= \"0x\" ASCII hexadecimal digit+").
 grammar_line(50, "Item          ::= ModuleValueDecl | Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias").
-grammar_line(55, "ModuleValueDecl ::= \"pub\"? \"let\" ModuleBindingName \":\" TypeText \"=\" Expr NL").
+grammar_line(55, "ModuleValueDecl ::= \"pub\"? \"let\" ModuleBindingName \":\" TypeText \"=\" Expr DeclarationEnd").
+grammar_line(55, "DeclarationEnd ::= NL | EOF").
 grammar_line(56, "ModuleBindingName ::= BindingIdentifier with ASCII lowercase initial").
 grammar_line(57, "BindingIdentifier ::= ordinary identifier | \"callsite\"").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name EffectBinder? \"(\" ParamList? \")\" Return? Effects? CallsiteModifier? NL").
@@ -445,7 +446,10 @@ module_value_decl -->
     type_text_until([equal]),
     tok(equal),
     expr,
-    nl.
+    declaration_end.
+
+declaration_end --> nl, !.
+declaration_end --> eof.
 
 function_decl -->
     visibility,
@@ -1290,5 +1294,6 @@ nls --> [].
 nl --> tok(nl).
 newline_opt --> nl, !.
 newline_opt --> [].
+eof([], []).
 
 tok(Kind) --> [t(Kind, _)].

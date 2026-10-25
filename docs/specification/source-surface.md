@@ -49,13 +49,14 @@ semantic boundary.
 
 A module item may declare a typed immutable value with
 `[pub] let name: Type = initializer`. The annotation and initializer are
-required, and the declaration has no closing `end`. The name must be one
-binding identifier that starts with an ASCII lowercase letter. Binding
-identifiers include ordinary identifiers and the contextual `callsite`
-spelling; the reserved `handle` and `handler` spellings are not binding
-identifiers. A wildcard, hole name, destructuring pattern, constructor pattern,
-or declaration type parameter is rejected. Recovery preserves the next module
-item after any of these failures.
+required, and the declaration has no closing `end`. A physical newline or the
+end of the source terminates the declaration. A following module item requires
+a physical newline. The name must be one binding identifier that starts with
+an ASCII lowercase letter. Binding identifiers include ordinary identifiers
+and the contextual `callsite` spelling; the reserved `handle` and `handler`
+spellings are not binding identifiers. A wildcard, hole name, destructuring
+pattern, constructor pattern, or declaration type parameter is rejected.
+Recovery preserves the next module item after any of these failures.
 
 The initializer uses the same expression continuation and record-literal
 syntax as expressions in function bodies. Delimited records, lists, and calls
@@ -455,7 +456,8 @@ DecimalLiteral ::= ASCII decimal digit+
 BinaryLiteral ::= "0b" ("0" | "1")+
 HexadecimalLiteral ::= "0x" ASCII hexadecimal digit+
 Item          ::= ModuleValueDecl | Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias
-ModuleValueDecl ::= "pub"? "let" ModuleBindingName ":" TypeText "=" Expr NL
+ModuleValueDecl ::= "pub"? "let" ModuleBindingName ":" TypeText "=" Expr DeclarationEnd
+DeclarationEnd ::= NL | EOF
 ModuleBindingName ::= BindingIdentifier with ASCII lowercase initial
 BindingIdentifier ::= ordinary identifier | "callsite"
 Function      ::= "pub"? "fn" Name EffectBinder? "(" ParamList? ")" Return? Effects? CallsiteModifier? NL
