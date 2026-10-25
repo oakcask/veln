@@ -15,6 +15,7 @@ impl<'a> Parser<'a> {
             cursor: 0,
             cleanup_depth: 0,
             top_level_boundary_cache: Cell::new(None),
+            enclosing_declaration_end_cache: RefCell::new(HashMap::new()),
             diagnostics,
         }
     }
@@ -448,7 +449,10 @@ impl<'a> Parser<'a> {
                             | TokenKind::Handler
                             | TokenKind::Codec
                     )
-                ) || self.module_value_initializer_cursor(cursor).is_some()
+                ) || matches!(
+                    self.tokens.get(cursor + 1).map(|token| token.kind),
+                    Some(TokenKind::Let)
+                )
             }
             _ => false,
         };
@@ -503,13 +507,27 @@ impl<'a> Parser<'a> {
     }
 
     fn enclosing_declaration_end_follows(&self, mut cursor: usize) -> bool {
+        if let Some(result) = self.enclosing_declaration_end_cache.borrow().get(&cursor) {
+            return *result;
+        }
+
+        let mut equivalent_initializers = vec![cursor];
         let mut block_depth = 0usize;
         let mut delimiter_depth = 0usize;
         let mut previous_kind = Some(TokenKind::Equal);
         let mut at_line_start = false;
 
         while let Some(token) = self.tokens.get(cursor) {
+            super::record_cleanup_boundary_classifier_work();
             let kind = token.kind;
+            if at_line_start
+                && delimiter_depth == 0
+                && block_depth == 0
+                && kind == TokenKind::Let
+                && let Some(initializer) = self.module_value_initializer_cursor(cursor)
+            {
+                equivalent_initializers.push(initializer);
+            }
             if at_line_start
                 && delimiter_depth == 0
                 && block_depth == 0
@@ -525,6 +543,7 @@ impl<'a> Parser<'a> {
                         | TokenKind::Pub
                 )
             {
+                self.cache_enclosing_declaration_end(&equivalent_initializers, false);
                 return false;
             }
 
@@ -540,18 +559,30 @@ impl<'a> Parser<'a> {
                 TokenKind::If if previous_kind != Some(TokenKind::Else) => block_depth += 1,
                 TokenKind::End => {
                     if block_depth == 0 {
+                        self.cache_enclosing_declaration_end(&equivalent_initializers, true);
                         return true;
                     }
                     block_depth -= 1;
                 }
-                TokenKind::Eof => return false,
+                TokenKind::Eof => {
+                    self.cache_enclosing_declaration_end(&equivalent_initializers, false);
+                    return false;
+                }
                 _ => {}
             }
             at_line_start = kind == TokenKind::Newline;
             previous_kind = Some(kind);
             cursor += 1;
         }
+        self.cache_enclosing_declaration_end(&equivalent_initializers, false);
         false
+    }
+
+    fn cache_enclosing_declaration_end(&self, initializers: &[usize], result: bool) {
+        let mut cache = self.enclosing_declaration_end_cache.borrow_mut();
+        for &initializer in initializers {
+            cache.insert(initializer, result);
+        }
     }
 
     pub(super) fn end_closes_enclosing_declaration(&self) -> bool {

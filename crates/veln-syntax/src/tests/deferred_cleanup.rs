@@ -552,6 +552,66 @@ fn missing_cleanup_end_preserves_following_module_value() {
 }
 
 #[test]
+fn missing_cleanup_end_preserves_malformed_public_module_value_and_later_item() {
+    for (body, cleanup_diagnostic) in [
+        (" defer\n  release()\n", "parse.defer_missing_end"),
+        (
+            " let value = begin\n  acquire()\n",
+            "parse.begin_missing_end",
+        ),
+    ] {
+        for declaration in [
+            "pub let missing = 1",
+            "pub let missing: Int =",
+            "pub let _: Int = 1",
+            "pub let generic<T>: Int = 1",
+        ] {
+            let source = SourceFile::new(
+                "cleanup.veln",
+                format!(
+                    "fn incomplete() -> ()\n{body}end\n\n{declaration}\nfn following() -> Int\n 1\nend\n"
+                ),
+            );
+            let expected_token_count = lex(&source).tokens.len();
+
+            let output = parse(&source);
+            let diagnostic_ids = output
+                .diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.id)
+                .collect::<Vec<_>>();
+
+            assert!(
+                diagnostic_ids.contains(&cleanup_diagnostic),
+                "{declaration}: {:#?}",
+                output.diagnostics
+            );
+            assert!(
+                diagnostic_ids.contains(&"parse.module_value_declaration"),
+                "{declaration}: {:#?}",
+                output.diagnostics
+            );
+            assert_eq!(output.tree.items.len(), 3, "{declaration}");
+            assert!(matches!(
+                &output.tree.items[0],
+                SyntaxItem::Function(function)
+                    if function.name.as_deref() == Some("incomplete") && function.end_present
+            ));
+            assert!(matches!(
+                &output.tree.items[1],
+                SyntaxItem::ModuleValue(value) if value.visibility == Visibility::Public
+            ));
+            assert!(matches!(
+                &output.tree.items[2],
+                SyntaxItem::Function(function)
+                    if function.name.as_deref() == Some("following") && function.end_present
+            ));
+            assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+        }
+    }
+}
+
+#[test]
 fn complete_cleanup_end_keeps_following_local_let_in_the_function() {
     for cleanup in [
         " defer\n  release()\n end\n",
@@ -892,6 +952,41 @@ fn malformed_multiline_match_recovery_lookahead_grows_linearly() {
         shallow_work <= shallow_tokens * 2 && deep_work <= deep_tokens * 2,
         "match-arm recovery lookahead must remain proportional to input tokens: \
          shallow={shallow_work}/{shallow_tokens}, deep={deep_work}/{deep_tokens}"
+    );
+}
+
+#[test]
+fn repeated_cleanup_and_typed_local_boundary_classification_is_linear() {
+    fn boundary_work(pair_count: usize) -> usize {
+        let mut text = String::from("fn repeated() -> Int\n");
+        for index in 0..pair_count {
+            text.push_str(" defer\n  release()\n end\n");
+            text.push_str(&format!(" let value{index}: Int = {index}\n"));
+        }
+        text.push_str(" 0\nend\n");
+        let source = SourceFile::new("cleanup.veln", text);
+        let expected_token_count = lex(&source).tokens.len();
+
+        crate::parser::reset_cleanup_boundary_classifier_work();
+        let output = parse(&source);
+        assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+        assert_eq!(output.tree.items.len(), 1);
+        assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+        crate::parser::cleanup_boundary_classifier_work()
+    }
+
+    let pair_counts = [64, 128];
+    let work = pair_counts.map(boundary_work);
+
+    assert!(
+        work[0] > 0 && work[1] > work[0],
+        "generated cleanup/local pairs must exercise boundary classification: \
+         pairs={pair_counts:?}, work={work:?}"
+    );
+    assert!(
+        work[1] <= work[0] * 2 + pair_counts[1],
+        "doubling adjacent cleanup/local pairs must add only linear boundary work: \
+         pairs={pair_counts:?}, work={work:?}"
     );
 }
 
