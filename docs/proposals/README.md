@@ -1,6 +1,6 @@
 ---
 role: routing
-update-when: A proposal is added, moved, reclassified, completed, removed, or its scope or readiness changes.
+update-when: A proposal is added, split, reclassified, completed, removed, or its scope, implementation dependencies, or readiness changes.
 ---
 
 # Proposals
@@ -16,31 +16,36 @@ also states it.
 
 ## Ready
 
-- Runtime validation of ADT variant refinements after external or
-  representation schema base decoding succeeds. Decoder capability admission
-  is current behavior. The same proposal records qualified immutable-value
-  refinement and the provider-dependent base reason, but those slices are not
-  selectable until their separate source-surface and production-provider
-  prerequisites land:
-  [adt-variant-refinement-types.md](adt-variant-refinement-types.md).
+- Explicit runtime validation of a base-typed record against a format-neutral
+  schema, composed with ordinary decoder functions:
+  [schema-runtime-refinement-validation.md](schema-runtime-refinement-validation.md).
+- Typed module immutable data declarations with finite data initializers:
+  [module-immutable-values.md](module-immutable-values.md).
+- Generic named-type variance and function assignability:
+  [generic-and-function-variance.md](generic-and-function-variance.md).
+- Explicit module import aliases and their lookup and casing rules:
+  [explicit-import-aliases.md](explicit-import-aliases.md).
+- Bounded buffered observation export and explicit shutdown:
+  [observability.md](observability.md).
 
 ## Blocked
 
-- Buffered observation export and shutdown flushing or drop accounting is
-  blocked until the finite queue bound, full-queue admission result, ordering
-  between queued records and the final health summary, and interrupted-shutdown
-  behavior are decided: [observability.md](observability.md).
-- Generic named-type and function variance remains separate from ADT variant
-  refinement and is blocked until its constructor classifications and complete
-  callable composition table are decided:
-  [generic-and-function-variance.md](generic-and-function-variance.md).
-- Explicit import-alias casing is blocked until an owning proposal defines the
-  syntax and lookup contract:
-  [identifier-casing-explicit-import-aliases.md](identifier-casing-explicit-import-aliases.md).
+- Qualified immutable-value match refinement depends on implementation of
+  module immutable data declarations:
+  [qualified-value-match-refinement.md](qualified-value-match-refinement.md).
+
+## Planning Inventory
+
 - The [agent-language-services umbrella](agent-language-services.md) remains a
   planning inventory only for the unimplemented transitive-dependency,
   remaining symbol, conformance-gate, and plugin work. Do not select the
   umbrella directly.
+
+## Scope Decisions
+
+- The hypothetical missing-provider descriptor diagnostic has no independently
+  justified production provider feature. It is no longer active proposal work;
+  see [Variant Descriptor Provider Boundary](../reference/source-decisions/variant-descriptor-provider.md).
 
 ## Selection Rule
 

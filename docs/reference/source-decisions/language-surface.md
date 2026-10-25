@@ -1,3 +1,8 @@
+---
+role: routing
+update-when: A language syntax, type, value, name, contract, hole, or effect source-decision record is added, moved, or removed.
+---
+
 # Language Surface Decisions
 
 Read these records only when the categorized language specification needs rationale
@@ -35,6 +40,7 @@ or compatibility context.
 - [First-Slice Value Mutability](records/result-first-slice-value-mutability.md)
 - [Public Function Type Boundaries](records/result-public-function-type-boundaries.md)
 - [User-Defined ADTs in the First Slice](records/result-user-defined-adts-first-slice.md)
+- [Variant Descriptor Provider Boundary](variant-descriptor-provider.md)
 
 ## Contracts And Holes
 
