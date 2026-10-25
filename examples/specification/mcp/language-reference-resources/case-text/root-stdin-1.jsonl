@@ -1,7 +1,7 @@
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"spec","version":"1"}}}
 {"jsonrpc":"2.0","id":2,"method":"resources/list","params":{"_meta":{"progressToken":"resources"}}}
-{"jsonrpc":"2.0","id":3,"method":"resources/read","params":{"uri":"veln-doc:///language/snapshot/db52e922d344ad742b4d8d4f41fc3e10515d12a38b599663e7bf27ce7cab51d9/index"}}
-{"jsonrpc":"2.0","id":4,"method":"resources/read","params":{"uri":"veln-doc:///language/snapshot/db52e922d344ad742b4d8d4f41fc3e10515d12a38b599663e7bf27ce7cab51d9/topic/lexical-structure"}}
+{"jsonrpc":"2.0","id":3,"method":"resources/read","params":{"uri":"veln-doc:///language/snapshot/9df1facbe432b3b15d4a44fd0d3c19ab08ba9a862a177d0ed1fc2578f47d2e51/index"}}
+{"jsonrpc":"2.0","id":4,"method":"resources/read","params":{"uri":"veln-doc:///language/snapshot/9df1facbe432b3b15d4a44fd0d3c19ab08ba9a862a177d0ed1fc2578f47d2e51/topic/lexical-structure"}}
 {"jsonrpc":"2.0","id":5,"method":"resources/list","params":{"cursor":"next"}}
 {"jsonrpc":"2.0","id":6,"method":"resources/read","params":{"uri":null}}
 {"jsonrpc":"2.0","id":7,"method":"resources/read","params":{"uri":"veln-doc:///language/snapshot/wrong/topic/lexical-structure"}}
@@ -9,13 +9,13 @@
 {"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"search_docs","arguments":{"query":"SCHEMAS binary","limit":1}}}
 {"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"search_docs","arguments":{"query":"does-not-exist"}}}
 {"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"search_docs","arguments":{"query":"schema","limit":0}}}
-{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/db52e922d344ad742b4d8d4f41fc3e10515d12a38b599663e7bf27ce7cab51d9/topic/lexical-structure"}}}
+{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/9df1facbe432b3b15d4a44fd0d3c19ab08ba9a862a177d0ed1fc2578f47d2e51/topic/lexical-structure"}}}
 {"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/wrong/topic/lexical-structure"}}}
-{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/db52e922d344ad742b4d8d4f41fc3e10515d12a38b599663e7bf27ce7cab51d9/index"}}}
+{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/9df1facbe432b3b15d4a44fd0d3c19ab08ba9a862a177d0ed1fc2578f47d2e51/index"}}}
 {"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"search_docs","arguments":{"query":"format-neutral ﬁelds"}}}
-{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/db52e922d344ad742b4d8d4f41fc3e10515d12a38b599663e7bf27ce7cab51d9/topic/Lexical-Structure"}}}
-{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///package/snapshot/db52e922d344ad742b4d8d4f41fc3e10515d12a38b599663e7bf27ce7cab51d9/index"}}}
-{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/db52e922d344ad742b4d8d4f41fc3e10515d12a38b599663e7bf27ce7cab51d9/topic/missing"}}}
+{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/9df1facbe432b3b15d4a44fd0d3c19ab08ba9a862a177d0ed1fc2578f47d2e51/topic/Lexical-Structure"}}}
+{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///package/snapshot/9df1facbe432b3b15d4a44fd0d3c19ab08ba9a862a177d0ed1fc2578f47d2e51/index"}}}
+{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/9df1facbe432b3b15d4a44fd0d3c19ab08ba9a862a177d0ed1fc2578f47d2e51/topic/missing"}}}
 {"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/missing/index"}}}
 {"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"search_docs","arguments":{"query":"and","limit":1e0}}}
 {"jsonrpc":"2.0","id":21,"method":"resources/read","params":{"uri":"veln-pkg:///std/snapshot/729e2481c87af8eab6a48f7885546208f35c54ec16ae2bffa93f19543c6ebe05/bytes.veln"}}
