@@ -85,6 +85,69 @@ fn rejects_malformed_module_values_without_consuming_following_item() {
 }
 
 #[test]
+fn module_value_names_use_the_binding_identifier_class() {
+    for (rejected_name, following_visibility) in [
+        ("handle", Visibility::Private),
+        ("handler", Visibility::Public),
+    ] {
+        let following_prefix = if following_visibility == Visibility::Public {
+            "pub "
+        } else {
+            ""
+        };
+        let text =
+            format!("let {rejected_name}: Int = 1\n{following_prefix}let survivor: Int = 2\n");
+        let source = SourceFile::new("main.veln", text.clone());
+        let output = parse(&source);
+
+        assert!(
+            output
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "parse.module_value_declaration"),
+            "{rejected_name}: {:#?}",
+            output.diagnostics
+        );
+        assert_eq!(output.tree.items.len(), 2, "{rejected_name}");
+        let SyntaxItem::ModuleValue(rejected) = &output.tree.items[0] else {
+            panic!("expected recovered module value for {rejected_name}");
+        };
+        assert_eq!(rejected.name, None, "{rejected_name}");
+        let SyntaxItem::ModuleValue(survivor) = &output.tree.items[1] else {
+            panic!("expected following module value for {rejected_name}");
+        };
+        assert_eq!(survivor.visibility, following_visibility, "{rejected_name}");
+        assert_eq!(
+            survivor.name.as_deref(),
+            Some("survivor"),
+            "{rejected_name}"
+        );
+        let lossless = output
+            .tree
+            .lossless_tokens()
+            .filter(|token| token.kind != TokenKind::Eof)
+            .map(|token| token.text.as_str())
+            .collect::<String>();
+        assert_eq!(lossless, text, "{rejected_name}");
+    }
+
+    for accepted_name in ["ordinary", "callsite"] {
+        let source = SourceFile::new("main.veln", format!("let {accepted_name}: Int = 1\n"));
+        let output = parse(&source);
+
+        assert!(
+            output.diagnostics.is_empty(),
+            "{accepted_name}: {:#?}",
+            output.diagnostics
+        );
+        assert!(matches!(
+            output.tree.items.as_slice(),
+            [SyntaxItem::ModuleValue(value)] if value.name.as_deref() == Some(accepted_name)
+        ));
+    }
+}
+
+#[test]
 fn parses_minimal_public_function() {
     let source = SourceFile::new(
         "main.veln",

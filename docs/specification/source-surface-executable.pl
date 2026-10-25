@@ -116,8 +116,9 @@ grammar_line(47, "DecimalLiteral ::= ASCII decimal digit+").
 grammar_line(47, "BinaryLiteral ::= \"0b\" (\"0\" | \"1\")+").
 grammar_line(47, "HexadecimalLiteral ::= \"0x\" ASCII hexadecimal digit+").
 grammar_line(50, "Item          ::= ModuleValueDecl | Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias").
-grammar_line(55, "ModuleValueDecl ::= \"pub\"? \"let\" LowerName \":\" TypeText \"=\" Expr NL").
-grammar_line(56, "LowerName     ::= ASCII lowercase letter identifier-continue*").
+grammar_line(55, "ModuleValueDecl ::= \"pub\"? \"let\" ModuleBindingName \":\" TypeText \"=\" Expr NL").
+grammar_line(56, "ModuleBindingName ::= BindingIdentifier with ASCII lowercase initial").
+grammar_line(57, "BindingIdentifier ::= ordinary identifier | \"callsite\"").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name EffectBinder? \"(\" ParamList? \")\" Return? Effects? CallsiteModifier? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
@@ -439,7 +440,7 @@ item --> nls, module_value_decl.
 module_value_decl -->
     visibility,
     tok(let),
-    ascii_lower_name,
+    module_binding_name,
     tok(colon),
     type_text_until([equal]),
     tok(equal),
@@ -969,7 +970,7 @@ named_adt_base -->
     named_adt_base.
 
 ascii_upper_name --> identifier_text(Text), { ascii_upper_text(Text) }.
-ascii_lower_name --> identifier_text(Text), { ascii_lower_text(Text) }.
+module_binding_name --> binding_identifier_text(Text), { ascii_lower_text(Text) }.
 
 variant_type_arguments -->
     tok(less),
@@ -1276,6 +1277,8 @@ identifier_text(Text) --> [t(ident, Text)].
 identifier_text(Text) --> [t(callsite, Text)].
 identifier_text(Text) --> [t(handle, Text)].
 identifier_text(Text) --> [t(handler, Text)].
+binding_identifier_text(Text) --> [t(ident, Text)].
+binding_identifier_text(Text) --> [t(callsite, Text)].
 path_segment --> ident.
 path_segment --> tok(decode).
 path_segment --> tok(encode).

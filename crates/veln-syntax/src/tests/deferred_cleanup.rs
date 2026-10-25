@@ -510,6 +510,84 @@ fn missing_cleanup_end_preserves_following_top_level_declaration() {
 }
 
 #[test]
+fn missing_cleanup_end_preserves_following_module_value() {
+    for (body, expected_diagnostic) in [
+        (" defer\n  release()\n", "parse.defer_missing_end"),
+        (
+            " let value = begin\n  acquire()\n",
+            "parse.begin_missing_end",
+        ),
+    ] {
+        for (prefix, visibility) in [("", Visibility::Private), ("pub ", Visibility::Public)] {
+            let source = SourceFile::new(
+                "cleanup.veln",
+                format!("fn incomplete() -> ()\n{body}end\n\n{prefix}let following: Int = 1\n"),
+            );
+            let expected_token_count = lex(&source).tokens.len();
+
+            let output = parse(&source);
+
+            assert_eq!(output.tree.items.len(), 2, "{:#?}", output.diagnostics);
+            let SyntaxItem::Function(function) = &output.tree.items[0] else {
+                panic!("expected enclosing function");
+            };
+            assert_eq!(function.name.as_deref(), Some("incomplete"));
+            assert!(function.end_present, "{:#?}", output.diagnostics);
+            let SyntaxItem::ModuleValue(following) = &output.tree.items[1] else {
+                panic!("expected following module value");
+            };
+            assert_eq!(following.visibility, visibility);
+            assert_eq!(following.name.as_deref(), Some("following"));
+            assert_eq!(
+                output
+                    .diagnostics
+                    .iter()
+                    .map(|diagnostic| diagnostic.id)
+                    .collect::<Vec<_>>(),
+                [expected_diagnostic]
+            );
+            assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+        }
+    }
+}
+
+#[test]
+fn complete_cleanup_end_keeps_following_local_let_in_the_function() {
+    for cleanup in [
+        " defer\n  release()\n end\n",
+        " let value = begin\n  acquire()\n end\n",
+    ] {
+        for annotation in ["", ": Int"] {
+            let source = SourceFile::new(
+                "cleanup.veln",
+                format!(
+                    "fn complete() -> Int\n{cleanup} let following{annotation} = 1\n following\nend\n"
+                ),
+            );
+            let expected_token_count = lex(&source).tokens.len();
+
+            let output = parse(&source);
+
+            assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+            assert_eq!(output.tree.items.len(), 1);
+            let SyntaxItem::Function(function) = &output.tree.items[0] else {
+                panic!("expected function");
+            };
+            assert!(function.end_present);
+            assert!(function.body.iter().any(|line| {
+                matches!(
+                    line,
+                    BodyLine::Let { pattern, annotation: actual_annotation, .. }
+                        if matches!(&pattern.kind, PatternKind::Binding(name) if name == "following")
+                            && actual_annotation.as_deref() == annotation.strip_prefix(": ")
+                )
+            }));
+            assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+        }
+    }
+}
+
+#[test]
 fn missing_cleanup_end_in_final_declaration_preserves_the_declaration_end() {
     for (declaration, expected_diagnostic) in [
         (

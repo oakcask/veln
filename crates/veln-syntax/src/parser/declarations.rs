@@ -14,6 +14,7 @@ impl<'a> Parser<'a> {
             lossless_tokens: tokens,
             cursor: 0,
             cleanup_depth: 0,
+            top_level_boundary_cache: Cell::new(None),
             diagnostics,
         }
     }
@@ -412,12 +413,18 @@ impl<'a> Parser<'a> {
     }
 
     pub(super) fn end_is_followed_by_top_level_item(&self) -> bool {
+        if let Some((cursor, result)) = self.top_level_boundary_cache.get()
+            && cursor == self.cursor
+        {
+            return result;
+        }
+
         let mut cursor = self.cursor + 1;
         while self.tokens.get(cursor).map(|token| token.kind) == Some(TokenKind::Newline) {
             cursor += 1;
         }
 
-        match self.tokens.get(cursor).map(|token| token.kind) {
+        let result = match self.tokens.get(cursor).map(|token| token.kind) {
             Some(
                 TokenKind::Fn
                 | TokenKind::Test
@@ -427,19 +434,124 @@ impl<'a> Parser<'a> {
                 | TokenKind::Handler
                 | TokenKind::Codec,
             ) => true,
-            Some(TokenKind::Pub) => matches!(
-                self.tokens.get(cursor + 1).map(|token| token.kind),
-                Some(
+            Some(TokenKind::Let) => self
+                .module_value_initializer_cursor(cursor)
+                .is_some_and(|initializer| !self.enclosing_declaration_end_follows(initializer)),
+            Some(TokenKind::Pub) => {
+                matches!(
+                    self.tokens.get(cursor + 1).map(|token| token.kind),
+                    Some(
+                        TokenKind::Fn
+                            | TokenKind::Type
+                            | TokenKind::Schema
+                            | TokenKind::Effect
+                            | TokenKind::Handler
+                            | TokenKind::Codec
+                    )
+                ) || self.module_value_initializer_cursor(cursor).is_some()
+            }
+            _ => false,
+        };
+        self.top_level_boundary_cache
+            .set(Some((self.cursor, result)));
+        result
+    }
+
+    fn module_value_initializer_cursor(&self, mut cursor: usize) -> Option<usize> {
+        if self.tokens.get(cursor)?.kind == TokenKind::Pub {
+            cursor += 1;
+        }
+        if self.tokens.get(cursor)?.kind != TokenKind::Let {
+            return None;
+        }
+        cursor += 1;
+
+        let name = self.tokens.get(cursor)?;
+        if !name.kind.is_binding_identifier()
+            || !name
+                .text
+                .as_bytes()
+                .first()
+                .is_some_and(u8::is_ascii_lowercase)
+        {
+            return None;
+        }
+        cursor += 1;
+        if self.tokens.get(cursor)?.kind != TokenKind::Colon {
+            return None;
+        }
+        cursor += 1;
+
+        let type_start = cursor;
+        while !matches!(
+            self.tokens.get(cursor).map(|token| token.kind),
+            Some(TokenKind::Equal | TokenKind::Newline | TokenKind::Eof) | None
+        ) {
+            cursor += 1;
+        }
+        if cursor == type_start || self.tokens.get(cursor)?.kind != TokenKind::Equal {
+            return None;
+        }
+        cursor += 1;
+        if matches!(
+            self.tokens.get(cursor).map(|token| token.kind),
+            Some(TokenKind::Newline | TokenKind::Eof) | None
+        ) {
+            return None;
+        }
+        Some(cursor)
+    }
+
+    fn enclosing_declaration_end_follows(&self, mut cursor: usize) -> bool {
+        let mut block_depth = 0usize;
+        let mut delimiter_depth = 0usize;
+        let mut previous_kind = Some(TokenKind::Equal);
+        let mut at_line_start = false;
+
+        while let Some(token) = self.tokens.get(cursor) {
+            let kind = token.kind;
+            if at_line_start
+                && delimiter_depth == 0
+                && block_depth == 0
+                && matches!(
+                    kind,
                     TokenKind::Fn
+                        | TokenKind::Test
                         | TokenKind::Type
                         | TokenKind::Schema
                         | TokenKind::Effect
                         | TokenKind::Handler
                         | TokenKind::Codec
+                        | TokenKind::Pub
                 )
-            ),
-            _ => false,
+            {
+                return false;
+            }
+
+            match kind {
+                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => {
+                    delimiter_depth += 1;
+                }
+                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                    delimiter_depth = delimiter_depth.saturating_sub(1);
+                }
+                TokenKind::Match | TokenKind::Begin => block_depth += 1,
+                TokenKind::Defer if at_line_start && delimiter_depth == 0 => block_depth += 1,
+                TokenKind::If if previous_kind != Some(TokenKind::Else) => block_depth += 1,
+                TokenKind::End => {
+                    if block_depth == 0 {
+                        return true;
+                    }
+                    block_depth -= 1;
+                }
+                TokenKind::Eof => return false,
+                _ => {}
+            }
+            at_line_start = kind == TokenKind::Newline;
+            previous_kind = Some(kind);
+            cursor += 1;
         }
+        false
     }
 
     pub(super) fn end_closes_enclosing_declaration(&self) -> bool {

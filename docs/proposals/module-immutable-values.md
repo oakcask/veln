@@ -1,21 +1,29 @@
 ---
 role: proposal
-update-when: Module immutable-value declarations, initializer restrictions, import lookup, public visibility, or their planned verification change.
+update-when: Module immutable-value source or formatting prerequisites, initializer semantics, dependency rules, name lookup, public visibility, execution, documentation publication, or their planned verification change.
 ---
 
-# Module Immutable Data Values
+# Module Immutable Data Value Semantics
 
-Provide named immutable data that a module can reuse and export without a
-function call or an initialization effect. This proposal defines the source
-declaration and its value identity. Qualified match refinement is a separate
-dependent feature.
+Add the semantics and compiler support that make typed module `let`
+declarations usable as named immutable data without a function call or an
+initialization effect. Qualified match refinement is a separate dependent
+feature.
 
-Current [source syntax](../specification/source-surface.md#module-immutable-value-declarations)
-and [formatting](../specification/command-fmt.md#formatting-rules) accept typed
-module `let` declarations. The compiler deliberately reports that these
-declarations are not executable. This proposal retains the finite-data
-semantics, name resolution, visibility, execution, and documentation work that
-remains to make them usable values.
+## Scope
+
+Typed module `let` declaration syntax is an implemented prerequisite owned by
+the current [source-surface specification](../specification/source-surface.md#module-immutable-value-declarations).
+Its canonical layout is an implemented prerequisite owned by the current
+[format specification](../specification/command-fmt.md#formatting-rules). These
+prerequisites are not proposal work. The current compiler deliberately reports
+that parse-clean declarations are not executable.
+
+This proposal owns only the unimplemented finite-data initializer admission and
+annotation assignability, dependency and cycle validation, name lookup and
+declaration identity, visibility, execution, documentation publication,
+diagnostics, and verification described below. It does not change the
+declaration grammar or formatter behavior.
 
 ## Initialization Semantics
 

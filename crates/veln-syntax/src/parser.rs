@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::collections::HashMap;
 
 use veln_literals::parse_integer_literal;
@@ -334,6 +335,7 @@ struct Parser<'a> {
     lossless_tokens: Vec<Token>,
     cursor: usize,
     cleanup_depth: usize,
+    top_level_boundary_cache: Cell<Option<(usize, bool)>>,
     diagnostics: Vec<ParseDiagnostic>,
 }
 
