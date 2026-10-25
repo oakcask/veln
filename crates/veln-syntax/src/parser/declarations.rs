@@ -528,6 +528,9 @@ impl<'a> Parser<'a> {
         while let Some(token) = self.tokens.get(cursor) {
             super::record_cleanup_boundary_classifier_work();
             let kind = token.kind;
+            if closed_initializer_block && !matches!(kind, TokenKind::Newline | TokenKind::Eof) {
+                closed_initializer_block = false;
+            }
             if at_line_start
                 && delimiter_depth == 0
                 && block_depth == 0

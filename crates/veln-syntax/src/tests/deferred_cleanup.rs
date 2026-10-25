@@ -606,6 +606,48 @@ fn missing_cleanup_end_preserves_indented_private_module_value_before_following_
 }
 
 #[test]
+fn missing_cleanup_end_preserves_module_value_with_expression_after_block_at_eof() {
+    let source = SourceFile::new(
+        "cleanup.veln",
+        concat!(
+            "fn incomplete() -> ()\n",
+            "\tdefer\n",
+            "\t\trelease()\n",
+            "end\n",
+            "\n",
+            "let following: Int = begin\n",
+            "\t1\n",
+            "end + 1\n",
+        ),
+    );
+    let expected_token_count = lex(&source).tokens.len();
+
+    let output = parse(&source);
+
+    assert_eq!(
+        output
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id)
+            .collect::<Vec<_>>(),
+        ["parse.defer_missing_end"]
+    );
+    assert_eq!(output.tree.items.len(), 2, "{:#?}", output.diagnostics);
+    assert!(matches!(
+        &output.tree.items[0],
+        SyntaxItem::Function(function)
+            if function.name.as_deref() == Some("incomplete") && function.end_present
+    ));
+    assert!(matches!(
+        &output.tree.items[1],
+        SyntaxItem::ModuleValue(value)
+            if value.visibility == Visibility::Private
+                && value.name.as_deref() == Some("following")
+    ));
+    assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+}
+
+#[test]
 fn missing_cleanup_end_preserves_malformed_public_module_value_and_later_item() {
     for (body, cleanup_diagnostic) in [
         (" defer\n  release()\n", "parse.defer_missing_end"),
