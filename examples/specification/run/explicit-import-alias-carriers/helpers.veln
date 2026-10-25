@@ -1,0 +1,15 @@
+pub fn answer() -> Int
+	20
+end
+
+pub effect Ask
+	value() -> Int
+end
+
+pub handler ask(offset: Int) for Ask
+	value() => offset
+end
+
+pub fn compute() -> Int effects [Ask]
+	perform Ask::value()
+end

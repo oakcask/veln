@@ -1,0 +1,20 @@
+command = ["check", "--json", "main.veln", "first.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "parse.expected_identifier"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "name.invalid_case"

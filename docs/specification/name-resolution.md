@@ -28,6 +28,33 @@ This page specifies source name resolution and identifier casing behavior.
 
 ## Resolution Rules
 
+### Explicit import qualifiers
+
+`use transport::net as wire` binds `wire` as a module qualifier. The forms
+`wire::member` and `transport::net::member` select the same target module.
+The import does not contribute `net::member` or a bare `member` candidate.
+An explicit alias equal to the target leaf remains qualified-only. Imports
+without `as` keep their implicit-leaf and bare-export behavior.
+
+Exact source-written paths are selected before local qualifiers. An ambiguous
+exact path does not fall back to an alias or bare candidate. A qualifier must
+select exactly one import. Duplicate target paths and colliding qualifiers
+quarantine every conflicting import from normal lookup. The explicit alias
+`prelude` is reserved. Invalid-cased aliases, invalid target paths, and
+syntax-recovered imports are also quarantined atomically, while independently
+provable target and collision diagnostics remain visible.
+
+The qualifier applies to values and calls, types and refinements,
+constructors and patterns, schemas and schema operations, effects and
+operations, and handlers. It selects the target's existing identity and
+visibility. It does not publish the import transitively or bypass package and
+companion privacy. Public member aliases resolve their targets in the module
+that declares them and can name members through an explicit import alias.
+
+Sources combined under one module identity use lexical source-path and token
+order for import diagnostics. Reordering source discovery does not change
+selection or diagnostic order.
+
 ### Namespaces and use roles
 
 Implemented checker namespaces are:

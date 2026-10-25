@@ -1,0 +1,8 @@
+command = ["run", "main", "main.veln", "helpers.veln", "model.veln"]
+exit = 0
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "empty"

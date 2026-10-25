@@ -287,8 +287,8 @@ fn run_entry_can_reach_imported_alias_target() {
     assert_eq!(
         functions,
         vec![
-            (Some("app::main"), FunctionKind::Function, Some("main")),
             (Some("app::impl"), FunctionKind::Function, Some("double")),
+            (Some("app::main"), FunctionKind::Function, Some("main")),
         ]
     );
 }

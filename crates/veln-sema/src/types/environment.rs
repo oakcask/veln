@@ -406,6 +406,7 @@ impl TypeEnvironment {
                 self.uses.iter().any(|use_decl| {
                     use_decl.module_name.as_deref() == current_module
                         && use_decl.name.as_str() == module_name
+                        && use_decl.contributes_bare_members()
                 })
             })
     }

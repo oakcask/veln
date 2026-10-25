@@ -1,0 +1,10 @@
+use helpers as tools
+use model as domain
+
+pub fn main() -> ()
+	let state: domain::State = domain::Ready(tools::answer())
+	let handled: Int = handle tools::compute() with tools::ask(1)
+	match state
+		domain::Ready(value) => ()
+	end
+end

@@ -1,0 +1,5 @@
+use transport::net from "std" as wire
+
+fn main() -> ()
+	()
+end

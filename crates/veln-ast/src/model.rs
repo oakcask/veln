@@ -152,12 +152,16 @@ pub struct UseDecl {
     pub node_id: NodeId,
     pub module_name: Option<String>,
     pub name: String,
+    pub written_name: String,
     pub alias: String,
+    pub alias_span: Option<SourceSpan>,
+    pub explicit_alias: bool,
     pub name_spans: Vec<SourceSpan>,
     pub package: Option<String>,
     pub package_span: Option<SourceSpan>,
     pub span: SourceSpan,
     pub origin: UseOrigin,
+    pub syntax_recovered: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -172,13 +176,40 @@ impl UseDecl {
             node_id: NodeId::new(u32::MAX),
             module_name: Some(module_name),
             name: "std::prelude".to_string(),
+            written_name: "std::prelude".to_string(),
             alias: "prelude".to_string(),
+            alias_span: None,
+            explicit_alias: false,
             name_spans: Vec::new(),
             package: Some("std".to_string()),
             package_span: None,
             span,
             origin: UseOrigin::ImplicitStandardPrelude,
+            syntax_recovered: false,
         }
+    }
+
+    pub fn contributes_bare_members(&self) -> bool {
+        !self.explicit_alias
+    }
+
+    pub fn target_span(&self) -> SourceSpan {
+        match (self.name_spans.first(), self.name_spans.last()) {
+            (Some(first), Some(last)) => SourceSpan {
+                file: first.file.clone(),
+                start: first.start,
+                end: last.end,
+                generated_origin: first.generated_origin.clone(),
+            },
+            _ => self.span.clone(),
+        }
+    }
+
+    pub fn qualifier_span(&self) -> SourceSpan {
+        self.alias_span
+            .clone()
+            .or_else(|| self.name_spans.last().cloned())
+            .unwrap_or_else(|| self.span.clone())
     }
 }
 

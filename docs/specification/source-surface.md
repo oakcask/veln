@@ -15,6 +15,14 @@ parser and command cases corroborate the accepted and rejected source forms.
 
 This representative shape shows imports, a public effect row, and binary schema fields:
 
+An import can choose a module-local qualifier with `use path as alias` or
+`use path as alias from "package"`. The `as` spelling is contextual in this
+position, and the alias must be one identifier. The alias clause precedes the
+optional package source. Formatting preserves that order. A malformed alias
+recovers at the declaration newline, retains parseable import components for
+diagnostics, and does not consume the following declaration or install a
+partial import.
+
 ```veln
 use stdio
 
@@ -405,13 +413,15 @@ the optional retained-effect list and the boundary of the next declaration.
 ```text
 Module        ::= ModuleHeader? UseDecl* Item*
 ModuleHeader  ::= "mod" ModuleHeaderPath NL
-UseDecl       ::= "use" ModulePath ImportSource? NL
+UseDecl       ::= "use" ModulePath ImportAlias? ImportSource? NL
+ImportAlias   ::= "as" Alias
 ImportSource  ::= "from" PackageString
 ModuleHeaderPath ::= ModuleHeaderSegment ("::" ModuleHeaderSegment)*
 ModuleHeaderSegment ::= Name | HoleName
 HoleName      ::= "_" identifier-continue+
 ModulePath    ::= Name ("::" Name)*
 PackageString ::= String
+Alias         ::= Name | HoleName | "_"
 IntLiteral    ::= DecimalLiteral | BinaryLiteral | HexadecimalLiteral
 DecimalLiteral ::= ASCII decimal digit+
 BinaryLiteral ::= "0b" ("0" | "1")+

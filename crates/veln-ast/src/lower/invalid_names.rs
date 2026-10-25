@@ -103,6 +103,17 @@ fn collect_invalid_use_name(use_decl: &SyntaxUse, invalid: &mut Vec<InvalidName>
             Some(index),
         );
     }
+    if let Some(alias) = &use_decl.alias {
+        push_invalid_name(
+            invalid,
+            Some(&alias.name),
+            Some(&alias.span),
+            NameClass::Module,
+            NameOccurrence::Declaration,
+            None,
+            None,
+        );
+    }
 }
 
 fn module_path_segments(name: &str) -> Vec<&str> {

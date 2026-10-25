@@ -47,6 +47,23 @@ consumers must preserve diagnostic and related-note order.
 
 ## Diagnostic families
 
+### Explicit import aliases
+
+An invalid explicit import alias reports `name.invalid_case` at the alias
+token with module-class declaration details. A reserved alias reports
+`name.reserved` at that token. A later colliding qualifier reports
+`name.duplicate` at its qualifier and includes the first qualifier span as
+`duplicate_origin` related context. A duplicate target path instead points at
+the written target path. If both facts have the same earlier import, one
+duplicate diagnostic describes that repeated import; conflicts with different
+earlier imports remain independent.
+
+Within an import, parse diagnostics precede casing diagnostics. Reserved and
+duplicate facts follow casing. Across sources belonging to the same module,
+diagnostics use lexical source-path order and token order rather than source
+discovery order. A syntax-recovered import supplies no lookup candidate, but a
+following declaration remains eligible for semantic diagnostics.
+
 An unresolved call target that uses one of the
 [removed compiler-known network spellings](name-resolution.md#removed-network-call-spellings)
 reports one `name.unresolved` diagnostic. The primary message and `details`

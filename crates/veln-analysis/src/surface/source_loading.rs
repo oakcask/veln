@@ -9,7 +9,9 @@ pub(super) fn load_project_sources(
     checked_export_source_paths: Option<&mut BTreeSet<String>>,
 ) {
     let mut checked_export_source_paths = checked_export_source_paths;
-    for source in &project.files {
+    let mut sources = project.files.iter().collect::<Vec<_>>();
+    sources.sort_by_key(|source| source.path().clone());
+    for source in sources {
         if package.is_some_and(|package| package != veln_stdlib::PACKAGE_NAME)
             && classify_companion_source(source.path().as_str()).is_some()
         {

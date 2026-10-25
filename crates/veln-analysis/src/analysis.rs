@@ -438,7 +438,7 @@ impl ProjectAnalysis {
     }
 }
 
-fn order_combined_parse_diagnostics(diagnostics: &mut [Diagnostic], project: &Project) {
+fn order_combined_parse_diagnostics(diagnostics: &mut [Diagnostic], _project: &Project) {
     let slots = diagnostics
         .iter()
         .enumerate()
@@ -451,12 +451,6 @@ fn order_combined_parse_diagnostics(diagnostics: &mut [Diagnostic], project: &Pr
     if slots.len() < 2 {
         return;
     }
-    let source_order = project
-        .files
-        .iter()
-        .enumerate()
-        .map(|(index, source)| (source.path().clone(), index))
-        .collect::<BTreeMap<_, _>>();
     let mut ordered = slots
         .iter()
         .enumerate()
@@ -465,7 +459,7 @@ fn order_combined_parse_diagnostics(diagnostics: &mut [Diagnostic], project: &Pr
     ordered.sort_by_key(|(original_order, diagnostic)| {
         let span = diagnostic.span.as_ref().expect("parse diagnostic span");
         (
-            source_order.get(&span.file).copied().unwrap_or(usize::MAX),
+            span.file.clone(),
             span.start.offset,
             span.end.offset,
             *original_order,

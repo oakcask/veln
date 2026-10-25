@@ -641,7 +641,10 @@ fn imported_descriptor_candidates(
     uses: &[UseDecl],
 ) -> ImportedDescriptorCandidates {
     let mut owners_by_imported_module = HashMap::<String, BTreeSet<Option<String>>>::new();
-    for use_decl in uses {
+    for use_decl in uses
+        .iter()
+        .filter(|use_decl| use_decl.contributes_bare_members())
+    {
         crate::adt::lookup_validation::record_import_path_comparison();
         owners_by_imported_module
             .entry(use_decl.name.clone())

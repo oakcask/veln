@@ -526,6 +526,7 @@ impl AdtRegistry {
             && uses.iter().any(|use_decl| {
                 use_decl.module_name.as_deref() == current_module
                     && descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
+                    && use_decl.contributes_bare_members()
             })
     }
 

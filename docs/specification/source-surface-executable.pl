@@ -104,13 +104,15 @@ print_grammar :-
 
 grammar_line(10, "Module        ::= ModuleHeader? UseDecl* Item*").
 grammar_line(20, "ModuleHeader  ::= \"mod\" ModuleHeaderPath NL").
-grammar_line(30, "UseDecl       ::= \"use\" ModulePath ImportSource? NL").
+grammar_line(30, "UseDecl       ::= \"use\" ModulePath ImportAlias? ImportSource? NL").
+grammar_line(33, "ImportAlias   ::= \"as\" Alias").
 grammar_line(35, "ImportSource  ::= \"from\" PackageString").
 grammar_line(37, "ModuleHeaderPath ::= ModuleHeaderSegment (\"::\" ModuleHeaderSegment)*").
 grammar_line(38, "ModuleHeaderSegment ::= Name | HoleName").
 grammar_line(39, "HoleName      ::= \"_\" identifier-continue+").
 grammar_line(40, "ModulePath    ::= Name (\"::\" Name)*").
 grammar_line(45, "PackageString ::= String").
+grammar_line(46, "Alias         ::= Name | HoleName | \"_\"").
 grammar_line(47, "IntLiteral    ::= DecimalLiteral | BinaryLiteral | HexadecimalLiteral").
 grammar_line(47, "DecimalLiteral ::= ASCII decimal digit+").
 grammar_line(47, "BinaryLiteral ::= \"0b\" (\"0\" | \"1\")+").
@@ -418,7 +420,13 @@ module_header --> [].
 
 use_decls --> use_decl, !, nls, use_decls.
 use_decls --> [].
-use_decl --> tok(use), module_path, import_source, nl.
+use_decl --> tok(use), module_path, import_alias, import_source, nl.
+
+import_alias --> ident_text("as"), import_alias_name, !.
+import_alias --> [].
+import_alias_name --> identifier_text(_).
+import_alias_name --> tok(hole).
+import_alias_name --> tok(underscore).
 
 import_source --> tok(from), tok(string), !.
 import_source --> [].

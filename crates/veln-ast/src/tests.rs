@@ -119,6 +119,7 @@ fn lowers_module_header_and_use_aliases() {
     let module = lower_source(concat!(
         "mod app.core\n",
         "use platform.io\n",
+        "use transport::net as wire from \"std\"\n",
         "fn main() -> ()\n",
         "  ()\n",
         "end\n",
@@ -131,8 +132,20 @@ fn lowers_module_header_and_use_aliases() {
     );
     assert_eq!(module.uses[0].name, "platform.io");
     assert_eq!(module.uses[0].alias, "io");
+    assert!(!module.uses[0].explicit_alias);
+    assert_eq!(module.uses[1].name, "transport::net");
+    assert_eq!(module.uses[1].written_name, "transport::net");
+    assert_eq!(module.uses[1].alias, "wire");
+    assert!(module.uses[1].explicit_alias);
+    assert_eq!(
+        module.uses[1]
+            .alias_span
+            .as_ref()
+            .map(|span| (span.start.line, span.start.column)),
+        Some((3, 23))
+    );
     assert_eq!(module.uses[0].node_id.display("use"), "use-2");
-    assert_eq!(module.functions[0].node_id.display("fn"), "fn-3");
+    assert_eq!(module.functions[0].node_id.display("fn"), "fn-4");
 }
 
 #[test]

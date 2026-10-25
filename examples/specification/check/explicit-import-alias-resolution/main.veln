@@ -1,0 +1,18 @@
+use helpers as tools
+use fallback
+use model as domain
+
+pub fn main() -> Int
+	let first: Int = tools::answer()
+	let exact: Int = helpers::answer()
+	let remaining_bare: Int = answer()
+	let handled: Int = handle tools::compute() with tools::ask(1)
+	let state: domain::State = domain::Ready(first + exact + remaining_bare)
+	match state
+		domain::Ready(value) => value + handled
+	end
+end
+
+pub fn decode_packet(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode domain::Packet from view at base
+end

@@ -290,17 +290,26 @@ pub(super) fn imported_use_for_path<'a>(
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
-    uses.iter().copied().find(|use_decl| {
+    let mut exact = uses.iter().copied().filter(|use_decl| {
         use_decl.module_name.as_deref() == current_module
-            && (use_decl.name == module_path
-                || simple_import_alias_matches(use_decl, &module_path)
+            && (use_decl.written_name == module_path
                 || standard_package_relative_import_matches(use_decl, &module_path, current_module))
-    })
+    });
+    if let Some(first) = exact.next() {
+        return exact.next().is_none().then_some(first);
+    }
+    let mut aliases = uses.iter().copied().filter(|use_decl| {
+        use_decl.module_name.as_deref() == current_module
+            && simple_import_alias_matches(use_decl, &module_path)
+    });
+    let first = aliases.next()?;
+    aliases.next().is_none().then_some(first)
 }
 
 fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str) -> bool {
     use_decl.alias == module_path
-        && (use_decl.package.is_some()
+        && (use_decl.explicit_alias
+            || use_decl.package.is_some()
             || !use_decl.name.contains("::")
             || use_decl.origin == veln_ast::UseOrigin::ImplicitStandardPrelude)
 }
@@ -388,6 +397,7 @@ pub(super) fn bare_target_visible(
             uses.iter().any(|use_decl| {
                 use_decl.module_name.as_deref() == Some(current_module)
                     && use_decl.name == module_name
+                    && use_decl.contributes_bare_members()
                     && imported_target_is_visible(target, use_decl)
             })
         })

@@ -102,7 +102,10 @@ fn duplicate_use_aliases_are_static_errors() {
 
     assert_eq!(diagnostics.len(), 1);
     assert_eq!(diagnostics[0].id, "name.duplicate");
-    assert_eq!(diagnostics[0].message, "duplicate import alias name `io`");
+    assert_eq!(
+        diagnostics[0].message,
+        "duplicate import path name `platform.io`"
+    );
     assert_eq!(diagnostics[0].related.len(), 1);
     assert!(
         diagnostics[0]

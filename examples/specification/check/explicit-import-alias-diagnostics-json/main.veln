@@ -1,0 +1,8 @@
+use first as Bad
+use second as prelude
+use third as shared
+use fourth as shared
+
+fn main() -> ()
+	()
+end

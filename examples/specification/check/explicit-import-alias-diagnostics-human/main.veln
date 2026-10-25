@@ -1,0 +1,6 @@
+use first as shared
+use second as shared
+
+fn main() -> ()
+	()
+end

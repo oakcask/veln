@@ -586,7 +586,7 @@ fn duplicate_invalid_implicit_import_aliases_stay_in_duplicate_analysis() {
         "{diagnostics:#?}"
     );
     assert_eq!(
-        diagnostics[2].message, "duplicate import alias name `HTTP`",
+        diagnostics[2].message, "duplicate import path name `HTTP`",
         "{diagnostics:#?}"
     );
 }

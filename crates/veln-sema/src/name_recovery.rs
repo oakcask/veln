@@ -61,11 +61,87 @@ pub(crate) fn use_decl_has_invalid_module_segment(
     })
 }
 
+pub(crate) fn use_decl_is_quarantined(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
+    use_decl.syntax_recovered
+        || use_decl_has_invalid_casing(module, use_decl)
+        || (use_decl.origin == veln_ast::UseOrigin::Source
+            && use_decl.explicit_alias
+            && use_decl.alias == "prelude")
+        || ImportCollisionIndex::new(module).contains_target(use_decl)
+}
+
+struct ImportCollisionIndex {
+    targets: BTreeMap<(Option<String>, Option<String>, String), usize>,
+    qualifiers: BTreeMap<(Option<String>, String), usize>,
+}
+
+impl ImportCollisionIndex {
+    fn new(module: &SurfaceModule) -> Self {
+        let mut targets = BTreeMap::new();
+        let mut qualifiers = BTreeMap::new();
+        for use_decl in module
+            .uses
+            .iter()
+            .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
+        {
+            *targets
+                .entry((
+                    use_decl.module_name.clone(),
+                    use_decl.package.clone(),
+                    use_decl.written_name.clone(),
+                ))
+                .or_insert(0) += 1;
+            *qualifiers
+                .entry((use_decl.module_name.clone(), use_decl.alias.clone()))
+                .or_insert(0) += 1;
+        }
+        Self {
+            targets,
+            qualifiers,
+        }
+    }
+
+    fn contains_target(&self, use_decl: &UseDecl) -> bool {
+        self.targets
+            .get(&(
+                use_decl.module_name.clone(),
+                use_decl.package.clone(),
+                use_decl.written_name.clone(),
+            ))
+            .is_some_and(|count| *count > 1)
+    }
+
+    fn contains_qualifier(&self, use_decl: &UseDecl) -> bool {
+        self.qualifiers
+            .get(&(use_decl.module_name.clone(), use_decl.alias.clone()))
+            .is_some_and(|count| *count > 1)
+    }
+}
+
+pub(crate) fn use_decl_has_invalid_casing(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
+    use_decl_has_invalid_module_segment(module, use_decl)
+        || module.invalid_names.iter().any(|invalid| {
+            invalid.class == NameClass::Module
+                && invalid.occurrence == NameOccurrence::Declaration
+                && invalid.span.file == use_decl.span.file
+                && use_decl.span.start.offset <= invalid.span.start.offset
+                && invalid.span.end.offset <= use_decl.span.end.offset
+        })
+}
+
 pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
+    let collisions = ImportCollisionIndex::new(module);
     module
         .uses
         .iter()
-        .filter(|use_decl| !use_decl_has_invalid_module_segment(module, use_decl))
+        .filter(|use_decl| {
+            !use_decl.syntax_recovered
+                && !use_decl_has_invalid_casing(module, use_decl)
+                && !(use_decl.origin == veln_ast::UseOrigin::Source
+                    && use_decl.explicit_alias
+                    && use_decl.alias == "prelude")
+                && !collisions.contains_target(use_decl)
+        })
         .map(resolved_import_use_decl)
         .collect()
 }
@@ -82,10 +158,52 @@ pub(crate) fn normal_imported_use_for_path<'a>(
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
-    module.uses.iter().find(|use_decl| {
-        !use_decl_has_invalid_module_segment(module, use_decl)
-            && use_decl_matches_import_path(use_decl, &module_path, current_module)
-    })
+    let collisions = ImportCollisionIndex::new(module);
+    let exact = module.uses.iter().filter(|use_decl| {
+        !use_decl.syntax_recovered
+            && !use_decl_has_invalid_casing(module, use_decl)
+            && !(use_decl.origin == veln_ast::UseOrigin::Source
+                && use_decl.explicit_alias
+                && use_decl.alias == "prelude")
+            && !collisions.contains_target(use_decl)
+            && use_decl_matches_exact_import_path(use_decl, &module_path, current_module)
+    });
+    match unique_use(exact) {
+        UniqueUse::One(use_decl) => return Some(use_decl),
+        UniqueUse::Many => return None,
+        UniqueUse::None => {}
+    }
+    match unique_use(module.uses.iter().filter(|use_decl| {
+        !use_decl.syntax_recovered
+            && !use_decl_has_invalid_casing(module, use_decl)
+            && !(use_decl.origin == veln_ast::UseOrigin::Source
+                && use_decl.explicit_alias
+                && use_decl.alias == "prelude")
+            && !collisions.contains_target(use_decl)
+            && !collisions.contains_qualifier(use_decl)
+            && use_decl.module_name.as_deref() == current_module
+            && simple_import_alias_matches(use_decl, &module_path)
+    })) {
+        UniqueUse::One(use_decl) => Some(use_decl),
+        UniqueUse::None | UniqueUse::Many => None,
+    }
+}
+
+enum UniqueUse<'a> {
+    None,
+    One(&'a UseDecl),
+    Many,
+}
+
+fn unique_use<'a>(mut candidates: impl Iterator<Item = &'a UseDecl>) -> UniqueUse<'a> {
+    let Some(first) = candidates.next() else {
+        return UniqueUse::None;
+    };
+    if candidates.next().is_some() {
+        UniqueUse::Many
+    } else {
+        UniqueUse::One(first)
+    }
 }
 
 pub(crate) fn schema_composition_imported_use_for_path<'a>(
@@ -98,7 +216,7 @@ pub(crate) fn schema_composition_imported_use_for_path<'a>(
         .uses
         .iter()
         .find(|use_decl| {
-            !use_decl_has_invalid_module_segment(module, use_decl)
+            !use_decl_is_quarantined(module, use_decl)
                 && use_decl_matches_exact_import_path(use_decl, &module_path, current_module)
         })
         .or_else(|| normal_imported_use_for_path(module, segments, current_module))
@@ -106,7 +224,7 @@ pub(crate) fn schema_composition_imported_use_for_path<'a>(
             let mut candidates = module.uses.iter().filter(|use_decl| {
                 use_decl.package.is_none()
                     && use_decl.module_name.as_deref() == current_module
-                    && !use_decl_has_invalid_module_segment(module, use_decl)
+                    && !use_decl_is_quarantined(module, use_decl)
                     && use_decl.alias == module_path
             });
             let candidate = candidates.next()?;
@@ -147,7 +265,7 @@ pub(crate) fn use_decl_matches_exact_import_path(
     if use_decl.module_name.as_deref() != current_module {
         return false;
     }
-    if use_decl.name == module_path {
+    if use_decl.written_name == module_path {
         return true;
     }
     if use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
@@ -171,7 +289,8 @@ pub(crate) fn use_decl_matches_exact_import_path(
 
 fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str) -> bool {
     use_decl.alias == module_path
-        && (use_decl.package.is_some()
+        && (use_decl.explicit_alias
+            || use_decl.package.is_some()
             || !use_decl.name.contains("::")
             || use_decl.origin == veln_ast::UseOrigin::ImplicitStandardPrelude)
 }

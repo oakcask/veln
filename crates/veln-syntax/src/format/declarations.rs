@@ -25,10 +25,16 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
         );
     }
     for use_decl in &tree.uses {
-        let source = match &use_decl.package {
-            Some(package) => format!("use {} from \"{}\"", use_decl.name, package.name),
-            None => format!("use {}", use_decl.name),
-        };
+        let mut source = format!("use {}", use_decl.name);
+        if let Some(alias) = &use_decl.alias {
+            source.push_str(" as ");
+            source.push_str(&alias.name);
+        }
+        if let Some(package) = &use_decl.package {
+            source.push_str(" from \"");
+            source.push_str(&package.name);
+            source.push('"');
+        }
         push_source_line(&mut out, &comments, use_decl.span.start.line, 0, source);
     }
     if (tree.module.is_some() || !tree.uses.is_empty()) && !tree.items.is_empty() {

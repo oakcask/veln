@@ -1,6 +1,8 @@
 use io
 use time
 use foo::bar from "github.com/oakcask/foo"
+use transport::net as wire from "std"
+use application::model as domain
 
 pub fn main() -> Result<(), String> effects [stdio]
 	require ready == true

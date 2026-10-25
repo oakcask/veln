@@ -179,7 +179,13 @@ impl AstBuilder {
             node_id: self.alloc(),
             module_name,
             name: use_decl.name.clone(),
-            alias: import_alias(&use_decl.name),
+            written_name: use_decl.name.clone(),
+            alias: use_decl
+                .alias
+                .as_ref()
+                .map_or_else(|| import_alias(&use_decl.name), |alias| alias.name.clone()),
+            alias_span: use_decl.alias.as_ref().map(|alias| alias.span.clone()),
+            explicit_alias: use_decl.alias.is_some(),
             name_spans: use_decl.name_spans.clone(),
             package: use_decl
                 .package
@@ -191,6 +197,7 @@ impl AstBuilder {
                 .map(|package| package.span.clone()),
             span: use_decl.span.clone(),
             origin: UseOrigin::Source,
+            syntax_recovered: use_decl.recovered,
         }
     }
 

@@ -162,8 +162,9 @@ pub(super) fn alias_kind_mismatch_diagnostic(
 
 pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut seen =
-        BTreeMap::<(Option<String>, String, String, Option<String>), (String, SourceSpan)>::new();
+    let mut seen_targets =
+        BTreeMap::<(Option<String>, String, Option<String>), (String, SourceSpan)>::new();
+    let mut seen_qualifiers = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
 
     for use_decl in module
         .uses
@@ -171,24 +172,45 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
         .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
     {
         let node_id = use_decl.node_id.display("use");
-        let key = (
+        let target_key = (
             use_decl.module_name.clone(),
-            use_decl.alias.clone(),
-            use_decl.name.clone(),
+            use_decl.written_name.clone(),
             use_decl.package.clone(),
         );
-        if let Some((first_node_id, first_span)) = seen.get(&key) {
+        let qualifier_key = (use_decl.module_name.clone(), use_decl.alias.clone());
+        let target_origin = seen_targets.get(&target_key).cloned();
+        let qualifier_origin = seen_qualifiers.get(&qualifier_key).cloned();
+        if let Some((first_node_id, first_span)) = &target_origin {
             diagnostics.push(duplicate_name_diagnostic(
-                &use_decl.alias,
+                &use_decl.written_name,
                 "module",
-                "import alias",
-                node_id,
-                use_decl.span.clone(),
+                "import path",
+                node_id.clone(),
+                use_decl.target_span(),
                 first_node_id.clone(),
                 first_span,
             ));
         } else {
-            seen.insert(key, (node_id, use_decl.span.clone()));
+            seen_targets.insert(target_key, (node_id.clone(), use_decl.target_span()));
+        }
+        let same_origin = match (&target_origin, &qualifier_origin) {
+            (Some((target_node, _)), Some((qualifier_node, _))) => target_node == qualifier_node,
+            _ => false,
+        };
+        if let Some((first_node_id, first_span)) = &qualifier_origin
+            && !same_origin
+        {
+            diagnostics.push(duplicate_name_diagnostic(
+                &use_decl.alias,
+                "module",
+                "import alias",
+                node_id.clone(),
+                use_decl.qualifier_span(),
+                first_node_id.clone(),
+                first_span,
+            ));
+        } else if qualifier_origin.is_none() {
+            seen_qualifiers.insert(qualifier_key, (node_id, use_decl.qualifier_span()));
         }
     }
 
@@ -217,17 +239,18 @@ pub(crate) fn check_reserved_prelude_aliases(module: &SurfaceModule) -> Vec<Diag
         .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
     {
         if use_decl.alias == PRELUDE_MODULE
-            && !use_decl
-                .module_name
-                .as_deref()
-                .is_some_and(|module_name| module_name.starts_with("std::"))
+            && (use_decl.explicit_alias
+                || !use_decl
+                    .module_name
+                    .as_deref()
+                    .is_some_and(|module_name| module_name.starts_with("std::")))
         {
             diagnostics.push(reserved_prelude_diagnostic(
                 use_decl.node_id.display("use"),
-                use_decl.span.clone(),
+                use_decl.qualifier_span(),
                 "module",
                 "import alias",
-                "Choose a non-conflicting import path.",
+                "Choose a non-conflicting import alias.",
             ));
         }
     }

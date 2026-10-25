@@ -88,7 +88,9 @@ impl AdtRegistry {
             && descriptor.module_name.as_ref().is_some_and(|module| {
                 uses.iter().any(|use_decl| {
                     crate::adt::lookup_validation::record_import_path_comparison();
-                    use_decl.module_name.as_deref() == current_module && &use_decl.name == module
+                    use_decl.module_name.as_deref() == current_module
+                        && &use_decl.name == module
+                        && use_decl.contributes_bare_members()
                 })
             })
     }

@@ -291,7 +291,7 @@ fn unexported_external_module_diagnostic(use_decl: &UseDecl) -> Diagnostic {
         Severity::Error,
         DiagnosticKind::Module,
         format!("external module `{module_path}` is not exported by package `{package}`"),
-        Some(use_decl.span.clone()),
+        Some(use_decl.target_span()),
         JsonValue::object([
             ("phase", JsonValue::string("module")),
             ("field", JsonValue::string("lib.exports")),

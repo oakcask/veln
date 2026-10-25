@@ -33,7 +33,7 @@ fn unresolved_local_import_diagnostic(
             "local import `{}` has no matching selected source file",
             use_decl.name
         ),
-        Some(use_decl.span.clone()),
+        Some(use_decl.target_span()),
         JsonValue::object([
             ("phase", JsonValue::string("module")),
             ("field", JsonValue::string("import_path")),

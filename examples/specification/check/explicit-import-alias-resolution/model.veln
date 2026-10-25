@@ -1,0 +1,9 @@
+pub type State
+	pub Ready(Int)
+end
+
+pub schema Packet
+	format binary
+
+	length: UInt8
+end

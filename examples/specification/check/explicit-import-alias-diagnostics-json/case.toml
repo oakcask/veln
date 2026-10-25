@@ -1,0 +1,24 @@
+command = ["check", "--json", "main.veln", "first.veln", "second.veln", "third.veln", "fourth.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "name.reserved"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "name.duplicate"

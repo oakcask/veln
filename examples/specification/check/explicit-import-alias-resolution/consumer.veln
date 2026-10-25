@@ -1,0 +1,5 @@
+use api
+
+pub fn consume() -> api::State
+	api::Ready(api::answer())
+end

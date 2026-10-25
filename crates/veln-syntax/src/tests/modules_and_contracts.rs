@@ -75,6 +75,85 @@ fn parses_external_package_use_declaration() {
 }
 
 #[test]
+fn explicit_import_alias_parses_and_formats_before_package_source() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use transport::net as wire from \"std\"\n",
+            "use application::model as domain\n",
+            "fn as() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let wire = output.tree.uses[0].alias.as_ref().expect("explicit alias");
+    assert_eq!(wire.name, "wire");
+    assert_eq!((wire.span.start.line, wire.span.start.column), (1, 23));
+    assert_eq!(output.tree.uses[0].package.as_ref().unwrap().name, "std");
+    assert_eq!(output.tree.uses[1].alias.as_ref().unwrap().name, "domain");
+    assert_eq!(first_function(&output).name.as_deref(), Some("as"));
+    let formatted = format_tree(&output.tree);
+    let expected = concat!(
+        "use transport::net as wire from \"std\"\n",
+        "use application::model as domain\n",
+        "\n",
+        "fn as() -> ()\n",
+        "\t()\n",
+        "end\n",
+    );
+    assert_eq!(formatted, expected);
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), expected);
+}
+
+#[test]
+fn malformed_explicit_import_aliases_recover_at_the_declaration_newline() {
+    let cases = [
+        "use a as\n",
+        "use a as from \"pkg\"\n",
+        "use a as \"local\"\n",
+        "use a as b::c\n",
+        "use a from \"pkg\" as local\n",
+        "use a as b as c\n",
+        "use a from\n",
+    ];
+
+    for malformed in cases {
+        let text = format!("{malformed}fn retained() -> ()\n  ()\nend\n");
+        let output = parse(&SourceFile::new("main.veln", text));
+        assert!(!output.diagnostics.is_empty(), "{malformed:?}");
+        assert_eq!(output.tree.uses.len(), 1, "{malformed:?}");
+        assert!(output.tree.uses[0].recovered, "{malformed:?}");
+        assert_eq!(first_function(&output).name.as_deref(), Some("retained"));
+    }
+}
+
+#[test]
+fn invalid_cased_explicit_import_aliases_remain_semantic_names() {
+    for alias in ["Wire", "_wire", "_"] {
+        let output = parse(&SourceFile::new(
+            "main.veln",
+            format!("use transport::net as {alias}\nfn retained() -> ()\n  ()\nend\n"),
+        ));
+        assert!(
+            output.diagnostics.is_empty(),
+            "{alias}: {:#?}",
+            output.diagnostics
+        );
+        assert_eq!(output.tree.uses[0].alias.as_ref().unwrap().name, alias);
+    }
+}
+
+#[test]
 fn parses_function_return_type_effects_before_declaration_effects() {
     let source = SourceFile::new(
         "main.veln",
