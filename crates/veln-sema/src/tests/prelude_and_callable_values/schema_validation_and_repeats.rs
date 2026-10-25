@@ -366,6 +366,54 @@ fn generated_schema_helpers_resolve_bounded_repeated_nested_schema_fields() {
     assert_eq!(nested.fields.len(), 2);
 }
 
+fn merge_schema_test_modules(app: SurfaceModule, wire: SurfaceModule) -> SurfaceModule {
+    SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: [app.types, wire.types].concat(),
+        schemas: [app.schemas, wire.schemas].concat(),
+        module_values: Vec::new(),
+        functions: [app.functions, wire.functions].concat(),
+        invalid_names: Vec::new(),
+    }
+}
+
+fn assert_counted_item_schema_helpers(core: &veln_core::CheckedProgram) {
+    for (function_name, target_name, expected_target) in [
+        ("read", "CountedItems", "decode"),
+        ("write", "CountedItems", "encode"),
+    ] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .expect("helper wrapper should be lowered");
+        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+            panic!("tail expression should lower as return");
+        };
+        match (&expr.kind, expected_target) {
+            (
+                CoreExprKind::Call {
+                    target: CoreCallTarget::SchemaDecode(name),
+                    ..
+                },
+                "decode",
+            ) => assert_eq!(name, target_name),
+            (
+                CoreExprKind::Call {
+                    target: CoreCallTarget::SchemaEncode(name),
+                    ..
+                },
+                "encode",
+            ) => assert_eq!(name, target_name),
+            _ => panic!("helper wrapper should lower to a schema helper call"),
+        }
+    }
+}
+
 #[test]
 fn generated_schema_helpers_resolve_bounded_repeated_imported_nested_schema_fields() {
     let app_source = SourceFile::new(
@@ -405,53 +453,13 @@ fn generated_schema_helpers_resolve_bounded_repeated_imported_nested_schema_fiel
     );
     let app = lower_surface_ast(&parse(&app_source).tree);
     let wire = lower_surface_ast(&parse(&wire_source).tree);
-    let module = SurfaceModule {
-        module: app.module,
-        uses: app.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        types: [app.types, wire.types].concat(),
-        schemas: [app.schemas, wire.schemas].concat(),
-        module_values: Vec::new(),
-        functions: [app.functions, wire.functions].concat(),
-        invalid_names: Vec::new(),
-    };
+    let module = merge_schema_test_modules(app, wire);
 
     let lowered = lower_checked_surface_module(&module);
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.as_ref().expect("checked core should be built");
-    for (function_name, target_name, expected_target) in [
-        ("read", "CountedItems", "decode"),
-        ("write", "CountedItems", "encode"),
-    ] {
-        let function = core
-            .functions
-            .iter()
-            .find(|function| function.name == function_name)
-            .expect("helper wrapper should be lowered");
-        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
-            panic!("tail expression should lower as return");
-        };
-        match (&expr.kind, expected_target) {
-            (
-                CoreExprKind::Call {
-                    target: CoreCallTarget::SchemaDecode(name),
-                    ..
-                },
-                "decode",
-            ) => assert_eq!(name, target_name),
-            (
-                CoreExprKind::Call {
-                    target: CoreCallTarget::SchemaEncode(name),
-                    ..
-                },
-                "encode",
-            ) => assert_eq!(name, target_name),
-            _ => panic!("helper wrapper should lower to a schema helper call"),
-        }
-    }
+    assert_counted_item_schema_helpers(core);
 
     let ir = lowered.ir.expect("typed IR should be built");
     let schema = ir
