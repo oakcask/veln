@@ -44,6 +44,11 @@ duplicate or otherwise ambiguous exact path remains unresolved and never falls
 back to a qualifier. Duplicate target paths and colliding qualifiers do not
 contribute bare or qualifier lookup candidates.
 
+The same collision boundary applies while analysis follows the selected entry.
+A colliding import selects no target through a direct call, a function value or
+callback, a constructor, a handler clause, or a recovery path. Reordering the
+imports or the selected sources does not make the quarantined target reachable.
+
 For a package import such as `use util as first from "pkg_a"`, `util` remains
 the exact source-written path and `first` is its local qualifier. Both routes
 select the package module identity. The loader's canonical identity
@@ -693,6 +698,8 @@ not become fallback targets.
   patterns, schemas, effects, handlers, and exact written paths:
   `examples/specification/check/explicit-import-alias-resolution/` and
   `examples/specification/run/explicit-import-alias-carriers/`.
+- Import-collision quarantine during selected-entry reachability:
+  `crates/veln-analysis/src/surface/tests/contracts_and_imports.rs`.
 - Checked dependency export and private-member boundaries:
   `examples/specification/check/external-package-import-boundaries/`.
 - Unqualified ADT import lookup:
