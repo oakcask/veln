@@ -364,6 +364,7 @@ fn project_module_with_lowering(
     let mut aliases = Vec::new();
     let mut types = Vec::new();
     let mut schemas = Vec::new();
+    let mut module_values = Vec::new();
     let mut functions = Vec::new();
     let mut invalid_names = Vec::new();
     for source in &sources {
@@ -387,6 +388,7 @@ fn project_module_with_lowering(
         aliases.extend(lowered.aliases);
         types.extend(lowered.types);
         schemas.extend(lowered.schemas);
+        module_values.extend(lowered.module_values);
         functions.extend(lowered.functions);
         invalid_names.extend(lowered.invalid_names);
     }
@@ -404,6 +406,7 @@ fn project_module_with_lowering(
             handlers: Vec::new(),
             types,
             schemas,
+            module_values,
             functions,
             invalid_names,
         },
@@ -428,6 +431,7 @@ fn empty_surface_module() -> SurfaceModule {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: Vec::new(),
+        module_values: Vec::new(),
         functions: Vec::new(),
         invalid_names: Vec::new(),
     }

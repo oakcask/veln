@@ -34,8 +34,23 @@ pub struct SurfaceModule {
     pub handlers: Vec<HandlerDecl>,
     pub types: Vec<TypeDecl>,
     pub schemas: Vec<SchemaDecl>,
+    pub module_values: Vec<ModuleValueDecl>,
     pub functions: Vec<Function>,
     pub invalid_names: Vec<InvalidName>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ModuleValueDecl {
+    pub node_id: NodeId,
+    pub module_name: Option<String>,
+    pub visibility: Visibility,
+    pub name: Option<String>,
+    pub name_span: Option<SourceSpan>,
+    pub annotation: String,
+    pub annotation_paths: Vec<TypePathSegments>,
+    pub annotation_refinements: Vec<VariantRefinementType>,
+    pub initializer: Expr,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

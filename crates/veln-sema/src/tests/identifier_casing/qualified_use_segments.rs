@@ -735,6 +735,7 @@ pub(super) fn merged_modules_with_names<const N: usize>(
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: Vec::new(),
+        module_values: Vec::new(),
         functions: Vec::new(),
         invalid_names: Vec::new(),
     };

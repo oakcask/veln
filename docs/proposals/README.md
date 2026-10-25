@@ -19,7 +19,8 @@ also states it.
 - Explicit runtime validation of a base-typed record against a format-neutral
   schema, composed with ordinary decoder functions:
   [schema-runtime-refinement-validation.md](schema-runtime-refinement-validation.md).
-- Typed module immutable data declarations with finite data initializers:
+- Finite-data semantics, dependencies, lookup, visibility, execution, and
+  documentation for typed module immutable values:
   [module-immutable-values.md](module-immutable-values.md).
 - Generic named-type variance and function assignability:
   [generic-and-function-variance.md](generic-and-function-variance.md).

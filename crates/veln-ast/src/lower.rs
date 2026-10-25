@@ -6,21 +6,23 @@ use veln_syntax::{
     Expr as SyntaxExpr, ExprKind as SyntaxExprKind, FunctionDecl as SyntaxFunction,
     HandlerDecl as SyntaxHandlerDecl,
     HandlerOperationClauseDecl as SyntaxHandlerOperationClauseDecl, IfBranch as SyntaxIfBranch,
-    MatchArm as SyntaxMatchArm, ModuleDecl as SyntaxModule, Param as SyntaxParam,
-    Pattern as SyntaxPattern, PatternKind as SyntaxPatternKind, PrefixOp as SyntaxPrefixOp,
-    PublicAliasDecl as SyntaxPublicAlias, PublicAliasKind as SyntaxPublicAliasKind,
-    RecordField as SyntaxRecordField, SchemaDecl as SyntaxSchemaDecl, SyntaxItem, SyntaxTree,
-    TypeDecl as SyntaxTypeDecl, UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
+    MatchArm as SyntaxMatchArm, ModuleDecl as SyntaxModule, ModuleValueDecl as SyntaxModuleValue,
+    Param as SyntaxParam, Pattern as SyntaxPattern, PatternKind as SyntaxPatternKind,
+    PrefixOp as SyntaxPrefixOp, PublicAliasDecl as SyntaxPublicAlias,
+    PublicAliasKind as SyntaxPublicAliasKind, RecordField as SyntaxRecordField,
+    SchemaDecl as SyntaxSchemaDecl, SyntaxItem, SyntaxTree, TypeDecl as SyntaxTypeDecl,
+    UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
 };
 
 use crate::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, EffectDecl,
     EffectOperationDecl, Expr, ExprKind, Function, FunctionKind, HandlerDecl,
-    HandlerOperationClauseDecl, InvalidName, MatchArm, ModuleHeader, NameClass, NameOccurrence,
-    NodeId, Param, Pattern, PatternField, PatternKind, PredicateRemainder, PrefixOp, PublicAlias,
-    PublicAliasKind, RecordField, ResultBinding, SchemaDecl, SchemaField, SchemaFieldWhereClause,
-    SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeAnnotationStructure, TypeDecl,
-    TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
+    HandlerOperationClauseDecl, InvalidName, MatchArm, ModuleHeader, ModuleValueDecl, NameClass,
+    NameOccurrence, NodeId, Param, Pattern, PatternField, PatternKind, PredicateRemainder,
+    PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SchemaDecl, SchemaField,
+    SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SurfaceModule,
+    TypeAnnotationStructure, TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin,
+    Visibility,
 };
 
 mod expressions;
@@ -102,6 +104,7 @@ impl AstBuilder {
             handlers: items.handlers,
             types: items.types,
             schemas: items.schemas,
+            module_values: items.module_values,
             functions: items.functions,
             invalid_names: collect_invalid_names(tree),
         }
@@ -211,6 +214,28 @@ impl AstBuilder {
             target: alias.target.clone(),
             target_spans: alias.target_spans.clone(),
             span: alias.span.clone(),
+        }
+    }
+
+    fn lower_module_value(
+        &mut self,
+        value: &SyntaxModuleValue,
+        module_name: Option<String>,
+    ) -> ModuleValueDecl {
+        ModuleValueDecl {
+            node_id: self.alloc(),
+            module_name,
+            visibility: match value.visibility {
+                SyntaxVisibility::Public => Visibility::Public,
+                SyntaxVisibility::Private => Visibility::Private,
+            },
+            name: value.name.clone(),
+            name_span: value.name_span.clone(),
+            annotation: value.annotation.clone(),
+            annotation_paths: value.annotation_paths.clone(),
+            annotation_refinements: value.annotation_refinements.clone(),
+            initializer: self.lower_expr(&value.initializer),
+            span: value.span.clone(),
         }
     }
 

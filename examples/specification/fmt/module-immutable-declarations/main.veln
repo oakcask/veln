@@ -1,0 +1,5 @@
+let example : State = Active( 3 )
+pub let defaults : { state : State, attempts : Int } = {
+ state: example,
+ attempts: 3,
+}

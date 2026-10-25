@@ -223,8 +223,24 @@ impl<'a> Reader<'a> {
             handlers,
             types,
             schemas,
+            module_values: self.vec(Self::module_value_decl)?,
             functions: self.vec(Self::function)?,
             invalid_names: self.vec(Self::invalid_name)?,
+        })
+    }
+
+    fn module_value_decl(&mut self) -> Result<ModuleValueDecl, String> {
+        Ok(ModuleValueDecl {
+            node_id: self.node_id()?,
+            module_name: self.option(Self::string)?,
+            visibility: self.visibility()?,
+            name: self.option(Self::string)?,
+            name_span: self.option(Self::span)?,
+            annotation: self.string()?,
+            annotation_paths: self.vec(Self::type_path_segments)?,
+            annotation_refinements: self.vec(Self::variant_refinement)?,
+            initializer: self.expr()?,
+            span: self.span()?,
         })
     }
 

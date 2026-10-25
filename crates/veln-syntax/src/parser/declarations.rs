@@ -78,6 +78,9 @@ impl<'a> Parser<'a> {
 
     pub(super) fn parse_private_top_level_item(&mut self) -> Option<SyntaxItem> {
         match self.current().kind {
+            TokenKind::Let => Some(SyntaxItem::ModuleValue(Box::new(
+                self.parse_module_value_decl(),
+            ))),
             TokenKind::Fn => Some(SyntaxItem::Function(Box::new(
                 self.parse_function_like(FunctionKind::Function),
             ))),
@@ -98,6 +101,9 @@ impl<'a> Parser<'a> {
 
     pub(super) fn parse_public_top_level_item(&mut self) -> Option<SyntaxItem> {
         match self.peek_kind(1) {
+            Some(TokenKind::Let) => Some(SyntaxItem::ModuleValue(Box::new(
+                self.parse_module_value_decl(),
+            ))),
             Some(TokenKind::Type) => Some(SyntaxItem::Type(self.parse_type_decl())),
             Some(TokenKind::Schema) => Some(SyntaxItem::Schema(self.parse_schema_decl())),
             Some(TokenKind::Effect) => Some(SyntaxItem::Effect(self.parse_effect_decl())),
@@ -115,14 +121,142 @@ impl<'a> Parser<'a> {
     pub(super) fn reject_top_level_token(&mut self) -> Option<SyntaxItem> {
         self.error_current(
             "parse.expected_item",
-            "expected a function, test, type, effect, handler, or schema declaration",
+            "expected a function, test, type, effect, handler, schema, or module value declaration",
             "module",
-            vec!["pub", "fn", "test", "type", "effect", "handler", "schema"],
+            vec![
+                "pub", "let", "fn", "test", "type", "effect", "handler", "schema",
+            ],
             RecoveryStrategy::SynchronizeToAnchor,
             Some("fn"),
         );
         self.synchronize_to_item();
         None
+    }
+
+    pub(super) fn parse_module_value_decl(&mut self) -> ModuleValueDecl {
+        let start = self.current().range;
+        let visibility = if self.eat(TokenKind::Pub).is_some() {
+            Visibility::Public
+        } else {
+            Visibility::Private
+        };
+        self.expect(TokenKind::Let, "module_value_declaration", vec!["let"]);
+
+        let (name, name_span) = self.parse_module_value_name();
+        if self.at(TokenKind::Less) {
+            self.error_current(
+                "parse.module_value_declaration",
+                "module value declarations cannot declare type parameters",
+                "module_value_declaration",
+                vec![":"],
+                RecoveryStrategy::SynchronizeToAnchor,
+                Some(":"),
+            );
+            while !self.at(TokenKind::Colon)
+                && !self.at(TokenKind::Equal)
+                && !self.at(TokenKind::Newline)
+                && !self.at(TokenKind::Eof)
+            {
+                self.bump();
+            }
+        }
+
+        let (annotation, annotation_paths, annotation_refinements) =
+            if self.eat(TokenKind::Colon).is_some() {
+                let annotation = self.collect_type_paths_until(
+                    "module_value_declaration",
+                    &[TokenKind::Equal, TokenKind::Newline, TokenKind::Eof],
+                );
+                if annotation.0.is_empty() {
+                    self.error_current(
+                        "parse.module_value_declaration",
+                        "module value declaration requires a type annotation",
+                        "module_value_declaration",
+                        vec!["type"],
+                        RecoveryStrategy::InsertToken,
+                        Some("="),
+                    );
+                }
+                annotation
+            } else {
+                self.error_current(
+                    "parse.module_value_declaration",
+                    "module value declaration requires a type annotation",
+                    "module_value_declaration",
+                    vec![":"],
+                    RecoveryStrategy::InsertToken,
+                    Some(":"),
+                );
+                (String::new(), Vec::new(), Vec::new())
+            };
+
+        self.expect(TokenKind::Equal, "module_value_declaration", vec!["="]);
+        if self.at(TokenKind::Newline) || self.at(TokenKind::Eof) {
+            self.error_current(
+                "parse.module_value_declaration",
+                "module value declaration requires an initializer",
+                "module_value_declaration",
+                vec!["expression"],
+                RecoveryStrategy::InsertToken,
+                Some("newline"),
+            );
+        }
+        let (initializer, end) = self.parse_expr_for_body_line("module_value_declaration");
+        ModuleValueDecl {
+            visibility,
+            name,
+            name_span,
+            annotation,
+            annotation_paths,
+            annotation_refinements,
+            initializer,
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_module_value_name(&mut self) -> (Option<String>, Option<SourceSpan>) {
+        if self.at(TokenKind::Ident) {
+            let token = self.bump();
+            let span = self.source.span(token.range);
+            if !token
+                .text
+                .as_bytes()
+                .first()
+                .is_some_and(u8::is_ascii_lowercase)
+            {
+                self.error_at_token(
+                    &token,
+                    DiagnosticRequest {
+                        id: "parse.module_value_declaration",
+                        message: "module value name must start with an ASCII lowercase letter"
+                            .to_string(),
+                        parser_context: "module_value_declaration",
+                        expected: vec!["lowercase value identifier"],
+                        strategy: RecoveryStrategy::SkipToken,
+                        anchor: Some(":"),
+                        repair_candidates: Vec::new(),
+                    },
+                );
+            }
+            return (Some(token.text), Some(span));
+        }
+
+        self.error_current(
+            "parse.module_value_declaration",
+            "module value declaration requires one lowercase value identifier",
+            "module_value_declaration",
+            vec!["lowercase value identifier"],
+            RecoveryStrategy::SynchronizeToAnchor,
+            Some(":"),
+        );
+        while !self.at(TokenKind::Colon)
+            && !self.at(TokenKind::Equal)
+            && !self.at(TokenKind::Newline)
+            && !self.at(TokenKind::Eof)
+        {
+            self.bump();
+        }
+        (None, None)
     }
 
     pub(super) fn at_public_alias_header(&self) -> bool {

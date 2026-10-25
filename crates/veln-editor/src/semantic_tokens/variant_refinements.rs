@@ -24,6 +24,7 @@ fn collect_tree_refinements(
 ) {
     for item in &tree.items {
         match item {
+            SyntaxItem::ModuleValue(_) => {}
             SyntaxItem::Function(function) => {
                 collect_params(&function.params, classifications);
                 collect_refinements(&function.return_type_refinements, classifications);

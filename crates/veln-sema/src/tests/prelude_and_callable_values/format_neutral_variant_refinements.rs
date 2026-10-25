@@ -541,6 +541,7 @@ fn format_neutral_schema_decode_visibility_pairs_public_and_companion_boundaries
         handlers: Vec::new(),
         types: target.types,
         schemas: target.schemas,
+        module_values: Vec::new(),
         functions: companion.functions,
         invalid_names: Vec::new(),
     };

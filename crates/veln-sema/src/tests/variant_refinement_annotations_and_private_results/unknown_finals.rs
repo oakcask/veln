@@ -385,6 +385,7 @@ fn unknown_final_related_variants_include_private_constructors_in_exact_companio
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: target.types,
+        module_values: Vec::new(),
         functions: companion.functions,
         invalid_names: Vec::new(),
     };
@@ -438,6 +439,7 @@ fn unknown_final_related_variants_hide_private_constructors_from_foreign_modules
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: target.types,
+        module_values: Vec::new(),
         functions: foreign.functions,
         invalid_names: Vec::new(),
     };

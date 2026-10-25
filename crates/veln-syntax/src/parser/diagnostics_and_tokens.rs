@@ -142,6 +142,7 @@ impl<'a> Parser<'a> {
         while !self.at(TokenKind::Eof)
             && !self.at(TokenKind::Pub)
             && !self.at(TokenKind::Fn)
+            && !self.at(TokenKind::Let)
             && !self.at(TokenKind::Type)
             && !self.at(TokenKind::Schema)
             && !self.at(TokenKind::Codec)
@@ -153,6 +154,7 @@ impl<'a> Parser<'a> {
         let anchor = match self.current().kind {
             TokenKind::Pub => Some("pub".to_string()),
             TokenKind::Fn => Some("fn".to_string()),
+            TokenKind::Let => Some("let".to_string()),
             TokenKind::Type => Some("type".to_string()),
             TokenKind::Schema => Some("schema".to_string()),
             TokenKind::Codec => Some("codec".to_string()),

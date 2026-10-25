@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[module.value_not_executable]: module value declaration `answer` is not executable", "note: The declaration is available to parsing and formatting, but semantic analysis and code generation do not support module values yet."]
+
+[stderr]
+format = "empty"

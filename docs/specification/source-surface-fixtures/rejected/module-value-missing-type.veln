@@ -1,0 +1,5 @@
+let missing = 1
+
+fn survivor() -> ()
+	()
+end

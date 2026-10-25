@@ -41,6 +41,7 @@ fn imported_source_adt_constructor_resolves_through_module_and_type_paths() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: types.types,
+        module_values: Vec::new(),
         functions: app.functions,
         invalid_names: Vec::new(),
     };
@@ -92,6 +93,7 @@ fn public_type_alias_reexports_imported_constructors() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: implementation.types,
+        module_values: Vec::new(),
         functions: app.functions,
         invalid_names: Vec::new(),
     };
@@ -127,6 +129,7 @@ fn private_source_adt_constructor_is_hidden_from_importing_module() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: shapes.types,
+        module_values: Vec::new(),
         functions: app.functions,
         invalid_names: Vec::new(),
     };
@@ -176,6 +179,7 @@ fn private_source_adt_constructor_pattern_does_not_satisfy_imported_exhaustivene
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: shapes.types,
+        module_values: Vec::new(),
         functions: app.functions,
         invalid_names: Vec::new(),
     };
@@ -264,6 +268,7 @@ fn matching_companion_resolves_qualified_private_source_adt_type_and_constructor
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: target.types,
+        module_values: Vec::new(),
         functions: companion.functions,
         invalid_names: Vec::new(),
     };
@@ -309,6 +314,7 @@ fn matching_companion_resolves_private_constructor_of_public_target_adt() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: target.types,
+        module_values: Vec::new(),
         functions: companion.functions,
         invalid_names: Vec::new(),
     };
@@ -343,6 +349,7 @@ fn companion_private_source_adt_access_requires_import_and_qualified_path() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: target.types,
+        module_values: Vec::new(),
         functions: companion.functions,
         invalid_names: Vec::new(),
     };
@@ -381,6 +388,7 @@ fn non_matching_companion_cannot_resolve_private_source_adt_constructor() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: target.types,
+        module_values: Vec::new(),
         functions: companion.functions,
         invalid_names: Vec::new(),
     };
@@ -419,6 +427,7 @@ fn integration_test_module_cannot_resolve_private_source_adt_constructor() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: target.types,
+        module_values: Vec::new(),
         functions: integration.functions,
         invalid_names: Vec::new(),
     };
@@ -469,6 +478,7 @@ fn matching_companion_private_source_adt_access_is_not_transitive() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: support.types,
+        module_values: Vec::new(),
         functions: companion
             .functions
             .into_iter()
@@ -522,6 +532,7 @@ fn companion_private_source_adt_use_does_not_change_target_diagnostics() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: target.types.clone(),
+        module_values: Vec::new(),
         functions: target.functions.clone(),
         invalid_names: Vec::new(),
     };
@@ -533,6 +544,7 @@ fn companion_private_source_adt_use_does_not_change_target_diagnostics() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: target.types,
+        module_values: Vec::new(),
         functions: companion
             .functions
             .into_iter()

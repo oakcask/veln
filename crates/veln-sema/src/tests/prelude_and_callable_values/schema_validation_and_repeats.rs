@@ -413,6 +413,7 @@ fn generated_schema_helpers_resolve_bounded_repeated_imported_nested_schema_fiel
         handlers: Vec::new(),
         types: [app.types, wire.types].concat(),
         schemas: [app.schemas, wire.schemas].concat(),
+        module_values: Vec::new(),
         functions: [app.functions, wire.functions].concat(),
         invalid_names: Vec::new(),
     };

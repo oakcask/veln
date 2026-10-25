@@ -10,13 +10,14 @@ function call or an initialization effect. This proposal defines the source
 declaration and its value identity. Qualified match refinement is a separate
 dependent feature.
 
-Current [source syntax](../specification/source-surface.md) admits local `let`
-bindings but no module data declaration. Current
-[name resolution](../specification/name-resolution.md) supplies the import,
-namespace, and visibility rules extended below. All acceptance evidence in
-this proposal is planned.
+Current [source syntax](../specification/source-surface.md#module-immutable-value-declarations)
+and [formatting](../specification/command-fmt.md#formatting-rules) accept typed
+module `let` declarations. The compiler deliberately reports that these
+declarations are not executable. This proposal retains the finite-data
+semantics, name resolution, visibility, execution, and documentation work that
+remains to make them usable values.
 
-## Declaration And Initialization
+## Initialization Semantics
 
 ```veln
 pub type State
@@ -32,13 +33,8 @@ pub let defaults: { state: State, attempts: Int } = {
 }
 ```
 
-The new module item is `[pub] let name: Type = initializer`. It uses the same
-expression continuation and record syntax as a local binding. It has no closing
-`end`. The annotation and initializer are required. The name is one ordinary
-lowercase value identifier; wildcard and destructuring declarations are not
-module items. Module values cannot declare type parameters. The annotation
-must be closed, although it may instantiate generic types with closed arguments.
-Local binding syntax and initialization remain unchanged.
+The written annotation must be closed, although it may instantiate generic
+types with closed arguments. The initializer must satisfy the rules below.
 
 The initializer language is deliberately finite data construction:
 
@@ -143,18 +139,16 @@ and repair guidance are related notes.
 
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
-| Source surface | Private/public typed declarations and multiline data literals parse; missing type/initializer, wildcard, destructuring, and generic declaration forms fail. Formatting is idempotent. | Accepted/rejected executable grammar fixtures, parser cases, and `veln fmt` cases. |
 | Data construction | Literals, records, nullary/payload constructors, nested standard ADTs, and forward references produce their declared values. Computed/function/host-value initializers fail even when unused. | Semantic cases plus checked `veln check` and `veln run` examples; runtime results compared with independently written expected data. |
 | Dependencies | Acyclic forward references are order independent. Self, cross-module, and longer cycles fail without publishing dependents. Unrelated valid declarations retain useful diagnostics. | Semantic dependency cases and command cases that reorder sources and imports. |
 | Lookup | Local shadowing, function/data duplicates, imported ambiguity, exact-path precedence, colliding leaf qualifiers, same spellings in different packages, and non-callable data obey the table. | Name-resolution cases and multi-package command fixtures. |
 | Visibility | Private data is hidden except to its exact companion. Public base annotations may hide initializer variants; public annotations may not expose private types/refinements. | Human/JSON visibility cases and package-documentation success/failure cases. |
 | Stable declaration identity | Qualified data references are distinguished from constructors and functions; same declaration reached by different imports retains identity, equal data in distinct declarations does not merge. | Semantic identity tests and language-service definition cases for the new declaration kind. |
 
-Use the existing specification grammar checker, focused Rust tests, and checked
-examples harness for the named evidence. After implementation, update the
-source, name-resolution, type, execution, formatting, and package-documentation
-specifications where their contracts change. Remove this proposal only after
-all rows are implemented and checked.
+Use focused semantic tests and the checked-examples harness for the remaining
+evidence. Update the name-resolution, type, execution, and package-documentation
+specifications as those contracts become implemented. Remove this proposal
+only after all remaining rows are implemented and checked.
 
 ## Related Work And Alternatives
 

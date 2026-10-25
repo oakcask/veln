@@ -348,6 +348,7 @@ fn imported_public_function_conflicts_with_implicit_prelude_bare_call() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: Vec::new(),
+        module_values: Vec::new(),
         functions: main
             .functions
             .into_iter()

@@ -10,6 +10,9 @@ pub(super) fn tree_has_commented_match_rewrite(tree: &SyntaxTree, comments: &Lin
             }
             BodyLine::Defer { body, .. } => body_lines_have_commented_match_rewrite(body, comments),
         }),
+        SyntaxItem::ModuleValue(value) => {
+            expr_has_commented_match_rewrite(&value.initializer, comments)
+        }
         SyntaxItem::Schema(_) | SyntaxItem::Effect(_) | SyntaxItem::Handler(_) => false,
         SyntaxItem::Type(_) | SyntaxItem::PublicAlias(_) => false,
     })

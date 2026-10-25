@@ -6,7 +6,8 @@ use veln_source::SourceFile;
 fn first_function(output: &ParseOutput) -> &FunctionDecl {
     match &output.tree.items[0] {
         SyntaxItem::Function(function) => function,
-        SyntaxItem::Effect(_)
+        SyntaxItem::ModuleValue(_)
+        | SyntaxItem::Effect(_)
         | SyntaxItem::Handler(_)
         | SyntaxItem::Type(_)
         | SyntaxItem::Schema(_)

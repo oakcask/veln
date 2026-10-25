@@ -71,6 +71,7 @@ pub(super) fn merged_modules(sources: Vec<SourceFile>) -> SurfaceModule {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: Vec::new(),
+        module_values: Vec::new(),
         functions: Vec::new(),
         invalid_names: Vec::new(),
     };
@@ -97,6 +98,7 @@ pub(super) fn merged_modules_with_identities(sources: Vec<(&str, SourceFile)>) -
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: Vec::new(),
+        module_values: Vec::new(),
         functions: Vec::new(),
         invalid_names: Vec::new(),
     };

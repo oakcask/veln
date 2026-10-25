@@ -37,6 +37,7 @@ fn imported_effectful_declared_helpers_report_callback_mismatches() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: [app.types, helpers.types].concat(),
+        module_values: Vec::new(),
         functions: [app.functions, helpers.functions].concat(),
         invalid_names: Vec::new(),
     };

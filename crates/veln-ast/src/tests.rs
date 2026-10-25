@@ -29,6 +29,38 @@ fn lower_source_allowing_diagnostics(text: &str) -> SurfaceModule {
 }
 
 #[test]
+fn lowers_and_round_trips_module_value_declarations() {
+    let module = lower_source(concat!(
+        "pub let defaults: { state: State, attempts: Int } = {\n",
+        "  state: Idle,\n",
+        "  attempts: 3,\n",
+        "}\n",
+    ));
+
+    assert_eq!(module.module_values.len(), 1);
+    let value = &module.module_values[0];
+    assert_eq!(value.visibility, Visibility::Public);
+    assert_eq!(value.name.as_deref(), Some("defaults"));
+    assert_eq!(value.annotation, "{ state : State, attempts : Int }");
+    assert_eq!(value.annotation_paths.len(), 2);
+    assert!(matches!(value.initializer.kind, ExprKind::Record(_)));
+    assert_eq!(value.name_span.as_ref().unwrap().start.column, 9);
+
+    let decoded = decode_surface_module(&encode_surface_module(&module))
+        .expect("module value wire round trip should decode");
+    let decoded_value = &decoded.module_values[0];
+    assert_eq!(decoded_value.name, value.name);
+    assert_eq!(decoded_value.annotation, value.annotation);
+    assert_eq!(decoded_value.annotation_paths, value.annotation_paths);
+    assert_eq!(decoded_value.name_span, value.name_span);
+    assert_eq!(decoded_value.span, value.span);
+    assert!(matches!(
+        decoded_value.initializer.kind,
+        ExprKind::Record(_)
+    ));
+}
+
+#[test]
 fn lowers_public_alias_target_leaf_spans_and_invalid_case_occurrences() {
     let module = lower_source(concat!(
         "fn parse() -> Int\n",

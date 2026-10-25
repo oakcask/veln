@@ -233,6 +233,7 @@ fn inaccessible_heads_report_lookup_failure_without_consuming_refined_coverage()
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: states.types,
+        module_values: Vec::new(),
         functions: app.functions,
         invalid_names: Vec::new(),
     };

@@ -1,0 +1,11 @@
+type State
+	Idle
+	Active(Int)
+end
+
+let example: State = Active(3)
+pub let defaults: { state: State, attempts: Int, labels: List<String> } = {
+	state: Idle,
+	attempts: 3,
+	labels: ["ready", "steady"],
+}

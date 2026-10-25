@@ -60,6 +60,7 @@ fn contract_predicate_accepts_qualified_function_value_arguments() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: main.types.into_iter().chain(rules.types).collect(),
+        module_values: Vec::new(),
         functions: main.functions.into_iter().chain(rules.functions).collect(),
         invalid_names: Vec::new(),
     };

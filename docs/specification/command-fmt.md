@@ -14,11 +14,17 @@ parse diagnostic makes the invocation fail and leaves every file unchanged.
 ## Formatting rules
 
 The formatter deterministically formats imports, function signatures, contract
-clauses, `let` statements, tail expressions, holes with `satisfy`, records,
-lists, calls, literals, paths, prefix and binary operators, postfix `?`, and
-supported binary-schema primitive compatibility spellings. Indentation is one
-tab per level: top-level items and closing `end` lines use level zero, and
-function body lines use level one.
+clauses, typed module `let` declarations, local `let` statements, tail
+expressions, holes with `satisfy`, records, lists, calls, literals, paths,
+prefix and binary operators, postfix `?`, and supported binary-schema primitive
+compatibility spellings. Indentation is one tab per level: top-level items and
+closing `end` lines use level zero, and function body lines use level one.
+
+A module `let` declaration remains at indentation zero. The formatter writes
+one space around the declaration's `:` and `=`, applies the ordinary type
+layout to its required annotation, and formats its initializer with the
+ordinary expression rules. Multiline record and list input may become one
+canonical line. Reformatting the result is idempotent.
 
 The formatter writes one space on each side of `%` and preserves its
 precedence and left associativity with `*` and `/`.
@@ -60,9 +66,11 @@ migrated.
 ## Limits and errors
 
 The parse gate applies to the complete selected set; semantic analysis is not
-a formatting gate. After that gate, files are written sequentially. A
-filesystem write error fails the command but does not roll back earlier
-successful writes.
+a formatting gate. Formatting a module `let` declaration therefore does not
+make it acceptable to `veln check` or `veln run`; those commands report that
+module values are not executable. After the parse gate, files are written
+sequentially. A filesystem write error fails the command but does not roll back
+earlier successful writes.
 
 ## References
 

@@ -169,6 +169,7 @@ pub(super) fn merge_modules(modules: Vec<SurfaceModule>) -> SurfaceModule {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: Vec::new(),
+        module_values: Vec::new(),
         functions: Vec::new(),
         invalid_names: Vec::new(),
     };

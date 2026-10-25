@@ -131,6 +131,7 @@ fn infers_import_alias_call_effects_from_function_body() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: main.types.into_iter().chain(console.types).collect(),
+        module_values: Vec::new(),
         functions: main
             .functions
             .into_iter()

@@ -45,6 +45,27 @@ valid source syntax, but it cannot supply a variant to a refinement such as
 [diagnostic contract](diagnostics-json.md#diagnostic-families) define that
 semantic boundary.
 
+### Module immutable value declarations
+
+A module item may declare a typed immutable value with
+`[pub] let name: Type = initializer`. The annotation and initializer are
+required, and the declaration has no closing `end`. The name must be one
+ordinary identifier that starts with an ASCII lowercase letter. A wildcard,
+hole name, destructuring pattern, constructor pattern, or declaration type
+parameter is rejected. Recovery preserves the next module item after any of
+these failures.
+
+The initializer uses the same expression continuation and record-literal
+syntax as expressions in function bodies. Delimited records, lists, and calls
+may therefore span lines. The formatter writes the declaration at module
+indentation and applies the ordinary canonical type and expression layout.
+
+This source surface does not make module values executable. `veln fmt` accepts
+and formats a valid declaration, while `veln check` and commands that require
+checked code report `module.value_not_executable`. Initializer admission,
+assignability, name lookup, visibility, constant construction, and code
+generation are not implemented.
+
 ### Declaration and expression inventory
 
 - Optional source-written `mod` headers, source path derived local module
@@ -55,6 +76,8 @@ semantic boundary.
   aliases, canonical `#` comments, `##`
   documentation comments, doctests, ADR-lite metadata, and manifest dependency
   metadata plus `[lib].exports` source-file exports: this page.
+- Private and public typed module immutable value declarations, including
+  multiline initializer syntax and malformed-declaration recovery: this page.
 - Expression forms, constructors, records, dictionaries, vecs, matches,
   `if` / `else if` / `else` expressions, pipelines, ordinary and variadic
   calls, function type effect rows with final `...E` tails, `perform`
@@ -416,7 +439,8 @@ IntLiteral    ::= DecimalLiteral | BinaryLiteral | HexadecimalLiteral
 DecimalLiteral ::= ASCII decimal digit+
 BinaryLiteral ::= "0b" ("0" | "1")+
 HexadecimalLiteral ::= "0x" ASCII hexadecimal digit+
-Item          ::= Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias
+Item          ::= ModuleValueDecl | Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias
+ModuleValueDecl ::= "pub"? "let" Name ":" TypeText "=" Expr NL
 Function      ::= "pub"? "fn" Name EffectBinder? "(" ParamList? ")" Return? Effects? CallsiteModifier? NL
                   Contract* Body "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL

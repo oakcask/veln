@@ -1,0 +1,14 @@
+command = ["fmt", "main.veln"]
+repeat = 2
+exit = 0
+source_errors = "expected"
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "empty"
+
+[[file_assert]]
+path = "main.veln"
+equals_file = "case-text/file-assert-equals-1.txt"

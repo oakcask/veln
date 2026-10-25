@@ -2,7 +2,7 @@ use veln_source::{SourceSpan, TextRange};
 
 use crate::{
     BodyLine, EffectDecl, Expr, ExprChildren, ExprKind, FunctionDecl, HandlerDecl, ModuleDecl,
-    PublicAliasDecl, SchemaDecl, SyntaxItem, Token, TokenKind, TypeDecl, UseDecl,
+    ModuleValueDecl, PublicAliasDecl, SchemaDecl, SyntaxItem, Token, TokenKind, TypeDecl, UseDecl,
 };
 
 #[derive(Clone, Debug)]
@@ -67,6 +67,7 @@ pub enum SyntaxNodeKind {
     ModuleDecl,
     UseDecl,
     FunctionDecl,
+    ModuleValueDecl,
     EffectDecl,
     HandlerDecl,
     HandlerOperationClause,
@@ -169,6 +170,7 @@ enum TopLevelNode<'a> {
     Module(TextRange),
     Use(TextRange),
     Function(&'a FunctionDecl),
+    ModuleValue(&'a ModuleValueDecl),
     Effect(&'a EffectDecl),
     Handler(&'a HandlerDecl),
     Type(&'a TypeDecl),
@@ -180,6 +182,7 @@ impl<'a> From<&'a SyntaxItem> for TopLevelNode<'a> {
     fn from(item: &'a SyntaxItem) -> Self {
         match item {
             SyntaxItem::Function(function) => Self::Function(function),
+            SyntaxItem::ModuleValue(value) => Self::ModuleValue(value),
             SyntaxItem::Effect(effect) => Self::Effect(effect),
             SyntaxItem::Handler(handler) => Self::Handler(handler),
             SyntaxItem::Type(type_decl) => Self::Type(type_decl),
@@ -194,6 +197,7 @@ impl TopLevelNode<'_> {
         match self {
             Self::Module(range) | Self::Use(range) => *range,
             Self::Function(function) => span_range(&function.span),
+            Self::ModuleValue(value) => span_range(&value.span),
             Self::Effect(effect) => span_range(&effect.span),
             Self::Handler(handler) => span_range(&handler.span),
             Self::Type(type_decl) => span_range(&type_decl.span),
@@ -208,6 +212,7 @@ impl TopLevelNode<'_> {
             Self::Module(_) => token_node(SyntaxNodeKind::ModuleDecl, range, tokens),
             Self::Use(_) => token_node(SyntaxNodeKind::UseDecl, range, tokens),
             Self::Function(function) => build_lossless_function(function, tokens),
+            Self::ModuleValue(_) => token_node(SyntaxNodeKind::ModuleValueDecl, range, tokens),
             Self::Effect(_) => token_node(SyntaxNodeKind::EffectDecl, range, tokens),
             Self::Handler(handler) => build_lossless_handler(handler, tokens),
             Self::Type(_) => token_node(SyntaxNodeKind::TypeDecl, range, tokens),

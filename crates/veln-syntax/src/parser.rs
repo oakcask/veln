@@ -7,13 +7,13 @@ use crate::tree::build_lossless_root;
 use crate::{
     AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
     EffectBinder, EffectDecl, EffectOperationDecl, Expr, ExprKind, FunctionDecl, FunctionKind,
-    HandlerDecl, HandlerOperationClauseDecl, IfBranch, MatchArm, ModuleDecl, Param, Pattern,
-    PatternField, PatternKind, PredicateRemainder, PrefixOp, PublicAliasDecl, PublicAliasKind,
-    RecordField, RecordFieldPath, SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause,
-    SchemaFormatClause, SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl,
-    TypePathSegments, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl,
-    UsePackage, VariantRefinementAlternative, VariantRefinementType, VariantRefinementTypeArgument,
-    Visibility, lex,
+    HandlerDecl, HandlerOperationClauseDecl, IfBranch, MatchArm, ModuleDecl, ModuleValueDecl,
+    Param, Pattern, PatternField, PatternKind, PredicateRemainder, PrefixOp, PublicAliasDecl,
+    PublicAliasKind, RecordField, RecordFieldPath, SatisfyClause, SchemaDecl, SchemaField,
+    SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SyntaxItem, SyntaxTree,
+    Token, TokenKind, TypeDecl, TypePathSegments, TypeVariantDecl, TypeVariantField,
+    TypeVariantFieldDelimiter, UseDecl, UsePackage, VariantRefinementAlternative,
+    VariantRefinementType, VariantRefinementTypeArgument, Visibility, lex,
 };
 
 mod adr_lite;

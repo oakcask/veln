@@ -239,6 +239,7 @@ fn module_with_reachable_functions(
             .collect(),
         types: inputs.cloned_declarations(|module| &module.types),
         schemas: inputs.cloned_declarations(|module| &module.schemas),
+        module_values: inputs.cloned_declarations(|module| &module.module_values),
         functions,
         invalid_names,
     }

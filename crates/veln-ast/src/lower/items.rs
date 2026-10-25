@@ -7,6 +7,7 @@ pub(super) struct LoweredItems {
     pub(super) handlers: Vec<HandlerDecl>,
     pub(super) types: Vec<TypeDecl>,
     pub(super) schemas: Vec<SchemaDecl>,
+    pub(super) module_values: Vec<ModuleValueDecl>,
     pub(super) functions: Vec<Function>,
 }
 
@@ -32,6 +33,11 @@ impl AstBuilder {
         lowered: &mut LoweredItems,
     ) {
         match item {
+            SyntaxItem::ModuleValue(value) => {
+                lowered
+                    .module_values
+                    .push(self.lower_module_value(value, module_name.clone()));
+            }
             SyntaxItem::Function(function) => {
                 self.lower_function_item(function, module_name, package_name, lowered);
             }

@@ -418,6 +418,7 @@ fn generated_format_neutral_schema_encode_helpers_accept_imported_public_refinem
         handlers: Vec::new(),
         types: wire.types,
         schemas: app.schemas,
+        module_values: Vec::new(),
         functions: app.functions,
         invalid_names: Vec::new(),
     };

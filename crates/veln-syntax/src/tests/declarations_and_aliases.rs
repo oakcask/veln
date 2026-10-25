@@ -1,6 +1,83 @@
 use super::*;
 
 #[test]
+fn parses_and_formats_typed_module_values() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "let defaults : { state : State, attempts : Int } = {\n",
+            " state: Idle,\n",
+            " attempts: 3,\n",
+            "}\n",
+            "pub let initial: State = Active(3)\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::ModuleValue(defaults) = &output.tree.items[0] else {
+        panic!("expected private module value");
+    };
+    assert_eq!(defaults.visibility, Visibility::Private);
+    assert_eq!(defaults.name.as_deref(), Some("defaults"));
+    assert_eq!(defaults.annotation, "{ state : State, attempts : Int }");
+    assert!(matches!(defaults.initializer.kind, ExprKind::Record(_)));
+    let SyntaxItem::ModuleValue(initial) = &output.tree.items[1] else {
+        panic!("expected public module value");
+    };
+    assert_eq!(initial.visibility, Visibility::Public);
+
+    let formatted = format_tree(&output.tree);
+    assert_eq!(
+        formatted,
+        concat!(
+            "let defaults: { state : State, attempts : Int } = { state: Idle, attempts: 3 }\n",
+            "\n",
+            "pub let initial: State = Active(3)\n",
+        )
+    );
+    let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
+    assert!(
+        reparsed.diagnostics.is_empty(),
+        "{:#?}",
+        reparsed.diagnostics
+    );
+    assert_eq!(format_tree(&reparsed.tree), formatted);
+}
+
+#[test]
+fn rejects_malformed_module_values_without_consuming_following_item() {
+    for declaration in [
+        "let missing = 1",
+        "let empty: = 1",
+        "let absent: Int =",
+        "let _: Int = 1",
+        "let _hidden: Int = 1",
+        "let { value: value }: Int = { value: 1 }",
+        "let Some(value): Int = Some(1)",
+        "let generic<T>: Int = 1",
+        "let Upper: Int = 1",
+    ] {
+        let source = SourceFile::new("main.veln", format!("{declaration}\nfn survivor()\nend\n"));
+        let output = parse(&source);
+        assert!(
+            output
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "parse.module_value_declaration"),
+            "{declaration}: {:#?}",
+            output.diagnostics
+        );
+        assert!(matches!(
+            output.tree.items.last(),
+            Some(SyntaxItem::Function(function))
+                if function.name.as_deref() == Some("survivor")
+        ));
+    }
+}
+
+#[test]
 fn parses_minimal_public_function() {
     let source = SourceFile::new(
         "main.veln",
@@ -434,6 +511,7 @@ fn dispatches_mixed_public_and_private_top_level_declarations_in_source_order() 
                 FunctionKind::Function => "function",
                 FunctionKind::Test => "test",
             },
+            SyntaxItem::ModuleValue(_) => "module_value",
             SyntaxItem::Type(_) => "type",
             SyntaxItem::Schema(_) => "schema",
             SyntaxItem::Effect(_) => "effect",

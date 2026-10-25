@@ -1,0 +1,26 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["module.value_not_executable", "module value declaration `answer` is not executable", "The declaration is available to parsing and formatting, but semantic analysis and code generation do not support module values yet."]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "module.value_not_executable"
+severity = "error"
+kind = "module"
+
+[[json_assert]]
+path = "diagnostics.0.details.field"
+equals = "module_value"
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "answer"

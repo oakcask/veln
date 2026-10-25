@@ -348,6 +348,7 @@ pub(super) fn syntax_item_span(item: &SyntaxItem) -> TextRange {
         SyntaxItem::Type(type_decl) => &type_decl.span,
         SyntaxItem::Schema(schema) => &schema.span,
         SyntaxItem::Function(function) => &function.span,
+        SyntaxItem::ModuleValue(value) => &value.span,
     };
     TextRange::new(span.start.offset, span.end.offset)
 }

@@ -41,6 +41,9 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
         }
         match item {
             SyntaxItem::Function(function) => format_function(&mut out, &comments, function),
+            SyntaxItem::ModuleValue(value) => {
+                format_module_value(&mut out, &comments, value);
+            }
             SyntaxItem::Effect(effect) => format_effect_decl(&mut out, &comments, effect),
             SyntaxItem::Handler(handler) => format_handler_decl(&mut out, &comments, handler),
             SyntaxItem::Type(type_decl) => format_type_decl(&mut out, &comments, type_decl),
@@ -65,6 +68,24 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
         out.push('\n');
     }
     out
+}
+
+fn format_module_value(out: &mut String, comments: &LineComments, value: &crate::ModuleValueDecl) {
+    let mut line = String::new();
+    if value.visibility == Visibility::Public {
+        line.push_str("pub ");
+    }
+    line.push_str("let ");
+    line.push_str(value.name.as_deref().unwrap_or("<missing>"));
+    line.push_str(": ");
+    line.push_str(&canonical_type_text(&value.annotation));
+    line.push_str(" = ");
+    line.push_str(&format_expr_at_indent_with_comments(
+        &value.initializer,
+        0,
+        comments,
+    ));
+    push_source_line(out, comments, value.span.start.line, 0, line);
 }
 
 fn format_effect_decl(out: &mut String, comments: &LineComments, effect: &crate::EffectDecl) {

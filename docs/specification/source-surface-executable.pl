@@ -115,7 +115,8 @@ grammar_line(47, "IntLiteral    ::= DecimalLiteral | BinaryLiteral | Hexadecimal
 grammar_line(47, "DecimalLiteral ::= ASCII decimal digit+").
 grammar_line(47, "BinaryLiteral ::= \"0b\" (\"0\" | \"1\")+").
 grammar_line(47, "HexadecimalLiteral ::= \"0x\" ASCII hexadecimal digit+").
-grammar_line(50, "Item          ::= Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias").
+grammar_line(50, "Item          ::= ModuleValueDecl | Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias").
+grammar_line(55, "ModuleValueDecl ::= \"pub\"? \"let\" Name \":\" TypeText \"=\" Expr NL").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name EffectBinder? \"(\" ParamList? \")\" Return? Effects? CallsiteModifier? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
@@ -432,6 +433,17 @@ item --> nls, handler_decl.
 item --> nls, type_decl.
 item --> nls, schema_decl.
 item --> nls, public_alias.
+item --> nls, module_value_decl.
+
+module_value_decl -->
+    visibility,
+    tok(let),
+    ident,
+    tok(colon),
+    type_text_until([equal]),
+    tok(equal),
+    expr,
+    nl.
 
 function_decl -->
     visibility,
@@ -1145,7 +1157,7 @@ type_arg --> type_text_until([comma, greater]).
 field_suffix --> tok(dot), ident.
 
 record_or_dict --> tok(lbrace), nls, tok(rbrace).
-record_or_dict --> tok(lbrace), nls, entry, nls, entries_tail, trailing_comma_opt, tok(rbrace).
+record_or_dict --> tok(lbrace), nls, entry, nls, entries_tail, trailing_comma_opt, nls, tok(rbrace).
 entries_tail --> tok(comma), nls, entry, nls, !, entries_tail.
 entries_tail --> [].
 entry --> field_name, tok(colon), expr.
