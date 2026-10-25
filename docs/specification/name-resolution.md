@@ -44,6 +44,12 @@ duplicate or otherwise ambiguous exact path remains unresolved and never falls
 back to a qualifier. Duplicate target paths and colliding qualifiers do not
 contribute bare or qualifier lookup candidates.
 
+For a package import such as `use util as first from "pkg_a"`, `util` remains
+the exact source-written path and `first` is its local qualifier. Both routes
+select the package module identity. The loader's canonical identity
+`pkg_a::util` does not become a third source route. This rule applies uniformly
+to value, type, constructor, pattern, schema, effect, and handler lookup.
+
 Distinct package origins may import the same written path under distinct
 explicit aliases. Each alias selects its own package identity. The shared exact
 written path is ambiguous and does not fall through to either alias.
