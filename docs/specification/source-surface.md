@@ -121,6 +121,11 @@ retains every source token. At most 128 `begin` and `defer` cleanup forms may be
 nested in total; both forms share this limit. The next level reports
 `parse.cleanup_nesting_limit` without aborting lossless-tree construction.
 
+After a missing cleanup `end`, a following private or public typed module
+`let` remains a separate module item. After a properly closed cleanup region,
+a following typed or untyped local `let` remains in the enclosing function or
+test body instead of being promoted to a module item.
+
 The [type rules](types.md#inference-rules), [effect boundary](effects.md#effect-labels),
 and [binding visibility](name-resolution.md#value-calls-and-shadowing) are
 specified by their focused pages. Formatter behavior is specified by the

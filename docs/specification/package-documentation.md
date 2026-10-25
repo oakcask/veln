@@ -138,10 +138,15 @@ are eligible for the package-atomic failure even when their primary spans are
 in non-exported sources.
 
 The catalog excludes non-exported modules, private declarations, handler
-operation clauses and bodies, exact test companions, integration-test sources,
-hidden doctest setup lines, ADR-lite records, raw manifests, dependency
-declarations, dependency selectors, local paths, repository and homepage URLs,
-tool metadata, unknown manifest fields, and environment-derived values.
+operation clauses and bodies, module immutable value declarations, exact test
+companions, integration-test sources, hidden doctest setup lines, ADR-lite
+records, raw manifests, dependency declarations, dependency selectors, local
+paths, repository and homepage URLs, tool metadata, unknown manifest fields,
+and environment-derived values. A direct successful `PackageDocResult` has no
+declaration or lookup URI for a module immutable value. The `veln doc` command
+runs project analysis before package-documentation generation and instead
+fails with `module.value_not_executable` when its selected sources contain one.
+
 Published expected-output fences preserve the stream as `stdout` or `stderr`
 and the complete lines for that stream.
 
