@@ -147,12 +147,12 @@ fn partial_source_analysis_uses_source_kind_aware_excluded_identities() {
             })
             .collect::<Vec<_>>(),
         [
-            ("name.invalid_case", Some("App.veln"), Some("regular")),
             (
                 "name.invalid_case",
                 Some("App.test.veln"),
                 Some("companion")
-            )
+            ),
+            ("name.invalid_case", Some("App.veln"), Some("regular"))
         ]
     );
     assert_eq!(
