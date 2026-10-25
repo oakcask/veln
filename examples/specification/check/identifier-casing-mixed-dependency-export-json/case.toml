@@ -60,7 +60,7 @@ message = "external module `App` is not exported by package `github.com/oakcask/
 [diagnostics.span]
 file = "main.veln"
 line = 1
-column = 1
+column = 5
 
 [[diagnostics]]
 id = "name.invalid_case"

@@ -30,4 +30,4 @@ equals = "name.duplicate"
 
 [[json_assert]]
 path = "diagnostics.2.message"
-equals = "duplicate import alias name `HTTP`"
+equals = "duplicate import path name `HTTP`"

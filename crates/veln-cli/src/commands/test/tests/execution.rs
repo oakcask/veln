@@ -147,39 +147,39 @@ fn production_paths_report_mixed_case_outcomes_in_discovered_order() {
 
     assert_eq!(
         case_names_of(&records),
-        ["pass", "fail", "blocked", "runner", "doctest_1"]
+        ["doctest_1", "pass", "fail", "blocked", "runner"]
     );
+    assert_eq!(records[0].kind, "doctest");
     assert_eq!(records[0].status, TestCaseStatus::Passed);
-    assert_stdout_event(&records[0], "pass out");
-    assert_eq!(records[1].status, TestCaseStatus::Failed);
+    assert_stdio_event(&records[0], "stdout", "doctest out");
+    assert_eq!(records[1].status, TestCaseStatus::Passed);
+    assert_stdout_event(&records[1], "pass out");
+    assert_eq!(records[2].status, TestCaseStatus::Failed);
     assert_eq!(
-        records[1]
+        records[2]
             .failure
             .as_ref()
             .map(|failure| failure.kind.as_str()),
         Some("result")
     );
-    assert_eq!(records[2].status, TestCaseStatus::Blocked);
-    assert_eq!(records[2].reason.as_deref(), Some("static_gate"));
+    assert_eq!(records[3].status, TestCaseStatus::Blocked);
+    assert_eq!(records[3].reason.as_deref(), Some("static_gate"));
     assert!(
-        records[2]
+        records[3]
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.id == "hole.unfilled"),
         "blocked case should carry per-case lowering diagnostics"
     );
-    assert_eq!(records[3].status, TestCaseStatus::Error);
-    assert_eq!(records[3].reason.as_deref(), Some("runner_error"));
+    assert_eq!(records[4].status, TestCaseStatus::Error);
+    assert_eq!(records[4].reason.as_deref(), Some("runner_error"));
     assert_eq!(
-        records[3]
+        records[4]
             .failure
             .as_ref()
             .map(|failure| failure.message.as_str()),
         Some("injected runner tool error")
     );
-    assert_eq!(records[4].kind, "doctest");
-    assert_eq!(records[4].status, TestCaseStatus::Passed);
-    assert_stdio_event(&records[4], "stdout", "doctest out");
 }
 
 #[test]
