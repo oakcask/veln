@@ -164,7 +164,8 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
     let mut diagnostics = Vec::new();
     let mut seen_targets =
         BTreeMap::<(Option<String>, String, Option<String>), (String, SourceSpan)>::new();
-    let mut seen_qualifiers = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
+    let mut seen_qualifiers =
+        BTreeMap::<(Option<String>, String), (String, SourceSpan, bool)>::new();
 
     for use_decl in module
         .uses
@@ -194,11 +195,12 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
             seen_targets.insert(target_key, (node_id.clone(), use_decl.target_span()));
         }
         let same_origin = match (&target_origin, &qualifier_origin) {
-            (Some((target_node, _)), Some((qualifier_node, _))) => target_node == qualifier_node,
+            (Some((target_node, _)), Some((qualifier_node, _, _))) => target_node == qualifier_node,
             _ => false,
         };
-        if let Some((first_node_id, first_span)) = &qualifier_origin
+        if let Some((first_node_id, first_span, first_explicit_alias)) = &qualifier_origin
             && !same_origin
+            && (use_decl.explicit_alias || *first_explicit_alias)
         {
             diagnostics.push(duplicate_name_diagnostic(
                 &use_decl.alias,
@@ -210,7 +212,10 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
                 first_span,
             ));
         } else if qualifier_origin.is_none() {
-            seen_qualifiers.insert(qualifier_key, (node_id, use_decl.qualifier_span()));
+            seen_qualifiers.insert(
+                qualifier_key,
+                (node_id, use_decl.qualifier_span(), use_decl.explicit_alias),
+            );
         }
     }
 

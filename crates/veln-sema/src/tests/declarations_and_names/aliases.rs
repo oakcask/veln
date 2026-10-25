@@ -116,6 +116,32 @@ fn duplicate_use_aliases_are_static_errors() {
 }
 
 #[test]
+fn unaliased_imports_with_colliding_leaf_names_remain_valid() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app\n",
+            "use transport::net\n",
+            "use net\n",
+            "fn main() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.duplicate"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn duplicate_use_aliases_are_scoped_to_declaring_module() {
     let first_source = SourceFile::new(
         "first.veln",

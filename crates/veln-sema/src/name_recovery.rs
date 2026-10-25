@@ -265,7 +265,7 @@ pub(crate) fn use_decl_matches_exact_import_path(
     if use_decl.module_name.as_deref() != current_module {
         return false;
     }
-    if use_decl.written_name == module_path {
+    if use_decl.written_name == module_path || use_decl.name == module_path {
         return true;
     }
     if use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
