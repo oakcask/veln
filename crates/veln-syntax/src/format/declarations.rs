@@ -15,10 +15,24 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
     let tree = &structured_tree;
 
     let mut out = String::new();
+    format_module_header_and_uses(&mut out, &comments, tree);
+    format_items(&mut out, &comments, &tree.items);
+
+    if !comments.all_emitted() {
+        return lossless_text(tree);
+    }
+
+    if !out.is_empty() && !out.ends_with('\n') {
+        out.push('\n');
+    }
+    out
+}
+
+fn format_module_header_and_uses(out: &mut String, comments: &LineComments, tree: &SyntaxTree) {
     if let Some(module) = &tree.module {
         push_source_line(
-            &mut out,
-            &comments,
+            out,
+            comments,
             module.span.start.line,
             0,
             format!("mod {}", module.name),
@@ -29,45 +43,32 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
             Some(package) => format!("use {} from \"{}\"", use_decl.name, package.name),
             None => format!("use {}", use_decl.name),
         };
-        push_source_line(&mut out, &comments, use_decl.span.start.line, 0, source);
+        push_source_line(out, comments, use_decl.span.start.line, 0, source);
     }
     if (tree.module.is_some() || !tree.uses.is_empty()) && !tree.items.is_empty() {
         out.push('\n');
     }
+}
 
-    for (index, item) in tree.items.iter().enumerate() {
+fn format_items(out: &mut String, comments: &LineComments, items: &[SyntaxItem]) {
+    for (index, item) in items.iter().enumerate() {
         if index > 0 {
             out.push('\n');
         }
         match item {
-            SyntaxItem::Function(function) => format_function(&mut out, &comments, function),
+            SyntaxItem::Function(function) => format_function(out, comments, function),
             SyntaxItem::ModuleValue(value) => {
-                format_module_value(&mut out, &comments, value);
+                format_module_value(out, comments, value);
             }
-            SyntaxItem::Effect(effect) => format_effect_decl(&mut out, &comments, effect),
-            SyntaxItem::Handler(handler) => format_handler_decl(&mut out, &comments, handler),
-            SyntaxItem::Type(type_decl) => format_type_decl(&mut out, &comments, type_decl),
-            SyntaxItem::Schema(schema) => format_schema_decl(&mut out, &comments, schema),
+            SyntaxItem::Effect(effect) => format_effect_decl(out, comments, effect),
+            SyntaxItem::Handler(handler) => format_handler_decl(out, comments, handler),
+            SyntaxItem::Type(type_decl) => format_type_decl(out, comments, type_decl),
+            SyntaxItem::Schema(schema) => format_schema_decl(out, comments, schema),
             SyntaxItem::PublicAlias(alias) => {
-                push_source_line(
-                    &mut out,
-                    &comments,
-                    alias.span.start.line,
-                    0,
-                    format_alias(alias),
-                );
+                push_source_line(out, comments, alias.span.start.line, 0, format_alias(alias));
             }
         }
     }
-
-    if !comments.all_emitted() {
-        return lossless_text(tree);
-    }
-
-    if !out.is_empty() && !out.ends_with('\n') {
-        out.push('\n');
-    }
-    out
 }
 
 fn format_module_value(out: &mut String, comments: &LineComments, value: &crate::ModuleValueDecl) {
