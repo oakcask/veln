@@ -46,17 +46,21 @@ boundary.
 ## Analysis gates
 
 Parse diagnostics suppress semantic diagnostics for that file unless every
-parse diagnostic is the recoverable ASCII-lowercase final-segment error for a
-structurally complete variant refinement. In that case, `check` reports the
-parse diagnostic and independently provable semantic diagnostics without
-accepting the annotation. A parse-clean non-generic path with lowercase base
-and final segments follows the same output contract when unique
-initial-only base recovery selects its refinement interpretation; `check`
-inserts the parse diagnostic before casing and type diagnostics. Any unrelated
-parse diagnostic restores the file-level suppression. Other eligible files may
-still report semantic errors.
-The [source-surface specification](source-surface.md#variant-refinement-shaped-type-text)
-defines the recoverable syntax boundary, and the
+parse diagnostic belongs to a recoverable import declaration or is the
+recoverable ASCII-lowercase final-segment error for a structurally complete
+variant refinement. A recovered import remains quarantined from lookup. The
+rest of the file remains eligible for independently provable semantic
+diagnostics. A recoverable refinement diagnostic is reported with those
+semantic diagnostics without accepting the annotation. A parse-clean
+non-generic path with lowercase base and final segments follows the same output
+contract when unique initial-only base recovery selects its refinement
+interpretation; `check` inserts the parse diagnostic before casing and type
+diagnostics. Any other parse diagnostic restores file-level suppression. Other
+eligible files may still report semantic errors.
+The [source-surface specification](source-surface.md#usage-and-declaration-forms)
+defines import recovery, the
+[variant-refinement section](source-surface.md#variant-refinement-shaped-type-text)
+defines refinement recovery, and the
 [diagnostic specification](diagnostics-json.md#diagnostic-families)
 defines the overlap and ordering. Cross-file imports and qualified calls from
 analyzed files participate in the same analysis path as `run` and `test`.

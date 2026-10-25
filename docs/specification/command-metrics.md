@@ -26,9 +26,10 @@ is produced only when every source error is a source-path-derived
 `name.invalid_case` or an unresolved import caused by excluding that identity.
 The report retains those diagnostics and excluded project-relative paths, omits
 excluded identities from graph records and graph summaries, and exits
-unsuccessfully. Parse-clean excluded sources remain eligible for explicitly
-selected ABC and similarity subjects. Other source errors produce the ordinary
-diagnostic envelope and no metrics report.
+unsuccessfully. Retained cross-source diagnostics use lexical source-path
+order. Parse-clean excluded sources remain eligible for explicitly selected ABC
+and similarity subjects. Other source errors produce the ordinary diagnostic
+envelope and no metrics report.
 
 ## Policies and baselines
 

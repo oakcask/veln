@@ -673,6 +673,10 @@ not become fallback targets.
 
 - Name and import analysis: `crates/veln-analysis/src/surface/` and
   `crates/veln-sema/src/name_recovery.rs`.
+- Checked explicit-import resolution across calls, types, constructors,
+  patterns, schemas, effects, handlers, and exact written paths:
+  `examples/specification/check/explicit-import-alias-resolution/` and
+  `examples/specification/run/explicit-import-alias-carriers/`.
 - Unqualified ADT import lookup:
   `crates/veln-sema/src/adt/tests/variant_lookup.rs`.
 - Deferred binding visibility:

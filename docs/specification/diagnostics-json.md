@@ -66,8 +66,12 @@ alias token when one is written.
 Within an import, parse diagnostics precede casing diagnostics. Reserved and
 duplicate facts follow casing. Across sources belonging to the same module,
 diagnostics use lexical source-path order and token order rather than source
-discovery order. A syntax-recovered import supplies no lookup candidate, but a
-following declaration remains eligible for semantic diagnostics.
+discovery order. The checked
+[`explicit-import-alias-diagnostics-json`](../../examples/specification/check/explicit-import-alias-diagnostics-json/)
+case fixes these alias spans, casing and namespace details, duplicate-origin
+related span, ordering, and diagnostic count. A syntax-recovered import
+supplies no lookup candidate, but a following declaration remains eligible for
+semantic diagnostics.
 
 An unresolved call target that uses one of the
 [removed compiler-known network spellings](name-resolution.md#removed-network-call-spellings)

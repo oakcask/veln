@@ -24,11 +24,20 @@ validation.
 doctest creation when requested, parse diagnostics, module loading, semantic
 diagnostics, checked-core readiness, and selected-entry typed-IR readiness.
 Selection, output, execution, and write policy remain command specific.
+The shared loader orders selected source paths lexically before parsing, so
+source discovery order does not change analysis outcomes or cross-source
+diagnostic order.
 
 A source with a non-recoverable parse diagnostic is excluded from semantic
-analysis. The [source-surface specification](source-surface.md#variant-refinement-shaped-type-text)
-defines the recoverable syntax boundary. Other eligible sources in the same
-project can still proceed to semantic analysis.
+analysis. Recoverable import diagnostics preserve the rest of the source for
+analysis while the recovered import remains quarantined. Recoverable
+variant-refinement diagnostics preserve the selected identity for independent
+checks without accepting the annotation. The
+[source-surface specification](source-surface.md#usage-and-declaration-forms)
+defines import recovery, and its
+[variant-refinement section](source-surface.md#variant-refinement-shaped-type-text)
+defines refinement recovery. Other eligible sources in the same project can
+still proceed to semantic analysis.
 
 Shared semantic analysis keeps unambiguous type and constructor identities for
 recovery, but it does not publish a public function or ADT whose signature
