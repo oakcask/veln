@@ -53,9 +53,10 @@ required, and the declaration has no closing `end`. A physical newline or the
 end of the source terminates the declaration. A following module item requires
 a physical newline. The name must be one ordinary identifier that starts with
 an ASCII lowercase letter. Contextual and reserved spellings, including
-`callsite`, `handle`, and `handler`, are rejected. A wildcard, hole name,
-destructuring pattern, constructor pattern, or declaration type parameter is
-rejected. Recovery preserves the next module item after any of these failures.
+`callsite`, `handle`, `handler`, `true`, and `false`, are rejected. A wildcard,
+hole name, destructuring pattern, constructor pattern, or declaration type
+parameter is rejected. Recovery preserves the next module item after any of
+these failures.
 
 The initializer uses the same expression continuation and record-literal
 syntax as expressions in function bodies. Delimited records, lists, and calls

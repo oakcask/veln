@@ -1,0 +1,2 @@
+let false: Bool = true
+let survivor: Bool = false

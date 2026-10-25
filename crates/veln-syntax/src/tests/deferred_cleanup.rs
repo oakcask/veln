@@ -744,6 +744,38 @@ fn complete_cleanup_end_keeps_following_local_let_in_the_function() {
 }
 
 #[test]
+fn complete_cleanup_keeps_boolean_literal_local_patterns_in_the_function() {
+    for (pattern, initializer) in [("true", "false"), ("false", "true")] {
+        let source = SourceFile::new(
+            "cleanup.veln",
+            format!(
+                "fn complete() -> Bool\n defer\n  release()\n end\n let {pattern}: Bool = {initializer}\n {initializer}\nend\n"
+            ),
+        );
+        let expected_token_count = lex(&source).tokens.len();
+
+        let output = parse(&source);
+
+        assert!(
+            output.diagnostics.is_empty(),
+            "{pattern}: {:#?}",
+            output.diagnostics
+        );
+        assert_eq!(output.tree.items.len(), 1, "{pattern}");
+        let SyntaxItem::Function(function) = &output.tree.items[0] else {
+            panic!("expected function for {pattern}");
+        };
+        assert!(function.end_present, "{pattern}");
+        assert!(matches!(
+            &function.body[1],
+            BodyLine::Let { pattern: actual, .. }
+                if matches!(actual.kind, PatternKind::BoolLiteral(_))
+        ));
+        assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+    }
+}
+
+#[test]
 fn complete_cleanup_keeps_typed_local_with_unterminated_block_initializer() {
     let source = SourceFile::new(
         "cleanup.veln",

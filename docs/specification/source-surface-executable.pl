@@ -973,7 +973,12 @@ named_adt_base -->
     named_adt_base.
 
 ascii_upper_name --> identifier_text(Text), { ascii_upper_text(Text) }.
-module_binding_name --> [t(ident, Text)], { ascii_lower_text(Text) }.
+module_binding_name --> [t(ident, Text)], { ordinary_module_binding_text(Text) }.
+
+ordinary_module_binding_text(Text) :-
+    ascii_lower_text(Text),
+    Text \= "true",
+    Text \= "false".
 
 variant_type_arguments -->
     tok(less),

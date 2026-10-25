@@ -220,6 +220,9 @@ impl<'a> Parser<'a> {
         if self.at(TokenKind::Ident) {
             let token = self.bump();
             let span = self.source.span(token.range);
+            if is_module_value_name(&token) {
+                return (Some(token.text), Some(span));
+            }
             if !token
                 .text
                 .as_bytes()
@@ -239,8 +242,22 @@ impl<'a> Parser<'a> {
                         repair_candidates: Vec::new(),
                     },
                 );
+                return (Some(token.text), Some(span));
             }
-            return (Some(token.text), Some(span));
+            self.error_at_token(
+                &token,
+                DiagnosticRequest {
+                    id: "parse.module_value_declaration",
+                    message: "module value declaration requires one lowercase value identifier"
+                        .to_string(),
+                    parser_context: "module_value_declaration",
+                    expected: vec!["lowercase value identifier"],
+                    strategy: RecoveryStrategy::SkipToken,
+                    anchor: Some(":"),
+                    repair_candidates: Vec::new(),
+                },
+            );
+            return (None, None);
         }
 
         self.error_current(
@@ -478,13 +495,7 @@ impl<'a> Parser<'a> {
         cursor += 1;
 
         let name = self.tokens.get(cursor)?;
-        if name.kind != TokenKind::Ident
-            || !name
-                .text
-                .as_bytes()
-                .first()
-                .is_some_and(u8::is_ascii_lowercase)
-        {
+        if !is_module_value_name(name) {
             return None;
         }
         cursor += 1;
@@ -914,4 +925,15 @@ impl<'a> Parser<'a> {
         }
         params
     }
+}
+
+fn is_module_value_name(token: &Token) -> bool {
+    token.kind == TokenKind::Ident
+        && token
+            .text
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_lowercase)
+        && token.text != crate::TRUE_LITERAL
+        && token.text != crate::FALSE_LITERAL
 }

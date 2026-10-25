@@ -120,6 +120,8 @@ fn module_value_names_require_an_ordinary_identifier() {
         ("handle", Visibility::Private),
         ("handler", Visibility::Public),
         ("callsite", Visibility::Private),
+        ("true", Visibility::Public),
+        ("false", Visibility::Private),
     ] {
         let following_prefix = if following_visibility == Visibility::Public {
             "pub "

@@ -1,0 +1,2 @@
+let true: Bool = false
+pub let survivor: Bool = true
