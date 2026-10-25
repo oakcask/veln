@@ -121,8 +121,13 @@ retains every source token. At most 128 `begin` and `defer` cleanup forms may be
 nested in total; both forms share this limit. The next level reports
 `parse.cleanup_nesting_limit` without aborting lossless-tree construction.
 
-After a missing cleanup `end`, a following private or public typed module
-`let` remains a separate module item. A malformed public module `let` candidate
+After a missing cleanup `end`, recovery preserves a following private typed
+module `let` as a separate item regardless of indentation when its initializer
+is followed by another top-level item or reaches the end of the source without
+just closing a block. A private typed `let` remains local when its initializer
+is followed by the enclosing declaration's `end`, or when the source ends
+immediately after the initializer closes a block. A following public typed
+module `let` remains a separate item. A malformed public module `let` candidate
 also remains a separate item, reports its own declaration diagnostic, and does
 not consume the next module item. After a properly closed cleanup region, a
 following typed or untyped local `let` remains in the enclosing function or
