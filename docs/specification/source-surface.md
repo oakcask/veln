@@ -122,8 +122,10 @@ nested in total; both forms share this limit. The next level reports
 `parse.cleanup_nesting_limit` without aborting lossless-tree construction.
 
 After a missing cleanup `end`, a following private or public typed module
-`let` remains a separate module item. After a properly closed cleanup region,
-a following typed or untyped local `let` remains in the enclosing function or
+`let` remains a separate module item. A malformed public module `let` candidate
+also remains a separate item, reports its own declaration diagnostic, and does
+not consume the next module item. After a properly closed cleanup region, a
+following typed or untyped local `let` remains in the enclosing function or
 test body instead of being promoted to a module item.
 
 The [type rules](types.md#inference-rules), [effect boundary](effects.md#effect-labels),

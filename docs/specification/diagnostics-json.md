@@ -83,7 +83,10 @@ declaration. An unterminated `begin` or `defer` reports
 delimiter does not consume an enclosing declaration's closing `end`, an
 enclosing `if` expression's following `else` branch, or an enclosing `match`
 expression's following arm. It does not merge a following top-level
-declaration into the failed body.
+declaration into the failed body. If that declaration is a malformed public
+module `let`, output retains both the cleanup diagnostic and
+`parse.module_value_declaration`; recovery also preserves the next top-level
+declaration.
 
 A handler declaration with `handles` followed by another identifier that can
 start its effect target reports `parse.expected_token` at the first `handles`.
