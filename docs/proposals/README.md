@@ -36,6 +36,10 @@ also states it.
 
 ## Design In Progress
 
+- Lightweight task execution using JVM virtual threads; Java requirements,
+  entry lifetime, scheduling guarantees, and resource budgets remain open:
+  [lightweight-tasks.md](lightweight-tasks.md). Resolve its Open Questions
+  before implementation selection.
 - Portable filesystem paths, shared byte IO, seek, provider ownership, and
   scoped fake filesystems; source API and lifecycle questions remain open:
   [filesystem-io.md](filesystem-io.md). Resolve its Open Questions before
