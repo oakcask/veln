@@ -138,13 +138,17 @@ full-written-path candidate, or bare export candidate to normal lookup.
 Casing errors in the path quarantine the entire import in the same way.
 
 The invalid spelling still participates in independent collision and target
-checks. Recovery may suppress a derivative unresolved-use, type-origin,
-constructor-arity, exhaustiveness, unknown-effect, or unknown-handler error
-only when the existing quarantine proof establishes one matching target
-export and proves that invalid casing is the sole failure. It does not restore
-normal lookup or executable readiness. A valid competing candidate wins over
-recovery. Missing modules, missing or private exports, wrong kinds, and
-ambiguous recovery retain their own diagnostics.
+checks. If a valid declaration and an invalid-cased declaration import the same
+target from the same origin, neither declaration supplies a normal exact-path,
+qualifier, or bare route. Semantic lookup and reachability apply that target
+collision in either declaration order. An independent non-colliding exact path
+remains eligible. Recovery may suppress a derivative unresolved-use,
+type-origin, constructor-arity, exhaustiveness, unknown-effect, or
+unknown-handler error only when the existing quarantine proof establishes one
+matching target export and proves that invalid casing is the sole failure. It
+does not restore normal lookup or executable readiness. A valid competing
+candidate wins over recovery. Missing modules, missing or private exports,
+wrong kinds, and ambiguous recovery retain their own diagnostics.
 
 For parser recovery, retain the target path, package source when parseable,
 and any identifier-shaped alias token with its span. Missing aliases report a
@@ -226,7 +230,7 @@ the independent expected results.
 | A3 | Alias qualifier, full written path, old leaf, and single-segment target | Alias and existing full-path rules work; no old implicit leaf is added; single-segment exact path remains distinguishable. | Check cases with exact selected identities and negative lookup assertions. |
 | A4 | Same explicit qualifier on different imports; explicit-to-implicit collision; two unaliased paths with the same implicit leaf; repeated target with different aliases; same path from distinct origins | Explicit-involved duplicate and ambiguity rules match the table in either import order; implicit-only collisions retain accepted declarations, unresolved implicit lookup, and eligible exact paths; no member-based fallback. | Ordered JSON and human diagnostics, accepted unaliased check and exact-path cases, plus origin-aware resolution cases. |
 | A5 | Explicit `prelude`, aliased target leaf `prelude`, and same-spelled non-import declaration | Reserved qualifier rejected; independent target restrictions retained; separate namespaces accepted. | Compiler diagnostic and namespace cases. |
-| A6 | Uppercase and underscore-led alias; invalid path plus valid alias; duplicate overlap | Exact casing fields and token spans; atomic quarantine; independent errors retained in deterministic order. | Human/JSON casing and overlap cases. |
+| A6 | Uppercase and underscore-led alias; invalid path plus valid alias; mixed invalid/valid repeated target in both declaration orders | Exact casing fields and token spans; atomic quarantine; independent errors retained in deterministic order; neither repeated target enters semantic lookup or reachability; an independent exact route remains eligible. | Human/JSON casing and overlap cases, direct semantic selection, reachable-set cases, and a non-colliding exact-path control. |
 | A7 | Invalid alias used for valid, missing, private, or wrong-kind members | Only proven derivative cascades suppressed; independent failures remain; no executable readiness through recovery. | Recovery and checked-artifact cases. |
 | A8 | Each malformed-import row followed by a valid declaration | Parse error at the offending token/boundary; following declaration retained; no implicit or partial import installed. | Parser recovery and rejected executable-grammar fixtures. |
 | A9 | Alias used across value, type, constructor, schema, effect, and handler carriers | Same target identities, visibility, effects, and reachable code as valid original qualification. | Compiler carrier matrix and representative runtime call/handler cases. |
@@ -240,5 +244,6 @@ These are compiler and source-tool contracts, not standard-library API tests.
 Run the focused suites through the guarded test runner. Update the current
 name-resolution, source grammar, diagnostics, and relevant tooling
 specifications only when their executable evidence passes. Then remove this
-proposal and its catalog entry. No repository-wide source migration is needed
-before the new syntax exists.
+proposal and its catalog entry. Also update any active proposal dependency that
+still describes the implemented compiler alias syntax as future work. No
+repository-wide source migration is needed before the new syntax exists.
