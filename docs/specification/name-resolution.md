@@ -580,11 +580,12 @@ zero-based `segment_index`. The `source_kind` value is `regular`,
 `export`, `companion`, `doctest`, or `generated`. A source with an invalid
 origin segment is not registered as a normal derived module identity.
 Source-path casing validation still runs for selected regular and companion
-sources that also have parse diagnostics. A source whose only parse diagnostics
-are recoverable ASCII-lowercase variant-refinement final segments is lowered
-and registered under its valid derived module identity for semantic diagnostic
-recovery. The invalid annotation remains an error. Any unrelated parse
-diagnostic prevents lowering and normal module registration. A rejected
+sources that also have parse diagnostics. A source whose parse diagnostics are
+limited to recoverable import declarations and ASCII-lowercase
+variant-refinement final segments is lowered and registered under its valid
+derived module identity for semantic diagnostic recovery. A recovered import
+remains quarantined, and an invalid annotation remains an error. Any other
+parse diagnostic prevents lowering and normal module registration. A rejected
 derived-module identity is recorded only when visible module derivation itself
 fails solely with source-path `name.invalid_case` diagnostics. A source
 excluded by an unrelated parse diagnostic whose source path casing is accepted

@@ -200,8 +200,9 @@ A structurally complete refinement whose final segment starts with an ASCII
 lowercase letter also retains its refinement metadata for semantic diagnostic
 recovery. The lowercase segment remains rejected syntax, including when the
 base has type arguments, and recovery cannot make the annotation valid. If the
-same source has any unrelated parse diagnostic, that source remains excluded
-from semantic analysis. A resolution-dependent non-generic lowercase candidate
+same source has any unrelated parse diagnostic outside recoverable import
+declarations, that source remains excluded from semantic analysis. A
+resolution-dependent non-generic lowercase candidate
 uses the delayed diagnostic boundary described above instead of a parser
 diagnostic. A final segment whose initial is neither ASCII uppercase nor ASCII
 lowercase, such as `_ready`, reports the parser diagnostic without retaining
