@@ -166,6 +166,8 @@ pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
                 && !(use_decl.origin == veln_ast::UseOrigin::Source
                     && use_decl.explicit_alias
                     && use_decl.alias == "prelude")
+                && (!collisions.contains_target(use_decl)
+                    || duplicate_target_blocks_competing_qualifier(module, use_decl, &collisions))
         })
         .map(|use_decl| {
             let mut resolved = resolved_import_use_decl(use_decl);
@@ -178,6 +180,24 @@ pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
             resolved
         })
         .collect()
+}
+
+fn duplicate_target_blocks_competing_qualifier(
+    module: &SurfaceModule,
+    duplicate: &UseDecl,
+    collisions: &ImportCollisionIndex,
+) -> bool {
+    module.uses.iter().any(|candidate| {
+        candidate.module_name == duplicate.module_name
+            && !candidate.syntax_recovered
+            && !use_decl_has_invalid_casing(module, candidate)
+            && !(candidate.origin == veln_ast::UseOrigin::Source
+                && candidate.explicit_alias
+                && candidate.alias == "prelude")
+            && !collisions.contains_target(candidate)
+            && !collisions.contains_qualifier(candidate)
+            && simple_import_alias_matches(candidate, &duplicate.written_name)
+    })
 }
 
 pub(crate) fn resolved_import_use_decl(use_decl: &UseDecl) -> UseDecl {
@@ -384,6 +404,17 @@ pub(crate) fn use_decl_matches_exact_import_path(
         return false;
     }
     if use_decl.written_name == module_path {
+        return true;
+    }
+    if use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+        && use_decl.name == module_path
+    {
+        return true;
+    }
+    if use_decl.package.is_none()
+        && current_module.is_some_and(|module| module.starts_with("std::"))
+        && use_decl.name == module_path
+    {
         return true;
     }
     if use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)

@@ -432,6 +432,56 @@ fn package_canonical_identities_are_not_source_routes_for_values_or_adts() {
 }
 
 #[test]
+fn standard_modules_keep_canonical_and_package_relative_source_routes() {
+    let mut module = merged_modules_with_identities(vec![
+        (
+            "std::transport",
+            SourceFile::new(
+                "transport.veln",
+                "pub effect DuplexStream\n  read() -> Int\nend\n",
+            ),
+        ),
+        (
+            "std::http2::connection",
+            SourceFile::new("connection.veln", "use transport\n"),
+        ),
+    ]);
+    let transport = module
+        .uses
+        .iter_mut()
+        .find(|use_decl| {
+            use_decl.module_name.as_deref() == Some("std::http2::connection")
+                && use_decl.written_name == "transport"
+        })
+        .expect("transport import");
+    transport.name = "std::transport".to_string();
+
+    for route in ["std::transport", "transport"] {
+        let path = route.split("::").map(str::to_string).collect::<Vec<_>>();
+        let selected = crate::name_recovery::normal_imported_use_for_path(
+            &module,
+            &path,
+            Some("std::http2::connection"),
+        )
+        .expect("standard source route");
+        assert_eq!(selected.name, "std::transport");
+    }
+
+    let environment = TypeEnvironment::from_module(&module);
+    assert!(
+        environment
+            .user_effect_path(
+                &["std", "transport", "DuplexStream"]
+                    .into_iter()
+                    .map(str::to_string)
+                    .collect::<Vec<_>>(),
+                Some("std::http2::connection"),
+            )
+            .is_some()
+    );
+}
+
+#[test]
 fn repeated_target_with_distinct_explicit_aliases_is_quarantined_in_both_orders() {
     for imports in [
         "use shared as first\nuse shared as second\n",
