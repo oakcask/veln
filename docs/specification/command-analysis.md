@@ -25,10 +25,10 @@ doctest creation when requested, parse diagnostics, module loading, semantic
 diagnostics, checked-core readiness, and selected-entry typed-IR readiness.
 Selection, output, execution, and write policy remain command specific.
 
-During module loading, every parse-clean module immutable value declaration
-produces `module.value_not_executable`. The error keeps the shared pipeline
-from producing checked core or typed IR for that selection. Parsing and
-formatting remain available as specified by the
+During shared semantic analysis, every parse-clean module immutable value
+declaration produces `module.value_not_executable`. The error keeps the shared
+pipeline from producing checked core or typed IR for that selection. Parsing
+and formatting remain available as specified by the
 [source-surface boundary](source-surface.md#module-immutable-value-declarations).
 
 A source with a non-recoverable parse diagnostic is excluded from semantic
