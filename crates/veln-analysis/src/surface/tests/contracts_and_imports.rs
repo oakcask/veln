@@ -561,6 +561,74 @@ fn run_entry_does_not_reach_qualified_call_without_import_alias() {
 }
 
 #[test]
+fn malformed_import_aliases_never_retain_targets_through_reachability() {
+    let malformed_rows = [
+        "use pkg::target as\n",
+        "use pkg::target as from \"pkg\"\n",
+        "use pkg::target as \"local\"\n",
+        "use pkg::target as kept::tail\n",
+        "use pkg::target from \"pkg\" as misplaced\n",
+        "use pkg::target as kept as repeated\n",
+        "use pkg::target from\n",
+    ];
+
+    for malformed in malformed_rows {
+        let app_source = SourceFile::new(
+            "app.veln",
+            format!(
+                concat!(
+                    "{malformed}",
+                    "fn retained() -> Int\n",
+                    "  1\n",
+                    "end\n",
+                    "pub fn main() -> Int\n",
+                    "  let exact = pkg::target::member()\n",
+                    "  let leaf = target::member()\n",
+                    "  let alias = kept::member()\n",
+                    "  exact + leaf + alias + member() + retained()\n",
+                    "end\n",
+                ),
+                malformed = malformed,
+            ),
+        );
+        let parsed_app = parse(&app_source);
+        assert!(!parsed_app.diagnostics.is_empty(), "{malformed:?}");
+        let mut module = veln_ast::lower_surface_ast_with_module_identity(
+            &parsed_app.tree,
+            "app".to_string(),
+            app_source.span(veln_source::TextRange::new(0, 0)),
+        );
+        assert_eq!(module.uses.len(), 1, "{malformed:?}");
+        assert!(module.uses[0].syntax_recovered, "{malformed:?}");
+
+        let target_source =
+            SourceFile::new("pkg/target.veln", "pub fn member() -> Int\n  40\nend\n");
+        let parsed_target = parse(&target_source);
+        assert!(parsed_target.diagnostics.is_empty());
+        let target = veln_ast::lower_surface_ast_with_module_identity(
+            &parsed_target.tree,
+            "pkg::target".to_string(),
+            target_source.span(veln_source::TextRange::new(0, 0)),
+        );
+        module.functions.extend(target.functions);
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        assert_eq!(
+            reachable
+                .functions
+                .iter()
+                .filter_map(|function| Some((
+                    function.module_name.as_deref()?,
+                    function.name.as_deref()?,
+                )))
+                .collect::<Vec<_>>(),
+            [("app", "retained"), ("app", "main")],
+            "malformed import retained a target through a normal route: {malformed:?}"
+        );
+    }
+}
+
+#[test]
 fn contract_reachability_ignores_function_names_inside_strings() {
     let module = lower(concat!(
         "fn positive(value: Int) -> Bool\n",

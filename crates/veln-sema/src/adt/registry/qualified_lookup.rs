@@ -664,8 +664,12 @@ fn fallback_recovery_modules(
 ) -> BTreeMap<String, QualifiedImportModules> {
     let mut candidates = BTreeMap::<String, QualifiedImportModules>::new();
     for use_decl in uses {
-        let mut exact_paths = vec![use_decl.name.as_str()];
-        if let Some(relative) = use_decl.name.strip_prefix("std::") {
+        let mut exact_paths = vec![use_decl.written_name.as_str()];
+        if (use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+            || (use_decl.package.is_none()
+                && current_module.is_some_and(|module| module.starts_with("std::"))))
+            && let Some(relative) = use_decl.name.strip_prefix("std::")
+        {
             exact_paths.push(relative);
         }
         for path in exact_paths {

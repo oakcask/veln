@@ -1,21 +1,21 @@
-use helpers as tools
+use helpers as helpers
 use fallback
 use model as domain
 
 pub fn main() -> Int
-	let first: Int = tools::answer()
+	let first: Int = helpers::answer()
 	let exact: Int = helpers::answer()
 	let remaining_bare: Int = answer()
-	let handled: Int = handle tools::compute() with tools::ask(1)
-	let direct: Int = handle invoke() with tools::ask(2)
+	let handled: Int = handle helpers::compute() with helpers::ask(1)
+	let direct: Int = handle invoke() with helpers::ask(2)
 	let state: domain::State = domain::Ready(first + exact + remaining_bare)
 	match state
 		domain::Ready(value) => value + handled + direct
 	end
 end
 
-fn invoke() -> Int effects [tools::Ask]
-	perform tools::Ask::value()
+fn invoke() -> Int effects [helpers::Ask]
+	perform helpers::Ask::value()
 end
 
 pub fn decode_packet(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>

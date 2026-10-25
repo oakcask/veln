@@ -310,12 +310,13 @@ impl TypeAliasTargetIndex {
             let target = use_decl.name.clone();
             let exact = self
                 .imports
-                .entry((module.clone(), target.clone()))
+                .entry((module.clone(), use_decl.written_name.clone()))
                 .or_default();
             exact.exact.insert(target.clone());
             exact.exact_count += 1;
             if is_standard_import(use_decl, module.as_deref())
                 && let Some(relative) = target.strip_prefix("std::")
+                && relative != use_decl.written_name
             {
                 let exact = self
                     .imports

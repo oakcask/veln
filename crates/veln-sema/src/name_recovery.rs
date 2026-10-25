@@ -233,11 +233,17 @@ fn select_from_candidates<'a>(
         ImportSelection::Ambiguous => return ImportSelection::Ambiguous,
         ImportSelection::None => {}
     }
-    unique_use(candidates.iter().copied().filter(|use_decl| {
-        !collisions.contains_qualifier(use_decl)
-            && use_decl.module_name.as_deref() == current_module
+    let qualifier_candidates = candidates.iter().copied().filter(|use_decl| {
+        use_decl.module_name.as_deref() == current_module
             && simple_import_alias_matches(use_decl, &module_path)
-    }))
+    });
+    if qualifier_candidates
+        .clone()
+        .any(|use_decl| collisions.contains_qualifier(use_decl))
+    {
+        return ImportSelection::Ambiguous;
+    }
+    unique_use(qualifier_candidates)
 }
 
 pub(crate) fn select_imported_use_for_path<'a>(
@@ -245,7 +251,10 @@ pub(crate) fn select_imported_use_for_path<'a>(
     segments: &[String],
     current_module: Option<&str>,
 ) -> ImportSelection<'a> {
-    let candidates = uses.iter().collect::<Vec<_>>();
+    let candidates = uses
+        .iter()
+        .filter(|use_decl| !use_decl.syntax_recovered)
+        .collect::<Vec<_>>();
     let collisions = ImportCollisionIndex::from_eligible_uses(uses);
     select_from_candidates(&candidates, segments, current_module, &collisions)
 }
@@ -362,7 +371,7 @@ pub(crate) fn use_decl_matches_exact_import_path(
     if use_decl.module_name.as_deref() != current_module {
         return false;
     }
-    if use_decl.written_name == module_path || use_decl.name == module_path {
+    if use_decl.written_name == module_path {
         return true;
     }
     if use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)

@@ -219,6 +219,9 @@ impl<'a> UseIndex<'a> {
         let mut valid = Vec::new();
         let mut invalid = Vec::new();
         for declaration in modules.flat_map(|module| &module.uses) {
+            if declaration.syntax_recovered {
+                continue;
+            }
             let module_path_segments = invalid_segments_by_file
                 .get(&declaration.span.file)
                 .map(|candidates| invalid_segments_in_span(candidates, &declaration.span))

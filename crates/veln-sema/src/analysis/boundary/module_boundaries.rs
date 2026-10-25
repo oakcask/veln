@@ -98,7 +98,7 @@ pub(super) fn quarantined_imported_use_for_path<'a>(
                 && use_decl.alias == module_path
         } else {
             use_decl_has_invalid_module_segment(module, use_decl)
-                && (use_decl.name == module_path || use_decl.alias == module_path)
+                && (use_decl.written_name == module_path || use_decl.alias == module_path)
         };
         use_decl.origin == veln_ast::UseOrigin::Source
             && !use_decl.syntax_recovered

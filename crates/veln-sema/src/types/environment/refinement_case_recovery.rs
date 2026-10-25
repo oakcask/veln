@@ -184,21 +184,17 @@ impl TypeEnvironment {
         let Some((qualifier, _)) = base.rsplit_once("::") else {
             return false;
         };
-        self.uses
-            .iter()
-            .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
-            .filter(|use_decl| {
-                use_decl.alias == qualifier
-                    || use_decl.name == qualifier
-                    || use_decl
-                        .name
-                        .rsplit("::")
-                        .next()
-                        .is_some_and(|leaf| leaf == qualifier)
-            })
-            .take(2)
-            .count()
-            > 1
+        matches!(
+            crate::name_recovery::select_imported_use_for_path(
+                &self.uses,
+                &qualifier
+                    .split("::")
+                    .map(str::to_string)
+                    .collect::<Vec<_>>(),
+                current_module,
+            ),
+            crate::name_recovery::ImportSelection::Ambiguous
+        )
     }
 
     fn variant_refinement_base_name_resolves(
