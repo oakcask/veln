@@ -7,10 +7,15 @@ pub fn main() -> Int
 	let exact: Int = helpers::answer()
 	let remaining_bare: Int = answer()
 	let handled: Int = handle tools::compute() with tools::ask(1)
+	let direct: Int = handle invoke() with tools::ask(2)
 	let state: domain::State = domain::Ready(first + exact + remaining_bare)
 	match state
-		domain::Ready(value) => value + handled
+		domain::Ready(value) => value + handled + direct
 	end
+end
+
+fn invoke() -> Int effects [tools::Ask]
+	perform tools::Ask::value()
 end
 
 pub fn decode_packet(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>

@@ -118,22 +118,73 @@ fn explicit_import_alias_parses_and_formats_before_package_source() {
 #[test]
 fn malformed_explicit_import_aliases_recover_at_the_declaration_newline() {
     let cases = [
-        "use a as\n",
-        "use a as from \"pkg\"\n",
-        "use a as \"local\"\n",
-        "use a as b::c\n",
-        "use a from \"pkg\" as local\n",
-        "use a as b as c\n",
-        "use a from\n",
+        ("use a as\n", &["parse.expected_identifier"][..], None, None),
+        (
+            "use a as from \"pkg\"\n",
+            &["parse.expected_identifier"],
+            None,
+            Some("pkg"),
+        ),
+        (
+            "use a as \"local\"\n",
+            &["parse.expected_identifier", "parse.malformed_import"],
+            None,
+            None,
+        ),
+        (
+            "use a as b::c\n",
+            &["parse.malformed_import"],
+            Some("b"),
+            None,
+        ),
+        (
+            "use a from \"pkg\" as local\n",
+            &["parse.malformed_import"],
+            None,
+            Some("pkg"),
+        ),
+        (
+            "use a as b as c\n",
+            &["parse.malformed_import"],
+            Some("b"),
+            None,
+        ),
+        ("use a from\n", &["parse.expected_token"], None, None),
     ];
 
-    for malformed in cases {
+    for (malformed, expected_ids, expected_alias, expected_package) in cases {
         let text = format!("{malformed}fn retained() -> ()\n  ()\nend\n");
         let output = parse(&SourceFile::new("main.veln", text));
-        assert!(!output.diagnostics.is_empty(), "{malformed:?}");
+        assert_eq!(
+            output
+                .diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.id)
+                .collect::<Vec<_>>(),
+            expected_ids,
+            "{malformed:?}: {:#?}",
+            output.diagnostics
+        );
         assert_eq!(output.tree.uses.len(), 1, "{malformed:?}");
-        assert!(output.tree.uses[0].recovered, "{malformed:?}");
+        let recovered = &output.tree.uses[0];
+        assert_eq!(recovered.name, "a", "{malformed:?}");
+        assert_eq!(
+            recovered.alias.as_ref().map(|alias| alias.name.as_str()),
+            expected_alias,
+            "{malformed:?}"
+        );
+        assert_eq!(
+            recovered
+                .package
+                .as_ref()
+                .map(|package| package.name.as_str()),
+            expected_package,
+            "{malformed:?}"
+        );
+        assert!(recovered.recovered, "{malformed:?}");
+        assert_eq!(recovered.span.end.line, 2, "{malformed:?}");
         assert_eq!(first_function(&output).name.as_deref(), Some("retained"));
+        assert_eq!(first_function(&output).span.start.line, 2, "{malformed:?}");
     }
 }
 

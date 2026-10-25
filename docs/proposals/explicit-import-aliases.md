@@ -26,8 +26,9 @@ to include member uses through the alias and leaves the alias unchanged.
 
 Hover and qualified completion present the local qualifier while retaining
 the selected package and module provenance. Saved LSP and MCP navigation must
-agree with compiler selection. Invalid, colliding, reserved, and
-syntax-recovered aliases do not manufacture navigation targets.
+agree with compiler selection and remain stable when combined-module source
+discovery order changes. Invalid, colliding, reserved, and syntax-recovered
+aliases do not manufacture navigation targets.
 
 This work does not expand which declaration kinds each source tool supports.
 It makes the existing supported kinds recognize explicit aliases consistently.
@@ -39,7 +40,7 @@ It makes the existing supported kinds recognize explicit aliases consistently.
 | A11 | Definition on alias and member | Alias selects its import; member selects its target. | Shared language-service, LSP, and MCP definition tests. |
 | A11 | References and rename | Only the owning alias occurrences change; target identity and other modules remain unchanged. | Shared reference and rename tests, including rejected edits. |
 | A11 | Completion and hover | Results use the local qualifier and retain target provenance. | Completion and hover tests. |
-| A11 | Saved navigation | Saved LSP and MCP selection agrees with compiler lookup. | Saved-workspace LSP and MCP tests. |
+| A11 | Saved navigation and source-order permutations | Saved LSP and MCP selection agrees with compiler lookup and is independent of combined-module source discovery order. | Saved-workspace LSP and MCP permutation tests. |
 
 ## Related work and decisions
 

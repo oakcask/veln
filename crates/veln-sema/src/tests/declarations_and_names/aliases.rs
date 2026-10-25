@@ -200,6 +200,158 @@ fn distinct_package_origins_make_an_exact_written_path_ambiguous_in_both_orders(
 }
 
 #[test]
+fn repeated_target_with_distinct_explicit_aliases_is_quarantined_in_both_orders() {
+    for imports in [
+        "use shared as first\nuse shared as second\n",
+        "use shared as second\nuse shared as first\n",
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!("mod app\n{imports}fn main() -> ()\n  ()\nend\n"),
+        );
+        let module = lower_surface_ast(&parse(&source).tree);
+        let diagnostics = analyze_surface_module(&module);
+
+        assert_eq!(
+            diagnostics
+                .iter()
+                .map(|diagnostic| (diagnostic.id.as_str(), diagnostic.message.as_str()))
+                .collect::<Vec<_>>(),
+            [("name.duplicate", "duplicate import path name `shared`")],
+            "{diagnostics:#?}"
+        );
+        for qualifier in ["first", "second", "shared"] {
+            assert!(
+                crate::name_recovery::normal_imported_use_for_path(
+                    &module,
+                    &[qualifier.to_string()],
+                    Some("app")
+                )
+                .is_none(),
+                "duplicate target must quarantine {qualifier:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn target_and_qualifier_overlap_reports_one_or_two_proven_conflicts() {
+    let same_origin = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "same.veln",
+            "mod app\nuse alpha as shared\nuse alpha as shared\n",
+        ))
+        .tree,
+    );
+    let same_diagnostics = analyze_surface_module(&same_origin);
+    assert_eq!(same_diagnostics.len(), 1, "{same_diagnostics:#?}");
+    assert_eq!(
+        same_diagnostics[0].message,
+        "duplicate import path name `alpha`"
+    );
+
+    let different_origins = lower_surface_ast(
+        &parse(&SourceFile::new(
+            "different.veln",
+            concat!(
+                "mod app\n",
+                "use alpha as first\n",
+                "use beta as shared\n",
+                "use alpha as shared\n",
+            ),
+        ))
+        .tree,
+    );
+    let different_diagnostics = analyze_surface_module(&different_origins);
+    assert_eq!(
+        different_diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "duplicate import path name `alpha`",
+            "duplicate import alias name `shared`",
+        ],
+        "{different_diagnostics:#?}"
+    );
+    assert_eq!(different_diagnostics[0].related.len(), 1);
+    assert_eq!(different_diagnostics[1].related.len(), 1);
+}
+
+#[test]
+fn explicit_qualifier_collisions_never_select_by_member_availability() {
+    for imports in [
+        "use first as shared\nuse second as shared\n",
+        "use second as shared\nuse first as shared\n",
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!("mod app\n{imports}fn main() -> ()\n  ()\nend\n"),
+        );
+        let module = lower_surface_ast(&parse(&source).tree);
+        let diagnostics = analyze_surface_module(&module);
+        assert_eq!(
+            diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.message.as_str())
+                .collect::<Vec<_>>(),
+            ["duplicate import alias name `shared`"],
+            "{diagnostics:#?}"
+        );
+        assert!(
+            crate::name_recovery::normal_imported_use_for_path(
+                &module,
+                &["shared".to_string()],
+                Some("app")
+            )
+            .is_none()
+        );
+    }
+}
+
+#[test]
+fn explicit_prelude_rules_do_not_cross_declaration_namespaces() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app\n",
+            "use target as prelude\n",
+            "use prelude as other\n",
+            "use target::shared as imported\n",
+            "fn imported() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.reserved")
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        ["import alias `prelude` conflicts with the standard prelude"],
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "name.duplicate"
+                || !diagnostic.message.contains("import alias name `imported`")
+        }),
+        "a function and import qualifier use separate namespaces: {diagnostics:#?}"
+    );
+    let other = crate::name_recovery::normal_imported_use_for_path(
+        &module,
+        &["other".to_string()],
+        Some("app"),
+    )
+    .expect("an explicitly renamed target leaf named prelude remains eligible");
+    assert_eq!(other.written_name, "prelude");
+}
+
+#[test]
 fn eligible_implicit_package_qualifiers_collide_and_remain_unresolved() {
     for imports in [
         "use first::net from \"pkg-a\"\nuse second::net from \"pkg-b\"\n",
@@ -288,16 +440,26 @@ fn qualifier_collisions_do_not_select_by_a_unique_member_leaf() {
 
 #[test]
 fn combined_source_qualifier_diagnostics_use_lexical_source_order() {
+    let mut stable_diagnostics = None;
     for reversed in [false, true] {
         let first = SourceFile::new("a.veln", "mod app\nuse first as shared\n");
         let second = SourceFile::new("b.veln", "mod app\nuse second as shared\n");
         let sources = if reversed {
-            vec![second, first]
+            vec![("app", second), ("app", first)]
         } else {
-            vec![first, second]
+            vec![("app", first), ("app", second)]
         };
-        let module = merged_modules(sources);
+        let module = merged_modules_with_identities(sources);
         let diagnostics = analyze_surface_module(&module);
+        let rendered = format!("{diagnostics:#?}");
+        if let Some(expected) = &stable_diagnostics {
+            assert_eq!(
+                &rendered, expected,
+                "source discovery order changed diagnostics"
+            );
+        } else {
+            stable_diagnostics = Some(rendered);
+        }
         let duplicate = diagnostics
             .iter()
             .find(|diagnostic| diagnostic.id == "name.duplicate")
@@ -313,6 +475,30 @@ fn combined_source_qualifier_diagnostics_use_lexical_source_order() {
                 .to_json()
                 .contains("\"file\":\"a.veln\"")
         );
+    }
+}
+
+#[test]
+fn combined_source_alias_selection_is_independent_of_discovery_order() {
+    for reversed in [false, true] {
+        let first = SourceFile::new("a.veln", "mod app\nuse first as selected\n");
+        let second = SourceFile::new("b.veln", "mod app\nuse second as other\n");
+        let sources = if reversed {
+            vec![("app", second), ("app", first)]
+        } else {
+            vec![("app", first), ("app", second)]
+        };
+        let module = merged_modules_with_identities(sources);
+
+        for (qualifier, target) in [("selected", "first"), ("other", "second")] {
+            let selected = crate::name_recovery::normal_imported_use_for_path(
+                &module,
+                &[qualifier.to_string()],
+                Some("app"),
+            )
+            .expect("combined-module alias must remain selectable");
+            assert_eq!(selected.name, target);
+        }
     }
 }
 
@@ -733,6 +919,49 @@ fn public_type_alias_preserves_target_nominal_identity_across_module_calls() {
     let diagnostics = analyze_surface_module(&module);
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn public_member_alias_resolves_but_its_import_qualifier_does_not_leak() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "helpers",
+            SourceFile::new("helpers.veln", "pub fn answer() -> Int\n  42\nend\n"),
+        ),
+        (
+            "api",
+            SourceFile::new(
+                "api.veln",
+                "use helpers as tools\npub fn answer = tools::answer\n",
+            ),
+        ),
+        (
+            "consumer",
+            SourceFile::new(
+                "consumer.veln",
+                concat!(
+                    "use api\n",
+                    "fn published() -> Int\n",
+                    "  api::answer()\n",
+                    "end\n",
+                    "fn leaked() -> Int\n",
+                    "  tools::answer()\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.unresolved")
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        ["unresolved call_target `tools::answer`"],
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

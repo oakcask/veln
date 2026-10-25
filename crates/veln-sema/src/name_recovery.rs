@@ -61,13 +61,17 @@ pub(crate) fn use_decl_has_invalid_module_segment(
     })
 }
 
-pub(crate) fn use_decl_is_quarantined(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
+pub(crate) fn use_decl_is_quarantined_with_collisions(
+    module: &SurfaceModule,
+    use_decl: &UseDecl,
+    collisions: &ImportCollisionIndex,
+) -> bool {
     use_decl.syntax_recovered
         || use_decl_has_invalid_casing(module, use_decl)
         || (use_decl.origin == veln_ast::UseOrigin::Source
             && use_decl.explicit_alias
             && use_decl.alias == "prelude")
-        || ImportCollisionIndex::new(module).contains_target(use_decl)
+        || collisions.contains_target(use_decl)
 }
 
 pub(crate) struct ImportCollisionIndex {
@@ -76,7 +80,7 @@ pub(crate) struct ImportCollisionIndex {
 }
 
 impl ImportCollisionIndex {
-    fn new(module: &SurfaceModule) -> Self {
+    pub(crate) fn new(module: &SurfaceModule) -> Self {
         Self::from_eligible_uses(&module.uses)
     }
 
@@ -105,7 +109,7 @@ impl ImportCollisionIndex {
         }
     }
 
-    fn contains_target(&self, use_decl: &UseDecl) -> bool {
+    pub(crate) fn contains_target(&self, use_decl: &UseDecl) -> bool {
         self.targets
             .get(&(
                 use_decl.module_name.clone(),
@@ -131,6 +135,24 @@ pub(crate) fn use_decl_has_invalid_casing(module: &SurfaceModule, use_decl: &Use
                 && use_decl.span.start.offset <= invalid.span.start.offset
                 && invalid.span.end.offset <= use_decl.span.end.offset
         })
+}
+
+pub(crate) fn use_decl_has_invalid_explicit_alias(
+    module: &SurfaceModule,
+    use_decl: &UseDecl,
+) -> bool {
+    let Some(alias_span) = use_decl
+        .alias_span
+        .as_ref()
+        .filter(|_| use_decl.explicit_alias)
+    else {
+        return false;
+    };
+    module.invalid_names.iter().any(|invalid| {
+        invalid.class == NameClass::Module
+            && invalid.occurrence == NameOccurrence::Declaration
+            && invalid.span == *alias_span
+    })
 }
 
 pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
@@ -233,11 +255,15 @@ pub(crate) fn schema_composition_imported_use_for_path<'a>(
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
+    record_schema_composition_import_lookup(module.uses.len());
     let collisions = ImportCollisionIndex::new(module);
     let candidates = module
         .uses
         .iter()
-        .filter(|use_decl| !use_decl_is_quarantined(module, use_decl))
+        .filter(|use_decl| {
+            record_schema_composition_quarantine_check();
+            !use_decl_is_quarantined_with_collisions(module, use_decl, &collisions)
+        })
         .collect::<Vec<_>>();
     match select_from_candidates(&candidates, segments, current_module, &collisions) {
         ImportSelection::One(use_decl) => Some(use_decl),
@@ -245,15 +271,72 @@ pub(crate) fn schema_composition_imported_use_for_path<'a>(
         ImportSelection::None => {
             let module_path = segments.join("::");
             let mut candidates = module.uses.iter().filter(|use_decl| {
+                record_schema_composition_quarantine_check();
                 use_decl.package.is_none()
                     && use_decl.module_name.as_deref() == current_module
-                    && !use_decl_is_quarantined(module, use_decl)
+                    && !use_decl_is_quarantined_with_collisions(module, use_decl, &collisions)
                     && use_decl.alias == module_path
             });
             let candidate = candidates.next()?;
             candidates.next().is_none().then_some(candidate)
         }
     }
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct SchemaCompositionImportLookupWork {
+    pub(crate) lookups: usize,
+    pub(crate) indexed_imports: usize,
+    pub(crate) quarantine_checks: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    static SCHEMA_COMPOSITION_IMPORT_LOOKUP_WORK: std::cell::Cell<SchemaCompositionImportLookupWork> =
+        const { std::cell::Cell::new(SchemaCompositionImportLookupWork {
+            lookups: 0,
+            indexed_imports: 0,
+            quarantine_checks: 0,
+        }) };
+}
+
+#[cfg(test)]
+fn record_schema_composition_import_lookup(imports: usize) {
+    SCHEMA_COMPOSITION_IMPORT_LOOKUP_WORK.with(|work| {
+        let mut next = work.get();
+        next.lookups += 1;
+        next.indexed_imports += imports;
+        work.set(next);
+    });
+}
+
+#[cfg(not(test))]
+fn record_schema_composition_import_lookup(_imports: usize) {}
+
+#[cfg(test)]
+fn record_schema_composition_quarantine_check() {
+    SCHEMA_COMPOSITION_IMPORT_LOOKUP_WORK.with(|work| {
+        let mut next = work.get();
+        next.quarantine_checks += 1;
+        work.set(next);
+    });
+}
+
+#[cfg(not(test))]
+fn record_schema_composition_quarantine_check() {}
+
+#[cfg(test)]
+pub(crate) fn reset_schema_composition_import_lookup_work() {
+    SCHEMA_COMPOSITION_IMPORT_LOOKUP_WORK.with(|work| {
+        work.set(SchemaCompositionImportLookupWork::default());
+    });
+}
+
+#[cfg(test)]
+pub(crate) fn take_schema_composition_import_lookup_work() -> SchemaCompositionImportLookupWork {
+    SCHEMA_COMPOSITION_IMPORT_LOOKUP_WORK
+        .with(|work| work.replace(SchemaCompositionImportLookupWork::default()))
 }
 
 pub(crate) fn resolved_import_module_name(

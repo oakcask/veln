@@ -572,7 +572,7 @@ fn qualified_import_modules(
 ) -> HashMap<(Option<String>, String), QualifiedImportModules> {
     let mut modules = HashMap::<(Option<String>, String), QualifiedImportModules>::new();
     for use_decl in uses {
-        let mut exact_paths = vec![use_decl.name.clone()];
+        let mut exact_paths = vec![use_decl.name.clone(), use_decl.written_name.clone()];
         if let Some(relative) = use_decl.name.strip_prefix("std::") {
             exact_paths.push(relative.to_string());
         }

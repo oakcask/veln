@@ -6,8 +6,13 @@ use stdio
 pub fn main() -> Result<(), String> effects [stdio]
 	let state: domain::State = domain::Ready(tools::answer() + helpers::answer())
 	let handled: Int = handle tools::compute() with tools::ask(1)
+	let direct: Int = handle invoke() with tools::ask(2)
 	let printed: () = match state
-		domain::Ready(value) => stdio::println(int_to_string(value + handled))
+		domain::Ready(value) => stdio::println(int_to_string(value + handled + direct))
 	end
 	Ok(())
+end
+
+fn invoke() -> Int effects [tools::Ask]
+	perform tools::Ask::value()
 end

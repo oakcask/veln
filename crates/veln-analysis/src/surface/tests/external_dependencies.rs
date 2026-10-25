@@ -28,6 +28,87 @@ fn external_path_dependency_loads_direct_manifest_package_root() {
 }
 
 #[test]
+fn external_adt_keeps_one_identity_through_alias_and_written_path() {
+    let temp = TempProject::new("external-adt-written-path");
+    temp.write(
+        "veln.toml",
+        "[dependencies.\"example/state\"]\npath = \"vendor/state\"\n",
+    );
+    temp.write(
+        "main.veln",
+        concat!(
+            "use api::model as selected from \"example/state\"\n",
+            "use rival\n",
+            "\n",
+            "fn ordinary(value: selected::State) -> api::model::State\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn refined(value: api::model::State::Ready) -> selected::State::Ready\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn construct_alias() -> selected::State::Ready\n",
+            "  selected::State::Ready(1)\n",
+            "end\n",
+            "\n",
+            "fn construct_written() -> api::model::State::Ready\n",
+            "  api::model::State::Ready(2)\n",
+            "end\n",
+            "\n",
+            "fn match_alias(value: selected::State) -> Int\n",
+            "  match value\n",
+            "    selected::State::Ready(payload) => payload\n",
+            "    selected::State::Closed => 0\n",
+            "  end\n",
+            "end\n",
+            "\n",
+            "fn match_written(value: api::model::State) -> Int\n",
+            "  match value\n",
+            "    api::model::State::Ready(payload) => payload\n",
+            "    api::model::State::Closed => 0\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    temp.write(
+        "rival.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready(String)\n",
+            "  pub Closed\n",
+            "end\n",
+        ),
+    );
+    temp.write(
+        "vendor/state/veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"example/state\"\n",
+            "\n",
+            "[lib]\n",
+            "exports = [\"api/model.veln\"]\n",
+        ),
+    );
+    temp.write(
+        "vendor/state/api/model.veln",
+        concat!(
+            "pub type State\n",
+            "  pub Ready(Int)\n",
+            "  pub Closed\n",
+            "end\n",
+        ),
+    );
+
+    let project =
+        Project::discover(temp.root().to_path_buf(), &[PathBuf::from("main.veln")]).unwrap();
+    let analysis = analyze_project(project, DoctestMode::Exclude);
+    let diagnostics = analysis.checked_diagnostics();
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn invalid_cased_dependency_export_isolated_from_valid_sibling() {
     let temp = TempProject::new("mixed-dependency-export-casing");
     temp.write(

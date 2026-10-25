@@ -1,6 +1,30 @@
 use super::*;
 
 impl TypeEnvironment {
+    pub(crate) fn quarantined_import_schema_operation_is_recoverable(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        helper_name_for: fn(&str) -> String,
+    ) -> bool {
+        let Some((use_decl, name)) = self.quarantined_import_for_segments(segments, current_module)
+        else {
+            return false;
+        };
+        let Some(schema) = self.schema_symbols.unique_public_target_in_module(
+            &use_decl.name,
+            name,
+            &self.uses,
+            &self.companion_schema_access_targets,
+        ) else {
+            return false;
+        };
+        let helper_name = helper_name_for(&schema.name);
+        self.functions_named(&helper_name).any(|function| {
+            function.module_name == schema.module_name && function.visibility == Visibility::Public
+        })
+    }
+
     pub(crate) fn quarantined_import_call_recovery_candidate_count(
         &self,
         segments: &[String],

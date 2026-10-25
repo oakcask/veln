@@ -1,6 +1,180 @@
 use super::*;
 
 #[test]
+fn explicit_import_alias_casing_reports_exact_token_and_quarantines_every_route() {
+    for (alias, observed) in [
+        ("Bad", "ascii_uppercase"),
+        ("_bad", "underscore"),
+        ("_", "underscore"),
+    ] {
+        let source = SourceFile::new(
+            "app.veln",
+            format!("mod app\nuse target as {alias}\nfn retained() -> ()\n  ()\nend\n"),
+        );
+        let module = lower_surface_ast(&parse(&source).tree);
+        let diagnostics = analyze_surface_module(&module);
+        let invalid = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.id == "name.invalid_case")
+            .expect("invalid explicit alias diagnostic");
+
+        assert_diagnostic_span(invalid, 2, 15, 2, 15 + alias.len());
+        let details = invalid.details.to_json();
+        for fragment in [
+            format!("\"name\":\"{alias}\""),
+            "\"name_class\":\"module\"".to_string(),
+            "\"occurrence\":\"declaration\"".to_string(),
+            "\"required_initial\":\"ascii_lowercase\"".to_string(),
+            format!("\"observed_initial\":\"{observed}\""),
+        ] {
+            assert!(details.contains(&fragment), "{details}");
+        }
+        for route in [alias, "target"] {
+            assert!(
+                crate::name_recovery::normal_imported_use_for_path(
+                    &module,
+                    &[route.to_string()],
+                    Some("app")
+                )
+                .is_none(),
+                "invalid alias must quarantine route {route:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn invalid_target_path_quarantines_a_valid_explicit_alias_atomically() {
+    let source = SourceFile::new(
+        "app.veln",
+        "mod app\nuse Bad as good\nfn retained() -> ()\n  ()\nend\n",
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    for route in ["Bad", "good"] {
+        assert!(
+            crate::name_recovery::normal_imported_use_for_path(
+                &module,
+                &[route.to_string()],
+                Some("app")
+            )
+            .is_none(),
+            "invalid target path must quarantine route {route:?}"
+        );
+    }
+}
+
+#[test]
+fn invalid_explicit_import_alias_recovers_all_public_carriers_without_readiness() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "http",
+            SourceFile::new(
+                "http.veln",
+                concat!(
+                    "pub fn answer() -> Int\n",
+                    "  1\n",
+                    "end\n",
+                    "pub type Payload\n",
+                    "  pub Data(Int)\n",
+                    "end\n",
+                    "pub effect Audit\n",
+                    "  record() -> Int\n",
+                    "end\n",
+                    "pub handler audit() for Audit\n",
+                    "  record() => 1\n",
+                    "end\n",
+                    "pub fn compute() -> Int effects [Audit]\n",
+                    "  perform Audit::record()\n",
+                    "end\n",
+                    "pub schema Packet\n",
+                    "  format binary\n",
+                    "  value: UInt8\n",
+                    "end\n",
+                ),
+            ),
+        ),
+        (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use http as HTTP\n",
+                    "schema Envelope\n",
+                    "  format binary\n",
+                    "  packet: HTTP::Packet\n",
+                    "end\n",
+                    "fn call() -> Int\n",
+                    "  HTTP::answer()\n",
+                    "end\n",
+                    "fn construct() -> HTTP::Payload\n",
+                    "  HTTP::Payload::Data(1)\n",
+                    "end\n",
+                    "fn inspect(value: HTTP::Payload) -> Int\n",
+                    "  match value\n",
+                    "    HTTP::Payload::Data(payload) => payload\n",
+                    "  end\n",
+                    "end\n",
+                    "fn invoke() -> Int effects [HTTP::Audit]\n",
+                    "  perform HTTP::Audit::record()\n",
+                    "end\n",
+                    "fn handled() -> Int\n",
+                    "  handle HTTP::compute() with HTTP::audit()\n",
+                    "end\n",
+                    "fn decode_packet(view: ByteView, base: ByteOffset) -> DecodeStep<{value: Int}>\n",
+                    "  decode HTTP::Packet from view at base\n",
+                    "end\n",
+                    "fn encode_packet(value: {value: Int}) -> Result<ByteChunk, EncodeError>\n",
+                    "  encode HTTP::Packet from value\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "name.invalid_case"),
+        "only independent casing diagnostics may remain: {diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic
+                .details
+                .to_json()
+                .contains("\"occurrence\":\"declaration\""))
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    for route in ["HTTP", "http"] {
+        assert!(
+            crate::name_recovery::normal_imported_use_for_path(
+                &module,
+                &[route.to_string()],
+                Some("app")
+            )
+            .is_none(),
+            "invalid alias imports must not install normal route {route:?}"
+        );
+    }
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.core.is_none());
+    assert!(lowered.ir.is_none());
+}
+
+#[test]
 fn invalid_implicit_import_alias_suppresses_only_quarantine_cascade() {
     let app_source = SourceFile::new(
         "app.veln",

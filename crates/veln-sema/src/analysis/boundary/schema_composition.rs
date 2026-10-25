@@ -244,16 +244,52 @@ pub(super) fn schema_composition_quarantine_is_sole_failure(
     ) else {
         return false;
     };
-    module.schemas.iter().any(|candidate| {
-        candidate.name.as_deref() == Some(name.as_str())
+    quarantined_schema_target_is_uniquely_public(module, use_decl, name)
+}
+
+fn quarantined_schema_target_is_uniquely_public(
+    module: &SurfaceModule,
+    use_decl: &UseDecl,
+    name: &str,
+) -> bool {
+    let matching_schemas = module.schemas.iter().filter(|candidate| {
+        candidate.name.as_deref() == Some(name)
             && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
-            && candidate.visibility == Visibility::Public
-    }) || module.aliases.iter().any(|alias| {
+    });
+    let matching_aliases = module.aliases.iter().filter(|alias| {
         alias.kind == PublicAliasKind::Schema
-            && alias.name.as_deref() == Some(name.as_str())
+            && alias.name.as_deref() == Some(name)
             && alias.module_name.as_deref() == Some(use_decl.name.as_str())
-            && !public_alias_has_invalid_target_leaf(module, alias, None)
-    })
+    });
+    let mut targets = matching_schemas
+        .map(EitherSchemaTarget::Schema)
+        .chain(matching_aliases.map(EitherSchemaTarget::Alias));
+    let Some(target) = targets.next() else {
+        return false;
+    };
+    if targets.next().is_some() {
+        return false;
+    }
+    match target {
+        EitherSchemaTarget::Schema(schema) => schema.visibility == Visibility::Public,
+        EitherSchemaTarget::Alias(alias) => {
+            !public_alias_has_invalid_target_leaf(module, alias, None)
+                && matches!(
+                    resolve_schema_alias_check_target(
+                        module,
+                        alias,
+                        &mut Vec::new(),
+                        &mut BTreeMap::new(),
+                    ),
+                    SchemaAliasCheckResolution::Resolved
+                )
+        }
+    }
+}
+
+enum EitherSchemaTarget<'a> {
+    Schema(&'a SchemaDecl),
+    Alias(&'a veln_ast::PublicAlias),
 }
 
 pub(super) fn schema_field_uses_existing_grammar_at_boundary(

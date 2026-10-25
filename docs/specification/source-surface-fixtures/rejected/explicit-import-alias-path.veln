@@ -1,0 +1,5 @@
+use transport::net as local::wire
+
+fn retained() -> ()
+	()
+end

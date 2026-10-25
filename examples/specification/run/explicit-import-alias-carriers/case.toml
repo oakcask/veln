@@ -4,7 +4,7 @@ exit = 0
 [stdout]
 format = "text"
 # The printed identity distinguishes exact-path selection from the colliding qualifier route.
-contains = ["41"]
+contains = ["43"]
 
 [stderr]
 format = "empty"

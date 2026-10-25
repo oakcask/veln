@@ -240,6 +240,58 @@ fn run_entry_can_reach_imported_qualified_call() {
 }
 
 #[test]
+fn run_entry_reachability_preserves_explicit_import_alias_identity() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![
+            SourceFile::new(
+                "app/main.veln",
+                concat!(
+                    "use app::util as selected\n",
+                    "use app::alternate as util\n",
+                    "pub fn main() -> Int\n",
+                    "  selected::value() + app::util::value()\n",
+                    "end\n",
+                ),
+            ),
+            SourceFile::new(
+                "app/util.veln",
+                concat!("pub fn value() -> Int\n", "  1\n", "end\n",),
+            ),
+            SourceFile::new(
+                "app/alternate.veln",
+                concat!("pub fn value() -> Int\n", "  40\n", "end\n",),
+            ),
+        ],
+        manifest: None,
+    };
+    let (module, diagnostics) = load_surface_module(&project);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+    let functions = reachable
+        .functions
+        .iter()
+        .map(|function| {
+            (
+                function.module_name.as_deref(),
+                function.kind,
+                function.name.as_deref(),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        functions,
+        vec![
+            (Some("app::main"), FunctionKind::Function, Some("main")),
+            (Some("app::util"), FunctionKind::Function, Some("value")),
+        ],
+        "the colliding local qualifier must not redirect the explicit alias or exact path"
+    );
+}
+
+#[test]
 fn run_entry_can_reach_imported_alias_target() {
     let project = Project {
         root: ".".into(),

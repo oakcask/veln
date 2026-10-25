@@ -16,9 +16,97 @@ path = "diagnostics.0.id"
 equals = "name.invalid_case"
 
 [[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 14
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 17
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "Bad"
+
+[[json_assert]]
+path = "diagnostics.0.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.0.details.occurrence"
+equals = "declaration"
+
+[[json_assert]]
+path = "diagnostics.0.details.required_initial"
+equals = "ascii_lowercase"
+
+[[json_assert]]
+path = "diagnostics.0.details.observed_initial"
+equals = "ascii_uppercase"
+
+[[json_assert]]
 path = "diagnostics.1.id"
 equals = "name.reserved"
 
 [[json_assert]]
+path = "diagnostics.1.span.start.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.1.span.start.column"
+equals = 15
+
+[[json_assert]]
+path = "diagnostics.1.span.end.column"
+equals = 22
+
+[[json_assert]]
+path = "diagnostics.1.details.name"
+equals = "prelude"
+
+[[json_assert]]
+path = "diagnostics.1.details.namespace"
+equals = "module"
+
+[[json_assert]]
 path = "diagnostics.2.id"
 equals = "name.duplicate"
+
+[[json_assert]]
+path = "diagnostics.2.span.start.line"
+equals = 4
+
+[[json_assert]]
+path = "diagnostics.2.span.start.column"
+equals = 15
+
+[[json_assert]]
+path = "diagnostics.2.span.end.column"
+equals = 21
+
+[[json_assert]]
+path = "diagnostics.2.details.name"
+equals = "shared"
+
+[[json_assert]]
+path = "diagnostics.2.related.0.kind"
+equals = "duplicate_origin"
+
+[[json_assert]]
+path = "diagnostics.2.related.0.span.start.line"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.2.related.0.span.start.column"
+equals = 14
+
+[[json_assert]]
+path = "diagnostics.2.related.0.span.end.column"
+equals = 20
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 3

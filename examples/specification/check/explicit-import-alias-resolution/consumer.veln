@@ -3,3 +3,7 @@ use api
 pub fn consume() -> api::State
 	api::Ready(api::answer())
 end
+
+pub fn decode_export(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode api::Packet from view at base
+end

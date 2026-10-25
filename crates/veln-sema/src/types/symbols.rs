@@ -178,6 +178,52 @@ impl SchemaSymbolTable {
         }
     }
 
+    pub(super) fn unique_public_target_in_module(
+        &self,
+        module_name: &str,
+        name: &str,
+        uses: &[UseDecl],
+        companion_access_targets: &BTreeMap<String, String>,
+    ) -> Option<ResolvedSchemaSymbol> {
+        let schemas = self.schemas.iter().filter(|schema| {
+            schema.name == name && schema.module_name.as_deref() == Some(module_name)
+        });
+        let aliases = self.aliases.iter().filter(|alias| {
+            alias.name == name && alias.module_name.as_deref() == Some(module_name)
+        });
+        enum Candidate<'a> {
+            Schema(&'a SchemaSymbol),
+            Alias(&'a SchemaAliasSymbol),
+        }
+        let mut candidates = schemas
+            .map(Candidate::Schema)
+            .chain(aliases.map(Candidate::Alias));
+        let candidate = candidates.next()?;
+        if candidates.next().is_some() {
+            return None;
+        }
+        match candidate {
+            Candidate::Schema(schema) => {
+                (schema.visibility == Visibility::Public).then(|| ResolvedSchemaSymbol {
+                    name: schema.name.clone(),
+                    module_name: schema.module_name.clone(),
+                    span: schema.span.clone(),
+                    unsupported_format_neutral_encode_field: schema
+                        .unsupported_format_neutral_encode_field
+                        .clone(),
+                })
+            }
+            Candidate::Alias(alias) => self.schema_target_path(
+                &alias.target,
+                alias.module_name.as_deref(),
+                uses,
+                false,
+                companion_access_targets,
+                &mut Vec::new(),
+            ),
+        }
+    }
+
     fn schema_target_in_module(
         &self,
         module_name: Option<&str>,

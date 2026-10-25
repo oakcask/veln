@@ -1,7 +1,10 @@
 use crate::adt::type_operations as adt;
 use crate::diagnostics::{module_details, span_json};
 pub(super) use crate::name_recovery::normal_imported_use_for_path;
-use crate::name_recovery::{resolved_import_module_name, use_decl_has_invalid_module_segment};
+use crate::name_recovery::{
+    ImportCollisionIndex, resolved_import_module_name, use_decl_has_invalid_explicit_alias,
+    use_decl_has_invalid_module_segment,
+};
 use crate::semantic_model::Type;
 use crate::standard_names::PRELUDE_MODULE;
 use crate::type_syntax::parse_type_annotation;
@@ -87,11 +90,26 @@ pub(super) fn quarantined_imported_use_for_path<'a>(
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
-    module.uses.iter().find(|use_decl| {
-        use_decl_has_invalid_module_segment(module, use_decl)
+    let collisions = ImportCollisionIndex::new(module);
+    let mut candidates = module.uses.iter().filter(|use_decl| {
+        let recoverable_name = if use_decl.explicit_alias {
+            !use_decl_has_invalid_module_segment(module, use_decl)
+                && use_decl_has_invalid_explicit_alias(module, use_decl)
+                && use_decl.alias == module_path
+        } else {
+            use_decl_has_invalid_module_segment(module, use_decl)
+                && (use_decl.name == module_path || use_decl.alias == module_path)
+        };
+        use_decl.origin == veln_ast::UseOrigin::Source
+            && !use_decl.syntax_recovered
+            && use_decl.alias != PRELUDE_MODULE
             && use_decl.module_name.as_deref() == current_module
-            && (use_decl.name == module_path || use_decl.alias == module_path)
-    })
+            && !collisions.contains_target(use_decl)
+            && !collisions.contains_qualifier(use_decl)
+            && recoverable_name
+    });
+    let candidate = candidates.next()?;
+    candidates.next().is_none().then_some(candidate)
 }
 
 pub(super) fn unresolved_alias_diagnostic(

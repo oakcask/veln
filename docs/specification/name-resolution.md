@@ -44,6 +44,10 @@ duplicate or otherwise ambiguous exact path remains unresolved and never falls
 back to a qualifier. Duplicate target paths and colliding qualifiers do not
 contribute bare or qualifier lookup candidates.
 
+Distinct package origins may import the same written path under distinct
+explicit aliases. Each alias selects its own package identity. The shared exact
+written path is ambiguous and does not fall through to either alias.
+
 An explicit alias must start with an ASCII lowercase letter. An uppercase or
 underscore initial reports the observed initial and the required
 `ascii_lowercase` class. The explicit alias `prelude` is reserved. Invalid-cased

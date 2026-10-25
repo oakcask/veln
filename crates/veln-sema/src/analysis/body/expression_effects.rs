@@ -343,7 +343,16 @@ impl<'a> FunctionChecker<'a> {
             .environment
             .schema_decode_step_signature(schema, self.function.module_name.as_deref())
         else {
-            self.push_schema_decode_expression_diagnostic(expr, schema);
+            if !self
+                .environment
+                .quarantined_import_schema_operation_is_recoverable(
+                    schema,
+                    self.function.module_name.as_deref(),
+                    crate::types::schema_decode_step_function_name,
+                )
+            {
+                self.push_schema_decode_expression_diagnostic(expr, schema);
+            }
             return Type::Unknown;
         };
         signature.return_type.clone()
@@ -369,7 +378,16 @@ impl<'a> FunctionChecker<'a> {
             .cloned()
         else {
             self.infer_expr(value, None);
-            self.push_schema_encode_expression_diagnostic(expr, schema);
+            if !self
+                .environment
+                .quarantined_import_schema_operation_is_recoverable(
+                    schema,
+                    self.function.module_name.as_deref(),
+                    crate::types::schema_encode_function_name,
+                )
+            {
+                self.push_schema_encode_expression_diagnostic(expr, schema);
+            }
             return Type::Unknown;
         };
         let Some(value_type) = signature.params.first().cloned() else {
