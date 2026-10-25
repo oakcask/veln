@@ -116,6 +116,66 @@ fn duplicate_use_aliases_are_static_errors() {
 }
 
 #[test]
+fn quarantined_import_blocks_exact_path_and_competing_qualifier_fallback() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app\n",
+            "use secret from \"example/dependency\"\n",
+            "use app::fallback as secret\n",
+            "fn main() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let mut module = lower_surface_ast(&parsed.tree);
+    module.uses[0].resolution_quarantined = true;
+    let path = ["secret".to_string()];
+
+    assert!(
+        analyze_surface_module(&module)
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.duplicate")
+    );
+
+    assert!(
+        crate::name_recovery::normal_imported_use_for_path(&module, &path, Some("app")).is_none()
+    );
+    let normalized = crate::name_recovery::normal_use_decls(&module);
+    assert!(matches!(
+        crate::name_recovery::select_imported_use_for_path(&normalized, &path, Some("app")),
+        crate::name_recovery::ImportSelection::Ambiguous
+    ));
+    assert!(!normalized[0].contributes_bare_members());
+
+    let reserved_source = SourceFile::new(
+        "reserved.veln",
+        concat!(
+            "mod app\n",
+            "use hidden as prelude from \"example/dependency\"\n",
+            "fn main() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let reserved_parsed = parse(&reserved_source);
+    assert!(
+        reserved_parsed.diagnostics.is_empty(),
+        "{:#?}",
+        reserved_parsed.diagnostics
+    );
+    let mut reserved = lower_surface_ast(&reserved_parsed.tree);
+    reserved.uses[0].resolution_quarantined = true;
+    assert!(
+        analyze_surface_module(&reserved)
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.reserved")
+    );
+}
+
+#[test]
 fn unaliased_imports_with_colliding_leaf_names_remain_valid() {
     let source = SourceFile::new(
         "main.veln",

@@ -296,6 +296,9 @@ pub(super) fn imported_use_for_path<'a>(
                 || standard_package_relative_import_matches(use_decl, &module_path, current_module))
     });
     if let Some(first) = exact.next() {
+        if first.resolution_quarantined {
+            return None;
+        }
         return exact.next().is_none().then_some(first);
     }
     let mut aliases = uses.iter().copied().filter(|use_decl| {
@@ -303,6 +306,9 @@ pub(super) fn imported_use_for_path<'a>(
             && simple_import_alias_matches(use_decl, &module_path)
     });
     let first = aliases.next()?;
+    if first.resolution_quarantined {
+        return None;
+    }
     aliases.next().is_none().then_some(first)
 }
 

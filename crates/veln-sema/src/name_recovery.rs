@@ -67,6 +67,7 @@ pub(crate) fn use_decl_is_quarantined_with_collisions(
     collisions: &ImportCollisionIndex,
 ) -> bool {
     use_decl.syntax_recovered
+        || use_decl.resolution_quarantined
         || use_decl_has_invalid_casing(module, use_decl)
         || (use_decl.origin == veln_ast::UseOrigin::Source
             && use_decl.explicit_alias
@@ -171,7 +172,11 @@ pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
         })
         .map(|use_decl| {
             let mut resolved = resolved_import_use_decl(use_decl);
-            if collisions.contains_target(use_decl) {
+            if use_decl.resolution_quarantined {
+                // Preserve the exact path and qualifier as tombstones while
+                // preventing bare-member visibility in downstream indexes.
+                resolved.explicit_alias = true;
+            } else if collisions.contains_target(use_decl) {
                 // Retain duplicate exact paths as ambiguity tombstones without
                 // allowing their bare or qualifier routes to participate.
                 resolved.explicit_alias = true;
@@ -253,9 +258,16 @@ fn select_from_candidates<'a>(
     collisions: &ImportCollisionIndex,
 ) -> ImportSelection<'a> {
     let module_path = segments.join("::");
-    match unique_use(candidates.iter().copied().filter(|use_decl| {
+    let exact_candidates = candidates.iter().copied().filter(|use_decl| {
         use_decl_matches_exact_import_path(use_decl, &module_path, current_module)
-    })) {
+    });
+    if exact_candidates
+        .clone()
+        .any(|use_decl| use_decl.resolution_quarantined)
+    {
+        return ImportSelection::Ambiguous;
+    }
+    match unique_use(exact_candidates) {
         ImportSelection::One(use_decl) => return ImportSelection::One(use_decl),
         ImportSelection::Ambiguous => return ImportSelection::Ambiguous,
         ImportSelection::None => {}
@@ -265,6 +277,12 @@ fn select_from_candidates<'a>(
             && !collisions.contains_target(use_decl)
             && simple_import_alias_matches(use_decl, &module_path)
     });
+    if qualifier_candidates
+        .clone()
+        .any(|use_decl| use_decl.resolution_quarantined)
+    {
+        return ImportSelection::Ambiguous;
+    }
     if qualifier_candidates
         .clone()
         .any(|use_decl| collisions.contains_qualifier(use_decl))

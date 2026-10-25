@@ -162,6 +162,7 @@ pub struct UseDecl {
     pub span: SourceSpan,
     pub origin: UseOrigin,
     pub syntax_recovered: bool,
+    pub resolution_quarantined: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -186,6 +187,7 @@ impl UseDecl {
             span,
             origin: UseOrigin::ImplicitStandardPrelude,
             syntax_recovered: false,
+            resolution_quarantined: false,
         }
     }
 

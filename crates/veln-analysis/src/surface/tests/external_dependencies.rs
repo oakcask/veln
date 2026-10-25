@@ -331,6 +331,70 @@ fn invalid_cased_dependency_export_isolated_from_valid_sibling() {
 }
 
 #[test]
+fn unexported_dependency_import_blocks_competing_qualifier_fallback() {
+    let temp = TempProject::new("unexported-dependency-import-tombstone");
+    temp.write(
+        "veln.toml",
+        "[dependencies.\"example/dependency\"]\npath = \"vendor/dependency\"\n",
+    );
+    temp.write(
+        "app/main.veln",
+        concat!(
+            "use secret from \"example/dependency\"\n",
+            "use app::fallback as secret\n",
+            "pub fn main() -> Int\n",
+            "  secret::value()\n",
+            "end\n",
+        ),
+    );
+    temp.write("app/fallback.veln", "pub fn value() -> Int\n  42\nend\n");
+    temp.write(
+        "vendor/dependency/veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"example/dependency\"\n",
+            "\n",
+            "[lib]\n",
+            "exports = [\"public.veln\"]\n",
+        ),
+    );
+    temp.write(
+        "vendor/dependency/public.veln",
+        "pub fn value() -> Int\n  1\nend\n",
+    );
+    temp.write(
+        "vendor/dependency/secret.veln",
+        "pub fn value() -> Int\n  2\nend\n",
+    );
+
+    let project =
+        Project::discover(temp.root().to_path_buf(), &[PathBuf::from("app/main.veln")]).unwrap();
+    let (module, diagnostics) = load_surface_module(&project);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "module.unexported_import"
+            && diagnostic.message.contains("external module `secret`")
+    }));
+    let rejected = module
+        .uses
+        .iter()
+        .find(|use_decl| use_decl.package.as_deref() == Some("example/dependency"))
+        .expect("rejected import tombstone");
+    assert!(rejected.resolution_quarantined, "{rejected:#?}");
+
+    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+    assert!(reachable.functions.iter().all(|function| {
+        function.module_name.as_deref() != Some("app::fallback")
+            || function.name.as_deref() != Some("value")
+    }));
+
+    let analysis = analyze_project(project, DoctestMode::Exclude);
+    assert!(analysis.checked_diagnostics().iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved" && diagnostic.message.contains("secret::value")
+    }));
+}
+
+#[test]
 fn external_git_dependency_loads_materialized_subdir_package_root() {
     let temp = TempProject::new("external-git-dependency-subdir-root");
     temp.write(

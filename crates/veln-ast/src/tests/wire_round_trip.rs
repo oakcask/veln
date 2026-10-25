@@ -3,8 +3,8 @@ use super::*;
 #[test]
 fn surface_wire_rejects_the_previous_layout_header() {
     let mut encoded = encode_surface_module(&lower_source("fn main() -> ()\n  ()\nend\n"));
-    assert_eq!(&encoded[..9], b"VLNAST18\n");
-    encoded.splice(..9, b"VLNAST17\n".iter().copied());
+    assert_eq!(&encoded[..9], b"VLNAST19\n");
+    encoded.splice(..9, b"VLNAST18\n".iter().copied());
 
     let error =
         decode_surface_module(&encoded).expect_err("previous wire layout should be rejected");
@@ -13,19 +13,21 @@ fn surface_wire_rejects_the_previous_layout_header() {
 
 #[test]
 fn surface_wire_round_trip_preserves_explicit_import_alias() {
-    let module = lower_source(concat!(
+    let mut module = lower_source(concat!(
         "mod app\n",
         "use transport::net as wire from \"std\"\n",
         "fn main() -> ()\n",
         "  ()\n",
         "end\n",
     ));
+    module.uses[0].resolution_quarantined = true;
     let decoded = decode_surface_module(&encode_surface_module(&module))
         .expect("wire round trip should decode");
 
     assert_eq!(decoded.uses[0].alias, "wire");
     assert_eq!(decoded.uses[0].written_name, "transport::net");
     assert!(decoded.uses[0].explicit_alias);
+    assert!(decoded.uses[0].resolution_quarantined);
     let span = decoded.uses[0].alias_span.as_ref().expect("alias span");
     assert_eq!((span.start.line, span.start.column), (2, 23));
     assert!(!decoded.uses[0].syntax_recovered);

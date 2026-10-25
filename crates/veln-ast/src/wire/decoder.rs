@@ -279,6 +279,7 @@ impl<'a> Reader<'a> {
             span: self.span()?,
             origin: self.use_origin()?,
             syntax_recovered: self.bool()?,
+            resolution_quarantined: self.bool()?,
         })
     }
 

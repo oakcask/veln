@@ -202,6 +202,8 @@ impl<'a> UseIndex<'a> {
         let modules = standard.into_iter().chain(std::iter::once(application));
         let mut invalid_segments_by_file =
             HashMap::<veln_source::SourcePath, Vec<&veln_ast::InvalidName>>::new();
+        let mut invalid_alias_spans_by_file =
+            HashMap::<veln_source::SourcePath, Vec<&SourceSpan>>::new();
         for invalid in modules.clone().flat_map(|module| &module.invalid_names) {
             if invalid.class == veln_ast::NameClass::Module
                 && invalid.occurrence == veln_ast::NameOccurrence::PathSegment
@@ -210,6 +212,13 @@ impl<'a> UseIndex<'a> {
                     .entry(invalid.span.file.clone())
                     .or_default()
                     .push(invalid);
+            } else if invalid.class == veln_ast::NameClass::Module
+                && invalid.occurrence == veln_ast::NameOccurrence::Declaration
+            {
+                invalid_alias_spans_by_file
+                    .entry(invalid.span.file.clone())
+                    .or_default()
+                    .push(&invalid.span);
             }
         }
         for invalid_segments in invalid_segments_by_file.values_mut() {
@@ -226,9 +235,21 @@ impl<'a> UseIndex<'a> {
                 .get(&declaration.span.file)
                 .map(|candidates| invalid_segments_in_span(candidates, &declaration.span))
                 .unwrap_or_default();
-            if module_path_segments.is_empty() {
+            let invalid_explicit_alias = declaration.explicit_alias
+                && declaration.alias_span.as_ref().is_some_and(|alias_span| {
+                    invalid_alias_spans_by_file
+                        .get(&alias_span.file)
+                        .is_some_and(|spans| spans.contains(&alias_span))
+                });
+            let reserved_explicit_alias = declaration.origin == veln_ast::UseOrigin::Source
+                && declaration.explicit_alias
+                && declaration.alias == "prelude";
+            if module_path_segments.is_empty()
+                && !invalid_explicit_alias
+                && !reserved_explicit_alias
+            {
                 valid.push(declaration);
-            } else {
+            } else if !reserved_explicit_alias {
                 invalid.push(InvalidUse {
                     declaration,
                     module_path_segments,

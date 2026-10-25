@@ -6,6 +6,14 @@ pub(super) fn load_external_dependencies(
     diagnostics: &mut Vec<Diagnostic>,
     parts: &mut SurfaceParts,
 ) {
+    for use_decl in parts
+        .module
+        .uses
+        .iter_mut()
+        .filter(|use_decl| use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME))
+    {
+        validate_standard_package_import(use_decl, diagnostics);
+    }
     let external_uses = parts
         .module
         .uses
@@ -21,7 +29,6 @@ pub(super) fn load_external_dependencies(
     for use_decl in external_uses {
         let package = use_decl.package.as_deref().unwrap_or_default();
         if package == veln_stdlib::PACKAGE_NAME {
-            validate_standard_package_import(&use_decl, diagnostics);
             continue;
         }
         if loaded.contains(package) {
@@ -40,7 +47,7 @@ pub(super) fn load_external_dependencies(
 }
 
 pub(super) fn validate_standard_package_import(
-    use_decl: &UseDecl,
+    use_decl: &mut UseDecl,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let module_path = standard_export_module_path(use_decl);
@@ -49,6 +56,7 @@ pub(super) fn validate_standard_package_import(
             .is_ok_and(|module| module == module_path)
     }) {
         diagnostics.push(unexported_external_module_diagnostic(use_decl));
+        use_decl.resolution_quarantined = true;
     }
 }
 
@@ -96,7 +104,7 @@ pub(super) fn load_external_dependency_package(
     for external_use in parts
         .module
         .uses
-        .iter()
+        .iter_mut()
         .filter(|candidate| candidate.package.as_deref() == Some(package))
     {
         let module_path = external_import_export_module_path(external_use);
@@ -105,14 +113,9 @@ pub(super) fn load_external_dependency_package(
             .any(|module_name| module_name == &module_path)
         {
             diagnostics.push(unexported_external_module_diagnostic(external_use));
+            external_use.resolution_quarantined = true;
         }
     }
-    parts.module.uses.retain(|external_use| {
-        external_use.package.as_deref() != Some(package)
-            || exported_modules
-                .iter()
-                .any(|module_name| module_name == &external_import_export_module_path(external_use))
-    });
     merge_surface_parts(parts, &dependency_parts);
 }
 

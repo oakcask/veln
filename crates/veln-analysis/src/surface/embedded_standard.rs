@@ -125,7 +125,10 @@ pub(super) fn load_embedded_standard_package_from(
             .module
             .uses
             .iter()
-            .filter(|use_decl| use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME))
+            .filter(|use_decl| {
+                use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+                    && !use_decl.resolution_quarantined
+            })
             .map(|use_decl| {
                 external_module_key(
                     veln_stdlib::PACKAGE_NAME,

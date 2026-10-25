@@ -182,6 +182,7 @@ impl Writer {
         self.span(&value.span);
         self.use_origin(value.origin);
         self.bool(value.syntax_recovered);
+        self.bool(value.resolution_quarantined);
     }
 
     fn use_origin(&mut self, value: UseOrigin) {

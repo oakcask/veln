@@ -642,8 +642,11 @@ An import of a dependency module absent from `[lib].exports` reports
 `module.unexported_import`. The rejected import contributes no explicit alias,
 exact written path, implicit leaf, or bare export lookup candidate. A later use
 through either an explicit alias or the written target path therefore reports
-the ordinary unresolved-name diagnostic. Other exported modules from the same
-dependency remain available.
+the ordinary unresolved-name diagnostic. The rejected written path and
+qualifier remain blocking tombstones: lookup does not fall through to a
+same-spelled qualifier from another import. They also remain available to
+independent duplicate and reserved-name checks. Other exported modules from
+the same dependency remain available.
 
 Editor-facing type-role selection uses the same module and import visibility.
 A bare type-role reference selects the same-module source type first. Without

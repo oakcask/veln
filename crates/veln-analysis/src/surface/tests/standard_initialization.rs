@@ -473,7 +473,7 @@ fn private_standard_http2_modules_cannot_be_imported() {
         manifest: None,
     };
 
-    let (_, diagnostics) = load_surface_module(&project);
+    let (module, diagnostics) = load_surface_module(&project);
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "module.unexported_import"
             && diagnostic.message.contains("http2::hpack::integer")
@@ -484,4 +484,27 @@ fn private_standard_http2_modules_cannot_be_imported() {
                 .message
                 .contains("http2::core::pending_header_block")
     }));
+    assert!(module.functions.iter().all(|function| {
+        !matches!(
+            function.module_name.as_deref(),
+            Some("std::http2::hpack::integer") | Some("std::http2::core::pending_header_block")
+        )
+    }));
+    let rejected = module
+        .uses
+        .iter()
+        .filter(|use_decl| {
+            use_decl.package.as_deref() == Some("std")
+                && matches!(
+                    use_decl.written_name.as_str(),
+                    "http2::hpack::integer" | "http2::core::pending_header_block"
+                )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(rejected.len(), 2, "{:#?}", module.uses);
+    assert!(
+        rejected
+            .iter()
+            .all(|use_decl| use_decl.resolution_quarantined)
+    );
 }

@@ -198,6 +198,7 @@ impl AstBuilder {
             span: use_decl.span.clone(),
             origin: UseOrigin::Source,
             syntax_recovered: use_decl.recovered,
+            resolution_quarantined: false,
         }
     }
 
