@@ -21,10 +21,10 @@ compatibility spellings. Indentation is one tab per level: top-level items and
 closing `end` lines use level zero, and function body lines use level one.
 
 A module `let` declaration remains at indentation zero. The formatter writes
-one space around the declaration's `:` and `=`, applies the ordinary type
-layout to its required annotation, and formats its initializer with the
-ordinary expression rules. Multiline record and list input may become one
-canonical line. Reformatting the result is idempotent.
+the declaration as `name: Type = initializer`, applies the ordinary type layout
+to its required annotation, and formats its initializer with the ordinary
+expression rules. Multiline record and list input may become one canonical
+line. Reformatting the result is idempotent.
 
 The formatter writes one space on each side of `%` and preserves its
 precedence and left associativity with `*` and `/`.

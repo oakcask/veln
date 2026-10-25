@@ -60,6 +60,12 @@ syntax as expressions in function bodies. Delimited records, lists, and calls
 may therefore span lines. The formatter writes the declaration at module
 indentation and applies the ordinary canonical type and expression layout.
 
+The syntax tree and lowered AST preserve the declaration's visibility, name,
+written annotation and its structured type paths and refinements, initializer,
+and source spans. The lowered AST also records the declaring module identity.
+The AST wire layout includes module value declarations and rejects the
+preceding layout header instead of decoding bytes that lack them.
+
 This source surface does not make module values executable. `veln fmt` accepts
 and formats a valid declaration, while `veln check` and commands that require
 checked code report `module.value_not_executable`. Initializer admission,
@@ -440,7 +446,8 @@ DecimalLiteral ::= ASCII decimal digit+
 BinaryLiteral ::= "0b" ("0" | "1")+
 HexadecimalLiteral ::= "0x" ASCII hexadecimal digit+
 Item          ::= ModuleValueDecl | Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias
-ModuleValueDecl ::= "pub"? "let" Name ":" TypeText "=" Expr NL
+ModuleValueDecl ::= "pub"? "let" LowerName ":" TypeText "=" Expr NL
+LowerName     ::= ASCII lowercase letter identifier-continue*
 Function      ::= "pub"? "fn" Name EffectBinder? "(" ParamList? ")" Return? Effects? CallsiteModifier? NL
                   Contract* Body "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL

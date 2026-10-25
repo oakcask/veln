@@ -66,11 +66,20 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
         Descriptor {
             id: "declarations-aliases",
             title: "Declarations And Aliases",
-            summary: "Functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items.",
-            keywords: &["functions", "types", "aliases", "effects", "handlers"],
+            summary: "Typed module values, functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items.",
+            keywords: &[
+                "module values",
+                "functions",
+                "types",
+                "aliases",
+                "effects",
+                "handlers",
+            ],
             body: &[
                 "The descriptor selects the executable item productions for source declarations.",
+                "A typed module `let` declaration has the form `[pub] let name: Type = initializer`. Parsing, formatting, syntax trees, and lowered ASTs preserve it. Semantic analysis and code generation reject it with `module.value_not_executable`, so it is not yet an addressable or executable module value.",
                 "The selected example exercises public member alias re-exports in a checked case.",
+                "The formatter example exercises accepted private and public typed module `let` declarations.",
             ],
             related: &[
                 "modules-imports-packages",
@@ -78,6 +87,7 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                 "effects-handlers",
             ],
             grammar: &[
+                "ModuleValueDecl",
                 "Function",
                 "TestDecl",
                 "TypeDecl",
@@ -85,11 +95,18 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                 "HandlerDecl",
                 "PublicAlias",
             ],
-            examples: &[ExampleSelection {
-                case: "check/public-member-alias-reexports",
-                display_name: "Public alias re-export check",
-                files: &["app.veln", "api.veln", "impl.veln"],
-            }],
+            examples: &[
+                ExampleSelection {
+                    case: "check/public-member-alias-reexports",
+                    display_name: "Public alias re-export check",
+                    files: &["app.veln", "api.veln", "impl.veln"],
+                },
+                ExampleSelection {
+                    case: "fmt/module-immutable-declarations",
+                    display_name: "Module immutable declaration formatting",
+                    files: &["main.veln"],
+                },
+            ],
         },
         Descriptor {
             id: "expressions-patterns",
@@ -161,7 +178,7 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                 "Lists, dictionaries, records, and constructor payloads retain compatible refinements. Aggregate inference joins compatible singleton and finite-set refinements. Control-flow result inference applies the same join to `if` and `match` branches. A join widens to the base ADT when one branch is already base-typed or when the joined set contains every declared variant.",
                 "A constructor pattern narrows a stable matched value to the selected singleton in that arm. A residual catch-all receives the feasible variants not selected by earlier arms. Refinement applies to immutable parameters and local bindings, transparent local aliases that share one feasible domain, and record-field paths rooted at those stable values. Computed expressions are not stable refinement paths.",
                 "Refinements are erased at runtime and use the base ADT representation. They do not add a runtime state store, linear consumption, reachability or progress proofs, payload predicates, or restrictions on constructing visible variants.",
-                "A public type-alias chain whose resolved target is an ADT can qualify a refinement. Alias-qualified and target-qualified forms use the target ADT identity and type arguments, so equal variant sets are mutually assignable. Expected alias-qualified constructor context supplies the target ADT's generic payload arguments. Constructor patterns preserve those payload arguments when the scrutinee and pattern use target and alias qualifiers of the same ADT. One unambiguous alias from an explicit annotation is preserved for display. Constructor inference uses the target ADT name. A join preserves one alias preference when its other contributions use the target name, but conflicting alias preferences make the result use the target name. This reconciliation is independent of contribution order and still applies when a singleton ADT or complete refinement union collapses to the base ADT. Qualified immutable-value refinement remains unavailable because the source language has no module-addressable immutable data-value declaration.",
+                "A public type-alias chain whose resolved target is an ADT can qualify a refinement. Alias-qualified and target-qualified forms use the target ADT identity and type arguments, so equal variant sets are mutually assignable. Expected alias-qualified constructor context supplies the target ADT's generic payload arguments. Constructor patterns preserve those payload arguments when the scrutinee and pattern use target and alias qualifiers of the same ADT. One unambiguous alias from an explicit annotation is preserved for display. Constructor inference uses the target ADT name. A join preserves one alias preference when its other contributions use the target name, but conflicting alias preferences make the result use the target name. This reconciliation is independent of contribution order and still applies when a singleton ADT or complete refinement union collapses to the base ADT. Qualified immutable-value refinement remains unavailable because typed module `let` declarations are not yet addressable values.",
                 "A refinement in a public function parameter or result, or in a public variant payload of a public ADT, must expose a visible base ADT and visible selected variants. This check traverses records, named type arguments, nested function parameters and results, refinement unions, and transparent aliases. An inaccessible refinement prevents publication of the declaration. Publication quarantine propagates through public ADT payload dependencies and then to public functions whose signatures depend on a quarantined ADT. An ordinary named reference to a quarantined ADT does not duplicate the causal privacy diagnostic.",
                 "Every successfully instantiated alternative in one refinement union must have the same nominal ADT identity and invariant generic arguments. Each later conflicting alternative reports a focused union-base diagnostic with the earliest successful alternative as context. A mixed-base union makes its annotation invalid and quarantines the complete containing function, effect operation, handler, or ADT-constructor signature.",
                 "The selected checked examples exercise constructor singleton inference, subset assignment and widening, refined call typing, alias identity and presentation, generic alias constructor and pattern boundaries, aggregate retention, control-flow result joins, recursive public visibility, and transitive publication quarantine.",

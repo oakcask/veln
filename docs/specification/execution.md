@@ -75,6 +75,11 @@ before applying command-specific execution or write policy. Holes, missing
 expressions, constructor or call arity failures, and recognized concurrency
 blockers prevent execution.
 
+Module immutable value declarations do not reach checked core or typed IR.
+Their module-loading diagnostic blocks execution before initializer typing or
+code generation. Parsing and formatting support for the declaration does not
+create a runtime value or initialization phase.
+
 A variant-refinement visibility failure anywhere in a public function
 parameter or result, or in a public variant payload of a public source ADT, is
 also a checked-core and typed-IR blocker. This applies when the written base

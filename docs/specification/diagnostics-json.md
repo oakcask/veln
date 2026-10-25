@@ -47,6 +47,15 @@ consumers must preserve diagnostic and related-note order.
 
 ## Diagnostic families
 
+A parse-clean module immutable value declaration reports
+`module.value_not_executable` at the complete declaration. The diagnostic has
+kind `module` and severity `error`. Its `details` object contains
+`phase: "module"`, `field: "module_value"`, and the declaration's `name`.
+One related note explains that parsing and formatting support the declaration,
+while semantic analysis and code generation do not. This diagnostic prevents
+`veln check` success; the [source-surface specification](source-surface.md#module-immutable-value-declarations)
+defines the accepted declaration syntax and current implementation boundary.
+
 An unresolved call target that uses one of the
 [removed compiler-known network spellings](name-resolution.md#removed-network-call-spellings)
 reports one `name.unresolved` diagnostic. The primary message and `details`

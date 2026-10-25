@@ -25,13 +25,14 @@ macro_rules! mini_grammar {
     ($module_rule:literal) => {
         concat!(
             $module_rule,
-            "Item          ::= Function | TestDecl | TypeDecl | EffectDecl | HandlerDecl | SchemaDecl | PublicAlias\n",
+            "Item          ::= ModuleValueDecl | Function | TestDecl | TypeDecl | EffectDecl | HandlerDecl | SchemaDecl | PublicAlias\n",
             "IntLiteral    ::= DecimalLiteral\n",
             "ModuleHeader  ::= \"mod\" ModuleHeaderPath NL\n",
             "UseDecl       ::= \"use\" ModulePath ImportSource? NL\n",
             "ImportSource  ::= \"from\" PackageString\n",
             "ModulePath    ::= Name (\"::\" Name)*\n",
             "PublicAlias   ::= \"pub\" (\"fn\" | \"type\" | \"schema\") Name \"=\" MemberPath NL\n",
+            "ModuleValueDecl ::= \"pub\"? \"let\" LowerName \":\" TypeText \"=\" Expr NL\n",
             "Function      ::= \"pub\"? \"fn\" Name\n",
             "TestDecl      ::= \"test\" Name\n",
             "TypeDecl      ::= \"pub\"? \"type\" Name\n",
