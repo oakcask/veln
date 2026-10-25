@@ -3,7 +3,7 @@ use fake_effects
 use http2::connection from "std"
 use http2::core from "std"
 use net from "std"
-use transport::net from "std"
+use transport::net as transport_net from "std"
 use stdio
 
 fn open_listener() -> Result<net::Listener, String> effects [net::IO]
@@ -21,7 +21,7 @@ fn accept_next(listener: net::Listener) -> Result<net::Stream, String> effects [
 end
 
 fn run_server(stream: net::Stream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ConnectionFailure> effects [net::IO]
-	handle http2::connection::drive_server(state) with transport::net::net_stream(stream)
+	handle http2::connection::drive_server(state) with transport_net::net_stream(stream)
 end
 
 fn print_result(result: Result<CoreConnectionState, Http2ConnectionFailure>) -> Result<(), String> effects [stdio]

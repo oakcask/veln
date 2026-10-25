@@ -4,7 +4,7 @@ use http2::connection from "std"
 use http2::core from "std"
 use http2::hpack from "std"
 use net from "std"
-use transport::net from "std"
+use transport::net as transport_net from "std"
 use stdio
 
 fn open_listener() -> Result<net::Listener, String> effects [net::IO]
@@ -35,7 +35,7 @@ fn handler(event: Http2ApplicationEvent) -> Result<List<Http2ApplicationAction>,
 end
 
 fn run_server(stream: net::Stream, state: CoreConnectionState) -> Result<CoreConnectionState, Http2ApplicationBoundaryFailure> effects [net::IO]
-	handle http2::connection::drive_server_application(state, handler) with transport::net::net_stream(stream)
+	handle http2::connection::drive_server_application(state, handler) with transport_net::net_stream(stream)
 end
 
 fn print_result(result: Result<CoreConnectionState, Http2ApplicationBoundaryFailure>) -> Result<(), String> effects [stdio]

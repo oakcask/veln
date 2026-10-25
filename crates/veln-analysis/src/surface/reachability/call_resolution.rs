@@ -194,7 +194,7 @@ pub(super) fn collect_handler_operation_clause_callees(
     });
     for handler in matching_handlers {
         let context = FunctionCalleeContext {
-            current_module,
+            current_module: handler.module_name.as_deref(),
             uses,
             function_targets,
             companion_access_targets,

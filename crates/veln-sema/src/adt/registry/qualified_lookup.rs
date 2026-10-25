@@ -597,7 +597,11 @@ fn imported_module_segments<'a>(
     descriptor: &AdtDescriptor,
     segments: &'a [String],
 ) -> Option<&'a [String]> {
-    let end = descriptor_type_segment_index(descriptor, segments)
+    let constructor_type_index = (segments.len() > 2)
+        .then(|| segments.len() - 2)
+        .filter(|index| segments[*index] == descriptor.type_name);
+    let end = constructor_type_index
+        .or_else(|| descriptor_type_segment_index(descriptor, segments))
         .unwrap_or_else(|| segments.len().saturating_sub(1));
     (end > 0).then_some(&segments[..end])
 }
