@@ -20,7 +20,7 @@ mod targets;
 use call_resolution::*;
 use callee_collection::*;
 pub(crate) use index::ReachabilityCache;
-use index::{FunctionTargetIndex, ReachabilityIndex, ReachabilityInputs};
+use index::{FunctionTargetIndex, ReachabilityIndex, ReachabilityInputs, ReachabilityUse};
 use recovery_index::*;
 use recovery_resolution::*;
 use targets::*;

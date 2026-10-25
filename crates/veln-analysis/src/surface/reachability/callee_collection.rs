@@ -8,7 +8,7 @@ pub(super) struct LocalBinding {
 
 pub(super) struct FunctionCalleeContext<'a> {
     pub(super) current_module: Option<&'a str>,
-    pub(super) uses: &'a [&'a UseDecl],
+    pub(super) uses: &'a [ReachabilityUse<'a>],
     pub(super) function_targets: &'a FunctionTargetIndex,
     pub(super) companion_access_targets: &'a HashMap<String, String>,
     pub(super) handlers: &'a [&'a veln_ast::HandlerDecl],
@@ -16,7 +16,7 @@ pub(super) struct FunctionCalleeContext<'a> {
 }
 
 pub(super) struct CalleeCollectionInputs<'a> {
-    uses: Vec<&'a UseDecl>,
+    uses: Vec<ReachabilityUse<'a>>,
     handlers: Vec<&'a veln_ast::HandlerDecl>,
     types: Vec<&'a veln_ast::TypeDecl>,
 }
@@ -106,7 +106,7 @@ fn collect_body_callees(
 pub(super) fn collect_contract_callees(
     predicate: &str,
     current_module: Option<&str>,
-    uses: &[&UseDecl],
+    uses: &[ReachabilityUse<'_>],
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
@@ -165,7 +165,7 @@ pub(super) fn collect_contract_callees(
 pub(super) fn collect_contract_function_value_references(
     tokens: &[veln_syntax::Token],
     current_module: Option<&str>,
-    uses: &[&UseDecl],
+    uses: &[ReachabilityUse<'_>],
     function_targets: &FunctionTargetIndex,
     _companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
@@ -314,7 +314,7 @@ pub(super) fn collect_opaque_function_value_callees(
     shape: &FunctionShape,
     arg_count: Option<usize>,
     current_module: Option<&str>,
-    uses: &[&UseDecl],
+    uses: &[ReachabilityUse<'_>],
     function_targets: &FunctionTargetIndex,
     _companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,

@@ -629,6 +629,233 @@ fn malformed_import_aliases_never_retain_targets_through_reachability() {
 }
 
 #[test]
+fn duplicate_target_aliases_do_not_reach_calls_or_function_values_in_either_order() {
+    for reverse in [false, true] {
+        let imports = if reverse {
+            "use shared as second\nuse shared as first\n"
+        } else {
+            "use shared as first\nuse shared as second\n"
+        };
+        let app = SourceFile::new(
+            "app.veln",
+            format!(
+                concat!(
+                    "mod app\n",
+                    "{imports}",
+                    "fn accepts(job: fn() -> Int) -> Int\n",
+                    "  job()\n",
+                    "end\n",
+                    "pub fn main() -> Int\n",
+                    "  first::answer() + accepts(second::answer)\n",
+                    "end\n",
+                ),
+                imports = imports,
+            ),
+        );
+        let shared = SourceFile::new(
+            "shared.veln",
+            "mod shared\npub fn answer() -> Int\n  40\nend\n",
+        );
+        let files = if reverse {
+            vec![shared, app]
+        } else {
+            vec![app, shared]
+        };
+        let (module, _) = load_surface_module(&Project {
+            root: ".".into(),
+            files,
+            manifest: None,
+        });
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        assert_eq!(
+            reachable_function_names(&reachable),
+            [("app", "accepts"), ("app", "main")],
+            "duplicate target aliases became reachable with reverse={reverse}"
+        );
+    }
+}
+
+#[test]
+fn duplicate_unaliased_targets_and_qualifier_collisions_do_not_reach_functions() {
+    let cases = [
+        ("use shared\nuse shared\n", "answer() + shared::answer()"),
+        (
+            "use first::shared as route\nuse second::shared as route\n",
+            "route::answer()",
+        ),
+    ];
+    for (imports, body) in cases {
+        for reverse in [false, true] {
+            let imports = if reverse {
+                imports.lines().rev().collect::<Vec<_>>().join("\n") + "\n"
+            } else {
+                imports.to_string()
+            };
+            let app = SourceFile::new(
+                "app.veln",
+                format!("mod app\n{imports}pub fn main() -> Int\n  {body}\nend\n"),
+            );
+            let first = SourceFile::new(
+                "first/shared.veln",
+                "mod first::shared\npub fn answer() -> Int\n  20\nend\n",
+            );
+            let second = SourceFile::new(
+                "second/shared.veln",
+                "mod second::shared\npub fn answer() -> Int\n  20\nend\n",
+            );
+            let shared = SourceFile::new(
+                "shared.veln",
+                "mod shared\npub fn answer() -> Int\n  40\nend\n",
+            );
+            let (module, _) = load_surface_module(&Project {
+                root: ".".into(),
+                files: vec![app, first, second, shared],
+                manifest: None,
+            });
+
+            let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+            assert_eq!(reachable_function_names(&reachable), [("app", "main")]);
+        }
+    }
+}
+
+#[test]
+fn duplicate_exact_tombstones_block_competing_qualifiers_but_not_independent_exact_routes() {
+    for reverse in [false, true] {
+        let imports = if reverse {
+            concat!(
+                "use clean\n",
+                "use other as shared\n",
+                "use shared as second\n",
+                "use shared as first\n",
+            )
+        } else {
+            concat!(
+                "use shared as first\n",
+                "use shared as second\n",
+                "use other as shared\n",
+                "use clean\n",
+            )
+        };
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "app.veln",
+                    format!(
+                        "mod app\n{imports}pub fn main() -> Int\n  shared::answer() + clean::answer()\nend\n"
+                    ),
+                ),
+                SourceFile::new(
+                    "shared.veln",
+                    "mod shared\npub fn answer() -> Int\n  10\nend\n",
+                ),
+                SourceFile::new(
+                    "other.veln",
+                    "mod other\npub fn answer() -> Int\n  20\nend\n",
+                ),
+                SourceFile::new(
+                    "clean.veln",
+                    "mod clean\npub fn answer() -> Int\n  30\nend\n",
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, _) = load_surface_module(&project);
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        assert_eq!(
+            reachable_function_names(&reachable),
+            [("app", "main"), ("clean", "answer")]
+        );
+    }
+}
+
+#[test]
+fn duplicate_targets_do_not_reach_opaque_callback_candidates() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "mod app\n",
+                    "use shared as first\n",
+                    "use shared as second\n",
+                    "fn invoke(job: fn() -> Int) -> Int\n",
+                    "  job()\n",
+                    "end\n",
+                    "fn local_job() -> Int\n",
+                    "  1\n",
+                    "end\n",
+                    "pub fn main() -> Int\n",
+                    "  invoke(local_job)\n",
+                    "end\n",
+                ),
+            ),
+            SourceFile::new(
+                "shared.veln",
+                "mod shared\npub fn answer() -> Int\n  40\nend\n",
+            ),
+        ],
+        manifest: None,
+    };
+    let (module, _) = load_surface_module(&project);
+
+    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+    assert!(
+        reachable_function_names(&reachable)
+            .iter()
+            .all(|(module, _)| *module != "shared"),
+        "duplicate target leaked through opaque callback reachability"
+    );
+}
+
+#[test]
+fn duplicate_target_aliases_do_not_reach_handler_clause_callees() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "mod app\n",
+                    "use shared as first\n",
+                    "use shared as second\n",
+                    "pub fn main() -> Int\n",
+                    "  handle first::compute() with first::ask()\n",
+                    "end\n",
+                ),
+            ),
+            SourceFile::new(
+                "shared.veln",
+                concat!(
+                    "mod shared\n",
+                    "pub effect Ask\n",
+                    "  value() -> Int\n",
+                    "end\n",
+                    "fn helper() -> Int\n",
+                    "  40\n",
+                    "end\n",
+                    "pub handler ask() for Ask\n",
+                    "  value() => helper()\n",
+                    "end\n",
+                    "pub fn compute() -> Int effects [Ask]\n",
+                    "  perform Ask::value()\n",
+                    "end\n",
+                ),
+            ),
+        ],
+        manifest: None,
+    };
+    let (module, _) = load_surface_module(&project);
+
+    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+    assert_eq!(reachable_function_names(&reachable), [("app", "main")]);
+}
+
+#[test]
 fn invalid_and_reserved_import_aliases_never_retain_targets_through_reachability() {
     for import in ["use pkg::target as Bad\n", "use pkg::target as prelude\n"] {
         let app_source = SourceFile::new(

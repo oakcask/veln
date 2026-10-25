@@ -137,7 +137,7 @@ impl<'a> ReachabilityInputs<'a> {
         }
     }
 
-    pub(super) fn uses(&self) -> Vec<&'a UseDecl> {
+    pub(super) fn uses(&self) -> Vec<ReachabilityUse<'a>> {
         self.use_index.valid.clone()
     }
 
@@ -188,8 +188,23 @@ impl<'a> ReachabilityInputs<'a> {
 }
 
 struct UseIndex<'a> {
-    valid: Vec<&'a UseDecl>,
+    valid: Vec<ReachabilityUse<'a>>,
     invalid: Vec<InvalidUse<'a>>,
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct ReachabilityUse<'a> {
+    pub(super) declaration: &'a UseDecl,
+    pub(super) target_collision: bool,
+    pub(super) qualifier_collision: bool,
+}
+
+impl std::ops::Deref for ReachabilityUse<'_> {
+    type Target = UseDecl;
+
+    fn deref(&self) -> &Self::Target {
+        self.declaration
+    }
 }
 
 struct InvalidUse<'a> {
@@ -200,6 +215,9 @@ struct InvalidUse<'a> {
 impl<'a> UseIndex<'a> {
     fn new(standard: Option<&'a SurfaceModule>, application: &'a SurfaceModule) -> Self {
         let modules = standard.into_iter().chain(std::iter::once(application));
+        let collisions = veln_sema::ImportCollisionIndex::from_eligible_use_refs(
+            modules.clone().flat_map(|module| &module.uses),
+        );
         let mut invalid_segments_by_file =
             HashMap::<veln_source::SourcePath, Vec<&veln_ast::InvalidName>>::new();
         let mut invalid_alias_spans_by_file =
@@ -248,7 +266,11 @@ impl<'a> UseIndex<'a> {
                 && !invalid_explicit_alias
                 && !reserved_explicit_alias
             {
-                valid.push(declaration);
+                valid.push(ReachabilityUse {
+                    declaration,
+                    target_collision: collisions.contains_target(declaration),
+                    qualifier_collision: collisions.contains_qualifier(declaration),
+                });
             } else if !reserved_explicit_alias {
                 invalid.push(InvalidUse {
                     declaration,

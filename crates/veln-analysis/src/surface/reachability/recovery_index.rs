@@ -24,7 +24,7 @@ impl ReachableInvalidNameSpan {
 }
 
 pub(super) struct ReachableInvalidNameSelector<'a> {
-    pub(super) uses: Vec<&'a UseDecl>,
+    pub(super) uses: Vec<ReachabilityUse<'a>>,
     pub(super) invalid_uses: Vec<&'a UseDecl>,
     pub(super) invalid_use_segments: Vec<(&'a UseDecl, Vec<ReachableInvalidNameSpan>)>,
     pub(super) handlers: Vec<&'a veln_ast::HandlerDecl>,

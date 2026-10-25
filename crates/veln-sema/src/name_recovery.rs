@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{NameClass, NameOccurrence, PublicAlias, SurfaceModule, UseDecl};
 
@@ -75,20 +75,60 @@ pub(crate) fn use_decl_is_quarantined_with_collisions(
         || collisions.contains_target(use_decl)
 }
 
-pub(crate) struct ImportCollisionIndex {
-    targets: BTreeMap<(Option<String>, Option<String>, String), usize>,
-    qualifiers: BTreeMap<(Option<String>, String), usize>,
+type ImportTargetKey = (Option<String>, Option<String>, String);
+type ImportQualifierKey = (Option<String>, String);
+
+/// Precomputed target and qualifier collisions for source imports.
+#[doc(hidden)]
+pub struct ImportCollisionIndex {
+    targets: BTreeMap<ImportTargetKey, usize>,
+    qualifiers: BTreeMap<ImportQualifierKey, usize>,
+    duplicate_targets_with_competing_qualifiers: BTreeSet<ImportTargetKey>,
 }
 
 impl ImportCollisionIndex {
+    /// Builds the collision facts for one lowered module.
+    #[doc(hidden)]
     pub(crate) fn new(module: &SurfaceModule) -> Self {
-        Self::from_eligible_uses(&module.uses)
+        let mut index = Self::from_eligible_uses(&module.uses);
+        let competing_qualifiers = module
+            .uses
+            .iter()
+            .filter(|candidate| {
+                record_normal_use_relation_candidate_inspection();
+                !candidate.syntax_recovered
+                    && !use_decl_has_invalid_casing(module, candidate)
+                    && !(candidate.origin == veln_ast::UseOrigin::Source
+                        && candidate.explicit_alias
+                        && candidate.alias == "prelude")
+                    && !index.contains_target(candidate)
+                    && !index.contains_qualifier(candidate)
+                    && use_decl_has_import_qualifier(candidate)
+            })
+            .map(|candidate| (candidate.module_name.clone(), candidate.alias.clone()))
+            .collect::<BTreeSet<_>>();
+        index.duplicate_targets_with_competing_qualifiers = index
+            .targets
+            .iter()
+            .filter(|((module_name, _, written_name), count)| {
+                **count > 1
+                    && competing_qualifiers.contains(&(module_name.clone(), written_name.clone()))
+            })
+            .map(|(target, _)| target.clone())
+            .collect();
+        index
     }
 
     pub(crate) fn from_eligible_uses(uses: &[UseDecl]) -> Self {
+        Self::from_eligible_use_refs(uses)
+    }
+
+    /// Builds collision facts from the provided source imports.
+    #[doc(hidden)]
+    pub fn from_eligible_use_refs<'a>(uses: impl IntoIterator<Item = &'a UseDecl>) -> Self {
         let mut targets = BTreeMap::new();
         let mut qualifiers = BTreeMap::new();
-        for use_decl in uses.iter().filter(|use_decl| {
+        for use_decl in uses.into_iter().filter(|use_decl| {
             use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.syntax_recovered
         }) {
             *targets
@@ -107,10 +147,13 @@ impl ImportCollisionIndex {
         Self {
             targets,
             qualifiers,
+            duplicate_targets_with_competing_qualifiers: BTreeSet::new(),
         }
     }
 
-    pub(crate) fn contains_target(&self, use_decl: &UseDecl) -> bool {
+    /// Reports whether the declaration's target identity is duplicated.
+    #[doc(hidden)]
+    pub fn contains_target(&self, use_decl: &UseDecl) -> bool {
         self.targets
             .get(&(
                 use_decl.module_name.clone(),
@@ -120,11 +163,26 @@ impl ImportCollisionIndex {
             .is_some_and(|count| *count > 1)
     }
 
-    pub(crate) fn contains_qualifier(&self, use_decl: &UseDecl) -> bool {
+    /// Reports whether the declaration's local qualifier is duplicated.
+    #[doc(hidden)]
+    pub fn contains_qualifier(&self, use_decl: &UseDecl) -> bool {
         self.qualifiers
             .get(&(use_decl.module_name.clone(), use_decl.alias.clone()))
             .is_some_and(|count| *count > 1)
     }
+
+    fn duplicate_target_blocks_competing_qualifier(&self, use_decl: &UseDecl) -> bool {
+        self.duplicate_targets_with_competing_qualifiers
+            .contains(&import_target_key(use_decl))
+    }
+}
+
+fn import_target_key(use_decl: &UseDecl) -> ImportTargetKey {
+    (
+        use_decl.module_name.clone(),
+        use_decl.package.clone(),
+        use_decl.written_name.clone(),
+    )
 }
 
 pub(crate) fn use_decl_has_invalid_casing(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
@@ -168,7 +226,7 @@ pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
                     && use_decl.explicit_alias
                     && use_decl.alias == "prelude")
                 && (!collisions.contains_target(use_decl)
-                    || duplicate_target_blocks_competing_qualifier(module, use_decl, &collisions))
+                    || collisions.duplicate_target_blocks_competing_qualifier(use_decl))
         })
         .map(|use_decl| {
             let mut resolved = resolved_import_use_decl(use_decl);
@@ -185,24 +243,6 @@ pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
             resolved
         })
         .collect()
-}
-
-fn duplicate_target_blocks_competing_qualifier(
-    module: &SurfaceModule,
-    duplicate: &UseDecl,
-    collisions: &ImportCollisionIndex,
-) -> bool {
-    module.uses.iter().any(|candidate| {
-        candidate.module_name == duplicate.module_name
-            && !candidate.syntax_recovered
-            && !use_decl_has_invalid_casing(module, candidate)
-            && !(candidate.origin == veln_ast::UseOrigin::Source
-                && candidate.explicit_alias
-                && candidate.alias == "prelude")
-            && !collisions.contains_target(candidate)
-            && !collisions.contains_qualifier(candidate)
-            && simple_import_alias_matches(candidate, &duplicate.written_name)
-    })
 }
 
 pub(crate) fn resolved_import_use_decl(use_decl: &UseDecl) -> UseDecl {
@@ -477,4 +517,29 @@ pub(crate) fn use_decl_matches_implicit_import_alias(
 ) -> bool {
     use_decl.module_name.as_deref() == current_module
         && simple_import_alias_matches(use_decl, module_path)
+}
+
+#[cfg(test)]
+thread_local! {
+    static NORMAL_USE_RELATION_CANDIDATE_INSPECTIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_normal_use_relation_candidate_inspection() {
+    NORMAL_USE_RELATION_CANDIDATE_INSPECTIONS.with(|inspections| {
+        inspections.set(inspections.get() + 1);
+    });
+}
+
+#[cfg(not(test))]
+fn record_normal_use_relation_candidate_inspection() {}
+
+#[cfg(test)]
+pub(crate) fn reset_normal_use_relation_candidate_inspections() {
+    NORMAL_USE_RELATION_CANDIDATE_INSPECTIONS.with(|inspections| inspections.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn normal_use_relation_candidate_inspections() -> usize {
+    NORMAL_USE_RELATION_CANDIDATE_INSPECTIONS.with(std::cell::Cell::get)
 }

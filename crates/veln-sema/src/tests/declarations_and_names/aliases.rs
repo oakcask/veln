@@ -1,6 +1,59 @@
 use super::*;
 
 #[test]
+fn duplicate_import_normalization_relation_work_stays_linear() {
+    fn normalize(source: String) -> (usize, Vec<veln_ast::UseDecl>) {
+        let source = SourceFile::new("app.veln", source);
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        crate::name_recovery::reset_normal_use_relation_candidate_inspections();
+        let uses = crate::name_recovery::normal_use_decls(&module);
+        (
+            crate::name_recovery::normal_use_relation_candidate_inspections(),
+            uses,
+        )
+    }
+
+    for count in [1_000usize, 2_000, 4_000] {
+        let started = std::time::Instant::now();
+        let mut repeated = String::from("mod app\n");
+        for index in 0..count {
+            repeated.push_str(&format!("use shared as alias_{index}\n"));
+        }
+        let (repeated_work, repeated_uses) = normalize(repeated.clone());
+        assert_eq!(repeated_work, count);
+        assert!(repeated_uses.is_empty());
+
+        repeated.push_str("use independent as shared\n");
+        let (competing_work, competing_uses) = normalize(repeated);
+        assert_eq!(competing_work, count + 1);
+        assert_eq!(competing_uses.len(), count + 1);
+        assert_eq!(
+            competing_uses
+                .iter()
+                .filter(|use_decl| use_decl.written_name == "shared")
+                .filter(|use_decl| use_decl.explicit_alias && use_decl.alias.is_empty())
+                .count(),
+            count,
+            "duplicate exact routes must remain as tombstones beside the competing qualifier"
+        );
+
+        let mut distinct = String::from("mod app\n");
+        for index in 0..count {
+            distinct.push_str(&format!("use target_{index} as alias_{index}\n"));
+        }
+        let (distinct_work, distinct_uses) = normalize(distinct);
+        assert_eq!(distinct_work, count);
+        assert_eq!(distinct_uses.len(), count);
+        eprintln!(
+            "duplicate import normalization imports={count} elapsed={:?}",
+            started.elapsed()
+        );
+    }
+}
+
+#[test]
 fn schema_alias_target_import_resolution_is_indexed_once() {
     for count in [100usize, 200, 400] {
         let mut facade_text = String::from("mod facade\n");

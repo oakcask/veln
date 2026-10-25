@@ -428,7 +428,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         current_module: Option<&str>,
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) -> bool {
-        let Some(use_decl) = imported_use_for_path(
+        let Some(use_decl) = invalid_imported_use_for_path(
             &self.invalid_uses,
             &segments[..segments.len().saturating_sub(1)],
             current_module,

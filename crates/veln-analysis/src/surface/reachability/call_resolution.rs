@@ -3,7 +3,7 @@ use super::*;
 pub(super) fn target_visible_from_current_module(
     target: &FunctionTarget,
     current_module: Option<&str>,
-    uses: &[&UseDecl],
+    uses: &[ReachabilityUse<'_>],
     companion_access_targets: &HashMap<String, String>,
 ) -> bool {
     let target_module = target.module_name.as_deref();
@@ -15,6 +15,9 @@ pub(super) fn target_visible_from_current_module(
             use_decl.module_name.as_deref() == current_module
                 && use_decl.origin == veln_ast::UseOrigin::Source
                 && use_decl.name == module_name
+                && !use_decl.resolution_quarantined
+                && !use_decl.target_collision
+                && !use_decl.qualifier_collision
                 && imported_target_visible_from_module(
                     target,
                     use_decl,
@@ -87,7 +90,7 @@ pub(super) fn path_has_valid_constructor(
     segments: &[String],
     arg_count: Option<usize>,
     current_module: Option<&str>,
-    uses: &[&UseDecl],
+    uses: &[ReachabilityUse<'_>],
     types: &[&veln_ast::TypeDecl],
 ) -> bool {
     let target = visible_path_target(uses, segments, current_module);
@@ -166,7 +169,7 @@ pub(super) fn collect_function_name_reference(
 pub(super) fn collect_handler_operation_clause_callees(
     expr: &Expr,
     current_module: Option<&str>,
-    uses: &[&UseDecl],
+    uses: &[ReachabilityUse<'_>],
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
     handlers: &[&veln_ast::HandlerDecl],
@@ -224,7 +227,7 @@ pub(super) fn collect_handler_operation_clause_callees(
 pub(super) fn resolve_function_reference(
     segments: &[String],
     current_module: Option<&str>,
-    uses: &[&UseDecl],
+    uses: &[ReachabilityUse<'_>],
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
     arg_count: Option<usize>,
@@ -285,6 +288,45 @@ pub(super) fn recovery_target_accepts_arg_count(
 }
 
 pub(super) fn imported_use_for_path<'a>(
+    uses: &'a [ReachabilityUse<'a>],
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<&'a UseDecl> {
+    let module_path = segments.join("::");
+    let mut exact = uses.iter().filter(|use_decl| {
+        use_decl.module_name.as_deref() == current_module
+            && (use_decl.written_name == module_path
+                || standard_package_relative_import_matches(use_decl, &module_path, current_module))
+    });
+    if exact
+        .clone()
+        .any(|use_decl| use_decl.resolution_quarantined)
+    {
+        return None;
+    }
+    if let Some(first) = exact.next() {
+        if exact.next().is_some() {
+            return None;
+        }
+        return Some(first.declaration);
+    }
+    let mut aliases = uses.iter().filter(|use_decl| {
+        use_decl.module_name.as_deref() == current_module
+            && !use_decl.target_collision
+            && !use_decl.qualifier_collision
+            && simple_import_alias_matches(use_decl, &module_path)
+    });
+    if aliases
+        .clone()
+        .any(|use_decl| use_decl.resolution_quarantined)
+    {
+        return None;
+    }
+    let first = aliases.next()?;
+    aliases.next().is_none().then_some(first.declaration)
+}
+
+pub(super) fn invalid_imported_use_for_path<'a>(
     uses: &'a [&'a UseDecl],
     segments: &[String],
     current_module: Option<&str>,
@@ -295,20 +337,26 @@ pub(super) fn imported_use_for_path<'a>(
             && (use_decl.written_name == module_path
                 || standard_package_relative_import_matches(use_decl, &module_path, current_module))
     });
+    if exact
+        .clone()
+        .any(|use_decl| use_decl.resolution_quarantined)
+    {
+        return None;
+    }
     if let Some(first) = exact.next() {
-        if first.resolution_quarantined {
-            return None;
-        }
         return exact.next().is_none().then_some(first);
     }
     let mut aliases = uses.iter().copied().filter(|use_decl| {
         use_decl.module_name.as_deref() == current_module
             && simple_import_alias_matches(use_decl, &module_path)
     });
-    let first = aliases.next()?;
-    if first.resolution_quarantined {
+    if aliases
+        .clone()
+        .any(|use_decl| use_decl.resolution_quarantined)
+    {
         return None;
     }
+    let first = aliases.next()?;
     aliases.next().is_none().then_some(first)
 }
 
@@ -387,7 +435,7 @@ pub(super) fn companion_function_access_targets(
 pub(super) fn bare_target_visible(
     target: &FunctionTarget,
     current_module: Option<&str>,
-    uses: &[&UseDecl],
+    uses: &[ReachabilityUse<'_>],
 ) -> bool {
     let Some(current_module) = current_module else {
         return true;
@@ -403,6 +451,9 @@ pub(super) fn bare_target_visible(
             uses.iter().any(|use_decl| {
                 use_decl.module_name.as_deref() == Some(current_module)
                     && use_decl.name == module_name
+                    && !use_decl.resolution_quarantined
+                    && !use_decl.target_collision
+                    && !use_decl.qualifier_collision
                     && use_decl.contributes_bare_members()
                     && imported_target_is_visible(target, use_decl)
             })

@@ -395,7 +395,7 @@ impl FunctionShape {
 }
 
 pub(super) fn visible_path_target(
-    uses: &[&UseDecl],
+    uses: &[ReachabilityUse<'_>],
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<String> {

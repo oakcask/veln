@@ -32,6 +32,8 @@ mod type_relations;
 mod type_syntax;
 mod types;
 
+#[doc(hidden)]
+pub use name_recovery::ImportCollisionIndex;
 pub use navigation::{
     ResolvedSchemaAlias, ResolvedSchemaCompositionReference, resolved_schema_alias_chains,
     resolved_schema_aliases, resolved_schema_composition_references,

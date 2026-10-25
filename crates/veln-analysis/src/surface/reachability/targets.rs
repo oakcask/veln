@@ -91,7 +91,7 @@ pub(super) fn companion_alias_targets_imported_private_function(
 
 pub(super) fn target_for_alias_path<'a>(
     segments: &[String],
-    uses: &[&UseDecl],
+    uses: &[ReachabilityUse<'_>],
     function_targets: &'a [FunctionTarget],
     current_module: Option<&str>,
 ) -> Option<&'a FunctionTarget> {
