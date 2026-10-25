@@ -178,15 +178,7 @@ pub(super) fn alias_kind_mismatch_diagnostic(
     )
 }
 
-pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-    let mut seen_targets = BTreeMap::<
-        (Option<String>, String, Option<String>),
-        (String, SourceSpan, SourceSpan),
-    >::new();
-    let mut seen_qualifiers =
-        BTreeMap::<(Option<String>, String), (String, SourceSpan, SourceSpan)>::new();
-
+fn source_uses_in_diagnostic_order(module: &SurfaceModule) -> Vec<&UseDecl> {
     let mut source_uses = module
         .uses
         .iter()
@@ -200,42 +192,73 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
             .then(left.span.start.offset.cmp(&right.span.start.offset))
             .then(left.span.end.offset.cmp(&right.span.end.offset))
     });
+    source_uses
+}
 
-    for use_decl in source_uses {
+type ImportOrigin = (String, SourceSpan, SourceSpan);
+
+#[derive(Default)]
+struct DuplicateUseOrigins {
+    targets: BTreeMap<(Option<String>, String, Option<String>), ImportOrigin>,
+    qualifiers: BTreeMap<(Option<String>, String), ImportOrigin>,
+}
+
+impl DuplicateUseOrigins {
+    fn check(&mut self, diagnostics: &mut Vec<Diagnostic>, use_decl: &UseDecl) {
         let node_id = use_decl.node_id.display("use");
+        let target_origin = self.check_target(diagnostics, use_decl, &node_id);
+        self.check_qualifier(diagnostics, use_decl, node_id, target_origin.as_ref());
+    }
+
+    fn check_target(
+        &mut self,
+        diagnostics: &mut Vec<Diagnostic>,
+        use_decl: &UseDecl,
+        node_id: &str,
+    ) -> Option<ImportOrigin> {
         let target_key = (
             use_decl.module_name.clone(),
             use_decl.written_name.clone(),
             use_decl.package.clone(),
         );
-        let has_qualifier = !use_decl.syntax_recovered
-            && crate::name_recovery::use_decl_has_import_qualifier(use_decl);
-        let qualifier_key = (use_decl.module_name.clone(), use_decl.alias.clone());
-        let target_origin = seen_targets.get(&target_key).cloned();
-        let qualifier_origin = has_qualifier
-            .then(|| seen_qualifiers.get(&qualifier_key).cloned())
-            .flatten();
+        let target_origin = self.targets.get(&target_key).cloned();
         if let Some((first_node_id, first_span, _)) = &target_origin {
             diagnostics.push(duplicate_name_diagnostic(
                 &use_decl.written_name,
                 "module",
                 "import path",
-                node_id.clone(),
+                node_id.to_string(),
                 use_decl.target_span(),
                 first_node_id.clone(),
                 first_span,
             ));
         } else {
-            seen_targets.insert(
+            self.targets.insert(
                 target_key,
                 (
-                    node_id.clone(),
+                    node_id.to_string(),
                     use_decl.target_span(),
                     use_decl.span.clone(),
                 ),
             );
         }
-        let same_origin = match (&target_origin, &qualifier_origin) {
+        target_origin
+    }
+
+    fn check_qualifier(
+        &mut self,
+        diagnostics: &mut Vec<Diagnostic>,
+        use_decl: &UseDecl,
+        node_id: String,
+        target_origin: Option<&ImportOrigin>,
+    ) {
+        let has_qualifier = !use_decl.syntax_recovered
+            && crate::name_recovery::use_decl_has_import_qualifier(use_decl);
+        let qualifier_key = (use_decl.module_name.clone(), use_decl.alias.clone());
+        let qualifier_origin = has_qualifier
+            .then(|| self.qualifiers.get(&qualifier_key).cloned())
+            .flatten();
+        let same_origin = match (target_origin, &qualifier_origin) {
             (Some((_, _, target_decl_span)), Some((_, _, qualifier_decl_span))) => {
                 target_decl_span == qualifier_decl_span
             }
@@ -248,17 +271,26 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
                 &use_decl.alias,
                 "module",
                 "import alias",
-                node_id.clone(),
+                node_id,
                 use_decl.qualifier_span(),
                 first_node_id.clone(),
                 first_span,
             ));
         } else if has_qualifier && qualifier_origin.is_none() {
-            seen_qualifiers.insert(
+            self.qualifiers.insert(
                 qualifier_key,
                 (node_id, use_decl.qualifier_span(), use_decl.span.clone()),
             );
         }
+    }
+}
+
+pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut origins = DuplicateUseOrigins::default();
+
+    for use_decl in source_uses_in_diagnostic_order(module) {
+        origins.check(&mut diagnostics, use_decl);
     }
 
     diagnostics

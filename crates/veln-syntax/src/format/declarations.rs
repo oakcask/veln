@@ -15,53 +15,8 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
     let tree = &structured_tree;
 
     let mut out = String::new();
-    if let Some(module) = &tree.module {
-        push_source_line(
-            &mut out,
-            &comments,
-            module.span.start.line,
-            0,
-            format!("mod {}", module.name),
-        );
-    }
-    for use_decl in &tree.uses {
-        let mut source = format!("use {}", use_decl.name);
-        if let Some(alias) = &use_decl.alias {
-            source.push_str(" as ");
-            source.push_str(&alias.name);
-        }
-        if let Some(package) = &use_decl.package {
-            source.push_str(" from \"");
-            source.push_str(&package.name);
-            source.push('"');
-        }
-        push_source_line(&mut out, &comments, use_decl.span.start.line, 0, source);
-    }
-    if (tree.module.is_some() || !tree.uses.is_empty()) && !tree.items.is_empty() {
-        out.push('\n');
-    }
-
-    for (index, item) in tree.items.iter().enumerate() {
-        if index > 0 {
-            out.push('\n');
-        }
-        match item {
-            SyntaxItem::Function(function) => format_function(&mut out, &comments, function),
-            SyntaxItem::Effect(effect) => format_effect_decl(&mut out, &comments, effect),
-            SyntaxItem::Handler(handler) => format_handler_decl(&mut out, &comments, handler),
-            SyntaxItem::Type(type_decl) => format_type_decl(&mut out, &comments, type_decl),
-            SyntaxItem::Schema(schema) => format_schema_decl(&mut out, &comments, schema),
-            SyntaxItem::PublicAlias(alias) => {
-                push_source_line(
-                    &mut out,
-                    &comments,
-                    alias.span.start.line,
-                    0,
-                    format_alias(alias),
-                );
-            }
-        }
-    }
+    format_module_and_uses(&mut out, &comments, tree);
+    format_items(&mut out, &comments, tree);
 
     if !comments.all_emitted() {
         return lossless_text(tree);
@@ -71,6 +26,62 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
         out.push('\n');
     }
     out
+}
+
+fn format_module_and_uses(out: &mut String, comments: &LineComments, tree: &SyntaxTree) {
+    if let Some(module) = &tree.module {
+        push_source_line(
+            out,
+            comments,
+            module.span.start.line,
+            0,
+            format!("mod {}", module.name),
+        );
+    }
+    for use_decl in &tree.uses {
+        push_source_line(
+            out,
+            comments,
+            use_decl.span.start.line,
+            0,
+            format_use_decl(use_decl),
+        );
+    }
+    if (tree.module.is_some() || !tree.uses.is_empty()) && !tree.items.is_empty() {
+        out.push('\n');
+    }
+}
+
+fn format_items(out: &mut String, comments: &LineComments, tree: &SyntaxTree) {
+    for (index, item) in tree.items.iter().enumerate() {
+        if index > 0 {
+            out.push('\n');
+        }
+        match item {
+            SyntaxItem::Function(function) => format_function(out, comments, function),
+            SyntaxItem::Effect(effect) => format_effect_decl(out, comments, effect),
+            SyntaxItem::Handler(handler) => format_handler_decl(out, comments, handler),
+            SyntaxItem::Type(type_decl) => format_type_decl(out, comments, type_decl),
+            SyntaxItem::Schema(schema) => format_schema_decl(out, comments, schema),
+            SyntaxItem::PublicAlias(alias) => {
+                push_source_line(out, comments, alias.span.start.line, 0, format_alias(alias));
+            }
+        }
+    }
+}
+
+fn format_use_decl(use_decl: &crate::UseDecl) -> String {
+    let mut source = format!("use {}", use_decl.name);
+    if let Some(alias) = &use_decl.alias {
+        source.push_str(" as ");
+        source.push_str(&alias.name);
+    }
+    if let Some(package) = &use_decl.package {
+        source.push_str(" from \"");
+        source.push_str(&package.name);
+        source.push('"');
+    }
+    source
 }
 
 fn format_effect_decl(out: &mut String, comments: &LineComments, effect: &crate::EffectDecl) {
