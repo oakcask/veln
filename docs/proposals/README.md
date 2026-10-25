@@ -34,6 +34,13 @@ also states it.
   module immutable data declarations:
   [qualified-value-match-refinement.md](qualified-value-match-refinement.md).
 
+## Design In Progress
+
+- Portable filesystem paths, shared byte IO, seek, provider ownership, and
+  scoped fake filesystems; source API and lifecycle questions remain open:
+  [filesystem-io.md](filesystem-io.md). Resolve its Open Questions before
+  implementation selection.
+
 ## Planning Inventory
 
 - The [agent-language-services umbrella](agent-language-services.md) remains a
