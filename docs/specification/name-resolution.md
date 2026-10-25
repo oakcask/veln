@@ -638,6 +638,13 @@ their derived source module path is listed by the dependency package's
 aliases from that exported module; private names remain private even when the
 dependency source is loaded for analysis.
 
+An import of a dependency module absent from `[lib].exports` reports
+`module.unexported_import`. The rejected import contributes no explicit alias,
+exact written path, implicit leaf, or bare export lookup candidate. A later use
+through either an explicit alias or the written target path therefore reports
+the ordinary unresolved-name diagnostic. Other exported modules from the same
+dependency remain available.
+
 Editor-facing type-role selection uses the same module and import visibility.
 A bare type-role reference selects the same-module source type first. Without
 a same-module type, it selects one visible public imported type only when the
@@ -683,6 +690,8 @@ not become fallback targets.
   patterns, schemas, effects, handlers, and exact written paths:
   `examples/specification/check/explicit-import-alias-resolution/` and
   `examples/specification/run/explicit-import-alias-carriers/`.
+- Checked dependency export and private-member boundaries:
+  `examples/specification/check/external-package-import-boundaries/`.
 - Unqualified ADT import lookup:
   `crates/veln-sema/src/adt/tests/variant_lookup.rs`.
 - Deferred binding visibility:

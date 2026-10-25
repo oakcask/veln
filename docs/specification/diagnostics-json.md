@@ -63,6 +63,10 @@ primary span, excluding `use`, an explicit alias, and the package source. Alias
 casing, reserved-name, and qualifier-collision diagnostics instead select the
 alias token when one is written.
 
+An unexported dependency-module import creates no lookup route. A later call
+through its explicit alias or written target path reports the ordinary
+`name.unresolved` diagnostic in addition to `module.unexported_import`.
+
 Within an import, parse diagnostics precede casing diagnostics. Reserved and
 duplicate facts follow casing. Across sources belonging to the same module,
 diagnostics use lexical source-path order and token order rather than source

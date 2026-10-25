@@ -26,6 +26,7 @@ smallest category page.
 - [Effect Access Modes](result-effect-access-modes.md)
 - [Effect Declaration Boundary](result-effect-declaration-boundary.md)
 - [Error Type Inference](result-error-type-inference.md)
+- [Explicit Import Alias Source Shape](../explicit-import-alias-source-shape.md)
 - [First-Slice Grammar](result-first-slice-grammar.md)
 - [First-Slice Module Fields](result-first-slice-module-fields.md)
 - [First-Slice Prelude Helpers](result-first-slice-prelude-helpers.md)
