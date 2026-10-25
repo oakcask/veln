@@ -552,6 +552,60 @@ fn missing_cleanup_end_preserves_following_module_value() {
 }
 
 #[test]
+fn missing_cleanup_end_preserves_indented_private_module_value_before_following_item() {
+    let source = SourceFile::new(
+        "cleanup.veln",
+        concat!(
+            "fn incomplete() -> ()\n",
+            "\tdefer\n",
+            "\t\trelease()\n",
+            "end\n",
+            "\n",
+            "\tlet following: Int = 1\n",
+            "fn survivor() -> Int\n",
+            "\t1\n",
+            "end\n",
+        ),
+    );
+    let expected_token_count = lex(&source).tokens.len();
+
+    let output = parse(&source);
+
+    assert_eq!(
+        output
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id)
+            .collect::<Vec<_>>(),
+        ["parse.defer_missing_end"]
+    );
+    assert_eq!(output.tree.items.len(), 3, "{:#?}", output.diagnostics);
+    assert!(matches!(
+        &output.tree.items[0],
+        SyntaxItem::Function(function)
+            if function.name.as_deref() == Some("incomplete") && function.end_present
+    ));
+    assert!(matches!(
+        &output.tree.items[1],
+        SyntaxItem::ModuleValue(value)
+            if value.visibility == Visibility::Private
+                && value.name.as_deref() == Some("following")
+    ));
+    assert!(matches!(
+        &output.tree.items[2],
+        SyntaxItem::Function(function)
+            if function.name.as_deref() == Some("survivor")
+                && function.end_present
+                && matches!(
+                    function.body.as_slice(),
+                    [BodyLine::Expr { expr, .. }]
+                        if matches!(&expr.kind, ExprKind::IntLiteral(value) if value == "1")
+                )
+    ));
+    assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+}
+
+#[test]
 fn missing_cleanup_end_preserves_malformed_public_module_value_and_later_item() {
     for (body, cleanup_diagnostic) in [
         (" defer\n  release()\n", "parse.defer_missing_end"),

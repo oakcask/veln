@@ -357,8 +357,16 @@ struct Parser<'a> {
     cursor: usize,
     cleanup_depth: usize,
     top_level_boundary_cache: Cell<Option<(usize, bool)>>,
-    enclosing_declaration_end_cache: RefCell<HashMap<usize, bool>>,
+    module_value_suffix_cache: RefCell<HashMap<usize, ModuleValueSuffixEvidence>>,
     diagnostics: Vec<ParseDiagnostic>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ModuleValueSuffixEvidence {
+    TopLevelItem,
+    EnclosingDeclarationEnd,
+    EndOfInput,
+    EndOfInputAfterBlock,
 }
 
 struct FunctionHeader {

@@ -15,7 +15,7 @@ impl<'a> Parser<'a> {
             cursor: 0,
             cleanup_depth: 0,
             top_level_boundary_cache: Cell::new(None),
-            enclosing_declaration_end_cache: RefCell::new(HashMap::new()),
+            module_value_suffix_cache: RefCell::new(HashMap::new()),
             diagnostics,
         }
     }
@@ -438,13 +438,11 @@ impl<'a> Parser<'a> {
             Some(TokenKind::Let) => {
                 self.module_value_initializer_cursor(cursor)
                     .is_some_and(|initializer| {
-                        !self.enclosing_declaration_end_follows(initializer)
-                            // An unterminated local block and a multiline module value can
-                            // have the same token suffix. Canonical module indentation breaks
-                            // that recovery tie without widening ordinary parsing.
-                            && self.tokens.get(cursor).is_some_and(|token| {
-                                self.source.span(token.range).start.column == 1
-                            })
+                        matches!(
+                            self.classify_module_value_suffix(initializer),
+                            ModuleValueSuffixEvidence::TopLevelItem
+                                | ModuleValueSuffixEvidence::EndOfInput
+                        )
                     })
             }
             Some(TokenKind::Pub) => {
@@ -515,8 +513,8 @@ impl<'a> Parser<'a> {
         Some(cursor)
     }
 
-    fn enclosing_declaration_end_follows(&self, mut cursor: usize) -> bool {
-        if let Some(result) = self.enclosing_declaration_end_cache.borrow().get(&cursor) {
+    fn classify_module_value_suffix(&self, mut cursor: usize) -> ModuleValueSuffixEvidence {
+        if let Some(result) = self.module_value_suffix_cache.borrow().get(&cursor) {
             return *result;
         }
 
@@ -525,6 +523,7 @@ impl<'a> Parser<'a> {
         let mut delimiter_depth = 0usize;
         let mut previous_kind = Some(TokenKind::Equal);
         let mut at_line_start = false;
+        let mut closed_initializer_block = false;
 
         while let Some(token) = self.tokens.get(cursor) {
             super::record_cleanup_boundary_classifier_work();
@@ -552,8 +551,9 @@ impl<'a> Parser<'a> {
                         | TokenKind::Pub
                 )
             {
-                self.cache_enclosing_declaration_end(&equivalent_initializers, false);
-                return false;
+                let evidence = ModuleValueSuffixEvidence::TopLevelItem;
+                self.cache_module_value_suffix(&equivalent_initializers, evidence);
+                return evidence;
             }
 
             match kind {
@@ -568,14 +568,24 @@ impl<'a> Parser<'a> {
                 TokenKind::If if previous_kind != Some(TokenKind::Else) => block_depth += 1,
                 TokenKind::End => {
                     if block_depth == 0 {
-                        self.cache_enclosing_declaration_end(&equivalent_initializers, true);
-                        return true;
+                        let evidence = ModuleValueSuffixEvidence::EnclosingDeclarationEnd;
+                        self.cache_module_value_suffix(&equivalent_initializers, evidence);
+                        return evidence;
                     }
                     block_depth -= 1;
+                    closed_initializer_block = block_depth == 0;
                 }
                 TokenKind::Eof => {
-                    self.cache_enclosing_declaration_end(&equivalent_initializers, false);
-                    return false;
+                    // A block-closing `end` immediately before EOF can belong to the
+                    // enclosing declaration after block recovery. Keep that established
+                    // typed-local shape distinct from a plain module value at EOF.
+                    let evidence = if closed_initializer_block {
+                        ModuleValueSuffixEvidence::EndOfInputAfterBlock
+                    } else {
+                        ModuleValueSuffixEvidence::EndOfInput
+                    };
+                    self.cache_module_value_suffix(&equivalent_initializers, evidence);
+                    return evidence;
                 }
                 _ => {}
             }
@@ -583,14 +593,23 @@ impl<'a> Parser<'a> {
             previous_kind = Some(kind);
             cursor += 1;
         }
-        self.cache_enclosing_declaration_end(&equivalent_initializers, false);
-        false
+        let evidence = if closed_initializer_block {
+            ModuleValueSuffixEvidence::EndOfInputAfterBlock
+        } else {
+            ModuleValueSuffixEvidence::EndOfInput
+        };
+        self.cache_module_value_suffix(&equivalent_initializers, evidence);
+        evidence
     }
 
-    fn cache_enclosing_declaration_end(&self, initializers: &[usize], result: bool) {
-        let mut cache = self.enclosing_declaration_end_cache.borrow_mut();
+    fn cache_module_value_suffix(
+        &self,
+        initializers: &[usize],
+        evidence: ModuleValueSuffixEvidence,
+    ) {
+        let mut cache = self.module_value_suffix_cache.borrow_mut();
         for &initializer in initializers {
-            cache.insert(initializer, result);
+            cache.insert(initializer, evidence);
         }
     }
 
