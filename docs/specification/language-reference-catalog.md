@@ -41,6 +41,12 @@ Its topic identifiers are `lexical-structure`, `modules-imports-packages`,
 Each topic has validated descriptor text, normalized set-valued fields,
 validated related-topic identifiers, selected executable grammar productions,
 and selected displayed source files from specification case command inputs.
+The `modules-imports-packages` topic publishes a `UseDecl` production whose
+optional `ImportAlias` precedes its optional `ImportSource`. The complete
+lexical grammar defines the alias clause as `as` followed by one alias and
+defines the package source separately. The current source-surface and
+name-resolution specifications remain authoritative for accepted alias forms
+and their lookup behavior.
 The `declarations-aliases` topic projects `TypeDecl` with zero or more
 `TypeVariant` entries, so the published grammar admits a named type declaration
 with no constructors.
