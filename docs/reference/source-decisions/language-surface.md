@@ -28,6 +28,7 @@ or compatibility context.
 
 - [Block Structure](records/result-block-structure.md)
 - [Compact Function Form](records/result-compact-function-form.md)
+- [Explicit Import Alias Source Shape](explicit-import-alias-source-shape.md)
 - [First-Slice Grammar](records/result-first-slice-grammar.md)
 - [First-Slice Module Fields](records/result-first-slice-module-fields.md)
 - [Method Call Boundary](records/result-method-call-boundary.md)

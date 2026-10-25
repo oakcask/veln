@@ -13,7 +13,31 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 4
+equals = 6
+
+[[json_assert]]
+path = "diagnostics.0.span.end.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 12
+
+[[json_assert]]
+path = "diagnostics.4.span.end.line"
+equals = 7
+
+[[json_assert]]
+path = "diagnostics.4.span.end.column"
+equals = 50
+
+[[json_assert]]
+path = "diagnostics.5.span.end.line"
+equals = 7
+
+[[json_assert]]
+path = "diagnostics.5.span.end.column"
+equals = 77
 
 [[diagnostics]]
 id = "module.unexported_import"
@@ -36,6 +60,28 @@ message = "unresolved call_target `foo::internal_value`"
 file = "app.veln"
 line = 7
 column = 3
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `selected::private_value`"
+
+[diagnostics.span]
+file = "app.veln"
+line = 7
+column = 27
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `private::private_value`"
+
+[diagnostics.span]
+file = "app.veln"
+line = 7
+column = 55
 
 [[diagnostics]]
 id = "manifest.package_name_mismatch"

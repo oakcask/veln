@@ -107,6 +107,12 @@ pub(super) fn load_external_dependency_package(
             diagnostics.push(unexported_external_module_diagnostic(external_use));
         }
     }
+    parts.module.uses.retain(|external_use| {
+        external_use.package.as_deref() != Some(package)
+            || exported_modules
+                .iter()
+                .any(|module_name| module_name == &external_import_export_module_path(external_use))
+    });
     merge_surface_parts(parts, &dependency_parts);
 }
 
