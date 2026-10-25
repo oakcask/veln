@@ -10,7 +10,6 @@ fn parses_and_formats_typed_module_values() {
             " attempts: 3,\n",
             "}\n",
             "pub let initial: State = Active(3)\n",
-            "let callsite: Int = 1\n",
         ),
     );
 
@@ -28,11 +27,6 @@ fn parses_and_formats_typed_module_values() {
         panic!("expected public module value");
     };
     assert_eq!(initial.visibility, Visibility::Public);
-    let SyntaxItem::ModuleValue(contextual_name) = &output.tree.items[2] else {
-        panic!("expected module value with contextual binding name");
-    };
-    assert_eq!(contextual_name.name.as_deref(), Some("callsite"));
-
     let formatted = format_tree(&output.tree);
     assert_eq!(
         formatted,
@@ -40,8 +34,6 @@ fn parses_and_formats_typed_module_values() {
             "let defaults: { state : State, attempts : Int } = { state: Idle, attempts: 3 }\n",
             "\n",
             "pub let initial: State = Active(3)\n",
-            "\n",
-            "let callsite: Int = 1\n",
         )
     );
     let reparsed = parse(&SourceFile::new("formatted.veln", formatted.clone()));
@@ -123,10 +115,11 @@ fn rejects_malformed_module_values_without_consuming_following_item() {
 }
 
 #[test]
-fn module_value_names_use_the_binding_identifier_class() {
+fn module_value_names_require_an_ordinary_identifier() {
     for (rejected_name, following_visibility) in [
         ("handle", Visibility::Private),
         ("handler", Visibility::Public),
+        ("callsite", Visibility::Private),
     ] {
         let following_prefix = if following_visibility == Visibility::Public {
             "pub "
@@ -169,20 +162,14 @@ fn module_value_names_use_the_binding_identifier_class() {
         assert_eq!(lossless, text, "{rejected_name}");
     }
 
-    for accepted_name in ["ordinary", "callsite"] {
-        let source = SourceFile::new("main.veln", format!("let {accepted_name}: Int = 1\n"));
-        let output = parse(&source);
+    let source = SourceFile::new("main.veln", "let ordinary: Int = 1\n");
+    let output = parse(&source);
 
-        assert!(
-            output.diagnostics.is_empty(),
-            "{accepted_name}: {:#?}",
-            output.diagnostics
-        );
-        assert!(matches!(
-            output.tree.items.as_slice(),
-            [SyntaxItem::ModuleValue(value)] if value.name.as_deref() == Some(accepted_name)
-        ));
-    }
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert!(matches!(
+        output.tree.items.as_slice(),
+        [SyntaxItem::ModuleValue(value)] if value.name.as_deref() == Some("ordinary")
+    ));
 }
 
 #[test]

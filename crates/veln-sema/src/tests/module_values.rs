@@ -64,4 +64,33 @@ fn module_values_block_checked_core_and_typed_ir_at_the_shared_boundary() {
     );
     assert!(lowered_with_incomplete_diagnostics.core.is_none());
     assert!(lowered_with_incomplete_diagnostics.ir.is_none());
+
+    let value_span = module.module_values[0].span.clone();
+    let warning = Diagnostic::new(
+        "module.value_not_executable",
+        veln_diagnostics::Severity::Warning,
+        DiagnosticKind::Module,
+        "caller-owned warning",
+        Some(value_span),
+        veln_diagnostics::JsonValue::Null,
+    );
+    let lowered_with_colliding_warning = lower_analyzed_surface_module(&module, vec![warning]);
+    let blockers = lowered_with_colliding_warning
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "module.value_not_executable")
+        .collect::<Vec<_>>();
+    assert_eq!(
+        blockers.len(),
+        1,
+        "{:#?}",
+        lowered_with_colliding_warning.diagnostics
+    );
+    assert_eq!(blockers[0].severity, veln_diagnostics::Severity::Error);
+    assert_eq!(
+        blockers[0].message,
+        "module value declaration `answer` is not executable"
+    );
+    assert!(lowered_with_colliding_warning.core.is_none());
+    assert!(lowered_with_colliding_warning.ir.is_none());
 }

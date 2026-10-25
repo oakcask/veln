@@ -648,6 +648,43 @@ fn complete_cleanup_end_keeps_following_local_let_in_the_function() {
 }
 
 #[test]
+fn complete_cleanup_keeps_typed_local_with_unterminated_block_initializer() {
+    let source = SourceFile::new(
+        "cleanup.veln",
+        concat!(
+            "fn demo() -> Int\n",
+            "\tdefer\n",
+            "\t\t()\n",
+            "\tend\n",
+            "\tlet local: Int = begin\n",
+            "\t\t1\n",
+            "end\n",
+        ),
+    );
+    let expected_token_count = lex(&source).tokens.len();
+
+    let output = parse(&source);
+
+    assert_eq!(output.tree.items.len(), 1, "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(function) = &output.tree.items[0] else {
+        panic!("expected one enclosing function");
+    };
+    assert!(function.end_present, "{:#?}", output.diagnostics);
+    assert!(matches!(&function.body[0], BodyLine::Defer { .. }));
+    assert!(matches!(
+        &function.body[1],
+        BodyLine::Let { pattern, annotation, expr, .. }
+            if matches!(&pattern.kind, PatternKind::Binding(name) if name == "local")
+                && annotation.as_deref() == Some("Int")
+                && matches!(expr.kind, ExprKind::Begin { .. })
+    ));
+    assert_eq!(output.diagnostics.len(), 1, "{:#?}", output.diagnostics);
+    assert_eq!(output.diagnostics[0].id, "parse.begin_missing_end");
+    assert_eq!(output.diagnostics[0].parser_context, "let_statement");
+    assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+}
+
+#[test]
 fn missing_cleanup_end_in_final_declaration_preserves_the_declaration_end() {
     for (declaration, expected_diagnostic) in [
         (

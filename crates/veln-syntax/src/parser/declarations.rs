@@ -217,7 +217,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_module_value_name(&mut self) -> (Option<String>, Option<SourceSpan>) {
-        if self.current().kind.is_binding_identifier() {
+        if self.at(TokenKind::Ident) {
             let token = self.bump();
             let span = self.source.span(token.range);
             if !token
@@ -435,9 +435,18 @@ impl<'a> Parser<'a> {
                 | TokenKind::Handler
                 | TokenKind::Codec,
             ) => true,
-            Some(TokenKind::Let) => self
-                .module_value_initializer_cursor(cursor)
-                .is_some_and(|initializer| !self.enclosing_declaration_end_follows(initializer)),
+            Some(TokenKind::Let) => {
+                self.module_value_initializer_cursor(cursor)
+                    .is_some_and(|initializer| {
+                        !self.enclosing_declaration_end_follows(initializer)
+                            // An unterminated local block and a multiline module value can
+                            // have the same token suffix. Canonical module indentation breaks
+                            // that recovery tie without widening ordinary parsing.
+                            && self.tokens.get(cursor).is_some_and(|token| {
+                                self.source.span(token.range).start.column == 1
+                            })
+                    })
+            }
             Some(TokenKind::Pub) => {
                 matches!(
                     self.tokens.get(cursor + 1).map(|token| token.kind),
@@ -471,7 +480,7 @@ impl<'a> Parser<'a> {
         cursor += 1;
 
         let name = self.tokens.get(cursor)?;
-        if !name.kind.is_binding_identifier()
+        if name.kind != TokenKind::Ident
             || !name
                 .text
                 .as_bytes()

@@ -597,10 +597,19 @@ fn lower_analyzed_surface_module_with_environment(
         if diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "module.value_not_executable"
                 && diagnostic.span.as_ref() == Some(&value.span)
+                && diagnostic.severity == Severity::Error
         }) {
             continue;
         }
-        diagnostics.push(module_value_not_executable_diagnostic(value));
+        let canonical = module_value_not_executable_diagnostic(value);
+        if let Some(existing) = diagnostics.iter_mut().find(|diagnostic| {
+            diagnostic.id == "module.value_not_executable"
+                && diagnostic.span.as_ref() == Some(&value.span)
+        }) {
+            *existing = canonical;
+        } else {
+            diagnostics.push(canonical);
+        }
     }
     let unpublished_declarations =
         unpublished_public_declarations(module, environment, &diagnostics);
