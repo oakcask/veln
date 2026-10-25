@@ -20,6 +20,11 @@ supported binary-schema primitive compatibility spellings. Indentation is one
 tab per level: top-level items and closing `end` lines use level zero, and
 function body lines use level one.
 
+An import is formatted as `use path`, followed by an optional `as alias` and
+then an optional `from "package"`. The formatter preserves an explicit import
+alias and always places it before the package source. Reformatting that output
+is idempotent.
+
 The formatter writes one space on each side of `%` and preserves its
 precedence and left associativity with `*` and `/`.
 
