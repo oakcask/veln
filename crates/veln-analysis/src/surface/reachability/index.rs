@@ -218,67 +218,90 @@ impl<'a> UseIndex<'a> {
         let collisions = veln_sema::ImportCollisionIndex::from_eligible_use_refs(
             modules.clone().flat_map(|module| &module.uses),
         );
-        let mut invalid_segments_by_file =
-            HashMap::<veln_source::SourcePath, Vec<&veln_ast::InvalidName>>::new();
-        let mut invalid_alias_spans_by_file =
-            HashMap::<veln_source::SourcePath, Vec<&SourceSpan>>::new();
-        for invalid in modules.clone().flat_map(|module| &module.invalid_names) {
-            if invalid.class == veln_ast::NameClass::Module
-                && invalid.occurrence == veln_ast::NameOccurrence::PathSegment
-            {
-                invalid_segments_by_file
-                    .entry(invalid.span.file.clone())
-                    .or_default()
-                    .push(invalid);
-            } else if invalid.class == veln_ast::NameClass::Module
-                && invalid.occurrence == veln_ast::NameOccurrence::Declaration
-            {
-                invalid_alias_spans_by_file
-                    .entry(invalid.span.file.clone())
-                    .or_default()
-                    .push(&invalid.span);
-            }
-        }
-        for invalid_segments in invalid_segments_by_file.values_mut() {
-            invalid_segments.sort_by_key(|invalid| invalid.span.start.offset);
-        }
+        let (invalid_segments_by_file, invalid_alias_spans_by_file) =
+            invalid_use_names(modules.clone());
 
         let mut valid = Vec::new();
         let mut invalid = Vec::new();
         for declaration in modules.flat_map(|module| &module.uses) {
-            if declaration.syntax_recovered {
-                continue;
-            }
-            let module_path_segments = invalid_segments_by_file
-                .get(&declaration.span.file)
-                .map(|candidates| invalid_segments_in_span(candidates, &declaration.span))
-                .unwrap_or_default();
-            let invalid_explicit_alias = declaration.explicit_alias
-                && declaration.alias_span.as_ref().is_some_and(|alias_span| {
-                    invalid_alias_spans_by_file
-                        .get(&alias_span.file)
-                        .is_some_and(|spans| spans.contains(&alias_span))
-                });
-            let reserved_explicit_alias = declaration.origin == veln_ast::UseOrigin::Source
-                && declaration.explicit_alias
-                && declaration.alias == "prelude";
-            if module_path_segments.is_empty()
-                && !invalid_explicit_alias
-                && !reserved_explicit_alias
-            {
-                valid.push(ReachabilityUse {
-                    declaration,
-                    target_collision: collisions.contains_target(declaration),
-                    qualifier_collision: collisions.contains_qualifier(declaration),
-                });
-            } else if !reserved_explicit_alias {
-                invalid.push(InvalidUse {
-                    declaration,
-                    module_path_segments,
-                });
-            }
+            index_use_declaration(
+                declaration,
+                &collisions,
+                &invalid_segments_by_file,
+                &invalid_alias_spans_by_file,
+                &mut valid,
+                &mut invalid,
+            );
         }
         Self { valid, invalid }
+    }
+}
+
+type InvalidSegmentsByFile<'a> = HashMap<veln_source::SourcePath, Vec<&'a veln_ast::InvalidName>>;
+type InvalidAliasSpansByFile<'a> = HashMap<veln_source::SourcePath, Vec<&'a SourceSpan>>;
+
+fn invalid_use_names<'a>(
+    modules: impl IntoIterator<Item = &'a SurfaceModule>,
+) -> (InvalidSegmentsByFile<'a>, InvalidAliasSpansByFile<'a>) {
+    let mut invalid_segments_by_file = InvalidSegmentsByFile::new();
+    let mut invalid_alias_spans_by_file = InvalidAliasSpansByFile::new();
+    for invalid in modules.into_iter().flat_map(|module| &module.invalid_names) {
+        if invalid.class != veln_ast::NameClass::Module {
+            continue;
+        }
+        match invalid.occurrence {
+            veln_ast::NameOccurrence::PathSegment => invalid_segments_by_file
+                .entry(invalid.span.file.clone())
+                .or_default()
+                .push(invalid),
+            veln_ast::NameOccurrence::Declaration => invalid_alias_spans_by_file
+                .entry(invalid.span.file.clone())
+                .or_default()
+                .push(&invalid.span),
+            _ => {}
+        }
+    }
+    for invalid_segments in invalid_segments_by_file.values_mut() {
+        invalid_segments.sort_by_key(|invalid| invalid.span.start.offset);
+    }
+    (invalid_segments_by_file, invalid_alias_spans_by_file)
+}
+
+fn index_use_declaration<'a>(
+    declaration: &'a UseDecl,
+    collisions: &veln_sema::ImportCollisionIndex,
+    invalid_segments_by_file: &InvalidSegmentsByFile<'a>,
+    invalid_alias_spans_by_file: &InvalidAliasSpansByFile<'a>,
+    valid: &mut Vec<ReachabilityUse<'a>>,
+    invalid: &mut Vec<InvalidUse<'a>>,
+) {
+    if declaration.syntax_recovered {
+        return;
+    }
+    let module_path_segments = invalid_segments_by_file
+        .get(&declaration.span.file)
+        .map(|candidates| invalid_segments_in_span(candidates, &declaration.span))
+        .unwrap_or_default();
+    let invalid_explicit_alias = declaration.explicit_alias
+        && declaration.alias_span.as_ref().is_some_and(|alias_span| {
+            invalid_alias_spans_by_file
+                .get(&alias_span.file)
+                .is_some_and(|spans| spans.contains(&alias_span))
+        });
+    let reserved_explicit_alias = declaration.origin == veln_ast::UseOrigin::Source
+        && declaration.explicit_alias
+        && declaration.alias == "prelude";
+    if module_path_segments.is_empty() && !invalid_explicit_alias && !reserved_explicit_alias {
+        valid.push(ReachabilityUse {
+            declaration,
+            target_collision: collisions.contains_target(declaration),
+            qualifier_collision: collisions.contains_qualifier(declaration),
+        });
+    } else if !reserved_explicit_alias {
+        invalid.push(InvalidUse {
+            declaration,
+            module_path_segments,
+        });
     }
 }
 

@@ -393,154 +393,164 @@ fn package_canonical_identities_are_not_source_routes_for_values_or_adts() {
             true,
         ),
     ] {
-        let app = SourceFile::new(
-            "app.veln",
-            format!(
-                concat!(
-                    "{imports}",
-                    "fn aliases(left: first::State, right: second::State) -> Int\n",
-                    "  let selected: first::State = first::State::Ready(first::value())\n",
-                    "  first::value() + second::value()\n",
-                    "end\n",
-                    "fn shared(value: util::State) -> Int\n",
-                    "  util::value()\n",
-                    "end\n",
-                    "fn internal_a(value: pkg_a::util::State) -> Int\n",
-                    "  pkg_a::util::value()\n",
-                    "end\n",
-                    "fn internal_b(value: pkg_b::util::State) -> Int\n",
-                    "  pkg_b::util::value()\n",
-                    "end\n",
-                ),
-                imports = imports,
-            ),
-        );
-        let first = SourceFile::new(
-            "pkg-a-util.veln",
+        let module = package_alias_module(imports, reverse_sources);
+        assert_package_value_routes(&module);
+        assert_package_adt_routes(&module);
+        assert_unavailable_package_routes_are_diagnosed(&module);
+    }
+}
+
+fn package_alias_module(imports: &str, reverse_sources: bool) -> veln_ast::SurfaceModule {
+    let app = SourceFile::new(
+        "app.veln",
+        format!(
             concat!(
-                "pub fn value() -> Int\n  1\nend\n",
-                "pub type State\n  pub Ready(Int)\nend\n",
+                "{imports}",
+                "fn aliases(left: first::State, right: second::State) -> Int\n",
+                "  let selected: first::State = first::State::Ready(first::value())\n",
+                "  first::value() + second::value()\n",
+                "end\n",
+                "fn shared(value: util::State) -> Int\n",
+                "  util::value()\n",
+                "end\n",
+                "fn internal_a(value: pkg_a::util::State) -> Int\n",
+                "  pkg_a::util::value()\n",
+                "end\n",
+                "fn internal_b(value: pkg_b::util::State) -> Int\n",
+                "  pkg_b::util::value()\n",
+                "end\n",
             ),
+            imports = imports,
+        ),
+    );
+    let first = SourceFile::new(
+        "pkg-a-util.veln",
+        concat!(
+            "pub fn value() -> Int\n  1\nend\n",
+            "pub type State\n  pub Ready(Int)\nend\n",
+        ),
+    );
+    let second = SourceFile::new(
+        "pkg-b-util.veln",
+        concat!(
+            "pub fn value() -> Int\n  2\nend\n",
+            "pub type State\n  pub Ready(Int)\nend\n",
+        ),
+    );
+    let sources = if reverse_sources {
+        vec![
+            ("pkg_b::util", second),
+            ("pkg_a::util", first),
+            ("app", app),
+        ]
+    } else {
+        vec![
+            ("pkg_a::util", first),
+            ("pkg_b::util", second),
+            ("app", app),
+        ]
+    };
+    let mut module = merged_modules_with_identities(sources);
+    for use_decl in module
+        .uses
+        .iter_mut()
+        .filter(|use_decl| use_decl.module_name.as_deref() == Some("app"))
+    {
+        use_decl.name = format!(
+            "{}::{}",
+            use_decl.package.as_deref().expect("package import"),
+            use_decl.written_name
         );
-        let second = SourceFile::new(
-            "pkg-b-util.veln",
-            concat!(
-                "pub fn value() -> Int\n  2\nend\n",
-                "pub type State\n  pub Ready(Int)\nend\n",
-            ),
-        );
-        let sources = if reverse_sources {
-            vec![
-                ("pkg_b::util", second),
-                ("pkg_a::util", first),
-                ("app", app),
-            ]
-        } else {
-            vec![
-                ("pkg_a::util", first),
-                ("pkg_b::util", second),
-                ("app", app),
-            ]
-        };
-        let mut module = merged_modules_with_identities(sources);
-        for use_decl in module
-            .uses
-            .iter_mut()
-            .filter(|use_decl| use_decl.module_name.as_deref() == Some("app"))
-        {
-            use_decl.name = format!(
-                "{}::{}",
-                use_decl.package.as_deref().expect("package import"),
-                use_decl.written_name
-            );
-        }
+    }
+    module
+}
 
-        for (alias, identity) in [("first", "pkg_a::util"), ("second", "pkg_b::util")] {
-            let selected = crate::name_recovery::normal_imported_use_for_path(
-                &module,
-                &[alias.to_string()],
-                Some("app"),
-            )
-            .expect("distinct aliases must select their package target");
-            assert_eq!(selected.name, identity);
-        }
-        for unavailable in ["util", "pkg_a::util", "pkg_b::util"] {
-            let path = unavailable
-                .split("::")
-                .map(str::to_string)
-                .collect::<Vec<_>>();
-            assert!(
-                crate::name_recovery::normal_imported_use_for_path(&module, &path, Some("app"))
-                    .is_none(),
-                "unwritten or ambiguous route was selected: {unavailable}"
-            );
-        }
-
-        let environment = TypeEnvironment::from_module(&module);
-        for alias in ["first", "second"] {
-            let type_path = format!("{alias}::State");
-            assert!(
-                environment
-                    .adts
-                    .descriptor_for_type_path_any_arity(&type_path, Some("app"), &environment.uses,)
-                    .is_some(),
-                "ADT alias route did not select its package identity: {alias}"
-            );
-            let constructor = [alias, "State", "Ready"]
-                .into_iter()
-                .map(str::to_string)
-                .collect::<Vec<_>>();
-            assert!(matches!(
-                environment
-                    .adts
-                    .constructor(&constructor, Some("app"), &environment.uses),
-                crate::adt::registry::ConstructorLookup::Found(_)
-            ));
-        }
-        for unavailable in ["util::State", "pkg_a::util::State", "pkg_b::util::State"] {
-            assert!(
-                environment
-                    .adts
-                    .descriptor_for_type_path_any_arity(
-                        unavailable,
-                        Some("app"),
-                        &environment.uses,
-                    )
-                    .is_none(),
-                "ADT route {unavailable:?} unexpectedly resolved"
-            );
-            let constructor = format!("{unavailable}::Ready")
-                .split("::")
-                .map(str::to_string)
-                .collect::<Vec<_>>();
-            assert!(matches!(
-                environment
-                    .adts
-                    .constructor(&constructor, Some("app"), &environment.uses),
-                crate::adt::registry::ConstructorLookup::Missing
-            ));
-        }
-
-        let diagnostics = analyze_surface_module(&module);
-        let unresolved = diagnostics
-            .iter()
-            .filter(|diagnostic| diagnostic.id == "name.unresolved")
-            .map(|diagnostic| diagnostic.message.as_str())
+fn assert_package_value_routes(module: &veln_ast::SurfaceModule) {
+    for (alias, identity) in [("first", "pkg_a::util"), ("second", "pkg_b::util")] {
+        let selected = crate::name_recovery::normal_imported_use_for_path(
+            module,
+            &[alias.to_string()],
+            Some("app"),
+        )
+        .expect("distinct aliases must select their package target");
+        assert_eq!(selected.name, identity);
+    }
+    for unavailable in ["util", "pkg_a::util", "pkg_b::util"] {
+        let path = unavailable
+            .split("::")
+            .map(str::to_string)
             .collect::<Vec<_>>();
+        assert!(
+            crate::name_recovery::normal_imported_use_for_path(module, &path, Some("app"))
+                .is_none(),
+            "unwritten or ambiguous route was selected: {unavailable}"
+        );
+    }
+}
+
+fn assert_package_adt_routes(module: &veln_ast::SurfaceModule) {
+    let environment = TypeEnvironment::from_module(module);
+    for alias in ["first", "second"] {
+        let type_path = format!("{alias}::State");
+        assert!(
+            environment
+                .adts
+                .descriptor_for_type_path_any_arity(&type_path, Some("app"), &environment.uses,)
+                .is_some(),
+            "ADT alias route did not select its package identity: {alias}"
+        );
+        let constructor = [alias, "State", "Ready"]
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        assert!(matches!(
+            environment
+                .adts
+                .constructor(&constructor, Some("app"), &environment.uses),
+            crate::adt::registry::ConstructorLookup::Found(_)
+        ));
+    }
+    for unavailable in ["util::State", "pkg_a::util::State", "pkg_b::util::State"] {
+        assert!(
+            environment
+                .adts
+                .descriptor_for_type_path_any_arity(unavailable, Some("app"), &environment.uses,)
+                .is_none(),
+            "ADT route {unavailable:?} unexpectedly resolved"
+        );
+        let constructor = format!("{unavailable}::Ready")
+            .split("::")
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        assert!(matches!(
+            environment
+                .adts
+                .constructor(&constructor, Some("app"), &environment.uses),
+            crate::adt::registry::ConstructorLookup::Missing
+        ));
+    }
+}
+
+fn assert_unavailable_package_routes_are_diagnosed(module: &veln_ast::SurfaceModule) {
+    let diagnostics = analyze_surface_module(module);
+    let unresolved = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.unresolved")
+        .map(|diagnostic| diagnostic.message.as_str())
+        .collect::<Vec<_>>();
+    assert!(
+        unresolved
+            .iter()
+            .all(|message| !message.contains("first::") && !message.contains("second::")),
+        "aliases failed to resolve their value or ADT targets: {diagnostics:#?}"
+    );
+    for unavailable in ["util::value", "pkg_a::util::value", "pkg_b::util::value"] {
         assert!(
             unresolved
                 .iter()
-                .all(|message| { !message.contains("first::") && !message.contains("second::") }),
-            "aliases failed to resolve their value or ADT targets: {diagnostics:#?}"
+                .any(|message| message.contains(unavailable)),
+            "value route {unavailable:?} unexpectedly resolved: {diagnostics:#?}"
         );
-        for unavailable in ["util::value", "pkg_a::util::value", "pkg_b::util::value"] {
-            assert!(
-                unresolved
-                    .iter()
-                    .any(|message| message.contains(unavailable)),
-                "value route {unavailable:?} unexpectedly resolved: {diagnostics:#?}"
-            );
-        }
     }
 }
 

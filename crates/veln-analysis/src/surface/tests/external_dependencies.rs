@@ -109,7 +109,7 @@ fn external_adt_keeps_one_identity_through_alias_and_written_path() {
 }
 
 #[test]
-fn distinct_package_aliases_do_not_expose_canonical_source_routes() {
+fn distinct_package_origins_keep_shared_written_path_ambiguous_in_reachability() {
     for (case_name, imports) in [
         (
             "package-alias-order-a",
@@ -120,101 +120,14 @@ fn distinct_package_aliases_do_not_expose_canonical_source_routes() {
             "use util as second from \"pkg_b\"\nuse util as first from \"pkg_a\"\n",
         ),
     ] {
-        let temp = TempProject::new(case_name);
-        temp.write(
-            "veln.toml",
-            concat!(
-                "[dependencies.\"pkg_a\"]\n",
-                "path = \"vendor/a\"\n",
-                "\n",
-                "[dependencies.\"pkg_b\"]\n",
-                "path = \"vendor/b\"\n",
-            ),
-        );
-        temp.write(
-            "main.veln",
-            &format!(
-                concat!(
-                    "{imports}",
-                    "pub fn aliases() -> Int\n",
-                    "  first::value() + second::value()\n",
-                    "end\n",
-                    "pub fn shared() -> Int\n",
-                    "  util::value()\n",
-                    "end\n",
-                    "pub fn internal_a() -> Int\n",
-                    "  pkg_a::util::value()\n",
-                    "end\n",
-                    "pub fn internal_b() -> Int\n",
-                    "  pkg_b::util::value()\n",
-                    "end\n",
-                    "fn alias_adts(left: first::State, right: second::State) -> Int\n",
-                    "  0\n",
-                    "end\n",
-                ),
-                imports = imports,
-            ),
-        );
-        for (directory, package, value) in [("a", "pkg_a", 1), ("b", "pkg_b", 2)] {
-            temp.write(
-                &format!("vendor/{directory}/veln.toml"),
-                &format!("[package]\nname = \"{package}\"\n\n[lib]\nexports = [\"util.veln\"]\n"),
-            );
-            temp.write(
-                &format!("vendor/{directory}/util.veln"),
-                &format!(
-                    concat!(
-                        "pub fn value() -> Int\n",
-                        "  {value}\n",
-                        "end\n",
-                        "pub type State\n",
-                        "  pub Ready(Int)\n",
-                        "end\n",
-                    ),
-                    value = value,
-                ),
-            );
-        }
+        let temp = write_shared_package_origin_project(case_name, imports);
 
         let project =
             Project::discover(temp.root().to_path_buf(), &[PathBuf::from("main.veln")]).unwrap();
         let (module, source_diagnostics) = load_surface_module(&project);
         assert!(source_diagnostics.is_empty(), "{source_diagnostics:#?}");
-        let app_uses = module
-            .uses
-            .iter()
-            .filter(|use_decl| {
-                use_decl.module_name.as_deref() == Some("main")
-                    && use_decl.origin == UseOrigin::Source
-            })
-            .collect::<Vec<_>>();
-        assert_eq!(app_uses.len(), 2);
-        for (alias, identity) in [("first", "pkg_a::util"), ("second", "pkg_b::util")] {
-            let selected = app_uses
-                .iter()
-                .find(|use_decl| use_decl.alias == alias)
-                .expect("package alias");
-            assert_eq!(selected.written_name, "util");
-            assert_eq!(selected.name, identity);
-        }
-
-        let aliases = reachable_entry_module(&module, "aliases", FunctionKind::Function);
-        assert_eq!(
-            reachable_function_names(&aliases),
-            [
-                ("main", "aliases"),
-                ("pkg_a::util", "value"),
-                ("pkg_b::util", "value"),
-            ]
-        );
-        for entry in ["shared", "internal_a", "internal_b"] {
-            let unreachable_route = reachable_entry_module(&module, entry, FunctionKind::Function);
-            assert_eq!(
-                reachable_function_names(&unreachable_route),
-                [("main", entry)],
-                "unwritten route retained a package target for {entry}"
-            );
-        }
+        assert_shared_package_origin_imports(&module);
+        assert_shared_package_origin_reachability(&module);
 
         let analysis = analyze_project(project, DoctestMode::Exclude);
         let diagnostics = analysis.checked_diagnostics();
@@ -231,6 +144,104 @@ fn distinct_package_aliases_do_not_expose_canonical_source_routes() {
                 !diagnostic.message.contains("first::") && !diagnostic.message.contains("second::")
             }),
             "an explicit package alias failed to select its identity: {diagnostics:#?}"
+        );
+    }
+}
+
+fn write_shared_package_origin_project(case_name: &str, imports: &str) -> TempProject {
+    let temp = TempProject::new(case_name);
+    temp.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"pkg_a\"]\n",
+            "path = \"vendor/a\"\n",
+            "\n",
+            "[dependencies.\"pkg_b\"]\n",
+            "path = \"vendor/b\"\n",
+        ),
+    );
+    temp.write(
+        "main.veln",
+        &format!(
+            concat!(
+                "{imports}",
+                "pub fn aliases() -> Int\n",
+                "  first::value() + second::value()\n",
+                "end\n",
+                "pub fn shared() -> Int\n",
+                "  util::value()\n",
+                "end\n",
+                "pub fn internal_a() -> Int\n",
+                "  pkg_a::util::value()\n",
+                "end\n",
+                "pub fn internal_b() -> Int\n",
+                "  pkg_b::util::value()\n",
+                "end\n",
+                "fn alias_adts(left: first::State, right: second::State) -> Int\n",
+                "  0\n",
+                "end\n",
+            ),
+            imports = imports,
+        ),
+    );
+    for (directory, package, value) in [("a", "pkg_a", 1), ("b", "pkg_b", 2)] {
+        temp.write(
+            &format!("vendor/{directory}/veln.toml"),
+            &format!("[package]\nname = \"{package}\"\n\n[lib]\nexports = [\"util.veln\"]\n"),
+        );
+        temp.write(
+            &format!("vendor/{directory}/util.veln"),
+            &format!(
+                concat!(
+                    "pub fn value() -> Int\n",
+                    "  {value}\n",
+                    "end\n",
+                    "pub type State\n",
+                    "  pub Ready(Int)\n",
+                    "end\n",
+                ),
+                value = value,
+            ),
+        );
+    }
+    temp
+}
+
+fn assert_shared_package_origin_imports(module: &SurfaceModule) {
+    let app_uses = module
+        .uses
+        .iter()
+        .filter(|use_decl| {
+            use_decl.module_name.as_deref() == Some("main") && use_decl.origin == UseOrigin::Source
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(app_uses.len(), 2);
+    for (alias, identity) in [("first", "pkg_a::util"), ("second", "pkg_b::util")] {
+        let selected = app_uses
+            .iter()
+            .find(|use_decl| use_decl.alias == alias)
+            .expect("package alias");
+        assert_eq!(selected.written_name, "util");
+        assert_eq!(selected.name, identity);
+    }
+}
+
+fn assert_shared_package_origin_reachability(module: &SurfaceModule) {
+    let aliases = reachable_entry_module(module, "aliases", FunctionKind::Function);
+    assert_eq!(
+        reachable_function_names(&aliases),
+        [
+            ("main", "aliases"),
+            ("pkg_a::util", "value"),
+            ("pkg_b::util", "value"),
+        ]
+    );
+    for entry in ["shared", "internal_a", "internal_b"] {
+        let unreachable_route = reachable_entry_module(module, entry, FunctionKind::Function);
+        assert_eq!(
+            reachable_function_names(&unreachable_route),
+            [("main", entry)],
+            "unwritten route retained a package target for {entry}"
         );
     }
 }

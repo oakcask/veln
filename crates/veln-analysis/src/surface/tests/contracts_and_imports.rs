@@ -630,50 +630,149 @@ fn malformed_import_aliases_never_retain_targets_through_reachability() {
 
 #[test]
 fn duplicate_target_aliases_do_not_reach_calls_or_function_values_in_either_order() {
-    for reverse in [false, true] {
-        let imports = if reverse {
-            "use shared as second\nuse shared as first\n"
-        } else {
-            "use shared as first\nuse shared as second\n"
-        };
-        let app = SourceFile::new(
-            "app.veln",
-            format!(
+    for reverse_imports in [false, true] {
+        for reverse_sources in [false, true] {
+            let module = duplicate_alias_reachability_module(reverse_imports, reverse_sources);
+
+            let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+            assert_eq!(
+                reachable_function_names(&reachable),
+                [("app", "accepts"), ("app", "main")],
+                "duplicate target aliases became reachable with reverse_imports={reverse_imports} reverse_sources={reverse_sources}"
+            );
+        }
+    }
+}
+
+fn duplicate_alias_reachability_module(
+    reverse_imports: bool,
+    reverse_sources: bool,
+) -> veln_ast::SurfaceModule {
+    let (first_import, second_import) = if reverse_imports {
+        ("use shared as second\n", "use shared as first\n")
+    } else {
+        ("use shared as first\n", "use shared as second\n")
+    };
+    let first_app_source = SourceFile::new(
+        "app-first.veln",
+        format!(
+            concat!(
+                "mod app\n",
+                "{import}",
+                "fn accepts(job: fn() -> Int) -> Int\n",
+                "  job()\n",
+                "end\n",
+                "pub fn main() -> Int\n",
+                "  first::answer() + accepts(second::answer)\n",
+                "end\n",
+            ),
+            import = first_import,
+        ),
+    );
+    let second_app_source = SourceFile::new("app-second.veln", format!("mod app\n{second_import}"));
+    let mut module = lower_module_source(&first_app_source, "app");
+    let second = lower_module_source(&second_app_source, "app");
+    if reverse_sources {
+        let mut uses = second.uses;
+        uses.extend(module.uses);
+        module.uses = uses;
+    } else {
+        module.uses.extend(second.uses);
+    }
+    let shared_source = SourceFile::new(
+        "shared.veln",
+        "mod shared\npub fn answer() -> Int\n  40\nend\n",
+    );
+    module
+        .functions
+        .extend(lower_module_source(&shared_source, "shared").functions);
+    module
+}
+
+fn lower_module_source(source: &SourceFile, identity: &str) -> veln_ast::SurfaceModule {
+    let parsed = parse(source);
+    assert!(parsed.diagnostics.is_empty());
+    veln_ast::lower_surface_ast_with_module_identity(
+        &parsed.tree,
+        identity.to_string(),
+        source.span(veln_source::TextRange::new(0, 0)),
+    )
+}
+
+#[test]
+fn duplicate_target_aliases_do_not_select_constructor_over_function_recovery() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![
+            SourceFile::new(
+                "app.veln",
                 concat!(
                     "mod app\n",
-                    "{imports}",
-                    "fn accepts(job: fn() -> Int) -> Int\n",
-                    "  job()\n",
-                    "end\n",
+                    "use shared as first\n",
+                    "use shared as second\n",
                     "pub fn main() -> Int\n",
-                    "  first::answer() + accepts(second::answer)\n",
+                    "  first::Build()\n",
                     "end\n",
                 ),
-                imports = imports,
             ),
-        );
-        let shared = SourceFile::new(
-            "shared.veln",
-            "mod shared\npub fn answer() -> Int\n  40\nend\n",
-        );
-        let files = if reverse {
-            vec![shared, app]
-        } else {
-            vec![app, shared]
-        };
-        let (module, _) = load_surface_module(&Project {
-            root: ".".into(),
-            files,
-            manifest: None,
-        });
+            SourceFile::new(
+                "shared.veln",
+                concat!(
+                    "mod shared\n",
+                    "pub type Item\n",
+                    "  pub Build\n",
+                    "end\n",
+                    "pub fn Build() -> Int\n",
+                    "  40\n",
+                    "end\n",
+                ),
+            ),
+        ],
+        manifest: None,
+    };
+    let (module, _) = load_surface_module(&project);
 
-        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
-        assert_eq!(
-            reachable_function_names(&reachable),
-            [("app", "accepts"), ("app", "main")],
-            "duplicate target aliases became reachable with reverse={reverse}"
-        );
-    }
+    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+    assert_eq!(reachable_function_names(&reachable), [("app", "main")]);
+    assert!(
+        reachable.invalid_names.is_empty(),
+        "a colliding constructor route retained function recovery: {:#?}",
+        reachable.invalid_names
+    );
+}
+
+#[test]
+fn duplicate_target_aliases_do_not_reach_invalid_function_recovery() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "mod app\n",
+                    "use shared as first\n",
+                    "use shared as second\n",
+                    "pub fn main() -> Int\n",
+                    "  first::Bad()\n",
+                    "end\n",
+                ),
+            ),
+            SourceFile::new(
+                "shared.veln",
+                "mod shared\npub fn Bad() -> Int\n  40\nend\n",
+            ),
+        ],
+        manifest: None,
+    };
+    let (module, _) = load_surface_module(&project);
+
+    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+    assert_eq!(reachable_function_names(&reachable), [("app", "main")]);
+    assert!(
+        reachable.invalid_names.is_empty(),
+        "a colliding import retained invalid function recovery: {:#?}",
+        reachable.invalid_names
+    );
 }
 
 #[test]
