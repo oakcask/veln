@@ -94,9 +94,9 @@ This proposal adds no value-alias declaration syntax.
 | Data value used as a call target | Report that the selected value is not callable; do not fall back to an imported function. |
 
 Only imports whose contract admits bare member exposure contribute bare
-imported candidates. The separate
-[explicit import-alias proposal](explicit-import-aliases.md)
-makes explicitly aliased imports qualified-only; this proposal does not depend
+imported candidates. The current
+[explicit import qualifier rules](../specification/name-resolution.md#explicit-import-qualifiers)
+make explicitly aliased imports qualified-only; this proposal does not depend
 on that syntax. Every admitted alias route retains the target declaration's
 identity.
 
