@@ -280,6 +280,55 @@ fn reusable_standard_environment_does_not_expose_unloaded_standard_functions() {
 }
 
 #[test]
+fn reusable_standard_environment_does_not_expose_unloaded_standard_type_aliases() {
+    let _guard = standard_reuse_test_lock();
+    let standard = merge_modules(vec![
+        standard_module(),
+        module_with_identity(
+            "extra.veln",
+            concat!(
+                "type HiddenPayload\n",
+                "  HiddenPayload(Int)\n",
+                "end\n",
+                "\n",
+                "pub type ExtraPayload = HiddenPayload\n",
+            ),
+            "std::extra",
+        ),
+    ]);
+    let reusable = prepare_reusable_standard_surface_module_environment(&standard)
+        .with_current_identity_for_test();
+    let selected_modules = std::iter::once("std::prelude".to_string()).collect();
+    let selected_environment = reusable.environment_for_modules_for_test(&selected_modules);
+    assert!(
+        selected_environment
+            .adts
+            .descriptors()
+            .iter()
+            .all(|descriptor| descriptor.module_name.as_deref() != Some("std::extra")),
+        "the selected registry must exclude descriptors and aliases from unloaded modules"
+    );
+    let module = merge_modules(vec![
+        standard_module(),
+        app_case(
+            "unloaded extra type alias",
+            "src/main.veln",
+            concat!(
+                "pub fn main(value: extra::ExtraPayload) -> Int\n",
+                "  1\n",
+                "end\n",
+            ),
+        )
+        .module,
+    ]);
+
+    let uncached = check_project_surface_module(&module);
+    let cached = check_project_surface_module_with_standard_environment(&module, &reusable);
+
+    assert_same_analysis("unloaded extra type alias", uncached, cached);
+}
+
+#[test]
 fn reusable_standard_environment_selects_loaded_standard_module_sets() {
     let _guard = standard_reuse_test_lock();
     let standard = standard_modules_with_extra_module();

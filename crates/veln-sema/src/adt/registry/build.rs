@@ -320,23 +320,14 @@ impl AdtRegistry {
         let descriptors = self
             .descriptors
             .iter()
-            .filter(|descriptor| {
-                descriptor
-                    .module_name
-                    .as_deref()
-                    .is_none_or(|module_name| module_names.contains(module_name))
-            })
+            .filter(|descriptor| selected_module(descriptor.module_name.as_deref(), module_names))
             .cloned()
             .collect();
         let companion_access_targets = retained_companion_access_targets(self, module_names);
         let annotation_types = self
             .annotation_types
             .iter()
-            .filter(|((module_name, _), _)| {
-                module_name
-                    .as_ref()
-                    .is_none_or(|module_name| module_names.contains(module_name))
-            })
+            .filter(|((module_name, _), _)| selected_module(module_name.as_deref(), module_names))
             .map(|(identity, ty)| (identity.clone(), ty.clone()))
             .collect();
         let mut registry = Self::from_parts_with_annotation_types(
@@ -344,35 +335,33 @@ impl AdtRegistry {
             companion_access_targets,
             annotation_types,
         );
-        registry.type_alias_identities = retained_type_alias_identities(self, module_names);
-        registry.type_alias_exposure_segments = self.type_alias_exposure_segments.clone();
-        registry.type_alias_exposure_paths = self
-            .type_alias_exposure_paths
-            .iter()
-            .filter(|(identity, _)| {
-                identity
-                    .module_name
-                    .as_ref()
-                    .is_none_or(|module_name| module_names.contains(module_name))
-            })
-            .map(|(identity, path)| (identity.clone(), path.clone()))
-            .collect();
-        registry.resolved_type_alias_declarations = self
-            .resolved_type_alias_declarations
-            .iter()
-            .filter(|identity| {
-                identity
-                    .module_name
-                    .as_ref()
-                    .is_none_or(|module_name| module_names.contains(module_name))
-            })
-            .cloned()
-            .collect();
-        registry.declaration_spans = retained_declaration_spans(self, &registry);
-        registry.variant_declaration_spans = retained_variant_declaration_spans(self, &registry);
-        registry.quarantined_type_identities = self.quarantined_type_identities.clone();
+        registry.finish_standard_subset(self, module_names);
         registry
     }
+
+    fn finish_standard_subset(&mut self, source: &Self, module_names: &BTreeSet<String>) {
+        self.type_alias_identities = retained_type_alias_identities(source, module_names);
+        self.type_alias_exposure_segments = source.type_alias_exposure_segments.clone();
+        self.type_alias_exposure_paths = source
+            .type_alias_exposure_paths
+            .iter()
+            .filter(|(identity, _)| selected_module(identity.module_name.as_deref(), module_names))
+            .map(|(identity, path)| (identity.clone(), path.clone()))
+            .collect();
+        self.resolved_type_alias_declarations = source
+            .resolved_type_alias_declarations
+            .iter()
+            .filter(|identity| selected_module(identity.module_name.as_deref(), module_names))
+            .cloned()
+            .collect();
+        self.declaration_spans = retained_declaration_spans(source, self);
+        self.variant_declaration_spans = retained_variant_declaration_spans(source, self);
+        self.quarantined_type_identities = source.quarantined_type_identities.clone();
+    }
+}
+
+fn selected_module(module_name: Option<&str>, module_names: &BTreeSet<String>) -> bool {
+    module_name.is_none_or(|module_name| module_names.contains(module_name))
 }
 
 fn source_declaration_spans(module: &SurfaceModule) -> HashMap<DescriptorKey, SourceSpan> {
@@ -486,12 +475,7 @@ fn retained_type_alias_identities(
     registry
         .type_alias_identities
         .iter()
-        .filter(|identity| {
-            identity
-                .module_name
-                .as_ref()
-                .is_none_or(|module_name| module_names.contains(module_name))
-        })
+        .filter(|identity| selected_module(identity.module_name.as_deref(), module_names))
         .cloned()
         .collect()
 }
