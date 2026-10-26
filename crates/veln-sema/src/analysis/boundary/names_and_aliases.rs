@@ -317,16 +317,16 @@ pub(super) fn check_function_alias_target(
     module_name: Option<&str>,
     environment: &TypeEnvironment,
 ) -> Option<Diagnostic> {
-    if function_target(module, &alias.target, module_name).is_some() {
-        None
-    } else if type_target(module, &alias.target, module_name).is_some() {
-        Some(alias_kind_mismatch_diagnostic(alias, "function", "type"))
-    } else if environment.resolves_available_module_value_alias_target(&alias.target, module_name) {
+    if environment.resolves_available_module_value_alias_target(&alias.target, module_name) {
         Some(alias_kind_mismatch_diagnostic(
             alias,
             "function",
             "module_value",
         ))
+    } else if function_target(module, &alias.target, module_name).is_some() {
+        None
+    } else if type_target(module, &alias.target, module_name).is_some() {
+        Some(alias_kind_mismatch_diagnostic(alias, "function", "type"))
     } else {
         Some(unresolved_alias_diagnostic(alias, "function"))
     }

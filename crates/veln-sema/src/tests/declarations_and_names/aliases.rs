@@ -194,7 +194,16 @@ fn public_function_alias_rejects_available_module_value_targets() {
                 "pub fn imported_alias = data::remote\n",
             ),
         ),
-        SourceFile::new("data.veln", "mod data\npub let remote: Int = 2\n"),
+        SourceFile::new(
+            "data.veln",
+            concat!(
+                "mod data\n",
+                "pub let remote: Int = 2\n",
+                "fn local() -> Int\n",
+                "  3\n",
+                "end\n",
+            ),
+        ),
     ]);
 
     let diagnostics = analyze_surface_module(&module);
