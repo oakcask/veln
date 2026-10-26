@@ -171,7 +171,7 @@ impl AdtRegistry {
         let mut fallback;
         let modules = if let Some(indexed) = indexed {
             indexed
-        } else {
+        } else if self.source_import_count != uses.len() {
             fallback = QualifiedImportModules::default();
             for use_decl in uses {
                 crate::adt::lookup_validation::record_import_path_comparison();
@@ -192,6 +192,8 @@ impl AdtRegistry {
                 }
             }
             &fallback
+        } else {
+            return None;
         };
         let candidates = if modules.exact.is_empty() {
             &modules.implicit
@@ -236,6 +238,9 @@ impl AdtRegistry {
 
         let key = (current_module.map(str::to_string), normalized);
         let Some(candidates) = self.qualified_import_recovery_modules.get(&key) else {
+            if self.source_import_count == uses.len() {
+                return selected;
+            }
             return self.fallback_recovered_import_identity(
                 type_name,
                 qualifiers,
@@ -521,9 +526,10 @@ impl AdtRegistry {
             }
             return descriptor.module_name.as_deref() == Some(module_name);
         }
-        if let Some(module_name) =
-            crate::name_recovery::select_use_decl_for_path(uses.iter(), first, current_module)
-                .map(|use_decl| use_decl.name.as_str())
+        if self.source_import_count != uses.len()
+            && let Some(module_name) =
+                crate::name_recovery::select_use_decl_for_path(uses.iter(), first, current_module)
+                    .map(|use_decl| use_decl.name.as_str())
         {
             return descriptor.module_name.as_deref() == Some(module_name);
         }

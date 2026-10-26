@@ -169,6 +169,7 @@ impl AdtRegistry {
             imported_descriptors_by_type_arity: HashMap::new(),
             quarantined_type_identities: HashSet::new(),
             source_import_indexes_ready: false,
+            source_import_count: 0,
             local_descriptor_start,
         }
     }
@@ -270,6 +271,7 @@ impl AdtRegistry {
         self.imported_descriptors_by_type = imported_descriptors.any_arity;
         self.imported_descriptors_by_type_arity = imported_descriptors.exact_arity;
         self.source_import_indexes_ready = true;
+        self.source_import_count = uses.len();
         self.local_descriptor_start = local_descriptor_start;
         self.canonicalize_source_payload_types(module, source_descriptor_start);
     }

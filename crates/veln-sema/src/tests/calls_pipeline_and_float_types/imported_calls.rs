@@ -239,7 +239,7 @@ fn explicit_import_alias_contributes_no_bare_function_candidate() {
     );
     let module = merged_import_module(main_source, vec![math_source, other_source]);
 
-    assert_main_returns_function_call(&module, "double");
+    assert_main_returns_function_call(&module, "app::other::double");
 }
 
 #[test]

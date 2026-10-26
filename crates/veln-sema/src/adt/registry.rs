@@ -41,6 +41,7 @@ pub(crate) struct AdtRegistry {
     imported_descriptors_by_type_arity: HashMap<(Option<String>, String, usize), Option<usize>>,
     quarantined_type_identities: HashSet<String>,
     source_import_indexes_ready: bool,
+    source_import_count: usize,
     local_descriptor_start: usize,
 }
 
