@@ -53,6 +53,8 @@ unsupported expression. Its details contain `phase: "type_check"` and the
 declaration `name`. Its first related entry has kind
 `module_value_declaration` and the complete declaration span. Its second has
 kind `permitted_initializers`, has no span, and names the admitted categories.
+When a call has a callee that is not a name path, the complete call is the
+smallest unsupported expression.
 Unresolved names and call targets retain `name.unresolved`, and a constructor
 with the wrong payload arity retains `core.constructor_arity_mismatch`; these
 failures do not add `value.module_initializer_unsupported`.
@@ -78,10 +80,13 @@ diagnostics. An unbound row tail reports `effect.row_unbound`, and an unknown
 effect label reports `effect.unknown`. Their details identify the boundary as
 `module_value_type`.
 
-A module value selected as a call target reports `type.not_callable` at that
-target. Its details identify `call_target` as the failed constraint and
-`module_value` as the selected non-callable kind. Related context identifies
-the selected declaration.
+An available module value selected as a call target reports
+`type.not_callable` at that target. Its details identify `call_target` as the
+failed constraint and `module_value` as the selected non-callable kind. Related
+context identifies the selected declaration. An unavailable same-module
+identity still reserves its name, but a call through it does not emit
+`type.not_callable`, select declaration context, or fall through to another
+callable. Diagnostics from independently checked call arguments remain.
 
 Every parse-clean module immutable value declaration also reports
 `module.value_not_executable` at the complete declaration. The diagnostic has

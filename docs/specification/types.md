@@ -628,6 +628,9 @@ constructors whose payloads are admitted; and same-module module value
 references. Parentheses preserve admission. Float literals, collection
 literals, functions and ordinary calls, other operators, field access, control
 flow, effects, handlers, and holes are not admitted.
+An ordinary call whose callee is not a name path is rejected at the complete
+call expression. An unresolved named call retains ordinary name-resolution
+diagnostics instead of adding an initializer-admission diagnostic.
 An empty `{}` follows its contextual type: it is rejected as a collection
 literal when a `Dict<K, V>` annotation, record field, constructor payload, or
 resolved alias supplies that expectation. Without a dictionary expectation it
