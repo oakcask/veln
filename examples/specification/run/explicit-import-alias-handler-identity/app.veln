@@ -1,3 +1,4 @@
+# JVM stdout distinguishes same-named handlers and their private module dependencies.
 use alpha as left
 use beta as right
 

@@ -111,21 +111,35 @@ fn retains_invalid_case_alias_tokens_for_semantic_diagnostics() {
 #[test]
 fn malformed_import_aliases_recover_at_the_declaration_newline() {
     let cases = [
-        "use a as\n",
-        "use a as from \"pkg\"\n",
-        "use a as \"local\"\n",
-        "use a as b::c\n",
-        "use a from \"pkg\" as local\n",
-        "use a as b as c\n",
-        "use a as b from\n",
+        ("use a as\n", "parse.expected_identifier", 9),
+        ("use a as from \"pkg\"\n", "parse.expected_identifier", 10),
+        ("use a as \"local\"\n", "parse.expected_identifier", 10),
+        ("use a as b::c\n", "parse.expected_newline", 11),
+        (
+            "use a from \"pkg\" as local\n",
+            "parse.expected_newline",
+            18,
+        ),
+        ("use a as b as c\n", "parse.expected_newline", 12),
+        ("use a as b from\n", "parse.expected_token", 16),
     ];
-    for malformed in cases {
+    for (malformed, diagnostic_id, column) in cases {
         let source = SourceFile::new(
             "main.veln",
             format!("{malformed}use valid\nfn main() -> ()\n  ()\nend\n"),
         );
         let output = parse(&source);
-        assert!(!output.diagnostics.is_empty(), "{malformed}");
+        let diagnostic = output
+            .diagnostics
+            .first()
+            .expect("malformed import diagnostic");
+        assert_eq!(diagnostic.id, diagnostic_id, "{malformed}");
+        let span = diagnostic.span.as_ref().expect("malformed import span");
+        assert_eq!(
+            (span.start.line, span.start.column),
+            (1, column),
+            "{malformed}"
+        );
         assert!(output.tree.uses[0].recovered, "{malformed}");
         assert_eq!(output.tree.uses[1].name, "valid", "{malformed}");
         assert!(!output.tree.uses[1].recovered, "{malformed}");

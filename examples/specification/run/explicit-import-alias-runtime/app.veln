@@ -1,3 +1,4 @@
+# JVM stdout distinguishes alias-qualified, exact-path, and remaining bare-call targets.
 use math as calc
 use other
 

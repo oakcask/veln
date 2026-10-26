@@ -211,54 +211,61 @@ fn blocked_exact_import_path_does_not_fall_through_to_an_alias() {
 }
 
 #[test]
-fn recovered_import_does_not_quarantine_a_following_valid_import() {
-    let main_source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "mod app::main\n",
-            "use app::math as\n",
-            "use app::math as wire\n",
-            "pub fn main() -> Int\n",
-            "  wire::double(2)\n",
-            "end\n",
-        ),
-    );
-    let math_source = SourceFile::new(
-        "math.veln",
-        "mod app::math\npub fn double(value: Int) -> Int\n  value + value\nend\n",
-    );
-    let module = merged_import_module(main_source, vec![math_source]);
-    let diagnostics = analyze_surface_module(&module);
+fn malformed_import_aliases_bind_nothing_and_keep_a_following_valid_import() {
+    for malformed in [
+        "use app::math as\n",
+        "use app::math as from \"pkg\"\n",
+        "use app::math as \"wire\"\n",
+        "use app::math as wire::nested\n",
+        "use app::math from \"pkg\" as wire\n",
+        "use app::math as wire as nested\n",
+        "use app::math as wire from\n",
+    ] {
+        let main_source = SourceFile::new(
+            "main.veln",
+            format!(
+                "mod app::main\n{malformed}use app::math as wire\npub fn main() -> Int\n  wire::double(2)\nend\n"
+            ),
+        );
+        let parsed = parse(&main_source);
+        assert!(!parsed.diagnostics.is_empty(), "{malformed}");
+        let lowered = lower_surface_ast(&parsed.tree);
+        assert!(lowered.uses[0].recovered, "{malformed}");
+        for qualifier in [vec!["wire"], vec!["app", "math"]] {
+            let qualifier = qualifier
+                .into_iter()
+                .map(str::to_string)
+                .collect::<Vec<_>>();
+            assert_eq!(
+                crate::name_recovery::normal_imported_use_for_path(
+                    &lowered,
+                    &qualifier,
+                    Some("app::main"),
+                )
+                .map(|use_decl| use_decl.name.as_str()),
+                Some("app::math"),
+                "malformed={malformed:?}, qualifier={qualifier:?}"
+            );
+        }
 
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id != "name.duplicate"),
-        "{diagnostics:#?}"
-    );
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| { diagnostic.message != "unresolved call_target `wire::double`" })
-    );
-    assert_eq!(
-        crate::name_recovery::normal_imported_use_for_path(
-            &module,
-            &["wire".to_string()],
-            Some("app::main"),
-        )
-        .map(|use_decl| use_decl.name.as_str()),
-        Some("app::math")
-    );
-    assert_eq!(
-        crate::name_recovery::normal_imported_use_for_path(
-            &module,
-            &["app".to_string(), "math".to_string()],
-            Some("app::main"),
-        )
-        .map(|use_decl| use_decl.name.as_str()),
-        Some("app::math")
-    );
+        let math_source = SourceFile::new(
+            "math.veln",
+            "mod app::math\npub fn double(value: Int) -> Int\n  value + value\nend\n",
+        );
+        let module = merged_import_module(main_source, vec![math_source]);
+        let diagnostics = analyze_surface_module(&module);
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "name.duplicate"),
+            "malformed={malformed:?}, diagnostics={diagnostics:#?}"
+        );
+        assert!(
+            diagnostics.iter().all(|diagnostic| {
+                diagnostic.message != "unresolved call_target `wire::double`"
+            })
+        );
+    }
 }
 
 #[test]

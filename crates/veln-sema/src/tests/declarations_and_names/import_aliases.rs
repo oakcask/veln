@@ -38,7 +38,9 @@ fn explicit_import_alias_collisions_and_repeated_targets_are_static_errors() {
     for source in [
         "mod app\nuse alpha as shared\nuse beta as shared\n",
         "mod app\nuse alpha as shared\nuse beta::shared\n",
+        "mod app\nuse beta::shared\nuse alpha as shared\n",
         "mod app\nuse alpha as first\nuse alpha as second\n",
+        "mod app\nuse alpha as shared\nuse alpha as shared\n",
     ] {
         let module = lower_surface_ast(&parse(&SourceFile::new("main.veln", source)).tree);
         let diagnostics = analyze_surface_module(&module);
@@ -49,6 +51,84 @@ fn explicit_import_alias_collisions_and_repeated_targets_are_static_errors() {
         assert_eq!(duplicates.len(), 1, "{diagnostics:#?}");
         assert_eq!(duplicates[0].related.len(), 1);
     }
+}
+
+#[test]
+fn implicit_leaf_collisions_keep_exact_paths_without_duplicate_diagnostics() {
+    for source in [
+        "mod app\nuse alpha::shared\nuse beta::shared\n",
+        "mod app\nuse beta::shared\nuse alpha::shared\n",
+    ] {
+        let module = lower_surface_ast(&parse(&SourceFile::new("main.veln", source)).tree);
+        let diagnostics = analyze_surface_module(&module);
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "name.duplicate"),
+            "source={source:?}, diagnostics={diagnostics:#?}"
+        );
+        assert!(
+            crate::name_recovery::normal_imported_use_for_path(
+                &module,
+                &["shared".to_string()],
+                Some("app"),
+            )
+            .is_none(),
+            "source={source:?}"
+        );
+        for exact in [["alpha", "shared"], ["beta", "shared"]] {
+            let exact = exact.into_iter().map(str::to_string).collect::<Vec<_>>();
+            assert!(
+                crate::name_recovery::normal_imported_use_for_path(&module, &exact, Some("app"),)
+                    .is_some(),
+                "source={source:?}, exact={exact:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn independent_target_and_qualifier_collisions_report_both_facts() {
+    let source = SourceFile::new(
+        "main.veln",
+        "mod app\nuse alpha as shared\nuse beta as other\nuse alpha as other\n",
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+    let duplicates = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.duplicate")
+        .collect::<Vec<_>>();
+
+    assert_eq!(duplicates.len(), 2, "{diagnostics:#?}");
+    assert!(
+        duplicates
+            .iter()
+            .all(|diagnostic| diagnostic.related.len() == 1)
+    );
+}
+
+#[test]
+fn aliased_prelude_target_does_not_reserve_a_different_qualifier() {
+    let source = SourceFile::new("main.veln", "mod app\nuse app::prelude as standard\n");
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.reserved"),
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        crate::name_recovery::normal_imported_use_for_path(
+            &module,
+            &["standard".to_string()],
+            Some("app"),
+        )
+        .map(|use_decl| use_decl.written_name.as_str()),
+        Some("app::prelude")
+    );
 }
 
 #[test]
