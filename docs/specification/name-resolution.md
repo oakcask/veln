@@ -57,10 +57,13 @@ unrelated namespaces may share a spelling.
 
 A typed module `let` enters the declaring module's value namespace with the
 identity of its module and declared name. Its written annotation supplies the
-reference type. Same-module bare and module-qualified references resolve
-throughout that module, including before the declaration. A parameter or local
-binding wins over a same-spelled module value for a bare reference. Functions,
-public function aliases, and module values share one duplicate-name check.
+reference type. A same-module reference can use the bare name, the complete
+declaring module path, or the declaring module path's final segment as its only
+qualifier. Any longer qualifier must equal the complete declaring module path;
+an added prefix does not resolve. These references resolve throughout the
+module, including before the declaration. A parameter or local binding wins
+over a same-spelled module value for a bare reference. Functions, public
+function aliases, and module values share one duplicate-name check.
 A collision makes every module-value declaration with that identity
 unavailable, and declarations that depend on it are unavailable while
 unrelated module values retain their semantic facts. A selected module value

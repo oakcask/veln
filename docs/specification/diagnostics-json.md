@@ -49,14 +49,23 @@ consumers must preserve diagnostic and related-note order.
 
 A known expression form outside the module immutable value finite-data
 language reports `value.module_initializer_unsupported` at the smallest
-unsupported expression. Related entries identify the declaration and the
-permitted initializer categories. Unresolved names and call targets retain
-`name.unresolved`, and a constructor with the wrong payload arity retains
-`core.constructor_arity_mismatch`; these failures do not add
-`value.module_initializer_unsupported`. A same-module cyclic dependency
-component reports one `value.module_initializer_cycle` at the deterministic
-reference that closes the cycle. Its related entries identify every
-participating declaration and dependency reference.
+unsupported expression. Its details contain `phase: "type_check"` and the
+declaration `name`. Its first related entry has kind
+`module_value_declaration` and the complete declaration span. Its second has
+kind `permitted_initializers`, has no span, and names the admitted categories.
+Unresolved names and call targets retain `name.unresolved`, and a constructor
+with the wrong payload arity retains `core.constructor_arity_mismatch`; these
+failures do not add `value.module_initializer_unsupported`.
+
+A same-module cyclic dependency component reports one
+`value.module_initializer_cycle` at the deterministic reference that closes
+the cycle. Its details contain `phase: "type_check"`, the referring declaration
+`name`, and the referenced `target`. Related entries first list every
+participating declaration with kind `cycle_declaration`, ordered by module and
+name identity and then source location. They then list every dependency within
+the component with kind `cycle_reference`, ordered by source identity, target
+identity, and reference location. Every such entry carries the corresponding
+declaration or reference span.
 
 A function type in a module value annotation uses the ordinary effect-list
 diagnostics. An unbound row tail reports `effect.row_unbound`, and an unknown

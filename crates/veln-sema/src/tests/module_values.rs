@@ -444,7 +444,14 @@ fn qualified_same_module_values_resolve_across_declaring_sources() {
     let module = merged_modules_with_identities(vec![
         (
             "app::config",
-            SourceFile::new("first.veln", "let first: Int = config::later\n"),
+            SourceFile::new(
+                "first.veln",
+                concat!(
+                    "let bare: Int = later\n",
+                    "let leaf: Int = config::later\n",
+                    "let complete: Int = app::config::later\n",
+                ),
+            ),
         ),
         (
             "app::config",
@@ -514,15 +521,55 @@ fn module_value_initializers_report_smallest_unsupported_expressions() {
     assert_diagnostic_span(unsupported[0], 4, 21, 4, 30);
     assert_diagnostic_span(unsupported[1], 5, 39, 5, 44);
     assert_diagnostic_span(unsupported[2], 6, 23, 6, 26);
-    assert!(unsupported.iter().all(|diagnostic| {
-        diagnostic.related.iter().any(|related| {
-            related.as_object().is_some_and(|entries| {
-                entries.iter().any(|(name, value)| {
-                    name == "kind" && value.as_text() == Some("permitted_initializers")
-                })
+    for (index, (diagnostic, name)) in unsupported
+        .iter()
+        .zip(["computed", "nested", "floating"])
+        .enumerate()
+    {
+        let detail = |field: &str| {
+            diagnostic.details.as_object().and_then(|entries| {
+                entries
+                    .iter()
+                    .find(|(entry, _)| entry == field)
+                    .and_then(|(_, value)| value.as_text())
             })
-        })
-    }));
+        };
+        assert_eq!(detail("phase"), Some("type_check"));
+        assert_eq!(detail("name"), Some(name));
+        assert_eq!(
+            diagnostic.related,
+            vec![
+                veln_diagnostics::JsonValue::object([
+                    (
+                        "kind",
+                        veln_diagnostics::JsonValue::string("module_value_declaration"),
+                    ),
+                    (
+                        "message",
+                        veln_diagnostics::JsonValue::string(format!(
+                            "Module value `{name}` is declared here."
+                        )),
+                    ),
+                    (
+                        "span",
+                        crate::diagnostics::span_json(&module.module_values[index].span),
+                    ),
+                ]),
+                veln_diagnostics::JsonValue::object([
+                    (
+                        "kind",
+                        veln_diagnostics::JsonValue::string("permitted_initializers"),
+                    ),
+                    (
+                        "message",
+                        veln_diagnostics::JsonValue::string(
+                            "Use literals, records, ADT constructors, or same-module module values.",
+                        ),
+                    ),
+                ]),
+            ]
+        );
+    }
 }
 
 #[test]
