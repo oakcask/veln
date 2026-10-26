@@ -79,7 +79,7 @@ pub(crate) use boundary::{
     check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,
     check_duplicate_use_aliases, check_module_boundary, check_public_aliases,
     check_public_function_boundary, check_reserved_prelude_aliases, check_schema_field_primitives,
-    check_schema_type_references, check_test_declaration_boundary,
+    check_schema_type_references, check_test_declaration_boundary, check_type_effect_labels,
 };
 pub(crate) use handlers::check_handler_declarations;
 pub(crate) use module_values::check_module_values;

@@ -223,7 +223,7 @@ fn check_function_type_effect_labels(
     diagnostics
 }
 
-fn check_type_effect_labels(
+pub(crate) fn check_type_effect_labels(
     annotation: &str,
     annotation_span: &SourceSpan,
     function: &Function,

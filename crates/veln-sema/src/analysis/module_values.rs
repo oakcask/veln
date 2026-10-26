@@ -1,21 +1,21 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
 use veln_ast::{
-    BodyLine, BodyLineKind, Expr, ExprKind, Function, FunctionKind, PublicAliasKind, SurfaceModule,
-    Visibility,
+    BodyLine, BodyLineKind, Function, FunctionKind, PublicAliasKind, SurfaceModule, Visibility,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
-use super::{FunctionChecker, VariantDiagnosticInterner};
-use crate::adt::registry::ConstructorLookup;
-use crate::adt::{descriptors::AdtConstructor, type_operations as adt};
+use super::{FunctionChecker, VariantDiagnosticInterner, check_type_effect_labels};
 use crate::diagnostics::span_json;
-use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_annotation;
 use crate::types::TypeEnvironment;
 
+mod admission;
+
+use admission::{check_admitted_expr, collect_dependencies};
+
 #[derive(Clone)]
-struct Dependency {
+pub(super) struct Dependency {
     target: usize,
     span: veln_source::SourceSpan,
 }
@@ -72,96 +72,19 @@ pub(crate) fn check_module_values(
     let mut dependencies = vec![Vec::new(); module.module_values.len()];
     let colliding_identities = colliding_module_value_identities(module);
     environment.quarantine_module_values(&colliding_identities);
-    let mut invalid = module
-        .module_values
-        .iter()
-        .map(|value| {
-            value.name.as_ref().is_some_and(|name| {
-                colliding_identities.contains(&(value.module_name.clone(), name.clone()))
-            })
-        })
-        .collect::<Vec<_>>();
-    let mut value_indices = HashMap::new();
-    for (index, value) in module.module_values.iter().enumerate() {
-        if let Some(name) = &value.name {
-            value_indices
-                .entry((value.module_name.clone(), name.clone()))
-                .or_insert(index);
-        }
-    }
+    let mut invalid = initially_invalid_values(module, &colliding_identities);
+    let value_indices = module_value_indices(module);
 
     for (index, value) in module.module_values.iter().enumerate() {
-        collect_dependencies(
-            &value.initializer,
-            value.module_name.as_deref(),
-            &value_indices,
-            &mut Vec::new(),
-            &mut dependencies[index],
-        );
-        let diagnostic_count = diagnostics.len();
-        let expected = parse_type_annotation(&value.annotation)
-            .ok()
-            .map(|ty| environment.canonicalize_type_annotation(ty, value.module_name.as_deref()));
-        check_admitted_expr(
-            &value.initializer,
+        invalid[index] |= check_module_value(
             value,
+            index,
             &value_indices,
-            environment,
-            expected.as_ref(),
-            &mut diagnostics,
-        );
-
-        let synthetic = Function {
-            node_id: value.node_id,
-            module_name: value.module_name.clone(),
-            package_name: None,
-            kind: FunctionKind::Function,
-            visibility: Visibility::Private,
-            name: Some(format!("__module_value_{}", index)),
-            effect_binder: None,
-            params: Vec::new(),
-            return_binding: None,
-            return_type: Some(value.annotation.clone()),
-            return_type_span: Some(value.span.clone()),
-            return_type_paths: value.annotation_paths.clone(),
-            return_type_refinements: value.annotation_refinements.clone(),
-            effects: Some(Vec::new()),
-            effect_spans: Some(Vec::new()),
-            callsite: None,
-            contracts: Vec::new(),
-            body: vec![BodyLine {
-                node_id: value.node_id,
-                kind: BodyLineKind::Expr {
-                    expr: value.initializer.clone(),
-                },
-                span: value.initializer.span.clone(),
-            }],
-            span: value.span.clone(),
-        };
-        let mut checker = FunctionChecker::for_synthetic_declaration(
-            &synthetic,
             environment,
             variant_diagnostics,
+            &mut dependencies[index],
+            &mut diagnostics,
         );
-        checker.check_body();
-        diagnostics.append(&mut checker.diagnostics);
-        let annotation_is_closed =
-            parse_type_annotation(&value.annotation).is_ok_and(|annotation| {
-                environment.type_annotation_is_fully_resolved(
-                    &annotation,
-                    value.module_name.as_deref(),
-                    &[],
-                )
-            });
-        if !annotation_is_closed {
-            push_unresolved_annotation_paths(
-                value,
-                environment,
-                diagnostic_count,
-                &mut diagnostics,
-            );
-        }
-        invalid[index] |= diagnostics.len() != diagnostic_count || !annotation_is_closed;
     }
 
     let (cycle_diagnostics, cyclic) = cycle_diagnostics(module, &dependencies);
@@ -169,6 +92,138 @@ pub(crate) fn check_module_values(
     for index in cyclic {
         invalid[index] = true;
     }
+    propagate_invalid_dependencies(&dependencies, &mut invalid);
+    ModuleValueAnalysis {
+        diagnostics,
+        invalid: module
+            .module_values
+            .iter()
+            .enumerate()
+            .filter(|(index, value)| invalid[*index] && value.name.is_some())
+            .map(|(_, value)| {
+                (
+                    value.module_name.clone(),
+                    value.name.clone().expect("filtered module value name"),
+                )
+            })
+            .collect(),
+    }
+}
+
+fn initially_invalid_values(
+    module: &SurfaceModule,
+    colliding_identities: &BTreeSet<(Option<String>, String)>,
+) -> Vec<bool> {
+    module
+        .module_values
+        .iter()
+        .map(|value| {
+            value.name.as_ref().is_some_and(|name| {
+                colliding_identities.contains(&(value.module_name.clone(), name.clone()))
+            })
+        })
+        .collect()
+}
+
+fn module_value_indices(module: &SurfaceModule) -> HashMap<(Option<String>, String), usize> {
+    let mut indices = HashMap::new();
+    for (index, value) in module.module_values.iter().enumerate() {
+        if let Some(name) = &value.name {
+            indices
+                .entry((value.module_name.clone(), name.clone()))
+                .or_insert(index);
+        }
+    }
+    indices
+}
+
+fn check_module_value(
+    value: &veln_ast::ModuleValueDecl,
+    index: usize,
+    value_indices: &HashMap<(Option<String>, String), usize>,
+    environment: &TypeEnvironment,
+    variant_diagnostics: &mut VariantDiagnosticInterner,
+    dependencies: &mut Vec<Dependency>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    collect_dependencies(
+        &value.initializer,
+        value.module_name.as_deref(),
+        value_indices,
+        &mut Vec::new(),
+        dependencies,
+    );
+    let diagnostic_start = diagnostics.len();
+    let parsed_annotation = parse_type_annotation(&value.annotation).ok();
+    let expected = parsed_annotation
+        .clone()
+        .map(|ty| environment.canonicalize_type_annotation(ty, value.module_name.as_deref()));
+    check_admitted_expr(
+        &value.initializer,
+        value,
+        value_indices,
+        environment,
+        expected.as_ref(),
+        diagnostics,
+    );
+
+    let synthetic = synthetic_module_value_function(value, index);
+    diagnostics.extend(check_type_effect_labels(
+        &value.annotation,
+        &value.span,
+        &synthetic,
+        environment,
+        "module_value_type",
+    ));
+    let mut checker =
+        FunctionChecker::for_synthetic_declaration(&synthetic, environment, variant_diagnostics);
+    checker.check_body();
+    diagnostics.append(&mut checker.diagnostics);
+
+    let annotation_is_closed = parsed_annotation.is_some_and(|annotation| {
+        environment.type_annotation_is_fully_resolved(
+            &annotation,
+            value.module_name.as_deref(),
+            &[],
+        )
+    });
+    if !annotation_is_closed {
+        push_unresolved_annotation_paths(value, environment, diagnostic_start, diagnostics);
+    }
+    diagnostics.len() != diagnostic_start || !annotation_is_closed
+}
+
+fn synthetic_module_value_function(value: &veln_ast::ModuleValueDecl, index: usize) -> Function {
+    Function {
+        node_id: value.node_id,
+        module_name: value.module_name.clone(),
+        package_name: None,
+        kind: FunctionKind::Function,
+        visibility: Visibility::Private,
+        name: Some(format!("__module_value_{index}")),
+        effect_binder: None,
+        params: Vec::new(),
+        return_binding: None,
+        return_type: Some(value.annotation.clone()),
+        return_type_span: Some(value.span.clone()),
+        return_type_paths: value.annotation_paths.clone(),
+        return_type_refinements: value.annotation_refinements.clone(),
+        effects: Some(Vec::new()),
+        effect_spans: Some(Vec::new()),
+        callsite: None,
+        contracts: Vec::new(),
+        body: vec![BodyLine {
+            node_id: value.node_id,
+            kind: BodyLineKind::Expr {
+                expr: value.initializer.clone(),
+            },
+            span: value.initializer.span.clone(),
+        }],
+        span: value.span.clone(),
+    }
+}
+
+fn propagate_invalid_dependencies(dependencies: &[Vec<Dependency>], invalid: &mut [bool]) {
     let mut reverse = vec![Vec::new(); invalid.len()];
     for (source, edges) in dependencies.iter().enumerate() {
         for edge in edges {
@@ -187,21 +242,6 @@ pub(crate) fn check_module_values(
                 pending.push_back(*dependent);
             }
         }
-    }
-    ModuleValueAnalysis {
-        diagnostics,
-        invalid: module
-            .module_values
-            .iter()
-            .enumerate()
-            .filter(|(index, value)| invalid[*index] && value.name.is_some())
-            .map(|(_, value)| {
-                (
-                    value.module_name.clone(),
-                    value.name.clone().expect("filtered module value name"),
-                )
-            })
-            .collect(),
     }
 }
 
@@ -303,386 +343,6 @@ fn span_identity(span: &veln_source::SourceSpan) -> SpanIdentity {
     )
 }
 
-fn check_admitted_expr(
-    expr: &Expr,
-    declaration: &veln_ast::ModuleValueDecl,
-    value_indices: &HashMap<(Option<String>, String), usize>,
-    environment: &TypeEnvironment,
-    expected: Option<&Type>,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    match &expr.kind {
-        ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit => {}
-        ExprKind::Record(fields) => {
-            if fields.is_empty() && expected.is_some_and(|ty| ty.dict_parts().is_some()) {
-                diagnostics.push(unsupported_diagnostic(expr, declaration));
-                return;
-            }
-            for field in fields {
-                check_admitted_expr(
-                    &field.expr,
-                    declaration,
-                    value_indices,
-                    environment,
-                    expected.and_then(|ty| ty.record_field(&field.name)),
-                    diagnostics,
-                );
-            }
-        }
-        ExprKind::Prefix {
-            op: veln_ast::PrefixOp::Negate,
-            expr: inner,
-        } if matches!(inner.kind, ExprKind::IntLiteral(_)) => {}
-        ExprKind::NamePath { segments, .. } => {
-            if module_value_index(value_indices, segments, declaration.module_name.as_deref())
-                .is_some()
-            {
-                return;
-            }
-            if matches!(
-                environment.adts.nullary_constructor(
-                    segments,
-                    declaration.module_name.as_deref(),
-                    &environment.uses,
-                ),
-                ConstructorLookup::Found(_)
-            ) {
-                return;
-            }
-            if known_function(environment, segments, declaration.module_name.as_deref()) {
-                diagnostics.push(unsupported_diagnostic(expr, declaration));
-            }
-        }
-        ExprKind::Call { callee, args } => {
-            match constructor_call(
-                environment,
-                callee,
-                declaration.module_name.as_deref(),
-                expected,
-            ) {
-                ConstructorCall::Found {
-                    constructor,
-                    diagnostic_name,
-                    reason,
-                } => {
-                    let expected_count = constructor.variant.payload_fields.len();
-                    if args.len() != expected_count {
-                        diagnostics.push(constructor_arity_diagnostic(
-                            expr,
-                            expected_count,
-                            args.len(),
-                            diagnostic_name,
-                            reason,
-                        ));
-                    }
-                    for (index, arg) in args.iter().enumerate() {
-                        let payload_expected = expected
-                            .and_then(|expected| adt::payload_type(expected, constructor, index))
-                            .or_else(|| {
-                                adt::payload_type_with_resolved_args(constructor, index, |_| {
-                                    Type::Unknown
-                                })
-                            });
-                        check_admitted_expr(
-                            arg,
-                            declaration,
-                            value_indices,
-                            environment,
-                            payload_expected.as_ref(),
-                            diagnostics,
-                        );
-                    }
-                }
-                ConstructorCall::Ambiguous => {
-                    for arg in args {
-                        check_admitted_expr(
-                            arg,
-                            declaration,
-                            value_indices,
-                            environment,
-                            None,
-                            diagnostics,
-                        );
-                    }
-                }
-                ConstructorCall::Missing => {
-                    let known_module_value = callee.callee_name_path().is_some_and(|segments| {
-                        module_value_index(
-                            value_indices,
-                            segments,
-                            declaration.module_name.as_deref(),
-                        )
-                        .is_some()
-                    });
-                    let known_function_call = callee.callee_name_path().is_some_and(|segments| {
-                        known_function(environment, segments, declaration.module_name.as_deref())
-                    });
-                    if known_module_value || known_function_call {
-                        diagnostics.push(unsupported_diagnostic(expr, declaration));
-                    } else {
-                        for arg in args {
-                            check_admitted_expr(
-                                arg,
-                                declaration,
-                                value_indices,
-                                environment,
-                                None,
-                                diagnostics,
-                            );
-                        }
-                    }
-                }
-            }
-        }
-        ExprKind::Missing => {}
-        _ => diagnostics.push(unsupported_diagnostic(expr, declaration)),
-    }
-}
-
-fn collect_dependencies(
-    expr: &Expr,
-    current_module: Option<&str>,
-    value_indices: &HashMap<(Option<String>, String), usize>,
-    bindings: &mut Vec<String>,
-    dependencies: &mut Vec<Dependency>,
-) {
-    if let ExprKind::NamePath { segments, .. } = &expr.kind
-        && !matches!(segments.as_slice(), [name] if bindings.iter().rev().any(|binding| binding == name))
-        && let Some(target) = module_value_index(value_indices, segments, current_module)
-    {
-        dependencies.push(Dependency {
-            target,
-            span: expr.span.clone(),
-        });
-    }
-    match &expr.kind {
-        ExprKind::Match { scrutinee, arms } => {
-            collect_dependencies(
-                scrutinee,
-                current_module,
-                value_indices,
-                bindings,
-                dependencies,
-            );
-            for arm in arms {
-                let binding_count = bindings.len();
-                arm.pattern
-                    .for_each_binding(&mut |name| bindings.push(name.to_string()));
-                collect_dependencies(
-                    &arm.expr,
-                    current_module,
-                    value_indices,
-                    bindings,
-                    dependencies,
-                );
-                bindings.truncate(binding_count);
-            }
-        }
-        ExprKind::Begin { body, .. } => {
-            let binding_count = bindings.len();
-            collect_body_dependencies(body, current_module, value_indices, bindings, dependencies);
-            bindings.truncate(binding_count);
-        }
-        _ => expr.for_each_child(&mut |child| {
-            collect_dependencies(child, current_module, value_indices, bindings, dependencies);
-        }),
-    }
-}
-
-fn collect_body_dependencies(
-    body: &[BodyLine],
-    current_module: Option<&str>,
-    value_indices: &HashMap<(Option<String>, String), usize>,
-    bindings: &mut Vec<String>,
-    dependencies: &mut Vec<Dependency>,
-) {
-    for line in body {
-        match &line.kind {
-            BodyLineKind::Let { pattern, expr, .. } => {
-                collect_dependencies(expr, current_module, value_indices, bindings, dependencies);
-                pattern.for_each_binding(&mut |name| bindings.push(name.to_string()));
-            }
-            BodyLineKind::Expr { expr } => {
-                collect_dependencies(expr, current_module, value_indices, bindings, dependencies)
-            }
-            BodyLineKind::Defer { body, .. } => {
-                let binding_count = bindings.len();
-                collect_body_dependencies(
-                    body,
-                    current_module,
-                    value_indices,
-                    bindings,
-                    dependencies,
-                );
-                bindings.truncate(binding_count);
-            }
-        }
-    }
-}
-
-fn module_value_index(
-    value_indices: &HashMap<(Option<String>, String), usize>,
-    segments: &[String],
-    current_module: Option<&str>,
-) -> Option<usize> {
-    let (name, qualifier) = segments.split_last()?;
-    let qualifier_matches = qualifier.is_empty()
-        || current_module.is_some_and(|module_name| {
-            qualifier.join("::") == module_name
-                || (qualifier.len() == 1
-                    && qualifier
-                        .last()
-                        .is_some_and(|leaf| module_name.rsplit("::").next() == Some(leaf.as_str())))
-        });
-    qualifier_matches
-        .then(|| value_indices.get(&(current_module.map(str::to_owned), name.clone())))
-        .flatten()
-        .copied()
-}
-
-fn known_function(
-    environment: &TypeEnvironment,
-    segments: &[String],
-    current_module: Option<&str>,
-) -> bool {
-    match segments {
-        [name] => !matches!(
-            environment.unqualified_function(name, current_module),
-            crate::types::FunctionLookup::Missing
-        ),
-        _ => environment
-            .function_path_for_value(segments, current_module)
-            .is_some(),
-    }
-}
-
-enum ConstructorCall<'a> {
-    Found {
-        constructor: AdtConstructor<'a>,
-        diagnostic_name: String,
-        reason: &'static str,
-    },
-    Ambiguous,
-    Missing,
-}
-
-fn constructor_call<'a>(
-    environment: &'a TypeEnvironment,
-    callee: &Expr,
-    current_module: Option<&str>,
-    expected: Option<&Type>,
-) -> ConstructorCall<'a> {
-    let Some((segments, _)) = callee.callee_name_path_and_type_args() else {
-        return ConstructorCall::Missing;
-    };
-    let contextual = (segments.len() == 1)
-        .then_some(expected)
-        .flatten()
-        .and_then(|expected| {
-            environment
-                .adts
-                .descriptor_for_type_prefer_module(expected, current_module)
-        })
-        .and_then(|descriptor| {
-            environment.adts.constructor_for_descriptor(
-                segments,
-                descriptor,
-                current_module,
-                &environment.uses,
-            )
-        });
-    match contextual.map(ConstructorLookup::Found).unwrap_or_else(|| {
-        environment
-            .adts
-            .constructor(segments, current_module, &environment.uses)
-    }) {
-        ConstructorLookup::Found(constructor) => ConstructorCall::Found {
-            constructor,
-            diagnostic_name: constructor.descriptor.diagnostic_name.clone(),
-            reason: match constructor.descriptor.type_name.as_str() {
-                "Option" => "option_constructor_arity_mismatch",
-                "Result" => "result_constructor_arity_mismatch",
-                _ => "constructor_arity_mismatch",
-            },
-        },
-        ConstructorLookup::Ambiguous => ConstructorCall::Ambiguous,
-        ConstructorLookup::Missing => ConstructorCall::Missing,
-    }
-}
-
-fn constructor_arity_diagnostic(
-    expr: &Expr,
-    expected_count: usize,
-    actual_count: usize,
-    diagnostic_name: String,
-    reason: &'static str,
-) -> Diagnostic {
-    Diagnostic::new(
-        format!("core.{reason}"),
-        Severity::Error,
-        DiagnosticKind::Type,
-        format!(
-            "{diagnostic_name} constructor expects {expected_count} argument, but got {actual_count}"
-        ),
-        Some(expr.span.clone()),
-        JsonValue::object([
-            ("phase", JsonValue::string("core_lowering")),
-            ("node_id", JsonValue::string(expr.node_id.display("expr"))),
-            ("reason", JsonValue::string(reason)),
-            (
-                "facts",
-                JsonValue::object([
-                    (
-                        "expected_argument_count",
-                        JsonValue::Number(expected_count as i64),
-                    ),
-                    (
-                        "actual_argument_count",
-                        JsonValue::Number(actual_count as i64),
-                    ),
-                ]),
-            ),
-        ]),
-    )
-}
-
-fn unsupported_diagnostic(expr: &Expr, declaration: &veln_ast::ModuleValueDecl) -> Diagnostic {
-    let name = declaration.name.as_deref().unwrap_or("<missing>");
-    let mut diagnostic = Diagnostic::new(
-        "value.module_initializer_unsupported",
-        Severity::Error,
-        DiagnosticKind::Type,
-        "module value initializer expression is not immutable data construction",
-        Some(expr.span.clone()),
-        JsonValue::object([
-            ("phase", JsonValue::string("type_check")),
-            ("node_id", JsonValue::string(expr.node_id.display("expr"))),
-            ("name", JsonValue::string(name)),
-        ]),
-    );
-    diagnostic.related.push(JsonValue::object([
-        ("kind", JsonValue::string("module_value_declaration")),
-        (
-            "message",
-            JsonValue::string(format!("Module value `{name}` is declared here.")),
-        ),
-        ("span", span_json(&declaration.span)),
-    ]));
-    diagnostic.related.push(JsonValue::object([
-        ("kind", JsonValue::string("permitted_initializers")),
-        (
-            "message",
-            JsonValue::string(
-                "Use literals, records, ADT constructors, or same-module module values.",
-            ),
-        ),
-    ]));
-    diagnostic
-}
-
 fn cycle_diagnostics(
     module: &SurfaceModule,
     dependencies: &[Vec<Dependency>],
@@ -718,48 +378,7 @@ fn cycle_diagnostic(
     component: &[usize],
 ) -> Option<Diagnostic> {
     let members = component.iter().copied().collect::<BTreeSet<_>>();
-    let mut ordered = component.to_vec();
-    ordered.sort_by_key(|index| value_key(module, *index));
-    let mut colors = BTreeMap::<usize, u8>::new();
-    let mut closing = None;
-    for root in ordered {
-        if colors.get(&root).copied().unwrap_or(0) != 0 {
-            continue;
-        }
-        colors.insert(root, 1);
-        let mut stack = vec![(
-            root,
-            sorted_component_edges(module, root, dependencies, &members),
-            0,
-        )];
-        while let Some((node, edges, edge_index)) = stack.last_mut() {
-            if let Some(edge) = edges.get(*edge_index).cloned() {
-                *edge_index += 1;
-                match colors.get(&edge.target).copied().unwrap_or(0) {
-                    0 => {
-                        colors.insert(edge.target, 1);
-                        stack.push((
-                            edge.target,
-                            sorted_component_edges(module, edge.target, dependencies, &members),
-                            0,
-                        ));
-                    }
-                    1 => {
-                        closing = Some((*node, edge));
-                        break;
-                    }
-                    _ => {}
-                }
-            } else {
-                colors.insert(*node, 2);
-                stack.pop();
-            }
-        }
-        if closing.is_some() {
-            break;
-        }
-    }
-    let (source, edge) = closing?;
+    let (source, edge) = closing_cycle_reference(module, dependencies, component, &members)?;
     let source_value = &module.module_values[source];
     let target_value = &module.module_values[edge.target];
     let source_name = source_value.name.as_deref().unwrap_or("<missing>");
@@ -776,6 +395,61 @@ fn cycle_diagnostic(
             ("target", JsonValue::string(target_name)),
         ]),
     );
+    append_cycle_declarations(module, component, &mut diagnostic);
+    append_cycle_references(module, dependencies, component, &members, &mut diagnostic);
+    Some(diagnostic)
+}
+
+fn closing_cycle_reference(
+    module: &SurfaceModule,
+    dependencies: &[Vec<Dependency>],
+    component: &[usize],
+    members: &BTreeSet<usize>,
+) -> Option<(usize, Dependency)> {
+    let mut ordered = component.to_vec();
+    ordered.sort_by_key(|index| value_key(module, *index));
+    let mut colors = BTreeMap::<usize, u8>::new();
+    for root in ordered {
+        if colors.get(&root).copied().unwrap_or(0) != 0 {
+            continue;
+        }
+        colors.insert(root, 1);
+        let mut stack = vec![(
+            root,
+            sorted_component_edges(module, root, dependencies, members),
+            0,
+        )];
+        while let Some((node, edges, edge_index)) = stack.last_mut() {
+            if let Some(edge) = edges.get(*edge_index).cloned() {
+                *edge_index += 1;
+                match colors.get(&edge.target).copied().unwrap_or(0) {
+                    0 => {
+                        colors.insert(edge.target, 1);
+                        stack.push((
+                            edge.target,
+                            sorted_component_edges(module, edge.target, dependencies, members),
+                            0,
+                        ));
+                    }
+                    1 => {
+                        return Some((*node, edge));
+                    }
+                    _ => {}
+                }
+            } else {
+                colors.insert(*node, 2);
+                stack.pop();
+            }
+        }
+    }
+    None
+}
+
+fn append_cycle_declarations(
+    module: &SurfaceModule,
+    component: &[usize],
+    diagnostic: &mut Diagnostic,
+) {
     let mut related_declarations = component.to_vec();
     related_declarations.sort_by_key(|index| value_key(module, *index));
     for index in related_declarations {
@@ -792,6 +466,15 @@ fn cycle_diagnostic(
             ("span", span_json(&value.span)),
         ]));
     }
+}
+
+fn append_cycle_references(
+    module: &SurfaceModule,
+    dependencies: &[Vec<Dependency>],
+    component: &[usize],
+    members: &BTreeSet<usize>,
+    diagnostic: &mut Diagnostic,
+) {
     let mut related_references = component
         .iter()
         .flat_map(|source| {
@@ -829,7 +512,6 @@ fn cycle_diagnostic(
             ("span", span_json(&edge.span)),
         ]));
     }
-    Some(diagnostic)
 }
 
 fn sorted_component_edges(

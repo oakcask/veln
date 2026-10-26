@@ -24,24 +24,9 @@ impl<'a> FunctionChecker<'a> {
             };
         }
         if segments.len() == 1
-            && let Some(constructor) = expected
-                .and_then(|expected| {
-                    self.environment.adts.descriptor_for_type_prefer_module(
-                        &expected.ty,
-                        self.function.module_name.as_deref(),
-                    )
-                })
-                .and_then(|descriptor| {
-                    self.environment.adts.constructor_for_descriptor(
-                        segments,
-                        descriptor,
-                        self.function.module_name.as_deref(),
-                        &self.environment.uses,
-                    )
-                })
-                .filter(|constructor| constructor.variant.payload_fields.is_empty())
+            && let Some(ty) = self.infer_expected_nullary_constructor(segments, expr, expected)
         {
-            return self.infer_nullary_constructor_name(segments, expr, expected, constructor);
+            return ty;
         }
         match self.environment.adts.nullary_constructor(
             segments,
@@ -52,29 +37,9 @@ impl<'a> FunctionChecker<'a> {
                 self.infer_nullary_constructor_name(segments, expr, expected, constructor)
             }
             ConstructorLookup::Ambiguous => {
-                if let Some(constructor) = expected
-                    .and_then(|expected| {
-                        self.environment.adts.descriptor_for_type_prefer_module(
-                            &expected.ty,
-                            self.function.module_name.as_deref(),
-                        )
-                    })
-                    .and_then(|descriptor| {
-                        self.environment.adts.constructor_for_descriptor(
-                            segments,
-                            descriptor,
-                            self.function.module_name.as_deref(),
-                            &self.environment.uses,
-                        )
-                    })
-                    .filter(|constructor| constructor.variant.payload_fields.is_empty())
+                if let Some(ty) = self.infer_expected_nullary_constructor(segments, expr, expected)
                 {
-                    return self.infer_nullary_constructor_name(
-                        segments,
-                        expr,
-                        expected,
-                        constructor,
-                    );
+                    return ty;
                 }
                 self.push_ambiguous_name(
                     expr.node_id,
@@ -86,6 +51,31 @@ impl<'a> FunctionChecker<'a> {
             }
             ConstructorLookup::Missing => self.infer_non_constructor_name(segments, expr, expected),
         }
+    }
+
+    fn infer_expected_nullary_constructor(
+        &mut self,
+        segments: &[String],
+        expr: &Expr,
+        expected: Option<&ExpectedType>,
+    ) -> Option<Type> {
+        let constructor = expected
+            .and_then(|expected| {
+                self.environment.adts.descriptor_for_type_prefer_module(
+                    &expected.ty,
+                    self.function.module_name.as_deref(),
+                )
+            })
+            .and_then(|descriptor| {
+                self.environment.adts.constructor_for_descriptor(
+                    segments,
+                    descriptor,
+                    self.function.module_name.as_deref(),
+                    &self.environment.uses,
+                )
+            })
+            .filter(|constructor| constructor.variant.payload_fields.is_empty())?;
+        Some(self.infer_nullary_constructor_name(segments, expr, expected, constructor))
     }
 
     fn infer_nullary_constructor_name(
@@ -245,6 +235,25 @@ impl<'a> FunctionChecker<'a> {
         if let Some(ty) = self.infer_local_callable_call(expr, callee, args) {
             return ty;
         }
+        if let Some(ty) = self.infer_module_value_call(callee, args) {
+            return ty;
+        }
+        if let Some(ty) = self.infer_constructor_call(expr, callee, args, expected) {
+            return ty;
+        }
+        if let Some(ty) = self.infer_declared_call(expr, callee, args, expected) {
+            return ty;
+        }
+        if let Some(ty) = self.infer_prelude_call(callee, args, expected) {
+            return ty;
+        }
+        if let Some(ty) = self.diagnose_method_call(expr, callee, args) {
+            return ty;
+        }
+        self.infer_unresolved_call(callee, args)
+    }
+
+    fn infer_module_value_call(&mut self, callee: &Expr, args: &[Expr]) -> Option<Type> {
         if let ExprKind::NamePath { segments, .. } = &callee.kind
             && !matches!(segments.as_slice(), [name] if self.visible_binding_index(name).is_some())
             && let Some(value) = self
@@ -278,21 +287,9 @@ impl<'a> FunctionChecker<'a> {
             for arg in args {
                 self.infer_expr(arg, None);
             }
-            return Type::Unknown;
+            return Some(Type::Unknown);
         }
-        if let Some(ty) = self.infer_constructor_call(expr, callee, args, expected) {
-            return ty;
-        }
-        if let Some(ty) = self.infer_declared_call(expr, callee, args, expected) {
-            return ty;
-        }
-        if let Some(ty) = self.infer_prelude_call(callee, args, expected) {
-            return ty;
-        }
-        if let Some(ty) = self.diagnose_method_call(expr, callee, args) {
-            return ty;
-        }
-        self.infer_unresolved_call(callee, args)
+        None
     }
 
     pub(super) fn infer_local_callable_call(

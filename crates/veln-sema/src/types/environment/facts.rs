@@ -117,7 +117,22 @@ fn finish_environment(
     callables: CallableFacts,
 ) -> TypeEnvironment {
     let symbols = symbol_facts(module, base, &declarations.adts);
-    let mut environment = TypeEnvironment {
+    let mut environment = initial_environment(module, base, declarations, callables, symbols);
+    quarantine_invalid_variant_refinement_signatures(module, &mut environment);
+    finish_function_facts(module, &mut environment);
+    finish_module_value_facts(module, &mut environment);
+    install_recovery_facts(module, &mut environment);
+    environment
+}
+
+fn initial_environment(
+    module: &SurfaceModule,
+    base: Option<&TypeEnvironment>,
+    declarations: DeclarationFacts,
+    callables: CallableFacts,
+    symbols: SymbolFacts,
+) -> TypeEnvironment {
+    TypeEnvironment {
         module_values: Vec::new(),
         module_values_by_identity: HashMap::new(),
         functions: callables.functions,
@@ -140,16 +155,16 @@ fn finish_environment(
         companion_function_access_targets: symbols.companion_function_access_targets,
         companion_schema_access_targets: symbols.companion_schema_access_targets,
         companion_effect_access_targets: declarations.companion_effect_access_targets,
-    };
-    quarantine_invalid_variant_refinement_signatures(module, &mut environment);
+    }
+}
+
+fn finish_function_facts(module: &SurfaceModule, environment: &mut TypeEnvironment) {
     let unpublished = module
         .functions
         .iter()
         .filter(|function| {
-            crate::analysis::function_has_private_variant_refinement_exposure(
-                function,
-                &environment,
-            ) || crate::analysis::function_depends_on_quarantined_adt(function, &environment)
+            crate::analysis::function_has_private_variant_refinement_exposure(function, environment)
+                || crate::analysis::function_depends_on_quarantined_adt(function, environment)
         })
         .map(source_function_publication_key)
         .collect::<Vec<_>>();
@@ -162,6 +177,9 @@ fn finish_environment(
         });
     environment.functions.extend(aliases);
     environment.functions_by_name = function_name_index(&environment.functions);
+}
+
+fn finish_module_value_facts(module: &SurfaceModule, environment: &mut TypeEnvironment) {
     environment.module_values = module
         .module_values
         .iter()
@@ -193,12 +211,14 @@ fn finish_environment(
                 .or_insert(index);
         }
     }
-    let recovery = recovery_facts(module, &environment);
+}
+
+fn install_recovery_facts(module: &SurfaceModule, environment: &mut TypeEnvironment) {
+    let recovery = recovery_facts(module, environment);
     environment.function_recovery_signatures = recovery.function_signatures;
     environment.function_recoveries = recovery.functions;
     environment.constructor_recoveries = recovery.constructors;
     environment.import_constructor_recoveries = recovery.import_constructors;
-    environment
 }
 
 fn recovery_facts(module: &SurfaceModule, environment: &TypeEnvironment) -> RecoveryFacts {

@@ -1,0 +1,439 @@
+use std::collections::HashMap;
+
+use veln_ast::{BodyLine, BodyLineKind, Expr, ExprKind};
+use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
+
+use super::Dependency;
+use crate::adt::registry::ConstructorLookup;
+use crate::adt::{descriptors::AdtConstructor, type_operations as adt};
+use crate::diagnostics::span_json;
+use crate::semantic_model::Type;
+use crate::types::TypeEnvironment;
+
+pub(super) fn check_admitted_expr(
+    expr: &Expr,
+    declaration: &veln_ast::ModuleValueDecl,
+    value_indices: &HashMap<(Option<String>, String), usize>,
+    environment: &TypeEnvironment,
+    expected: Option<&Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match &expr.kind {
+        ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => {}
+        ExprKind::Record(fields) => {
+            if fields.is_empty() && expected.is_some_and(|ty| ty.dict_parts().is_some()) {
+                diagnostics.push(unsupported_diagnostic(expr, declaration));
+                return;
+            }
+            for field in fields {
+                check_admitted_expr(
+                    &field.expr,
+                    declaration,
+                    value_indices,
+                    environment,
+                    expected.and_then(|ty| ty.record_field(&field.name)),
+                    diagnostics,
+                );
+            }
+        }
+        ExprKind::Prefix {
+            op: veln_ast::PrefixOp::Negate,
+            expr: inner,
+        } if matches!(inner.kind, ExprKind::IntLiteral(_)) => {}
+        ExprKind::NamePath { segments, .. } => check_admitted_name(
+            expr,
+            segments,
+            declaration,
+            value_indices,
+            environment,
+            diagnostics,
+        ),
+        ExprKind::Call { callee, args } => {
+            let scope = AdmissionScope {
+                declaration,
+                value_indices,
+                environment,
+            };
+            check_admitted_call(expr, callee, args, &scope, expected, diagnostics);
+        }
+        ExprKind::Missing => {}
+        _ => diagnostics.push(unsupported_diagnostic(expr, declaration)),
+    }
+}
+
+fn check_admitted_name(
+    expr: &Expr,
+    segments: &[String],
+    declaration: &veln_ast::ModuleValueDecl,
+    value_indices: &HashMap<(Option<String>, String), usize>,
+    environment: &TypeEnvironment,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let current_module = declaration.module_name.as_deref();
+    if module_value_index(value_indices, segments, current_module).is_some()
+        || matches!(
+            environment
+                .adts
+                .nullary_constructor(segments, current_module, &environment.uses),
+            ConstructorLookup::Found(_)
+        )
+    {
+        return;
+    }
+    if known_function(environment, segments, current_module) {
+        diagnostics.push(unsupported_diagnostic(expr, declaration));
+    }
+}
+
+fn check_admitted_call(
+    expr: &Expr,
+    callee: &Expr,
+    args: &[Expr],
+    scope: &AdmissionScope<'_>,
+    expected: Option<&Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match constructor_call(
+        scope.environment,
+        callee,
+        scope.declaration.module_name.as_deref(),
+        expected,
+    ) {
+        found @ ConstructorCall::Found { .. } => {
+            check_constructor_arguments(expr, args, scope, expected, found, diagnostics)
+        }
+        ConstructorCall::Ambiguous => check_admitted_arguments(args, scope, diagnostics),
+        ConstructorCall::Missing => {
+            let known_module_value = callee.callee_name_path().is_some_and(|segments| {
+                module_value_index(
+                    scope.value_indices,
+                    segments,
+                    scope.declaration.module_name.as_deref(),
+                )
+                .is_some()
+            });
+            let known_function_call = callee.callee_name_path().is_some_and(|segments| {
+                known_function(
+                    scope.environment,
+                    segments,
+                    scope.declaration.module_name.as_deref(),
+                )
+            });
+            if known_module_value || known_function_call {
+                diagnostics.push(unsupported_diagnostic(expr, scope.declaration));
+            } else {
+                check_admitted_arguments(args, scope, diagnostics);
+            }
+        }
+    }
+}
+
+struct AdmissionScope<'a> {
+    declaration: &'a veln_ast::ModuleValueDecl,
+    value_indices: &'a HashMap<(Option<String>, String), usize>,
+    environment: &'a TypeEnvironment,
+}
+
+fn check_constructor_arguments(
+    expr: &Expr,
+    args: &[Expr],
+    scope: &AdmissionScope<'_>,
+    expected: Option<&Type>,
+    found: ConstructorCall<'_>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let ConstructorCall::Found {
+        constructor,
+        diagnostic_name,
+        reason,
+    } = found
+    else {
+        unreachable!("constructor argument checking requires a resolved constructor");
+    };
+    let expected_count = constructor.variant.payload_fields.len();
+    if args.len() != expected_count {
+        diagnostics.push(constructor_arity_diagnostic(
+            expr,
+            expected_count,
+            args.len(),
+            diagnostic_name,
+            reason,
+        ));
+    }
+    for (index, arg) in args.iter().enumerate() {
+        let payload_expected = expected
+            .and_then(|expected| adt::payload_type(expected, constructor, index))
+            .or_else(|| {
+                adt::payload_type_with_resolved_args(constructor, index, |_| Type::Unknown)
+            });
+        check_admitted_expr(
+            arg,
+            scope.declaration,
+            scope.value_indices,
+            scope.environment,
+            payload_expected.as_ref(),
+            diagnostics,
+        );
+    }
+}
+
+fn check_admitted_arguments(
+    args: &[Expr],
+    scope: &AdmissionScope<'_>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for arg in args {
+        check_admitted_expr(
+            arg,
+            scope.declaration,
+            scope.value_indices,
+            scope.environment,
+            None,
+            diagnostics,
+        );
+    }
+}
+
+pub(super) fn collect_dependencies(
+    expr: &Expr,
+    current_module: Option<&str>,
+    value_indices: &HashMap<(Option<String>, String), usize>,
+    bindings: &mut Vec<String>,
+    dependencies: &mut Vec<Dependency>,
+) {
+    if let ExprKind::NamePath { segments, .. } = &expr.kind
+        && !matches!(segments.as_slice(), [name] if bindings.iter().rev().any(|binding| binding == name))
+        && let Some(target) = module_value_index(value_indices, segments, current_module)
+    {
+        dependencies.push(Dependency {
+            target,
+            span: expr.span.clone(),
+        });
+    }
+    match &expr.kind {
+        ExprKind::Match { scrutinee, arms } => {
+            collect_dependencies(
+                scrutinee,
+                current_module,
+                value_indices,
+                bindings,
+                dependencies,
+            );
+            for arm in arms {
+                let binding_count = bindings.len();
+                arm.pattern
+                    .for_each_binding(&mut |name| bindings.push(name.to_string()));
+                collect_dependencies(
+                    &arm.expr,
+                    current_module,
+                    value_indices,
+                    bindings,
+                    dependencies,
+                );
+                bindings.truncate(binding_count);
+            }
+        }
+        ExprKind::Begin { body, .. } => {
+            let binding_count = bindings.len();
+            collect_body_dependencies(body, current_module, value_indices, bindings, dependencies);
+            bindings.truncate(binding_count);
+        }
+        _ => expr.for_each_child(&mut |child| {
+            collect_dependencies(child, current_module, value_indices, bindings, dependencies);
+        }),
+    }
+}
+
+fn collect_body_dependencies(
+    body: &[BodyLine],
+    current_module: Option<&str>,
+    value_indices: &HashMap<(Option<String>, String), usize>,
+    bindings: &mut Vec<String>,
+    dependencies: &mut Vec<Dependency>,
+) {
+    for line in body {
+        match &line.kind {
+            BodyLineKind::Let { pattern, expr, .. } => {
+                collect_dependencies(expr, current_module, value_indices, bindings, dependencies);
+                pattern.for_each_binding(&mut |name| bindings.push(name.to_string()));
+            }
+            BodyLineKind::Expr { expr } => {
+                collect_dependencies(expr, current_module, value_indices, bindings, dependencies)
+            }
+            BodyLineKind::Defer { body, .. } => {
+                let binding_count = bindings.len();
+                collect_body_dependencies(
+                    body,
+                    current_module,
+                    value_indices,
+                    bindings,
+                    dependencies,
+                );
+                bindings.truncate(binding_count);
+            }
+        }
+    }
+}
+
+fn module_value_index(
+    value_indices: &HashMap<(Option<String>, String), usize>,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<usize> {
+    let (name, qualifier) = segments.split_last()?;
+    let qualifier_matches = qualifier.is_empty()
+        || current_module.is_some_and(|module_name| {
+            qualifier.join("::") == module_name
+                || (qualifier.len() == 1
+                    && qualifier
+                        .last()
+                        .is_some_and(|leaf| module_name.rsplit("::").next() == Some(leaf.as_str())))
+        });
+    qualifier_matches
+        .then(|| value_indices.get(&(current_module.map(str::to_owned), name.clone())))
+        .flatten()
+        .copied()
+}
+
+fn known_function(
+    environment: &TypeEnvironment,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> bool {
+    match segments {
+        [name] => !matches!(
+            environment.unqualified_function(name, current_module),
+            crate::types::FunctionLookup::Missing
+        ),
+        _ => environment
+            .function_path_for_value(segments, current_module)
+            .is_some(),
+    }
+}
+
+enum ConstructorCall<'a> {
+    Found {
+        constructor: AdtConstructor<'a>,
+        diagnostic_name: String,
+        reason: &'static str,
+    },
+    Ambiguous,
+    Missing,
+}
+
+fn constructor_call<'a>(
+    environment: &'a TypeEnvironment,
+    callee: &Expr,
+    current_module: Option<&str>,
+    expected: Option<&Type>,
+) -> ConstructorCall<'a> {
+    let Some((segments, _)) = callee.callee_name_path_and_type_args() else {
+        return ConstructorCall::Missing;
+    };
+    let contextual = (segments.len() == 1)
+        .then_some(expected)
+        .flatten()
+        .and_then(|expected| {
+            environment
+                .adts
+                .descriptor_for_type_prefer_module(expected, current_module)
+        })
+        .and_then(|descriptor| {
+            environment.adts.constructor_for_descriptor(
+                segments,
+                descriptor,
+                current_module,
+                &environment.uses,
+            )
+        });
+    match contextual.map(ConstructorLookup::Found).unwrap_or_else(|| {
+        environment
+            .adts
+            .constructor(segments, current_module, &environment.uses)
+    }) {
+        ConstructorLookup::Found(constructor) => ConstructorCall::Found {
+            constructor,
+            diagnostic_name: constructor.descriptor.diagnostic_name.clone(),
+            reason: match constructor.descriptor.type_name.as_str() {
+                "Option" => "option_constructor_arity_mismatch",
+                "Result" => "result_constructor_arity_mismatch",
+                _ => "constructor_arity_mismatch",
+            },
+        },
+        ConstructorLookup::Ambiguous => ConstructorCall::Ambiguous,
+        ConstructorLookup::Missing => ConstructorCall::Missing,
+    }
+}
+
+fn constructor_arity_diagnostic(
+    expr: &Expr,
+    expected_count: usize,
+    actual_count: usize,
+    diagnostic_name: String,
+    reason: &'static str,
+) -> Diagnostic {
+    Diagnostic::new(
+        format!("core.{reason}"),
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "{diagnostic_name} constructor expects {expected_count} argument, but got {actual_count}"
+        ),
+        Some(expr.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("core_lowering")),
+            ("node_id", JsonValue::string(expr.node_id.display("expr"))),
+            ("reason", JsonValue::string(reason)),
+            (
+                "facts",
+                JsonValue::object([
+                    (
+                        "expected_argument_count",
+                        JsonValue::Number(expected_count as i64),
+                    ),
+                    (
+                        "actual_argument_count",
+                        JsonValue::Number(actual_count as i64),
+                    ),
+                ]),
+            ),
+        ]),
+    )
+}
+
+fn unsupported_diagnostic(expr: &Expr, declaration: &veln_ast::ModuleValueDecl) -> Diagnostic {
+    let name = declaration.name.as_deref().unwrap_or("<missing>");
+    let mut diagnostic = Diagnostic::new(
+        "value.module_initializer_unsupported",
+        Severity::Error,
+        DiagnosticKind::Type,
+        "module value initializer expression is not immutable data construction",
+        Some(expr.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("type_check")),
+            ("node_id", JsonValue::string(expr.node_id.display("expr"))),
+            ("name", JsonValue::string(name)),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("module_value_declaration")),
+        (
+            "message",
+            JsonValue::string(format!("Module value `{name}` is declared here.")),
+        ),
+        ("span", span_json(&declaration.span)),
+    ]));
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("permitted_initializers")),
+        (
+            "message",
+            JsonValue::string(
+                "Use literals, records, ADT constructors, or same-module module values.",
+            ),
+        ),
+    ]));
+    diagnostic
+}
