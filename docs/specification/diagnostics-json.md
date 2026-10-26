@@ -53,10 +53,10 @@ unsupported expression. Related entries identify the declaration and the
 permitted initializer categories. Unresolved names and call targets retain
 `name.unresolved`, and a constructor with the wrong payload arity retains
 `core.constructor_arity_mismatch`; these failures do not add
-`value.module_initializer_unsupported`. A cyclic dependency component reports
-one `value.module_initializer_cycle` at the deterministic reference that
-closes the cycle. Its related entries identify every participating declaration
-and dependency reference.
+`value.module_initializer_unsupported`. A same-module cyclic dependency
+component reports one `value.module_initializer_cycle` at the deterministic
+reference that closes the cycle. Its related entries identify every
+participating declaration and dependency reference.
 
 A function type in a module value annotation uses the ordinary effect-list
 diagnostics. An unbound row tail reports `effect.row_unbound`, and an unknown
@@ -72,9 +72,10 @@ Every parse-clean module immutable value declaration also reports
 `module.value_not_executable` at the complete declaration. The diagnostic has
 kind `module` and severity `error`. Its `details` object contains
 `phase: "module"`, `field: "module_value"`, and the declaration's `name`.
-One related note explains that semantic checking is complete while
-checked-core lowering and code generation remain unavailable. This diagnostic prevents
-`veln check` success; the [source-surface specification](source-surface.md#module-immutable-value-declarations)
+One related note says that the declaration is semantically checked while
+checked-core lowering and code generation remain unavailable. This diagnostic
+prevents `veln check` success; the
+[source-surface specification](source-surface.md#module-immutable-value-declarations)
 defines the accepted declaration syntax and current implementation boundary.
 
 An unresolved call target that uses one of the
