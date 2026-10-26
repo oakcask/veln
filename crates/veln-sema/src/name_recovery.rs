@@ -164,28 +164,58 @@ pub(crate) fn use_decl_contributes_bare_exports(use_decl: &UseDecl) -> bool {
     !use_decl.has_explicit_alias()
 }
 
-pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
-    let invalid_module_spans = invalid_module_spans_by_file(module);
-    let mut quarantined = vec![false; module.uses.len()];
-    let mut duplicate_target_groups =
-        BTreeMap::<(Option<String>, String, Option<String>), Vec<usize>>::new();
-    let mut qualifier_groups = BTreeMap::<(Option<String>, String), (usize, bool)>::new();
-    let mut exact_groups = BTreeMap::<(Option<String>, String), (usize, bool)>::new();
-    for (index, use_decl) in module.uses.iter().enumerate() {
+type ImportBindingKey = (Option<String>, String);
+type ImportTargetKey = (Option<String>, String, Option<String>);
+
+struct NormalUseGroups {
+    quarantined: Vec<bool>,
+    duplicate_targets: BTreeMap<ImportTargetKey, Vec<usize>>,
+    qualifiers: BTreeMap<ImportBindingKey, (usize, bool)>,
+    exact_paths: BTreeMap<ImportBindingKey, (usize, bool)>,
+}
+
+struct NormalUseClassification {
+    quarantined: Vec<bool>,
+    colliding_qualifiers: BTreeSet<ImportBindingKey>,
+    blocked_exact_paths: BTreeSet<ImportBindingKey>,
+}
+
+impl NormalUseGroups {
+    fn collect(module: &SurfaceModule) -> Self {
+        let invalid_module_spans = invalid_module_spans_by_file(module);
+        let mut groups = Self {
+            quarantined: vec![false; module.uses.len()],
+            duplicate_targets: BTreeMap::new(),
+            qualifiers: BTreeMap::new(),
+            exact_paths: BTreeMap::new(),
+        };
+        for (index, use_decl) in module.uses.iter().enumerate() {
+            groups.record(index, use_decl, &invalid_module_spans);
+        }
+        groups
+    }
+
+    fn record(
+        &mut self,
+        index: usize,
+        use_decl: &UseDecl,
+        invalid_module_spans: &BTreeMap<String, Vec<(usize, usize)>>,
+    ) {
         record_import_classification_work();
         let reserved = use_decl_has_reserved_alias(use_decl);
-        quarantined[index] = use_decl.recovered
+        self.quarantined[index] = use_decl.recovered
             || reserved
             || use_decl_has_indexed_invalid_module_segment(&invalid_module_spans, use_decl);
         if use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.recovered && !reserved {
-            let group = qualifier_groups
+            let group = self
+                .qualifiers
                 .entry((use_decl.module_name.clone(), use_decl.alias.clone()))
                 .or_default();
             group.0 += 1;
             group.1 |= use_decl.has_explicit_alias();
         }
         if use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.recovered {
-            duplicate_target_groups
+            self.duplicate_targets
                 .entry((
                     use_decl.module_name.clone(),
                     use_decl.written_name.clone(),
@@ -194,38 +224,67 @@ pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
                 .or_default()
                 .push(index);
             for path in use_decl_exact_paths(use_decl) {
-                let group = exact_groups
+                let group = self
+                    .exact_paths
                     .entry((use_decl.module_name.clone(), path))
                     .or_default();
                 group.0 += 1;
-                group.1 |= quarantined[index];
+                group.1 |= self.quarantined[index];
             }
         }
     }
-    for indices in duplicate_target_groups.into_values() {
+
+    fn finish(mut self) -> NormalUseClassification {
+        let duplicate_targets = std::mem::take(&mut self.duplicate_targets);
+        for indices in duplicate_targets.into_values() {
+            self.quarantine_repeated_target(indices);
+        }
+        NormalUseClassification {
+            quarantined: self.quarantined,
+            colliding_qualifiers: colliding_binding_keys(self.qualifiers),
+            blocked_exact_paths: blocked_exact_path_keys(self.exact_paths),
+        }
+    }
+
+    fn quarantine_repeated_target(&mut self, indices: Vec<usize>) {
         if indices.len() > 1 {
             for index in indices {
-                quarantined[index] = true;
+                self.quarantined[index] = true;
             }
         }
     }
-    let colliding_qualifiers = qualifier_groups
+}
+
+fn colliding_binding_keys(
+    groups: BTreeMap<ImportBindingKey, (usize, bool)>,
+) -> BTreeSet<ImportBindingKey> {
+    groups
         .into_iter()
         .filter_map(|(key, (count, has_explicit))| (count > 1 && has_explicit).then_some(key))
-        .collect::<BTreeSet<_>>();
-    let blocked_exact_paths = exact_groups
+        .collect()
+}
+
+fn blocked_exact_path_keys(
+    groups: BTreeMap<ImportBindingKey, (usize, bool)>,
+) -> BTreeSet<ImportBindingKey> {
+    groups
         .into_iter()
         .filter_map(|(key, (count, quarantined))| (count != 1 || quarantined).then_some(key))
-        .collect::<BTreeSet<_>>();
+        .collect()
+}
+
+pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
+    let classification = NormalUseGroups::collect(module).finish();
     module
         .uses
         .iter()
-        .zip(quarantined)
+        .zip(classification.quarantined)
         .filter(|(_, quarantined)| !*quarantined)
         .map(|(use_decl, _)| {
             let mut resolved = resolved_import_use_decl(use_decl);
             let qualifier = (use_decl.module_name.clone(), use_decl.alias.clone());
-            if colliding_qualifiers.contains(&qualifier) || blocked_exact_paths.contains(&qualifier)
+            if classification.colliding_qualifiers.contains(&qualifier)
+                || classification.blocked_exact_paths.contains(&qualifier)
             {
                 resolved.alias.clear();
             }
