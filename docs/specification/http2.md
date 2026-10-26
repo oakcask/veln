@@ -251,20 +251,20 @@ count when applicable, frame kind, stream id, reason, and preview facts.
 ## Connection drivers and services
 
 `http2::connection::drive_server(state)` drives one server-side HTTP/2
-connection through `transport::DuplexStream`. If the supplied core lifecycle is
-closed, the driver returns that state without reading, writing, sending local
-SETTINGS, or requesting a protocol transition. Otherwise the driver first
-sends the initial empty server SETTINGS through the existing local SETTINGS
-send transition, commits the returned core state, and writes those bytes
-before reading peer input.
+connection through `std::transport::DuplexStream`. If the supplied core
+lifecycle is closed, the driver returns that state without reading, writing,
+sending local SETTINGS, or requesting a protocol transition. Otherwise the
+driver first sends the initial empty server SETTINGS through the existing local
+SETTINGS send transition, commits the returned core state, and writes those
+bytes before reading peer input.
 
 `http2::connection::drive_client(state)` drives one client-side HTTP/2
-connection through `transport::DuplexStream`. If the supplied core lifecycle is
-closed, the driver returns that state without reading, writing, sending local
-SETTINGS, or requesting a protocol transition. Otherwise the driver first
-writes the HTTP/2 client connection preface, then writes the initial client
-SETTINGS bytes produced by the existing local SETTINGS send transition. It
-commits the returned core state before reading peer input.
+connection through `std::transport::DuplexStream`. If the supplied core
+lifecycle is closed, the driver returns that state without reading, writing,
+sending local SETTINGS, or requesting a protocol transition. Otherwise the
+driver first writes the HTTP/2 client connection preface, then writes the
+initial client SETTINGS bytes produced by the existing local SETTINGS send
+transition. It commits the returned core state before reading peer input.
 
 For each `Ok(Some(chunk))` read, the driver delegates to
 `http2::core::receive_connection_chunk(...)`. Accepted transitions commit the
