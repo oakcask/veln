@@ -1080,6 +1080,13 @@ declarations. Publication quarantine over a chain of dependent public ADTs also
 grows linearly with the declarations and payload-refinement dependencies it
 examines.
 
+For `N` valid imports and `N` qualified public function aliases, checked
+lowering performs import selection work that grows linearly with `N`. The
+deterministic scaling check compares `N = 64` and `N = 128`. It requires one
+selection-index construction, `N` import visits, `2N` index entries, `N`
+lookups, and `4N` bounded index probes. The check counts semantic work instead
+of elapsed time, so runner timing noise does not affect the bound.
+
 For one direct refinement whose qualified base requires initial-only casing
 recovery, increasing the qualifier depth adds linear path-normalization and
 comparison work. The deterministic scaling check compares depths 64, 128, and
