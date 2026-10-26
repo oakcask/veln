@@ -85,6 +85,8 @@ mod standard_subset;
 
 #[derive(Clone)]
 pub(crate) struct TypeEnvironment {
+    module_values: Vec<ModuleValueSignature>,
+    module_values_by_identity: HashMap<(Option<String>, String), usize>,
     functions: Vec<FunctionSignature>,
     functions_by_name: HashMap<String, Vec<usize>>,
     unpublished_functions: HashSet<FunctionPublicationKey>,
@@ -115,6 +117,40 @@ pub(crate) struct VariantRefinementBaseFailure {
 }
 
 impl TypeEnvironment {
+    pub(crate) fn quarantine_module_values(
+        &mut self,
+        invalid: &BTreeSet<(Option<String>, String)>,
+    ) {
+        for value in &mut self.module_values {
+            value.available = value.declaration.name.as_ref().is_some_and(|name| {
+                !invalid.contains(&(value.declaration.module_name.clone(), name.clone()))
+            });
+        }
+    }
+
+    pub(crate) fn module_value_path(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> Option<&ModuleValueSignature> {
+        let (qualifier, name) = segments.split_last()?;
+        let qualifier_matches = name.is_empty()
+            || current_module.is_some_and(|module| {
+                name.join("::") == module
+                    || (name.len() == 1
+                        && name
+                            .last()
+                            .is_some_and(|leaf| module.rsplit("::").next() == Some(leaf.as_str())))
+            });
+        qualifier_matches
+            .then(|| {
+                self.module_values_by_identity
+                    .get(&(current_module.map(str::to_owned), qualifier.clone()))
+            })
+            .flatten()
+            .map(|index| &self.module_values[*index])
+    }
+
     pub(crate) fn invalid_cased_path_segment<'a>(
         &'a self,
         segments: &[String],

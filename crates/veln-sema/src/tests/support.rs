@@ -83,6 +83,7 @@ pub(super) fn merged_modules(sources: Vec<SourceFile>) -> SurfaceModule {
         merged.handlers.extend(module.handlers);
         merged.schemas.extend(module.schemas);
         merged.types.extend(module.types);
+        merged.module_values.extend(module.module_values);
         merged.functions.extend(module.functions);
         merged.invalid_names.extend(module.invalid_names);
     }
@@ -115,6 +116,7 @@ pub(super) fn merged_modules_with_identities(sources: Vec<(&str, SourceFile)>) -
         merged.handlers.extend(module.handlers);
         merged.schemas.extend(module.schemas);
         merged.types.extend(module.types);
+        merged.module_values.extend(module.module_values);
         merged.functions.extend(module.functions);
         merged.invalid_names.extend(module.invalid_names);
     }

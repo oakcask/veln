@@ -58,6 +58,7 @@ use crate::types::{
 mod body;
 pub(crate) mod boundary;
 mod handlers;
+mod module_values;
 mod repair_reasoning;
 mod variant_refinement_bases;
 mod variant_refinement_visibility;
@@ -81,6 +82,7 @@ pub(crate) use boundary::{
     check_schema_type_references, check_test_declaration_boundary,
 };
 pub(crate) use handlers::check_handler_declarations;
+pub(crate) use module_values::check_module_values;
 #[cfg(test)]
 pub(crate) use variant_refinement_bases::{
     DiagnosticRecordRenderWork, reset_diagnostic_record_render_work,

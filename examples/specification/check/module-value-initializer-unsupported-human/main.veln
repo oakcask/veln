@@ -1,0 +1,5 @@
+fn compute() -> Int
+	1
+end
+
+let defaults: { answer: Int } = { answer: compute() }

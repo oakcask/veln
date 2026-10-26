@@ -55,10 +55,15 @@ that position admits both namespaces. Namespace selection is therefore fixed
 by the syntactic role, while same-namespace duplicates remain errors and
 unrelated namespaces may share a spelling.
 
-A typed module `let` is preserved by parsing and lowering, but it does not
-enter the implemented value namespace. Its declaration identity, qualified or
-unqualified lookup, visibility, and shadowing behavior remain unavailable;
-project analysis reports `module.value_not_executable` before those operations.
+A typed module `let` enters the declaring module's value namespace with the
+identity of its module and declared name. Its written annotation supplies the
+reference type. Same-module bare and module-qualified references resolve
+throughout that module, including before the declaration. A parameter or local
+binding wins over a same-spelled module value for a bare reference. Functions,
+public function aliases, and module values share one duplicate-name check.
+A selected module value used as a call target reports `type.not_callable` and
+does not fall through to callable lookup. Imported lookup and visibility for
+module values are not implemented.
 
 A finite chain of public type aliases is a valid type-alias target when it
 terminates in a resolved source ADT. Every alias in the chain retains the

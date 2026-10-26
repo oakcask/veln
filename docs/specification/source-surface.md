@@ -69,11 +69,13 @@ and source spans. The lowered AST also records the declaring module identity.
 The AST wire layout includes module value declarations and rejects the
 preceding layout header instead of decoding bytes that lack them.
 
-This source surface does not make module values executable. `veln fmt` accepts
-and formats a valid declaration, while `veln check` and commands that require
-checked code report `module.value_not_executable`. Initializer admission,
-assignability, name lookup, visibility, constant construction, and code
-generation are not implemented.
+This source surface does not make module values executable. Semantic analysis
+checks the written annotation and finite-data initializer, resolves
+same-module references, and rejects initializer cycles. `veln fmt` accepts and
+formats a valid declaration, while `veln check` and commands that require
+checked code still report `module.value_not_executable`. Cross-module lookup,
+visibility, checked-core lowering, constant construction, and code generation
+are not implemented.
 
 ### Declaration and expression inventory
 

@@ -517,10 +517,32 @@ case verifies the available computed-expression, invalid-annotation, and
 restoration boundaries. The checked
 [`adt-variant-refinement-match-computed-field-boundary`](../../examples/specification/check/adt-variant-refinement-match-computed-field-boundary/)
 case verifies that call and record-constructor bases remain outside field-path
-refinement. Veln currently has no indexing expression. A typed module `let`
-declaration is a recognized source form, but it is not type-checked, executable,
-or addressable as a module value. Function-value expressions do not produce ADT
-values that can exercise alias match refinement independently.
+refinement. Veln currently has no indexing expression. A module value reference
+does not establish a transparent alias for match refinement. Function-value
+expressions do not produce ADT values that can exercise alias match refinement
+independently.
+
+### Module immutable value initializers
+
+Every typed module `let` initializer is checked against its written closed
+annotation, even when the declaration is unused. The admitted initializer
+language contains integer, Boolean, string, and unit literals; negative integer
+literals; records whose fields are admitted; visible nullary and payload ADT
+constructors whose payloads are admitted; and same-module module value
+references. Parentheses preserve admission. Float literals, collection
+literals, functions and ordinary calls, other operators, field access, control
+flow, effects, handlers, and holes are not admitted.
+
+Same-module references form a dependency graph independent of declaration
+order. An acyclic forward reference has the target's written annotation. Each
+cyclic component is rejected once at a deterministic reference that closes
+the cycle. An invalid declaration and every declaration that depends on it are
+withheld from later semantic facts; unrelated valid declarations remain
+available for checking function bodies. The checked
+[`module-value initializer failure`](../../examples/specification/check/module-value-initializer-unsupported-human/)
+and
+[`cycle JSON`](../../examples/specification/check/module-value-initializer-cycle-json/)
+cases cover the observable boundaries.
 
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved

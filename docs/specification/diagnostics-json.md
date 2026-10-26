@@ -47,12 +47,25 @@ consumers must preserve diagnostic and related-note order.
 
 ## Diagnostic families
 
-A parse-clean module immutable value declaration reports
+A module immutable value initializer outside the finite-data language reports
+`value.module_initializer_unsupported` at the smallest unsupported expression.
+Related entries identify the declaration and the permitted initializer
+categories. A cyclic dependency component reports one
+`value.module_initializer_cycle` at the deterministic reference that closes
+the cycle. Its related entries identify every participating declaration and
+dependency reference.
+
+A module value selected as a call target reports `type.not_callable` at that
+target. Its details identify `call_target` as the failed constraint and
+`module_value` as the selected non-callable kind. Related context identifies
+the selected declaration.
+
+Every parse-clean module immutable value declaration also reports
 `module.value_not_executable` at the complete declaration. The diagnostic has
 kind `module` and severity `error`. Its `details` object contains
 `phase: "module"`, `field: "module_value"`, and the declaration's `name`.
-One related note explains that parsing and formatting support the declaration,
-while semantic analysis and code generation do not. This diagnostic prevents
+One related note explains that semantic checking is complete while
+checked-core lowering and code generation remain unavailable. This diagnostic prevents
 `veln check` success; the [source-surface specification](source-surface.md#module-immutable-value-declarations)
 defines the accepted declaration syntax and current implementation boundary.
 

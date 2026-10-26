@@ -1,0 +1,30 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["value.module_initializer_cycle", "module value reference `alpha` closes an initializer cycle", "cycle_declaration", "module.value_not_executable"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "value.module_initializer_cycle"
+severity = "error"
+kind = "type"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.related.0.kind"
+equals = "cycle_declaration"
+
+[[json_assert]]
+path = "diagnostics.0.related.1.kind"
+equals = "cycle_declaration"

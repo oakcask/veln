@@ -8,6 +8,21 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         expected: Option<&ExpectedType>,
     ) -> Type {
+        if let [name] = segments
+            && let Some(ty) = self.infer_local_binding_name(name, expected)
+        {
+            return ty;
+        }
+        if let Some(value) = self
+            .environment
+            .module_value_path(segments, self.function.module_name.as_deref())
+        {
+            return if value.available {
+                value.ty.clone()
+            } else {
+                Type::Unknown
+            };
+        }
         if segments.len() == 1
             && let Some(constructor) = expected
                 .and_then(|expected| {
@@ -121,11 +136,9 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         name: &str,
         expr: &Expr,
-        expected: Option<&ExpectedType>,
+        _expected: Option<&ExpectedType>,
     ) -> Type {
-        if let Some(ty) = self.infer_local_binding_name(name, expected) {
-            return ty;
-        }
+        debug_assert!(self.visible_binding_index(name).is_none());
         if self.bare_prelude_import_is_ambiguous(name) {
             return self.ambiguous_function_value(name, expr);
         }
@@ -231,6 +244,41 @@ impl<'a> FunctionChecker<'a> {
     ) -> Type {
         if let Some(ty) = self.infer_local_callable_call(expr, callee, args) {
             return ty;
+        }
+        if let ExprKind::NamePath { segments, .. } = &callee.kind
+            && !matches!(segments.as_slice(), [name] if self.visible_binding_index(name).is_some())
+            && let Some(value) = self
+                .environment
+                .module_value_path(segments, self.function.module_name.as_deref())
+        {
+            let name = value.declaration.name.as_deref().unwrap_or("<missing>");
+            let mut diagnostic = Diagnostic::new(
+                "type.not_callable",
+                Severity::Error,
+                DiagnosticKind::Type,
+                format!("module value `{name}` is not callable"),
+                Some(callee.span.clone()),
+                JsonValue::object([
+                    ("phase", JsonValue::string("type_check")),
+                    ("node_id", JsonValue::string(callee.node_id.display("name"))),
+                    ("constraint", JsonValue::string("call_target")),
+                    ("actual", JsonValue::string("module_value")),
+                    ("name", JsonValue::string(name)),
+                ]),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("module_value_declaration")),
+                (
+                    "message",
+                    JsonValue::string(format!("Module value `{name}` is declared here.")),
+                ),
+                ("span", span_json(&value.declaration.span)),
+            ]));
+            self.diagnostics.push(diagnostic);
+            for arg in args {
+                self.infer_expr(arg, None);
+            }
+            return Type::Unknown;
         }
         if let Some(ty) = self.infer_constructor_call(expr, callee, args, expected) {
             return ty;

@@ -10,7 +10,7 @@ use crate::analysis::{
     VariantDiagnosticInterner, check_declared_effect_labels, check_duplicate_constructor_names,
     check_duplicate_effect_names, check_duplicate_function_names, check_duplicate_schema_names,
     check_duplicate_type_names, check_duplicate_use_aliases, check_function_body,
-    check_handler_declarations, check_module_boundary,
+    check_handler_declarations, check_module_boundary, check_module_values,
     check_public_adt_variant_refinement_visibility, check_public_aliases,
     check_public_function_boundary, check_reserved_prelude_aliases, check_schema_field_primitives,
     check_schema_type_references, check_test_declaration_boundary, check_variant_refinement_bases,
@@ -253,8 +253,13 @@ fn analyze_surface_module_with_environment(
     }
     let mut diagnostics = Vec::new();
     let mut variant_diagnostics = VariantDiagnosticInterner::default();
+    let mut environment = environment.clone();
 
-    diagnostics.extend(check_module_declarations(module, environment));
+    diagnostics.extend(check_module_declarations(
+        module,
+        &mut environment,
+        &mut variant_diagnostics,
+    ));
 
     for function in &module.functions {
         if !validate_standard_bodies
@@ -267,7 +272,7 @@ fn analyze_surface_module_with_environment(
         }
         diagnostics.extend(check_function_declaration_and_body(
             function,
-            environment,
+            &environment,
             &mut variant_diagnostics,
         ));
     }
@@ -276,7 +281,7 @@ fn analyze_surface_module_with_environment(
 
     merge_variant_refinement_base_diagnostics(
         &mut diagnostics,
-        check_variant_refinement_bases(module, environment),
+        check_variant_refinement_bases(module, &environment),
     );
     order_delayed_parse_diagnostics(&mut diagnostics);
 
@@ -404,10 +409,14 @@ pub(crate) fn take_variant_refinement_base_work() -> VariantRefinementBaseWork {
 
 fn check_module_declarations(
     module: &SurfaceModule,
-    environment: &TypeEnvironment,
+    environment: &mut TypeEnvironment,
+    variant_diagnostics: &mut VariantDiagnosticInterner,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
+    let module_value_analysis = check_module_values(module, environment, variant_diagnostics);
+    environment.quarantine_module_values(&module_value_analysis.invalid);
+    diagnostics.extend(module_value_analysis.diagnostics);
     diagnostics.extend(
         module
             .module_values
@@ -454,7 +463,7 @@ fn module_value_not_executable_diagnostic(value: &veln_ast::ModuleValueDecl) -> 
     diagnostic.related.push(JsonValue::object([(
         "message",
         JsonValue::string(
-            "The declaration is available to parsing and formatting, but semantic analysis and code generation do not support module values yet.",
+            "The declaration is semantically checked, but checked-core lowering and code generation do not support module values yet.",
         ),
     )]));
     diagnostic

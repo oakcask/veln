@@ -118,6 +118,8 @@ fn finish_environment(
 ) -> TypeEnvironment {
     let symbols = symbol_facts(module, base, &declarations.adts);
     let mut environment = TypeEnvironment {
+        module_values: Vec::new(),
+        module_values_by_identity: HashMap::new(),
         functions: callables.functions,
         functions_by_name: HashMap::new(),
         unpublished_functions: base
@@ -160,6 +162,37 @@ fn finish_environment(
         });
     environment.functions.extend(aliases);
     environment.functions_by_name = function_name_index(&environment.functions);
+    environment.module_values = module
+        .module_values
+        .iter()
+        .filter(|value| value.name.is_some())
+        .map(|value| ModuleValueSignature {
+            declaration: value.clone(),
+            ty: parse_type_or_unknown(Some(&value.annotation)),
+            available: true,
+        })
+        .collect();
+    let module_value_types = environment
+        .module_values
+        .iter()
+        .map(|value| {
+            environment.canonicalize_type_annotation(
+                value.ty.clone(),
+                value.declaration.module_name.as_deref(),
+            )
+        })
+        .collect::<Vec<_>>();
+    for (value, ty) in environment.module_values.iter_mut().zip(module_value_types) {
+        value.ty = ty;
+    }
+    for (index, value) in environment.module_values.iter().enumerate() {
+        if let Some(name) = &value.declaration.name {
+            environment
+                .module_values_by_identity
+                .entry((value.declaration.module_name.clone(), name.clone()))
+                .or_insert(index);
+        }
+    }
     let recovery = recovery_facts(module, &environment);
     environment.function_recovery_signatures = recovery.function_signatures;
     environment.function_recoveries = recovery.functions;

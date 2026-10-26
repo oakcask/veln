@@ -8,7 +8,23 @@ impl TypeEnvironment {
         let functions_by_name = facts::function_name_index(&functions);
         let recoveries = self.standard_subset_recoveries(module_names);
         let access_targets = self.standard_subset_access_targets(module_names);
+        let module_values = selected_standard_facts(&self.module_values, module_names, |value| {
+            value.declaration.module_name.as_deref()
+        });
+        let module_values_by_identity = module_values
+            .iter()
+            .enumerate()
+            .filter_map(|(index, value)| {
+                value
+                    .declaration
+                    .name
+                    .as_ref()
+                    .map(|name| ((value.declaration.module_name.clone(), name.clone()), index))
+            })
+            .collect();
         Self {
+            module_values,
+            module_values_by_identity,
             functions,
             functions_by_name,
             unpublished_functions: self.unpublished_functions.clone(),
