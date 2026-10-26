@@ -474,11 +474,8 @@ pub(super) fn import_alias_matches(
     let Some(module_name) = descriptor.module_name.as_deref() else {
         return false;
     };
-    uses.iter().any(|use_decl| {
-        use_decl.module_name.as_deref() == current_module
-            && use_decl.alias == alias
-            && use_decl.name == module_name
-    })
+    crate::name_recovery::select_use_decl_for_path(uses.iter(), alias, current_module)
+        .is_some_and(|use_decl| use_decl.name == module_name)
 }
 
 pub(super) fn same_descriptor(left: &AdtDescriptor, right: &AdtDescriptor) -> bool {

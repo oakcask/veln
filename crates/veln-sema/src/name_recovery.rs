@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{NameClass, NameOccurrence, PublicAlias, SurfaceModule, UseDecl};
 
@@ -139,11 +139,67 @@ pub(crate) fn use_decl_contributes_bare_exports(use_decl: &UseDecl) -> bool {
 }
 
 pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
+    let quarantined = module
+        .uses
+        .iter()
+        .map(|use_decl| use_decl_is_quarantined(module, use_decl))
+        .collect::<Vec<_>>();
+    let mut qualifier_groups = BTreeMap::<(Option<String>, String), (usize, bool)>::new();
+    let mut exact_groups = BTreeMap::<(Option<String>, String), (usize, bool)>::new();
+    for (use_decl, quarantined) in module.uses.iter().zip(&quarantined) {
+        if use_decl.origin == veln_ast::UseOrigin::Source
+            && !use_decl.recovered
+            && !use_decl_has_reserved_alias(use_decl)
+        {
+            let group = qualifier_groups
+                .entry((use_decl.module_name.clone(), use_decl.alias.clone()))
+                .or_default();
+            group.0 += 1;
+            group.1 |= use_decl.has_explicit_alias();
+        }
+        if use_decl.origin == veln_ast::UseOrigin::Source {
+            let mut exact_paths = vec![use_decl.written_name.clone()];
+            if (use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+                || (use_decl.package.is_none()
+                    && use_decl
+                        .module_name
+                        .as_deref()
+                        .is_some_and(|module| module.starts_with("std::"))))
+                && let Some(relative) = use_decl.written_name.strip_prefix("std::")
+            {
+                exact_paths.push(relative.to_string());
+            }
+            for path in exact_paths {
+                let group = exact_groups
+                    .entry((use_decl.module_name.clone(), path))
+                    .or_default();
+                group.0 += 1;
+                group.1 |= *quarantined;
+            }
+        }
+    }
+    let colliding_qualifiers = qualifier_groups
+        .into_iter()
+        .filter_map(|(key, (count, has_explicit))| (count > 1 && has_explicit).then_some(key))
+        .collect::<BTreeSet<_>>();
+    let blocked_exact_paths = exact_groups
+        .into_iter()
+        .filter_map(|(key, (count, quarantined))| (count != 1 || quarantined).then_some(key))
+        .collect::<BTreeSet<_>>();
     module
         .uses
         .iter()
-        .filter(|use_decl| !use_decl_is_quarantined(module, use_decl))
-        .map(resolved_import_use_decl)
+        .zip(quarantined)
+        .filter(|(_, quarantined)| !*quarantined)
+        .map(|(use_decl, _)| {
+            let mut resolved = resolved_import_use_decl(use_decl);
+            let qualifier = (use_decl.module_name.clone(), use_decl.alias.clone());
+            if colliding_qualifiers.contains(&qualifier) || blocked_exact_paths.contains(&qualifier)
+            {
+                resolved.alias.clear();
+            }
+            resolved
+        })
         .collect()
 }
 
@@ -159,18 +215,23 @@ pub(crate) fn normal_imported_use_for_path<'a>(
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
+    let exact = module
+        .uses
+        .iter()
+        .filter(|use_decl| {
+            use_decl_matches_exact_import_path(use_decl, &module_path, current_module)
+        })
+        .collect::<Vec<_>>();
+    if !exact.is_empty() {
+        return (exact.len() == 1 && !use_decl_is_quarantined(module, exact[0]))
+            .then_some(exact[0]);
+    }
     let candidates = module
         .uses
         .iter()
         .filter(|use_decl| !use_decl_is_quarantined(module, use_decl))
         .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
         .collect::<Vec<_>>();
-    let mut exact = candidates.iter().copied().filter(|use_decl| {
-        use_decl_matches_exact_import_path(use_decl, &module_path, current_module)
-    });
-    if let Some(first) = exact.next() {
-        return exact.next().is_none().then_some(first);
-    }
     if source_alias_is_colliding(module, &module_path, current_module) {
         return None;
     }

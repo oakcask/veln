@@ -3,9 +3,7 @@ use std::sync::Arc;
 
 use veln_ast::{PublicAlias, PublicAliasKind, SurfaceModule, UseDecl, Visibility};
 
-use crate::name_recovery::{
-    normal_use_decls, public_alias_has_invalid_target_leaf, use_decl_matches_import_path,
-};
+use crate::name_recovery::{normal_use_decls, public_alias_has_invalid_target_leaf};
 
 #[cfg(test)]
 use super::type_alias_resolution_counters;
@@ -463,12 +461,12 @@ pub(super) fn descriptor_for_alias_target<'a>(
         [_, .., name] => {
             let import_path = &segments[..segments.len() - 1];
             let module_path = import_path.join("::");
-            let module_name = uses
-                .iter()
-                .find(|use_decl| {
-                    use_decl_matches_import_path(use_decl, &module_path, current_module)
-                })
-                .map(|use_decl| use_decl.name.as_str())?;
+            let module_name = crate::name_recovery::select_use_decl_for_path(
+                uses.iter(),
+                &module_path,
+                current_module,
+            )
+            .map(|use_decl| use_decl.name.as_str())?;
             descriptors.iter().find(|descriptor| {
                 descriptor.type_name == *name
                     && descriptor.module_name.as_deref() == Some(module_name)

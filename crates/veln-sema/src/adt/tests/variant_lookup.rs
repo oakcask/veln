@@ -64,6 +64,71 @@ fn unqualified_any_arity_lookup_uses_only_the_current_modules_imports() {
     assert_eq!(unrelated.module_name.as_deref(), Some("dep_public"));
 }
 
+#[test]
+fn explicit_import_alias_contributes_no_bare_constructor_candidate() {
+    let registry = AdtRegistry::from_parts(
+        vec![lookup_descriptor("dep", 0)],
+        std::collections::BTreeMap::new(),
+    );
+    let uses = lookup_uses("mod consumer\nuse dep as wire\n");
+
+    assert_eq!(
+        registry.constructor(&path(&["Hidden"]), Some("consumer"), &uses),
+        ConstructorLookup::Missing
+    );
+    assert!(matches!(
+        registry.constructor(
+            &path(&["wire", "State", "Hidden"]),
+            Some("consumer"),
+            &uses,
+        ),
+        ConstructorLookup::Found(constructor)
+            if constructor.descriptor.module_name.as_deref() == Some("dep")
+    ));
+    let full_path =
+        registry.constructor(&path(&["dep", "State", "Hidden"]), Some("consumer"), &uses);
+    assert!(
+        matches!(
+            full_path,
+            ConstructorLookup::Found(constructor)
+                if constructor.descriptor.module_name.as_deref() == Some("dep")
+        ),
+        "{full_path:?}"
+    );
+}
+
+#[test]
+fn exact_import_module_is_selected_before_constructor_members() {
+    let mut unrelated = lookup_descriptor("b", 0);
+    unrelated.type_name = "Other".to_string();
+    unrelated.variants[0].name = "Ready".to_string();
+    let registry = AdtRegistry::from_parts(
+        vec![lookup_descriptor("a", 0), unrelated],
+        std::collections::BTreeMap::new(),
+    );
+
+    for source in [
+        "mod consumer\nuse a as b\nuse b as other\n",
+        "mod consumer\nuse b as other\nuse a as b\n",
+    ] {
+        let uses = lookup_uses(source);
+        assert_eq!(
+            registry.constructor(&path(&["b", "Hidden"]), Some("consumer"), &uses),
+            ConstructorLookup::Missing,
+            "source={source:?}"
+        );
+        assert!(matches!(
+            registry.constructor(
+                &path(&["a", "State", "Hidden"]),
+                Some("consumer"),
+                &uses,
+            ),
+            ConstructorLookup::Found(constructor)
+                if constructor.descriptor.module_name.as_deref() == Some("a")
+        ));
+    }
+}
+
 fn unqualified_lookup_fixture() -> (AdtRegistry, Vec<veln_ast::UseDecl>) {
     let private_dependency = lookup_descriptor("dep_private", 1);
     let public_dependency = lookup_descriptor("dep_public", 0);

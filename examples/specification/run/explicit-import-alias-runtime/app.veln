@@ -1,6 +1,8 @@
 use math as calc
+use other
 
 pub fn main() -> () effects [stdio]
 	stdio::println(int_to_string(calc::double(4)))
 	stdio::println(int_to_string(math::double(5)))
+	stdio::println(int_to_string(double(5)))
 end

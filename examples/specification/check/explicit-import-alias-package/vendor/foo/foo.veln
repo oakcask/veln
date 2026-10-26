@@ -1,0 +1,7 @@
+pub fn public_value() -> Int
+	42
+end
+
+fn private_value() -> Int
+	0
+end

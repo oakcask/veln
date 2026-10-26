@@ -1,0 +1,36 @@
+command = ["check", "--json", "main.veln", "alpha.veln", "beta.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics"
+length = 1
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.duplicate"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 13
+
+[[json_assert]]
+path = "diagnostics.0.related.0.span.start.line"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.related.0.span.start.column"
+equals = 14

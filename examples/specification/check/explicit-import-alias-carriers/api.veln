@@ -1,0 +1,13 @@
+use impl as backend
+
+pub fn twice = backend::double
+pub type PublicShape = backend::Shape
+pub schema Packet = backend::Wire
+
+pub fn computed() -> Int effects [backend::Ask]
+	perform backend::Ask::value()
+end
+
+pub fn handled() -> Int
+	handle computed() with backend::answer(21)
+end

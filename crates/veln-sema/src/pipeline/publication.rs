@@ -406,14 +406,11 @@ fn function_alias_target_key(
     if alias.target.len() == 1 {
         return Some((alias.module_name.clone(), name));
     }
-    let module_path = alias.target[..alias.target.len() - 1].join("::");
-    let use_decl = module.uses.iter().find(|use_decl| {
-        crate::name_recovery::use_decl_matches_import_path(
-            use_decl,
-            &module_path,
-            alias.module_name.as_deref(),
-        )
-    })?;
+    let use_decl = crate::name_recovery::normal_imported_use_for_path(
+        module,
+        &alias.target[..alias.target.len() - 1],
+        alias.module_name.as_deref(),
+    )?;
     Some((
         Some(crate::name_recovery::resolved_import_module_name(
             use_decl,

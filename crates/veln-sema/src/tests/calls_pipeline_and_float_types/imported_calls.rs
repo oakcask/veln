@@ -216,6 +216,38 @@ fn invalid_import_collision_blocks_only_the_shared_qualifier() {
 }
 
 #[test]
+fn blocked_exact_import_path_does_not_fall_through_to_an_alias() {
+    for imports in [
+        [
+            "use foo as first\n",
+            "use foo as second\n",
+            "use bar as foo\n",
+        ],
+        [
+            "use bar as foo\n",
+            "use foo as second\n",
+            "use foo as first\n",
+        ],
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!("mod app::main\n{}{}{}", imports[0], imports[1], imports[2]),
+        );
+        let module = lower_surface_ast(&parse(&source).tree);
+
+        assert!(
+            crate::name_recovery::normal_imported_use_for_path(
+                &module,
+                &["foo".to_string()],
+                Some("app::main"),
+            )
+            .is_none(),
+            "imports={imports:?}"
+        );
+    }
+}
+
+#[test]
 fn recovered_import_does_not_quarantine_a_following_valid_import() {
     let main_source = SourceFile::new(
         "main.veln",

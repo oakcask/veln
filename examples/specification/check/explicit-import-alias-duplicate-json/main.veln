@@ -1,0 +1,6 @@
+use alpha as shared
+use beta as shared
+
+fn main() -> Int
+  1
+end

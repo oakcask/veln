@@ -510,22 +510,40 @@ impl AdtRegistry {
         let Some(first) = segments.first() else {
             return false;
         };
-        if let Some(module_name) = uses
-            .iter()
-            .find(|use_decl| {
-                use_decl.module_name.as_deref() == current_module && use_decl.alias == *first
-            })
-            .map(|use_decl| use_decl.name.as_str())
+        if let Some(modules) = self
+            .qualified_import_modules
+            .get(&(current_module.map(str::to_string), first.clone()))
+        {
+            let candidates = if modules.exact.is_empty() {
+                &modules.implicit
+            } else {
+                &modules.exact
+            };
+            let mut candidates = candidates.iter();
+            let Some(module_name) = candidates.next() else {
+                return false;
+            };
+            if candidates.next().is_some() {
+                return false;
+            }
+            return descriptor.module_name.as_deref() == Some(module_name);
+        }
+        if self.qualified_import_modules.is_empty()
+            && let Some(module_name) =
+                crate::name_recovery::select_use_decl_for_path(uses.iter(), first, current_module)
+                    .map(|use_decl| use_decl.name.as_str())
         {
             return descriptor.module_name.as_deref() == Some(module_name);
         }
         if imported_descriptor_path_matches(descriptor, segments, current_module, uses) {
             return true;
         }
-        segments.len() <= 2
+        (segments.len() == 1
+            || (segments.len() == 2 && segments.first() == Some(&descriptor.type_name)))
             && uses.iter().any(|use_decl| {
                 use_decl.module_name.as_deref() == current_module
                     && descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
+                    && crate::name_recovery::use_decl_contributes_bare_exports(use_decl)
             })
     }
 

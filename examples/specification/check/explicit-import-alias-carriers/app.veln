@@ -1,0 +1,7 @@
+use api as facade
+
+pub fn main() -> Int
+	match facade::Circle(facade::twice(facade::handled()))
+		facade::Circle(value) => value
+	end
+end

@@ -1,0 +1,2 @@
+main.veln:2:13: error[name.duplicate]: duplicate import alias name `shared`
+  note: main.veln:1:14: First import alias with this name is here.

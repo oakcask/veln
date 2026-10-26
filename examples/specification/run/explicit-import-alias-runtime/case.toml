@@ -1,4 +1,4 @@
-command = ["run", "--json", "main", "app.veln", "math.veln"]
+command = ["run", "--json", "main", "app.veln", "math.veln", "other.veln"]
 exit = 0
 
 [requires]
