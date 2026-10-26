@@ -735,8 +735,8 @@ not become fallback targets.
   | A2-A3 | `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs`, `examples/specification/run/explicit-import-alias-runtime/` |
   | A4 | `crates/veln-sema/src/adt/tests/variant_lookup.rs`, `examples/specification/check/explicit-import-alias-distinct-origins/`, `examples/specification/check/explicit-import-alias-duplicate-human/`, and `examples/specification/check/explicit-import-alias-duplicate-json/` |
   | A5-A7 | `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs`, `crates/veln-sema/src/tests/identifier_casing/explicit_import_aliases.rs`, `crates/veln-sema/src/name_recovery.rs`, and `crates/veln-analysis/src/surface/tests/contracts_and_imports.rs` tests |
-  | A8 | `crates/veln-syntax/src/tests/modules_and_contracts.rs` and the accepted and rejected fixtures under `examples/specification/grammar/` |
-  | A9 | `examples/specification/check/explicit-import-alias-carriers/`, `examples/specification/run/explicit-import-alias-runtime/`, and `examples/specification/run/explicit-import-alias-handler/` |
+  | A8 | `crates/veln-syntax/src/tests/modules_and_contracts.rs` and the accepted and rejected fixtures under `docs/specification/source-surface-fixtures/` |
+  | A9 | `examples/specification/check/explicit-import-alias-carriers/`, `examples/specification/run/explicit-import-alias-runtime/`, `examples/specification/run/explicit-import-alias-handler/`, and `examples/specification/run/explicit-import-alias-handler-identity/` |
   | A10 | `examples/specification/check/explicit-import-alias-package/`, `examples/specification/check/explicit-import-alias-package-boundaries/`, and publication and visibility tests in `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs` and `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs` |
   | A12 | `combined_module_import_diagnostics_use_stable_source_order` in `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs` |
 - Deferred binding visibility:

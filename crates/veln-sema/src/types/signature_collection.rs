@@ -13,7 +13,7 @@ use super::effect_call_resolution::push_unique_effect;
 use super::effect_inference::{canonical_user_effect_label, quarantined_public_user_effect_label};
 use super::signatures::{
     CompanionAccessTarget, EffectOperationSignature, EffectSignature,
-    HandlerOperationClauseSignature, HandlerSignature, synthetic_handler_clause_function_name,
+    HandlerOperationClauseSignature, HandlerSignature, synthetic_handler_clause_function_target,
 };
 use super::symbols::imported_use_for_path;
 
@@ -663,11 +663,11 @@ fn operation_clause_signatures(handler: &HandlerDecl) -> Vec<HandlerOperationCla
         .filter_map(|clause| {
             Some(HandlerOperationClauseSignature {
                 operation: clause.operation.clone()?,
-                function: synthetic_handler_clause_function_name(
+                target_name: synthetic_handler_clause_function_target(
+                    handler.module_name.as_deref(),
                     handler.name.as_deref().unwrap_or("missing"),
                     clause.operation.as_deref().unwrap_or("missing"),
                 ),
-                module_name: handler.module_name.clone(),
             })
         })
         .collect()

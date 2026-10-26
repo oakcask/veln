@@ -89,6 +89,7 @@ pub(crate) fn use_decl_has_invalid_module_segment(
     })
 }
 
+#[cfg(test)]
 pub(crate) fn use_decl_has_invalid_alias(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
     let Some(alias_span) = &use_decl.alias_span else {
         return false;
@@ -105,6 +106,7 @@ pub(crate) fn use_decl_has_duplicate_target(module: &SurfaceModule, use_decl: &U
         return false;
     }
     module.uses.iter().any(|other| {
+        record_import_classification_work();
         !std::ptr::eq(other, use_decl)
             && other.origin == veln_ast::UseOrigin::Source
             && use_decl.origin == veln_ast::UseOrigin::Source
@@ -152,6 +154,7 @@ pub(crate) fn use_decl_is_recovery_candidate(module: &SurfaceModule, use_decl: &
         && !use_decl_has_source_alias_collision(module, use_decl)
 }
 
+#[cfg(test)]
 pub(crate) fn use_decl_is_quarantined(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
     use_decl.recovered
         || use_decl_has_invalid_module_segment(module, use_decl)
@@ -171,7 +174,7 @@ struct NormalUseGroups {
     quarantined: Vec<bool>,
     duplicate_targets: BTreeMap<ImportTargetKey, Vec<usize>>,
     qualifiers: BTreeMap<ImportBindingKey, (usize, bool)>,
-    exact_paths: BTreeMap<ImportBindingKey, (usize, bool)>,
+    exact_paths: BTreeMap<ImportBindingKey, Vec<usize>>,
 }
 
 struct NormalUseClassification {
@@ -224,12 +227,10 @@ impl NormalUseGroups {
                 .or_default()
                 .push(index);
             for path in use_decl_exact_paths(use_decl) {
-                let group = self
-                    .exact_paths
+                self.exact_paths
                     .entry((use_decl.module_name.clone(), path))
-                    .or_default();
-                group.0 += 1;
-                group.1 |= self.quarantined[index];
+                    .or_default()
+                    .push(index);
             }
         }
     }
@@ -239,10 +240,11 @@ impl NormalUseGroups {
         for indices in duplicate_targets.into_values() {
             self.quarantine_repeated_target(indices);
         }
+        let blocked_exact_paths = blocked_exact_path_keys(self.exact_paths, &self.quarantined);
         NormalUseClassification {
             quarantined: self.quarantined,
             colliding_qualifiers: colliding_binding_keys(self.qualifiers),
-            blocked_exact_paths: blocked_exact_path_keys(self.exact_paths),
+            blocked_exact_paths,
         }
     }
 
@@ -265,11 +267,12 @@ fn colliding_binding_keys(
 }
 
 fn blocked_exact_path_keys(
-    groups: BTreeMap<ImportBindingKey, (usize, bool)>,
+    groups: BTreeMap<ImportBindingKey, Vec<usize>>,
+    quarantined: &[bool],
 ) -> BTreeSet<ImportBindingKey> {
     groups
         .into_iter()
-        .filter_map(|(key, (count, quarantined))| (count != 1 || quarantined).then_some(key))
+        .filter_map(|(key, indices)| (indices.len() != 1 || quarantined[indices[0]]).then_some(key))
         .collect()
 }
 
@@ -371,45 +374,56 @@ pub(crate) fn normal_imported_use_for_path<'a>(
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
-    let module_path = segments.join("::");
-    let exact = module
-        .uses
-        .iter()
-        .filter(|use_decl| {
-            !use_decl.recovered
-                && use_decl_matches_exact_import_path(use_decl, &module_path, current_module)
-        })
-        .collect::<Vec<_>>();
-    if !exact.is_empty() {
-        return (exact.len() == 1 && !use_decl_is_quarantined(module, exact[0]))
-            .then_some(exact[0]);
-    }
-    let candidates = module
-        .uses
-        .iter()
-        .filter(|use_decl| !use_decl_is_quarantined(module, use_decl))
-        .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
-        .collect::<Vec<_>>();
-    if source_alias_is_colliding(module, &module_path, current_module) {
-        return None;
-    }
-    let mut qualified = candidates
-        .into_iter()
-        .filter(|use_decl| simple_import_alias_matches(use_decl, &module_path));
-    let first = qualified.next()?;
-    qualified.next().is_none().then_some(first)
+    let classification = NormalUseGroups::collect(module).finish();
+    normal_imported_use_for_path_with_classification(
+        module,
+        segments,
+        current_module,
+        &classification,
+    )
 }
 
-fn source_alias_is_colliding(
-    module: &SurfaceModule,
-    module_path: &str,
+fn normal_imported_use_for_path_with_classification<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
     current_module: Option<&str>,
-) -> bool {
-    module.uses.iter().any(|use_decl| {
-        use_decl.module_name.as_deref() == current_module
-            && use_decl.alias == module_path
-            && use_decl_has_source_alias_collision(module, use_decl)
-    })
+    classification: &NormalUseClassification,
+) -> Option<&'a UseDecl> {
+    let module_path = segments.join("::");
+    let key = (current_module.map(str::to_string), module_path.clone());
+    if classification.blocked_exact_paths.contains(&key) {
+        return None;
+    }
+    if let Some(exact) = module
+        .uses
+        .iter()
+        .enumerate()
+        .find_map(|(index, use_decl)| {
+            record_import_classification_work();
+            (!use_decl.recovered
+                && use_decl_matches_exact_import_path(use_decl, &module_path, current_module)
+                && !classification.quarantined[index])
+                .then_some(use_decl)
+        })
+    {
+        return Some(exact);
+    }
+    if classification.colliding_qualifiers.contains(&key) {
+        return None;
+    }
+    let mut qualified = module
+        .uses
+        .iter()
+        .enumerate()
+        .filter(|(index, use_decl)| {
+            record_import_classification_work();
+            !classification.quarantined[*index]
+                && use_decl.module_name.as_deref() == current_module
+                && simple_import_alias_matches(use_decl, &module_path)
+        })
+        .map(|(_, use_decl)| use_decl);
+    let first = qualified.next()?;
+    qualified.next().is_none().then_some(first)
 }
 
 pub(crate) fn select_use_decl_for_path<'a>(
@@ -438,15 +452,32 @@ pub(crate) fn schema_composition_imported_use_for_path<'a>(
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
-    normal_imported_use_for_path(module, segments, current_module).or_else(|| {
+    let classification = NormalUseGroups::collect(module).finish();
+    normal_imported_use_for_path_with_classification(
+        module,
+        segments,
+        current_module,
+        &classification,
+    )
+    .or_else(|| {
         let module_path = segments.join("::");
-        let mut candidates = module.uses.iter().filter(|use_decl| {
-            use_decl.package.is_none()
-                && use_decl.module_name.as_deref() == current_module
-                && !use_decl_is_quarantined(module, use_decl)
-                && !use_decl.has_explicit_alias()
-                && use_decl.alias == module_path
-        });
+        let key = (current_module.map(str::to_string), module_path.clone());
+        if classification.colliding_qualifiers.contains(&key) {
+            return None;
+        }
+        let mut candidates = module
+            .uses
+            .iter()
+            .enumerate()
+            .filter(|(index, use_decl)| {
+                record_import_classification_work();
+                use_decl.package.is_none()
+                    && use_decl.module_name.as_deref() == current_module
+                    && !classification.quarantined[*index]
+                    && !use_decl.has_explicit_alias()
+                    && use_decl.alias == module_path
+            })
+            .map(|(_, use_decl)| use_decl);
         let candidate = candidates.next()?;
         candidates.next().is_none().then_some(candidate)
     })
@@ -549,5 +580,41 @@ mod tests {
             large <= small * 2 + 8,
             "normal import classification must remain linear: small={small} large={large}"
         );
+    }
+
+    #[test]
+    fn missing_qualifier_lookup_work_scales_linearly() {
+        fn work(count: usize, schema_fallback: bool) -> usize {
+            let mut text = String::from("mod app\n");
+            for index in 0..count {
+                text.push_str(&format!("use dependency{index} as alias{index}\n"));
+            }
+            let source = veln_source::SourceFile::new("app.veln", text);
+            let parsed = veln_syntax::parse(&source);
+            assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+            let module = veln_ast::lower_surface_ast(&parsed.tree);
+            let missing = vec!["missing".to_string()];
+
+            reset_import_classification_work();
+            let resolved = if schema_fallback {
+                schema_composition_imported_use_for_path(&module, &missing, Some("app"))
+            } else {
+                normal_imported_use_for_path(&module, &missing, Some("app"))
+            };
+            assert!(resolved.is_none());
+            import_classification_work()
+        }
+
+        for schema_fallback in [false, true] {
+            let small = work(128, schema_fallback);
+            let large = work(256, schema_fallback);
+            eprintln!(
+                "missing-qualifier import work: fallback={schema_fallback} 128={small} 256={large}"
+            );
+            assert!(
+                large <= small * 2 + 8,
+                "missing qualifier lookup must remain linear: fallback={schema_fallback} small={small} large={large}"
+            );
+        }
     }
 }

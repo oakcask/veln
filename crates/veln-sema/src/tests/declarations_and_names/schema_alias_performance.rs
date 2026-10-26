@@ -81,3 +81,30 @@ fn schema_alias_chain_shared_suffix_and_disconnected_cycle_stay_bounded() {
         );
     }
 }
+
+#[test]
+fn format_neutral_schema_missing_qualifier_import_work_is_linear() {
+    fn work(count: usize) -> usize {
+        let mut source = String::from("mod app\n");
+        for index in 0..count {
+            source.push_str(&format!("use dependency{index} as alias{index}\n"));
+        }
+        source.push_str("\nschema Packet\n  payload: missing::Payload\nend\n");
+        let parsed = parse(&SourceFile::new("app.veln", &source));
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        let schema = &module.schemas[0];
+
+        crate::name_recovery::reset_import_classification_work();
+        assert!(crate::types::schema_encode_value_type(&module, schema).is_none());
+        crate::name_recovery::import_classification_work()
+    }
+
+    let small = work(128);
+    let large = work(256);
+    eprintln!("format-neutral missing-qualifier import work: 128={small} 256={large}");
+    assert!(
+        large <= small * 2 + 16,
+        "format-neutral schema qualifier misses must remain linear: small={small} large={large}"
+    );
+}

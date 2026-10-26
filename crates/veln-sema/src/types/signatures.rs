@@ -83,8 +83,7 @@ pub(crate) struct HandlerSignature {
 #[derive(Clone)]
 pub(crate) struct HandlerOperationClauseSignature {
     pub(crate) operation: String,
-    pub(crate) function: String,
-    pub(crate) module_name: Option<String>,
+    pub(crate) target_name: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -183,4 +182,22 @@ pub(crate) fn synthetic_handler_clause_function_name(handler: &str, operation: &
         handler.len(),
         operation.len()
     )
+}
+
+pub(crate) fn synthetic_handler_clause_function_target(
+    module: Option<&str>,
+    handler: &str,
+    operation: &str,
+) -> String {
+    synthetic_handler_clause_function_target_from_name(
+        module,
+        &synthetic_handler_clause_function_name(handler, operation),
+    )
+}
+
+pub(crate) fn synthetic_handler_clause_function_target_from_name(
+    module: Option<&str>,
+    function: &str,
+) -> String {
+    crate::standard_symbols::function_link_name(module, function, true)
 }

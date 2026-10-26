@@ -185,6 +185,17 @@ impl<'a> CoreLowerer<'a> {
     }
 
     pub(super) fn lowered_function_name(&self) -> String {
+        if let Some(name) = self
+            .function
+            .name
+            .as_deref()
+            .filter(|name| name.starts_with("__handler_"))
+        {
+            return synthetic_handler_clause_function_target_from_name(
+                self.function.module_name.as_deref(),
+                name,
+            );
+        }
         if self
             .function
             .name

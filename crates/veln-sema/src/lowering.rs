@@ -29,7 +29,7 @@ use crate::types::environment::TypeEnvironment;
 use crate::types::signatures::{
     FunctionLookup, HandlerPathResolution, SCHEMA_DECODE_STEP_TARGET_PREFIX,
     SCHEMA_ENCODE_TARGET_PREFIX, SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX, UserEffectPathResolution,
-    synthetic_handler_clause_function_name,
+    synthetic_handler_clause_function_name, synthetic_handler_clause_function_target_from_name,
 };
 
 mod call_lowering;

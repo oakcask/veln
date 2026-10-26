@@ -1,0 +1,11 @@
+pub effect Ask
+	value() -> Int
+end
+
+fn provide(offset: Int) -> Int
+	offset + 2
+end
+
+pub handler answer(offset: Int) for Ask
+	value() => provide(offset)
+end
