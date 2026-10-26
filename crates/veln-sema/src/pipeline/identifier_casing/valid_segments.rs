@@ -32,231 +32,167 @@ pub(super) fn valid_qualified_path_segments(
 ) -> (Vec<QualifiedPathSegment>, SuppressedQualifiedPathLocations) {
     let mut segments = Vec::new();
     let mut suppressed_locations = SuppressedQualifiedPathLocations::new();
+    let mut collector = SegmentCollector {
+        environment,
+        include_variant_refinements,
+        require_valid_variant_refinements,
+        segments: &mut segments,
+        suppressed_locations: &mut suppressed_locations,
+    };
+    collect_type_declaration_segments(module, &mut collector);
+    collect_effect_segments(module, &mut collector);
+    collect_schema_segments(module, &mut collector);
+    collect_module_value_segments(module, &mut collector);
+    collect_function_segments(module, &mut collector);
+    collect_handler_segments(module, &mut collector);
+    (segments, suppressed_locations)
+}
+
+struct SegmentCollector<'a> {
+    environment: &'a TypeEnvironment,
+    include_variant_refinements: bool,
+    require_valid_variant_refinements: bool,
+    segments: &'a mut Vec<QualifiedPathSegment>,
+    suppressed_locations: &'a mut SuppressedQualifiedPathLocations,
+}
+
+impl SegmentCollector<'_> {
+    fn collect_type(
+        &mut self,
+        paths: &[veln_ast::TypePathSegments],
+        refinements: &[veln_ast::VariantRefinementType],
+        current_module: Option<&str>,
+        type_parameters: &[String],
+    ) {
+        collect_type_path_segments(
+            paths,
+            refinements,
+            current_module,
+            self.environment,
+            self.segments,
+            self.suppressed_locations,
+        );
+        if self.include_variant_refinements {
+            collect_variant_refinement_segments(
+                refinements,
+                current_module,
+                self.environment,
+                type_parameters,
+                self.require_valid_variant_refinements,
+                self.segments,
+                self.suppressed_locations,
+            );
+        }
+    }
+
+    fn collect_expr(&mut self, expr: &veln_ast::Expr, current_module: Option<&str>) {
+        collect_valid_segments_from_expr(
+            expr,
+            current_module,
+            self.environment,
+            self.include_variant_refinements,
+            self.require_valid_variant_refinements,
+            self.segments,
+            self.suppressed_locations,
+        );
+    }
+}
+
+fn collect_type_declaration_segments(module: &SurfaceModule, collector: &mut SegmentCollector<'_>) {
     for type_decl in &module.types {
         let current_module = type_decl.module_name.as_deref();
         for variant in &type_decl.variants {
             for field in &variant.fields {
-                collect_type_path_segments(
+                collector.collect_type(
                     &field.ty_paths,
                     &field.ty_refinements,
                     current_module,
-                    environment,
-                    &mut segments,
-                    &mut suppressed_locations,
+                    &type_decl.params,
                 );
-                if include_variant_refinements {
-                    collect_variant_refinement_segments(
-                        &field.ty_refinements,
-                        current_module,
-                        environment,
-                        &type_decl.params,
-                        require_valid_variant_refinements,
-                        &mut segments,
-                        &mut suppressed_locations,
-                    );
-                }
             }
         }
     }
+}
+
+fn collect_effect_segments(module: &SurfaceModule, collector: &mut SegmentCollector<'_>) {
     for effect in &module.effects {
         let current_module = effect.module_name.as_deref();
         for operation in &effect.operations {
             for param in &operation.params {
-                collect_type_path_segments(
-                    &param.ty_paths,
-                    &param.ty_refinements,
-                    current_module,
-                    environment,
-                    &mut segments,
-                    &mut suppressed_locations,
-                );
-                if include_variant_refinements {
-                    collect_variant_refinement_segments(
-                        &param.ty_refinements,
-                        current_module,
-                        environment,
-                        &[],
-                        require_valid_variant_refinements,
-                        &mut segments,
-                        &mut suppressed_locations,
-                    );
-                }
+                collector.collect_type(&param.ty_paths, &param.ty_refinements, current_module, &[]);
             }
-            collect_type_path_segments(
+            collector.collect_type(
                 &operation.return_type_paths,
                 &operation.return_type_refinements,
                 current_module,
-                environment,
-                &mut segments,
-                &mut suppressed_locations,
+                &[],
             );
-            if include_variant_refinements {
-                collect_variant_refinement_segments(
-                    &operation.return_type_refinements,
-                    current_module,
-                    environment,
-                    &[],
-                    require_valid_variant_refinements,
-                    &mut segments,
-                    &mut suppressed_locations,
-                );
-            }
         }
     }
+}
+
+fn collect_schema_segments(module: &SurfaceModule, collector: &mut SegmentCollector<'_>) {
     for schema in &module.schemas {
         let current_module = schema.module_name.as_deref();
         for field in &schema.fields {
-            collect_type_path_segments(
-                &field.ty_paths,
-                &field.ty_refinements,
-                current_module,
-                environment,
-                &mut segments,
-                &mut suppressed_locations,
-            );
-            if include_variant_refinements {
-                collect_variant_refinement_segments(
-                    &field.ty_refinements,
-                    current_module,
-                    environment,
-                    &[],
-                    require_valid_variant_refinements,
-                    &mut segments,
-                    &mut suppressed_locations,
-                );
-            }
+            collector.collect_type(&field.ty_paths, &field.ty_refinements, current_module, &[]);
         }
     }
+}
+
+fn collect_module_value_segments(module: &SurfaceModule, collector: &mut SegmentCollector<'_>) {
+    for value in &module.module_values {
+        let current_module = value.module_name.as_deref();
+        collector.collect_type(
+            &value.annotation_paths,
+            &value.annotation_refinements,
+            current_module,
+            &[],
+        );
+        collector.collect_expr(&value.initializer, current_module);
+    }
+}
+
+fn collect_function_segments(module: &SurfaceModule, collector: &mut SegmentCollector<'_>) {
     for function in &module.functions {
         crate::pipeline::record_variant_refinement_casing_work(1);
         let current_module = function.module_name.as_deref();
-        collect_type_path_segments(
+        collector.collect_type(
             &function.return_type_paths,
             &function.return_type_refinements,
             current_module,
-            environment,
-            &mut segments,
-            &mut suppressed_locations,
+            &[],
         );
-        if include_variant_refinements {
-            collect_variant_refinement_segments(
-                &function.return_type_refinements,
-                current_module,
-                environment,
-                &[],
-                require_valid_variant_refinements,
-                &mut segments,
-                &mut suppressed_locations,
-            );
-        }
         for param in &function.params {
             crate::pipeline::record_variant_refinement_casing_work(1);
-            collect_type_path_segments(
-                &param.ty_paths,
-                &param.ty_refinements,
-                current_module,
-                environment,
-                &mut segments,
-                &mut suppressed_locations,
-            );
-            if include_variant_refinements {
-                collect_variant_refinement_segments(
-                    &param.ty_refinements,
-                    current_module,
-                    environment,
-                    &[],
-                    require_valid_variant_refinements,
-                    &mut segments,
-                    &mut suppressed_locations,
-                );
-            }
+            collector.collect_type(&param.ty_paths, &param.ty_refinements, current_module, &[]);
         }
         for line in &function.body {
             crate::pipeline::record_variant_refinement_casing_work(1);
             collect_valid_segments_from_body_line(
                 line,
                 current_module,
-                environment,
-                include_variant_refinements,
-                require_valid_variant_refinements,
-                &mut segments,
-                &mut suppressed_locations,
+                collector.environment,
+                collector.include_variant_refinements,
+                collector.require_valid_variant_refinements,
+                collector.segments,
+                collector.suppressed_locations,
             );
         }
     }
-    collect_handler_segments(
-        module,
-        environment,
-        include_variant_refinements,
-        require_valid_variant_refinements,
-        &mut segments,
-        &mut suppressed_locations,
-    );
-    (segments, suppressed_locations)
 }
 
-fn collect_handler_segments(
-    module: &SurfaceModule,
-    environment: &TypeEnvironment,
-    include_variant_refinements: bool,
-    require_valid_variant_refinements: bool,
-    segments: &mut Vec<QualifiedPathSegment>,
-    suppressed_locations: &mut HashMap<String, HashSet<(usize, usize, usize)>>,
-) {
+fn collect_handler_segments(module: &SurfaceModule, collector: &mut SegmentCollector<'_>) {
     for handler in &module.handlers {
         let current_module = handler.module_name.as_deref();
         for param in &handler.params {
-            collect_type_path_segments(
-                &param.ty_paths,
-                &param.ty_refinements,
-                current_module,
-                environment,
-                segments,
-                suppressed_locations,
-            );
-            if include_variant_refinements {
-                collect_variant_refinement_segments(
-                    &param.ty_refinements,
-                    current_module,
-                    environment,
-                    &[],
-                    require_valid_variant_refinements,
-                    segments,
-                    suppressed_locations,
-                );
-            }
+            collector.collect_type(&param.ty_paths, &param.ty_refinements, current_module, &[]);
         }
         for clause in &handler.operation_clauses {
             for param in &clause.params {
-                collect_type_path_segments(
-                    &param.ty_paths,
-                    &param.ty_refinements,
-                    current_module,
-                    environment,
-                    segments,
-                    suppressed_locations,
-                );
-                if include_variant_refinements {
-                    collect_variant_refinement_segments(
-                        &param.ty_refinements,
-                        current_module,
-                        environment,
-                        &[],
-                        require_valid_variant_refinements,
-                        segments,
-                        suppressed_locations,
-                    );
-                }
+                collector.collect_type(&param.ty_paths, &param.ty_refinements, current_module, &[]);
             }
-            collect_valid_segments_from_expr(
-                &clause.body,
-                current_module,
-                environment,
-                include_variant_refinements,
-                require_valid_variant_refinements,
-                segments,
-                suppressed_locations,
-            );
+            collector.collect_expr(&clause.body, current_module);
         }
     }
 }

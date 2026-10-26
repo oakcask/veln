@@ -60,7 +60,7 @@ mod schema_type_references;
 mod schema_validation;
 mod schema_variant_refinement_decode;
 
-pub(crate) use effects::check_declared_effect_labels;
+pub(crate) use effects::{check_declared_effect_labels, check_type_effect_labels};
 pub(crate) use module_boundaries::{
     check_duplicate_constructor_names, check_duplicate_use_aliases, check_module_boundary,
     check_reserved_prelude_aliases, check_test_declaration_boundary,

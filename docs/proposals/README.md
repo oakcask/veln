@@ -20,9 +20,10 @@ also states it.
   schema, composed with ordinary decoder functions:
   [schema-runtime-refinement-validation.md](schema-runtime-refinement-validation.md).
 - With current typed module `let` source syntax and formatting as implemented
-  prerequisites, add finite-data initializer admission and assignability,
-  dependency and cycle rules, lookup and identity, visibility, execution, and
-  documentation publication:
+  prerequisites and same-module semantic analysis implemented, add imported
+  lookup, cross-module stable identity and dependency validation,
+  function-alias wrong-kind rejection, visibility, execution, documentation
+  publication, and language-service navigation:
   [module-immutable-values.md](module-immutable-values.md).
 - Generic named-type variance and function assignability:
   [generic-and-function-variance.md](generic-and-function-variance.md).
@@ -33,9 +34,9 @@ also states it.
 
 ## Blocked
 
-- Qualified immutable-value match refinement depends on module immutable value
-  lookup, declaration identity, visibility, and execution semantics beyond the
-  implemented parser and formatter support:
+- Qualified immutable-value match refinement depends on imported module-value
+  lookup, cross-module visibility, and execution semantics beyond the
+  implemented finite-data analysis and same-module declaration identity:
   [qualified-value-match-refinement.md](qualified-value-match-refinement.md).
 
 ## Design In Progress

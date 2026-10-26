@@ -1,0 +1,146 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["value.module_initializer_cycle", "module value reference `alpha` closes an initializer cycle", "cycle_declaration", "module.value_not_executable"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "value.module_initializer_cycle"
+severity = "error"
+kind = "type"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 17
+
+[[json_assert]]
+path = "diagnostics.0.span.end.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 22
+
+[[json_assert]]
+path = "diagnostics.0.details.phase"
+equals = "type_check"
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "beta"
+
+[[json_assert]]
+path = "diagnostics.0.details.target"
+equals = "alpha"
+
+[[json_assert]]
+path = "diagnostics.0.related"
+length = 4
+
+[[json_assert]]
+path = "diagnostics.0.related.0.kind"
+equals = "cycle_declaration"
+
+[[json_assert]]
+path = "diagnostics.0.related.0.message"
+equals = "Module value `alpha` participates in this initializer cycle."
+
+[[json_assert]]
+path = "diagnostics.0.related.0.span.start.line"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.related.0.span.start.column"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.related.0.span.end.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.related.0.span.end.column"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.related.1.kind"
+equals = "cycle_declaration"
+
+[[json_assert]]
+path = "diagnostics.0.related.1.message"
+equals = "Module value `beta` participates in this initializer cycle."
+
+[[json_assert]]
+path = "diagnostics.0.related.1.span.start.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.related.1.span.start.column"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.related.1.span.end.line"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.0.related.1.span.end.column"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.related.2.kind"
+equals = "cycle_reference"
+
+[[json_assert]]
+path = "diagnostics.0.related.2.message"
+equals = "Module value `alpha` depends on `beta` here."
+
+[[json_assert]]
+path = "diagnostics.0.related.2.span.start.line"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.related.2.span.start.column"
+equals = 18
+
+[[json_assert]]
+path = "diagnostics.0.related.2.span.end.line"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.related.2.span.end.column"
+equals = 22
+
+[[json_assert]]
+path = "diagnostics.0.related.3.kind"
+equals = "cycle_reference"
+
+[[json_assert]]
+path = "diagnostics.0.related.3.message"
+equals = "Module value `beta` depends on `alpha` here."
+
+[[json_assert]]
+path = "diagnostics.0.related.3.span.start.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.related.3.span.start.column"
+equals = 17
+
+[[json_assert]]
+path = "diagnostics.0.related.3.span.end.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.related.3.span.end.column"
+equals = 22

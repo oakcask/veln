@@ -32,6 +32,10 @@ mod type_relations;
 mod type_syntax;
 mod types;
 
+#[cfg(test)]
+pub(crate) use analysis::{
+    reset_module_value_annotation_dedup_work, take_module_value_annotation_dedup_work,
+};
 pub use navigation::{
     ResolvedSchemaAlias, ResolvedSchemaCompositionReference, resolved_schema_alias_chains,
     resolved_schema_aliases, resolved_schema_composition_references,

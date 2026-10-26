@@ -1,5 +1,6 @@
 use super::*;
 use crate::effect_rows::EffectRowSubstitutions;
+use crate::types::ModuleValueLookup;
 
 impl<'a> FunctionChecker<'a> {
     pub(super) fn infer_name_path(
@@ -8,25 +9,23 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         expected: Option<&ExpectedType>,
     ) -> Type {
-        if segments.len() == 1
-            && let Some(constructor) = expected
-                .and_then(|expected| {
-                    self.environment.adts.descriptor_for_type_prefer_module(
-                        &expected.ty,
-                        self.function.module_name.as_deref(),
-                    )
-                })
-                .and_then(|descriptor| {
-                    self.environment.adts.constructor_for_descriptor(
-                        segments,
-                        descriptor,
-                        self.function.module_name.as_deref(),
-                        &self.environment.uses,
-                    )
-                })
-                .filter(|constructor| constructor.variant.payload_fields.is_empty())
+        if let [name] = segments
+            && let Some(ty) = self.infer_local_binding_name(name, expected)
         {
-            return self.infer_nullary_constructor_name(segments, expr, expected, constructor);
+            return ty;
+        }
+        match self
+            .environment
+            .module_value_path(segments, self.function.module_name.as_deref())
+        {
+            ModuleValueLookup::Available(value) => return value.ty.clone(),
+            ModuleValueLookup::Unavailable => return Type::Unknown,
+            ModuleValueLookup::Missing => {}
+        }
+        if segments.len() == 1
+            && let Some(ty) = self.infer_expected_nullary_constructor(segments, expr, expected)
+        {
+            return ty;
         }
         match self.environment.adts.nullary_constructor(
             segments,
@@ -37,29 +36,9 @@ impl<'a> FunctionChecker<'a> {
                 self.infer_nullary_constructor_name(segments, expr, expected, constructor)
             }
             ConstructorLookup::Ambiguous => {
-                if let Some(constructor) = expected
-                    .and_then(|expected| {
-                        self.environment.adts.descriptor_for_type_prefer_module(
-                            &expected.ty,
-                            self.function.module_name.as_deref(),
-                        )
-                    })
-                    .and_then(|descriptor| {
-                        self.environment.adts.constructor_for_descriptor(
-                            segments,
-                            descriptor,
-                            self.function.module_name.as_deref(),
-                            &self.environment.uses,
-                        )
-                    })
-                    .filter(|constructor| constructor.variant.payload_fields.is_empty())
+                if let Some(ty) = self.infer_expected_nullary_constructor(segments, expr, expected)
                 {
-                    return self.infer_nullary_constructor_name(
-                        segments,
-                        expr,
-                        expected,
-                        constructor,
-                    );
+                    return ty;
                 }
                 self.push_ambiguous_name(
                     expr.node_id,
@@ -71,6 +50,31 @@ impl<'a> FunctionChecker<'a> {
             }
             ConstructorLookup::Missing => self.infer_non_constructor_name(segments, expr, expected),
         }
+    }
+
+    fn infer_expected_nullary_constructor(
+        &mut self,
+        segments: &[String],
+        expr: &Expr,
+        expected: Option<&ExpectedType>,
+    ) -> Option<Type> {
+        let constructor = expected
+            .and_then(|expected| {
+                self.environment.adts.descriptor_for_type_prefer_module(
+                    &expected.ty,
+                    self.function.module_name.as_deref(),
+                )
+            })
+            .and_then(|descriptor| {
+                self.environment.adts.constructor_for_descriptor(
+                    segments,
+                    descriptor,
+                    self.function.module_name.as_deref(),
+                    &self.environment.uses,
+                )
+            })
+            .filter(|constructor| constructor.variant.payload_fields.is_empty())?;
+        Some(self.infer_nullary_constructor_name(segments, expr, expected, constructor))
     }
 
     fn infer_nullary_constructor_name(
@@ -121,11 +125,9 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         name: &str,
         expr: &Expr,
-        expected: Option<&ExpectedType>,
+        _expected: Option<&ExpectedType>,
     ) -> Type {
-        if let Some(ty) = self.infer_local_binding_name(name, expected) {
-            return ty;
-        }
+        debug_assert!(self.visible_binding_index(name).is_none());
         if self.bare_prelude_import_is_ambiguous(name) {
             return self.ambiguous_function_value(name, expr);
         }
@@ -232,6 +234,9 @@ impl<'a> FunctionChecker<'a> {
         if let Some(ty) = self.infer_local_callable_call(expr, callee, args) {
             return ty;
         }
+        if let Some(ty) = self.infer_module_value_call(callee, args) {
+            return ty;
+        }
         if let Some(ty) = self.infer_constructor_call(expr, callee, args, expected) {
             return ty;
         }
@@ -245,6 +250,55 @@ impl<'a> FunctionChecker<'a> {
             return ty;
         }
         self.infer_unresolved_call(callee, args)
+    }
+
+    fn infer_module_value_call(&mut self, callee: &Expr, args: &[Expr]) -> Option<Type> {
+        if let Some(segments) = callee.callee_name_path()
+            && !matches!(segments, [name] if self.visible_binding_index(name).is_some())
+        {
+            let value = match self
+                .environment
+                .module_value_path(segments, self.function.module_name.as_deref())
+            {
+                ModuleValueLookup::Available(value) => value,
+                ModuleValueLookup::Unavailable => {
+                    for arg in args {
+                        self.infer_expr(arg, None);
+                    }
+                    return Some(Type::Unknown);
+                }
+                ModuleValueLookup::Missing => return None,
+            };
+            let name = value.declaration.name.as_deref().unwrap_or("<missing>");
+            let mut diagnostic = Diagnostic::new(
+                "type.not_callable",
+                Severity::Error,
+                DiagnosticKind::Type,
+                format!("module value `{name}` is not callable"),
+                Some(callee.span.clone()),
+                JsonValue::object([
+                    ("phase", JsonValue::string("type_check")),
+                    ("node_id", JsonValue::string(callee.node_id.display("name"))),
+                    ("constraint", JsonValue::string("call_target")),
+                    ("actual", JsonValue::string("module_value")),
+                    ("name", JsonValue::string(name)),
+                ]),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("module_value_declaration")),
+                (
+                    "message",
+                    JsonValue::string(format!("Module value `{name}` is declared here.")),
+                ),
+                ("span", span_json(&value.declaration.span)),
+            ]));
+            self.diagnostics.push(diagnostic);
+            for arg in args {
+                self.infer_expr(arg, None);
+            }
+            return Some(Type::Unknown);
+        }
+        None
     }
 
     pub(super) fn infer_local_callable_call(

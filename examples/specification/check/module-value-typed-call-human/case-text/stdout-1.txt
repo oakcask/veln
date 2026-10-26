@@ -1,0 +1,4 @@
+main.veln:1:1: error[module.value_not_executable]: module value declaration `answer` is not executable
+  note: The declaration is semantically checked, but checked-core lowering and code generation do not support module values yet.
+main.veln:4:2: error[type.not_callable]: module value `answer` is not callable
+  note: main.veln:1:1: Module value `answer` is declared here.

@@ -160,6 +160,14 @@ Expected types flow into holes and subexpressions from:
 - `match` arm results, `if` branch results, and constructor payload bindings
 - record pattern field bindings in `match` arms and `let` statements
 
+A module immutable value expression has its written annotation type. A module
+value is not callable, and explicit type arguments at the call site do not make
+it callable. When name resolution selects an available module value, the call
+reports `type.not_callable`; when the selected identity is unavailable, the
+call does not invent a callable type. In both cases, each call argument is
+checked independently. The [name-resolution rules](name-resolution.md#namespaces-and-use-roles)
+define declaration selection and shadowing for these calls.
+
 A `begin` expression checks its body in a nested lexical type environment. Its
 final expression supplies the `begin` type and receives the enclosing expected
 type. A body with no final expression has type `()`. Bindings declared inside
@@ -517,10 +525,10 @@ case verifies the available computed-expression, invalid-annotation, and
 restoration boundaries. The checked
 [`adt-variant-refinement-match-computed-field-boundary`](../../examples/specification/check/adt-variant-refinement-match-computed-field-boundary/)
 case verifies that call and record-constructor bases remain outside field-path
-refinement. Veln currently has no indexing expression. A typed module `let`
-declaration is a recognized source form, but it is not type-checked, executable,
-or addressable as a module value. Function-value expressions do not produce ADT
-values that can exercise alias match refinement independently.
+refinement. Veln currently has no indexing expression. A module value reference
+does not establish a transparent alias for match refinement. Function-value
+expressions do not produce ADT values that can exercise alias match refinement
+independently.
 
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved
@@ -617,6 +625,44 @@ These counters, rather than elapsed time, define the regression checks;
 reported wall-clock timings are observational. Final serialized JSON can still
 grow quadratically when a linear number of diagnostics must each expose the
 complete refined domain.
+
+### Module immutable value initializers
+
+Every typed module `let` initializer is checked against its written closed
+annotation, even when the declaration is unused. The admitted initializer
+language contains integer, Boolean, string, and unit literals; negative integer
+literals; records whose fields are admitted; visible nullary and payload ADT
+constructors whose payloads are admitted; and same-module module value
+references. Parentheses preserve admission. Float literals, collection
+literals, functions and ordinary calls, other operators, field access, control
+flow, effects, handlers, and holes are not admitted.
+An ordinary call whose callee is not a name path is rejected at the complete
+call expression. An unresolved named call retains ordinary name-resolution
+diagnostics instead of adding an initializer-admission diagnostic.
+An empty `{}` follows its contextual type: it is rejected as a collection
+literal when a `Dict<K, V>` annotation, record field, constructor payload, or
+resolved alias supplies that expectation. Without a dictionary expectation it
+remains an admitted empty structural record.
+
+Same-module references form a dependency graph independent of declaration
+order. An acyclic forward reference has the target's written annotation. Each
+cyclic component is rejected once at a deterministic reference that closes
+the cycle. An invalid declaration and every declaration that depends on it are
+withheld from later semantic facts; unrelated valid declarations remain
+available for checking function bodies. The checked
+[`module-value initializer failure`](../../examples/specification/check/module-value-initializer-unsupported-human/)
+and
+[`cycle human`](../../examples/specification/check/module-value-initializer-cycle-human/)
+cases cover the initializer boundary and the rendered cycle notes, spans, and
+order. The checked
+[`cycle JSON`](../../examples/specification/check/module-value-initializer-cycle-json/)
+case covers the structured related kinds and machine-readable spans. The checked
+[`admitted initializer JSON`](../../examples/specification/check/module-value-admitted-json/)
+case verifies that representative finite-data declarations reach only the
+checked-core execution gate. The checked
+[`open annotation failure`](../../examples/specification/check/module-value-open-annotation-human/)
+case verifies that an undeclared type parameter cannot escape through a module
+value annotation.
 
 ### Result propagation
 

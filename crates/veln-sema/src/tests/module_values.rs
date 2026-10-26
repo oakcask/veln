@@ -12,6 +12,36 @@ fn module_with_values(count: usize) -> SurfaceModule {
     lower_surface_ast(&parsed.tree)
 }
 
+fn module_with_value_chain(count: usize) -> SurfaceModule {
+    let source = SourceFile::new(
+        "main.veln",
+        (0..count)
+            .map(|index| {
+                if index == 0 {
+                    "let value_0: Int = 0\n".to_string()
+                } else {
+                    format!("let value_{index}: Int = value_{}\n", index - 1)
+                }
+            })
+            .collect::<String>(),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    lower_surface_ast(&parsed.tree)
+}
+
+fn module_with_unresolved_value_annotations(count: usize) -> SurfaceModule {
+    let source = SourceFile::new(
+        "main.veln",
+        (0..count)
+            .map(|index| format!("let value_{index}: Missing{index} = {index}\n"))
+            .collect::<String>(),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    lower_surface_ast(&parsed.tree)
+}
+
 #[test]
 #[ignore = "supporting wall-clock evidence; deterministic scaling is asserted separately"]
 fn module_value_gate_reports_adjacent_size_timings() {
@@ -25,6 +55,48 @@ fn module_value_gate_reports_adjacent_size_timings() {
         assert!(lowered.core.is_none());
         assert!(lowered.ir.is_none());
         eprintln!("module value gate: {count} declarations in {elapsed:?}");
+    }
+}
+
+#[test]
+#[ignore = "supporting wall-clock evidence; deterministic semantics are asserted separately"]
+fn module_value_analysis_reports_adjacent_size_timings() {
+    for count in [2_000, 4_000, 8_000] {
+        let module = module_with_values(count);
+        let started = std::time::Instant::now();
+        let diagnostics = analyze_surface_module(&module);
+        let elapsed = started.elapsed();
+
+        assert_eq!(diagnostics.len(), count, "{diagnostics:#?}");
+        eprintln!("module value analysis: {count} declarations in {elapsed:?}");
+    }
+}
+
+#[test]
+#[ignore = "supporting wall-clock evidence for failure-heavy annotation scaling"]
+fn module_value_unresolved_annotation_analysis_reports_adjacent_size_timings() {
+    for count in [2_000, 4_000, 8_000] {
+        let module = module_with_unresolved_value_annotations(count);
+        let started = std::time::Instant::now();
+        let diagnostics = analyze_surface_module(&module);
+        let elapsed = started.elapsed();
+
+        assert!(diagnostics.len() >= count, "{diagnostics:#?}");
+        eprintln!("module value unresolved annotations: {count} declarations in {elapsed:?}");
+    }
+}
+
+#[test]
+#[ignore = "supporting wall-clock evidence for dependency graph scaling"]
+fn module_value_dependency_analysis_reports_adjacent_size_timings() {
+    for count in [2_000, 4_000, 8_000] {
+        let module = module_with_value_chain(count);
+        let started = std::time::Instant::now();
+        let diagnostics = analyze_surface_module(&module);
+        let elapsed = started.elapsed();
+
+        assert_eq!(diagnostics.len(), count, "{diagnostics:#?}");
+        eprintln!("module value dependencies: {count} declarations in {elapsed:?}");
     }
 }
 
@@ -55,6 +127,34 @@ fn module_value_gate_work_grows_linearly_with_declarations() {
 }
 
 #[test]
+fn module_value_annotation_dedup_work_grows_linearly_with_failures() {
+    fn work_for(count: usize) -> (usize, usize) {
+        let module = module_with_unresolved_value_annotations(count);
+        reset_module_value_annotation_dedup_work();
+        let diagnostics = analyze_surface_module(&module);
+        let work = take_module_value_annotation_dedup_work();
+
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "name.unresolved")
+                .count(),
+            count,
+            "{diagnostics:#?}"
+        );
+        assert_eq!(work.path_lookups, count, "{work:#?}");
+        assert_eq!(work.indexed_diagnostics, count, "{work:#?}");
+        (work.path_lookups, work.indexed_diagnostics)
+    }
+
+    const N: usize = 64;
+    let work_n = work_for(N);
+    let work_2n = work_for(2 * N);
+    assert_eq!(work_2n.0, 2 * work_n.0);
+    assert_eq!(work_2n.1, 2 * work_n.1);
+}
+
+#[test]
 fn module_values_block_checked_core_and_typed_ir_at_the_shared_boundary() {
     let source = SourceFile::new(
         "main.veln",
@@ -74,7 +174,23 @@ fn module_values_block_checked_core_and_typed_ir_at_the_shared_boundary() {
     assert_eq!(module.functions.len(), 1);
 
     let lowered = lower_checked_surface_module(&module);
+    assert_module_value_gate_diagnostics(&lowered);
 
+    let unrelated = Diagnostic::new(
+        "caller.unrelated",
+        veln_diagnostics::Severity::Warning,
+        DiagnosticKind::Module,
+        "caller-owned unrelated warning",
+        None,
+        veln_diagnostics::JsonValue::Null,
+    );
+    let lowered_with_incomplete_diagnostics =
+        lower_analyzed_surface_module(&module, vec![unrelated.clone()]);
+    assert_incomplete_diagnostics_are_completed(&lowered_with_incomplete_diagnostics);
+    assert_colliding_gate_diagnostics_are_replaced(&module, unrelated);
+}
+
+fn assert_module_value_gate_diagnostics(lowered: &LoweredSurfaceModule) {
     let diagnostics = lowered
         .diagnostics
         .iter()
@@ -112,7 +228,7 @@ fn module_values_block_checked_core_and_typed_ir_at_the_shared_boundary() {
         vec![veln_diagnostics::JsonValue::object([(
             "message",
             veln_diagnostics::JsonValue::string(
-                "The declaration is available to parsing and formatting, but semantic analysis and code generation do not support module values yet.",
+                "The declaration is semantically checked, but checked-core lowering and code generation do not support module values yet.",
             ),
         )])]
     );
@@ -121,32 +237,23 @@ fn module_values_block_checked_core_and_typed_ir_at_the_shared_boundary() {
     assert_diagnostic_span(diagnostics[2], 3, 1, 4, 1);
     assert!(lowered.core.is_none());
     assert!(lowered.ir.is_none());
+}
 
-    let unrelated = Diagnostic::new(
-        "caller.unrelated",
-        veln_diagnostics::Severity::Warning,
-        DiagnosticKind::Module,
-        "caller-owned unrelated warning",
-        None,
-        veln_diagnostics::JsonValue::Null,
-    );
-    let lowered_with_incomplete_diagnostics =
-        lower_analyzed_surface_module(&module, vec![unrelated.clone()]);
+fn assert_incomplete_diagnostics_are_completed(lowered: &LoweredSurfaceModule) {
     assert_eq!(
-        lowered_with_incomplete_diagnostics
+        lowered
             .diagnostics
             .iter()
             .filter(|diagnostic| diagnostic.id == "module.value_not_executable")
             .count(),
         3
     );
-    assert_eq!(
-        lowered_with_incomplete_diagnostics.diagnostics[0].id,
-        "caller.unrelated"
-    );
-    assert!(lowered_with_incomplete_diagnostics.core.is_none());
-    assert!(lowered_with_incomplete_diagnostics.ir.is_none());
+    assert_eq!(lowered.diagnostics[0].id, "caller.unrelated");
+    assert!(lowered.core.is_none());
+    assert!(lowered.ir.is_none());
+}
 
+fn assert_colliding_gate_diagnostics_are_replaced(module: &SurfaceModule, unrelated: Diagnostic) {
     let colliding_warning = |index: usize| {
         Diagnostic::new(
             "module.value_not_executable",
@@ -158,7 +265,7 @@ fn module_values_block_checked_core_and_typed_ir_at_the_shared_boundary() {
         )
     };
     let lowered_with_colliding_warning = lower_analyzed_surface_module(
-        &module,
+        module,
         vec![
             unrelated,
             colliding_warning(1),
@@ -204,3 +311,504 @@ fn module_values_block_checked_core_and_typed_ir_at_the_shared_boundary() {
     assert!(lowered_with_colliding_warning.core.is_none());
     assert!(lowered_with_colliding_warning.ir.is_none());
 }
+
+#[test]
+fn module_value_initializers_accept_finite_data_and_forward_references() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Idle\n",
+            "  Active(count: Int)\n",
+            "end\n",
+            "let defaults: { state: State, attempts: Int } = { state: initial, attempts: -3 }\n",
+            "let initial: State = Active(3)\n",
+            "fn attempts() -> Int\n",
+            "  defaults.attempts\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "module.value_not_executable")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id == "module.value_not_executable"
+                || diagnostic.severity != veln_diagnostics::Severity::Error
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn module_value_initializers_accept_the_complete_finite_data_surface() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Idle\n",
+            "  Active(count: Int)\n",
+            "end\n",
+            "let boolean: Bool = true\n",
+            "let text: String = \"ready\"\n",
+            "let nothing: () = ()\n",
+            "let grouped: Bool = (boolean)\n",
+            "let idle: State = Idle\n",
+            "let active: State = Active(later)\n",
+            "let optional: Option<Int> = Some(later)\n",
+            "let outcome: Result<Int, String> = Ok(later)\n",
+            "let items: List<Int> = Cons(later, Nil)\n",
+            "let nested: { state: State, data: { optional: Option<Int>, items: List<Int> } } = { state: Active(later), data: { optional: Some(later), items: Cons(later, Nil) } }\n",
+            "let later: Int = 3\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let errors = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == veln_diagnostics::Severity::Error)
+        .collect::<Vec<_>>();
+
+    assert_eq!(errors.len(), module.module_values.len(), "{diagnostics:#?}");
+    assert!(
+        errors
+            .iter()
+            .all(|diagnostic| diagnostic.id == "module.value_not_executable"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn contextual_empty_dictionaries_are_not_admitted_as_empty_records() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Container\n",
+            "  Wrap(items: Dict<Int, Int>)\n",
+            "end\n",
+            "pub type ContainerAlias = Container\n",
+            "let direct: Dict<Int, Int> = {}\n",
+            "let nested: { items: Dict<Int, Int> } = { items: {} }\n",
+            "let payload: Container = Wrap({})\n",
+            "let mismatched_payload: Int = Wrap({})\n",
+            "let aliased: ContainerAlias = Wrap({})\n",
+            "let structural: {} = {}\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let unsupported = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "value.module_initializer_unsupported")
+        .collect::<Vec<_>>();
+
+    assert_eq!(unsupported.len(), 5, "{diagnostics:#?}");
+    assert_eq!(
+        unsupported
+            .iter()
+            .map(|diagnostic| {
+                let span = diagnostic.span.as_ref().expect("unsupported span");
+                (span.start.line, span.end.offset - span.start.offset)
+            })
+            .collect::<Vec<_>>(),
+        vec![(5, 2), (6, 2), (7, 2), (8, 2), (9, 2)]
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "value.module_initializer_unsupported"
+                || diagnostic.span.as_ref() != Some(&module.module_values[5].initializer.span)
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn qualified_same_module_values_resolve_across_declaring_sources() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "app::config",
+            SourceFile::new(
+                "first.veln",
+                concat!(
+                    "let bare: Int = later\n",
+                    "let leaf: Int = config::later\n",
+                    "let complete: Int = app::config::later\n",
+                ),
+            ),
+        ),
+        (
+            "app::config",
+            SourceFile::new("later.veln", "let later: Int = 2\n"),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id == "module.value_not_executable"
+                || diagnostic.severity != veln_diagnostics::Severity::Error
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn exact_import_precedes_same_module_leaf_value_qualification() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "app::config",
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use config\n",
+                    "let answer: Int = config::answer()\n",
+                    "fn calls_import() -> Int\n",
+                    "  config::answer()\n",
+                    "end\n",
+                ),
+            ),
+        ),
+        (
+            "config",
+            SourceFile::new(
+                "config.veln",
+                concat!("pub fn answer() -> Int\n", "  1\n", "end\n"),
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "value.module_initializer_unsupported")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            !matches!(
+                diagnostic.id.as_str(),
+                "type.not_callable" | "value.module_initializer_cycle" | "name.unresolved"
+            )
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn same_module_leaf_qualification_rejects_unwritten_prefixes() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "app::config",
+            SourceFile::new("first.veln", "let first: Int = bogus::config::later\n"),
+        ),
+        (
+            "app::config",
+            SourceFile::new("later.veln", "let later: Int = 2\n"),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved value `bogus::config::later`"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn module_value_initializers_report_smallest_unsupported_expressions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn compute() -> Int\n",
+            "  1\n",
+            "end\n",
+            "let computed: Int = compute()\n",
+            "let nested: { value: Int } = { value: 1 + 2 }\n",
+            "let floating: Float = 1.0\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let unsupported = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "value.module_initializer_unsupported")
+        .collect::<Vec<_>>();
+
+    assert_eq!(unsupported.len(), 3, "{diagnostics:#?}");
+    assert_diagnostic_span(unsupported[0], 4, 21, 4, 30);
+    assert_diagnostic_span(unsupported[1], 5, 39, 5, 44);
+    assert_diagnostic_span(unsupported[2], 6, 23, 6, 26);
+    for (index, (diagnostic, name)) in unsupported
+        .iter()
+        .zip(["computed", "nested", "floating"])
+        .enumerate()
+    {
+        let detail = |field: &str| {
+            diagnostic.details.as_object().and_then(|entries| {
+                entries
+                    .iter()
+                    .find(|(entry, _)| entry == field)
+                    .and_then(|(_, value)| value.as_text())
+            })
+        };
+        assert_eq!(detail("phase"), Some("type_check"));
+        assert_eq!(detail("name"), Some(name));
+        assert_eq!(
+            diagnostic.related,
+            vec![
+                veln_diagnostics::JsonValue::object([
+                    (
+                        "kind",
+                        veln_diagnostics::JsonValue::string("module_value_declaration"),
+                    ),
+                    (
+                        "message",
+                        veln_diagnostics::JsonValue::string(format!(
+                            "Module value `{name}` is declared here."
+                        )),
+                    ),
+                    (
+                        "span",
+                        crate::diagnostics::span_json(&module.module_values[index].span),
+                    ),
+                ]),
+                veln_diagnostics::JsonValue::object([
+                    (
+                        "kind",
+                        veln_diagnostics::JsonValue::string("permitted_initializers"),
+                    ),
+                    (
+                        "message",
+                        veln_diagnostics::JsonValue::string(
+                            "Use literals, records, ADT constructors, or same-module module values.",
+                        ),
+                    ),
+                ]),
+            ]
+        );
+    }
+}
+
+#[test]
+fn non_name_calls_are_rejected_and_quarantined_at_the_call_expression() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Boxed\n",
+            "  Box(value: Int)\n",
+            "end\n",
+            "let direct: Int = (1)()\n",
+            "let nested: { value: Int } = { value: ((2))(3) }\n",
+            "let payload: Boxed = Box((4)())\n",
+            "let dependent: Int = direct\n",
+            "let independent: Int = 1\n",
+            "fn reads_direct() -> String\n",
+            "  direct\n",
+            "end\n",
+            "fn reads_dependent() -> String\n",
+            "  dependent\n",
+            "end\n",
+            "fn reads_independent() -> String\n",
+            "  independent\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let unsupported = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "value.module_initializer_unsupported")
+        .collect::<Vec<_>>();
+
+    assert_eq!(unsupported.len(), 3, "{diagnostics:#?}");
+    assert_diagnostic_span(unsupported[0], 4, 19, 4, 24);
+    assert_diagnostic_span(unsupported[1], 5, 39, 5, 47);
+    assert_diagnostic_span(unsupported[2], 6, 26, 6, 31);
+    for (diagnostic, declaration) in unsupported.iter().zip(&module.module_values[..3]) {
+        assert_eq!(
+            diagnostic.related.first(),
+            Some(&veln_diagnostics::JsonValue::object([
+                (
+                    "kind",
+                    veln_diagnostics::JsonValue::string("module_value_declaration"),
+                ),
+                (
+                    "message",
+                    veln_diagnostics::JsonValue::string(format!(
+                        "Module value `{}` is declared here.",
+                        declaration.name.as_deref().expect("module value name")
+                    )),
+                ),
+                ("span", crate::diagnostics::span_json(&declaration.span),),
+            ]))
+        );
+    }
+
+    let mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
+        .collect::<Vec<_>>();
+    assert_eq!(mismatches.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        mismatches[0].span.as_ref().map(|span| span.start.line),
+        Some(16)
+    );
+}
+
+#[test]
+fn module_value_annotations_are_checked_even_when_unused() {
+    let source = SourceFile::new("main.veln", "let unused: String = 42\n");
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic.message.contains("expected `String`")
+                && diagnostic.message.contains("found `Int`")
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn module_value_annotations_must_be_closed_and_quarantine_dependents() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "let open: Option<T> = None\n",
+            "let dependent: Option<T> = open\n",
+            "fn read() -> String\n",
+            "  dependent\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let unresolved_type_parameters = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved type `T`"
+        })
+        .count();
+
+    assert_eq!(unresolved_type_parameters, 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "type.mismatch" || !diagnostic.message.contains("found `Option<T>`")
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn module_value_function_annotations_validate_effect_rows_and_labels() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "let unbound: fn() -> Int effects [...E] = 1\n",
+            "let unknown: fn() -> Int effects [MissingAudit] = 1\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let unbound = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "effect.row_unbound")
+        .unwrap_or_else(|| panic!("expected unbound effect row: {diagnostics:#?}"));
+    let unbound_span = unbound.span.as_ref().expect("unbound effect row span");
+    assert_eq!(
+        (unbound_span.start.line, unbound_span.start.column),
+        (1, 35)
+    );
+    assert_eq!((unbound_span.end.line, unbound_span.end.column), (1, 39));
+
+    let unknown = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "effect.unknown")
+        .unwrap_or_else(|| panic!("expected unknown effect label: {diagnostics:#?}"));
+    let unknown_span = unknown.span.as_ref().expect("unknown effect label span");
+    assert_eq!(
+        (unknown_span.start.line, unknown_span.start.column),
+        (2, 35)
+    );
+    assert_eq!((unknown_span.end.line, unknown_span.end.column), (2, 47));
+}
+
+#[test]
+fn module_value_annotations_and_initializers_use_existing_type_name_rules() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Idle\n",
+            "end\n",
+            "let good: State::Idle = State::Idle\n",
+            "let wrong: Option<Int>::Absent = None\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "name.invalid_case"
+                || !diagnostic.message.contains("module name `State`")
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.variant_refinement_unknown"
+                && diagnostic.message.contains("variant `Absent`")
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+mod invariants;

@@ -1,0 +1,51 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["type.not_callable", "module_value_declaration", "module.value_not_executable"]
+not_contains = ["unresolved call_target `answer`"]
+
+[stderr]
+format = "empty"
+
+[[diagnostics]]
+id = "type.not_callable"
+severity = "error"
+kind = "type"
+
+[[json_assert]]
+path = "diagnostics.1.details.actual"
+equals = "module_value"
+
+[[json_assert]]
+path = "diagnostics.1.span.start.line"
+equals = 4
+
+[[json_assert]]
+path = "diagnostics.1.span.start.column"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.1.span.end.line"
+equals = 4
+
+[[json_assert]]
+path = "diagnostics.1.span.end.column"
+equals = 16
+
+[[json_assert]]
+path = "diagnostics.1.related.0.kind"
+equals = "module_value_declaration"
+
+[[json_assert]]
+path = "diagnostics.1.related.0.message"
+equals = "Module value `answer` is declared here."
+
+[[json_assert]]
+path = "diagnostics.1.related.0.span.start.line"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.1.related.0.span.start.column"
+equals = 1

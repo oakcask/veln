@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[name.unresolved]: unresolved type `T`", "error[module.value_not_executable]: module value declaration `open` is not executable"]
+
+[stderr]
+format = "empty"

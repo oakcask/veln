@@ -55,10 +55,38 @@ that position admits both namespaces. Namespace selection is therefore fixed
 by the syntactic role, while same-namespace duplicates remain errors and
 unrelated namespaces may share a spelling.
 
-A typed module `let` is preserved by parsing and lowering, but it does not
-enter the implemented value namespace. Its declaration identity, qualified or
-unqualified lookup, visibility, and shadowing behavior remain unavailable;
-project analysis reports `module.value_not_executable` before those operations.
+A typed module `let` enters the declaring module's value namespace with the
+identity of its module and declared name. Its written annotation supplies the
+reference type. A same-module reference can use the bare name, the complete
+declaring module path, or the declaring module path's final segment as its only
+qualifier. Any longer qualifier must equal the complete declaring module path;
+an added prefix does not resolve. An exact written import that matches a
+qualified spelling takes precedence over same-module leaf shortening. Failure
+to find the requested imported member does not fall back to the local module
+value. These references resolve throughout the module, including before the
+declaration. A parameter or local binding wins over a same-spelled module value
+for a bare reference. Functions, public function aliases, and module values
+share one duplicate-name check.
+A collision makes every module-value declaration with that identity
+unavailable, and declarations that depend on it are unavailable while
+unrelated module values retain their semantic facts. A module-value declaration
+with invalid casing is unavailable under the same dependency rule. An
+unavailable same-module identity still reserves its name. A value read from
+that identity has no type fact, and a call does not select a declaration, emit
+`type.not_callable`, or fall through to another callable with the same name.
+Call arguments are still checked independently. A selected available module
+value used as a call target reports `type.not_callable` with that declaration's
+context and does not fall through to callable lookup. Only a missing identity
+continues through ordinary value or call resolution. Imported lookup and
+visibility for module values are not implemented.
+
+Explicit type arguments on a bare or qualified call target do not change that
+selection. A visible local binding still takes precedence. Otherwise an
+available module value is selected as the non-callable declaration, and an
+unavailable identity remains reserved without exposing another callable. The
+checked [`typed call`](../../examples/specification/check/module-value-typed-call-json/)
+and [`unavailable typed call`](../../examples/specification/check/module-value-unavailable-typed-call-json/)
+cases cover both outcomes.
 
 A finite chain of public type aliases is a valid type-alias target when it
 terminates in a resolved source ADT. Every alias in the chain retains the

@@ -87,9 +87,12 @@ is owned by its module. Same-module declarations may use the short name in
 Imported declarations use the written module path, such as
 `effects [transport::DuplexStream]` and
 `perform transport::DuplexStream::read_chunk()`. Function type annotations use
-the same effect-list spelling.
-Unknown nominal effects in function type annotations are rejected at the
-effect path inside the annotation.
+the same effect-list spelling. Unknown nominal effects in function type
+annotations are rejected at the effect path inside the annotation.
+A function type nested in a module `let` annotation receives the same label
+validation. A module value has no effect row binder, so a row tail in that
+annotation reports `effect.row_unbound`; an unknown label reports
+`effect.unknown`.
 Nominal effect paths that use an import with an invalid module path segment
 follow the quarantine boundary specified by [name-resolution.md](name-resolution.md):
 one visible public effect export can suppress the derivative

@@ -180,6 +180,7 @@ pub(super) fn merge_modules(modules: Vec<SurfaceModule>) -> SurfaceModule {
         merged.handlers.extend(module.handlers);
         merged.schemas.extend(module.schemas);
         merged.types.extend(module.types);
+        merged.module_values.extend(module.module_values);
         merged.functions.extend(module.functions);
         merged.invalid_names.extend(module.invalid_names);
     }

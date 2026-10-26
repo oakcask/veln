@@ -1,0 +1,23 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["value.module_initializer_unsupported", "unresolved value `missing_argument`"]
+not_contains = [
+    "type.not_callable",
+    "unresolved call_target `invalid`",
+]
+
+[stderr]
+format = "empty"
+
+[[diagnostics]]
+id = "value.module_initializer_unsupported"
+severity = "error"
+kind = "type"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"

@@ -47,13 +47,64 @@ consumers must preserve diagnostic and related-note order.
 
 ## Diagnostic families
 
-A parse-clean module immutable value declaration reports
+A known expression form outside the module immutable value finite-data
+language reports `value.module_initializer_unsupported` at the smallest
+unsupported expression. Its details contain `phase: "type_check"` and the
+declaration `name`. Its first related entry has kind
+`module_value_declaration` and the complete declaration span. Its second has
+kind `permitted_initializers`, has no span, and names the admitted categories.
+When a call has a callee that is not a name path, the complete call is the
+smallest unsupported expression.
+Unresolved names and call targets retain `name.unresolved`, and a constructor
+with the wrong payload arity retains `core.constructor_arity_mismatch`; these
+failures do not add `value.module_initializer_unsupported`.
+
+A same-module cyclic dependency component reports one
+`value.module_initializer_cycle` at the deterministic reference that closes
+the cycle. Its details contain `phase: "type_check"`, the referring declaration
+`name`, and the referenced `target`. Related entries first list every
+participating declaration with kind `cycle_declaration`, ordered by module and
+name identity and then source location. They then list every dependency within
+the component with kind `cycle_reference`, ordered by source identity, target
+identity, and reference location. Every such entry carries the corresponding
+declaration or reference span. A reference to a colliding module-value identity
+selects no declaration and cannot create a cycle diagnostic from an arbitrary
+member of the collision. The checked
+[`cycle human`](../../examples/specification/check/module-value-initializer-cycle-human/)
+case covers the rendered primary location and related-note order; the checked
+[`cycle JSON`](../../examples/specification/check/module-value-initializer-cycle-json/)
+case covers the structured details and spans.
+
+A function type in a module value annotation uses the ordinary effect-list
+diagnostics. An unbound row tail reports `effect.row_unbound`, and an unknown
+effect label reports `effect.unknown`. Their details identify the boundary as
+`module_value_type`.
+
+An available module value selected as a call target reports
+`type.not_callable` at that target. Its details identify `call_target` as the
+failed constraint and `module_value` as the selected non-callable kind. Related
+context identifies the selected declaration. An unavailable same-module
+identity still reserves its name, but a call through it does not emit
+`type.not_callable`, select declaration context, or fall through to another
+callable. Diagnostics from independently checked call arguments remain.
+Explicit type arguments on the call target preserve both outcomes, and the
+primary span covers the complete type-applied callee. The checked typed-call
+cases cover the selected declaration, details, related context, primary span,
+and absence of an unresolved-call diagnostic in
+[`human`](../../examples/specification/check/module-value-typed-call-human/) and
+[`JSON`](../../examples/specification/check/module-value-typed-call-json/)
+output. The checked
+[`unavailable typed call`](../../examples/specification/check/module-value-unavailable-typed-call-json/)
+case covers name reservation and independent argument diagnostics.
+
+Every parse-clean module immutable value declaration also reports
 `module.value_not_executable` at the complete declaration. The diagnostic has
 kind `module` and severity `error`. Its `details` object contains
 `phase: "module"`, `field: "module_value"`, and the declaration's `name`.
-One related note explains that parsing and formatting support the declaration,
-while semantic analysis and code generation do not. This diagnostic prevents
-`veln check` success; the [source-surface specification](source-surface.md#module-immutable-value-declarations)
+One related note says that the declaration is semantically checked while
+checked-core lowering and code generation remain unavailable. This diagnostic
+prevents `veln check` success; the
+[source-surface specification](source-surface.md#module-immutable-value-declarations)
 defines the accepted declaration syntax and current implementation boundary.
 
 An unresolved call target that uses one of the

@@ -47,8 +47,11 @@ boundary.
 
 A parse-clean module immutable value declaration produces
 `module.value_not_executable`, so `check` does not report success for a source
-that contains one. The declaration remains available to parsing and
-formatting, but this gate does not type-check or publish it as a value. The
+that contains one. Before applying this checked-core gate, analysis validates
+every initializer against its written annotation, resolves acyclic same-module
+references including forward references, and reports unsupported initializer
+forms and cyclic components. Invalid declarations and their dependents do not
+provide later semantic facts. This gate still prevents lowering or publication. The
 [source-surface specification](source-surface.md#module-immutable-value-declarations)
 defines the declaration boundary, and the
 [diagnostic specification](diagnostics-json.md#diagnostic-families) defines

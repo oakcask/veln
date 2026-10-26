@@ -44,6 +44,11 @@ diagnostic and `details.expected_type` use the same rendered type. A hole with
 no concrete context retains `expected_type: "unknown"` and the unknown-type
 message.
 
+A typed module `let` annotation also supplies the expected type while its
+initializer is checked. The hole still lies outside the finite-data initializer
+language, so this context does not make the declaration valid; the hole hint
+and the unsupported-initializer error are both retained.
+
 The [control-flow result join](types.md#inference-rules) does not supply type
 context from one sibling branch or arm to another. A hole receives an
 independently available enclosing or declared expectation. Without one, it

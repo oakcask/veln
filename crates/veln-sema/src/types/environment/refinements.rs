@@ -636,6 +636,11 @@ impl TypeEnvironment {
         crate::type_syntax::builtin_type_syntax_arity(&recovered)
     }
 
+    pub(crate) fn type_path_is_resolved(&self, name: &str, current_module: Option<&str>) -> bool {
+        self.resolved_type_path_arity(name, current_module)
+            .is_some()
+    }
+
     fn is_variant_refinement_candidate(&self, ty: &Type, current_module: Option<&str>) -> bool {
         match ty {
             Type::VariantRefinement { .. } => true,

@@ -85,6 +85,8 @@ mod standard_subset;
 
 #[derive(Clone)]
 pub(crate) struct TypeEnvironment {
+    module_values: Vec<ModuleValueSignature>,
+    module_values_by_identity: HashMap<(Option<String>, String), ModuleValueIndex>,
     functions: Vec<FunctionSignature>,
     functions_by_name: HashMap<String, Vec<usize>>,
     unpublished_functions: HashSet<FunctionPublicationKey>,
@@ -115,6 +117,73 @@ pub(crate) struct VariantRefinementBaseFailure {
 }
 
 impl TypeEnvironment {
+    pub(crate) fn quarantine_module_values(
+        &mut self,
+        invalid: &BTreeSet<(Option<String>, String)>,
+    ) {
+        for value in &mut self.module_values {
+            value.available = value.declaration.name.as_ref().is_some_and(|name| {
+                !invalid.contains(&(value.declaration.module_name.clone(), name.clone()))
+            });
+        }
+    }
+
+    pub(crate) fn module_value_path(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> ModuleValueLookup<'_> {
+        let Some((name, _)) = segments.split_last() else {
+            return ModuleValueLookup::Missing;
+        };
+        if !self.same_module_value_path_matches(segments, current_module) {
+            return ModuleValueLookup::Missing;
+        }
+        match self
+            .module_values_by_identity
+            .get(&(current_module.map(str::to_owned), name.clone()))
+        {
+            Some(ModuleValueIndex::Unique(index)) => {
+                let value = &self.module_values[*index];
+                if value.available {
+                    ModuleValueLookup::Available(value)
+                } else {
+                    ModuleValueLookup::Unavailable
+                }
+            }
+            Some(ModuleValueIndex::Collision) => ModuleValueLookup::Unavailable,
+            None => ModuleValueLookup::Missing,
+        }
+    }
+
+    pub(crate) fn same_module_value_path_matches(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> bool {
+        let Some((_, qualifier)) = segments.split_last() else {
+            return false;
+        };
+        if qualifier.is_empty() {
+            return true;
+        }
+        let Some(module) = current_module else {
+            return false;
+        };
+        let qualifier = qualifier.join("::");
+        if self.uses.iter().any(|use_decl| {
+            crate::name_recovery::use_decl_matches_exact_import_path(
+                use_decl,
+                &qualifier,
+                current_module,
+            )
+        }) {
+            return false;
+        }
+        qualifier == module
+            || (!qualifier.contains("::") && module.rsplit("::").next() == Some(qualifier.as_str()))
+    }
+
     pub(crate) fn invalid_cased_path_segment<'a>(
         &'a self,
         segments: &[String],

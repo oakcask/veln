@@ -37,10 +37,11 @@ dependency declaration blocks the run; unreachable declarations in an imported
 dependency and diagnostics in an unimported manifest dependency do not. An
 unreachable local function does not block the selected entry.
 
-A module immutable value declaration in the selected analysis produces
-`module.value_not_executable` before backend launch. It cannot supply a value
-to the selected program, even when its initializer is otherwise a valid
-expression.
+A module immutable value declaration in the selected analysis is semantically
+checked before backend launch. Invalid finite-data initializers, annotation
+mismatches, and dependency cycles report their semantic diagnostics. Every
+declaration also produces `module.value_not_executable`, so even a valid
+initializer cannot supply a value to the selected program.
 
 Variant-refinement errors inside that existing analysis boundary block backend
 launch, including errors for which recovery retains a type or constructor

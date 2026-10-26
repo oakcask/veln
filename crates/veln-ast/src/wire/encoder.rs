@@ -149,6 +149,7 @@ impl Writer {
         self.option(&value.name, |writer, value| writer.string(value));
         self.option(&value.name_span, Self::span);
         self.string(&value.annotation);
+        self.span(&value.annotation_span);
         self.vec(&value.annotation_paths, Self::type_path_segments);
         self.vec(&value.annotation_refinements, Self::variant_refinement);
         self.expr(&value.initializer);

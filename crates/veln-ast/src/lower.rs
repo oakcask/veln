@@ -232,6 +232,7 @@ impl AstBuilder {
             name: value.name.clone(),
             name_span: value.name_span.clone(),
             annotation: value.annotation.clone(),
+            annotation_span: value.annotation_span.clone(),
             annotation_paths: value.annotation_paths.clone(),
             annotation_refinements: value.annotation_refinements.clone(),
             initializer: self.lower_expr(&value.initializer),

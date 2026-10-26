@@ -1,7 +1,26 @@
-use veln_ast::{NodeId, SchemaField, Visibility};
+use veln_ast::{ModuleValueDecl, NodeId, SchemaField, Visibility};
 use veln_source::SourceSpan;
 
 use crate::semantic_model::Type;
+
+#[derive(Clone)]
+pub(crate) struct ModuleValueSignature {
+    pub(crate) declaration: ModuleValueDecl,
+    pub(crate) ty: Type,
+    pub(crate) available: bool,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum ModuleValueIndex {
+    Unique(usize),
+    Collision,
+}
+
+pub(crate) enum ModuleValueLookup<'a> {
+    Available(&'a ModuleValueSignature),
+    Unavailable,
+    Missing,
+}
 
 #[derive(Clone)]
 pub(crate) struct EffectSignature {

@@ -56,6 +56,7 @@ pub struct ModuleValueDecl {
     pub name: Option<String>,
     pub name_span: Option<SourceSpan>,
     pub annotation: String,
+    pub annotation_span: SourceSpan,
     pub annotation_paths: Vec<TypePathSegments>,
     pub annotation_refinements: Vec<VariantRefinementType>,
     pub initializer: Expr,

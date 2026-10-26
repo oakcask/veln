@@ -77,6 +77,20 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
             &alias.span,
         );
     }
+    for value in &module.module_values {
+        let Some(name) = &value.name else {
+            continue;
+        };
+        record_name(
+            &mut seen,
+            &mut diagnostics,
+            value.module_name.as_deref(),
+            name,
+            ("function", "module value declaration"),
+            value.node_id.display("module-value"),
+            &value.span,
+        );
+    }
 
     diagnostics
 }
