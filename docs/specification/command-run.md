@@ -32,10 +32,13 @@ even when `--json` is present; they do not produce a run JSON envelope.
 Parse, selected source-path module identity, entry resolution, argument
 conversion, selected semantic diagnostics, reachable holes, checked-core
 readiness, and typed-IR readiness all gate backend launch. Reachability follows
-qualified calls through selected-file `use` aliases. A reachable invalid
-dependency declaration blocks the run; unreachable declarations in an imported
-dependency and diagnostics in an unimported manifest dependency do not. An
-unreachable local function does not block the selected entry.
+qualified calls through selected-file imports. An explicit alias qualifier and
+the import's full written path select the same target identity for reachability;
+the [name-resolution specification](name-resolution.md#explicit-import-aliases)
+defines their lookup boundary. A reachable invalid dependency declaration
+blocks the run; unreachable declarations in an imported dependency and
+diagnostics in an unimported manifest dependency do not. An unreachable local
+function does not block the selected entry.
 
 A module immutable value declaration in the selected analysis is semantically
 checked before backend launch. Invalid finite-data initializers, annotation

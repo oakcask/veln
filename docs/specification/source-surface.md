@@ -469,7 +469,6 @@ ModuleHeader  ::= "mod" ModuleHeaderPath NL
 UseDecl       ::= "use" ModulePath UseAlias? ImportSource? NL
 UseAlias      ::= "as" AliasName
 AliasName     ::= Identifier
-UseAlias      ::= "as" AliasName
 ImportSource  ::= "from" PackageString
 ModuleHeaderPath ::= ModuleHeaderSegment ("::" ModuleHeaderSegment)*
 ModuleHeaderSegment ::= Name | HoleName

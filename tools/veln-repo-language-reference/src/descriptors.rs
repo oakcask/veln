@@ -46,13 +46,16 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
             summary: "Modules declare package-local paths, import modules or packages, and publish selected declarations through explicit public forms.",
             keywords: &["modules", "imports", "packages", "exports", "visibility"],
             body: &[
-                "The topic selects grammar for module headers, imports, package strings, member paths, and public aliases.",
+                "The topic selects grammar for module headers, imports, explicit import aliases, package strings, member paths, and public aliases.",
+                "An explicit import alias is a local qualifier written after the target module path and before an optional package source. It selects the imported target identity without contributing the target's implicit leaf qualifier or bare exports. The current source-surface and name-resolution specifications define its casing, collision, visibility, and recovery boundaries.",
                 "The selected example comes from a successful module-import specification case.",
             ],
             related: &["declarations-aliases", "tests-docs-doctests"],
             grammar: &[
                 "ModuleHeader",
                 "UseDecl",
+                "UseAlias",
+                "AliasName",
                 "ImportSource",
                 "ModulePath",
                 "PublicAlias",
