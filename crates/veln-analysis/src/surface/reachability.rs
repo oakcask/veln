@@ -28,6 +28,12 @@ use targets::*;
 struct LocalNameBinding(String);
 
 type BlockedImportAliases = HashSet<(Option<String>, String)>;
+type BlockedExactImportPaths = HashSet<(Option<String>, String)>;
+
+struct BlockedImports {
+    aliases: BlockedImportAliases,
+    exact_paths: BlockedExactImportPaths,
+}
 
 #[cfg(test)]
 pub(crate) fn reachable_entry_module(

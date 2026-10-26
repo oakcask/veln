@@ -41,7 +41,7 @@ pub(super) fn function_alias_targets(
     function_targets: &[FunctionTarget],
 ) -> Vec<FunctionTarget> {
     let uses = inputs.uses();
-    let blocked_import_aliases = inputs.blocked_import_aliases();
+    let blocked_imports = inputs.blocked_imports();
     inputs
         .aliases()
         .filter(|alias| alias.kind == PublicAliasKind::Function)
@@ -51,7 +51,7 @@ pub(super) fn function_alias_targets(
             let target = target_for_alias_path(
                 &alias.target,
                 &uses,
-                blocked_import_aliases,
+                blocked_imports,
                 function_targets,
                 alias.module_name.as_deref(),
             )?;
@@ -94,7 +94,7 @@ pub(super) fn companion_alias_targets_imported_private_function(
 pub(super) fn target_for_alias_path<'a>(
     segments: &[String],
     uses: &[&UseDecl],
-    blocked_import_aliases: &BlockedImportAliases,
+    blocked_imports: &BlockedImports,
     function_targets: &'a [FunctionTarget],
     current_module: Option<&str>,
 ) -> Option<&'a FunctionTarget> {
@@ -109,7 +109,7 @@ pub(super) fn target_for_alias_path<'a>(
         [_, .., name] => {
             let use_decl = imported_use_for_path(
                 uses,
-                blocked_import_aliases,
+                blocked_imports,
                 &segments[..segments.len() - 1],
                 current_module,
             )?;

@@ -141,8 +141,8 @@ impl<'a> ReachabilityInputs<'a> {
         self.use_index.valid.clone()
     }
 
-    pub(super) fn blocked_import_aliases(&self) -> &BlockedImportAliases {
-        &self.use_index.blocked_aliases
+    pub(super) fn blocked_imports(&self) -> &BlockedImports {
+        &self.use_index.blocked
     }
 
     pub(super) fn invalid_uses(&self) -> impl Iterator<Item = &'a UseDecl> + '_ {
@@ -194,7 +194,7 @@ impl<'a> ReachabilityInputs<'a> {
 struct UseIndex<'a> {
     valid: Vec<&'a UseDecl>,
     invalid: Vec<InvalidUse<'a>>,
-    blocked_aliases: BlockedImportAliases,
+    blocked: BlockedImports,
 }
 
 struct InvalidUse<'a> {
@@ -218,6 +218,12 @@ impl<'a> UseIndex<'a> {
         let blocked_aliases = blocked_import_aliases(&declarations);
         let duplicate_targets = duplicate_import_targets(&declarations);
         let (invalid_segments_by_file, invalid_alias_spans) = invalid_import_names(&modules);
+        let blocked_exact_paths = blocked_exact_import_paths(
+            &declarations,
+            &invalid_segments_by_file,
+            &invalid_alias_spans,
+            &duplicate_targets,
+        );
         let (valid, invalid) = classify_use_declarations(
             &declarations,
             &invalid_segments_by_file,
@@ -228,9 +234,67 @@ impl<'a> UseIndex<'a> {
         Self {
             valid,
             invalid,
-            blocked_aliases,
+            blocked: BlockedImports {
+                aliases: blocked_aliases,
+                exact_paths: blocked_exact_paths,
+            },
         }
     }
+}
+
+fn blocked_exact_import_paths(
+    declarations: &[&UseDecl],
+    invalid_segments_by_file: &HashMap<veln_source::SourcePath, Vec<&veln_ast::InvalidName>>,
+    invalid_alias_spans: &InvalidNameSpans,
+    duplicate_targets: &HashSet<UseTarget>,
+) -> BlockedExactImportPaths {
+    let mut groups = HashMap::<(Option<String>, String), (usize, bool)>::new();
+    for declaration in declarations.iter().copied().filter(|declaration| {
+        declaration.origin == veln_ast::UseOrigin::Source && !declaration.recovered
+    }) {
+        let module_path_is_valid = invalid_segments_by_file
+            .get(&declaration.span.file)
+            .is_none_or(|candidates| {
+                invalid_segments_in_span(candidates, &declaration.span).is_empty()
+            });
+        let invalid_alias = declaration
+            .alias_span
+            .as_ref()
+            .is_some_and(|span| invalid_alias_spans.contains(&span_key(span)));
+        let duplicate_target = duplicate_targets.contains(&use_target(declaration));
+        let quarantined = !is_valid_use(
+            declaration,
+            module_path_is_valid,
+            invalid_alias,
+            duplicate_target,
+        );
+        let mut exact_paths = vec![declaration.written_name.clone()];
+        if standard_import_has_relative_spelling(declaration)
+            && let Some(relative) = declaration.written_name.strip_prefix("std::")
+        {
+            exact_paths.push(relative.to_string());
+        }
+        for path in exact_paths {
+            let group = groups
+                .entry((declaration.module_name.clone(), path))
+                .or_default();
+            group.0 += 1;
+            group.1 |= quarantined;
+        }
+    }
+    groups
+        .into_iter()
+        .filter_map(|(path, (count, quarantined))| (count != 1 || quarantined).then_some(path))
+        .collect()
+}
+
+fn standard_import_has_relative_spelling(declaration: &UseDecl) -> bool {
+    declaration.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+        || (declaration.package.is_none()
+            && declaration
+                .module_name
+                .as_deref()
+                .is_some_and(|module| module.starts_with("std::")))
 }
 
 fn blocked_import_aliases(declarations: &[&UseDecl]) -> BlockedImportAliases {

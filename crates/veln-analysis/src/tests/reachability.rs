@@ -116,3 +116,66 @@ fn shared_analysis_keeps_generated_doctest_sources_project_local() {
     assert_eq!(cache.standard_prepares(), 1);
     assert_eq!(cache.application_analyses(), 4);
 }
+
+#[test]
+fn reachable_lowering_does_not_diagnose_blocked_exact_alias_fallback_body() {
+    for imports in [
+        [
+            "use foo as first\n",
+            "use foo as second\n",
+            "use bar as foo\n",
+        ],
+        [
+            "use bar as foo\n",
+            "use foo as second\n",
+            "use foo as first\n",
+        ],
+    ] {
+        let analysis = analyze_project(
+            Project {
+                root: ".".into(),
+                files: vec![
+                    SourceFile::new(
+                        "main.veln",
+                        format!(
+                            "{}{}{}pub fn main() -> Int\n  foo::hit()\nend\n",
+                            imports[0], imports[1], imports[2]
+                        ),
+                    ),
+                    SourceFile::new("foo.veln", "pub fn hit() -> Int\n  1\nend\n"),
+                    SourceFile::new("bar.veln", "pub fn hit() -> Int\n  missing()\nend\n"),
+                ],
+                manifest: None,
+            },
+            DoctestMode::Exclude,
+        );
+        let reachable = analysis.lower_reachable_entry("main", FunctionKind::Function);
+        let diagnostics = &reachable.lowered.diagnostics;
+
+        assert_eq!(
+            diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.id.as_str())
+                .collect::<Vec<_>>(),
+            ["name.duplicate", "name.unresolved"],
+            "imports={imports:?}, diagnostics={diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.message.contains("missing")),
+            "imports={imports:?}, diagnostics={diagnostics:#?}"
+        );
+        assert_eq!(
+            reachable
+                .module
+                .functions
+                .iter()
+                .filter_map(|function| {
+                    Some((function.module_name.as_deref()?, function.name.as_deref()?))
+                })
+                .collect::<Vec<_>>(),
+            [("main", "main")]
+        );
+    }
+}

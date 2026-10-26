@@ -88,10 +88,10 @@ pub(super) fn path_has_valid_constructor(
     arg_count: Option<usize>,
     current_module: Option<&str>,
     uses: &[&UseDecl],
-    blocked_import_aliases: &BlockedImportAliases,
+    blocked_imports: &BlockedImports,
     types: &[&veln_ast::TypeDecl],
 ) -> bool {
-    let target = visible_path_target(uses, blocked_import_aliases, segments, current_module);
+    let target = visible_path_target(uses, blocked_imports, segments, current_module);
     let leaf = path_leaf(segments);
     types.iter().copied().any(|type_decl| {
         declaration_visible(
@@ -147,7 +147,7 @@ pub(super) fn collect_function_name_reference(
         None,
         current_module,
         uses,
-        context.blocked_import_aliases,
+        context.blocked_imports,
         types,
     ) {
         return;
@@ -163,7 +163,7 @@ pub(super) fn collect_function_name_reference(
         segments,
         current_module,
         uses,
-        context.blocked_import_aliases,
+        context.blocked_imports,
         function_targets,
         access_targets,
         arg_count,
@@ -191,7 +191,7 @@ pub(super) fn collect_handler_operation_clause_callees(
             [_, .., segment] => {
                 let Some(use_decl) = imported_use_for_path(
                     outer_context.uses,
-                    outer_context.blocked_import_aliases,
+                    outer_context.blocked_imports,
                     &handler[..handler.len() - 1],
                     outer_context.current_module,
                 ) else {
@@ -206,7 +206,7 @@ pub(super) fn collect_handler_operation_clause_callees(
         let context = FunctionCalleeContext {
             current_module: outer_context.current_module,
             uses: outer_context.uses,
-            blocked_import_aliases: outer_context.blocked_import_aliases,
+            blocked_imports: outer_context.blocked_imports,
             function_targets: outer_context.function_targets,
             companion_access_targets: outer_context.companion_access_targets,
             handlers: outer_context.handlers,
@@ -236,7 +236,7 @@ pub(super) fn resolve_function_reference(
     segments: &[String],
     current_module: Option<&str>,
     uses: &[&UseDecl],
-    blocked_import_aliases: &BlockedImportAliases,
+    blocked_imports: &BlockedImports,
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
     arg_count: Option<usize>,
@@ -256,7 +256,7 @@ pub(super) fn resolve_function_reference(
         [_, .., name] => {
             let Some(use_decl) = imported_use_for_path(
                 uses,
-                blocked_import_aliases,
+                blocked_imports,
                 &segments[..segments.len() - 1],
                 current_module,
             ) else {
@@ -301,9 +301,28 @@ pub(super) fn recovery_target_accepts_arg_count(
 
 pub(super) fn imported_use_for_path<'a>(
     uses: &'a [&'a UseDecl],
-    blocked_import_aliases: &BlockedImportAliases,
+    blocked_imports: &BlockedImports,
     segments: &[String],
     current_module: Option<&str>,
+) -> Option<&'a UseDecl> {
+    imported_use_for_path_with_exact_mode(uses, blocked_imports, segments, current_module, true)
+}
+
+pub(super) fn recovery_imported_use_for_path<'a>(
+    uses: &'a [&'a UseDecl],
+    blocked_imports: &BlockedImports,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<&'a UseDecl> {
+    imported_use_for_path_with_exact_mode(uses, blocked_imports, segments, current_module, false)
+}
+
+fn imported_use_for_path_with_exact_mode<'a>(
+    uses: &'a [&'a UseDecl],
+    blocked_imports: &BlockedImports,
+    segments: &[String],
+    current_module: Option<&str>,
+    blocked_exact_wins: bool,
 ) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
     let candidates = uses
@@ -315,10 +334,22 @@ pub(super) fn imported_use_for_path<'a>(
         use_decl.written_name == module_path
             || standard_package_relative_import_matches(use_decl, &module_path, current_module)
     });
+    let blocked_exact = blocked_imports
+        .exact_paths
+        .contains(&(current_module.map(str::to_string), module_path.clone()));
+    if blocked_exact_wins && blocked_exact {
+        return None;
+    }
     if let Some(first) = exact.next() {
         return exact.next().is_none().then_some(first);
     }
-    if blocked_import_aliases.contains(&(current_module.map(str::to_string), module_path.clone())) {
+    if blocked_exact {
+        return None;
+    }
+    if blocked_imports
+        .aliases
+        .contains(&(current_module.map(str::to_string), module_path.clone()))
+    {
         return None;
     }
     let mut aliases = candidates

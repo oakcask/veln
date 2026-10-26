@@ -13,7 +13,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         let constructors_by_name = index_constructors_by_name(&types);
         Self {
             uses: inputs.uses(),
-            blocked_import_aliases: inputs.blocked_import_aliases(),
+            blocked_imports: inputs.blocked_imports(),
             invalid_uses: inputs.invalid_uses().collect(),
             invalid_use_segments: inputs
                 .invalid_uses_with_segments()
@@ -429,9 +429,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         current_module: Option<&str>,
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) -> bool {
-        let Some(use_decl) = imported_use_for_path(
+        let Some(use_decl) = recovery_imported_use_for_path(
             &self.invalid_uses,
-            self.blocked_import_aliases,
+            self.blocked_imports,
             &segments[..segments.len().saturating_sub(1)],
             current_module,
         ) else {

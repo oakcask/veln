@@ -509,6 +509,47 @@ fn run_entry_does_not_reach_qualified_call_without_import_alias() {
 }
 
 #[test]
+fn duplicate_exact_import_path_does_not_reach_explicit_alias_fallback() {
+    for imports in [
+        [
+            "use foo as first\n",
+            "use foo as second\n",
+            "use bar as foo\n",
+        ],
+        [
+            "use bar as foo\n",
+            "use foo as second\n",
+            "use foo as first\n",
+        ],
+    ] {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    format!(
+                        "{}{}{}pub fn main() -> Int\n  foo::hit()\nend\n",
+                        imports[0], imports[1], imports[2]
+                    ),
+                ),
+                SourceFile::new("foo.veln", "pub fn hit() -> Int\n  1\nend\n"),
+                SourceFile::new("bar.veln", "pub fn hit() -> Int\n  missing()\nend\n"),
+            ],
+            manifest: None,
+        };
+        let (module, _) = load_surface_module(&project);
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert_eq!(
+            reachable_function_names(&reachable),
+            vec![("main", "main")],
+            "imports={imports:?}"
+        );
+    }
+}
+
+#[test]
 fn contract_reachability_ignores_function_names_inside_strings() {
     let module = lower(concat!(
         "fn positive(value: Int) -> Bool\n",
