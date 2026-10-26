@@ -150,3 +150,8 @@ digest, or size-limit drift. The
 `test--language-reference-catalog` GitHub Actions workflow runs the same
 freshness command for pull requests and main-branch pushes whose path filters
 can affect catalog generation.
+
+A catalog content change also changes the snapshot URIs recorded by the
+checked agent-routing scenarios. The
+[agent language routing verification](agent-language-routing.md#verification)
+owns the current and archived snapshot-fixture refresh contract.
