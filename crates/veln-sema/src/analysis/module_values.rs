@@ -1,7 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
 use veln_ast::{
-    BodyLine, BodyLineKind, Function, FunctionKind, PublicAliasKind, SurfaceModule, Visibility,
+    BodyLine, BodyLineKind, Function, FunctionKind, NameClass, NameOccurrence, PublicAliasKind,
+    SurfaceModule, Visibility,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
@@ -18,6 +19,12 @@ use admission::{check_admitted_expr, collect_dependencies};
 pub(super) struct Dependency {
     target: usize,
     span: veln_source::SourceSpan,
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum ModuleValueIndex {
+    Unique(usize),
+    Collision,
 }
 
 pub(crate) struct ModuleValueAnalysis {
@@ -71,9 +78,11 @@ pub(crate) fn check_module_values(
     let mut diagnostics = Vec::new();
     let mut dependencies = vec![Vec::new(); module.module_values.len()];
     let colliding_identities = colliding_module_value_identities(module);
-    environment.quarantine_module_values(&colliding_identities);
-    let mut invalid = initially_invalid_values(module, &colliding_identities);
-    let value_indices = module_value_indices(module);
+    let mut initially_invalid = colliding_identities.clone();
+    initially_invalid.extend(invalid_cased_module_value_identities(module));
+    environment.quarantine_module_values(&initially_invalid);
+    let mut invalid = initially_invalid_values(module, &initially_invalid);
+    let value_indices = module_value_indices(module, &colliding_identities);
 
     for (index, value) in module.module_values.iter().enumerate() {
         invalid[index] |= check_module_value(
@@ -125,33 +134,78 @@ fn initially_invalid_values(
         .collect()
 }
 
-fn module_value_indices(module: &SurfaceModule) -> HashMap<(Option<String>, String), usize> {
+fn module_value_indices(
+    module: &SurfaceModule,
+    colliding_identities: &BTreeSet<(Option<String>, String)>,
+) -> HashMap<(Option<String>, String), ModuleValueIndex> {
     let mut indices = HashMap::new();
     for (index, value) in module.module_values.iter().enumerate() {
         if let Some(name) = &value.name {
-            indices
-                .entry((value.module_name.clone(), name.clone()))
-                .or_insert(index);
+            let identity = (value.module_name.clone(), name.clone());
+            let indexed = if colliding_identities.contains(&identity) {
+                ModuleValueIndex::Collision
+            } else {
+                ModuleValueIndex::Unique(index)
+            };
+            indices.entry(identity).or_insert(indexed);
         }
     }
     indices
 }
 
+fn invalid_cased_module_value_identities(
+    module: &SurfaceModule,
+) -> BTreeSet<(Option<String>, String)> {
+    let invalid_declaration_spans = module
+        .invalid_names
+        .iter()
+        .filter(|invalid| {
+            invalid.class == NameClass::ValueBinding
+                && invalid.occurrence == NameOccurrence::Declaration
+        })
+        .map(|invalid| {
+            (
+                invalid.span.file.clone(),
+                invalid.span.start.offset,
+                invalid.span.end.offset,
+            )
+        })
+        .collect::<BTreeSet<_>>();
+    module
+        .module_values
+        .iter()
+        .filter_map(|value| {
+            let name = value.name.as_ref()?;
+            let name_span = value.name_span.as_ref()?;
+            invalid_declaration_spans
+                .contains(&(
+                    name_span.file.clone(),
+                    name_span.start.offset,
+                    name_span.end.offset,
+                ))
+                .then(|| (value.module_name.clone(), name.clone()))
+        })
+        .collect()
+}
+
 fn check_module_value(
     value: &veln_ast::ModuleValueDecl,
     index: usize,
-    value_indices: &HashMap<(Option<String>, String), usize>,
+    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
     environment: &TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
     dependencies: &mut Vec<Dependency>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> bool {
+    let mut has_invalid_dependency = false;
     collect_dependencies(
         &value.initializer,
         value.module_name.as_deref(),
         value_indices,
+        environment,
         &mut Vec::new(),
         dependencies,
+        &mut has_invalid_dependency,
     );
     let diagnostic_start = diagnostics.len();
     let parsed_annotation = parse_type_annotation(&value.annotation).ok();
@@ -190,7 +244,7 @@ fn check_module_value(
     if !annotation_is_closed {
         push_unresolved_annotation_paths(value, environment, diagnostic_start, diagnostics);
     }
-    diagnostics.len() != diagnostic_start || !annotation_is_closed
+    diagnostics.len() != diagnostic_start || !annotation_is_closed || has_invalid_dependency
 }
 
 fn synthetic_module_value_function(value: &veln_ast::ModuleValueDecl, index: usize) -> Function {

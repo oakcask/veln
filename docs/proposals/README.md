@@ -21,9 +21,9 @@ also states it.
   [schema-runtime-refinement-validation.md](schema-runtime-refinement-validation.md).
 - With current typed module `let` source syntax and formatting as implemented
   prerequisites and same-module semantic analysis implemented, add imported
-  lookup and cross-module dependency validation, function-alias wrong-kind
-  rejection, visibility, execution, documentation publication, and
-  language-service navigation:
+  lookup, cross-module stable identity and dependency validation,
+  function-alias wrong-kind rejection, visibility, execution, documentation
+  publication, and language-service navigation:
   [module-immutable-values.md](module-immutable-values.md).
 - Generic named-type variance and function assignability:
   [generic-and-function-variance.md](generic-and-function-variance.md).

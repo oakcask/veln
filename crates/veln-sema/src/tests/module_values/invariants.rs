@@ -261,10 +261,65 @@ fn duplicate_module_values_are_quarantined_independently_of_source_order() {
             1,
             "{diagnostics:#?}"
         );
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "value.module_initializer_cycle"),
+            "{diagnostics:#?}"
+        );
     }
 
-    assert_quarantine("let shared: Int = 1\n", "let shared: String = \"one\"\n");
-    assert_quarantine("let shared: String = \"one\"\n", "let shared: Int = 1\n");
+    assert_quarantine(
+        "let shared: Int = shared\n",
+        "let shared: String = \"one\"\n",
+    );
+    assert_quarantine(
+        "let shared: String = \"one\"\n",
+        "let shared: Int = shared\n",
+    );
+}
+
+#[test]
+fn invalid_cased_module_values_quarantine_their_dependents() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "let BadName: Int = 1\n",
+            "let dependent: Int = BadName\n",
+            "let independent: Int = 1\n",
+            "fn reads_invalid() -> String\n",
+            "  BadName\n",
+            "end\n",
+            "fn reads_dependent() -> String\n",
+            "  dependent\n",
+            "end\n",
+            "fn reads_independent() -> String\n",
+            "  independent\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
+        .collect::<Vec<_>>();
+
+    assert_eq!(mismatches.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        mismatches[0].span.as_ref().map(|span| span.start.line),
+        Some(11)
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

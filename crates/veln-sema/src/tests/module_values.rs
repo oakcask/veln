@@ -471,6 +471,52 @@ fn qualified_same_module_values_resolve_across_declaring_sources() {
 }
 
 #[test]
+fn exact_import_precedes_same_module_leaf_value_qualification() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "app::config",
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use config\n",
+                    "let answer: Int = config::answer()\n",
+                    "fn calls_import() -> Int\n",
+                    "  config::answer()\n",
+                    "end\n",
+                ),
+            ),
+        ),
+        (
+            "config",
+            SourceFile::new(
+                "config.veln",
+                concat!("pub fn answer() -> Int\n", "  1\n", "end\n"),
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "value.module_initializer_unsupported")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            !matches!(
+                diagnostic.id.as_str(),
+                "type.not_callable" | "value.module_initializer_cycle" | "name.unresolved"
+            )
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn same_module_leaf_qualification_rejects_unwritten_prefixes() {
     let module = merged_modules_with_identities(vec![
         (

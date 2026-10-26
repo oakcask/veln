@@ -641,8 +641,11 @@ withheld from later semantic facts; unrelated valid declarations remain
 available for checking function bodies. The checked
 [`module-value initializer failure`](../../examples/specification/check/module-value-initializer-unsupported-human/)
 and
+[`cycle human`](../../examples/specification/check/module-value-initializer-cycle-human/)
+cases cover the initializer boundary and the rendered cycle notes, spans, and
+order. The checked
 [`cycle JSON`](../../examples/specification/check/module-value-initializer-cycle-json/)
-cases cover the initializer and dependency boundaries. The checked
+case covers the structured related kinds and machine-readable spans. The checked
 [`admitted initializer JSON`](../../examples/specification/check/module-value-admitted-json/)
 case verifies that representative finite-data declarations reach only the
 checked-core execution gate. The checked

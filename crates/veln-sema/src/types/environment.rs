@@ -133,22 +133,42 @@ impl TypeEnvironment {
         segments: &[String],
         current_module: Option<&str>,
     ) -> Option<&ModuleValueSignature> {
-        let (qualifier, name) = segments.split_last()?;
-        let qualifier_matches = name.is_empty()
-            || current_module.is_some_and(|module| {
-                name.join("::") == module
-                    || (name.len() == 1
-                        && name
-                            .last()
-                            .is_some_and(|leaf| module.rsplit("::").next() == Some(leaf.as_str())))
-            });
-        qualifier_matches
+        let (name, _) = segments.split_last()?;
+        self.same_module_value_path_matches(segments, current_module)
             .then(|| {
                 self.module_values_by_identity
-                    .get(&(current_module.map(str::to_owned), qualifier.clone()))
+                    .get(&(current_module.map(str::to_owned), name.clone()))
             })
             .flatten()
             .map(|index| &self.module_values[*index])
+    }
+
+    pub(crate) fn same_module_value_path_matches(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> bool {
+        let Some((_, qualifier)) = segments.split_last() else {
+            return false;
+        };
+        if qualifier.is_empty() {
+            return true;
+        }
+        let Some(module) = current_module else {
+            return false;
+        };
+        let qualifier = qualifier.join("::");
+        if self.uses.iter().any(|use_decl| {
+            crate::name_recovery::use_decl_matches_exact_import_path(
+                use_decl,
+                &qualifier,
+                current_module,
+            )
+        }) {
+            return false;
+        }
+        qualifier == module
+            || (!qualifier.contains("::") && module.rsplit("::").next() == Some(qualifier.as_str()))
     }
 
     pub(crate) fn invalid_cased_path_segment<'a>(

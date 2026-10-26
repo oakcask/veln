@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use veln_ast::{BodyLine, BodyLineKind, Expr, ExprKind};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
-use super::Dependency;
+use super::{Dependency, ModuleValueIndex};
 use crate::adt::registry::ConstructorLookup;
 use crate::adt::{descriptors::AdtConstructor, type_operations as adt};
 use crate::diagnostics::span_json;
@@ -13,7 +13,7 @@ use crate::types::TypeEnvironment;
 pub(super) fn check_admitted_expr(
     expr: &Expr,
     declaration: &veln_ast::ModuleValueDecl,
-    value_indices: &HashMap<(Option<String>, String), usize>,
+    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
     environment: &TypeEnvironment,
     expected: Option<&Type>,
     diagnostics: &mut Vec<Diagnostic>,
@@ -68,12 +68,12 @@ fn check_admitted_name(
     expr: &Expr,
     segments: &[String],
     declaration: &veln_ast::ModuleValueDecl,
-    value_indices: &HashMap<(Option<String>, String), usize>,
+    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
     environment: &TypeEnvironment,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let current_module = declaration.module_name.as_deref();
-    if module_value_index(value_indices, segments, current_module).is_some()
+    if module_value_index(value_indices, segments, current_module, environment).is_some()
         || matches!(
             environment
                 .adts
@@ -112,6 +112,7 @@ fn check_admitted_call(
                     scope.value_indices,
                     segments,
                     scope.declaration.module_name.as_deref(),
+                    scope.environment,
                 )
                 .is_some()
             });
@@ -133,7 +134,7 @@ fn check_admitted_call(
 
 struct AdmissionScope<'a> {
     declaration: &'a veln_ast::ModuleValueDecl,
-    value_indices: &'a HashMap<(Option<String>, String), usize>,
+    value_indices: &'a HashMap<(Option<String>, String), ModuleValueIndex>,
     environment: &'a TypeEnvironment,
 }
 
@@ -200,18 +201,24 @@ fn check_admitted_arguments(
 pub(super) fn collect_dependencies(
     expr: &Expr,
     current_module: Option<&str>,
-    value_indices: &HashMap<(Option<String>, String), usize>,
+    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
+    environment: &TypeEnvironment,
     bindings: &mut Vec<String>,
     dependencies: &mut Vec<Dependency>,
+    has_invalid_dependency: &mut bool,
 ) {
     if let ExprKind::NamePath { segments, .. } = &expr.kind
         && !matches!(segments.as_slice(), [name] if bindings.iter().rev().any(|binding| binding == name))
-        && let Some(target) = module_value_index(value_indices, segments, current_module)
+        && let Some(target) =
+            module_value_index(value_indices, segments, current_module, environment)
     {
-        dependencies.push(Dependency {
-            target,
-            span: expr.span.clone(),
-        });
+        match target {
+            ModuleValueIndex::Unique(target) => dependencies.push(Dependency {
+                target,
+                span: expr.span.clone(),
+            }),
+            ModuleValueIndex::Collision => *has_invalid_dependency = true,
+        }
     }
     match &expr.kind {
         ExprKind::Match { scrutinee, arms } => {
@@ -219,8 +226,10 @@ pub(super) fn collect_dependencies(
                 scrutinee,
                 current_module,
                 value_indices,
+                environment,
                 bindings,
                 dependencies,
+                has_invalid_dependency,
             );
             for arm in arms {
                 let binding_count = bindings.len();
@@ -230,19 +239,37 @@ pub(super) fn collect_dependencies(
                     &arm.expr,
                     current_module,
                     value_indices,
+                    environment,
                     bindings,
                     dependencies,
+                    has_invalid_dependency,
                 );
                 bindings.truncate(binding_count);
             }
         }
         ExprKind::Begin { body, .. } => {
             let binding_count = bindings.len();
-            collect_body_dependencies(body, current_module, value_indices, bindings, dependencies);
+            collect_body_dependencies(
+                body,
+                current_module,
+                value_indices,
+                environment,
+                bindings,
+                dependencies,
+                has_invalid_dependency,
+            );
             bindings.truncate(binding_count);
         }
         _ => expr.for_each_child(&mut |child| {
-            collect_dependencies(child, current_module, value_indices, bindings, dependencies);
+            collect_dependencies(
+                child,
+                current_module,
+                value_indices,
+                environment,
+                bindings,
+                dependencies,
+                has_invalid_dependency,
+            );
         }),
     }
 }
@@ -250,27 +277,45 @@ pub(super) fn collect_dependencies(
 fn collect_body_dependencies(
     body: &[BodyLine],
     current_module: Option<&str>,
-    value_indices: &HashMap<(Option<String>, String), usize>,
+    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
+    environment: &TypeEnvironment,
     bindings: &mut Vec<String>,
     dependencies: &mut Vec<Dependency>,
+    has_invalid_dependency: &mut bool,
 ) {
     for line in body {
         match &line.kind {
             BodyLineKind::Let { pattern, expr, .. } => {
-                collect_dependencies(expr, current_module, value_indices, bindings, dependencies);
+                collect_dependencies(
+                    expr,
+                    current_module,
+                    value_indices,
+                    environment,
+                    bindings,
+                    dependencies,
+                    has_invalid_dependency,
+                );
                 pattern.for_each_binding(&mut |name| bindings.push(name.to_string()));
             }
-            BodyLineKind::Expr { expr } => {
-                collect_dependencies(expr, current_module, value_indices, bindings, dependencies)
-            }
+            BodyLineKind::Expr { expr } => collect_dependencies(
+                expr,
+                current_module,
+                value_indices,
+                environment,
+                bindings,
+                dependencies,
+                has_invalid_dependency,
+            ),
             BodyLineKind::Defer { body, .. } => {
                 let binding_count = bindings.len();
                 collect_body_dependencies(
                     body,
                     current_module,
                     value_indices,
+                    environment,
                     bindings,
                     dependencies,
+                    has_invalid_dependency,
                 );
                 bindings.truncate(binding_count);
             }
@@ -279,20 +324,14 @@ fn collect_body_dependencies(
 }
 
 fn module_value_index(
-    value_indices: &HashMap<(Option<String>, String), usize>,
+    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
     segments: &[String],
     current_module: Option<&str>,
-) -> Option<usize> {
-    let (name, qualifier) = segments.split_last()?;
-    let qualifier_matches = qualifier.is_empty()
-        || current_module.is_some_and(|module_name| {
-            qualifier.join("::") == module_name
-                || (qualifier.len() == 1
-                    && qualifier
-                        .last()
-                        .is_some_and(|leaf| module_name.rsplit("::").next() == Some(leaf.as_str())))
-        });
-    qualifier_matches
+    environment: &TypeEnvironment,
+) -> Option<ModuleValueIndex> {
+    let (name, _) = segments.split_last()?;
+    environment
+        .same_module_value_path_matches(segments, current_module)
         .then(|| value_indices.get(&(current_module.map(str::to_owned), name.clone())))
         .flatten()
         .copied()

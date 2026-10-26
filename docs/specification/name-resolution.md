@@ -60,14 +60,18 @@ identity of its module and declared name. Its written annotation supplies the
 reference type. A same-module reference can use the bare name, the complete
 declaring module path, or the declaring module path's final segment as its only
 qualifier. Any longer qualifier must equal the complete declaring module path;
-an added prefix does not resolve. These references resolve throughout the
-module, including before the declaration. A parameter or local binding wins
-over a same-spelled module value for a bare reference. Functions, public
-function aliases, and module values share one duplicate-name check.
+an added prefix does not resolve. An exact written import that matches a
+qualified spelling takes precedence over same-module leaf shortening. Failure
+to find the requested imported member does not fall back to the local module
+value. These references resolve throughout the module, including before the
+declaration. A parameter or local binding wins over a same-spelled module value
+for a bare reference. Functions, public function aliases, and module values
+share one duplicate-name check.
 A collision makes every module-value declaration with that identity
 unavailable, and declarations that depend on it are unavailable while
-unrelated module values retain their semantic facts. A selected module value
-used as a call target reports `type.not_callable` and
+unrelated module values retain their semantic facts. A module-value declaration
+with invalid casing is unavailable under the same dependency rule. A selected
+module value used as a call target reports `type.not_callable` and
 does not fall through to callable lookup. Imported lookup and visibility for
 module values are not implemented.
 
