@@ -164,47 +164,7 @@ impl<'a> Parser<'a> {
         }
 
         let (annotation, annotation_span, annotation_paths, annotation_refinements) =
-            if self.eat(TokenKind::Colon).is_some() {
-                let annotation_start = self.current().range;
-                let annotation = self.collect_type_paths_until(
-                    "module_value_declaration",
-                    &[TokenKind::Equal, TokenKind::Newline, TokenKind::Eof],
-                );
-                let annotation_end = self
-                    .previous()
-                    .map_or(annotation_start, |token| token.range);
-                if annotation.0.is_empty() {
-                    self.error_current(
-                        "parse.module_value_declaration",
-                        "module value declaration requires a type annotation",
-                        "module_value_declaration",
-                        vec!["type"],
-                        RecoveryStrategy::InsertToken,
-                        Some("="),
-                    );
-                }
-                (
-                    annotation.0,
-                    self.source.span(annotation_start.cover(annotation_end)),
-                    annotation.1,
-                    annotation.2,
-                )
-            } else {
-                self.error_current(
-                    "parse.module_value_declaration",
-                    "module value declaration requires a type annotation",
-                    "module_value_declaration",
-                    vec![":"],
-                    RecoveryStrategy::InsertToken,
-                    Some(":"),
-                );
-                (
-                    String::new(),
-                    self.source.span(self.current().range),
-                    Vec::new(),
-                    Vec::new(),
-                )
-            };
+            self.parse_module_value_annotation();
 
         self.expect(TokenKind::Equal, "module_value_declaration", vec!["="]);
         if self.at(TokenKind::Newline) || self.at(TokenKind::Eof) {
@@ -229,6 +189,57 @@ impl<'a> Parser<'a> {
             initializer,
             span: self.source.span(start.cover(end)),
         }
+    }
+
+    fn parse_module_value_annotation(
+        &mut self,
+    ) -> (
+        String,
+        SourceSpan,
+        Vec<TypePathSegments>,
+        Vec<VariantRefinementType>,
+    ) {
+        if self.eat(TokenKind::Colon).is_none() {
+            self.error_current(
+                "parse.module_value_declaration",
+                "module value declaration requires a type annotation",
+                "module_value_declaration",
+                vec![":"],
+                RecoveryStrategy::InsertToken,
+                Some(":"),
+            );
+            return (
+                String::new(),
+                self.source.span(self.current().range),
+                Vec::new(),
+                Vec::new(),
+            );
+        }
+
+        let annotation_start = self.current().range;
+        let (annotation, paths, refinements) = self.collect_type_paths_until(
+            "module_value_declaration",
+            &[TokenKind::Equal, TokenKind::Newline, TokenKind::Eof],
+        );
+        let annotation_end = self
+            .previous()
+            .map_or(annotation_start, |token| token.range);
+        if annotation.is_empty() {
+            self.error_current(
+                "parse.module_value_declaration",
+                "module value declaration requires a type annotation",
+                "module_value_declaration",
+                vec!["type"],
+                RecoveryStrategy::InsertToken,
+                Some("="),
+            );
+        }
+        (
+            annotation,
+            self.source.span(annotation_start.cover(annotation_end)),
+            paths,
+            refinements,
+        )
     }
 
     fn parse_module_value_name(&mut self) -> (Option<String>, Option<SourceSpan>) {
