@@ -97,6 +97,18 @@ output. The checked
 [`unavailable typed call`](../../examples/specification/check/module-value-unavailable-typed-call-json/)
 case covers name reservation and independent argument diagnostics.
 
+A public function alias whose target selects an available module value reports
+`name.kind_mismatch` at the alias declaration. The primary message identifies
+the target as a module value rather than a function. Its details contain
+`phase: "name"`, the alias `node_id`, `expected_kind: "function"`,
+`actual_kind: "module_value"`, and the written `target`. A target that is
+missing, ambiguous, invalid, quarantined, or otherwise unavailable retains
+`name.unresolved` instead. The checked
+[`human`](../../examples/specification/check/module-value-function-alias-kind-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-function-alias-kind-json/)
+cases cover bare same-module and qualified written-import targets.
+
 Every parse-clean module immutable value declaration also reports
 `module.value_not_executable` at the complete declaration. The diagnostic has
 kind `module` and severity `error`. Its `details` object contains
