@@ -1,6 +1,66 @@
 use super::*;
 
 #[test]
+fn expression_children_preserve_source_order_without_recursing() {
+    for (expression, expected) in expression_child_cases() {
+        let text = format!("fn example()\n  {expression}\nend\n");
+        let source = SourceFile::new("main.veln", text.clone());
+        let output = parse(&source);
+
+        assert!(
+            output.diagnostics.is_empty(),
+            "{expression}: {:#?}",
+            output.diagnostics
+        );
+        let function = first_function(&output);
+        let BodyLine::Expr { expr, .. } = &function.body[0] else {
+            panic!("expected expression body");
+        };
+        let mut children = Vec::new();
+        expr.for_each_child(&mut |child| {
+            children.push(&text[child.span.start.offset..child.span.end.offset]);
+        });
+        assert_eq!(children, expected, "{expression}");
+    }
+}
+
+fn expression_child_cases() -> Vec<(&'static str, Vec<&'static str>)> {
+    vec![
+        ("call(first(), second)", vec!["call", "first()", "second"]),
+        ("call<Int>(value)", vec!["call<Int>", "value"]),
+        ("perform Ask::value(first, second)", vec!["first", "second"]),
+        (
+            "handle body() with handler(first, second)",
+            vec!["body()", "first", "second"],
+        ),
+        ("decode Packet from input at base", vec!["input", "base"]),
+        ("encode Packet from value", vec!["value"]),
+        ("value.field", vec!["value"]),
+        ("value?", vec!["value"]),
+        ("-value", vec!["value"]),
+        ("left + right", vec!["left", "right"]),
+        ("[first(), second]", vec!["first()", "second"]),
+        ("{one: first, two: second}", vec!["first", "second"]),
+        ("{1: first, 2: second}", vec!["1", "first", "2", "second"]),
+        (
+            "match input\n    Some(bound) => first\n    None => second\n  end",
+            vec!["input", "first", "second"],
+        ),
+        (
+            "if first\n    second\n  else if third\n    fourth\n  else\n    fifth\n  end",
+            vec!["first", "second", "third", "fourth", "fifth"],
+        ),
+        (
+            "begin\n    first\n    defer\n      second\n    end\n    third\n  end",
+            vec!["first", "second", "third"],
+        ),
+        ("value", vec![]),
+        ("42", vec![]),
+        ("()", vec![]),
+    ]
+}
+
+#[test]
 fn parses_records_lists_and_formats_precedence() {
     let source = SourceFile::new(
         "main.veln",

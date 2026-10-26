@@ -7,6 +7,7 @@ mod lexer;
 mod lexical_surface;
 mod parser;
 mod token;
+mod traversal;
 mod tree;
 
 pub use ast::*;
