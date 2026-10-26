@@ -5,8 +5,8 @@ use net
 use transport::net_test_support_test
 use transport::net_resource_test_support_test
 
-fn canonical_read() -> Result<Option<ByteChunk>, std::net::NetError> effects [transport::DuplexStream]
-	perform transport::DuplexStream::read_chunk()
+fn canonical_read() -> Result<Option<ByteChunk>, std::net::NetError> effects [std::transport::DuplexStream]
+	perform std::transport::DuplexStream::read_chunk()
 end
 
 fn canonical_read_result(mode: String) -> Result<{ result : Result<Option<ByteChunk>, std::net::NetError>, trace : List<String> }, String> effects [net, time, concurrency]

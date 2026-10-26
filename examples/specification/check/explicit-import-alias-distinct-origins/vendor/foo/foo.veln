@@ -1,0 +1,7 @@
+pub type State
+	pub Ready(Int)
+end
+
+pub fn value() -> Int
+	2
+end

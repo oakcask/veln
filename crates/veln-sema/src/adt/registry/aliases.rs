@@ -303,16 +303,9 @@ impl TypeAliasTargetIndex {
         for use_decl in uses {
             let module = use_decl.module_name.clone();
             let target = use_decl.name.clone();
-            self.imports
-                .entry((module.clone(), target.clone()))
-                .or_default()
-                .exact
-                .insert(target.clone());
-            if is_standard_import(use_decl, module.as_deref())
-                && let Some(relative) = target.strip_prefix("std::")
-            {
+            for path in crate::name_recovery::use_decl_exact_paths(use_decl) {
                 self.imports
-                    .entry((module.clone(), relative.to_string()))
+                    .entry((module.clone(), path))
                     .or_default()
                     .exact
                     .insert(target.clone());
@@ -423,11 +416,6 @@ fn indexed_position(
         (Some(_), Some(_)) => IndexedPosition::Ambiguous,
         _ => unreachable!("alias target indexes are populated together"),
     }
-}
-
-fn is_standard_import(use_decl: &UseDecl, module_name: Option<&str>) -> bool {
-    use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
-        || (use_decl.package.is_none() && module_name.is_some_and(|name| name.starts_with("std::")))
 }
 
 pub(super) fn descriptor_for_alias_target<'a>(

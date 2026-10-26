@@ -273,16 +273,15 @@ impl AdtRegistry {
         self.source_import_indexes_ready = true;
         self.source_import_count = uses.len();
         self.local_descriptor_start = local_descriptor_start;
-        self.canonicalize_source_payload_types(module, source_descriptor_start);
+        self.canonicalize_source_payload_types(&uses, source_descriptor_start);
     }
 
     fn canonicalize_source_payload_types(
         &mut self,
-        module: &SurfaceModule,
+        uses: &[UseDecl],
         source_descriptor_start: usize,
     ) {
         let lookup = self.clone();
-        let uses = normal_use_decls(module);
         let no_quarantined_uses = Vec::new();
         let no_effects = Vec::new();
         let no_effect_access_targets = BTreeMap::new();
@@ -295,7 +294,7 @@ impl AdtRegistry {
                     };
                     *ty = crate::types::canonicalize_type_effects(
                         ty.clone(),
-                        &uses,
+                        uses,
                         &no_quarantined_uses,
                         descriptor.module_name.as_deref(),
                         &no_effects,
@@ -558,13 +557,7 @@ fn qualified_import_modules(
 ) -> HashMap<(Option<String>, String), QualifiedImportModules> {
     let mut modules = HashMap::<(Option<String>, String), QualifiedImportModules>::new();
     for use_decl in uses {
-        let mut exact_paths = vec![use_decl.name.clone()];
-        if let Some(relative) = use_decl.name.strip_prefix("std::") {
-            exact_paths.push(relative.to_string());
-        }
-        exact_paths.sort();
-        exact_paths.dedup();
-        for path in exact_paths {
+        for path in crate::name_recovery::use_decl_exact_paths(use_decl) {
             crate::adt::lookup_validation::record_import_path_comparison();
             modules
                 .entry((use_decl.module_name.clone(), path))

@@ -125,6 +125,20 @@ impl AdtRegistry {
         uses: &[UseDecl],
         include_imports: bool,
     ) -> ConstructorLookup<'_> {
+        if include_imports
+            && segments.len() >= 3
+            && matches!(
+                self.qualified_source_identity(
+                    &segments[segments.len() - 2],
+                    &segments[..segments.len() - 1],
+                    current_module,
+                    uses,
+                ),
+                QualifiedSourceIdentity::Ambiguous
+            )
+        {
+            return ConstructorLookup::Ambiguous;
+        }
         let mut matches =
             self.lookup_constructor_candidates(segments, current_module, uses, include_imports);
         prefer_current_module_constructors(&mut matches, segments, current_module);

@@ -2,6 +2,32 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{NameClass, NameOccurrence, PublicAlias, SurfaceModule, UseDecl};
 
+#[cfg(test)]
+use std::cell::Cell;
+
+#[cfg(test)]
+thread_local! {
+    static IMPORT_CLASSIFICATION_WORK: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_import_classification_work() {
+    IMPORT_CLASSIFICATION_WORK.set(IMPORT_CLASSIFICATION_WORK.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_import_classification_work() {}
+
+#[cfg(test)]
+pub(crate) fn reset_import_classification_work() {
+    IMPORT_CLASSIFICATION_WORK.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn import_classification_work() -> usize {
+    IMPORT_CLASSIFICATION_WORK.get()
+}
+
 pub(crate) struct InvalidAliasTargetIndex {
     spans_by_file: BTreeMap<String, Vec<(usize, usize)>>,
 }
@@ -139,18 +165,19 @@ pub(crate) fn use_decl_contributes_bare_exports(use_decl: &UseDecl) -> bool {
 }
 
 pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
-    let quarantined = module
-        .uses
-        .iter()
-        .map(|use_decl| use_decl_is_quarantined(module, use_decl))
-        .collect::<Vec<_>>();
+    let invalid_module_spans = invalid_module_spans_by_file(module);
+    let mut quarantined = vec![false; module.uses.len()];
+    let mut duplicate_target_groups =
+        BTreeMap::<(Option<String>, String, Option<String>), Vec<usize>>::new();
     let mut qualifier_groups = BTreeMap::<(Option<String>, String), (usize, bool)>::new();
     let mut exact_groups = BTreeMap::<(Option<String>, String), (usize, bool)>::new();
-    for (use_decl, quarantined) in module.uses.iter().zip(&quarantined) {
-        if use_decl.origin == veln_ast::UseOrigin::Source
-            && !use_decl.recovered
-            && !use_decl_has_reserved_alias(use_decl)
-        {
+    for (index, use_decl) in module.uses.iter().enumerate() {
+        record_import_classification_work();
+        let reserved = use_decl_has_reserved_alias(use_decl);
+        quarantined[index] = use_decl.recovered
+            || reserved
+            || use_decl_has_indexed_invalid_module_segment(&invalid_module_spans, use_decl);
+        if use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.recovered && !reserved {
             let group = qualifier_groups
                 .entry((use_decl.module_name.clone(), use_decl.alias.clone()))
                 .or_default();
@@ -158,23 +185,27 @@ pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
             group.1 |= use_decl.has_explicit_alias();
         }
         if use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.recovered {
-            let mut exact_paths = vec![use_decl.written_name.clone()];
-            if (use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
-                || (use_decl.package.is_none()
-                    && use_decl
-                        .module_name
-                        .as_deref()
-                        .is_some_and(|module| module.starts_with("std::"))))
-                && let Some(relative) = use_decl.written_name.strip_prefix("std::")
-            {
-                exact_paths.push(relative.to_string());
-            }
-            for path in exact_paths {
+            duplicate_target_groups
+                .entry((
+                    use_decl.module_name.clone(),
+                    use_decl.written_name.clone(),
+                    use_decl.package.clone(),
+                ))
+                .or_default()
+                .push(index);
+            for path in use_decl_exact_paths(use_decl) {
                 let group = exact_groups
                     .entry((use_decl.module_name.clone(), path))
                     .or_default();
                 group.0 += 1;
-                group.1 |= *quarantined;
+                group.1 |= quarantined[index];
+            }
+        }
+    }
+    for indices in duplicate_target_groups.into_values() {
+        if indices.len() > 1 {
+            for index in indices {
+                quarantined[index] = true;
             }
         }
     }
@@ -201,6 +232,73 @@ pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
             resolved
         })
         .collect()
+}
+
+fn invalid_module_spans_by_file(module: &SurfaceModule) -> BTreeMap<String, Vec<(usize, usize)>> {
+    let mut spans = BTreeMap::<String, Vec<(usize, usize)>>::new();
+    for invalid in &module.invalid_names {
+        record_import_classification_work();
+        if invalid.class == NameClass::Module
+            && matches!(
+                invalid.occurrence,
+                NameOccurrence::PathSegment | NameOccurrence::Declaration
+            )
+        {
+            spans
+                .entry(invalid.span.file.as_str().to_owned())
+                .or_default()
+                .push((invalid.span.start.offset, invalid.span.end.offset));
+        }
+    }
+    for file_spans in spans.values_mut() {
+        file_spans.sort_unstable();
+    }
+    spans
+}
+
+fn use_decl_has_indexed_invalid_module_segment(
+    invalid_module_spans: &BTreeMap<String, Vec<(usize, usize)>>,
+    use_decl: &UseDecl,
+) -> bool {
+    let Some(spans) = invalid_module_spans.get(use_decl.span.file.as_str()) else {
+        return false;
+    };
+    record_import_classification_work();
+    let first = spans.partition_point(|(start, _)| *start < use_decl.span.start.offset);
+    spans[first..]
+        .iter()
+        .take_while(|(start, _)| {
+            record_import_classification_work();
+            *start < use_decl.span.end.offset
+        })
+        .any(|(start, end)| {
+            use_decl.span.start.offset <= *start && *end <= use_decl.span.end.offset
+        })
+}
+
+pub(crate) fn use_decl_exact_paths(use_decl: &UseDecl) -> Vec<String> {
+    let mut paths = vec![use_decl.written_name.clone()];
+    if is_standard_import(use_decl) {
+        paths.push(use_decl.name.clone());
+        for path in [use_decl.written_name.as_str(), use_decl.name.as_str()] {
+            if let Some(relative) = path.strip_prefix("std::") {
+                paths.push(relative.to_string());
+            }
+        }
+    }
+    paths.sort();
+    paths.dedup();
+    paths
+}
+
+fn is_standard_import(use_decl: &UseDecl) -> bool {
+    use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+        || use_decl.name.starts_with("std::")
+        || (use_decl.package.is_none()
+            && use_decl
+                .module_name
+                .as_deref()
+                .is_some_and(|module| module.starts_with("std::")))
 }
 
 pub(crate) fn resolved_import_use_decl(use_decl: &UseDecl) -> UseDecl {
@@ -328,26 +426,9 @@ pub(crate) fn use_decl_matches_exact_import_path(
     if use_decl.module_name.as_deref() != current_module {
         return false;
     }
-    if use_decl.written_name == module_path {
-        return true;
-    }
-    if use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
-        && use_decl
-            .written_name
-            .strip_prefix("std::")
-            .is_some_and(|package_relative| package_relative == module_path)
-    {
-        return true;
-    }
-    if use_decl.package.is_some()
-        || !current_module.is_some_and(|module| module.starts_with("std::"))
-    {
-        return false;
-    }
-    use_decl
-        .written_name
-        .strip_prefix("std::")
-        .is_some_and(|package_relative| package_relative == module_path)
+    use_decl_exact_paths(use_decl)
+        .iter()
+        .any(|path| path == module_path)
 }
 
 fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str) -> bool {
@@ -365,4 +446,49 @@ pub(crate) fn use_decl_matches_implicit_import_alias(
 ) -> bool {
     use_decl.module_name.as_deref() == current_module
         && simple_import_alias_matches(use_decl, module_path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_explicit_aliases_are_atomically_quarantined() {
+        for alias in ["_wire", "_"] {
+            let source = veln_source::SourceFile::new(
+                "app.veln",
+                format!("mod app\nuse transport as {alias}\n"),
+            );
+            let parsed = veln_syntax::parse(&source);
+            assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+            let module = veln_ast::lower_surface_ast(&parsed.tree);
+            assert_eq!(module.uses.len(), 1, "alias={alias}");
+            assert!(use_decl_is_quarantined(&module, &module.uses[0]));
+            assert!(normal_use_decls(&module).is_empty(), "alias={alias}");
+        }
+    }
+
+    #[test]
+    fn normal_import_classification_work_scales_linearly() {
+        fn work(count: usize) -> usize {
+            let mut text = String::from("mod app\n");
+            for index in 0..count {
+                text.push_str(&format!("use dependency{index} as alias{index}\n"));
+            }
+            let source = veln_source::SourceFile::new("app.veln", text);
+            let parsed = veln_syntax::parse(&source);
+            assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+            let module = veln_ast::lower_surface_ast(&parsed.tree);
+            reset_import_classification_work();
+            assert_eq!(normal_use_decls(&module).len(), count);
+            import_classification_work()
+        }
+
+        let small = work(128);
+        let large = work(256);
+        assert!(
+            large <= small * 2 + 8,
+            "normal import classification must remain linear: small={small} large={large}"
+        );
+    }
 }

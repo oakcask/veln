@@ -167,12 +167,20 @@ pub(super) fn alias_kind_mismatch_diagnostic(
 pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     let mut previous = Vec::<&UseDecl>::new();
-
-    for use_decl in module
+    let mut uses = module
         .uses
         .iter()
         .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.recovered)
-    {
+        .collect::<Vec<_>>();
+    uses.sort_by(|left, right| {
+        left.span
+            .file
+            .cmp(&right.span.file)
+            .then_with(|| left.span.start.offset.cmp(&right.span.start.offset))
+            .then_with(|| left.span.end.offset.cmp(&right.span.end.offset))
+    });
+
+    for use_decl in uses {
         let duplicate_target = previous.iter().copied().find(|first| {
             first.module_name == use_decl.module_name
                 && first.written_name == use_decl.written_name

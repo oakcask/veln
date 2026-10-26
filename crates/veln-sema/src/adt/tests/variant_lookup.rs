@@ -129,6 +129,94 @@ fn exact_import_module_is_selected_before_constructor_members() {
     }
 }
 
+#[test]
+fn same_written_path_from_distinct_origins_is_ambiguous_before_alias_lookup() {
+    for source in [
+        "mod consumer\nuse foo as local\nuse foo as external from \"pkg\"\n",
+        "mod consumer\nuse foo as external from \"pkg\"\nuse foo as local\n",
+    ] {
+        let parsed = veln_syntax::parse(&veln_source::SourceFile::new("consumer.veln", source));
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let mut module = veln_ast::lower_surface_ast(&parsed.tree);
+        for use_decl in &mut module.uses {
+            if use_decl.package.as_deref() == Some("pkg") {
+                use_decl.name = "pkg::foo".to_string();
+            }
+        }
+        let base = AdtRegistry::from_parts(
+            vec![
+                lookup_descriptor("foo", 0),
+                lookup_descriptor("pkg::foo", 0),
+            ],
+            std::collections::BTreeMap::new(),
+        );
+        let registry = AdtRegistry::from_module_with_base(&module, &base);
+        let uses = crate::name_recovery::normal_use_decls(&module);
+
+        assert!(
+            registry
+                .unique_descriptor_for_type_path("foo::State", 0, Some("consumer"), &uses)
+                .is_none(),
+            "source={source:?}"
+        );
+        assert_eq!(
+            registry.constructor(&path(&["foo", "State", "Hidden"]), Some("consumer"), &uses,),
+            ConstructorLookup::Ambiguous,
+            "source={source:?}"
+        );
+        for (alias, expected_module) in [("local", "foo"), ("external", "pkg::foo")] {
+            let descriptor = registry
+                .unique_descriptor_for_type_path(
+                    &format!("{alias}::State"),
+                    0,
+                    Some("consumer"),
+                    &uses,
+                )
+                .expect("distinct aliases remain valid");
+            assert_eq!(descriptor.module_name.as_deref(), Some(expected_module));
+            assert!(matches!(
+                registry.constructor(
+                    &path(&[alias, "State", "Hidden"]),
+                    Some("consumer"),
+                    &uses,
+                ),
+                ConstructorLookup::Found(constructor)
+                    if constructor.descriptor.module_name.as_deref() == Some(expected_module)
+            ));
+        }
+    }
+}
+
+#[test]
+fn canonical_standard_path_remains_an_exact_import_spelling() {
+    let parsed = veln_syntax::parse(&veln_source::SourceFile::new(
+        "consumer.veln",
+        "mod consumer\nuse transport\n",
+    ));
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let mut module = veln_ast::lower_surface_ast(&parsed.tree);
+    module.uses[0].name = "std::transport".to_string();
+    module.uses[0].package = Some(veln_stdlib::PACKAGE_NAME.to_string());
+    let base = AdtRegistry::from_parts(
+        vec![lookup_descriptor("std::transport", 0)],
+        std::collections::BTreeMap::new(),
+    );
+    let registry = AdtRegistry::from_module_with_base(&module, &base);
+    let uses = crate::name_recovery::normal_use_decls(&module);
+
+    for qualifier in ["transport", "std::transport"] {
+        let descriptor = registry
+            .unique_descriptor_for_type_path(
+                &format!("{qualifier}::State"),
+                0,
+                Some("consumer"),
+                &uses,
+            )
+            .expect("both relative and canonical standard spellings resolve");
+        assert_eq!(descriptor.module_name.as_deref(), Some("std::transport"));
+    }
+}
+
 fn unqualified_lookup_fixture() -> (AdtRegistry, Vec<veln_ast::UseDecl>) {
     let private_dependency = lookup_descriptor("dep_private", 1);
     let public_dependency = lookup_descriptor("dep_public", 0);

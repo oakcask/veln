@@ -656,15 +656,11 @@ fn fallback_recovery_modules(
 ) -> BTreeMap<String, QualifiedImportModules> {
     let mut candidates = BTreeMap::<String, QualifiedImportModules>::new();
     for use_decl in uses {
-        let mut exact_paths = vec![use_decl.name.as_str()];
-        if let Some(relative) = use_decl.name.strip_prefix("std::") {
-            exact_paths.push(relative);
-        }
-        for path in exact_paths {
+        for path in crate::name_recovery::use_decl_exact_paths(use_decl) {
             crate::adt::lookup_validation::record_qualified_path_work(path.len());
-            if is_single_initial_recovery(qualifiers, path) {
+            if is_single_initial_recovery(qualifiers, &path) {
                 candidates
-                    .entry(path.to_string())
+                    .entry(path)
                     .or_default()
                     .exact
                     .insert(use_decl.name.clone());

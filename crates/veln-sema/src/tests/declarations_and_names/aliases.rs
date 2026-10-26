@@ -134,6 +134,96 @@ fn explicit_import_alias_collisions_and_repeated_targets_are_static_errors() {
 }
 
 #[test]
+fn explicit_import_alias_does_not_collide_with_a_value_declaration() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app\n",
+            "use alpha as shared\n",
+            "fn shared() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.duplicate"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn combined_module_import_diagnostics_use_stable_source_order() {
+    fn module(reversed: bool) -> SurfaceModule {
+        let first = SourceFile::new("a.veln", "mod app\nuse alpha as shared\n");
+        let second = SourceFile::new("z.veln", "mod app\nuse beta as shared\n");
+        let sources = if reversed {
+            vec![("app", second), ("app", first)]
+        } else {
+            vec![("app", first), ("app", second)]
+        };
+        merged_modules_with_identities(sources)
+    }
+
+    let forward_module = module(false);
+    let reversed_module = module(true);
+    for combined in [&forward_module, &reversed_module] {
+        assert!(
+            crate::name_recovery::normal_imported_use_for_path(
+                combined,
+                &["shared".to_string()],
+                Some("app")
+            )
+            .is_none()
+        );
+        for exact in ["alpha", "beta"] {
+            assert_eq!(
+                crate::name_recovery::normal_imported_use_for_path(
+                    combined,
+                    &[exact.to_string()],
+                    Some("app")
+                )
+                .map(|use_decl| use_decl.written_name.as_str()),
+                Some(exact)
+            );
+        }
+    }
+    let forward = analyze_surface_module(&forward_module);
+    let reversed = analyze_surface_module(&reversed_module);
+    for observed in [&forward, &reversed] {
+        assert_eq!(observed.len(), 1, "{observed:#?}");
+        assert_eq!(observed[0].id, "name.duplicate");
+        assert_eq!(
+            observed[0].span.as_ref().map(|span| span.file.as_str()),
+            Some("z.veln")
+        );
+        assert!(
+            observed[0]
+                .related
+                .first()
+                .is_some_and(|related| related.to_json().contains("a.veln")),
+            "{observed:#?}"
+        );
+    }
+    assert_eq!(
+        forward
+            .iter()
+            .map(veln_diagnostics::diagnostic_to_json)
+            .map(|json| json.to_json())
+            .collect::<Vec<_>>(),
+        reversed
+            .iter()
+            .map(veln_diagnostics::diagnostic_to_json)
+            .map(|json| json.to_json())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn explicit_prelude_alias_is_reserved_at_the_alias_token() {
     let source = SourceFile::new("main.veln", "mod app\nuse alpha as prelude\n");
     let module = lower_surface_ast(&parse(&source).tree);

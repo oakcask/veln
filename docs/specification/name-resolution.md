@@ -62,7 +62,9 @@ unrelated namespaces may share a spelling.
 module identity. The declaration contributes neither the implicit `b`
 qualifier nor bare exported members. This remains true when the explicit alias
 equals `b`. Imports without `as` retain their implicit qualifier and bare
-exports. Import aliases are not values and do not leak through another module.
+exports. An unaliased standard-package import also retains its canonical
+`std::`-qualified path in addition to its written relative path. Import aliases
+are not values and do not leak through another module.
 
 An exact full written path is selected before a local qualifier. An ambiguous
 exact path is unresolved and does not fall through. A qualifier must select
@@ -725,6 +727,18 @@ not become fallback targets.
   `crates/veln-sema/src/name_recovery.rs`.
 - Unqualified ADT import lookup:
   `crates/veln-sema/src/adt/tests/variant_lookup.rs`.
+- Explicit-import-alias acceptance evidence:
+
+  | Cases | Evidence |
+  | --- | --- |
+  | A1 | `docs/specification/source-surface-executable.pl`, `examples/specification/check/explicit-import-alias-canonical-standard/` |
+  | A2-A3 | `crates/veln-sema/src/tests/calls_pipeline_and_float_types/imported_calls.rs`, `examples/specification/run/explicit-import-alias-runtime/` |
+  | A4 | `crates/veln-sema/src/adt/tests/variant_lookup.rs`, `examples/specification/check/explicit-import-alias-distinct-origins/`, `examples/specification/check/explicit-import-alias-duplicate-human/`, and `examples/specification/check/explicit-import-alias-duplicate-json/` |
+  | A5-A7 | `crates/veln-sema/src/tests/declarations_and_names/aliases.rs`, `crates/veln-sema/src/tests/identifier_casing/import_aliases.rs`, and `crates/veln-sema/src/name_recovery.rs` tests |
+  | A8 | `crates/veln-syntax/src/tests/modules_and_contracts.rs` and the accepted and rejected fixtures under `examples/specification/grammar/` |
+  | A9 | `examples/specification/check/explicit-import-alias-carriers/` and `examples/specification/run/explicit-import-alias-runtime/` |
+  | A10 | `examples/specification/check/explicit-import-alias-package/` and the publication tests in `crates/veln-sema/src/tests/declarations_and_names/aliases.rs` |
+  | A12 | `combined_module_import_diagnostics_use_stable_source_order` in `crates/veln-sema/src/tests/declarations_and_names/aliases.rs` |
 - Deferred binding visibility:
   `examples/specification/check/defer-binding-visibility/`.
 - Module-value function-alias diagnostics:
