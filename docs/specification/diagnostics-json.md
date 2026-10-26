@@ -65,7 +65,13 @@ participating declaration with kind `cycle_declaration`, ordered by module and
 name identity and then source location. They then list every dependency within
 the component with kind `cycle_reference`, ordered by source identity, target
 identity, and reference location. Every such entry carries the corresponding
-declaration or reference span.
+declaration or reference span. A reference to a colliding module-value identity
+selects no declaration and cannot create a cycle diagnostic from an arbitrary
+member of the collision. The checked
+[`cycle human`](../../examples/specification/check/module-value-initializer-cycle-human/)
+case covers the rendered primary location and related-note order; the checked
+[`cycle JSON`](../../examples/specification/check/module-value-initializer-cycle-json/)
+case covers the structured details and spans.
 
 A function type in a module value annotation uses the ordinary effect-list
 diagnostics. An unbound row tail reports `effect.row_unbound`, and an unknown
