@@ -42,6 +42,8 @@ fn lowers_and_round_trips_module_value_declarations() {
     assert_eq!(value.visibility, Visibility::Public);
     assert_eq!(value.name.as_deref(), Some("defaults"));
     assert_eq!(value.annotation, "{ state : State, attempts : Int }");
+    assert_eq!(value.annotation_span.start.column, 19);
+    assert_eq!(value.annotation_span.end.column, 50);
     assert_eq!(value.annotation_paths.len(), 2);
     assert!(matches!(value.initializer.kind, ExprKind::Record(_)));
     assert_eq!(value.name_span.as_ref().unwrap().start.column, 9);
@@ -51,6 +53,7 @@ fn lowers_and_round_trips_module_value_declarations() {
     let decoded_value = &decoded.module_values[0];
     assert_eq!(decoded_value.name, value.name);
     assert_eq!(decoded_value.annotation, value.annotation);
+    assert_eq!(decoded_value.annotation_span, value.annotation_span);
     assert_eq!(decoded_value.annotation_paths, value.annotation_paths);
     assert_eq!(decoded_value.name_span, value.name_span);
     assert_eq!(decoded_value.span, value.span);

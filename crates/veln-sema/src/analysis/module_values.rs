@@ -170,7 +170,7 @@ fn check_module_value(
     let synthetic = synthetic_module_value_function(value, index);
     diagnostics.extend(check_type_effect_labels(
         &value.annotation,
-        &value.span,
+        &value.annotation_span,
         &synthetic,
         environment,
         "module_value_type",
@@ -205,7 +205,7 @@ fn synthetic_module_value_function(value: &veln_ast::ModuleValueDecl, index: usi
         params: Vec::new(),
         return_binding: None,
         return_type: Some(value.annotation.clone()),
-        return_type_span: Some(value.span.clone()),
+        return_type_span: Some(value.annotation_span.clone()),
         return_type_paths: value.annotation_paths.clone(),
         return_type_refinements: value.annotation_refinements.clone(),
         effects: Some(Vec::new()),

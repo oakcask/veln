@@ -592,22 +592,27 @@ fn module_value_function_annotations_validate_effect_rows_and_labels() {
 
     let diagnostics = analyze_surface_module(&module);
 
+    let unbound = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "effect.row_unbound")
+        .unwrap_or_else(|| panic!("expected unbound effect row: {diagnostics:#?}"));
+    let unbound_span = unbound.span.as_ref().expect("unbound effect row span");
     assert_eq!(
-        diagnostics
-            .iter()
-            .filter(|diagnostic| diagnostic.id == "effect.row_unbound")
-            .count(),
-        1,
-        "{diagnostics:#?}"
+        (unbound_span.start.line, unbound_span.start.column),
+        (1, 35)
     );
+    assert_eq!((unbound_span.end.line, unbound_span.end.column), (1, 39));
+
+    let unknown = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "effect.unknown")
+        .unwrap_or_else(|| panic!("expected unknown effect label: {diagnostics:#?}"));
+    let unknown_span = unknown.span.as_ref().expect("unknown effect label span");
     assert_eq!(
-        diagnostics
-            .iter()
-            .filter(|diagnostic| diagnostic.id == "effect.unknown")
-            .count(),
-        1,
-        "{diagnostics:#?}"
+        (unknown_span.start.line, unknown_span.start.column),
+        (2, 35)
     );
+    assert_eq!((unknown_span.end.line, unknown_span.end.column), (2, 47));
 }
 
 #[test]

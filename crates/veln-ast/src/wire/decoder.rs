@@ -237,6 +237,7 @@ impl<'a> Reader<'a> {
             name: self.option(Self::string)?,
             name_span: self.option(Self::span)?,
             annotation: self.string()?,
+            annotation_span: self.span()?,
             annotation_paths: self.vec(Self::type_path_segments)?,
             annotation_refinements: self.vec(Self::variant_refinement)?,
             initializer: self.expr()?,
