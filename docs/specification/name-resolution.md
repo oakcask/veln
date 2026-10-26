@@ -74,6 +74,9 @@ eligible when only the qualifier collides. Repeating one origin and written
 target path reports a duplicate import even when the aliases differ, and both
 imports are quarantined. The same written path from distinct package origins
 is ambiguous in its exact form but remains available through distinct aliases.
+Import selection chooses the module before member lookup. A selected module
+that lacks the requested member does not redirect lookup to a different module
+whose alias or implicit qualifier has the same spelling.
 
 An explicit alias named `prelude` reports `name.reserved`. An uppercase or
 underscore-led alias reports `name.invalid_case` at the alias token as a

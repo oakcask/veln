@@ -45,9 +45,10 @@ back to an imported function.
 
 Only imports whose contract admits bare member exposure contribute bare
 imported candidates. This includes eligible written imports and implicit
-prelude exposure. The separate
-[explicit import-alias proposal](explicit-import-aliases.md) makes explicitly
-aliased imports qualified-only; this proposal does not depend on that syntax.
+prelude exposure. The current
+[import-alias specification](../specification/name-resolution.md#explicit-import-aliases)
+makes explicitly aliased imports qualified-only; this proposal does not depend
+on that syntax.
 
 Qualification selects the package and module before the member. Two packages
 with the same module and member spellings have distinct declaration identities.

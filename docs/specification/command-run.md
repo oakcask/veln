@@ -141,6 +141,10 @@ artifact generation and Java launch, so no user output is produced before a
 static failure. A call-site-aware entry is such a static failure even when its
 body does not read the built-in value.
 
+Explicit import aliases participate in analysis and reachability, but their
+end-to-end JVM call execution remains outside the current contract until its
+checked runtime case passes.
+
 ## References
 
 Implementation: `crates/veln-cli/src/commands/run.rs`. JVM report projection:

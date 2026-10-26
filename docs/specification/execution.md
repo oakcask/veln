@@ -14,12 +14,12 @@ host boundaries, and observable output. HTTP/2 protocol details belong to
 ## Runtime readiness and host boundaries
 
 Explicit import aliases affect source lookup only. Lowering and reachability
-use the selected target module and declaration identity, so calls,
-constructors, schemas, effects, and handlers execute as they do through the
-full written import path. An invalid, recovered, reserved, or colliding alias
-cannot itself make a module executable or add declarations to the reachable
-set. A valid exact written path remains usable when only its local qualifier
-collides.
+use the selected target module and declaration identity for calls,
+constructors, schemas, effects, and handlers. An invalid, recovered, reserved,
+or colliding alias cannot itself make a module executable or add declarations
+to the reachable set. A valid exact written path remains usable when only its
+local qualifier collides. End-to-end JVM execution of alias-selected calls is
+not yet validated and remains planned work.
 
 The JVM host boundary associates resources created by `net::system()` with the
 active `net::IO` handler frame. Popping that frame closes its remaining
