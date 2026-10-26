@@ -599,3 +599,27 @@ fn repeat_payload_order_uses_file_scoped_schema_identity() {
         "{diagnostics:#?}"
     );
 }
+
+#[test]
+fn public_schema_alias_names_share_schema_namespace() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "pub schema Packet\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+            "pub schema Packet = Packet\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.duplicate"
+            && diagnostic.message == "duplicate schema alias name `Packet`"
+    }));
+}
