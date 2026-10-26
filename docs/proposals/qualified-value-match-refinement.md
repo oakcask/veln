@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Module immutable-value declarations or qualified stable-value match refinement and its planned evidence change.
+update-when: Module immutable-value declarations, imported declaration identity, qualified stable-value match refinement, or their planned evidence change.
 ---
 
 # Qualified Immutable-Value Match Refinement
@@ -40,7 +40,7 @@ liveness, reachability, or payload predicates.
 | Concern | Required evidence |
 | --- | --- |
 | Actual module data | Checked source and runtime state-machine examples use the prerequisite declaration form and recover a refined value through a match. |
-| Identity and visibility | Semantic and command cases cover direct imports, public aliases, distinct package identities, private values, and local shadowing. Import alias syntax is required only when its separate proposal has landed. |
+| Identity and visibility | Semantic and command cases cover direct imports, public aliases, distinct package identities, private values, and local shadowing. Explicit import aliases use the implemented source and name-resolution contracts and must preserve the selected declaration identity. |
 | Stable field paths | Nested immutable record fields, transparent local aliases, widening, finite domains, and residual arms retain the existing rules. |
 | Excluded expressions | Qualified constructors and function references/calls remain negative boundary evidence, rather than substitutes for module data. |
 | Diagnostics and state | Human and JSON cases check impossible and redundant arms, deterministic ordering, and preservation of unrelated declaration types after failure. |

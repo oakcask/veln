@@ -155,12 +155,12 @@ resolved chain qualifies variant refinements and preserves display provenance.
 
 A qualified target in a public type-alias declaration resolves through imports
 declared in that alias's source module. An exact written import path takes
-precedence over a same-spelled implicit leaf qualifier. Without an exact match,
-the implicit qualifier must identify exactly one imported module before the
-checker looks for the target type in that module. Colliding implicit qualifiers
-therefore remain unresolved even when only one candidate module declares the
-requested type leaf. Reordering imports or selected source modules does not
-change these results.
+precedence over a same-spelled local qualifier. Without an exact match, an
+explicit alias or implicit leaf qualifier must identify exactly one eligible
+imported module before the checker looks for the target type in that module.
+Colliding qualifiers therefore remain unresolved even when only one candidate
+module declares the requested type leaf. Reordering imports or selected source
+modules does not change these results.
 
 A qualified variant-refinement base first selects a matching source module
 identity. When that source type has the same leaf spelling as a compiler-known
@@ -173,14 +173,15 @@ Source identity selection precedes generic-arity and descriptor-uniqueness
 checks. A current-module ADT or another imported ADT with the same type leaf
 cannot satisfy a different written module or import qualifier, regardless of
 descriptor registration order. An exact written import path takes precedence
-over a same-spelled implicit leaf qualifier. Without an exact match, colliding
-implicit leaf qualifiers remain unresolved even when only one imported module
-declares the requested type leaf. If the selected identity has the wrong arity
-or has duplicate matching descriptors, lookup fails instead of falling through
-to the namesake. An unqualified type leaf continues to prefer the current-module
-ADT over imported namesakes. A public ADT from another module participates in
-unqualified type lookup only when a `use` declared in the current module names
-its module. Imports declared in other modules neither supply a candidate nor
+over a same-spelled local qualifier. Without an exact match, colliding local
+qualifiers remain unresolved even when only one imported module declares the
+requested type leaf. If the selected identity has the wrong arity or has
+duplicate matching descriptors, lookup fails instead of falling through to the
+namesake. An unqualified type leaf continues to prefer the current-module ADT
+over imported namesakes. A public ADT from another module participates in
+unqualified type lookup only when an unaliased `use` declared in the current
+module names its module. An explicitly aliased import supplies no bare type
+candidate. Imports declared in other modules neither supply a candidate nor
 make the current lookup ambiguous. This module-local import boundary applies
 both when lookup checks an exact generic arity and when recovery accepts any
 arity.

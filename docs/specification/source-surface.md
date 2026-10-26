@@ -45,6 +45,10 @@ The parser retains uppercase and underscore-led aliases for casing diagnostics.
 A malformed alias clause recovers at its declaration newline, so the next
 import or item remains available, but the recovered import supplies no lookup
 binding. Formatting retains an accepted alias before `from` and is idempotent.
+The syntax tree and lowered AST retain the written target, explicit alias and
+its span, optional package source, complete declaration span, and recovery
+state. The AST wire layout serializes that provenance and rejects the preceding
+layout header, whose import record lacks the explicit-alias fields.
 
 A source `type` declaration may contain zero variants:
 
@@ -80,9 +84,9 @@ indentation and applies the ordinary canonical type and expression layout.
 The syntax tree and lowered AST preserve the declaration's visibility, name,
 written annotation, exact annotation span, structured type paths and
 refinements, initializer, and source spans. The lowered AST also records the
-declaring module identity. The AST wire layout serializes the annotation span
-and rejects the preceding layout header, whose module-value record lacks that
-field.
+declaring module identity. The AST wire layout serializes the annotation span.
+Incompatible older layout headers are rejected rather than decoded with an
+older module-value record shape.
 
 This source surface does not make module values executable. Semantic analysis
 checks the written annotation and finite-data initializer, resolves
@@ -374,14 +378,16 @@ Type text resolves ordinary type and schema namespaces independently. A unique
 schema or schema alias composes its schema-local record under the written field
 binding; target fields are not injected as unqualified names. Same-module
 private/public targets and public imported targets or aliases are supported.
-Full imported paths take precedence over an implicit leaf alias. Colliding
-workspace leaf aliases remain unresolved regardless of import order. Format-
-neutral schemas may compose only format-neutral targets; binary schemas only
-binary targets. Missing, private, wrong-kind, ambiguous, incompatible, cyclic,
-duplicate-binding, forward-reference, and direction-specific helper failures
-are declaration errors. The private-target case has one exception: an exact
-test companion with an explicit import may compose a private schema from its
-target module. This access does not extend to another module or package.
+Full imported paths take precedence over local import qualifiers. An explicit
+alias supplies its own qualifier, while an unaliased import supplies its
+implicit leaf qualifier. Colliding workspace qualifiers remain unresolved
+regardless of import order. Format-neutral schemas may compose only
+format-neutral targets; binary schemas only binary targets. Missing, private,
+wrong-kind, ambiguous, incompatible, cyclic, duplicate-binding,
+forward-reference, and direction-specific helper failures are declaration
+errors. The private-target case has one exception: an exact test companion with
+an explicit import may compose a private schema from its target module. This
+access does not extend to another module or package.
 
 Anonymous binary records expose nested schema-local records when every leaf is an
 exact-width unsigned primitive. Sibling nested records at one level are allowed.
