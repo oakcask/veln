@@ -1,5 +1,37 @@
 use super::*;
 
+const ALPHA_POLICY_MANIFEST: &[u8] =
+    b"command = [\"check\"]\nstdin = [\"\\n\", \"\\r\"]\nexit = 0\n";
+const BETA_POLICY_MANIFEST: &[u8] =
+    b"command = [\"check\"]\n[stdout]\ncontains = ['\\u000A', '\\U0000000d']\nexit = 0\n";
+
+fn write_manifests(root: &Path, cases: &[(&str, &[u8])]) {
+    for (relative_dir, manifest) in cases {
+        let case_dir = root.join(relative_dir);
+        fs::create_dir_all(&case_dir).expect("case directory should be created");
+        fs::write(case_dir.join("case.toml"), manifest).expect("case manifest should be written");
+    }
+}
+
+fn assert_contains_all(text: &str, expected_fragments: &[&str]) {
+    for fragment in expected_fragments {
+        assert!(
+            text.contains(fragment),
+            "expected text to contain {fragment:?}\n\n{text}"
+        );
+    }
+}
+
+fn assert_fragments_in_order(text: &str, expected_fragments: &[&str]) {
+    let mut remainder = text;
+    for fragment in expected_fragments {
+        let Some((_, after_fragment)) = remainder.split_once(fragment) else {
+            panic!("expected text to contain {fragment:?} in order\n\n{text}");
+        };
+        remainder = after_fragment;
+    }
+}
+
 #[test]
 pub(super) fn manifest_policy_reports_lowercase_and_uppercase_unicode_line_break_matrix() {
     let source = r#"
@@ -162,17 +194,12 @@ pub(super) fn manifest_policy_scan_keeps_findings_before_lone_cr_boundary() {
 #[test]
 pub(super) fn toolchain_policy_preflight_aggregates_skipped_unavailable_and_lexical_cases() {
     let root = test_temp_root("policy-aggregation");
-    for case_dir in [
-        "cases/lone-cr",
-        "cases/malformed",
-        "cases/skipped",
-        "cases/unavailable",
-    ] {
-        fs::create_dir_all(root.join(case_dir)).expect("case directory should be created");
-    }
-    fs::write(
-        root.join("cases/skipped/case.toml"),
-        r#"
+    write_manifests(
+        &root,
+        &[
+            (
+                "cases/skipped",
+                br#"
 command = ["check"]
 stdin = "\n"
 exit = 0
@@ -181,11 +208,10 @@ exit = 0
 platforms = ["linux"]
 reason = "lifecycle sentinel"
 "#,
-    )
-    .expect("skipped manifest should be written");
-    fs::write(
-        root.join("cases/unavailable/case.toml"),
-        r#"
+            ),
+            (
+                "cases/unavailable",
+                br#"
 command = ["check"]
 exit = 0
 
@@ -195,18 +221,17 @@ java = "missing"
 [stdout]
 contains = ["\\r"]
 "#,
-    )
-    .expect("unavailable-tool manifest should be written");
-    fs::write(
-        root.join("cases/malformed/case.toml"),
-        "command = [\"check\"]\nstdin = \"\\n\"\nlate = \"unterminated",
-    )
-    .expect("malformed manifest should be written");
-    fs::write(
-        root.join("cases/lone-cr/case.toml"),
-        b"command = [\"check\"]\nstdin = \"\\r\"\rbad = true\n",
-    )
-    .expect("lone CR manifest should be written");
+            ),
+            (
+                "cases/malformed",
+                b"command = [\"check\"]\nstdin = \"\\n\"\nlate = \"unterminated",
+            ),
+            (
+                "cases/lone-cr",
+                b"command = [\"check\"]\nstdin = \"\\r\"\rbad = true\n",
+            ),
+        ],
+    );
 
     let error = toolchain_case_inventory::run_preflight_with_roots_and_policy(
         &root,
@@ -215,62 +240,51 @@ contains = ["\\r"]
     )
     .expect_err("policy preflight should fail");
 
-    assert!(error.contains("toolchain case preflight found 6 problem(s) affecting 4 manifest(s)"));
-    assert!(error.contains("cases/lone-cr:"));
-    assert!(error.contains("field `stdin` contains escape-produced-line-break"));
-    assert!(error.contains("lone carriage return in manifest"));
-    assert!(error.contains("cases/skipped:"));
-    assert!(error.contains("field `stdin` contains escape-produced-line-break"));
-    assert!(error.contains("cases/unavailable:"));
-    assert!(error.contains("field `[stdout].contains` contains decoded-line-break-spelling"));
-    assert!(error.contains("cases/malformed: manifest policy scan failed"));
-    assert!(error.contains("cases/malformed:2:"));
-    assert!(error.contains("field `stdin` contains escape-produced-line-break"));
-    assert!(error.contains("unterminated manifest string"));
-    let lone_cr_index = error
-        .find("cases/lone-cr")
-        .expect("lone CR case should be reported");
-    let malformed_index = error
-        .find("cases/malformed")
-        .expect("malformed case should be reported");
-    let skipped_index = error
-        .find("cases/skipped")
-        .expect("skipped case should be reported");
-    let unavailable_index = error
-        .find("cases/unavailable")
-        .expect("unavailable-tool case should be reported");
-    assert!(lone_cr_index < malformed_index);
-    assert!(malformed_index < skipped_index);
-    assert!(skipped_index < unavailable_index);
+    assert_contains_all(
+        &error,
+        &[
+            "toolchain case preflight found 6 problem(s) affecting 4 manifest(s)",
+            "lone carriage return in manifest",
+            "cases/skipped:",
+            "cases/unavailable:",
+            "field `[stdout].contains` contains decoded-line-break-spelling",
+            "cases/malformed: manifest policy scan failed",
+            "cases/malformed:2:",
+            "field `stdin` contains escape-produced-line-break",
+            "unterminated manifest string",
+        ],
+    );
+    assert_fragments_in_order(
+        &error,
+        &[
+            "cases/lone-cr",
+            "cases/malformed",
+            "cases/skipped",
+            "cases/unavailable",
+        ],
+    );
 
     fs::remove_dir_all(root).expect("inventory root should be removed");
 }
 
 #[test]
 pub(super) fn toolchain_policy_preflight_reports_stable_detailed_aggregate_findings() {
-    fn write_cases(root: &Path, order: &[&str]) {
-        fs::create_dir_all(root.join("cases")).expect("case root should be created");
-        for name in order {
-            let case_dir = root.join("cases").join(name);
-            fs::create_dir_all(&case_dir).expect("case directory should be created");
-            let manifest = match *name {
-                "alpha" => {
-                    "command = [\"check\"]\nstdin = [\"\\n\", \"\\r\"]\nexit = 0\n".to_string()
-                }
-                "beta" => {
-                    "command = [\"check\"]\n[stdout]\ncontains = ['\\u000A', '\\U0000000d']\nexit = 0\n".to_string()
-                }
-                _ => unreachable!(),
-            };
-            fs::write(case_dir.join("case.toml"), manifest)
-                .expect("case manifest should be written");
-        }
-    }
-
     let first = test_temp_root("policy-stable-aggregate-a");
     let second = test_temp_root("policy-stable-aggregate-b");
-    write_cases(&first, &["beta", "alpha"]);
-    write_cases(&second, &["alpha", "beta"]);
+    write_manifests(
+        &first,
+        &[
+            ("cases/beta", BETA_POLICY_MANIFEST),
+            ("cases/alpha", ALPHA_POLICY_MANIFEST),
+        ],
+    );
+    write_manifests(
+        &second,
+        &[
+            ("cases/alpha", ALPHA_POLICY_MANIFEST),
+            ("cases/beta", BETA_POLICY_MANIFEST),
+        ],
+    );
 
     let first_error = toolchain_case_inventory::run_preflight_with_roots(
         &first,
@@ -287,23 +301,17 @@ pub(super) fn toolchain_policy_preflight_reports_stable_detailed_aggregate_findi
         first_error, second_error,
         "aggregate policy output should not depend on filesystem entry order"
     );
-    assert!(
-        first_error.contains("toolchain case preflight found 4 problem(s) affecting 2 manifest(s)")
-    );
-    assert!(first_error.contains("cases/alpha:2:29-33 field `stdin` contains escape-produced-line-break `escape-produced LF`; use physical multiline text or a sidecar so line structure remains reviewable"));
-    assert!(first_error.contains("cases/alpha:2:35-39 field `stdin` contains escape-produced-line-break `escape-produced CR`; use physical multiline text or a sidecar so line structure remains reviewable"));
-    assert!(first_error.contains("cases/beta:3:"));
-    assert!(
-        first_error
-            .contains("field `[stdout].contains` contains decoded-line-break-spelling `\\\\u000A`")
-    );
-    assert!(first_error.contains(
-        "field `[stdout].contains` contains decoded-line-break-spelling `\\\\U0000000d`"
-    ));
-    assert!(
-        first_error.contains(
-            "use physical multiline text or a sidecar so line structure remains reviewable"
-        )
+    assert_contains_all(
+        &first_error,
+        &[
+            "toolchain case preflight found 4 problem(s) affecting 2 manifest(s)",
+            "cases/alpha:2:29-33 field `stdin` contains escape-produced-line-break `escape-produced LF`; use physical multiline text or a sidecar so line structure remains reviewable",
+            "cases/alpha:2:35-39 field `stdin` contains escape-produced-line-break `escape-produced CR`; use physical multiline text or a sidecar so line structure remains reviewable",
+            "cases/beta:3:",
+            "field `[stdout].contains` contains decoded-line-break-spelling `\\\\u000A`",
+            "field `[stdout].contains` contains decoded-line-break-spelling `\\\\U0000000d`",
+            "use physical multiline text or a sidecar so line structure remains reviewable",
+        ],
     );
 
     fs::remove_dir_all(first).expect("first inventory root should be removed");
@@ -440,25 +448,23 @@ pub(super) fn dedicated_inventory_parity_test_reports_stale_generated_cases() {
 #[test]
 pub(super) fn toolchain_policy_preflight_keeps_reliable_cases_when_discovery_has_errors() {
     let root = test_temp_root("policy-partial-inventory");
-    fs::create_dir_all(root.join("primary/rooted/nested"))
-        .expect("primary directories should be created");
-    fs::create_dir_all(root.join("secondary/readable"))
-        .expect("secondary directory should be created");
-    fs::write(
-        root.join("primary/rooted/case.toml"),
-        "command = [\"check\"]\nstdin = \"\\n\"\nexit = 0\n",
-    )
-    .expect("rooted manifest should be written");
-    fs::write(
-        root.join("primary/rooted/nested/case.toml"),
-        "command = [\"check\"]\nstdin = \"\\r\"\nexit = 0\n",
-    )
-    .expect("nested manifest should be written");
-    fs::write(
-        root.join("secondary/readable/case.toml"),
-        "command = [\"check\"]\n[stdout]\ncontains = [\"\\\\r\"]\nexit = 0\n",
-    )
-    .expect("secondary manifest should be written");
+    write_manifests(
+        &root,
+        &[
+            (
+                "primary/rooted",
+                b"command = [\"check\"]\nstdin = \"\\n\"\nexit = 0\n",
+            ),
+            (
+                "primary/rooted/nested",
+                b"command = [\"check\"]\nstdin = \"\\r\"\nexit = 0\n",
+            ),
+            (
+                "secondary/readable",
+                b"command = [\"check\"]\n[stdout]\ncontains = [\"\\\\r\"]\nexit = 0\n",
+            ),
+        ],
+    );
 
     let error = toolchain_case_inventory::run_preflight_with_roots_and_policy(
         &root,
@@ -471,13 +477,18 @@ pub(super) fn toolchain_policy_preflight_keeps_reliable_cases_when_discovery_has
     )
     .expect_err("mixed discovery and policy failures should aggregate");
 
-    assert!(error.contains("toolchain case preflight found 4 problem(s)"));
-    assert!(error.contains("missing: discovery root must be readable"));
-    assert!(error.contains("nested case.toml"));
-    assert!(error.contains("primary/rooted:"));
-    assert!(error.contains("field `stdin` contains escape-produced-line-break"));
-    assert!(error.contains("secondary/readable:"));
-    assert!(error.contains("field `[stdout].contains` contains decoded-line-break-spelling"));
+    assert_contains_all(
+        &error,
+        &[
+            "toolchain case preflight found 4 problem(s)",
+            "missing: discovery root must be readable",
+            "nested case.toml",
+            "primary/rooted:",
+            "field `stdin` contains escape-produced-line-break",
+            "secondary/readable:",
+            "field `[stdout].contains` contains decoded-line-break-spelling",
+        ],
+    );
 
     fs::remove_dir_all(root).expect("inventory root should be removed");
 }
