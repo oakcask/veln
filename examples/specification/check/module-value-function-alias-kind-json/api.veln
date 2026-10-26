@@ -1,0 +1,6 @@
+use values
+
+let local: Int = 1
+
+pub fn local_alias = local
+pub fn imported_alias = values::shared

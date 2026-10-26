@@ -156,6 +156,62 @@ impl TypeEnvironment {
         }
     }
 
+    pub(crate) fn resolves_available_module_value_alias_target(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> bool {
+        let Some((name, qualifier)) = segments.split_last() else {
+            return false;
+        };
+        let imported = !qualifier.is_empty();
+        let module_identity = if !imported {
+            Some(current_module.map(str::to_owned))
+        } else {
+            let module_path = qualifier.join("::");
+            let mut candidates = self
+                .uses
+                .iter()
+                .filter(|use_decl| {
+                    crate::name_recovery::use_decl_matches_exact_import_path(
+                        use_decl,
+                        &module_path,
+                        current_module,
+                    )
+                })
+                .map(|use_decl| use_decl.name.clone())
+                .collect::<BTreeSet<_>>();
+            if candidates.is_empty() {
+                candidates = self
+                    .uses
+                    .iter()
+                    .filter(|use_decl| {
+                        crate::name_recovery::use_decl_matches_implicit_import_alias(
+                            use_decl,
+                            &module_path,
+                            current_module,
+                        )
+                    })
+                    .map(|use_decl| use_decl.name.clone())
+                    .collect();
+            }
+            (candidates.len() == 1)
+                .then(|| Some(candidates.into_iter().next().expect("one import target")))
+        };
+        let Some(module_name) = module_identity else {
+            return false;
+        };
+        let Some(ModuleValueIndex::Unique(index)) = self
+            .module_values_by_identity
+            .get(&(module_name, name.clone()))
+        else {
+            return false;
+        };
+        let value = &self.module_values[*index];
+        value.available
+            && (!imported || value.declaration.visibility == veln_ast::Visibility::Public)
+    }
+
     pub(crate) fn same_module_value_path_matches(
         &self,
         segments: &[String],

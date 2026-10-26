@@ -141,12 +141,16 @@ pub(super) fn alias_kind_mismatch_diagnostic(
     expected_kind: &'static str,
     actual_kind: &'static str,
 ) -> Diagnostic {
+    let actual_kind_message = match actual_kind {
+        "module_value" => "module value",
+        other => other,
+    };
     Diagnostic::new(
         "name.kind_mismatch",
         Severity::Error,
         DiagnosticKind::Name,
         format!(
-            "public alias target `{}` is a {actual_kind}, not a {expected_kind}",
+            "public alias target `{}` is a {actual_kind_message}, not a {expected_kind}",
             alias.target.join("::")
         ),
         Some(alias.span.clone()),

@@ -183,6 +183,99 @@ fn public_function_alias_rejects_type_targets() {
 }
 
 #[test]
+fn public_function_alias_rejects_available_module_value_targets() {
+    let module = merged_modules(vec![
+        SourceFile::new(
+            "api.veln",
+            concat!(
+                "use data\n",
+                "let local: Int = 1\n",
+                "pub fn local_alias = local\n",
+                "pub fn imported_alias = data::remote\n",
+            ),
+        ),
+        SourceFile::new("data.veln", "mod data\npub let remote: Int = 2\n"),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    for target in ["local", "data::remote"] {
+        let diagnostic = diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic.id == "name.kind_mismatch"
+                    && diagnostic.message
+                        == format!(
+                            "public alias target `{target}` is a module value, not a function"
+                        )
+            })
+            .unwrap_or_else(|| panic!("missing module-value alias diagnostic for {target}"));
+        let details = diagnostic.details.to_json();
+        assert!(details.contains("\"node_id\":\"alias-"), "{details}");
+        assert!(
+            details.contains("\"expected_kind\":\"function\""),
+            "{details}"
+        );
+        assert!(
+            details.contains("\"actual_kind\":\"module_value\""),
+            "{details}"
+        );
+        assert!(
+            details.contains(&format!("\"target\":\"{target}\"")),
+            "{details}"
+        );
+    }
+}
+
+#[test]
+fn ineligible_module_values_remain_unresolved_function_alias_targets() {
+    let module = merged_modules(vec![
+        SourceFile::new(
+            "api.veln",
+            concat!(
+                "mod api\n",
+                "use data\n",
+                "use Bad\n",
+                "let invalid: Missing = 1\n",
+                "pub fn invalid_alias = invalid\n",
+                "pub fn private_alias = data::remote\n",
+                "pub fn ambiguous_alias = data::duplicate\n",
+                "pub fn missing_alias = data::missing\n",
+                "pub fn quarantined_alias = Bad::remote\n",
+            ),
+        ),
+        SourceFile::new(
+            "data.veln",
+            "mod data\nlet remote: Int = 2\npub let duplicate: Int = 3\n",
+        ),
+        SourceFile::new("data-extra.veln", "mod data\npub let duplicate: Int = 4\n"),
+        SourceFile::new("bad.veln", "mod Bad\nlet remote: Int = 3\n"),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    for target in [
+        "invalid",
+        "data::remote",
+        "data::duplicate",
+        "data::missing",
+        "Bad::remote",
+    ] {
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic.message == format!("unresolved function alias target `{target}`")
+        }));
+        assert!(!diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.kind_mismatch"
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains(&format!("\"target\":\"{target}\""))
+        }));
+    }
+}
+
+#[test]
 fn public_type_alias_rejects_function_targets() {
     let source = SourceFile::new(
         "api.veln",
