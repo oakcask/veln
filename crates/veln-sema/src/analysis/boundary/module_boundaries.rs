@@ -1,7 +1,7 @@
 use crate::adt::type_operations as adt;
 use crate::diagnostics::{module_details, span_json};
 pub(super) use crate::name_recovery::normal_imported_use_for_path;
-use crate::name_recovery::{resolved_import_module_name, use_decl_has_invalid_module_segment};
+use crate::name_recovery::{resolved_import_module_name, use_decl_is_recovery_candidate};
 use crate::semantic_model::Type;
 use crate::standard_names::PRELUDE_MODULE;
 use crate::type_syntax::parse_type_annotation;
@@ -88,7 +88,7 @@ pub(super) fn quarantined_imported_use_for_path<'a>(
 ) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
     module.uses.iter().find(|use_decl| {
-        use_decl_has_invalid_module_segment(module, use_decl)
+        use_decl_is_recovery_candidate(module, use_decl)
             && use_decl.module_name.as_deref() == current_module
             && (use_decl.name == module_path || use_decl.alias == module_path)
     })
@@ -171,7 +171,7 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
     for use_decl in module
         .uses
         .iter()
-        .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
+        .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.recovered)
     {
         let duplicate_target = previous.iter().copied().find(|first| {
             first.module_name == use_decl.module_name

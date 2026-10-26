@@ -21,9 +21,7 @@ pub(in crate::types) fn ordinary_function_signatures(
     let quarantined_uses = module
         .uses
         .iter()
-        .filter(|use_decl| {
-            crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
-        })
+        .filter(|use_decl| crate::name_recovery::use_decl_is_recovery_candidate(module, use_decl))
         .cloned()
         .collect::<Vec<_>>();
     let context = OrdinarySignatureContext {

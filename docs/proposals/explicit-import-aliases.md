@@ -32,7 +32,7 @@ navigation features.
 
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |
-| A11 | Definition, references, rename, hover, and completion on an alias and member | Alias and target identity remain distinct; valid edits affect only intended occurrences; rejected rename has no partial edits; saved LSP and MCP results agree. | Shared-language-service, LSP, MCP, formatter, and saved-workspace tests. |
+| A11 | Definition, references, rename, hover, and completion on an alias and member | Alias and target identity remain distinct; valid edits affect only intended occurrences; rejected rename has no partial edits; saved LSP and MCP results agree. | Shared-language-service, LSP, MCP, and saved-workspace tests. |
 
 ## Related work
 

@@ -141,6 +141,10 @@ impl<'a> ReachabilityInputs<'a> {
         self.use_index.valid.clone()
     }
 
+    pub(super) fn blocked_import_aliases(&self) -> &BlockedImportAliases {
+        &self.use_index.blocked_aliases
+    }
+
     pub(super) fn invalid_uses(&self) -> impl Iterator<Item = &'a UseDecl> + '_ {
         self.use_index
             .invalid
@@ -190,6 +194,7 @@ impl<'a> ReachabilityInputs<'a> {
 struct UseIndex<'a> {
     valid: Vec<&'a UseDecl>,
     invalid: Vec<InvalidUse<'a>>,
+    blocked_aliases: BlockedImportAliases,
 }
 
 struct InvalidUse<'a> {
@@ -207,6 +212,24 @@ impl<'a> UseIndex<'a> {
             .iter()
             .flat_map(|module| module.uses.iter())
             .collect::<Vec<_>>();
+        let mut alias_groups = HashMap::<(Option<String>, String), (usize, bool)>::new();
+        for declaration in declarations.iter().copied().filter(|declaration| {
+            declaration.origin == veln_ast::UseOrigin::Source
+                && !declaration.recovered
+                && !(declaration.has_explicit_alias() && declaration.alias == "prelude")
+        }) {
+            let group = alias_groups
+                .entry((declaration.module_name.clone(), declaration.alias.clone()))
+                .or_default();
+            group.0 += 1;
+            group.1 |= declaration.has_explicit_alias();
+        }
+        let blocked_aliases: BlockedImportAliases = alias_groups
+            .into_iter()
+            .filter_map(|(alias, (count, has_explicit))| {
+                (count > 1 && has_explicit).then_some(alias)
+            })
+            .collect();
         let mut invalid_segments_by_file =
             HashMap::<veln_source::SourcePath, Vec<&veln_ast::InvalidName>>::new();
         for invalid in modules.iter().flat_map(|module| &module.invalid_names) {
@@ -244,6 +267,8 @@ impl<'a> UseIndex<'a> {
                 !std::ptr::eq(other, declaration)
                     && other.origin == veln_ast::UseOrigin::Source
                     && declaration.origin == veln_ast::UseOrigin::Source
+                    && !other.recovered
+                    && !declaration.recovered
                     && other.module_name == declaration.module_name
                     && other.written_name == declaration.written_name
                     && other.package == declaration.package
@@ -251,17 +276,26 @@ impl<'a> UseIndex<'a> {
             if module_path_segments.is_empty()
                 && !invalid_alias
                 && !declaration.recovered
+                && !(declaration.has_explicit_alias() && declaration.alias == "prelude")
                 && !duplicate_target
             {
                 valid.push(declaration);
-            } else if !module_path_segments.is_empty() {
+            } else if !module_path_segments.is_empty()
+                && !blocked_aliases
+                    .contains(&(declaration.module_name.clone(), declaration.alias.clone()))
+                && !duplicate_target
+            {
                 invalid.push(InvalidUse {
                     declaration,
                     module_path_segments,
                 });
             }
         }
-        Self { valid, invalid }
+        Self {
+            valid,
+            invalid,
+            blocked_aliases,
+        }
     }
 }
 

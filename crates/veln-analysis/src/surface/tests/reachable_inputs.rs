@@ -50,6 +50,94 @@ fn reachable_resolution_prepares_shared_callee_inputs_once() {
 }
 
 #[test]
+fn invalid_import_collision_blocks_alias_reachability_but_keeps_exact_path() {
+    let mut module = lower(concat!(
+        "mod app::main\n",
+        "use Bad as shared\n",
+        "use app::math as shared\n",
+        "pub fn alias_entry() -> Int\n",
+        "  shared::double(2)\n",
+        "end\n",
+        "pub fn exact_entry() -> Int\n",
+        "  app::math::double(2)\n",
+        "end\n",
+    ));
+    let dependency = lower(concat!(
+        "mod app::math\n",
+        "pub fn double(value: Int) -> Int\n",
+        "  value + value\n",
+        "end\n",
+    ));
+    module.functions.extend(dependency.functions);
+
+    let alias_reachable = reachable_entry_module(&module, "alias_entry", FunctionKind::Function);
+    assert_eq!(
+        reachable_function_names(&alias_reachable),
+        vec![("app::main", "alias_entry")]
+    );
+
+    let exact_reachable = reachable_entry_module(&module, "exact_entry", FunctionKind::Function);
+    assert_eq!(
+        reachable_function_names(&exact_reachable),
+        vec![("app::main", "exact_entry"), ("app::math", "double")]
+    );
+}
+
+#[test]
+fn recovered_import_does_not_block_valid_alias_reachability() {
+    let parsed = parse(&SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app::main\n",
+            "use app::math as\n",
+            "use app::math as wire\n",
+            "pub fn main() -> Int\n",
+            "  wire::double(2)\n",
+            "end\n",
+        ),
+    ));
+    assert!(!parsed.diagnostics.is_empty());
+    let mut module = lower_surface_ast(&parsed.tree);
+    let dependency = lower(concat!(
+        "mod app::math\n",
+        "pub fn double(value: Int) -> Int\n",
+        "  value + value\n",
+        "end\n",
+    ));
+    module.functions.extend(dependency.functions);
+
+    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+    assert_eq!(
+        reachable_function_names(&reachable),
+        vec![("app::main", "main"), ("app::math", "double")]
+    );
+}
+
+#[test]
+fn reserved_explicit_prelude_alias_adds_no_reachable_target() {
+    let mut module = lower(concat!(
+        "mod app::main\n",
+        "use app::math as prelude\n",
+        "pub fn main() -> Int\n",
+        "  prelude::double(2)\n",
+        "end\n",
+    ));
+    let dependency = lower(concat!(
+        "mod app::math\n",
+        "pub fn double(value: Int) -> Int\n",
+        "  value + value\n",
+        "end\n",
+    ));
+    module.functions.extend(dependency.functions);
+
+    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+    assert_eq!(
+        reachable_function_names(&reachable),
+        vec![("app::main", "main")]
+    );
+}
+
+#[test]
 fn reachability_cache_keeps_entry_results_independent() {
     let module = lower(concat!(
         "mod app\n",

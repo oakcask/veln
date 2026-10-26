@@ -329,7 +329,12 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         current_module: Option<&str>,
         mut visible: impl FnMut(T, Option<&str>) -> bool,
     ) -> Vec<T> {
-        let target = visible_path_target(&self.uses, segments, current_module);
+        let target = visible_path_target(
+            &self.uses,
+            self.blocked_import_aliases,
+            segments,
+            current_module,
+        );
         let Some(leaf) = path_leaf(segments).map(str::to_string) else {
             return Vec::new();
         };
@@ -351,7 +356,12 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         segments: &[String],
         current_module: Option<&str>,
     ) -> Option<&'a veln_ast::HandlerDecl> {
-        let target = visible_path_target(&self.uses, segments, current_module);
+        let target = visible_path_target(
+            &self.uses,
+            self.blocked_import_aliases,
+            segments,
+            current_module,
+        );
         self.handlers.iter().copied().find(|handler| {
             handler.name.as_deref() == path_leaf(segments)
                 && (declaration_visible(
@@ -396,13 +406,19 @@ impl FunctionShape {
 
 pub(super) fn visible_path_target(
     uses: &[&UseDecl],
+    blocked_import_aliases: &BlockedImportAliases,
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<String> {
     match segments {
         [_] => current_module.map(str::to_string),
-        [_, .., _] => imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
-            .map(|use_decl| use_decl.name.clone()),
+        [_, .., _] => imported_use_for_path(
+            uses,
+            blocked_import_aliases,
+            &segments[..segments.len() - 1],
+            current_module,
+        )
+        .map(|use_decl| use_decl.name.clone()),
         _ => None,
     }
 }

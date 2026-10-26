@@ -9,6 +9,7 @@ pub(super) struct LocalBinding {
 pub(super) struct FunctionCalleeContext<'a> {
     pub(super) current_module: Option<&'a str>,
     pub(super) uses: &'a [&'a UseDecl],
+    pub(super) blocked_import_aliases: &'a BlockedImportAliases,
     pub(super) function_targets: &'a FunctionTargetIndex,
     pub(super) companion_access_targets: &'a HashMap<String, String>,
     pub(super) handlers: &'a [&'a veln_ast::HandlerDecl],
@@ -17,16 +18,18 @@ pub(super) struct FunctionCalleeContext<'a> {
 
 pub(super) struct CalleeCollectionInputs<'a> {
     uses: Vec<&'a UseDecl>,
+    blocked_import_aliases: &'a BlockedImportAliases,
     handlers: Vec<&'a veln_ast::HandlerDecl>,
     types: Vec<&'a veln_ast::TypeDecl>,
 }
 
 impl<'a> CalleeCollectionInputs<'a> {
-    pub(super) fn new(inputs: &ReachabilityInputs<'a>) -> Self {
+    pub(super) fn new(inputs: &'a ReachabilityInputs<'a>) -> Self {
         #[cfg(test)]
         reachability_counters::record_callee_context_preparation();
         Self {
             uses: inputs.uses(),
+            blocked_import_aliases: inputs.blocked_import_aliases(),
             handlers: inputs.handlers(),
             types: inputs.types().collect(),
         }
@@ -43,6 +46,7 @@ pub(super) fn direct_function_callees(
     let context = FunctionCalleeContext {
         current_module: function.module_name.as_deref(),
         uses: &inputs.uses,
+        blocked_import_aliases: inputs.blocked_import_aliases,
         function_targets,
         companion_access_targets,
         handlers: &inputs.handlers,
@@ -61,6 +65,7 @@ pub(super) fn direct_function_callees(
             &contract.text,
             context.current_module,
             context.uses,
+            context.blocked_import_aliases,
             function_targets,
             companion_access_targets,
             &mut callees,
@@ -107,6 +112,7 @@ pub(super) fn collect_contract_callees(
     predicate: &str,
     current_module: Option<&str>,
     uses: &[&UseDecl],
+    blocked_import_aliases: &BlockedImportAliases,
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
@@ -144,6 +150,7 @@ pub(super) fn collect_contract_callees(
             &segments,
             current_module,
             uses,
+            blocked_import_aliases,
             function_targets,
             companion_access_targets,
             None,
@@ -156,6 +163,7 @@ pub(super) fn collect_contract_callees(
         &tokens,
         current_module,
         uses,
+        blocked_import_aliases,
         function_targets,
         companion_access_targets,
         callees,
@@ -166,6 +174,7 @@ pub(super) fn collect_contract_function_value_references(
     tokens: &[veln_syntax::Token],
     current_module: Option<&str>,
     uses: &[&UseDecl],
+    blocked_import_aliases: &BlockedImportAliases,
     function_targets: &FunctionTargetIndex,
     _companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
@@ -222,6 +231,7 @@ pub(super) fn collect_contract_function_value_references(
             &segments,
             current_module,
             uses,
+            blocked_import_aliases,
             function_targets,
             &public_or_same_module_access,
             None,
@@ -273,15 +283,7 @@ pub(super) fn collect_function_callees(
         }
         _ => {
             if matches!(expr.kind, ExprKind::Handle { .. }) {
-                collect_handler_operation_clause_callees(
-                    expr,
-                    context.current_module,
-                    context.uses,
-                    context.function_targets,
-                    context.companion_access_targets,
-                    context.handlers,
-                    callees,
-                );
+                collect_handler_operation_clause_callees(expr, context, callees);
             }
             expr.for_each_child(&mut |child| {
                 collect_function_callees(child, context, local_bindings, callees);

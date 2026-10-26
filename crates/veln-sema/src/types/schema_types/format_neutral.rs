@@ -3,7 +3,7 @@ use super::*;
 use crate::adt::descriptors::{AdtConstructor, AdtDescriptor};
 use crate::adt::registry::AdtRegistry;
 use crate::adt::type_operations as adt;
-use crate::name_recovery::{normal_use_decls, use_decl_has_invalid_module_segment};
+use crate::name_recovery::{normal_use_decls, use_decl_is_recovery_candidate};
 use crate::type_syntax::parse_type_annotation;
 
 mod refinement;
@@ -118,7 +118,7 @@ fn format_neutral_schema_resolved_field_type(
         &module
             .uses
             .iter()
-            .filter(|use_decl| use_decl_has_invalid_module_segment(module, use_decl))
+            .filter(|use_decl| use_decl_is_recovery_candidate(module, use_decl))
             .cloned()
             .collect::<Vec<_>>(),
         schema.module_name.as_deref(),

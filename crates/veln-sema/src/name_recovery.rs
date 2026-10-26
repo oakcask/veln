@@ -75,20 +75,62 @@ pub(crate) fn use_decl_has_invalid_alias(module: &SurfaceModule, use_decl: &UseD
 }
 
 pub(crate) fn use_decl_has_duplicate_target(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
+    if use_decl.recovered {
+        return false;
+    }
     module.uses.iter().any(|other| {
         !std::ptr::eq(other, use_decl)
             && other.origin == veln_ast::UseOrigin::Source
             && use_decl.origin == veln_ast::UseOrigin::Source
+            && !other.recovered
             && other.module_name == use_decl.module_name
             && other.written_name == use_decl.written_name
             && other.package == use_decl.package
     })
 }
 
+pub(crate) fn use_decl_has_reserved_alias(use_decl: &UseDecl) -> bool {
+    use_decl.origin == veln_ast::UseOrigin::Source
+        && use_decl.has_explicit_alias()
+        && use_decl.alias == "prelude"
+}
+
+pub(crate) fn use_decl_has_source_alias_collision(
+    module: &SurfaceModule,
+    use_decl: &UseDecl,
+) -> bool {
+    if use_decl.recovered || use_decl_has_reserved_alias(use_decl) {
+        return false;
+    }
+    let matches = module.uses.iter().filter(|other| {
+        other.origin == veln_ast::UseOrigin::Source
+            && !other.recovered
+            && !use_decl_has_reserved_alias(other)
+            && other.module_name == use_decl.module_name
+            && other.alias == use_decl.alias
+    });
+    let mut count = 0usize;
+    let mut has_explicit = false;
+    for other in matches {
+        count += 1;
+        has_explicit |= other.has_explicit_alias();
+    }
+    count > 1 && has_explicit
+}
+
+pub(crate) fn use_decl_is_recovery_candidate(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
+    use_decl_has_invalid_module_segment(module, use_decl)
+        && !use_decl.recovered
+        && !use_decl_has_reserved_alias(use_decl)
+        && !use_decl_has_duplicate_target(module, use_decl)
+        && !use_decl_has_source_alias_collision(module, use_decl)
+}
+
 pub(crate) fn use_decl_is_quarantined(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
     use_decl.recovered
         || use_decl_has_invalid_module_segment(module, use_decl)
         || use_decl_has_invalid_alias(module, use_decl)
+        || use_decl_has_reserved_alias(use_decl)
         || use_decl_has_duplicate_target(module, use_decl)
 }
 
@@ -117,14 +159,38 @@ pub(crate) fn normal_imported_use_for_path<'a>(
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
-    select_use_decl_for_path(
-        module
-            .uses
-            .iter()
-            .filter(|use_decl| !use_decl_is_quarantined(module, use_decl)),
-        &module_path,
-        current_module,
-    )
+    let candidates = module
+        .uses
+        .iter()
+        .filter(|use_decl| !use_decl_is_quarantined(module, use_decl))
+        .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
+        .collect::<Vec<_>>();
+    let mut exact = candidates.iter().copied().filter(|use_decl| {
+        use_decl_matches_exact_import_path(use_decl, &module_path, current_module)
+    });
+    if let Some(first) = exact.next() {
+        return exact.next().is_none().then_some(first);
+    }
+    if source_alias_is_colliding(module, &module_path, current_module) {
+        return None;
+    }
+    let mut qualified = candidates
+        .into_iter()
+        .filter(|use_decl| simple_import_alias_matches(use_decl, &module_path));
+    let first = qualified.next()?;
+    qualified.next().is_none().then_some(first)
+}
+
+fn source_alias_is_colliding(
+    module: &SurfaceModule,
+    module_path: &str,
+    current_module: Option<&str>,
+) -> bool {
+    module.uses.iter().any(|use_decl| {
+        use_decl.module_name.as_deref() == current_module
+            && use_decl.alias == module_path
+            && use_decl_has_source_alias_collision(module, use_decl)
+    })
 }
 
 pub(crate) fn select_use_decl_for_path<'a>(

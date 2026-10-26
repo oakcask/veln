@@ -357,9 +357,11 @@ fn import_constructor_recovery_facts(
     module: &SurfaceModule,
 ) -> BTreeMap<ImportConstructorRecoveryKey, usize> {
     let mut candidates = BTreeMap::new();
-    for use_decl in module.uses.iter().filter(|use_decl| {
-        crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
-    }) {
+    for use_decl in module
+        .uses
+        .iter()
+        .filter(|use_decl| crate::name_recovery::use_decl_is_recovery_candidate(module, use_decl))
+    {
         for type_decl in module.types.iter().filter(|type_decl| {
             type_decl.module_name.as_deref() == Some(use_decl.name.as_str())
                 && type_decl.visibility == Visibility::Public
@@ -534,9 +536,7 @@ fn symbol_facts(
     let mut quarantined_uses = module
         .uses
         .iter()
-        .filter(|use_decl| {
-            crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
-        })
+        .filter(|use_decl| crate::name_recovery::use_decl_is_recovery_candidate(module, use_decl))
         .cloned()
         .collect();
     extend_with_base_facts(

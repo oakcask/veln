@@ -530,9 +530,7 @@ pub(super) fn canonicalize_effect_signature_types(
     let quarantined_uses = module
         .uses
         .iter()
-        .filter(|use_decl| {
-            crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
-        })
+        .filter(|use_decl| crate::name_recovery::use_decl_is_recovery_candidate(module, use_decl))
         .cloned()
         .collect::<Vec<_>>();
     let effect_catalog = effects.to_vec();
@@ -575,9 +573,7 @@ pub(super) fn handler_signatures(
     let quarantined_uses = module
         .uses
         .iter()
-        .filter(|use_decl| {
-            crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
-        })
+        .filter(|use_decl| crate::name_recovery::use_decl_is_recovery_candidate(module, use_decl))
         .cloned()
         .collect::<Vec<_>>();
     let context = HandlerSignatureContext {

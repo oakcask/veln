@@ -496,7 +496,7 @@ pub(super) fn invalid_name_repeats_quarantined_import_alias(
             .rsplit("::")
             .next()
             .unwrap_or(use_decl.name.as_str());
-        crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
+        crate::name_recovery::use_decl_is_recovery_candidate(module, use_decl)
             && use_decl.span.file == invalid.span.file
             && (use_decl.alias == invalid.name || alias == invalid.name)
     })

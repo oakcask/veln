@@ -27,6 +27,8 @@ use targets::*;
 
 struct LocalNameBinding(String);
 
+type BlockedImportAliases = HashSet<(Option<String>, String)>;
+
 #[cfg(test)]
 pub(crate) fn reachable_entry_module(
     module: &SurfaceModule,

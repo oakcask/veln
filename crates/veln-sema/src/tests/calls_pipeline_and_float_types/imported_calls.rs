@@ -163,6 +163,140 @@ fn explicit_import_alias_contributes_no_bare_function_candidate() {
 }
 
 #[test]
+fn invalid_import_collision_blocks_only_the_shared_qualifier() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app::main\n",
+            "use Bad as shared\n",
+            "use app::math as shared\n",
+            "pub fn alias_call() -> Int\n",
+            "  shared::double(2)\n",
+            "end\n",
+            "pub fn exact_call() -> Int\n",
+            "  app::math::double(2)\n",
+            "end\n",
+        ),
+    );
+    let math_source = SourceFile::new(
+        "math.veln",
+        "mod app::math\npub fn double(value: Int) -> Int\n  value + value\nend\n",
+    );
+    let module = merged_import_module(main_source, vec![math_source]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.duplicate"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        crate::name_recovery::normal_imported_use_for_path(
+            &module,
+            &["shared".to_string()],
+            Some("app::main"),
+        )
+        .is_none()
+    );
+    assert_eq!(
+        crate::name_recovery::normal_imported_use_for_path(
+            &module,
+            &["app".to_string(), "math".to_string()],
+            Some("app::main"),
+        )
+        .map(|use_decl| use_decl.name.as_str()),
+        Some("app::math")
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.message != "unresolved call_target `app::math::double`"
+        })
+    );
+}
+
+#[test]
+fn recovered_import_does_not_quarantine_a_following_valid_import() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app::main\n",
+            "use app::math as\n",
+            "use app::math as wire\n",
+            "pub fn main() -> Int\n",
+            "  wire::double(2)\n",
+            "end\n",
+        ),
+    );
+    let math_source = SourceFile::new(
+        "math.veln",
+        "mod app::math\npub fn double(value: Int) -> Int\n  value + value\nend\n",
+    );
+    let module = merged_import_module(main_source, vec![math_source]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.duplicate"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| { diagnostic.message != "unresolved call_target `wire::double`" })
+    );
+    assert_eq!(
+        crate::name_recovery::normal_imported_use_for_path(
+            &module,
+            &["wire".to_string()],
+            Some("app::main"),
+        )
+        .map(|use_decl| use_decl.name.as_str()),
+        Some("app::math")
+    );
+}
+
+#[test]
+fn reserved_explicit_prelude_alias_contributes_no_lookup_candidate() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app::main\n",
+            "use app::math as prelude\n",
+            "pub fn main() -> Int\n",
+            "  prelude::double(2)\n",
+            "end\n",
+        ),
+    );
+    let math_source = SourceFile::new(
+        "math.veln",
+        "mod app::math\npub fn double(value: Int) -> Int\n  value + value\nend\n",
+    );
+    let module = merged_import_module(main_source, vec![math_source]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.reserved"),
+        "{diagnostics:#?}"
+    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `prelude::double`"
+    }));
+    assert!(
+        crate::name_recovery::normal_imported_use_for_path(
+            &module,
+            &["prelude".to_string()],
+            Some("app::main"),
+        )
+        .is_none()
+    );
+}
+
+#[test]
 fn nested_module_only_function_paths_keep_function_leaf_role() {
     let main_source = SourceFile::new(
         "main.veln",

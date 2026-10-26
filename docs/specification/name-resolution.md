@@ -69,16 +69,34 @@ exact path is unresolved and does not fall through. A qualifier must select
 exactly one eligible import. Two implicit leaf qualifiers can remain
 declaration-valid but are ambiguous at lookup. If either colliding qualifier is
 explicit, the later qualifier reports `name.duplicate` and neither binding is
-eligible through that qualifier. Repeating one origin and written target path
-reports a duplicate import even when the aliases differ, and both imports are
-quarantined.
+eligible through that qualifier. A non-colliding exact written path remains
+eligible when only the qualifier collides. Repeating one origin and written
+target path reports a duplicate import even when the aliases differ, and both
+imports are quarantined. The same written path from distinct package origins
+is ambiguous in its exact form but remains available through distinct aliases.
 
 An explicit alias named `prelude` reports `name.reserved`. An uppercase or
 underscore-led alias reports `name.invalid_case` at the alias token as a
 module-class declaration. Invalid target casing, invalid alias casing, syntax
 recovery, and duplicate target imports quarantine the complete import. They
 supply no qualifier, full-path, bare-export, or reachable-code candidate.
-Independent target, collision, and casing diagnostics remain visible.
+Invalid-cased source imports still participate in explicit qualifier and
+duplicate-target checks, so removing an invalid candidate cannot make a
+colliding qualifier resolve. A syntax-recovered import participates in neither
+check and cannot quarantine a later valid import. Independent target,
+collision, and casing diagnostics remain visible. Casing recovery suppresses
+a derivative member diagnostic only when one visible target export proves
+that casing is the sole failure. Missing, private, wrong-kind, ambiguous, and
+colliding targets do not gain normal lookup or executable readiness through
+recovery.
+
+The selected import retains its package and module identity for values and
+calls, types and refinements, constructors and patterns, schemas, effects,
+handlers, lowering, and reachability. Existing visibility rules still apply:
+an alias does not expose a private package declaration, extend exact companion
+access, or make an import transitive. Public function, type, and schema aliases
+may select an explicit import in their own declaring module, but the local
+import qualifier does not become part of the published identity.
 
 A typed module `let` enters the declaring module's value namespace with the
 identity of its module and declared name. Its written annotation supplies the

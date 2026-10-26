@@ -88,9 +88,10 @@ pub(super) fn path_has_valid_constructor(
     arg_count: Option<usize>,
     current_module: Option<&str>,
     uses: &[&UseDecl],
+    blocked_import_aliases: &BlockedImportAliases,
     types: &[&veln_ast::TypeDecl],
 ) -> bool {
-    let target = visible_path_target(uses, segments, current_module);
+    let target = visible_path_target(uses, blocked_import_aliases, segments, current_module);
     let leaf = path_leaf(segments);
     types.iter().copied().any(|type_decl| {
         declaration_visible(
@@ -141,7 +142,14 @@ pub(super) fn collect_function_name_reference(
         }
         return;
     }
-    if path_has_valid_constructor(segments, None, current_module, uses, types) {
+    if path_has_valid_constructor(
+        segments,
+        None,
+        current_module,
+        uses,
+        context.blocked_import_aliases,
+        types,
+    ) {
         return;
     }
     let public_or_same_module_access;
@@ -155,6 +163,7 @@ pub(super) fn collect_function_name_reference(
         segments,
         current_module,
         uses,
+        context.blocked_import_aliases,
         function_targets,
         access_targets,
         arg_count,
@@ -165,26 +174,27 @@ pub(super) fn collect_function_name_reference(
 
 pub(super) fn collect_handler_operation_clause_callees(
     expr: &Expr,
-    current_module: Option<&str>,
-    uses: &[&UseDecl],
-    function_targets: &FunctionTargetIndex,
-    companion_access_targets: &HashMap<String, String>,
-    handlers: &[&veln_ast::HandlerDecl],
+    outer_context: &FunctionCalleeContext<'_>,
     callees: &mut Vec<ReachableFunction>,
 ) {
     let ExprKind::Handle { handler, .. } = &expr.kind else {
         return;
     };
-    let matching_handlers = handlers.iter().filter(|candidate| {
+    let matching_handlers = outer_context.handlers.iter().filter(|candidate| {
         let Some(name) = &candidate.name else {
             return false;
         };
         match handler.as_slice() {
-            [segment] => name == segment && candidate.module_name.as_deref() == current_module,
+            [segment] => {
+                name == segment && candidate.module_name.as_deref() == outer_context.current_module
+            }
             [_, .., segment] => {
-                let Some(use_decl) =
-                    imported_use_for_path(uses, &handler[..handler.len() - 1], current_module)
-                else {
+                let Some(use_decl) = imported_use_for_path(
+                    outer_context.uses,
+                    outer_context.blocked_import_aliases,
+                    &handler[..handler.len() - 1],
+                    outer_context.current_module,
+                ) else {
                     return false;
                 };
                 name == segment && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
@@ -194,11 +204,12 @@ pub(super) fn collect_handler_operation_clause_callees(
     });
     for handler in matching_handlers {
         let context = FunctionCalleeContext {
-            current_module,
-            uses,
-            function_targets,
-            companion_access_targets,
-            handlers,
+            current_module: outer_context.current_module,
+            uses: outer_context.uses,
+            blocked_import_aliases: outer_context.blocked_import_aliases,
+            function_targets: outer_context.function_targets,
+            companion_access_targets: outer_context.companion_access_targets,
+            handlers: outer_context.handlers,
             types: &[],
         };
         let mut local_bindings = handler
@@ -225,6 +236,7 @@ pub(super) fn resolve_function_reference(
     segments: &[String],
     current_module: Option<&str>,
     uses: &[&UseDecl],
+    blocked_import_aliases: &BlockedImportAliases,
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
     arg_count: Option<usize>,
@@ -242,9 +254,12 @@ pub(super) fn resolve_function_reference(
             .map(reachable_function_from_target)
             .collect(),
         [_, .., name] => {
-            let Some(use_decl) =
-                imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
-            else {
+            let Some(use_decl) = imported_use_for_path(
+                uses,
+                blocked_import_aliases,
+                &segments[..segments.len() - 1],
+                current_module,
+            ) else {
                 return Vec::new();
             };
             let module_name = use_decl.name.as_str();
@@ -286,6 +301,7 @@ pub(super) fn recovery_target_accepts_arg_count(
 
 pub(super) fn imported_use_for_path<'a>(
     uses: &'a [&'a UseDecl],
+    blocked_import_aliases: &BlockedImportAliases,
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
@@ -301,6 +317,9 @@ pub(super) fn imported_use_for_path<'a>(
     });
     if let Some(first) = exact.next() {
         return exact.next().is_none().then_some(first);
+    }
+    if blocked_import_aliases.contains(&(current_module.map(str::to_string), module_path.clone())) {
+        return None;
     }
     let mut aliases = candidates
         .into_iter()

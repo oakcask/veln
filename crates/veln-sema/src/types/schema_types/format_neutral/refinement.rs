@@ -158,7 +158,7 @@ pub(crate) fn format_neutral_schema_encode_field_is_source_adt_candidate(
         &module
             .uses
             .iter()
-            .filter(|use_decl| use_decl_has_invalid_module_segment(module, use_decl))
+            .filter(|use_decl| use_decl_is_recovery_candidate(module, use_decl))
             .cloned()
             .collect::<Vec<_>>(),
         schema.module_name.as_deref(),
