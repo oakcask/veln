@@ -30,6 +30,18 @@ fn module_with_value_chain(count: usize) -> SurfaceModule {
     lower_surface_ast(&parsed.tree)
 }
 
+fn module_with_unresolved_value_annotations(count: usize) -> SurfaceModule {
+    let source = SourceFile::new(
+        "main.veln",
+        (0..count)
+            .map(|index| format!("let value_{index}: Missing{index} = {index}\n"))
+            .collect::<String>(),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    lower_surface_ast(&parsed.tree)
+}
+
 #[test]
 #[ignore = "supporting wall-clock evidence; deterministic scaling is asserted separately"]
 fn module_value_gate_reports_adjacent_size_timings() {
@@ -57,6 +69,20 @@ fn module_value_analysis_reports_adjacent_size_timings() {
 
         assert_eq!(diagnostics.len(), count, "{diagnostics:#?}");
         eprintln!("module value analysis: {count} declarations in {elapsed:?}");
+    }
+}
+
+#[test]
+#[ignore = "supporting wall-clock evidence for failure-heavy annotation scaling"]
+fn module_value_unresolved_annotation_analysis_reports_adjacent_size_timings() {
+    for count in [2_000, 4_000, 8_000] {
+        let module = module_with_unresolved_value_annotations(count);
+        let started = std::time::Instant::now();
+        let diagnostics = analyze_surface_module(&module);
+        let elapsed = started.elapsed();
+
+        assert!(diagnostics.len() >= count, "{diagnostics:#?}");
+        eprintln!("module value unresolved annotations: {count} declarations in {elapsed:?}");
     }
 }
 
@@ -98,6 +124,34 @@ fn module_value_gate_work_grows_linearly_with_declarations() {
     let work_n = work_for(N);
     let work_2n = work_for(2 * N);
     assert_eq!(work_2n.total(), 2 * work_n.total());
+}
+
+#[test]
+fn module_value_annotation_dedup_work_grows_linearly_with_failures() {
+    fn work_for(count: usize) -> (usize, usize) {
+        let module = module_with_unresolved_value_annotations(count);
+        reset_module_value_annotation_dedup_work();
+        let diagnostics = analyze_surface_module(&module);
+        let work = take_module_value_annotation_dedup_work();
+
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "name.unresolved")
+                .count(),
+            count,
+            "{diagnostics:#?}"
+        );
+        assert_eq!(work.path_lookups, count, "{work:#?}");
+        assert_eq!(work.indexed_diagnostics, count, "{work:#?}");
+        (work.path_lookups, work.indexed_diagnostics)
+    }
+
+    const N: usize = 64;
+    let work_n = work_for(N);
+    let work_2n = work_for(2 * N);
+    assert_eq!(work_2n.0, 2 * work_n.0);
+    assert_eq!(work_2n.1, 2 * work_n.1);
 }
 
 #[test]
@@ -285,6 +339,94 @@ fn module_value_initializers_accept_finite_data_and_forward_references() {
         diagnostics.iter().all(|diagnostic| {
             diagnostic.id == "module.value_not_executable"
                 || diagnostic.severity != veln_diagnostics::Severity::Error
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn module_value_initializers_accept_the_complete_finite_data_surface() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Idle\n",
+            "  Active(count: Int)\n",
+            "end\n",
+            "let boolean: Bool = true\n",
+            "let text: String = \"ready\"\n",
+            "let nothing: () = ()\n",
+            "let grouped: Bool = (boolean)\n",
+            "let idle: State = Idle\n",
+            "let active: State = Active(later)\n",
+            "let optional: Option<Int> = Some(later)\n",
+            "let outcome: Result<Int, String> = Ok(later)\n",
+            "let items: List<Int> = Cons(later, Nil)\n",
+            "let nested: { state: State, data: { optional: Option<Int>, items: List<Int> } } = { state: Active(later), data: { optional: Some(later), items: Cons(later, Nil) } }\n",
+            "let later: Int = 3\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let errors = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == veln_diagnostics::Severity::Error)
+        .collect::<Vec<_>>();
+
+    assert_eq!(errors.len(), module.module_values.len(), "{diagnostics:#?}");
+    assert!(
+        errors
+            .iter()
+            .all(|diagnostic| diagnostic.id == "module.value_not_executable"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn contextual_empty_dictionaries_are_not_admitted_as_empty_records() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Container\n",
+            "  Wrap(items: Dict<Int, Int>)\n",
+            "end\n",
+            "pub type ContainerAlias = Container\n",
+            "let direct: Dict<Int, Int> = {}\n",
+            "let nested: { items: Dict<Int, Int> } = { items: {} }\n",
+            "let payload: Container = Wrap({})\n",
+            "let mismatched_payload: Int = Wrap({})\n",
+            "let aliased: ContainerAlias = Wrap({})\n",
+            "let structural: {} = {}\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let unsupported = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "value.module_initializer_unsupported")
+        .collect::<Vec<_>>();
+
+    assert_eq!(unsupported.len(), 5, "{diagnostics:#?}");
+    assert_eq!(
+        unsupported
+            .iter()
+            .map(|diagnostic| {
+                let span = diagnostic.span.as_ref().expect("unsupported span");
+                (span.start.line, span.end.offset - span.start.offset)
+            })
+            .collect::<Vec<_>>(),
+        vec![(5, 2), (6, 2), (7, 2), (8, 2), (9, 2)]
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "value.module_initializer_unsupported"
+                || diagnostic.span.as_ref() != Some(&module.module_values[5].initializer.span)
         }),
         "{diagnostics:#?}"
     );
@@ -530,18 +672,81 @@ fn module_value_cycles_report_once_per_component_on_a_closing_reference() {
         Some(&module.module_values[2].initializer.span)
     );
     assert_eq!(
-        cycles[0]
-            .related
-            .iter()
-            .filter(|related| {
-                related.as_object().is_some_and(|entries| {
-                    entries.iter().any(|(name, value)| {
-                        name == "kind" && value.as_text() == Some("cycle_declaration")
-                    })
-                })
-            })
-            .count(),
-        2
+        cycles[0].details,
+        veln_diagnostics::JsonValue::object([
+            ("phase", veln_diagnostics::JsonValue::string("type_check")),
+            ("name", veln_diagnostics::JsonValue::string("beta")),
+            ("target", veln_diagnostics::JsonValue::string("alpha")),
+        ])
+    );
+    assert_eq!(
+        cycles[0].related,
+        vec![
+            veln_diagnostics::JsonValue::object([
+                (
+                    "kind",
+                    veln_diagnostics::JsonValue::string("cycle_declaration"),
+                ),
+                (
+                    "message",
+                    veln_diagnostics::JsonValue::string(
+                        "Module value `alpha` participates in this initializer cycle.",
+                    ),
+                ),
+                (
+                    "span",
+                    crate::diagnostics::span_json(&module.module_values[0].span),
+                ),
+            ]),
+            veln_diagnostics::JsonValue::object([
+                (
+                    "kind",
+                    veln_diagnostics::JsonValue::string("cycle_declaration"),
+                ),
+                (
+                    "message",
+                    veln_diagnostics::JsonValue::string(
+                        "Module value `beta` participates in this initializer cycle.",
+                    ),
+                ),
+                (
+                    "span",
+                    crate::diagnostics::span_json(&module.module_values[1].span),
+                ),
+            ]),
+            veln_diagnostics::JsonValue::object([
+                (
+                    "kind",
+                    veln_diagnostics::JsonValue::string("cycle_reference"),
+                ),
+                (
+                    "message",
+                    veln_diagnostics::JsonValue::string(
+                        "Module value `alpha` depends on `beta` here.",
+                    ),
+                ),
+                (
+                    "span",
+                    crate::diagnostics::span_json(&module.module_values[0].initializer.span),
+                ),
+            ]),
+            veln_diagnostics::JsonValue::object([
+                (
+                    "kind",
+                    veln_diagnostics::JsonValue::string("cycle_reference"),
+                ),
+                (
+                    "message",
+                    veln_diagnostics::JsonValue::string(
+                        "Module value `beta` depends on `alpha` here.",
+                    ),
+                ),
+                (
+                    "span",
+                    crate::diagnostics::span_json(&module.module_values[1].initializer.span),
+                ),
+            ]),
+        ]
     );
 }
 
@@ -619,6 +824,89 @@ fn module_values_share_the_function_value_namespace() {
 }
 
 #[test]
+fn duplicate_module_values_are_quarantined_independently_of_source_order() {
+    fn assert_quarantine(first: &str, second: &str) {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "{first}{second}let dependent: Int = shared\nlet independent: Int = 1\nfn reads_dependent() -> String\n  dependent\nend\nfn reads_independent() -> String\n  independent\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+
+        let diagnostics = analyze_surface_module(&module);
+        let mismatches = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
+            .collect::<Vec<_>>();
+
+        assert_eq!(mismatches.len(), 1, "{diagnostics:#?}");
+        assert!(
+            mismatches[0]
+                .message
+                .contains("expected `String`, but found `Int`"),
+            "{diagnostics:#?}"
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "name.duplicate")
+                .count(),
+            1,
+            "{diagnostics:#?}"
+        );
+    }
+
+    assert_quarantine("let shared: Int = 1\n", "let shared: String = \"one\"\n");
+    assert_quarantine("let shared: String = \"one\"\n", "let shared: Int = 1\n");
+}
+
+#[test]
+fn callable_module_value_collisions_quarantine_dependents_but_keep_unrelated_facts() {
+    for collision in [
+        concat!("fn shared() -> Int\n", "  1\n", "end\n"),
+        concat!(
+            "fn original() -> Int\n",
+            "  1\n",
+            "end\n",
+            "pub fn shared = original\n",
+        ),
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "{collision}let shared: Int = 1\nlet dependent: Int = shared\nlet independent: Int = 1\nfn reads_dependent() -> String\n  dependent\nend\nfn reads_independent() -> String\n  independent\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+
+        let diagnostics = analyze_surface_module(&module);
+        let mismatches = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
+            .collect::<Vec<_>>();
+
+        assert_eq!(mismatches.len(), 1, "{diagnostics:#?}");
+        assert!(
+            mismatches[0]
+                .message
+                .contains("expected `String`, but found `Int`"),
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "name.duplicate"),
+            "{diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
 fn module_value_call_targets_do_not_fall_through_to_callable_lookup() {
     let source = SourceFile::new(
         "main.veln",
@@ -635,12 +923,137 @@ fn module_value_call_targets_do_not_fall_through_to_callable_lookup() {
 
     let diagnostics = analyze_surface_module(&module);
 
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.not_callable")
+        .expect("non-callable module value diagnostic");
+    assert_eq!(diagnostic.message, "module value `answer` is not callable");
+    assert_diagnostic_span(diagnostic, 3, 3, 3, 9);
+    let detail = |name: &str| {
+        diagnostic.details.as_object().and_then(|entries| {
+            entries
+                .iter()
+                .find(|(field, _)| field == name)
+                .and_then(|(_, value)| value.as_text())
+        })
+    };
+    assert_eq!(detail("phase"), Some("type_check"));
+    assert_eq!(detail("constraint"), Some("call_target"));
+    assert_eq!(detail("actual"), Some("module_value"));
+    assert_eq!(detail("name"), Some("answer"));
+    assert_eq!(diagnostic.related.len(), 1);
+    assert_eq!(
+        diagnostic.related[0],
+        veln_diagnostics::JsonValue::object([
+            (
+                "kind",
+                veln_diagnostics::JsonValue::string("module_value_declaration"),
+            ),
+            (
+                "message",
+                veln_diagnostics::JsonValue::string("Module value `answer` is declared here."),
+            ),
+            (
+                "span",
+                crate::diagnostics::span_json(&module.module_values[0].span),
+            ),
+        ])
+    );
+}
+
+#[test]
+fn complete_dependency_discovery_finds_hidden_cycles_and_respects_local_shadowing() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn keep(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "let operator_left: Int = operator_right + 1\n",
+            "let operator_right: Int = operator_left\n",
+            "let call_left: Int = keep(call_right)\n",
+            "let call_right: Int = call_left\n",
+            "let shadowed: Int = 0\n",
+            "let target: Int = shadowed\n",
+            "fn scoped() -> Int\n",
+            "  begin\n",
+            "    let target: Int = 1\n",
+            "    target\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let mut module = lower_surface_ast(&parsed.tree);
+    let scoped_initializer = module
+        .functions
+        .iter()
+        .find(|function| function.name.as_deref() == Some("scoped"))
+        .and_then(|function| function.body.first())
+        .and_then(|line| match &line.kind {
+            veln_ast::BodyLineKind::Expr { expr } => Some(expr.clone()),
+            _ => None,
+        })
+        .expect("scoped begin expression");
+    module.module_values[4].initializer = scoped_initializer;
+
+    let diagnostics = analyze_surface_module(&module);
+    let cycles = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "value.module_initializer_cycle")
+        .collect::<Vec<_>>();
+
+    assert_eq!(cycles.len(), 2, "{diagnostics:#?}");
+    assert_eq!(
+        cycles
+            .iter()
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "module value reference `call_left` closes an initializer cycle",
+            "module value reference `operator_left` closes an initializer cycle",
+        ]
+    );
     assert!(
-        diagnostics.iter().any(|diagnostic| {
-            diagnostic.id == "type.not_callable"
-                && diagnostic.message == "module value `answer` is not callable"
-        }),
+        cycles
+            .iter()
+            .all(|diagnostic| !diagnostic.message.contains("target")),
         "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn unsupported_acyclic_dependencies_are_quarantined_transitively() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "let base: Int = 1\n",
+            "let invalid: Int = base + 1\n",
+            "let dependent: Int = invalid\n",
+            "let independent: Int = 1\n",
+            "fn reads_dependent() -> String\n",
+            "  dependent\n",
+            "end\n",
+            "fn reads_independent() -> String\n",
+            "  independent\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
+        .collect::<Vec<_>>();
+
+    assert_eq!(mismatches.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        mismatches[0].span.as_ref().map(|span| span.start.line),
+        Some(9)
     );
 }
 

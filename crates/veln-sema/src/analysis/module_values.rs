@@ -1,13 +1,16 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
 use veln_ast::{
-    BodyLine, BodyLineKind, Expr, ExprKind, Function, FunctionKind, SurfaceModule, Visibility,
+    BodyLine, BodyLineKind, Expr, ExprKind, Function, FunctionKind, PublicAliasKind, SurfaceModule,
+    Visibility,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
 use super::{FunctionChecker, VariantDiagnosticInterner};
 use crate::adt::registry::ConstructorLookup;
+use crate::adt::{descriptors::AdtConstructor, type_operations as adt};
 use crate::diagnostics::span_json;
+use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_annotation;
 use crate::types::TypeEnvironment;
 
@@ -22,14 +25,62 @@ pub(crate) struct ModuleValueAnalysis {
     pub(crate) invalid: BTreeSet<(Option<String>, String)>,
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct ModuleValueAnnotationDedupWork {
+    pub(crate) indexed_diagnostics: usize,
+    pub(crate) path_lookups: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    static MODULE_VALUE_ANNOTATION_DEDUP_WORK:
+        std::cell::Cell<ModuleValueAnnotationDedupWork> =
+        const { std::cell::Cell::new(ModuleValueAnnotationDedupWork {
+            indexed_diagnostics: 0,
+            path_lookups: 0,
+        }) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_module_value_annotation_dedup_work() {
+    MODULE_VALUE_ANNOTATION_DEDUP_WORK.set(ModuleValueAnnotationDedupWork::default());
+}
+
+#[cfg(test)]
+pub(crate) fn take_module_value_annotation_dedup_work() -> ModuleValueAnnotationDedupWork {
+    MODULE_VALUE_ANNOTATION_DEDUP_WORK.replace(ModuleValueAnnotationDedupWork::default())
+}
+
+#[cfg(test)]
+fn record_module_value_annotation_dedup_work(
+    update: impl FnOnce(&mut ModuleValueAnnotationDedupWork),
+) {
+    MODULE_VALUE_ANNOTATION_DEDUP_WORK.set({
+        let mut work = MODULE_VALUE_ANNOTATION_DEDUP_WORK.get();
+        update(&mut work);
+        work
+    });
+}
+
 pub(crate) fn check_module_values(
     module: &SurfaceModule,
-    environment: &TypeEnvironment,
+    environment: &mut TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
 ) -> ModuleValueAnalysis {
     let mut diagnostics = Vec::new();
     let mut dependencies = vec![Vec::new(); module.module_values.len()];
-    let mut invalid = vec![false; module.module_values.len()];
+    let colliding_identities = colliding_module_value_identities(module);
+    environment.quarantine_module_values(&colliding_identities);
+    let mut invalid = module
+        .module_values
+        .iter()
+        .map(|value| {
+            value.name.as_ref().is_some_and(|name| {
+                colliding_identities.contains(&(value.module_name.clone(), name.clone()))
+            })
+        })
+        .collect::<Vec<_>>();
     let mut value_indices = HashMap::new();
     for (index, value) in module.module_values.iter().enumerate() {
         if let Some(name) = &value.name {
@@ -40,13 +91,23 @@ pub(crate) fn check_module_values(
     }
 
     for (index, value) in module.module_values.iter().enumerate() {
+        collect_dependencies(
+            &value.initializer,
+            value.module_name.as_deref(),
+            &value_indices,
+            &mut Vec::new(),
+            &mut dependencies[index],
+        );
         let diagnostic_count = diagnostics.len();
+        let expected = parse_type_annotation(&value.annotation)
+            .ok()
+            .map(|ty| environment.canonicalize_type_annotation(ty, value.module_name.as_deref()));
         check_admitted_expr(
             &value.initializer,
             value,
             &value_indices,
             environment,
-            &mut dependencies[index],
+            expected.as_ref(),
             &mut diagnostics,
         );
 
@@ -93,9 +154,14 @@ pub(crate) fn check_module_values(
                 )
             });
         if !annotation_is_closed {
-            push_unresolved_annotation_paths(value, environment, &mut diagnostics);
+            push_unresolved_annotation_paths(
+                value,
+                environment,
+                diagnostic_count,
+                &mut diagnostics,
+            );
         }
-        invalid[index] = diagnostics.len() != diagnostic_count || !annotation_is_closed;
+        invalid[index] |= diagnostics.len() != diagnostic_count || !annotation_is_closed;
     }
 
     let (cycle_diagnostics, cyclic) = cycle_diagnostics(module, &dependencies);
@@ -139,18 +205,61 @@ pub(crate) fn check_module_values(
     }
 }
 
+fn colliding_module_value_identities(module: &SurfaceModule) -> BTreeSet<(Option<String>, String)> {
+    let mut counts = HashMap::<(Option<String>, String), usize>::new();
+    for function in &module.functions {
+        if let Some(name) = &function.name {
+            *counts
+                .entry((function.module_name.clone(), name.clone()))
+                .or_default() += 1;
+        }
+    }
+    for alias in module
+        .aliases
+        .iter()
+        .filter(|alias| alias.kind == PublicAliasKind::Function)
+    {
+        if let Some(name) = &alias.name {
+            *counts
+                .entry((alias.module_name.clone(), name.clone()))
+                .or_default() += 1;
+        }
+    }
+    for value in &module.module_values {
+        if let Some(name) = &value.name {
+            *counts
+                .entry((value.module_name.clone(), name.clone()))
+                .or_default() += 1;
+        }
+    }
+    counts
+        .into_iter()
+        .filter_map(|(identity, count)| (count > 1).then_some(identity))
+        .collect()
+}
+
 fn push_unresolved_annotation_paths(
     declaration: &veln_ast::ModuleValueDecl,
     environment: &TypeEnvironment,
+    diagnostic_start: usize,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
+    let unresolved_spans = diagnostics[diagnostic_start..]
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.unresolved")
+        .filter_map(|diagnostic| diagnostic.span.as_ref())
+        .map(span_identity)
+        .collect::<BTreeSet<_>>();
+    #[cfg(test)]
+    record_module_value_annotation_dedup_work(|work| {
+        work.indexed_diagnostics += diagnostics.len() - diagnostic_start;
+    });
     for path in &declaration.annotation_paths {
         let symbol = path.segments.join("::");
+        #[cfg(test)]
+        record_module_value_annotation_dedup_work(|work| work.path_lookups += 1);
         if environment.type_path_is_resolved(&symbol, declaration.module_name.as_deref())
-            || diagnostics.iter().any(|diagnostic| {
-                diagnostic.id == "name.unresolved"
-                    && diagnostic.span.as_ref() == Some(&path.application_span)
-            })
+            || unresolved_spans.contains(&span_identity(&path.application_span))
         {
             continue;
         }
@@ -172,12 +281,34 @@ fn push_unresolved_annotation_paths(
     }
 }
 
+type SpanIdentity = (
+    veln_source::SourcePath,
+    (usize, usize, usize),
+    (usize, usize, usize),
+    Option<veln_source::SourcePath>,
+    Option<(usize, usize, usize)>,
+    Option<(usize, usize, usize)>,
+);
+
+fn span_identity(span: &veln_source::SourceSpan) -> SpanIdentity {
+    let position =
+        |position: veln_source::LineCol| (position.line, position.column, position.offset);
+    (
+        span.file.clone(),
+        position(span.start),
+        position(span.end),
+        span.original_path().cloned(),
+        span.original_start().map(position),
+        span.original_end().map(position),
+    )
+}
+
 fn check_admitted_expr(
     expr: &Expr,
     declaration: &veln_ast::ModuleValueDecl,
     value_indices: &HashMap<(Option<String>, String), usize>,
     environment: &TypeEnvironment,
-    dependencies: &mut Vec<Dependency>,
+    expected: Option<&Type>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     match &expr.kind {
@@ -186,13 +317,17 @@ fn check_admitted_expr(
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
         ExprKind::Record(fields) => {
+            if fields.is_empty() && expected.is_some_and(|ty| ty.dict_parts().is_some()) {
+                diagnostics.push(unsupported_diagnostic(expr, declaration));
+                return;
+            }
             for field in fields {
                 check_admitted_expr(
                     &field.expr,
                     declaration,
                     value_indices,
                     environment,
-                    dependencies,
+                    expected.and_then(|ty| ty.record_field(&field.name)),
                     diagnostics,
                 );
             }
@@ -202,13 +337,9 @@ fn check_admitted_expr(
             expr: inner,
         } if matches!(inner.kind, ExprKind::IntLiteral(_)) => {}
         ExprKind::NamePath { segments, .. } => {
-            if let Some(target) =
-                module_value_index(value_indices, segments, declaration.module_name.as_deref())
+            if module_value_index(value_indices, segments, declaration.module_name.as_deref())
+                .is_some()
             {
-                dependencies.push(Dependency {
-                    target,
-                    span: expr.span.clone(),
-                });
                 return;
             }
             if matches!(
@@ -226,12 +357,18 @@ fn check_admitted_expr(
             }
         }
         ExprKind::Call { callee, args } => {
-            match constructor_call(environment, callee, declaration.module_name.as_deref()) {
+            match constructor_call(
+                environment,
+                callee,
+                declaration.module_name.as_deref(),
+                expected,
+            ) {
                 ConstructorCall::Found {
-                    expected_count,
+                    constructor,
                     diagnostic_name,
                     reason,
                 } => {
+                    let expected_count = constructor.variant.payload_fields.len();
                     if args.len() != expected_count {
                         diagnostics.push(constructor_arity_diagnostic(
                             expr,
@@ -241,13 +378,20 @@ fn check_admitted_expr(
                             reason,
                         ));
                     }
-                    for arg in args {
+                    for (index, arg) in args.iter().enumerate() {
+                        let payload_expected = expected
+                            .and_then(|expected| adt::payload_type(expected, constructor, index))
+                            .or_else(|| {
+                                adt::payload_type_with_resolved_args(constructor, index, |_| {
+                                    Type::Unknown
+                                })
+                            });
                         check_admitted_expr(
                             arg,
                             declaration,
                             value_indices,
                             environment,
-                            dependencies,
+                            payload_expected.as_ref(),
                             diagnostics,
                         );
                     }
@@ -259,7 +403,7 @@ fn check_admitted_expr(
                             declaration,
                             value_indices,
                             environment,
-                            dependencies,
+                            None,
                             diagnostics,
                         );
                     }
@@ -285,7 +429,7 @@ fn check_admitted_expr(
                                 declaration,
                                 value_indices,
                                 environment,
-                                dependencies,
+                                None,
                                 diagnostics,
                             );
                         }
@@ -295,6 +439,87 @@ fn check_admitted_expr(
         }
         ExprKind::Missing => {}
         _ => diagnostics.push(unsupported_diagnostic(expr, declaration)),
+    }
+}
+
+fn collect_dependencies(
+    expr: &Expr,
+    current_module: Option<&str>,
+    value_indices: &HashMap<(Option<String>, String), usize>,
+    bindings: &mut Vec<String>,
+    dependencies: &mut Vec<Dependency>,
+) {
+    if let ExprKind::NamePath { segments, .. } = &expr.kind
+        && !matches!(segments.as_slice(), [name] if bindings.iter().rev().any(|binding| binding == name))
+        && let Some(target) = module_value_index(value_indices, segments, current_module)
+    {
+        dependencies.push(Dependency {
+            target,
+            span: expr.span.clone(),
+        });
+    }
+    match &expr.kind {
+        ExprKind::Match { scrutinee, arms } => {
+            collect_dependencies(
+                scrutinee,
+                current_module,
+                value_indices,
+                bindings,
+                dependencies,
+            );
+            for arm in arms {
+                let binding_count = bindings.len();
+                arm.pattern
+                    .for_each_binding(&mut |name| bindings.push(name.to_string()));
+                collect_dependencies(
+                    &arm.expr,
+                    current_module,
+                    value_indices,
+                    bindings,
+                    dependencies,
+                );
+                bindings.truncate(binding_count);
+            }
+        }
+        ExprKind::Begin { body, .. } => {
+            let binding_count = bindings.len();
+            collect_body_dependencies(body, current_module, value_indices, bindings, dependencies);
+            bindings.truncate(binding_count);
+        }
+        _ => expr.for_each_child(&mut |child| {
+            collect_dependencies(child, current_module, value_indices, bindings, dependencies);
+        }),
+    }
+}
+
+fn collect_body_dependencies(
+    body: &[BodyLine],
+    current_module: Option<&str>,
+    value_indices: &HashMap<(Option<String>, String), usize>,
+    bindings: &mut Vec<String>,
+    dependencies: &mut Vec<Dependency>,
+) {
+    for line in body {
+        match &line.kind {
+            BodyLineKind::Let { pattern, expr, .. } => {
+                collect_dependencies(expr, current_module, value_indices, bindings, dependencies);
+                pattern.for_each_binding(&mut |name| bindings.push(name.to_string()));
+            }
+            BodyLineKind::Expr { expr } => {
+                collect_dependencies(expr, current_module, value_indices, bindings, dependencies)
+            }
+            BodyLineKind::Defer { body, .. } => {
+                let binding_count = bindings.len();
+                collect_body_dependencies(
+                    body,
+                    current_module,
+                    value_indices,
+                    bindings,
+                    dependencies,
+                );
+                bindings.truncate(binding_count);
+            }
+        }
     }
 }
 
@@ -334,9 +559,9 @@ fn known_function(
     }
 }
 
-enum ConstructorCall {
+enum ConstructorCall<'a> {
     Found {
-        expected_count: usize,
+        constructor: AdtConstructor<'a>,
         diagnostic_name: String,
         reason: &'static str,
     },
@@ -344,20 +569,38 @@ enum ConstructorCall {
     Missing,
 }
 
-fn constructor_call(
-    environment: &TypeEnvironment,
+fn constructor_call<'a>(
+    environment: &'a TypeEnvironment,
     callee: &Expr,
     current_module: Option<&str>,
-) -> ConstructorCall {
+    expected: Option<&Type>,
+) -> ConstructorCall<'a> {
     let Some((segments, _)) = callee.callee_name_path_and_type_args() else {
         return ConstructorCall::Missing;
     };
-    match environment
-        .adts
-        .constructor(segments, current_module, &environment.uses)
-    {
+    let contextual = (segments.len() == 1)
+        .then_some(expected)
+        .flatten()
+        .and_then(|expected| {
+            environment
+                .adts
+                .descriptor_for_type_prefer_module(expected, current_module)
+        })
+        .and_then(|descriptor| {
+            environment.adts.constructor_for_descriptor(
+                segments,
+                descriptor,
+                current_module,
+                &environment.uses,
+            )
+        });
+    match contextual.map(ConstructorLookup::Found).unwrap_or_else(|| {
+        environment
+            .adts
+            .constructor(segments, current_module, &environment.uses)
+    }) {
         ConstructorLookup::Found(constructor) => ConstructorCall::Found {
-            expected_count: constructor.variant.payload_fields.len(),
+            constructor,
             diagnostic_name: constructor.descriptor.diagnostic_name.clone(),
             reason: match constructor.descriptor.type_name.as_str() {
                 "Option" => "option_constructor_arity_mismatch",

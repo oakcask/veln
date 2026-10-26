@@ -1,0 +1,19 @@
+type State
+	Idle
+	Active(count: Int)
+end
+
+let boolean: Bool = true
+let text: String = "ready"
+let nothing: () = ()
+let grouped: Bool = (boolean)
+let idle: State = Idle
+let optional: Option<Int> = Some(later)
+let outcome: Result<Int, String> = Ok(later)
+let items: List<Int> = Cons(later, Nil)
+let nested: {state: State, optional: Option<Int>} = {state: Active(later), optional: Some(later)}
+let later: Int = 3
+
+pub fn main() -> Int
+	0
+end

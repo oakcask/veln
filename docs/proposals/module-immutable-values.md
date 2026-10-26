@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Module immutable-value imported lookup, visibility, execution, documentation publication, or language-service navigation and their planned verification change.
+update-when: Module immutable-value imported lookup, cross-module dependencies, visibility, execution, documentation publication, language-service navigation, or their planned verification change.
 ---
 
 # Module Immutable Data Value Completion
@@ -8,7 +8,7 @@ update-when: Module immutable-value imported lookup, visibility, execution, docu
 Complete the remaining compiler and tooling support for typed module `let`
 declarations. The current specifications own the implemented syntax,
 formatting, finite-data initializer checking, annotation assignability,
-same-module lookup, dependency validation, and initializer diagnostics.
+same-module lookup and dependency validation, and initializer diagnostics.
 
 ## Scope
 
@@ -23,6 +23,7 @@ retains `module.value_not_executable` after those checks.
 This proposal now owns only:
 
 - imported bare and qualified lookup across package sources;
+- imported and cross-module dependency validation;
 - public and private visibility, including exact companion access;
 - checked-core lowering and immutable runtime value construction;
 - package-documentation publication of public names and annotations; and
@@ -37,8 +38,10 @@ this proposal.
 An imported module value must use the existing written-import rules. Exact
 written paths take precedence over unique implicit leaf qualifiers. Distinct
 imported value identities with the same bare spelling are ambiguous, including
-a function/data collision. A selected data value used as a call target must not
-fall back to an imported function.
+a function/data collision. A same-module declaration must take precedence even
+when that declaration is invalid; invalid local data must not expose an
+imported fallback. A selected data value used as a call target must not fall
+back to an imported function.
 
 `let` is private and `pub let` is public. Another module requires an import and
 an eligible public export. An exact test companion may access its private target
@@ -46,6 +49,15 @@ values under the same target-specific permission as private functions. Public
 annotations must satisfy the recursive public type and variant-refinement
 visibility rules. A public base annotation may hide a private initializer
 variant, but a public annotation may not expose that private refinement.
+
+## Remaining Imported Dependencies
+
+Dependencies must connect selected module-value declarations across all
+package sources. Every cross-module cyclic component must fail without
+publishing its declarations or any dependent value. Independent valid
+declarations must remain available for semantic diagnostics. The selected
+closing reference and related declaration and dependency locations must remain
+the same when source enumeration or import order changes.
 
 ## Remaining Execution And Publication
 
@@ -71,6 +83,7 @@ same-spelled function.
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
 | Imported lookup | Bare and qualified imports obey exact-path precedence, unique implicit qualifiers, ambiguity, and no-fallback rules. | Multi-module and multi-package semantic and checked command cases. |
+| Imported dependencies | Cross-module cycles and their dependents are quarantined while unrelated facts remain available; source and import reordering does not change cycle selection. | Multi-module semantic and checked command cases with reordered sources and imports. |
 | Visibility | Private data is hidden except from its exact companion; public annotations cannot expose private types or refinements. | Human and JSON visibility cases. |
 | Execution | Admitted literals, records, constructors, and references produce their declared immutable data without initializer effects. | Checked `veln run` examples with independently written expected values. |
 | Publication | Public names and annotations are documented atomically without initializer text. | Package-documentation success and failure cases. |

@@ -84,6 +84,10 @@ pub(crate) use boundary::{
 pub(crate) use handlers::check_handler_declarations;
 pub(crate) use module_values::check_module_values;
 #[cfg(test)]
+pub(crate) use module_values::{
+    reset_module_value_annotation_dedup_work, take_module_value_annotation_dedup_work,
+};
+#[cfg(test)]
 pub(crate) use variant_refinement_bases::{
     DiagnosticRecordRenderWork, reset_diagnostic_record_render_work,
     take_diagnostic_record_render_work,

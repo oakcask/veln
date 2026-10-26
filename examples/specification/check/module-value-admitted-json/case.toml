@@ -1,0 +1,57 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["module.value_not_executable", "module value declaration `nested` is not executable"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics"
+length = 10
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "module.value_not_executable"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "module.value_not_executable"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "module.value_not_executable"
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "module.value_not_executable"
+
+[[json_assert]]
+path = "diagnostics.4.id"
+equals = "module.value_not_executable"
+
+[[json_assert]]
+path = "diagnostics.5.id"
+equals = "module.value_not_executable"
+
+[[json_assert]]
+path = "diagnostics.6.id"
+equals = "module.value_not_executable"
+
+[[json_assert]]
+path = "diagnostics.7.id"
+equals = "module.value_not_executable"
+
+[[json_assert]]
+path = "diagnostics.8.id"
+equals = "module.value_not_executable"
+
+[[json_assert]]
+path = "diagnostics.9.id"
+equals = "module.value_not_executable"

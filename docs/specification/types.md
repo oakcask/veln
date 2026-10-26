@@ -532,6 +532,10 @@ constructors whose payloads are admitted; and same-module module value
 references. Parentheses preserve admission. Float literals, collection
 literals, functions and ordinary calls, other operators, field access, control
 flow, effects, handlers, and holes are not admitted.
+An empty `{}` follows its contextual type: it is rejected as a collection
+literal when a `Dict<K, V>` annotation, record field, constructor payload, or
+resolved alias supplies that expectation. Without a dictionary expectation it
+remains an admitted empty structural record.
 
 Same-module references form a dependency graph independent of declaration
 order. An acyclic forward reference has the target's written annotation. Each
@@ -543,6 +547,9 @@ available for checking function bodies. The checked
 and
 [`cycle JSON`](../../examples/specification/check/module-value-initializer-cycle-json/)
 cases cover the initializer and dependency boundaries. The checked
+[`admitted initializer JSON`](../../examples/specification/check/module-value-admitted-json/)
+case verifies that representative finite-data declarations reach only the
+checked-core execution gate. The checked
 [`open annotation failure`](../../examples/specification/check/module-value-open-annotation-human/)
 case verifies that an undeclared type parameter cannot escape through a module
 value annotation.

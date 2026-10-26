@@ -61,7 +61,10 @@ reference type. Same-module bare and module-qualified references resolve
 throughout that module, including before the declaration. A parameter or local
 binding wins over a same-spelled module value for a bare reference. Functions,
 public function aliases, and module values share one duplicate-name check.
-A selected module value used as a call target reports `type.not_callable` and
+A collision makes every module-value declaration with that identity
+unavailable, and declarations that depend on it are unavailable while
+unrelated module values retain their semantic facts. A selected module value
+used as a call target reports `type.not_callable` and
 does not fall through to callable lookup. Imported lookup and visibility for
 module values are not implemented.
 
