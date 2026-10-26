@@ -1,0 +1,29 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "value of type `State` is not assignable to variant type `State::Ready`",
+  "expected `{state: State::Ready, label: String}`, but found `{state: State}`",
+  "expected `fn(State) -> State::Ready`, but found `fn(State::Ready) -> State`",
+  "expected `fn(...State) -> State::Ready`, but found `fn(...State::Ready) -> State`",
+  "expected `fn(...State::Ready) -> State`, but found `fn(State::Ready) -> State`",
+  "expected `fn(State::Ready) -> State`, but found `fn(...State::Ready) -> State`",
+  "expected `fn(fn(State::Ready) -> ()) -> ()`, but found `fn(fn(State) -> ()) -> ()`",
+  "expected `fn({id: Int}) -> ()`, but found `fn({id: Int, label: String}) -> ()`",
+  "expected `fn() -> ()`, but found `fn() -> () effects [stdio]`",
+  "expected `fn(fn() -> () effects [stdio]) -> ()`, but found `fn(fn() -> ()) -> ()`",
+  "expected `Vec<State>`, but found `Vec<State::Ready>`",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 11

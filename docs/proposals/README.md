@@ -25,7 +25,7 @@ also states it.
   visibility, execution, documentation publication, and language-service
   navigation:
   [module-immutable-values.md](module-immutable-values.md).
-- Generic named-type variance and function assignability:
+- Generic named-type variance, bounded inference, and variance metadata:
   [generic-and-function-variance.md](generic-and-function-variance.md).
 - Explicit module import aliases and their lookup and casing rules:
   [explicit-import-aliases.md](explicit-import-aliases.md).

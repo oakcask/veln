@@ -1,0 +1,51 @@
+type State
+	Ready
+	Closed
+end
+
+fn ready_to_state(value: State::Ready) -> State
+	value
+end
+
+fn ready_values_to_state(values: ...State::Ready) -> State
+	Ready
+end
+
+fn fixed_ready_to_state(value: State::Ready) -> State
+	value
+end
+
+fn variadic_ready_to_state(values: ...State::Ready) -> State
+	Ready
+end
+
+fn accepts_state_callback(callback: fn(State) -> ()) -> ()
+	()
+end
+
+fn accepts_wide_record(value: {id: Int, label: String}) -> ()
+	()
+end
+
+fn stdio_callback() -> () effects [stdio]
+	stdio::println("effect")
+end
+
+fn accepts_pure_callback(callback: fn() -> ()) -> ()
+	()
+end
+
+fn main(value: State, record: {state: State}) -> ()
+	let narrowed: State::Ready = value
+	let narrowed_record: {state: State::Ready, label: String} = record
+	let reversed: fn(State) -> State::Ready = ready_to_state
+	let reversed_variadic: fn(...State) -> State::Ready = ready_values_to_state
+	let fixed_as_variadic: fn(...State::Ready) -> State = fixed_ready_to_state
+	let variadic_as_fixed: fn(State::Ready) -> State = variadic_ready_to_state
+	let reversed_callback: fn(fn(State::Ready) -> ()) -> () = accepts_state_callback
+	let reversed_record_width: fn({id: Int}) -> () = accepts_wide_record
+	let narrowed_effect: fn() -> () = stdio_callback
+	let reversed_nested_effect: fn(fn() -> () effects [stdio]) -> () = accepts_pure_callback
+	let ready_values = [Ready]
+	let invariant_named: Vec<State> = ready_values
+end

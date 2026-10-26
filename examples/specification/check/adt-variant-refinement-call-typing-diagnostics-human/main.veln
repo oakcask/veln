@@ -43,7 +43,7 @@ fn invalid_source_arity(value: Choice::Absent) -> Choice::Absent
 	value
 end
 
-fn reject_record_widening(value: {state: State::Ready}) -> ()
+fn accept_record_widening(value: {state: State::Ready}) -> ()
 	let rejected: {state: State} = value
 end
 

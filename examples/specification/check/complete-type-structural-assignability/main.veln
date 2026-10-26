@@ -1,0 +1,49 @@
+type State
+	Ready
+	Closed
+end
+
+fn state_to_ready(value: State) -> State::Ready
+	Ready
+end
+
+fn states_to_ready(values: ...State) -> State::Ready
+	Ready
+end
+
+fn numbered_states_to_ready(first: Int, values: ...State) -> State::Ready
+	Ready
+end
+
+fn accepts_ready_callback(callback: fn(State::Ready) -> ()) -> ()
+	()
+end
+
+fn accepts_state_producer(callback: fn() -> State) -> ()
+	()
+end
+
+fn accepts_identity_record(value: {id: Int}) -> ()
+	()
+end
+
+fn pure_callback() -> ()
+	()
+end
+
+fn accepts_stdio_callback(callback: fn() -> () effects [stdio]) -> ()
+	()
+end
+
+fn main(value: State::Ready, record: {state: State::Ready, label: String}) -> ()
+	let direct: State = value
+	let widened_record: {state: State} = record
+	let fixed: fn(State::Ready) -> State = state_to_ready
+	let variadic: fn(...State::Ready) -> State = states_to_ready
+	let fixed_variadic: fn(Int, ...State::Ready) -> State = numbered_states_to_ready
+	let two_reversals: fn(fn(State) -> ()) -> () = accepts_ready_callback
+	let nested_callback: fn(fn() -> State::Ready) -> () = accepts_state_producer
+	let record_width_callback: fn({id: Int, label: String}) -> () = accepts_identity_record
+	let wider_effect: fn() -> () effects [stdio] = pure_callback
+	let nested_effect: fn(fn() -> ()) -> () = accepts_stdio_callback
+end

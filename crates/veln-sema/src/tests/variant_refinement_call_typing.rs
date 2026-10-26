@@ -827,7 +827,7 @@ fn aggregate_construction_retains_record_fields_and_rejects_excluded_variants() 
         )
     ));
 
-    assert_eq!(diagnostics.len(), 8, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 7, "{diagnostics:#?}");
     assert_eq!(
         diagnostics
             .iter()
@@ -841,7 +841,7 @@ fn aggregate_construction_retains_record_fields_and_rejects_excluded_variants() 
             .iter()
             .filter(|diagnostic| diagnostic.id == "type.mismatch")
             .count(),
-        8,
+        7,
         "{diagnostics:#?}"
     );
 }
