@@ -115,7 +115,10 @@ grammar_line(47, "IntLiteral    ::= DecimalLiteral | BinaryLiteral | Hexadecimal
 grammar_line(47, "DecimalLiteral ::= ASCII decimal digit+").
 grammar_line(47, "BinaryLiteral ::= \"0b\" (\"0\" | \"1\")+").
 grammar_line(47, "HexadecimalLiteral ::= \"0x\" ASCII hexadecimal digit+").
-grammar_line(50, "Item          ::= Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias").
+grammar_line(50, "Item          ::= ModuleValueDecl | Function | TestDecl | EffectDecl | HandlerDecl | TypeDecl | SchemaDecl | PublicAlias").
+grammar_line(55, "ModuleValueDecl ::= \"pub\"? \"let\" ModuleBindingName \":\" TypeText \"=\" Expr DeclarationEnd").
+grammar_line(55, "DeclarationEnd ::= NL | EOF").
+grammar_line(56, "ModuleBindingName ::= ordinary identifier with ASCII lowercase initial").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name EffectBinder? \"(\" ParamList? \")\" Return? Effects? CallsiteModifier? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
@@ -432,6 +435,20 @@ item --> nls, handler_decl.
 item --> nls, type_decl.
 item --> nls, schema_decl.
 item --> nls, public_alias.
+item --> nls, module_value_decl.
+
+module_value_decl -->
+    visibility,
+    tok(let),
+    module_binding_name,
+    tok(colon),
+    type_text_until([equal]),
+    tok(equal),
+    expr,
+    declaration_end.
+
+declaration_end --> nl, !.
+declaration_end --> eof.
 
 function_decl -->
     visibility,
@@ -956,6 +973,12 @@ named_adt_base -->
     named_adt_base.
 
 ascii_upper_name --> identifier_text(Text), { ascii_upper_text(Text) }.
+module_binding_name --> [t(ident, Text)], { ordinary_module_binding_text(Text) }.
+
+ordinary_module_binding_text(Text) :-
+    ascii_lower_text(Text),
+    Text \= "true",
+    Text \= "false".
 
 variant_type_arguments -->
     tok(less),
@@ -984,6 +1007,12 @@ ascii_upper_text(Text) :-
     char_code(First, Code),
     Code >= 0'A,
     Code =< 0'Z.
+
+ascii_lower_text(Text) :-
+    string_chars(Text, [First | _]),
+    char_code(First, Code),
+    Code >= 0'a,
+    Code =< 0'z.
 
 collect_until_stop(Stop, S, S, 0, Acc, Acc) :-
     S = [t(Kind, _) | _],
@@ -1145,7 +1174,7 @@ type_arg --> type_text_until([comma, greater]).
 field_suffix --> tok(dot), ident.
 
 record_or_dict --> tok(lbrace), nls, tok(rbrace).
-record_or_dict --> tok(lbrace), nls, entry, nls, entries_tail, trailing_comma_opt, tok(rbrace).
+record_or_dict --> tok(lbrace), nls, entry, nls, entries_tail, trailing_comma_opt, nls, tok(rbrace).
 entries_tail --> tok(comma), nls, entry, nls, !, entries_tail.
 entries_tail --> [].
 entry --> field_name, tok(colon), expr.
@@ -1267,5 +1296,6 @@ nls --> [].
 nl --> tok(nl).
 newline_opt --> nl, !.
 newline_opt --> [].
+eof([], []).
 
 tok(Kind) --> [t(Kind, _)].

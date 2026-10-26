@@ -42,11 +42,24 @@ pub struct UsePackage {
 #[derive(Clone, Debug)]
 pub enum SyntaxItem {
     Function(Box<FunctionDecl>),
+    ModuleValue(Box<ModuleValueDecl>),
     Effect(EffectDecl),
     Handler(HandlerDecl),
     Type(TypeDecl),
     Schema(SchemaDecl),
     PublicAlias(PublicAliasDecl),
+}
+
+#[derive(Clone, Debug)]
+pub struct ModuleValueDecl {
+    pub visibility: Visibility,
+    pub name: Option<String>,
+    pub name_span: Option<SourceSpan>,
+    pub annotation: String,
+    pub annotation_paths: Vec<TypePathSegments>,
+    pub annotation_refinements: Vec<VariantRefinementType>,
+    pub initializer: Expr,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug)]

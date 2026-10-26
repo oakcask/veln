@@ -619,7 +619,7 @@ fn reports_invalid_expression_token_and_recovers_to_next_line() {
 }
 
 #[test]
-fn synchronizes_top_level_garbage_to_next_function() {
+fn rejects_untyped_module_value_and_preserves_next_function() {
     let source = SourceFile::new("main.veln", "let stray = 1\nfn main()\nend\n");
 
     let output = parse(&source);
@@ -627,21 +627,18 @@ fn synchronizes_top_level_garbage_to_next_function() {
     let diagnostic = output
         .diagnostics
         .iter()
-        .find(|diagnostic| diagnostic.id == "parse.expected_item")
-        .expect("expected top-level item diagnostic");
-    assert_eq!(
-        diagnostic.recovery.strategy,
-        RecoveryStrategy::SynchronizeToAnchor
-    );
-    assert_eq!(diagnostic.recovery.anchor.as_deref(), Some("fn"));
-    assert!(diagnostic.recovery.dropped_token_count > 0);
-    assert_eq!(output.tree.items.len(), 1);
-    let function = first_function(&output);
+        .find(|diagnostic| diagnostic.id == "parse.module_value_declaration")
+        .expect("expected module value diagnostic");
+    assert_eq!(diagnostic.recovery.strategy, RecoveryStrategy::InsertToken);
+    assert_eq!(output.tree.items.len(), 2);
+    let SyntaxItem::Function(function) = &output.tree.items[1] else {
+        panic!("expected following function");
+    };
     assert_eq!(function.name.as_deref(), Some("main"));
 }
 
 #[test]
-fn synchronizes_top_level_garbage_to_next_test_declaration() {
+fn rejects_untyped_module_value_and_preserves_next_test_declaration() {
     let source = SourceFile::new("main.veln", "let stray = 1\ntest main() -> ()\nend\n");
 
     let output = parse(&source);
@@ -649,15 +646,13 @@ fn synchronizes_top_level_garbage_to_next_test_declaration() {
     let diagnostic = output
         .diagnostics
         .iter()
-        .find(|diagnostic| diagnostic.id == "parse.expected_item")
-        .expect("expected top-level item diagnostic");
-    assert_eq!(
-        diagnostic.recovery.strategy,
-        RecoveryStrategy::SynchronizeToAnchor
-    );
-    assert_eq!(diagnostic.recovery.anchor.as_deref(), Some("test"));
-    assert_eq!(output.tree.items.len(), 1);
-    let function = first_function(&output);
+        .find(|diagnostic| diagnostic.id == "parse.module_value_declaration")
+        .expect("expected module value diagnostic");
+    assert_eq!(diagnostic.recovery.strategy, RecoveryStrategy::InsertToken);
+    assert_eq!(output.tree.items.len(), 2);
+    let SyntaxItem::Function(function) = &output.tree.items[1] else {
+        panic!("expected following test");
+    };
     assert_eq!(function.kind, FunctionKind::Test);
     assert_eq!(function.name.as_deref(), Some("main"));
 }

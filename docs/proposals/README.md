@@ -19,7 +19,10 @@ also states it.
 - Explicit runtime validation of a base-typed record against a format-neutral
   schema, composed with ordinary decoder functions:
   [schema-runtime-refinement-validation.md](schema-runtime-refinement-validation.md).
-- Typed module immutable data declarations with finite data initializers:
+- With current typed module `let` source syntax and formatting as implemented
+  prerequisites, add finite-data initializer admission and assignability,
+  dependency and cycle rules, lookup and identity, visibility, execution, and
+  documentation publication:
   [module-immutable-values.md](module-immutable-values.md).
 - Generic named-type variance and function assignability:
   [generic-and-function-variance.md](generic-and-function-variance.md).
@@ -30,8 +33,9 @@ also states it.
 
 ## Blocked
 
-- Qualified immutable-value match refinement depends on implementation of
-  module immutable data declarations:
+- Qualified immutable-value match refinement depends on module immutable value
+  lookup, declaration identity, visibility, and execution semantics beyond the
+  implemented parser and formatter support:
   [qualified-value-match-refinement.md](qualified-value-match-refinement.md).
 
 ## Design In Progress

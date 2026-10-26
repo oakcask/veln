@@ -81,7 +81,7 @@ fn declaration_line_indexes(doctest: &ExtractedDoctest) -> BTreeSet<usize> {
         .tree
         .items
         .iter()
-        .map(|item| {
+        .filter_map(|item| {
             let span = match item {
                 veln_syntax::SyntaxItem::PublicAlias(alias) => &alias.span,
                 veln_syntax::SyntaxItem::Effect(effect) => &effect.span,
@@ -89,8 +89,9 @@ fn declaration_line_indexes(doctest: &ExtractedDoctest) -> BTreeSet<usize> {
                 veln_syntax::SyntaxItem::Type(type_decl) => &type_decl.span,
                 veln_syntax::SyntaxItem::Schema(schema) => &schema.span,
                 veln_syntax::SyntaxItem::Function(function) => &function.span,
+                veln_syntax::SyntaxItem::ModuleValue(_) => return None,
             };
-            TextRange::new(span.start.offset, span.end.offset)
+            Some(TextRange::new(span.start.offset, span.end.offset))
         })
         .collect::<Vec<_>>();
     line_ranges

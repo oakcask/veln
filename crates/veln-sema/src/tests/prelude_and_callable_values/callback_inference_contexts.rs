@@ -552,6 +552,7 @@ fn imported_declared_helpers_infer_private_callback_parameters() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: [app.types, helpers.types].concat(),
+        module_values: Vec::new(),
         functions: [app.functions, helpers.functions].concat(),
         invalid_names: Vec::new(),
     };
@@ -628,6 +629,7 @@ fn public_alias_effectful_declared_helpers_infer_private_callback_parameters() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: Vec::new(),
+        module_values: Vec::new(),
         functions: app
             .functions
             .into_iter()

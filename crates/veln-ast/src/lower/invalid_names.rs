@@ -7,6 +7,19 @@ pub(super) fn collect_invalid_names(tree: &SyntaxTree) -> Vec<InvalidName> {
     }
     for item in &tree.items {
         match item {
+            SyntaxItem::ModuleValue(value) => {
+                push_invalid_name(
+                    &mut invalid,
+                    value.name.as_deref(),
+                    value.name_span.as_ref(),
+                    NameClass::ValueBinding,
+                    NameOccurrence::Declaration,
+                    None,
+                    None,
+                );
+                collect_invalid_type_path_names(&value.annotation_paths, &mut invalid, None);
+                collect_invalid_expr_names(&value.initializer, &mut invalid, None);
+            }
             SyntaxItem::Function(function) => {
                 collect_invalid_function_names(function, &mut invalid);
             }

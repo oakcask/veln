@@ -12,6 +12,7 @@ fn companion_modules(
     let companion = lower_surface_ast(&parse(companion_source).tree);
     let target = lower_surface_ast(&parse(target_source).tree);
     let combined = SurfaceModule {
+        module_values: Vec::new(),
         functions: companion
             .functions
             .into_iter()

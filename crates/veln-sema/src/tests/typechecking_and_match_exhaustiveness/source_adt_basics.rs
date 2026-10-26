@@ -334,6 +334,7 @@ fn expected_adt_selects_unqualified_imported_source_adt_constructor() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: first.types.into_iter().chain(second.types).collect(),
+        module_values: Vec::new(),
         functions: app.functions,
         invalid_names: Vec::new(),
     };

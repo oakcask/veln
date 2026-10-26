@@ -39,7 +39,7 @@ Implemented checker namespaces are:
 - effect operation declarations
 - source type declarations and public type aliases
 - source ADT constructor declarations
-- value declarations, including functions, parameters, and `let` bindings
+- value declarations, including functions, parameters, and local `let` bindings
 - record fields inside one record literal
 
 Equal spellings in different namespaces are accepted where the source grammar
@@ -54,6 +54,11 @@ both a visible ordinary type and a visible schema use the same spelling because
 that position admits both namespaces. Namespace selection is therefore fixed
 by the syntactic role, while same-namespace duplicates remain errors and
 unrelated namespaces may share a spelling.
+
+A typed module `let` is preserved by parsing and lowering, but it does not
+enter the implemented value namespace. Its declaration identity, qualified or
+unqualified lookup, visibility, and shadowing behavior remain unavailable;
+project analysis reports `module.value_not_executable` before those operations.
 
 A finite chain of public type aliases is a valid type-alias target when it
 terminates in a resolved source ADT. Every alias in the chain retains the

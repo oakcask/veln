@@ -111,6 +111,7 @@ fn valid_effect_reference_ranges(
     let mut handler_target_token_cursor = 0usize;
     for item in &syntax.items {
         match item {
+            SyntaxItem::ModuleValue(_) => {}
             SyntaxItem::Function(function) => {
                 collect_function_effect_reference_regions(function, &mut regions);
             }

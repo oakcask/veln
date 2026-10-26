@@ -192,6 +192,7 @@ pub(super) fn empty_module() -> SurfaceModule {
         handlers: Vec::new(),
         types: Vec::new(),
         schemas: Vec::new(),
+        module_values: Vec::new(),
         functions: Vec::new(),
         invalid_names: Vec::new(),
     }

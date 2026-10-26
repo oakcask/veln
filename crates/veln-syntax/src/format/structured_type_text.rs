@@ -17,6 +17,14 @@ pub(super) fn prepare_structured_type_text(tree: &mut SyntaxTree, source: &str) 
                 );
                 prepare_body(&mut function.body, source);
             }
+            SyntaxItem::ModuleValue(value) => {
+                value.annotation = canonical_structured_type_text(
+                    &value.annotation,
+                    &value.annotation_refinements,
+                    source,
+                );
+                prepare_expr(&mut value.initializer, source);
+            }
             SyntaxItem::Effect(effect) => {
                 for operation in &mut effect.operations {
                     prepare_params(&mut operation.params, source);

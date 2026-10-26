@@ -1,0 +1,5 @@
+let answer: Int = 42
+
+pub fn main() -> Int
+	0
+end

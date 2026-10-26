@@ -510,6 +510,309 @@ fn missing_cleanup_end_preserves_following_top_level_declaration() {
 }
 
 #[test]
+fn missing_cleanup_end_preserves_following_module_value() {
+    for (body, expected_diagnostic) in [
+        (" defer\n  release()\n", "parse.defer_missing_end"),
+        (
+            " let value = begin\n  acquire()\n",
+            "parse.begin_missing_end",
+        ),
+    ] {
+        for (prefix, visibility) in [("", Visibility::Private), ("pub ", Visibility::Public)] {
+            let source = SourceFile::new(
+                "cleanup.veln",
+                format!("fn incomplete() -> ()\n{body}end\n\n{prefix}let following: Int = 1\n"),
+            );
+            let expected_token_count = lex(&source).tokens.len();
+
+            let output = parse(&source);
+
+            assert_eq!(output.tree.items.len(), 2, "{:#?}", output.diagnostics);
+            let SyntaxItem::Function(function) = &output.tree.items[0] else {
+                panic!("expected enclosing function");
+            };
+            assert_eq!(function.name.as_deref(), Some("incomplete"));
+            assert!(function.end_present, "{:#?}", output.diagnostics);
+            let SyntaxItem::ModuleValue(following) = &output.tree.items[1] else {
+                panic!("expected following module value");
+            };
+            assert_eq!(following.visibility, visibility);
+            assert_eq!(following.name.as_deref(), Some("following"));
+            assert_eq!(
+                output
+                    .diagnostics
+                    .iter()
+                    .map(|diagnostic| diagnostic.id)
+                    .collect::<Vec<_>>(),
+                [expected_diagnostic]
+            );
+            assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+        }
+    }
+}
+
+#[test]
+fn missing_cleanup_end_preserves_indented_private_module_value_before_following_item() {
+    let source = SourceFile::new(
+        "cleanup.veln",
+        concat!(
+            "fn incomplete() -> ()\n",
+            "\tdefer\n",
+            "\t\trelease()\n",
+            "end\n",
+            "\n",
+            "\tlet following: Int = 1\n",
+            "fn survivor() -> Int\n",
+            "\t1\n",
+            "end\n",
+        ),
+    );
+    let expected_token_count = lex(&source).tokens.len();
+
+    let output = parse(&source);
+
+    assert_eq!(
+        output
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id)
+            .collect::<Vec<_>>(),
+        ["parse.defer_missing_end"]
+    );
+    assert_eq!(output.tree.items.len(), 3, "{:#?}", output.diagnostics);
+    assert!(matches!(
+        &output.tree.items[0],
+        SyntaxItem::Function(function)
+            if function.name.as_deref() == Some("incomplete") && function.end_present
+    ));
+    assert!(matches!(
+        &output.tree.items[1],
+        SyntaxItem::ModuleValue(value)
+            if value.visibility == Visibility::Private
+                && value.name.as_deref() == Some("following")
+    ));
+    assert!(matches!(
+        &output.tree.items[2],
+        SyntaxItem::Function(function)
+            if function.name.as_deref() == Some("survivor")
+                && function.end_present
+                && matches!(
+                    function.body.as_slice(),
+                    [BodyLine::Expr { expr, .. }]
+                        if matches!(&expr.kind, ExprKind::IntLiteral(value) if value == "1")
+                )
+    ));
+    assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+}
+
+#[test]
+fn missing_cleanup_end_preserves_module_value_with_expression_after_block_at_eof() {
+    let source = SourceFile::new(
+        "cleanup.veln",
+        concat!(
+            "fn incomplete() -> ()\n",
+            "\tdefer\n",
+            "\t\trelease()\n",
+            "end\n",
+            "\n",
+            "let following: Int = begin\n",
+            "\t1\n",
+            "end + 1\n",
+        ),
+    );
+    let expected_token_count = lex(&source).tokens.len();
+
+    let output = parse(&source);
+
+    assert_eq!(
+        output
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id)
+            .collect::<Vec<_>>(),
+        ["parse.defer_missing_end"]
+    );
+    assert_eq!(output.tree.items.len(), 2, "{:#?}", output.diagnostics);
+    assert!(matches!(
+        &output.tree.items[0],
+        SyntaxItem::Function(function)
+            if function.name.as_deref() == Some("incomplete") && function.end_present
+    ));
+    assert!(matches!(
+        &output.tree.items[1],
+        SyntaxItem::ModuleValue(value)
+            if value.visibility == Visibility::Private
+                && value.name.as_deref() == Some("following")
+    ));
+    assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+}
+
+#[test]
+fn missing_cleanup_end_preserves_malformed_public_module_value_and_later_item() {
+    for (body, cleanup_diagnostic) in [
+        (" defer\n  release()\n", "parse.defer_missing_end"),
+        (
+            " let value = begin\n  acquire()\n",
+            "parse.begin_missing_end",
+        ),
+    ] {
+        for declaration in [
+            "pub let missing = 1",
+            "pub let missing: Int =",
+            "pub let _: Int = 1",
+            "pub let generic<T>: Int = 1",
+        ] {
+            let source = SourceFile::new(
+                "cleanup.veln",
+                format!(
+                    "fn incomplete() -> ()\n{body}end\n\n{declaration}\nfn following() -> Int\n 1\nend\n"
+                ),
+            );
+            let expected_token_count = lex(&source).tokens.len();
+
+            let output = parse(&source);
+            let diagnostic_ids = output
+                .diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.id)
+                .collect::<Vec<_>>();
+
+            assert!(
+                diagnostic_ids.contains(&cleanup_diagnostic),
+                "{declaration}: {:#?}",
+                output.diagnostics
+            );
+            assert!(
+                diagnostic_ids.contains(&"parse.module_value_declaration"),
+                "{declaration}: {:#?}",
+                output.diagnostics
+            );
+            assert_eq!(output.tree.items.len(), 3, "{declaration}");
+            assert!(matches!(
+                &output.tree.items[0],
+                SyntaxItem::Function(function)
+                    if function.name.as_deref() == Some("incomplete") && function.end_present
+            ));
+            assert!(matches!(
+                &output.tree.items[1],
+                SyntaxItem::ModuleValue(value) if value.visibility == Visibility::Public
+            ));
+            assert!(matches!(
+                &output.tree.items[2],
+                SyntaxItem::Function(function)
+                    if function.name.as_deref() == Some("following") && function.end_present
+            ));
+            assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+        }
+    }
+}
+
+#[test]
+fn complete_cleanup_end_keeps_following_local_let_in_the_function() {
+    for cleanup in [
+        " defer\n  release()\n end\n",
+        " let value = begin\n  acquire()\n end\n",
+    ] {
+        for annotation in ["", ": Int"] {
+            let source = SourceFile::new(
+                "cleanup.veln",
+                format!(
+                    "fn complete() -> Int\n{cleanup} let following{annotation} = 1\n following\nend\n"
+                ),
+            );
+            let expected_token_count = lex(&source).tokens.len();
+
+            let output = parse(&source);
+
+            assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+            assert_eq!(output.tree.items.len(), 1);
+            let SyntaxItem::Function(function) = &output.tree.items[0] else {
+                panic!("expected function");
+            };
+            assert!(function.end_present);
+            assert!(function.body.iter().any(|line| {
+                matches!(
+                    line,
+                    BodyLine::Let { pattern, annotation: actual_annotation, .. }
+                        if matches!(&pattern.kind, PatternKind::Binding(name) if name == "following")
+                            && actual_annotation.as_deref() == annotation.strip_prefix(": ")
+                )
+            }));
+            assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+        }
+    }
+}
+
+#[test]
+fn complete_cleanup_keeps_boolean_literal_local_patterns_in_the_function() {
+    for (pattern, initializer) in [("true", "false"), ("false", "true")] {
+        let source = SourceFile::new(
+            "cleanup.veln",
+            format!(
+                "fn complete() -> Bool\n defer\n  release()\n end\n let {pattern}: Bool = {initializer}\n {initializer}\nend\n"
+            ),
+        );
+        let expected_token_count = lex(&source).tokens.len();
+
+        let output = parse(&source);
+
+        assert!(
+            output.diagnostics.is_empty(),
+            "{pattern}: {:#?}",
+            output.diagnostics
+        );
+        assert_eq!(output.tree.items.len(), 1, "{pattern}");
+        let SyntaxItem::Function(function) = &output.tree.items[0] else {
+            panic!("expected function for {pattern}");
+        };
+        assert!(function.end_present, "{pattern}");
+        assert!(matches!(
+            &function.body[1],
+            BodyLine::Let { pattern: actual, .. }
+                if matches!(actual.kind, PatternKind::BoolLiteral(_))
+        ));
+        assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+    }
+}
+
+#[test]
+fn complete_cleanup_keeps_typed_local_with_unterminated_block_initializer() {
+    let source = SourceFile::new(
+        "cleanup.veln",
+        concat!(
+            "fn demo() -> Int\n",
+            "\tdefer\n",
+            "\t\t()\n",
+            "\tend\n",
+            "\tlet local: Int = begin\n",
+            "\t\t1\n",
+            "end\n",
+        ),
+    );
+    let expected_token_count = lex(&source).tokens.len();
+
+    let output = parse(&source);
+
+    assert_eq!(output.tree.items.len(), 1, "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(function) = &output.tree.items[0] else {
+        panic!("expected one enclosing function");
+    };
+    assert!(function.end_present, "{:#?}", output.diagnostics);
+    assert!(matches!(&function.body[0], BodyLine::Defer { .. }));
+    assert!(matches!(
+        &function.body[1],
+        BodyLine::Let { pattern, annotation, expr, .. }
+            if matches!(&pattern.kind, PatternKind::Binding(name) if name == "local")
+                && annotation.as_deref() == Some("Int")
+                && matches!(expr.kind, ExprKind::Begin { .. })
+    ));
+    assert_eq!(output.diagnostics.len(), 1, "{:#?}", output.diagnostics);
+    assert_eq!(output.diagnostics[0].id, "parse.begin_missing_end");
+    assert_eq!(output.diagnostics[0].parser_context, "let_statement");
+    assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+}
+
+#[test]
 fn missing_cleanup_end_in_final_declaration_preserves_the_declaration_end() {
     for (declaration, expected_diagnostic) in [
         (
@@ -814,6 +1117,41 @@ fn malformed_multiline_match_recovery_lookahead_grows_linearly() {
         shallow_work <= shallow_tokens * 2 && deep_work <= deep_tokens * 2,
         "match-arm recovery lookahead must remain proportional to input tokens: \
          shallow={shallow_work}/{shallow_tokens}, deep={deep_work}/{deep_tokens}"
+    );
+}
+
+#[test]
+fn repeated_cleanup_and_typed_local_boundary_classification_is_linear() {
+    fn boundary_work(pair_count: usize) -> usize {
+        let mut text = String::from("fn repeated() -> Int\n");
+        for index in 0..pair_count {
+            text.push_str(" defer\n  release()\n end\n");
+            text.push_str(&format!(" let value{index}: Int = {index}\n"));
+        }
+        text.push_str(" 0\nend\n");
+        let source = SourceFile::new("cleanup.veln", text);
+        let expected_token_count = lex(&source).tokens.len();
+
+        crate::parser::reset_cleanup_boundary_classifier_work();
+        let output = parse(&source);
+        assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+        assert_eq!(output.tree.items.len(), 1);
+        assert_eq!(output.tree.lossless_tokens().count(), expected_token_count);
+        crate::parser::cleanup_boundary_classifier_work()
+    }
+
+    let pair_counts = [64, 128];
+    let work = pair_counts.map(boundary_work);
+
+    assert!(
+        work[0] > 0 && work[1] > work[0],
+        "generated cleanup/local pairs must exercise boundary classification: \
+         pairs={pair_counts:?}, work={work:?}"
+    );
+    assert!(
+        work[1] <= work[0] * 2 + pair_counts[1],
+        "doubling adjacent cleanup/local pairs must add only linear boundary work: \
+         pairs={pair_counts:?}, work={work:?}"
     );
 }
 

@@ -180,6 +180,7 @@ fn explicit_schema_decode_expression_resolves_qualified_public_schema_path() {
         handlers: Vec::new(),
         types: wire.types,
         schemas: wire.schemas,
+        module_values: Vec::new(),
         functions: [app.functions, wire.functions].concat(),
         invalid_names: Vec::new(),
     };
@@ -254,6 +255,7 @@ fn explicit_schema_operations_resolve_public_schema_alias_to_target_schema() {
         handlers: Vec::new(),
         types: Vec::new(),
         schemas: wire.schemas,
+        module_values: Vec::new(),
         functions: [app.functions, wire.functions].concat(),
         invalid_names: Vec::new(),
     };
@@ -341,6 +343,7 @@ fn explicit_schema_decode_expression_reports_unresolved_private_and_wrong_kind_s
         handlers: Vec::new(),
         types: [app.types, wire.types].concat(),
         schemas: wire.schemas,
+        module_values: Vec::new(),
         functions: [app.functions, wire.functions].concat(),
         invalid_names: Vec::new(),
     };
@@ -468,6 +471,7 @@ fn matching_companion_resolves_private_target_schema_operations_and_composition(
             .into_iter()
             .chain(target.schemas)
             .collect(),
+        module_values: Vec::new(),
         functions: companion.functions,
         invalid_names: Vec::new(),
     };
@@ -575,6 +579,7 @@ fn companion_private_target_schema_access_preserves_boundaries() {
             handlers: Vec::new(),
             types: Vec::new(),
             schemas: target.schemas.into_iter().chain(support.schemas).collect(),
+            module_values: Vec::new(),
             functions: companion.functions,
             invalid_names: Vec::new(),
         };

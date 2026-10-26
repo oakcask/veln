@@ -8,8 +8,10 @@ update-when: Module immutable-value declarations or qualified stable-value match
 Extend stable-value match refinement to qualified references to module immutable
 data. This proposal depends on
 [Module Immutable Values](module-immutable-values.md). It becomes selectable
-only after that declaration and name-resolution contract is implemented with
-accepted and rejected grammar evidence.
+only after the declaration's remaining semantic and name-resolution contract
+is implemented. The source grammar and formatter already accept typed module
+`let` declarations, but those declarations are not executable or addressable
+as values.
 
 ## Contract
 
@@ -49,11 +51,13 @@ page and its catalog entry.
 
 ## Related Work And Design Choice
 
-The current [source surface](../specification/source-surface.md) permits local
-`let` bindings but no module immutable-data declaration. The current
-[name-resolution specification](../specification/name-resolution.md) distinguishes
-qualified constructors and functions. These inspected contracts explain why
-a qualified constructor is insufficient evidence for this extension.
+The current [source surface](../specification/source-surface.md#module-immutable-value-declarations)
+accepts typed module `let` declarations but stops before initializer typing,
+lookup, and execution. The current
+[name-resolution specification](../specification/name-resolution.md)
+distinguishes qualified constructors and functions without publishing module
+data values. These inspected contracts explain why the parsed declaration and
+a qualified constructor are both insufficient evidence for this extension.
 
 The existing [stable-value rules](../specification/types.md#inference-rules)
 provide the semantic model to extend. This proposal chooses declaration

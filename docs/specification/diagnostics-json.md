@@ -47,6 +47,15 @@ consumers must preserve diagnostic and related-note order.
 
 ## Diagnostic families
 
+A parse-clean module immutable value declaration reports
+`module.value_not_executable` at the complete declaration. The diagnostic has
+kind `module` and severity `error`. Its `details` object contains
+`phase: "module"`, `field: "module_value"`, and the declaration's `name`.
+One related note explains that parsing and formatting support the declaration,
+while semantic analysis and code generation do not. This diagnostic prevents
+`veln check` success; the [source-surface specification](source-surface.md#module-immutable-value-declarations)
+defines the accepted declaration syntax and current implementation boundary.
+
 An unresolved call target that uses one of the
 [removed compiler-known network spellings](name-resolution.md#removed-network-call-spellings)
 reports one `name.unresolved` diagnostic. The primary message and `details`
@@ -74,7 +83,10 @@ declaration. An unterminated `begin` or `defer` reports
 delimiter does not consume an enclosing declaration's closing `end`, an
 enclosing `if` expression's following `else` branch, or an enclosing `match`
 expression's following arm. It does not merge a following top-level
-declaration into the failed body.
+declaration into the failed body. If that declaration is a malformed public
+module `let`, output retains both the cleanup diagnostic and
+`parse.module_value_declaration`; recovery also preserves the next top-level
+declaration.
 
 A handler declaration with `handles` followed by another identifier that can
 start its effect target reports `parse.expected_token` at the first `handles`.

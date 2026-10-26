@@ -45,6 +45,15 @@ boundary.
 
 ## Analysis gates
 
+A parse-clean module immutable value declaration produces
+`module.value_not_executable`, so `check` does not report success for a source
+that contains one. The declaration remains available to parsing and
+formatting, but this gate does not type-check or publish it as a value. The
+[source-surface specification](source-surface.md#module-immutable-value-declarations)
+defines the declaration boundary, and the
+[diagnostic specification](diagnostics-json.md#diagnostic-families) defines
+the human and JSON record.
+
 Parse diagnostics suppress semantic diagnostics for that file unless every
 parse diagnostic is the recoverable ASCII-lowercase final-segment error for a
 structurally complete variant refinement. In that case, `check` reports the

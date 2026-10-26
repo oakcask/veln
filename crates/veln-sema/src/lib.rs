@@ -64,7 +64,8 @@ pub use pipeline::{
 #[cfg(test)]
 pub(crate) use pipeline::{
     analyze_surface_module_with_base_for_test, check_project_surface_module_with_base_for_test,
-    publication_propagation_work, reset_publication_propagation_work,
+    publication_propagation_work, reset_module_value_gate_work, reset_publication_propagation_work,
+    take_module_value_gate_work,
 };
 pub use type_syntax::{type_annotation_reference_names, type_annotation_reference_paths};
 pub use types::ReusableStandardEnvironment;

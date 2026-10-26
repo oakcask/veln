@@ -447,6 +447,7 @@ pub(crate) fn empty_surface_module() -> veln_ast::SurfaceModule {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: Vec::new(),
+        module_values: Vec::new(),
         functions: Vec::new(),
         invalid_names: Vec::new(),
     }
@@ -459,6 +460,7 @@ fn append_surface_module(merged: &mut veln_ast::SurfaceModule, module: veln_ast:
     merged.handlers.extend(module.handlers);
     merged.schemas.extend(module.schemas);
     merged.types.extend(module.types);
+    merged.module_values.extend(module.module_values);
     merged.functions.extend(module.functions);
     merged.invalid_names.extend(module.invalid_names);
 }
@@ -481,6 +483,9 @@ fn assign_module_name(module: &mut veln_ast::SurfaceModule, name: &str) {
     }
     for schema in &mut module.schemas {
         schema.module_name = Some(name.to_string());
+    }
+    for value in &mut module.module_values {
+        value.module_name = Some(name.to_string());
     }
     for function in &mut module.functions {
         function.module_name = Some(name.to_string());

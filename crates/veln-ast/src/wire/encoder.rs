@@ -137,8 +137,22 @@ impl Writer {
         self.vec(&module.types, Self::type_decl);
         self.vec(&module.schemas, Self::schema_decl);
         self.u32(0);
+        self.vec(&module.module_values, Self::module_value_decl);
         self.vec(&module.functions, Self::function);
         self.vec(&module.invalid_names, Self::invalid_name);
+    }
+
+    fn module_value_decl(&mut self, value: &ModuleValueDecl) {
+        self.node_id(value.node_id);
+        self.option(&value.module_name, |writer, value| writer.string(value));
+        self.visibility(value.visibility);
+        self.option(&value.name, |writer, value| writer.string(value));
+        self.option(&value.name_span, Self::span);
+        self.string(&value.annotation);
+        self.vec(&value.annotation_paths, Self::type_path_segments);
+        self.vec(&value.annotation_refinements, Self::variant_refinement);
+        self.expr(&value.initializer);
+        self.span(&value.span);
     }
 
     fn invalid_name(&mut self, value: &InvalidName) {

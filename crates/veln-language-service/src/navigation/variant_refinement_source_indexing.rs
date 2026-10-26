@@ -14,6 +14,7 @@ fn variant_refinement_source_index(syntax: &SyntaxTree) -> VariantRefinementSour
     for item in &syntax.items {
         let mut no_type_parameters = TypeParameterContext::default();
         match item {
+            SyntaxItem::ModuleValue(_) => {}
             SyntaxItem::Function(function) => {
                 collect_param_refinement_ranges(
                     &function.params,
@@ -160,7 +161,10 @@ fn constructor_reference_declaration_ranges(
                     }
                 }
             }
-            SyntaxItem::Function(_) | SyntaxItem::Schema(_) | SyntaxItem::PublicAlias(_) => {}
+            SyntaxItem::Function(_)
+            | SyntaxItem::ModuleValue(_)
+            | SyntaxItem::Schema(_)
+            | SyntaxItem::PublicAlias(_) => {}
         }
     }
     ranges

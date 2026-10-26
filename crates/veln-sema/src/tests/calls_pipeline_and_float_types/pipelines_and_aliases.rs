@@ -40,6 +40,7 @@ fn public_function_alias_reexports_imported_target() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: Vec::new(),
+        module_values: Vec::new(),
         functions: app
             .functions
             .into_iter()
@@ -116,6 +117,7 @@ fn standard_prelude_byte_length_aliases_lower_through_source_targets() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: Vec::new(),
+        module_values: Vec::new(),
         functions: standard
             .functions
             .into_iter()
@@ -216,6 +218,7 @@ fn companion_function_alias_cannot_reexport_private_target_function() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: Vec::new(),
+        module_values: Vec::new(),
         functions: companion
             .functions
             .into_iter()

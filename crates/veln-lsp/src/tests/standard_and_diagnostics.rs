@@ -414,6 +414,33 @@ fn server_publishes_parse_diagnostics_for_open_document() {
 }
 
 #[test]
+fn server_publishes_module_value_diagnostic_for_document_scoped_analysis() {
+    let published = publish_diagnostics("file://main.veln", "let answer: Int = 42".to_string());
+
+    assert!(
+        published.contains(r#""code":"module.value_not_executable""#),
+        "{published}"
+    );
+    assert_eq!(
+        published
+            .match_indices(r#""code":"module.value_not_executable""#)
+            .count(),
+        1,
+        "{published}"
+    );
+    assert!(
+        published.contains("module value declaration `answer` is not executable"),
+        "{published}"
+    );
+    assert!(
+        published.contains(
+            r#""range":{"start":{"line":0,"character":0},"end":{"line":0,"character":20}}"#
+        ),
+        "{published}"
+    );
+}
+
+#[test]
 fn lsp_diagnostic_wire_fields_are_stable() {
     let diagnostic = Diagnostic::new(
         "parse.expected_item",

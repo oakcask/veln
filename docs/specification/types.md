@@ -517,9 +517,10 @@ case verifies the available computed-expression, invalid-annotation, and
 restoration boundaries. The checked
 [`adt-variant-refinement-match-computed-field-boundary`](../../examples/specification/check/adt-variant-refinement-match-computed-field-boundary/)
 case verifies that call and record-constructor bases remain outside field-path
-refinement. Veln currently has no indexing expression or
-module-addressable immutable-value source form. Function-value expressions do
-not produce ADT values that can exercise alias match refinement independently.
+refinement. Veln currently has no indexing expression. A typed module `let`
+declaration is a recognized source form, but it is not type-checked, executable,
+or addressable as a module value. Function-value expressions do not produce ADT
+values that can exercise alias match refinement independently.
 
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved

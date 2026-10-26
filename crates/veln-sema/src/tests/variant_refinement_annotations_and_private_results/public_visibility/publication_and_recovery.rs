@@ -845,6 +845,7 @@ fn exact_companion_access_does_not_publish_an_alias_hidden_target_signature() {
         handlers: Vec::new(),
         schemas: Vec::new(),
         types: target.types,
+        module_values: Vec::new(),
         functions: companion
             .functions
             .into_iter()

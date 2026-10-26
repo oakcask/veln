@@ -214,6 +214,13 @@ For workspace sources, saved snapshots and open-document overlays publish
 source identifier casing diagnostics for the selected workspace project only,
 including source-path-derived module segment diagnostics at the zero-width
 source-start range specified by [name-resolution.md](name-resolution.md).
+Workspace project analysis and document-scoped analysis both publish
+`module.value_not_executable` for a parse-clean module immutable value
+declaration. The shared semantic boundary rejects the declaration before it
+can produce checked core or typed IR. Neither path gives the declaration a
+module-value navigation identity or exposes it through completion or signature
+help.
+
 When a workspace source has an invalid source-path-derived module identity,
 the language service does not expose that source or its declarations as normal
 workspace navigation candidates. Definition, references, prepare-rename, and

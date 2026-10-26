@@ -53,6 +53,11 @@ errors. Diagnostics are written to stderr and the command exits unsuccessfully.
 Errors in excluded companions or excluded sources do not block the selected
 document.
 
+A selected module immutable value declaration produces
+`module.value_not_executable`, so it blocks document generation. The command
+does not publish the declaration's annotation or initializer while module value
+semantics and package documentation remain unimplemented.
+
 Variant-refinement errors remain semantic diagnostics when recovery retains a
 type or constructor identity. Such an error produces no generated document.
 A private refinement in any structural position of a public function parameter

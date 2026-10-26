@@ -75,6 +75,7 @@ fn process_parsed_source(
     parts.module.handlers.extend(lowered.handlers);
     parts.module.types.extend(lowered.types);
     parts.module.schemas.extend(lowered.schemas);
+    parts.module.module_values.extend(lowered.module_values);
     parts.module.functions.extend(lowered.functions);
     parts.module.invalid_names.extend(lowered.invalid_names);
 }

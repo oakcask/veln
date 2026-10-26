@@ -2,6 +2,10 @@ use crate::{BodyLineKind, Expr, ExprKind, Function, Pattern, PatternKind, Surfac
 
 pub(super) fn collect_module_node_ids(module: &SurfaceModule) -> Vec<u32> {
     let mut ids = Vec::new();
+    for value in &module.module_values {
+        ids.push(value.node_id.as_u32());
+        collect_expr_node_ids(&value.initializer, &mut ids);
+    }
     for function in &module.functions {
         collect_function_node_ids(function, &mut ids);
     }

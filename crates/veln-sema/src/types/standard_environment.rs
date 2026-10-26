@@ -315,6 +315,7 @@ pub(crate) fn embedded_standard_surface_module() -> SurfaceModule {
         handlers: Vec::new(),
         types: Vec::new(),
         schemas: Vec::new(),
+        module_values: Vec::new(),
         functions: Vec::new(),
         invalid_names: Vec::new(),
     };
@@ -342,6 +343,7 @@ fn merge_standard_surface_module(merged: &mut SurfaceModule, module: SurfaceModu
     merged.handlers.extend(module.handlers);
     merged.types.extend(module.types);
     merged.schemas.extend(module.schemas);
+    merged.module_values.extend(module.module_values);
     merged.functions.extend(module.functions);
     merged.invalid_names.extend(module.invalid_names);
 }
@@ -546,6 +548,7 @@ fn filter_module_declarations(
             .filter(|decl| keep(*decl))
             .cloned()
             .collect(),
+        module_values: module.module_values.clone(),
         functions: module
             .functions
             .iter()

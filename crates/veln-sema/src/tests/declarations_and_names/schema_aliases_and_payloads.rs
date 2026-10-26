@@ -37,6 +37,7 @@ fn lower_app_with_wire_payloads(app_source: &SourceFile) -> SurfaceModule {
         handlers: Vec::new(),
         types: [app.types, wire.types].concat(),
         schemas,
+        module_values: Vec::new(),
         functions: Vec::new(),
         invalid_names: Vec::new(),
     }
@@ -105,6 +106,7 @@ fn public_schema_aliases_reject_unresolved_private_and_wrong_kind_targets() {
         handlers: Vec::new(),
         types: wire.types,
         schemas: wire.schemas,
+        module_values: Vec::new(),
         functions: wire.functions,
         invalid_names: Vec::new(),
     };

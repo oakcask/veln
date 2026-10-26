@@ -1,3 +1,4 @@
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 
 use veln_literals::parse_integer_literal;
@@ -7,13 +8,13 @@ use crate::tree::build_lossless_root;
 use crate::{
     AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
     EffectBinder, EffectDecl, EffectOperationDecl, Expr, ExprKind, FunctionDecl, FunctionKind,
-    HandlerDecl, HandlerOperationClauseDecl, IfBranch, MatchArm, ModuleDecl, Param, Pattern,
-    PatternField, PatternKind, PredicateRemainder, PrefixOp, PublicAliasDecl, PublicAliasKind,
-    RecordField, RecordFieldPath, SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause,
-    SchemaFormatClause, SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl,
-    TypePathSegments, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl,
-    UsePackage, VariantRefinementAlternative, VariantRefinementType, VariantRefinementTypeArgument,
-    Visibility, lex,
+    HandlerDecl, HandlerOperationClauseDecl, IfBranch, MatchArm, ModuleDecl, ModuleValueDecl,
+    Param, Pattern, PatternField, PatternKind, PredicateRemainder, PrefixOp, PublicAliasDecl,
+    PublicAliasKind, RecordField, RecordFieldPath, SatisfyClause, SchemaDecl, SchemaField,
+    SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SyntaxItem, SyntaxTree,
+    Token, TokenKind, TypeDecl, TypePathSegments, TypeVariantDecl, TypeVariantField,
+    TypeVariantFieldDelimiter, UseDecl, UsePackage, VariantRefinementAlternative,
+    VariantRefinementType, VariantRefinementTypeArgument, Visibility, lex,
 };
 
 mod adr_lite;
@@ -60,6 +61,9 @@ thread_local! {
         std::cell::Cell::new(0)
     };
     static FUNCTION_TYPE_SCOPE_WORK: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
+    static CLEANUP_BOUNDARY_CLASSIFIER_WORK: std::cell::Cell<usize> = const {
         std::cell::Cell::new(0)
     };
 }
@@ -142,6 +146,24 @@ pub(crate) fn function_type_scope_work() -> usize {
 fn record_function_type_scope_work(count: usize) {
     FUNCTION_TYPE_SCOPE_WORK.set(FUNCTION_TYPE_SCOPE_WORK.get().saturating_add(count));
 }
+
+#[cfg(test)]
+pub(crate) fn reset_cleanup_boundary_classifier_work() {
+    CLEANUP_BOUNDARY_CLASSIFIER_WORK.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn cleanup_boundary_classifier_work() -> usize {
+    CLEANUP_BOUNDARY_CLASSIFIER_WORK.get()
+}
+
+#[cfg(test)]
+fn record_cleanup_boundary_classifier_work() {
+    CLEANUP_BOUNDARY_CLASSIFIER_WORK.set(CLEANUP_BOUNDARY_CLASSIFIER_WORK.get().saturating_add(1));
+}
+
+#[cfg(not(test))]
+fn record_cleanup_boundary_classifier_work() {}
 
 #[cfg(not(test))]
 fn record_function_type_scope_work(_count: usize) {}
@@ -334,7 +356,17 @@ struct Parser<'a> {
     lossless_tokens: Vec<Token>,
     cursor: usize,
     cleanup_depth: usize,
+    top_level_boundary_cache: Cell<Option<(usize, bool)>>,
+    module_value_suffix_cache: RefCell<HashMap<usize, ModuleValueSuffixEvidence>>,
     diagnostics: Vec<ParseDiagnostic>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ModuleValueSuffixEvidence {
+    TopLevelItem,
+    EnclosingDeclarationEnd,
+    EndOfInput,
+    EndOfInputAfterBlock,
 }
 
 struct FunctionHeader {
