@@ -205,7 +205,7 @@ impl NormalUseGroups {
         let reserved = use_decl_has_reserved_alias(use_decl);
         self.quarantined[index] = use_decl.recovered
             || reserved
-            || use_decl_has_indexed_invalid_module_segment(&invalid_module_spans, use_decl);
+            || use_decl_has_indexed_invalid_module_segment(invalid_module_spans, use_decl);
         if use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.recovered && !reserved {
             let group = self
                 .qualifiers
