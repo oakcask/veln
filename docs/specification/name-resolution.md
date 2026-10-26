@@ -734,10 +734,10 @@ not become fallback targets.
   | A1 | `docs/specification/source-surface-executable.pl`, `examples/specification/check/explicit-import-alias-canonical-standard/` |
   | A2-A3 | `crates/veln-sema/src/tests/calls_pipeline_and_float_types/imported_calls.rs`, `examples/specification/run/explicit-import-alias-runtime/` |
   | A4 | `crates/veln-sema/src/adt/tests/variant_lookup.rs`, `examples/specification/check/explicit-import-alias-distinct-origins/`, `examples/specification/check/explicit-import-alias-duplicate-human/`, and `examples/specification/check/explicit-import-alias-duplicate-json/` |
-  | A5-A7 | `crates/veln-sema/src/tests/declarations_and_names/aliases.rs`, `crates/veln-sema/src/tests/identifier_casing/import_aliases.rs`, and `crates/veln-sema/src/name_recovery.rs` tests |
+  | A5-A7 | `crates/veln-sema/src/tests/declarations_and_names/aliases.rs`, `crates/veln-sema/src/tests/identifier_casing/import_aliases.rs`, `crates/veln-sema/src/name_recovery.rs`, and `crates/veln-analysis/src/surface/tests/contracts_and_imports.rs` tests |
   | A8 | `crates/veln-syntax/src/tests/modules_and_contracts.rs` and the accepted and rejected fixtures under `examples/specification/grammar/` |
-  | A9 | `examples/specification/check/explicit-import-alias-carriers/` and `examples/specification/run/explicit-import-alias-runtime/` |
-  | A10 | `examples/specification/check/explicit-import-alias-package/` and the publication tests in `crates/veln-sema/src/tests/declarations_and_names/aliases.rs` |
+  | A9 | `examples/specification/check/explicit-import-alias-carriers/`, `examples/specification/run/explicit-import-alias-runtime/`, and `examples/specification/run/explicit-import-alias-handler/` |
+  | A10 | `examples/specification/check/explicit-import-alias-package/`, `examples/specification/check/explicit-import-alias-package-boundaries/`, and publication and visibility tests in `crates/veln-sema/src/tests/declarations_and_names/aliases.rs` and `crates/veln-sema/src/tests/calls_pipeline_and_float_types/imported_calls.rs` |
   | A12 | `combined_module_import_diagnostics_use_stable_source_order` in `crates/veln-sema/src/tests/declarations_and_names/aliases.rs` |
 - Deferred binding visibility:
   `examples/specification/check/defer-binding-visibility/`.

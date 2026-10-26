@@ -21,9 +21,13 @@ to the reachable set. A valid exact written path remains usable when only its
 local qualifier collides. An alias-qualified call and a call through the full
 written import path execute the same declaration. Same-named declarations in
 distinct modules retain separate runtime identities, and an explicitly aliased
-import does not add a bare runtime call candidate. The checked
+import does not add a bare runtime call candidate. An imported handler retains
+the declaration module as the lookup scope for private functions called by its
+operation clauses. The checked
 [`explicit-import-alias-runtime`](../../examples/specification/run/explicit-import-alias-runtime/)
-case exercises these identities through the JVM backend.
+and
+[`explicit-import-alias-handler`](../../examples/specification/run/explicit-import-alias-handler/)
+cases exercise call and handler identities through the JVM backend.
 
 The JVM host boundary associates resources created by `net::system()` with the
 active `net::IO` handler frame. Popping that frame closes its remaining

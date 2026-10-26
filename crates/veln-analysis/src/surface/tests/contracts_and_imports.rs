@@ -550,6 +550,40 @@ fn duplicate_exact_import_path_does_not_reach_explicit_alias_fallback() {
 }
 
 #[test]
+fn mixed_invalid_and_valid_aliases_do_not_reach_the_repeated_target_in_either_order() {
+    for imports in [
+        "use net::target as HTTP\nuse net::target as wire\n",
+        "use net::target as wire\nuse net::target as HTTP\n",
+    ] {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    format!(
+                        "{imports}use net::other as control\n\
+                         pub fn main() -> Int\n\
+                           HTTP::hit() + wire::hit() + net::target::hit() + hit() + net::other::hit()\n\
+                         end\n"
+                    ),
+                ),
+                SourceFile::new("net/target.veln", "pub fn hit() -> Int\n  1\nend\n"),
+                SourceFile::new("net/other.veln", "pub fn hit() -> Int\n  2\nend\n"),
+            ],
+            manifest: None,
+        };
+        let (module, _) = load_surface_module(&project);
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert_eq!(
+            reachable_function_names(&reachable),
+            vec![("main", "main"), ("net::other", "hit")],
+            "imports={imports:?}"
+        );
+    }
+}
+
+#[test]
 fn contract_reachability_ignores_function_names_inside_strings() {
     let module = lower(concat!(
         "fn positive(value: Int) -> Bool\n",

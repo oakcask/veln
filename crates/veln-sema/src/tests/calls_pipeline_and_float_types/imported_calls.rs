@@ -809,3 +809,92 @@ fn matching_companion_private_function_access_is_not_transitive() {
             && diagnostic.message == "unresolved call_target `support::private_helper`"
     }));
 }
+
+#[test]
+fn explicit_import_alias_preserves_exact_companion_and_transitive_privacy_boundaries() {
+    for (path, owner, imports, callee, allowed) in [
+        (
+            "math.test.veln",
+            "math__test_companion",
+            "use math as target\n",
+            "target::increment",
+            true,
+        ),
+        (
+            "app.veln",
+            "app",
+            "use math as target\n",
+            "target::increment",
+            false,
+        ),
+        (
+            "other.test.veln",
+            "other__test_companion",
+            "use math as target\n",
+            "target::increment",
+            false,
+        ),
+        (
+            "math.test.veln",
+            "math__test_companion",
+            "use math as target\nuse support as helper\n",
+            "helper::private_helper",
+            false,
+        ),
+        (
+            "math.test.veln",
+            "math__test_companion",
+            "use math as target\n",
+            "helper::public_helper",
+            false,
+        ),
+        (
+            "math.test.veln",
+            "math__test_companion",
+            "use math as target\n",
+            "target::helper::public_helper",
+            false,
+        ),
+    ] {
+        let module = merged_import_module(
+            SourceFile::new(
+                path,
+                format!(
+                    "mod {owner}\n{imports}test boundary() -> ()\n  let observed: Int = {callee}(1)\n  ()\nend\n"
+                ),
+            ),
+            vec![
+                SourceFile::new(
+                    "math.veln",
+                    concat!(
+                        "mod math\nuse support as helper\n",
+                        "fn increment(value: Int) -> Int\n  value + 1\nend\n",
+                        "pub fn visible(value: Int) -> Int\n  helper::public_helper(value)\nend\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "support.veln",
+                    concat!(
+                        "mod support\n",
+                        "fn private_helper(value: Int) -> Int\n  value\nend\n",
+                        "pub fn public_helper(value: Int) -> Int\n  private_helper(value)\nend\n",
+                    ),
+                ),
+            ],
+        );
+        let diagnostics = analyze_surface_module(&module);
+        if allowed {
+            assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+            assert!(lower_checked_surface_module(&module).core.is_some());
+        } else {
+            assert!(
+                diagnostics.iter().any(|diagnostic| {
+                    diagnostic.id == "name.unresolved"
+                        && diagnostic.message == format!("unresolved call_target `{callee}`")
+                }),
+                "path={path}, callee={callee}, diagnostics={diagnostics:#?}"
+            );
+            assert!(lower_checked_surface_module(&module).core.is_none());
+        }
+    }
+}

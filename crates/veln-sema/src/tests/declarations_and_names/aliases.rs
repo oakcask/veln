@@ -157,6 +157,48 @@ fn explicit_import_alias_does_not_collide_with_a_value_declaration() {
 }
 
 #[test]
+fn explicit_import_alias_does_not_publish_private_companion_targets() {
+    let companion = SourceFile::new(
+        "math.test.veln",
+        concat!(
+            "mod math__test_companion\nuse math as target\n",
+            "pub fn exposed = target::hidden\n",
+            "pub schema PublicPacket = target::Packet\n",
+            "test cannot_publish() -> ()\n  let observed: Int = exposed()\n  ()\nend\n",
+        ),
+    );
+    let target = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "fn hidden() -> Int\n  1\nend\n",
+            "schema Packet\n  value: Int\nend\n",
+        ),
+    );
+    let mut module = lower_surface_ast(&parse(&companion).tree);
+    let target = lower_surface_ast(&parse(&target).tree);
+    module.functions.extend(target.functions);
+    module.schemas.extend(target.schemas);
+    let diagnostics = analyze_surface_module(&module);
+    for (id, message) in [
+        ("name.unresolved", "unresolved call_target `exposed`"),
+        (
+            "name.visibility",
+            "schema alias target `target::Packet` is private",
+        ),
+    ] {
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == id && diagnostic.message == message),
+            "{diagnostics:#?}"
+        );
+    }
+    assert!(resolved_schema_aliases(&module).is_empty());
+    assert!(lower_checked_surface_module(&module).core.is_none());
+}
+
+#[test]
 fn combined_module_import_diagnostics_use_stable_source_order() {
     fn module(reversed: bool) -> SurfaceModule {
         let first = SourceFile::new("a.veln", "mod app\nuse alpha as shared\n");
