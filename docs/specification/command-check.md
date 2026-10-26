@@ -56,6 +56,11 @@ provide later semantic facts. This gate still prevents lowering or publication. 
 defines the declaration boundary, and the
 [diagnostic specification](diagnostics-json.md#diagnostic-families) defines
 the human and JSON record.
+An available module value used as a public function-alias target also fails
+analysis with `name.kind_mismatch`; an unavailable target retains
+`name.unresolved`. The [name-resolution specification](name-resolution.md#namespaces-and-use-roles)
+defines target selection, and the diagnostic specification defines the human
+and JSON fields.
 
 Parse diagnostics suppress semantic diagnostics for that file unless every
 parse diagnostic is the recoverable ASCII-lowercase final-segment error for a

@@ -432,7 +432,7 @@ fn check_module_declarations(
     diagnostics.extend(check_module_boundary(module));
     diagnostics.extend(check_duplicate_use_aliases(module));
     diagnostics.extend(check_reserved_prelude_aliases(module));
-    diagnostics.extend(check_public_aliases(module, &environment.adts));
+    diagnostics.extend(check_public_aliases(module, environment));
     for declaration in &module.types {
         diagnostics.extend(check_public_adt_variant_refinement_visibility(
             declaration,

@@ -1,0 +1,34 @@
+command = ["check", "--json", "api.veln", "values.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["name.kind_mismatch", "module_value", "values::shared"]
+not_contains = ["unresolved function alias target"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "diagnostics.2.details.expected_kind"
+equals = "function"
+
+[[json_assert]]
+path = "diagnostics.2.details.actual_kind"
+equals = "module_value"
+
+[[json_assert]]
+path = "diagnostics.2.details.target"
+equals = "local"
+
+[[json_assert]]
+path = "diagnostics.3.details.expected_kind"
+equals = "function"
+
+[[json_assert]]
+path = "diagnostics.3.details.actual_kind"
+equals = "module_value"
+
+[[json_assert]]
+path = "diagnostics.3.details.target"
+equals = "values::shared"

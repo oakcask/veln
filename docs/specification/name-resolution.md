@@ -80,6 +80,17 @@ context and does not fall through to callable lookup. Only a missing identity
 continues through ordinary value or call resolution. Imported lookup and
 visibility for module values are not implemented.
 
+A public function alias cannot select an available module value. A bare alias
+target selects an available value in the alias's module. A qualified alias
+target selects an available public value only when a valid written import
+identifies one module. Either selection reports `name.kind_mismatch` with
+`expected_kind: "function"` and `actual_kind: "module_value"`. A missing,
+ambiguous, invalid, quarantined, private imported, or otherwise unavailable
+target continues to report `name.unresolved`. This alias-target classification
+does not make imported module values available to expressions or calls.
+Checked human and JSON command cases cover the same-module and written-import
+forms.
+
 Explicit type arguments on a bare or qualified call target do not change that
 selection. A visible local binding still takes precedence. Otherwise an
 available module value is selected as the non-callable declaration, and an
@@ -669,5 +680,8 @@ not become fallback targets.
   `crates/veln-sema/src/adt/tests/variant_lookup.rs`.
 - Deferred binding visibility:
   `examples/specification/check/defer-binding-visibility/`.
+- Module-value function-alias diagnostics:
+  `examples/specification/check/module-value-function-alias-kind-human/` and
+  `examples/specification/check/module-value-function-alias-kind-json/`.
 - Casing and source-path diagnostics: `crates/veln-sema/src/pipeline/identifier_casing/`.
 - Source-less descriptors and lookup routes: [source-less-lookup.md](source-less-lookup.md).

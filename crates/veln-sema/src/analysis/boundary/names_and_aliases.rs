@@ -7,6 +7,8 @@ use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, Visibility};
 use veln_diagnostics::Diagnostic;
 use veln_source::SourceSpan;
 
+use crate::types::TypeEnvironment;
+
 use super::module_boundaries::{
     alias_kind_mismatch_diagnostic, duplicate_name_diagnostic, function_target,
     normal_imported_module_for_path, private_alias_diagnostic, type_target,
@@ -253,7 +255,10 @@ pub(super) fn codec_schema_wrong_kind(
     None
 }
 
-pub(crate) fn check_public_aliases(module: &SurfaceModule, adts: &AdtRegistry) -> Vec<Diagnostic> {
+pub(crate) fn check_public_aliases(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     let mut schema_alias_cache = BTreeMap::new();
     for alias in &module.aliases {
@@ -265,12 +270,13 @@ pub(crate) fn check_public_aliases(module: &SurfaceModule, adts: &AdtRegistry) -
                 module,
                 alias,
                 alias.module_name.as_deref(),
+                environment,
             )),
             PublicAliasKind::Type => diagnostics.extend(check_type_alias_target(
                 module,
                 alias,
                 alias.module_name.as_deref(),
-                adts,
+                &environment.adts,
             )),
             PublicAliasKind::Schema => {
                 match resolve_schema_alias_check_reference(
@@ -309,8 +315,15 @@ pub(super) fn check_function_alias_target(
     module: &SurfaceModule,
     alias: &veln_ast::PublicAlias,
     module_name: Option<&str>,
+    environment: &TypeEnvironment,
 ) -> Option<Diagnostic> {
-    if function_target(module, &alias.target, module_name).is_some() {
+    if environment.resolves_available_module_value_alias_target(&alias.target, module_name) {
+        Some(alias_kind_mismatch_diagnostic(
+            alias,
+            "function",
+            "module_value",
+        ))
+    } else if function_target(module, &alias.target, module_name).is_some() {
         None
     } else if type_target(module, &alias.target, module_name).is_some() {
         Some(alias_kind_mismatch_diagnostic(alias, "function", "type"))

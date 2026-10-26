@@ -22,8 +22,8 @@ also states it.
 - With current typed module `let` source syntax and formatting as implemented
   prerequisites and same-module semantic analysis implemented, add imported
   lookup, cross-module stable identity and dependency validation,
-  function-alias wrong-kind rejection, visibility, execution, documentation
-  publication, and language-service navigation:
+  visibility, execution, documentation publication, and language-service
+  navigation:
   [module-immutable-values.md](module-immutable-values.md).
 - Generic named-type variance and function assignability:
   [generic-and-function-variance.md](generic-and-function-variance.md).

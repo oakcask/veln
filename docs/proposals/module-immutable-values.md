@@ -23,7 +23,6 @@ retains `module.value_not_executable` after those checks.
 This proposal now owns only:
 
 - imported bare and qualified lookup across package sources;
-- rejection of public function aliases that target module values;
 - imported and cross-module dependency validation;
 - public and private visibility, including exact companion access;
 - checked-core lowering and immutable runtime value construction;
@@ -55,9 +54,6 @@ with the same module and member spellings have distinct declaration identities.
 Different valid written paths to the same declaration retain one declaration
 identity. A value initialized from another module value remains a distinct
 declaration even when both declarations produce equal data.
-
-A public function alias cannot target a module value. Such a target must report
-`name.kind_mismatch` rather than an unresolved-name diagnostic.
 
 `let` is private and `pub let` is public. Another module requires an import and
 an eligible public export. An exact test companion may access its private target
@@ -99,7 +95,6 @@ same-spelled function.
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
 | Imported lookup | Bare lookup includes eligible written-import and implicit-prelude exposure but excludes qualified-only imports. Qualified lookup obeys exact-path precedence over implicit leaf qualifiers. Ambiguous and ineligible selections do not fall back. | Multi-module and multi-package semantic and checked command cases that cover qualified and bare exposure boundaries. |
-| Function aliases | A public function alias that targets a module value reports `name.kind_mismatch`. | Focused semantic coverage and a checked diagnostic case. |
 | Imported dependencies | Cross-module cycles and their dependents are quarantined while unrelated facts remain available; source and import reordering does not change cycle selection. | Multi-module semantic and checked command cases with reordered sources and imports. |
 | Stable declaration identity | Package and module participate in identity. Same-spelled declarations in different packages remain distinct, alternate valid paths to one declaration retain one identity, and equal data does not merge declarations. | Multi-package semantic and checked command cases for same-spelled declarations and alternate valid paths, plus language-service definition cases. |
 | Visibility | Private data is hidden except from its exact companion; public annotations cannot expose private types or refinements. | Human and JSON visibility cases. |
