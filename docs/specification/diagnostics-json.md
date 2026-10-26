@@ -87,6 +87,13 @@ context identifies the selected declaration. An unavailable same-module
 identity still reserves its name, but a call through it does not emit
 `type.not_callable`, select declaration context, or fall through to another
 callable. Diagnostics from independently checked call arguments remain.
+Explicit type arguments on the call target preserve both outcomes, and the
+primary span covers the complete type-applied callee. The checked
+[`typed call`](../../examples/specification/check/module-value-typed-call-json/)
+case covers the selected declaration, details, related context, and absence of
+an unresolved-call diagnostic. The checked
+[`unavailable typed call`](../../examples/specification/check/module-value-unavailable-typed-call-json/)
+case covers name reservation and independent argument diagnostics.
 
 Every parse-clean module immutable value declaration also reports
 `module.value_not_executable` at the complete declaration. The diagnostic has

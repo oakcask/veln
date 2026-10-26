@@ -160,6 +160,14 @@ Expected types flow into holes and subexpressions from:
 - `match` arm results, `if` branch results, and constructor payload bindings
 - record pattern field bindings in `match` arms and `let` statements
 
+A module immutable value expression has its written annotation type. A module
+value is not callable, and explicit type arguments at the call site do not make
+it callable. When name resolution selects an available module value, the call
+reports `type.not_callable`; when the selected identity is unavailable, the
+call does not invent a callable type. In both cases, each call argument is
+checked independently. The [name-resolution rules](name-resolution.md#namespaces-and-use-roles)
+define declaration selection and shadowing for these calls.
+
 A `begin` expression checks its body in a nested lexical type environment. Its
 final expression supplies the `begin` type and receives the enclosing expected
 type. A body with no final expression has type `()`. Bindings declared inside

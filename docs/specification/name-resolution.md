@@ -80,6 +80,14 @@ context and does not fall through to callable lookup. Only a missing identity
 continues through ordinary value or call resolution. Imported lookup and
 visibility for module values are not implemented.
 
+Explicit type arguments on a bare or qualified call target do not change that
+selection. A visible local binding still takes precedence. Otherwise an
+available module value is selected as the non-callable declaration, and an
+unavailable identity remains reserved without exposing another callable. The
+checked [`typed call`](../../examples/specification/check/module-value-typed-call-json/)
+and [`unavailable typed call`](../../examples/specification/check/module-value-unavailable-typed-call-json/)
+cases cover both outcomes.
+
 A finite chain of public type aliases is a valid type-alias target when it
 terminates in a resolved source ADT. Every alias in the chain retains the
 terminal ADT's nominal identity while remaining a selectable type name. A
