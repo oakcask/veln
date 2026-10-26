@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use veln_ast::{NameClass, NameOccurrence, PublicAlias, SurfaceModule, UseDecl};
 
@@ -26,6 +26,49 @@ pub(crate) fn reset_import_classification_work() {
 #[cfg(test)]
 pub(crate) fn import_classification_work() -> usize {
     IMPORT_CLASSIFICATION_WORK.get()
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct NormalImportSelectionWork {
+    pub(crate) builds: usize,
+    pub(crate) build_import_visits: usize,
+    pub(crate) build_index_entries: usize,
+    pub(crate) lookups: usize,
+    pub(crate) lookup_index_probes: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    static NORMAL_IMPORT_SELECTION_WORK: Cell<NormalImportSelectionWork> =
+        const { Cell::new(NormalImportSelectionWork {
+            builds: 0,
+            build_import_visits: 0,
+            build_index_entries: 0,
+            lookups: 0,
+            lookup_index_probes: 0,
+        }) };
+}
+
+#[cfg(test)]
+fn record_normal_import_selection_work(update: impl FnOnce(&mut NormalImportSelectionWork)) {
+    NORMAL_IMPORT_SELECTION_WORK.set({
+        let mut work = NORMAL_IMPORT_SELECTION_WORK.get();
+        update(&mut work);
+        work
+    });
+}
+
+#[cfg(not(test))]
+fn record_normal_import_selection_work(_update: impl FnOnce(&mut NormalImportSelectionWork)) {}
+
+#[cfg(test)]
+pub(crate) fn reset_normal_import_selection_work() {
+    NORMAL_IMPORT_SELECTION_WORK.set(NormalImportSelectionWork::default());
+}
+
+#[cfg(test)]
+pub(crate) fn normal_import_selection_work() -> NormalImportSelectionWork {
+    NORMAL_IMPORT_SELECTION_WORK.get()
 }
 
 pub(crate) struct InvalidAliasTargetIndex {
@@ -172,15 +215,15 @@ type ImportTargetKey = (Option<String>, String, Option<String>);
 
 struct NormalUseGroups {
     quarantined: Vec<bool>,
-    duplicate_targets: BTreeMap<ImportTargetKey, Vec<usize>>,
-    qualifiers: BTreeMap<ImportBindingKey, (usize, bool)>,
-    exact_paths: BTreeMap<ImportBindingKey, Vec<usize>>,
+    duplicate_targets: HashMap<ImportTargetKey, Vec<usize>>,
+    qualifiers: HashMap<ImportBindingKey, (usize, bool)>,
+    exact_paths: HashMap<ImportBindingKey, Vec<usize>>,
 }
 
 struct NormalUseClassification {
     quarantined: Vec<bool>,
-    colliding_qualifiers: BTreeSet<ImportBindingKey>,
-    blocked_exact_paths: BTreeSet<ImportBindingKey>,
+    colliding_qualifiers: HashSet<ImportBindingKey>,
+    blocked_exact_paths: HashSet<ImportBindingKey>,
 }
 
 impl NormalUseGroups {
@@ -188,9 +231,9 @@ impl NormalUseGroups {
         let invalid_module_spans = invalid_module_spans_by_file(module);
         let mut groups = Self {
             quarantined: vec![false; module.uses.len()],
-            duplicate_targets: BTreeMap::new(),
-            qualifiers: BTreeMap::new(),
-            exact_paths: BTreeMap::new(),
+            duplicate_targets: HashMap::new(),
+            qualifiers: HashMap::new(),
+            exact_paths: HashMap::new(),
         };
         for (index, use_decl) in module.uses.iter().enumerate() {
             groups.record(index, use_decl, &invalid_module_spans);
@@ -258,8 +301,8 @@ impl NormalUseGroups {
 }
 
 fn colliding_binding_keys(
-    groups: BTreeMap<ImportBindingKey, (usize, bool)>,
-) -> BTreeSet<ImportBindingKey> {
+    groups: HashMap<ImportBindingKey, (usize, bool)>,
+) -> HashSet<ImportBindingKey> {
     groups
         .into_iter()
         .filter_map(|(key, (count, has_explicit))| (count > 1 && has_explicit).then_some(key))
@@ -267,9 +310,9 @@ fn colliding_binding_keys(
 }
 
 fn blocked_exact_path_keys(
-    groups: BTreeMap<ImportBindingKey, Vec<usize>>,
+    groups: HashMap<ImportBindingKey, Vec<usize>>,
     quarantined: &[bool],
-) -> BTreeSet<ImportBindingKey> {
+) -> HashSet<ImportBindingKey> {
     groups
         .into_iter()
         .filter_map(|(key, indices)| (indices.len() != 1 || quarantined[indices[0]]).then_some(key))
@@ -381,6 +424,79 @@ pub(crate) fn normal_imported_use_for_path<'a>(
         current_module,
         &classification,
     )
+}
+
+#[derive(Clone, Copy)]
+enum IndexedUseDecl {
+    Unique(usize),
+    Ambiguous,
+}
+
+pub(crate) struct NormalImportSelectionIndex<'a> {
+    module: &'a SurfaceModule,
+    classification: NormalUseClassification,
+    exact_paths: HashMap<ImportBindingKey, usize>,
+    qualifiers: HashMap<ImportBindingKey, IndexedUseDecl>,
+}
+
+impl<'a> NormalImportSelectionIndex<'a> {
+    pub(crate) fn new(module: &'a SurfaceModule) -> Self {
+        record_normal_import_selection_work(|work| work.builds += 1);
+        let classification = NormalUseGroups::collect(module).finish();
+        let mut exact_paths = HashMap::new();
+        let mut qualifiers = HashMap::new();
+        for (index, use_decl) in module.uses.iter().enumerate() {
+            record_normal_import_selection_work(|work| work.build_import_visits += 1);
+            if classification.quarantined[index] {
+                continue;
+            }
+            for path in use_decl_exact_paths(use_decl) {
+                record_normal_import_selection_work(|work| work.build_index_entries += 1);
+                exact_paths
+                    .entry((use_decl.module_name.clone(), path))
+                    .or_insert(index);
+            }
+            if simple_import_alias_matches(use_decl, &use_decl.alias) {
+                record_normal_import_selection_work(|work| work.build_index_entries += 1);
+                qualifiers
+                    .entry((use_decl.module_name.clone(), use_decl.alias.clone()))
+                    .and_modify(|candidate| *candidate = IndexedUseDecl::Ambiguous)
+                    .or_insert(IndexedUseDecl::Unique(index));
+            }
+        }
+        Self {
+            module,
+            classification,
+            exact_paths,
+            qualifiers,
+        }
+    }
+
+    pub(crate) fn imported_use_for_path(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> Option<&'a UseDecl> {
+        record_normal_import_selection_work(|work| work.lookups += 1);
+        let key = (current_module.map(str::to_string), segments.join("::"));
+        record_normal_import_selection_work(|work| work.lookup_index_probes += 1);
+        if self.classification.blocked_exact_paths.contains(&key) {
+            return None;
+        }
+        record_normal_import_selection_work(|work| work.lookup_index_probes += 1);
+        if let Some(index) = self.exact_paths.get(&key) {
+            return self.module.uses.get(*index);
+        }
+        record_normal_import_selection_work(|work| work.lookup_index_probes += 1);
+        if self.classification.colliding_qualifiers.contains(&key) {
+            return None;
+        }
+        record_normal_import_selection_work(|work| work.lookup_index_probes += 1);
+        match self.qualifiers.get(&key) {
+            Some(IndexedUseDecl::Unique(index)) => self.module.uses.get(*index),
+            Some(IndexedUseDecl::Ambiguous) | None => None,
+        }
+    }
 }
 
 fn normal_imported_use_for_path_with_classification<'a>(

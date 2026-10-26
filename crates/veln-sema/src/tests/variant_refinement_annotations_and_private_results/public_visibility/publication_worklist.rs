@@ -103,6 +103,29 @@ fn function_alias_chain_source(length: usize, dependent_first: bool) -> String {
     source
 }
 
+fn qualified_function_alias_source(count: usize) -> String {
+    let mut source = String::from("mod api\n");
+    for index in 0..count {
+        source.push_str(&format!("use dependency{index} as alias{index}\n"));
+    }
+    for index in 0..count {
+        source.push_str(&format!("pub fn exported{index} = alias{index}::target\n"));
+    }
+    source
+}
+
+fn qualified_function_alias_import_work(
+    count: usize,
+) -> crate::name_recovery::NormalImportSelectionWork {
+    let source = SourceFile::new("api.veln", qualified_function_alias_source(count));
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    crate::name_recovery::reset_normal_import_selection_work();
+    let _lowered = lower_checked_surface_module(&module);
+    crate::name_recovery::normal_import_selection_work()
+}
+
 fn cause_columns(declaration: &UnpublishedDeclaration) -> Vec<(usize, usize)> {
     declaration
         .causal_diagnostics
@@ -188,4 +211,21 @@ fn checked_lowering_publication_work_is_affine_for_both_chain_orders() {
             );
         }
     }
+}
+
+#[test]
+fn checked_lowering_indexes_qualified_function_alias_imports_once() {
+    let small = qualified_function_alias_import_work(64);
+    let large = qualified_function_alias_import_work(128);
+    eprintln!("qualified function alias import work: 64={small:?} 128={large:?}");
+    assert_eq!(small.builds, 1, "{small:?}");
+    assert_eq!(large.builds, 1, "{large:?}");
+    assert_eq!(small.build_import_visits, 64, "{small:?}");
+    assert_eq!(large.build_import_visits, 128, "{large:?}");
+    assert_eq!(small.build_index_entries, 128, "{small:?}");
+    assert_eq!(large.build_index_entries, 256, "{large:?}");
+    assert_eq!(small.lookups, 64, "{small:?}");
+    assert_eq!(large.lookups, 128, "{large:?}");
+    assert_eq!(small.lookup_index_probes, 256, "{small:?}");
+    assert_eq!(large.lookup_index_probes, 512, "{large:?}");
 }
