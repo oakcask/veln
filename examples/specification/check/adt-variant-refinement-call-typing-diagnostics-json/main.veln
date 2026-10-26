@@ -76,7 +76,7 @@ fn invalid_source_arity(value: Choice::Absent) -> Choice::Absent
 	value
 end
 
-fn reject_record_widening(value: {state: State::Ready}) -> ()
+fn accept_record_widening(value: {state: State::Ready}) -> ()
 	let rejected: {state: State} = value
 end
 
@@ -144,7 +144,7 @@ fn accepted_alias_refinement(value: StateAlias::Ready) -> ()
 	()
 end
 
-fn reject_inferred_record_widening() -> ()
+fn accept_inferred_record_widening() -> ()
 	let record = {state: Ready}
 	let widened: {state: State} = record
 end

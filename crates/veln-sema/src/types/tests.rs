@@ -227,12 +227,12 @@ fn variant_refinement_assignability_matches_the_normative_table() {
         (
             Type::function(vec![base.clone()], r.clone(), Vec::new()),
             Type::function(vec![v.clone()], r.clone(), Vec::new()),
-            false,
+            true,
         ),
         (
             Type::function(vec![p.clone()], v.clone(), Vec::new()),
             Type::function(vec![p], base.clone(), Vec::new()),
-            false,
+            true,
         ),
     ];
 
@@ -248,7 +248,7 @@ fn variant_refinement_assignability_matches_the_normative_table() {
 }
 
 #[test]
-fn variant_refinement_widening_is_direct_and_erases_for_core_types() {
+fn variant_refinement_widening_is_structural_and_erases_for_core_types() {
     let refined = Type::variant_refinement("State", vec![Type::int()], vec!["Ready".to_string()]);
     let base = Type::named("State", vec![Type::int()]);
 
@@ -256,7 +256,7 @@ fn variant_refinement_widening_is_direct_and_erases_for_core_types() {
         &Type::named("Box", vec![base.clone()]),
         &Type::named("Box", vec![refined.clone()])
     ));
-    assert!(!is_assignable(
+    assert!(is_assignable(
         &Type::Record(vec![("state".to_string(), base.clone())]),
         &Type::Record(vec![("state".to_string(), refined.clone())])
     ));
@@ -299,7 +299,7 @@ fn renders_variant_refinement_unions_with_one_shared_generic_base() {
 }
 
 #[test]
-fn variant_refinement_subset_widening_stays_at_the_direct_boundary() {
+fn variant_refinement_subset_widening_composes_through_structural_types() {
     let ready = Type::variant_refinement("State", Vec::new(), vec!["Ready".to_string()]);
     let any_state = Type::variant_refinement(
         "State",
@@ -312,14 +312,164 @@ fn variant_refinement_subset_widening_stays_at_the_direct_boundary() {
         &Type::named("Box", vec![any_state.clone()]),
         &Type::named("Box", vec![ready.clone()])
     ));
-    assert!(!is_assignable(
+    assert!(is_assignable(
         &Type::Record(vec![("state".to_string(), any_state.clone())]),
         &Type::Record(vec![("state".to_string(), ready.clone())])
     ));
-    assert!(!is_assignable(
+    assert!(is_assignable(
         &Type::function(Vec::new(), any_state, Vec::new()),
         &Type::function(Vec::new(), ready, Vec::new())
     ));
+}
+
+#[test]
+fn complete_record_and_function_assignability_matches_the_variance_table() {
+    let narrow = Type::variant_refinement("State", Vec::new(), vec!["Ready".to_string()]);
+    let wide = Type::named("State", Vec::new());
+    let unit = Type::unit();
+    let pure = Vec::new();
+    let stdio = vec!["stdio".to_string()];
+    let record = |fields: Vec<(&str, Type)>| {
+        Type::Record(
+            fields
+                .into_iter()
+                .map(|(name, ty)| (name.to_string(), ty))
+                .collect(),
+        )
+    };
+    let function =
+        |params: Vec<Type>, variadic: Option<Type>, result: Type, effects: Vec<String>| {
+            Type::Function {
+                params,
+                variadic: variadic.map(Box::new),
+                return_type: Box::new(result),
+                effects,
+            }
+        };
+
+    let cases = vec![
+        (
+            "record depth covariance",
+            record(vec![("state", narrow.clone()), ("label", Type::string())]),
+            record(vec![("state", wide.clone())]),
+            true,
+        ),
+        (
+            "record depth does not reverse",
+            record(vec![("state", wide.clone())]),
+            record(vec![("state", narrow.clone())]),
+            false,
+        ),
+        (
+            "fixed inputs are contravariant and results are covariant",
+            function(vec![wide.clone()], None, narrow.clone(), pure.clone()),
+            function(vec![narrow.clone()], None, wide.clone(), pure.clone()),
+            true,
+        ),
+        (
+            "fixed input and result failures do not compensate",
+            function(vec![narrow.clone()], None, wide.clone(), pure.clone()),
+            function(vec![wide.clone()], None, narrow.clone(), pure.clone()),
+            false,
+        ),
+        (
+            "variadic inputs are contravariant",
+            function(Vec::new(), Some(wide.clone()), narrow.clone(), pure.clone()),
+            function(Vec::new(), Some(narrow.clone()), wide.clone(), pure.clone()),
+            true,
+        ),
+        (
+            "fixed counts must match for variadics",
+            function(
+                vec![wide.clone()],
+                Some(wide.clone()),
+                narrow.clone(),
+                pure.clone(),
+            ),
+            function(Vec::new(), Some(narrow.clone()), wide.clone(), pure.clone()),
+            false,
+        ),
+        (
+            "two callback input reversals restore covariance",
+            function(
+                vec![function(
+                    vec![narrow.clone()],
+                    None,
+                    unit.clone(),
+                    pure.clone(),
+                )],
+                None,
+                unit.clone(),
+                pure.clone(),
+            ),
+            function(
+                vec![function(
+                    vec![wide.clone()],
+                    None,
+                    unit.clone(),
+                    pure.clone(),
+                )],
+                None,
+                unit.clone(),
+                pure.clone(),
+            ),
+            true,
+        ),
+        (
+            "record width composes through callback inputs",
+            function(
+                vec![record(vec![("id", Type::int())])],
+                None,
+                unit.clone(),
+                pure.clone(),
+            ),
+            function(
+                vec![record(vec![("id", Type::int()), ("label", Type::string())])],
+                None,
+                unit.clone(),
+                pure.clone(),
+            ),
+            true,
+        ),
+        (
+            "nested callback effects follow reversed comparison",
+            function(
+                vec![function(Vec::new(), None, unit.clone(), stdio.clone())],
+                None,
+                unit.clone(),
+                pure.clone(),
+            ),
+            function(
+                vec![function(Vec::new(), None, unit.clone(), pure.clone())],
+                None,
+                unit.clone(),
+                pure.clone(),
+            ),
+            true,
+        ),
+        (
+            "outer effects remain covariant",
+            function(Vec::new(), None, unit.clone(), pure.clone()),
+            function(Vec::new(), None, unit.clone(), stdio.clone()),
+            true,
+        ),
+        (
+            "named generic arguments remain invariant",
+            Type::named("Box", vec![narrow.clone()]),
+            Type::named("Box", vec![wide.clone()]),
+            false,
+        ),
+    ];
+
+    for (name, actual, expected, accepted) in cases {
+        assert_eq!(
+            is_assignable(&expected, &actual),
+            accepted,
+            "{name}: actual {}, expected {}",
+            actual.render(),
+            expected.render()
+        );
+    }
 }
 
 #[test]

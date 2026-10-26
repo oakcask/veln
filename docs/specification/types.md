@@ -1126,8 +1126,7 @@ during construction. A constructor singleton can widen at that direct field
 boundary, so `{state: Ready}` can construct an expected `{state: State}`.
 Without that expected record type, the inferred value is
 `{state: State::Ready}`. A later assignment of that value to
-`{state: State}` is rejected because direct refinement widening does not
-recurse through records.
+`{state: State}` is accepted by record depth covariance.
 
 Unannotated collection elements, dictionary keys and values, and inferred
 generic ADT payload positions retain constructor refinements. Several values
@@ -1209,12 +1208,23 @@ or arm against the declared result, including a branch excluded by a constant
 condition. An earlier error that leaves an expression untyped does not add a
 derivative refinement mismatch.
 
-Refinement widening is direct only. It does not recurse through named type
-arguments, records, ADT payload types, or function parameter, variadic, or
-result positions. A refinement-bearing nested position must be identical on
-both sides. Function values therefore remain compatible only when every
-refinement-bearing position matches, in addition to the existing function
-shape and effect rules.
+Complete record and function types use the same assignment relation
+recursively. Named generic arguments remain invariant.
+
+| Type form | Assignment condition |
+| --- | --- |
+| Record | Every expected field exists in the actual record, and each actual field type is assignable to the expected field type. Extra actual fields are permitted. |
+| Fixed function inputs | The fixed counts match. For each position, the expected input type is assignable to the actual input type. |
+| Variadic function inputs | Both functions are variadic, their fixed counts match, and the expected variadic element type is assignable to the actual variadic element type. A fixed function and a variadic function are incompatible. |
+| Function result | The actual result type is assignable to the expected result type. |
+| Function effects | Every actual effect occurs in the expected effect set. The check applies independently at every nested function node. |
+| Same named type | The resolved constructor identity and all generic arguments match invariantly. `unknown` retains its recovery behavior inside an argument. |
+
+Function inputs are contravariant as complete types. Function results and
+record fields are covariant. Two nested function-input positions reverse the
+comparison twice, so the original direction is restored. A function nested in
+an input reverses its own effect comparison with the rest of that nested
+function type; nested effects are not merged into the enclosing function.
 
 An incompatible complete refinement comparison reports
 `type.variant_mismatch` at the assigned expression, call argument, branch, arm,
@@ -1233,8 +1243,8 @@ only by aliases of one target, an outer refinement exclusion therefore remains
 a `type.variant_mismatch`, and each rendered side retains its own alias
 spelling. If the resolved nested refinements differ, or a nested record,
 named-type argument, ADT payload, or function position otherwise fails
-invariance, there is no truthful top-level variant exclusion and the comparison
-uses the ordinary `type.mismatch` diagnostic instead. Generated schema encode
+compatibility, there is no truthful top-level variant exclusion and the
+comparison uses the ordinary `type.mismatch` diagnostic instead. Generated schema encode
 boundaries are the exception: they inspect supported record and container
 positions and report `type.variant_mismatch` for an innermost base-to-refinement
 or excluded-variant comparison when all other inspected positions are
@@ -1245,11 +1255,12 @@ helper through an immutable local binding initialized from that helper. It does
 not follow an ordinary function value merely because its visible function type
 is the same.
 Format-neutral generated decode helpers retain refinements in their parameter
-and successful result types but remain ordinary invariant record boundaries.
+and successful result types but remain ordinary structural record boundaries.
 A base ADT, an excluded constructor, or a base-typed decode result supplied at
 a refined nested position therefore reports `type.mismatch`; decode does not
 use the generated-encode variant-exclusion exception.
-This exception does not make ordinary assignment recursively covariant.
+This exception changes diagnostic selection only; it does not change ordinary
+structural assignment.
 The checked examples cover
 accepted source and compiler-known cases in
 `examples/specification/check/adt-variant-refinement-call-typing/`, JSON failures
@@ -1259,8 +1270,12 @@ and human diagnostics in
 Aggregate retention, joins, contextual widening, projection, and omitted
 private results are checked in
 `examples/specification/check/adt-variant-refinement-aggregate-retention/`;
-rejected nested widening and generic argument mismatch are checked in its
+rejected narrowing and generic argument mismatch are checked in its
 `-diagnostics` companion.
+Complete structural assignment is checked in the accepted
+[`complete-type-structural-assignability`](../../examples/specification/check/complete-type-structural-assignability/)
+case and its
+[`diagnostic companion`](../../examples/specification/check/complete-type-structural-assignability-diagnostics/).
 
 Variant-refinement semantic-token classifications are specified in
 [editor-support.md](editor-support.md#token-classes), and its navigation and
@@ -1273,23 +1288,23 @@ refinement-bearing representation schemas is current behavior under the
 Qualified-value control-flow refinement, runtime refinement validation after
 successful base decoding, and the provider-dependent unavailable-descriptor
 diagnostic remain proposal work.
-This slice also does not add recursive generic or function variance.
+This behavior does not add variance for named generic constructors, generic
+inference, or effect-row bound solving.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual
-record and be assignable. Named types with the same constructor are compatible
-when their arguments are pairwise compatible at a nested boundary. A nested
-boundary accepts `unknown`, so `Vec<unknown>` accepts `Vec<Int>`, but it does
-not apply direct refinement widening: `Vec<State::Ready>` does not satisfy
-`Vec<State>`. `Path` and `String` are distinct named types at assignment
-boundaries; the runtime path representation is not source-visible.
+record and be assignable. Named types with the same constructor require
+invariant generic arguments. Recovery still lets `unknown` match a complete
+argument, so `Vec<unknown>` accepts `Vec<Int>`, but `Vec<State::Ready>` does
+not satisfy `Vec<State>`. `Path` and `String` are distinct named types at
+assignment boundaries; the runtime path representation is not source-visible.
 Function assignment checks fixed parameter count, parameter types, variadic
 shape, return type, and effects. Variadic and fixed-arity function types are
 not assignment-compatible with each other. Two variadic function types are
-compatible only when the fixed parameters and variadic element types are
-assignable. The actual callable's effects must all be present in the expected
-function type's effect list, so a pure callable can satisfy an effectful
-function type but a `stdio` callable cannot satisfy a pure function type. If
+compatible only when their fixed counts match and each input is compatible in
+the contravariant direction. The actual callable's effects must all be present
+in the expected function type's effect list, so a pure callable can satisfy an
+effectful function type but a `stdio` callable cannot satisfy a pure function type. If
 the expected function type contains a bound final effect row tail such as
 `effects [stdio, ...E]`, the row tail accepts the actual callable effects not
 already named by the concrete entries. The call boundary substitutes those

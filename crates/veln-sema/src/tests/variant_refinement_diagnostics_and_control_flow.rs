@@ -264,9 +264,11 @@ fn nested_mismatch_diagnostic_output_grows_linearly_with_variant_count() {
         source.push_str("end\n");
         for index in 0..variant_count {
             source.push_str(&format!(
-                "fn reject{index:03}(value: {{state: State::Variant{index:03}}}) -> ()\n"
+                "fn reject{index:03}(value: {{state: State}}) -> ()\n"
             ));
-            source.push_str("  let rejected: {state: State} = value\n");
+            source.push_str(&format!(
+                "  let rejected: {{state: State::Variant{index:03}}} = value\n"
+            ));
             source.push_str("end\n");
         }
         let diagnostics = diagnostics_for(&source);

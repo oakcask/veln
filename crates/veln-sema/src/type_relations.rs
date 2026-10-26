@@ -167,7 +167,7 @@ pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
 }
 
 pub(crate) fn is_assignable_nested(expected: &Type, actual: &Type) -> bool {
-    trivially_assignable(expected, actual) || structurally_assignable(expected, actual)
+    is_assignable(expected, actual)
 }
 
 fn trivially_assignable(expected: &Type, actual: &Type) -> bool {
@@ -238,7 +238,7 @@ fn structurally_assignable(expected: &Type, actual: &Type) -> bool {
         ) => {
             parameters_are_assignable(expected_params, actual_params)
                 && variadics_are_assignable(expected_variadic, actual_variadic)
-                && is_assignable_nested(expected_return, actual_return)
+                && is_assignable(expected_return, actual_return)
                 && effects_are_assignable(expected_effects, actual_effects)
         }
         _ => false,
@@ -250,7 +250,7 @@ fn records_are_assignable(expected: &[(String, Type)], actual: &[(String, Type)]
         actual
             .iter()
             .find(|(actual_name, _)| actual_name == expected_name)
-            .is_some_and(|(_, actual_ty)| is_assignable_nested(expected_ty, actual_ty))
+            .is_some_and(|(_, actual_ty)| is_assignable(expected_ty, actual_ty))
     })
 }
 
@@ -268,10 +268,7 @@ fn named_types_are_assignable(
         actual_name,
         actual_identity,
     ) && expected_args.len() == actual_args.len()
-        && expected_args
-            .iter()
-            .zip(actual_args)
-            .all(|(expected, actual)| is_assignable_nested(expected, actual))
+        && invariant_args_match(expected_args, actual_args)
 }
 
 fn parameters_are_assignable(expected: &[Type], actual: &[Type]) -> bool {
@@ -279,12 +276,12 @@ fn parameters_are_assignable(expected: &[Type], actual: &[Type]) -> bool {
         && expected
             .iter()
             .zip(actual)
-            .all(|(expected, actual)| is_assignable_nested(expected, actual))
+            .all(|(expected, actual)| is_assignable(actual, expected))
 }
 
 fn variadics_are_assignable(expected: &Option<Box<Type>>, actual: &Option<Box<Type>>) -> bool {
     match (expected, actual) {
-        (Some(expected), Some(actual)) => is_assignable_nested(expected, actual),
+        (Some(expected), Some(actual)) => is_assignable(actual, expected),
         (None, None) => true,
         _ => false,
     }

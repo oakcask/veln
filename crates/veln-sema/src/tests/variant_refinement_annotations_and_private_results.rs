@@ -26,14 +26,14 @@ mod scaling;
 mod unknown_finals;
 
 #[test]
-fn explicitly_refined_nested_positions_remain_invariant() {
+fn records_are_covariant_while_named_arguments_remain_invariant() {
     let diagnostics = diagnostics_for(&format!(
         "{STATE_DECL}{}",
         concat!(
             "type Box<A>\n",
             "  Boxed(A)\n",
             "end\n",
-            "fn reject_record(value: {state: State::Ready}) -> ()\n",
+            "fn widen_record(value: {state: State::Ready}) -> ()\n",
             "  let widened: {state: State} = value\n",
             "end\n",
             "fn reject_record_narrowing(value: {state: State}) -> ()\n",
@@ -58,7 +58,7 @@ fn explicitly_refined_nested_positions_remain_invariant() {
         )
     ));
 
-    assert_eq!(diagnostics.len(), 6, "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 5, "{diagnostics:#?}");
     assert!(
         diagnostics
             .iter()

@@ -7,18 +7,19 @@ update-when: Generic named-type assignability, aggregate covariance, function su
 
 ## Summary
 
-This proposal selects recursive assignment compatibility for immutable
-aggregates, source ADTs, and functions. The compiler infers source-ADT parameter
-variance from payload declarations. Veln adds no declaration-site variance
-modifiers. Compiler-owned immutable containers are covariant; function inputs
-are contravariant and results are covariant.
+This proposal contains the remaining work for named generic variance. The
+compiler will infer source-ADT parameter variance from payload declarations.
+Compiler-owned immutable containers will be covariant, and Veln will add no
+declaration-site variance modifiers. The remaining work also includes bounded
+generic inference, call-bound effect-row constraint solving, dependency
+metadata, and detailed nested incompatibility context.
 
-All rules below are planned behavior. The current
-[type specification](../specification/types.md#compatibility-and-limits)
-allows direct ADT refinement widening but keeps refinement-bearing nested
-positions identical. This proposal replaces that restriction only when its
-acceptance evidence lands. It has no unresolved design dependency and is ready
-for implementation.
+Recursive assignment through records and functions is current behavior under
+the [type specification](../specification/types.md#compatibility-and-limits).
+That implemented kernel makes record fields and function results covariant,
+function inputs contravariant, and concrete function effect sets covariant.
+Named generic arguments remain invariant until the work in this proposal
+lands.
 
 ## Assignment Relation And Identity
 
@@ -29,23 +30,21 @@ ignoring alias spelling and field or effect ordering. Equality is stronger
 than mutual assignability: irrelevant generic arguments remain part of type
 identity even when they do not restrict assignment.
 
-The relation applies uniformly at direct and nested boundaries. It includes
-same-ADT variant-set inclusion, immutable record width and depth compatibility,
-and function compatibility. It adds no unrelated nominal subtyping, numeric
-assignment conversion, predicate-derived subtype, or runtime coercion.
-`unknown` remains an inference/recovery placeholder, not a top or bottom type
-and not evidence that a variance constraint is satisfied. Existing completeness
-checks must resolve required slots before admitting a declaration for execution.
+The current structural relation supplies the polarity of each occurrence. The
+remaining relation applies the selected parameter classification when two
+instances have the same resolved named constructor. It adds no unrelated
+nominal subtyping, numeric assignment conversion, predicate-derived subtype,
+or runtime coercion. `unknown` remains an inference/recovery placeholder, not
+a top or bottom type and not evidence that a variance constraint is satisfied.
+Existing completeness checks must resolve required slots before admitting a
+declaration for execution.
 
 | Actual and expected types | Assignment condition |
 | --- | --- |
-| Primitive or nongeneric nominal types | Resolved identity is equal. `Int` does not satisfy `Float`; `Path` does not satisfy `String`. |
-| Instances of different nominal declarations | Reject, including identically spelled declarations in different modules. |
 | Instances of one generic declaration | Compare each argument by that declaration's selected parameter variance. |
 | Same-ADT refinements, possibly with different arguments | Compare arguments by variance and require the actual variant set to be a subset of the expected set. Treat the base ADT as its complete variant set. |
-| Records | Every expected field exists in the actual record and its actual type satisfies its expected type. Extra actual fields are permitted. |
-| Functions | Apply every shape, input, result, and effect condition in the callable table below. |
-| Alias-qualified types | Resolve identity before comparison; preserve presentation separately. |
+| Instances of different nominal declarations | Reject, including identically spelled declarations in different modules. |
+| Alias-qualified types | Resolve identity before applying variance; preserve presentation separately. |
 
 A refinement uses its entire ADT declaration's variance, not a more permissive
 classification inferred from only its currently selected variants. Assignment
@@ -133,32 +132,13 @@ constraints. Veln adopts the least restrictive sound result and excludes
 call-site-dependent variance. Rust's trait, lifetime, and compiler-query details
 are not part of this proposal.
 
-## Callable Composition
+## Remaining Effect-Row Composition
 
-Let `N <: W` with `N != W`. For functions, compare their resolved effect sets
-at each function node after instantiating call-bound effect rows.
-
-| Aspect or example | Selected result |
-| --- | --- |
-| Fixed parameters | Counts must match. For each position, the expected parameter type must satisfy the actual parameter type. |
-| Variadic marker | Present on both sides or absent on both sides. A fixed function and a variadic function are incompatible in either direction. |
-| Two variadic functions | Fixed counts must match; compare fixed inputs contravariantly and the variadic element contravariantly. |
-| Result | Actual result must satisfy expected result. |
-| Effects | Actual effects must be a subset of expected effects. A pure callable can satisfy an effectful expectation. |
-| `fn(W) -> N` to `fn(N) -> W` | Accept when effects satisfy the subset condition. |
-| `fn(N) -> W` to `fn(W) -> N` | Reject: input and result directions both fail. |
-| `fn(...W) -> N` to `fn(...N) -> W` | Accept when effects satisfy the subset condition. |
-| `fn(W, ...W) -> N` to `fn(...N) -> W` | Reject: fixed counts differ. |
-| `fn(fn(N) -> ()) -> ()` to `fn(fn(W) -> ()) -> ()` | Accept for equal effects at corresponding nodes; two input reversals restore the original direction. |
-| A function accepting `{id: Int}` to one accepting `{id: Int, label: String}` | Accept with compatible results and effects: the actual callable requires fewer fields. Reverse assignment fails. |
-| A pure function to the otherwise identical `effects [stdio]` function type | Accept. Reverse assignment fails. |
-| An actual function accepting a `stdio` callback to one accepting a pure callback | Accept if outer results and effects match. Reverse assignment fails because a callback supplied by the caller could perform `stdio`. |
-| Any failed shape, component, or effect condition | Reject the whole assignment; success in another component cannot compensate. |
-
-A function nested in a parameter is compared in the reversed direction as a
-whole, including its own effect subset. The enclosing function's effect set
-continues to describe only that function's execution; nesting does not merge
-all callback effects into it automatically.
+The current [function assignment
+rules](../specification/types.md#compatibility-and-limits) define shape,
+polarity, and concrete effect-set comparison at every function node. The
+remaining callable work is solving call-bound effect rows after those polarity
+directions are known.
 
 Call-bound effect row variables use the existing binding scopes. After polarity
 composition, collect set-inclusion constraints for all occurrences together.
@@ -175,10 +155,11 @@ This adds neither a new row binder nor general first-class row polymorphism.
 The [Rustonomicon's subtyping and variance chapter](https://doc.rust-lang.org/nomicon/subtyping.html)
 explains the function input/output directions and distinguishes owning
 collection covariance from mutation through an alias. Veln adopts these
-polarity directions, with immutable source values replacing Rust's ownership
-conditions. Rust's lifetime relation supplies comparative reasoning, not the
-ADT-refinement relation or effect rules specified here. Treating every payload
-as covariant is rejected because a stored callback can consume its parameter.
+polarity directions in the current structural kernel and the remaining
+source-ADT inference design, with immutable source values replacing Rust's
+ownership conditions. Rust's lifetime relation supplies comparative reasoning,
+not the ADT-refinement relation or effect rules specified here. Treating every
+payload as covariant is rejected because a stored callback can consume its parameter.
 Treating every constructor as invariant is safe but needlessly rejects the
 immutable producer cases above.
 
@@ -268,9 +249,9 @@ the expected results for the change.
 
 | Contract | Planned evidence and required observation |
 | --- | --- |
-| Constructor and polarity tables | Table-driven semantic tests cover each composition cell, both assignment directions, same-spelled distinct ADTs, and refinement sets with varying arguments. |
+| Constructor and polarity tables | Table-driven semantic tests cover every named-parameter classification and composition cell, both assignment directions, same-spelled distinct ADTs, and refinement sets with varying arguments. |
 | Recursive inference | Source-ADT fixtures cover positive, negative, mixed, irrelevant, opaque, and mutually recursive cases; declaration permutations must yield the same classifications. |
-| Callables and effects | Accepted and rejected source fixtures cover every shape row, nested callbacks, record width, effect subsets, shared row lower/upper bounds, and unsatisfiable rows. |
+| Effect-row solving | Accepted and rejected source fixtures cover shared row lower and upper bounds, rigid enclosing rows, unconstrained rows, and unsatisfiable rows. |
 | Bounded inference | Permuted branch, collection, and payload cases cover successful joins, annotation-required meets, irrelevant slots, exact constraints, and transactional exclusion of failed contributions. |
 | Immutable dictionary safety | Companion tests in `crates/veln-stdlib/veln/` widen refined keys and values, query existing and absent keys, insert/remove on the widened value, and prove that the original keys, values, and iteration order remain unchanged. |
 | Host and backend behavior | Backend cases independently check representation-preserving widened callback calls and container transport; they do not substitute for stdlib API tests. |
@@ -287,22 +268,22 @@ backend suites for their respective contracts. Recursive generated-input
 coverage must follow the repository's bounded-run and performance-audit
 skills; this proposal sets no unmeasured timing target.
 
-Once those checks pass, update the smallest assignment-compatibility and ADT
-refinement sections in the current type specification, together with executable
-nested-refinement examples. Then retire this proposal and its catalog entry.
+Once those checks pass, update the named-generic variance and inference sections
+in the current type specification, together with executable examples. Then
+retire this proposal and its catalog entry.
 
 ## Scope And Implementation Basis
 
 This proposal is independently ready. It does not depend on the remaining
-refinement-flow, repair, or handler proposals. Current direct-boundary
-refinement behavior remains authoritative until this change is implemented.
+refinement-flow, repair, or handler proposals. The current structural
+record/function assignment kernel is its implemented prerequisite.
 It excludes mutable references, declaration-site variance syntax, general
 unions/intersections, higher-kinded types, predicate-based subtyping, and
 runtime representation changes solely for variance.
 
 The inspected local implementation anchors are
-`crates/veln-sema/src/type_relations.rs` for current record width, same-direction
-function component checks, and nested refinement restrictions;
+`crates/veln-sema/src/type_relations.rs` for current structural polarity and the
+future application of named-parameter classifications;
 `crates/veln-sema/src/effect_rows.rs` for existing row binding/substitution;
 `crates/veln-sema/src/aggregate_type_join.rs` for current refinement joins; and
 `crates/veln-backend-jvm/src/runtime/collections.java.inc` for persistent

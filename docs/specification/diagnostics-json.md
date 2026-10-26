@@ -707,7 +707,7 @@ note renders that fact for human output. One `expected_type_origin` related
 note identifies the declaration or local annotation that supplied the
 expectation. When a compiler-known helper or generated schema encode helper
 infers a parameter expectation from the call, the note instead identifies that
-helper at the call site. A nested aggregate invariance failure with no truthful
+helper at the call site. A nested structural incompatibility with no truthful
 finite variant exclusion reports ordinary `type.mismatch`. Alias display
 differences do not create such an
 invariance failure: when invariant arguments have the same resolved type, an
@@ -715,9 +715,11 @@ outer finite-set or base-to-refinement exclusion remains
 `type.variant_mismatch`, with independent alias spellings in `actual_type` and
 `expected_type`. A genuinely different resolved nested refinement reports
 `type.mismatch`; its actual type preserves the inferred nested refinement. This
-also includes assigning an inferred record with a singleton-refined field, or
-an inferred named aggregate with a refined type argument, to the corresponding
-type that uses the base ADT. During aggregate inference, an
+includes assigning an inferred named aggregate with a refined type argument to
+the corresponding type that uses the base ADT. Record fields instead use
+ordinary structural covariance, so an inferred singleton-refined field is
+assignable to the corresponding base-typed field. The reverse record
+assignment fails with `type.mismatch`. During aggregate inference, an
 incompatible later contribution reports the aggregate position's accumulated
 type as expected and preserves the later contribution's constructor refinement
 as actual. The accumulated expected type contains only successfully typed
@@ -749,10 +751,15 @@ unsupported container shape, or another non-variant mismatch makes the whole
 comparison an ordinary `type.mismatch`. This recursive diagnostic selection is
 specific to generated schema encode boundaries and follows a generated encode
 helper through an immutable local binding. An ordinary function value with the
-same visible type retains ordinary aggregate invariance.
+same visible type uses ordinary structural assignment and reports
+`type.mismatch` for a nested incompatibility.
+The [type assignment rules](types.md#compatibility-and-limits) own the record,
+function-input, result, and effect directions. Their rejected directions and
+outer rendered types are checked by the
+[`complete structural assignment diagnostic case`](../../examples/specification/check/complete-type-structural-assignability-diagnostics/).
 
 Format-neutral generated decode helpers retain refinements in their parameter
-and successful `Result` types, but they use ordinary invariant record
+and successful `Result` types, but they use ordinary structural record
 compatibility. Supplying a base ADT or an excluded constructor at a refined
 nested position reports `type.mismatch`, as does assigning a base-typed decode
 result to a refined result. These failures do not contain the

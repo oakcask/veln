@@ -92,7 +92,7 @@ fn search_docs_discovers_the_published_variant_refinement_contract() {
     let mut server = initialized_server_with_embedded_resources(&workspace);
 
     for query in [
-        "subset assignability",
+        "function inputs contravariant",
         "control-flow result",
         "runtime erasure",
     ] {
@@ -103,6 +103,10 @@ fn search_docs_discovers_the_published_variant_refinement_contract() {
         let document = read_doc(&mut server, first["uri"].as_str().unwrap());
         let text = document["structuredContent"]["text"].as_str().unwrap();
         assert!(text.contains("whose variant set is a superset"));
+        assert!(text.contains(
+            "same comparison recurses through covariant record fields and function results"
+        ));
+        assert!(text.contains("named generic arguments remain invariant"));
         assert!(text.contains("Control-flow result inference applies the same join"));
         assert!(text.contains("Refinements are erased at runtime"));
         assert!(!text.contains("not implemented semantic type behavior"));
