@@ -131,98 +131,24 @@ fn collect_valid_schema_operation_leaf_spans(expr: &Expr, spans: &mut Vec<Source
         ExprKind::SchemaDecode {
             schema_spans,
             recovered,
-            input,
-            base,
             ..
         } => {
             if !recovered && let Some(leaf) = schema_spans.last() {
                 spans.push(leaf.clone());
             }
-            collect_valid_schema_operation_leaf_spans(input, spans);
-            collect_valid_schema_operation_leaf_spans(base, spans);
         }
         ExprKind::SchemaEncode {
             schema_spans,
             recovered,
-            value,
             ..
         } => {
             if !recovered && let Some(leaf) = schema_spans.last() {
                 spans.push(leaf.clone());
             }
-            collect_valid_schema_operation_leaf_spans(value, spans);
         }
-        ExprKind::TypeApply { callee, .. }
-        | ExprKind::FieldAccess { base: callee, .. }
-        | ExprKind::Try { expr: callee, .. }
-        | ExprKind::Prefix { expr: callee, .. } => {
-            collect_valid_schema_operation_leaf_spans(callee, spans);
-        }
-        ExprKind::Call { callee, args } => {
-            collect_valid_schema_operation_leaf_spans(callee, spans);
-            for arg in args {
-                collect_valid_schema_operation_leaf_spans(arg, spans);
-            }
-        }
-        ExprKind::Perform { args, .. } => {
-            for arg in args {
-                collect_valid_schema_operation_leaf_spans(arg, spans);
-            }
-        }
-        ExprKind::Handle { body, args, .. } => {
-            collect_valid_schema_operation_leaf_spans(body, spans);
-            for arg in args {
-                collect_valid_schema_operation_leaf_spans(arg, spans);
-            }
-        }
-        ExprKind::Record(fields) => {
-            for field in fields {
-                collect_valid_schema_operation_leaf_spans(&field.expr, spans);
-            }
-        }
-        ExprKind::Dict(entries) => {
-            for entry in entries {
-                collect_valid_schema_operation_leaf_spans(&entry.key, spans);
-                collect_valid_schema_operation_leaf_spans(&entry.value, spans);
-            }
-        }
-        ExprKind::List(items) => {
-            for item in items {
-                collect_valid_schema_operation_leaf_spans(item, spans);
-            }
-        }
-        ExprKind::Match { scrutinee, arms } => {
-            collect_valid_schema_operation_leaf_spans(scrutinee, spans);
-            for arm in arms {
-                collect_valid_schema_operation_leaf_spans(&arm.expr, spans);
-            }
-        }
-        ExprKind::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        } => {
-            collect_valid_schema_operation_leaf_spans(condition, spans);
-            collect_valid_schema_operation_leaf_spans(then_branch, spans);
-            for branch in else_if_branches {
-                collect_valid_schema_operation_leaf_spans(&branch.condition, spans);
-                collect_valid_schema_operation_leaf_spans(&branch.expr, spans);
-            }
-            collect_valid_schema_operation_leaf_spans(else_branch, spans);
-        }
-        ExprKind::Begin { body, .. } => collect_body_schema_operation_leaf_spans(body, spans),
-        ExprKind::Binary { left, right, .. } => {
-            collect_valid_schema_operation_leaf_spans(left, spans);
-            collect_valid_schema_operation_leaf_spans(right, spans);
-        }
-        ExprKind::Missing
-        | ExprKind::Hole { .. }
-        | ExprKind::NamePath { .. }
-        | ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit => {}
+        _ => {}
     }
+    expr.for_each_child(&mut |child| {
+        collect_valid_schema_operation_leaf_spans(child, spans);
+    });
 }
