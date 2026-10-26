@@ -1,5 +1,6 @@
 use super::*;
 use crate::effect_rows::EffectRowSubstitutions;
+use crate::types::ModuleValueLookup;
 
 impl<'a> FunctionChecker<'a> {
     pub(super) fn infer_name_path(
@@ -13,15 +14,13 @@ impl<'a> FunctionChecker<'a> {
         {
             return ty;
         }
-        if let Some(value) = self
+        match self
             .environment
             .module_value_path(segments, self.function.module_name.as_deref())
         {
-            return if value.available {
-                value.ty.clone()
-            } else {
-                Type::Unknown
-            };
+            ModuleValueLookup::Available(value) => return value.ty.clone(),
+            ModuleValueLookup::Unavailable => return Type::Unknown,
+            ModuleValueLookup::Missing => {}
         }
         if segments.len() == 1
             && let Some(ty) = self.infer_expected_nullary_constructor(segments, expr, expected)
@@ -256,10 +255,20 @@ impl<'a> FunctionChecker<'a> {
     fn infer_module_value_call(&mut self, callee: &Expr, args: &[Expr]) -> Option<Type> {
         if let ExprKind::NamePath { segments, .. } = &callee.kind
             && !matches!(segments.as_slice(), [name] if self.visible_binding_index(name).is_some())
-            && let Some(value) = self
+        {
+            let value = match self
                 .environment
                 .module_value_path(segments, self.function.module_name.as_deref())
-        {
+            {
+                ModuleValueLookup::Available(value) => value,
+                ModuleValueLookup::Unavailable => {
+                    for arg in args {
+                        self.infer_expr(arg, None);
+                    }
+                    return Some(Type::Unknown);
+                }
+                ModuleValueLookup::Missing => return None,
+            };
             let name = value.declaration.name.as_deref().unwrap_or("<missing>");
             let mut diagnostic = Diagnostic::new(
                 "type.not_callable",

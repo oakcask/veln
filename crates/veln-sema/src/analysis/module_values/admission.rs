@@ -3,12 +3,12 @@ use std::collections::HashMap;
 use veln_ast::{BodyLine, BodyLineKind, Expr, ExprKind};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
-use super::{Dependency, ModuleValueIndex};
+use super::Dependency;
 use crate::adt::registry::ConstructorLookup;
 use crate::adt::{descriptors::AdtConstructor, type_operations as adt};
 use crate::diagnostics::span_json;
 use crate::semantic_model::Type;
-use crate::types::TypeEnvironment;
+use crate::types::{ModuleValueIndex, TypeEnvironment};
 
 pub(super) fn check_admitted_expr(
     expr: &Expr,
@@ -107,7 +107,11 @@ fn check_admitted_call(
         }
         ConstructorCall::Ambiguous => check_admitted_arguments(args, scope, diagnostics),
         ConstructorCall::Missing => {
-            let known_module_value = callee.callee_name_path().is_some_and(|segments| {
+            let Some(segments) = callee.callee_name_path() else {
+                diagnostics.push(unsupported_diagnostic(expr, scope.declaration));
+                return;
+            };
+            let known_module_value = {
                 module_value_index(
                     scope.value_indices,
                     segments,
@@ -115,14 +119,12 @@ fn check_admitted_call(
                     scope.environment,
                 )
                 .is_some()
-            });
-            let known_function_call = callee.callee_name_path().is_some_and(|segments| {
-                known_function(
-                    scope.environment,
-                    segments,
-                    scope.declaration.module_name.as_deref(),
-                )
-            });
+            };
+            let known_function_call = known_function(
+                scope.environment,
+                segments,
+                scope.declaration.module_name.as_deref(),
+            );
             if known_module_value || known_function_call {
                 diagnostics.push(unsupported_diagnostic(expr, scope.declaration));
             } else {

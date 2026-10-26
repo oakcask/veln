@@ -70,10 +70,15 @@ share one duplicate-name check.
 A collision makes every module-value declaration with that identity
 unavailable, and declarations that depend on it are unavailable while
 unrelated module values retain their semantic facts. A module-value declaration
-with invalid casing is unavailable under the same dependency rule. A selected
-module value used as a call target reports `type.not_callable` and
-does not fall through to callable lookup. Imported lookup and visibility for
-module values are not implemented.
+with invalid casing is unavailable under the same dependency rule. An
+unavailable same-module identity still reserves its name. A value read from
+that identity has no type fact, and a call does not select a declaration, emit
+`type.not_callable`, or fall through to another callable with the same name.
+Call arguments are still checked independently. A selected available module
+value used as a call target reports `type.not_callable` with that declaration's
+context and does not fall through to callable lookup. Only a missing identity
+continues through ordinary value or call resolution. Imported lookup and
+visibility for module values are not implemented.
 
 A finite chain of public type aliases is a valid type-alias target when it
 terminates in a resolved source ADT. Every alias in the chain retains the

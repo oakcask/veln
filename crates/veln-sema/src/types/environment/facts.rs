@@ -205,10 +205,12 @@ fn finish_module_value_facts(module: &SurfaceModule, environment: &mut TypeEnvir
     }
     for (index, value) in environment.module_values.iter().enumerate() {
         if let Some(name) = &value.declaration.name {
+            let identity = (value.declaration.module_name.clone(), name.clone());
             environment
                 .module_values_by_identity
-                .entry((value.declaration.module_name.clone(), name.clone()))
-                .or_insert(index);
+                .entry(identity)
+                .and_modify(|entry| *entry = ModuleValueIndex::Collision)
+                .or_insert(ModuleValueIndex::Unique(index));
         }
     }
 }

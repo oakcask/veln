@@ -11,17 +11,16 @@ impl TypeEnvironment {
         let module_values = selected_standard_facts(&self.module_values, module_names, |value| {
             value.declaration.module_name.as_deref()
         });
-        let module_values_by_identity = module_values
-            .iter()
-            .enumerate()
-            .filter_map(|(index, value)| {
-                value
-                    .declaration
-                    .name
-                    .as_ref()
-                    .map(|name| ((value.declaration.module_name.clone(), name.clone()), index))
-            })
-            .collect();
+        let mut module_values_by_identity = HashMap::new();
+        for (index, value) in module_values.iter().enumerate() {
+            if let Some(name) = &value.declaration.name {
+                let identity = (value.declaration.module_name.clone(), name.clone());
+                module_values_by_identity
+                    .entry(identity)
+                    .and_modify(|entry| *entry = ModuleValueIndex::Collision)
+                    .or_insert(ModuleValueIndex::Unique(index));
+            }
+        }
         Self {
             module_values,
             module_values_by_identity,

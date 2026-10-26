@@ -619,6 +619,75 @@ fn module_value_initializers_report_smallest_unsupported_expressions() {
 }
 
 #[test]
+fn non_name_calls_are_rejected_and_quarantined_at_the_call_expression() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Boxed\n",
+            "  Box(value: Int)\n",
+            "end\n",
+            "let direct: Int = (1)()\n",
+            "let nested: { value: Int } = { value: ((2))(3) }\n",
+            "let payload: Boxed = Box((4)())\n",
+            "let dependent: Int = direct\n",
+            "let independent: Int = 1\n",
+            "fn reads_direct() -> String\n",
+            "  direct\n",
+            "end\n",
+            "fn reads_dependent() -> String\n",
+            "  dependent\n",
+            "end\n",
+            "fn reads_independent() -> String\n",
+            "  independent\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let unsupported = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "value.module_initializer_unsupported")
+        .collect::<Vec<_>>();
+
+    assert_eq!(unsupported.len(), 3, "{diagnostics:#?}");
+    assert_diagnostic_span(unsupported[0], 4, 19, 4, 24);
+    assert_diagnostic_span(unsupported[1], 5, 39, 5, 47);
+    assert_diagnostic_span(unsupported[2], 6, 26, 6, 31);
+    for (diagnostic, declaration) in unsupported.iter().zip(&module.module_values[..3]) {
+        assert_eq!(
+            diagnostic.related.first(),
+            Some(&veln_diagnostics::JsonValue::object([
+                (
+                    "kind",
+                    veln_diagnostics::JsonValue::string("module_value_declaration"),
+                ),
+                (
+                    "message",
+                    veln_diagnostics::JsonValue::string(format!(
+                        "Module value `{}` is declared here.",
+                        declaration.name.as_deref().expect("module value name")
+                    )),
+                ),
+                ("span", crate::diagnostics::span_json(&declaration.span),),
+            ]))
+        );
+    }
+
+    let mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
+        .collect::<Vec<_>>();
+    assert_eq!(mismatches.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        mismatches[0].span.as_ref().map(|span| span.start.line),
+        Some(16)
+    );
+}
+
+#[test]
 fn module_value_annotations_are_checked_even_when_unused() {
     let source = SourceFile::new("main.veln", "let unused: String = 42\n");
     let parsed = parse(&source);

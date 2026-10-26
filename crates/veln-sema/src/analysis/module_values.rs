@@ -9,7 +9,7 @@ use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use super::{FunctionChecker, VariantDiagnosticInterner, check_type_effect_labels};
 use crate::diagnostics::span_json;
 use crate::type_syntax::parse_type_annotation;
-use crate::types::TypeEnvironment;
+use crate::types::{ModuleValueIndex, TypeEnvironment};
 
 mod admission;
 
@@ -19,12 +19,6 @@ use admission::{check_admitted_expr, collect_dependencies};
 pub(super) struct Dependency {
     target: usize,
     span: veln_source::SourceSpan,
-}
-
-#[derive(Clone, Copy)]
-pub(super) enum ModuleValueIndex {
-    Unique(usize),
-    Collision,
 }
 
 pub(crate) struct ModuleValueAnalysis {

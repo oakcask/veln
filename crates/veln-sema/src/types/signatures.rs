@@ -10,6 +10,18 @@ pub(crate) struct ModuleValueSignature {
     pub(crate) available: bool,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) enum ModuleValueIndex {
+    Unique(usize),
+    Collision,
+}
+
+pub(crate) enum ModuleValueLookup<'a> {
+    Available(&'a ModuleValueSignature),
+    Unavailable,
+    Missing,
+}
+
 #[derive(Clone)]
 pub(crate) struct EffectSignature {
     pub(crate) name: String,

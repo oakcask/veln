@@ -86,7 +86,7 @@ mod standard_subset;
 #[derive(Clone)]
 pub(crate) struct TypeEnvironment {
     module_values: Vec<ModuleValueSignature>,
-    module_values_by_identity: HashMap<(Option<String>, String), usize>,
+    module_values_by_identity: HashMap<(Option<String>, String), ModuleValueIndex>,
     functions: Vec<FunctionSignature>,
     functions_by_name: HashMap<String, Vec<usize>>,
     unpublished_functions: HashSet<FunctionPublicationKey>,
@@ -132,15 +132,28 @@ impl TypeEnvironment {
         &self,
         segments: &[String],
         current_module: Option<&str>,
-    ) -> Option<&ModuleValueSignature> {
-        let (name, _) = segments.split_last()?;
-        self.same_module_value_path_matches(segments, current_module)
-            .then(|| {
-                self.module_values_by_identity
-                    .get(&(current_module.map(str::to_owned), name.clone()))
-            })
-            .flatten()
-            .map(|index| &self.module_values[*index])
+    ) -> ModuleValueLookup<'_> {
+        let Some((name, _)) = segments.split_last() else {
+            return ModuleValueLookup::Missing;
+        };
+        if !self.same_module_value_path_matches(segments, current_module) {
+            return ModuleValueLookup::Missing;
+        }
+        match self
+            .module_values_by_identity
+            .get(&(current_module.map(str::to_owned), name.clone()))
+        {
+            Some(ModuleValueIndex::Unique(index)) => {
+                let value = &self.module_values[*index];
+                if value.available {
+                    ModuleValueLookup::Available(value)
+                } else {
+                    ModuleValueLookup::Unavailable
+                }
+            }
+            Some(ModuleValueIndex::Collision) => ModuleValueLookup::Unavailable,
+            None => ModuleValueLookup::Missing,
+        }
     }
 
     pub(crate) fn same_module_value_path_matches(
