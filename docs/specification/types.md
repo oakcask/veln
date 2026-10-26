@@ -294,6 +294,16 @@ and payload-carrying constructors. Without that expectation the ordinary
 ambiguity rule applies. Nullary generic constructors still require surrounding
 type context.
 
+An explicit import alias is one of these import qualifiers; it does not create
+a second type, schema, or constructor identity. After the import is selected,
+type annotations, variant refinements, constructors, patterns, schema
+composition, and schema operations use the target declaration's package and
+module identity. The explicit alias contributes no bare type or constructor
+candidate. The [name-resolution contract](name-resolution.md#explicit-import-aliases)
+defines qualifier selection and quarantine; this page's compatibility,
+inference, visibility, and payload rules apply to the selected identity without
+regard to the local qualifier spelling.
+
 Compiler-known collection and option/result helpers propagate concrete callback context.
 The input container determines callback item types; an explicit `_with` context is the
 first callback argument; a concrete helper result determines the callback return

@@ -313,8 +313,11 @@ successful resource reference for a fake handler.
 
 ## Duplex stream adapter
 
-`transport::net::net_stream(stream)` handles `transport::DuplexStream` through
-the active `net::IO` handler. The caller retains ownership of `stream`.
+`transport::net::net_stream(stream)` handles the canonical
+`std::transport::DuplexStream` effect through the active `net::IO` handler.
+After `use transport`, source may spell that same effect as
+`transport::DuplexStream`; the shorter spelling does not create another
+nominal identity. The caller retains ownership of `stream`.
 `transport::network::net_stream` is the equivalent non-conflicting import path
 for a module that also imports `net` from `std`.
 Both `transport::net` and `transport::network` expose
@@ -355,7 +358,9 @@ The adapter implementations are in
 `crates/veln-stdlib/veln/transport/network.veln`. Their companion evidence is
 in `crates/veln-stdlib/veln/transport/net.test.veln` and the adjacent separate
 Veln test-support modules. The companion invokes both adapter modules directly.
-Its host-backed path creates opaque streams through the exported `net` module,
+It exercises the canonical `std::transport::DuplexStream` path directly and
+the equivalent imported spelling used by the adapter modules. Its host-backed
+path creates opaque streams through the exported `net` module,
 retains the host effects of `net::system()`, and observes provider-owned setup,
 I/O, and cleanup. Its separately traced `net::IO` fake establishes the adapter
 conversion for an empty successful read, unchanged typed read and write
