@@ -1,36 +1,39 @@
 use super::*;
 
-#[test]
-fn expected_runtime_contract_failure_marks_matching_case_passed() {
-    let source_file = SourceFile::new(
-        "main.veln#doctest-1_test.veln",
-        "test doctest_1() -> () effects [stdio]\n  reject()\nend\n",
-    );
-    let span = source_file.span(TextRange::new(0, source_file.len()));
-    let mut case = TestCase {
+const DOCTEST_FILE: &str = "main.veln#doctest-1_test.veln";
+
+fn passing_doctest_case(source_text: &str) -> TestCase {
+    let source_file = SourceFile::new(DOCTEST_FILE, source_text);
+    TestCase {
         id: "case-1".to_string(),
         name: "doctest_1".to_string(),
         kind: "doctest".to_string(),
         status: TestCaseStatus::Passed,
         source: TestCaseSource {
-            file: "main.veln#doctest-1_test.veln".to_string(),
+            file: DOCTEST_FILE.to_string(),
             node_id: "test-1".to_string(),
-            span: span.clone(),
+            span: source_file.span(TextRange::new(0, source_file.len())),
         },
         reason: None,
         failure: None,
         expected_output: None,
-        expected_runtime_failure: Some(ExpectedRuntimeFailure::Contract(ExpectedContractFailure {
+        expected_runtime_failure: None,
+        events: Vec::new(),
+        diagnostics: Vec::new(),
+    }
+}
+
+fn expect_require_contract_failure(case: &mut TestCase, expected_predicate: &str) -> TestFailure {
+    let span = case.source.span.clone();
+    case.expected_runtime_failure =
+        Some(ExpectedRuntimeFailure::Contract(ExpectedContractFailure {
             clause: "require".to_string(),
-            predicate: "false".to_string(),
+            predicate: expected_predicate.to_string(),
             function: Some("reject".to_string()),
             blame: Some("caller".to_string()),
             span: span.clone(),
-        })),
-        events: Vec::new(),
-        diagnostics: Vec::new(),
-    };
-    let failure = TestFailure::contract(
+        }));
+    TestFailure::contract(
         "contract failure: require `false` in `reject` blame caller".to_string(),
         "require".to_string(),
         "false".to_string(),
@@ -38,7 +41,14 @@ fn expected_runtime_contract_failure_marks_matching_case_passed() {
         "caller".to_string(),
         "contract-1".to_string(),
         span,
-    );
+    )
+}
+
+#[test]
+fn expected_runtime_contract_failure_marks_matching_case_passed() {
+    let mut case =
+        passing_doctest_case("test doctest_1() -> () effects [stdio]\n  reject()\nend\n");
+    let failure = expect_require_contract_failure(&mut case, "false");
 
     apply_runtime_result(&mut case, Some(failure));
 
@@ -49,36 +59,18 @@ fn expected_runtime_contract_failure_marks_matching_case_passed() {
 
 #[test]
 fn expected_runtime_ensure_failure_marks_matching_case_passed() {
-    let source_file = SourceFile::new(
-        "main.veln#doctest-1_test.veln",
-        "test doctest_1() -> () effects [stdio]\n  reject()\nend\n",
-    );
-    let span = source_file.span(TextRange::new(0, source_file.len()));
-    let mut case = TestCase {
-        id: "case-1".to_string(),
-        name: "doctest_1".to_string(),
-        kind: "doctest".to_string(),
-        status: TestCaseStatus::Passed,
-        source: TestCaseSource {
-            file: "main.veln#doctest-1_test.veln".to_string(),
-            node_id: "test-1".to_string(),
+    let mut case =
+        passing_doctest_case("test doctest_1() -> () effects [stdio]\n  reject()\nend\n");
+    let span = case.source.span.clone();
+    case.expected_runtime_failure = Some(ExpectedRuntimeFailure::ContractClause(
+        ExpectedContractFailure {
+            clause: "ensure".to_string(),
+            predicate: "false".to_string(),
+            function: Some("reject".to_string()),
+            blame: Some("implementation".to_string()),
             span: span.clone(),
         },
-        reason: None,
-        failure: None,
-        expected_output: None,
-        expected_runtime_failure: Some(ExpectedRuntimeFailure::ContractClause(
-            ExpectedContractFailure {
-                clause: "ensure".to_string(),
-                predicate: "false".to_string(),
-                function: Some("reject".to_string()),
-                blame: Some("implementation".to_string()),
-                span: span.clone(),
-            },
-        )),
-        events: Vec::new(),
-        diagnostics: Vec::new(),
-    };
+    ));
     let failure = TestFailure::contract(
         "contract failure: ensure `false` in `reject` blame implementation".to_string(),
         "ensure".to_string(),
@@ -98,31 +90,13 @@ fn expected_runtime_ensure_failure_marks_matching_case_passed() {
 
 #[test]
 fn expected_runtime_result_failure_marks_matching_case_passed() {
-    let source_file = SourceFile::new(
-        "main.veln#doctest-1_test.veln",
+    let mut case = passing_doctest_case(
         "test doctest_1() -> Result<(), String> effects [stdio]\n  Err(\"bad\")?\nend\n",
     );
-    let span = source_file.span(TextRange::new(0, source_file.len()));
-    let mut case = TestCase {
-        id: "case-1".to_string(),
-        name: "doctest_1".to_string(),
-        kind: "doctest".to_string(),
-        status: TestCaseStatus::Passed,
-        source: TestCaseSource {
-            file: "main.veln#doctest-1_test.veln".to_string(),
-            node_id: "test-1".to_string(),
-            span: span.clone(),
-        },
-        reason: None,
-        failure: None,
-        expected_output: None,
-        expected_runtime_failure: Some(ExpectedRuntimeFailure::Result(ExpectedResultFailure {
-            value: "bad".to_string(),
-            span,
-        })),
-        events: Vec::new(),
-        diagnostics: Vec::new(),
-    };
+    case.expected_runtime_failure = Some(ExpectedRuntimeFailure::Result(ExpectedResultFailure {
+        value: "bad".to_string(),
+        span: case.source.span.clone(),
+    }));
 
     apply_runtime_result(
         &mut case,
@@ -136,49 +110,18 @@ fn expected_runtime_result_failure_marks_matching_case_passed() {
 
 #[test]
 fn expected_output_mismatch_still_reports_after_runtime_expectation_matches() {
-    let source_file = SourceFile::new(
-        "main.veln#doctest-1_test.veln",
-        "test doctest_1() -> () effects [stdio]\n  reject()\nend\n",
-    );
-    let span = source_file.span(TextRange::new(0, source_file.len()));
-    let mut case = TestCase {
-        id: "case-1".to_string(),
-        name: "doctest_1".to_string(),
-        kind: "doctest".to_string(),
-        status: TestCaseStatus::Passed,
-        source: TestCaseSource {
-            file: "main.veln#doctest-1_test.veln".to_string(),
-            node_id: "test-1".to_string(),
-            span: span.clone(),
-        },
-        reason: None,
-        failure: None,
-        expected_output: Some(ExpectedOutput {
-            stdout: Some("expected".to_string()),
-            stderr: None,
-            ..ExpectedOutput::default()
-        }),
-        expected_runtime_failure: Some(ExpectedRuntimeFailure::Contract(ExpectedContractFailure {
-            clause: "require".to_string(),
-            predicate: "false".to_string(),
-            function: Some("reject".to_string()),
-            blame: Some("caller".to_string()),
-            span: span.clone(),
-        })),
-        events: vec![stdio_event(
-            "stdout", "println", "actual", "newline", 1, "call-1", &span,
-        )],
-        diagnostics: Vec::new(),
-    };
-    let failure = TestFailure::contract(
-        "contract failure: require `false` in `reject` blame caller".to_string(),
-        "require".to_string(),
-        "false".to_string(),
-        "reject".to_string(),
-        "caller".to_string(),
-        "contract-1".to_string(),
-        span,
-    );
+    let mut case =
+        passing_doctest_case("test doctest_1() -> () effects [stdio]\n  reject()\nend\n");
+    let span = case.source.span.clone();
+    case.expected_output = Some(ExpectedOutput {
+        stdout: Some("expected".to_string()),
+        stderr: None,
+        ..ExpectedOutput::default()
+    });
+    case.events = vec![stdio_event(
+        "stdout", "println", "actual", "newline", 1, "call-1", &span,
+    )];
+    let failure = expect_require_contract_failure(&mut case, "false");
 
     apply_runtime_result(&mut case, Some(failure));
     compare_expected_output(&mut case);
@@ -194,43 +137,9 @@ fn expected_output_mismatch_still_reports_after_runtime_expectation_matches() {
 
 #[test]
 fn expected_runtime_contract_failure_reports_mismatch() {
-    let source_file = SourceFile::new(
-        "main.veln#doctest-1_test.veln",
-        "test doctest_1() -> () effects [stdio]\n  reject()\nend\n",
-    );
-    let span = source_file.span(TextRange::new(0, source_file.len()));
-    let mut case = TestCase {
-        id: "case-1".to_string(),
-        name: "doctest_1".to_string(),
-        kind: "doctest".to_string(),
-        status: TestCaseStatus::Passed,
-        source: TestCaseSource {
-            file: "main.veln#doctest-1_test.veln".to_string(),
-            node_id: "test-1".to_string(),
-            span: span.clone(),
-        },
-        reason: None,
-        failure: None,
-        expected_output: None,
-        expected_runtime_failure: Some(ExpectedRuntimeFailure::Contract(ExpectedContractFailure {
-            clause: "require".to_string(),
-            predicate: "true".to_string(),
-            function: Some("reject".to_string()),
-            blame: Some("caller".to_string()),
-            span: span.clone(),
-        })),
-        events: Vec::new(),
-        diagnostics: Vec::new(),
-    };
-    let failure = TestFailure::contract(
-        "contract failure: require `false` in `reject` blame caller".to_string(),
-        "require".to_string(),
-        "false".to_string(),
-        "reject".to_string(),
-        "caller".to_string(),
-        "contract-1".to_string(),
-        span,
-    );
+    let mut case =
+        passing_doctest_case("test doctest_1() -> () effects [stdio]\n  reject()\nend\n");
+    let failure = expect_require_contract_failure(&mut case, "true");
 
     apply_runtime_result(&mut case, Some(failure));
 
@@ -341,50 +250,17 @@ fn stdio_trace_falls_back_to_test_source_for_missing_call_identity() {
 
 #[test]
 fn expected_stderr_mismatch_reports_stderr_failure() {
-    let source_file = SourceFile::new(
-        "main.veln#doctest-1_test.veln",
-        "test doctest_1() -> () effects [stdio]\n  ()\nend\n",
-    );
-    let mut case = TestCase {
-        id: "case-1".to_string(),
-        name: "doctest_1".to_string(),
-        kind: "doctest".to_string(),
-        status: TestCaseStatus::Passed,
-        source: TestCaseSource {
-            file: "main.veln#doctest-1_test.veln".to_string(),
-            node_id: "test-1".to_string(),
-            span: source_file.span(TextRange::new(0, source_file.len())),
-        },
-        reason: None,
-        failure: None,
-        expected_output: Some(ExpectedOutput {
-            stdout: Some("ready".to_string()),
-            stderr: Some("warn".to_string()),
-            ..ExpectedOutput::default()
-        }),
-        expected_runtime_failure: None,
-        events: vec![
-            stdio_event(
-                "stdout",
-                "println",
-                "ready",
-                "newline",
-                1,
-                "call-1",
-                &source_file.span(TextRange::new(0, source_file.len())),
-            ),
-            stdio_event(
-                "stderr",
-                "eprintln",
-                "error",
-                "newline",
-                2,
-                "call-2",
-                &source_file.span(TextRange::new(0, source_file.len())),
-            ),
-        ],
-        diagnostics: Vec::new(),
-    };
+    let mut case = passing_doctest_case("test doctest_1() -> () effects [stdio]\n  ()\nend\n");
+    let span = case.source.span.clone();
+    case.expected_output = Some(ExpectedOutput {
+        stdout: Some("ready".to_string()),
+        stderr: Some("warn".to_string()),
+        ..ExpectedOutput::default()
+    });
+    case.events = vec![
+        stdio_event("stdout", "println", "ready", "newline", 1, "call-1", &span),
+        stdio_event("stderr", "eprintln", "error", "newline", 2, "call-2", &span),
+    ];
 
     compare_expected_output(&mut case);
 
@@ -400,44 +276,26 @@ fn expected_stderr_mismatch_reports_stderr_failure() {
 
 #[test]
 fn expected_output_mismatch_limits_actual_events_to_first_four() {
-    let source_file = SourceFile::new(
-        "main.veln#doctest-1_test.veln",
-        "test doctest_1() -> () effects [stdio]\n  ()\nend\n",
-    );
-    let span = source_file.span(TextRange::new(0, source_file.len()));
-    let mut case = TestCase {
-        id: "case-1".to_string(),
-        name: "doctest_1".to_string(),
-        kind: "doctest".to_string(),
-        status: TestCaseStatus::Passed,
-        source: TestCaseSource {
-            file: "main.veln#doctest-1_test.veln".to_string(),
-            node_id: "test-1".to_string(),
-            span: span.clone(),
-        },
-        reason: None,
-        failure: None,
-        expected_output: Some(ExpectedOutput {
-            stdout: Some("ready".to_string()),
-            stderr: None,
-            ..ExpectedOutput::default()
-        }),
-        expected_runtime_failure: None,
-        events: (1..=5)
-            .map(|sequence| {
-                stdio_event(
-                    "stdout",
-                    "println",
-                    &format!("line {sequence}"),
-                    "newline",
-                    sequence,
-                    &format!("call-{sequence}"),
-                    &span,
-                )
-            })
-            .collect(),
-        diagnostics: Vec::new(),
-    };
+    let mut case = passing_doctest_case("test doctest_1() -> () effects [stdio]\n  ()\nend\n");
+    let span = case.source.span.clone();
+    case.expected_output = Some(ExpectedOutput {
+        stdout: Some("ready".to_string()),
+        stderr: None,
+        ..ExpectedOutput::default()
+    });
+    case.events = (1..=5)
+        .map(|sequence| {
+            stdio_event(
+                "stdout",
+                "println",
+                &format!("line {sequence}"),
+                "newline",
+                sequence,
+                &format!("call-{sequence}"),
+                &span,
+            )
+        })
+        .collect();
 
     compare_expected_output(&mut case);
 
