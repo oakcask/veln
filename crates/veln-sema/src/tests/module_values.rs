@@ -396,6 +396,73 @@ fn module_value_annotations_are_checked_even_when_unused() {
 }
 
 #[test]
+fn module_value_annotations_must_be_closed_and_quarantine_dependents() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "let open: Option<T> = None\n",
+            "let dependent: Option<T> = open\n",
+            "fn read() -> String\n",
+            "  dependent\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let unresolved_type_parameters = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved type `T`"
+        })
+        .count();
+
+    assert_eq!(unresolved_type_parameters, 2, "{diagnostics:#?}");
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "type.mismatch" || !diagnostic.message.contains("found `Option<T>`")
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn module_value_annotations_and_initializers_use_existing_type_name_rules() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Idle\n",
+            "end\n",
+            "let good: State::Idle = State::Idle\n",
+            "let wrong: Option<Int>::Absent = None\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "name.invalid_case"
+                || !diagnostic.message.contains("module name `State`")
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.variant_refinement_unknown"
+                && diagnostic.message.contains("variant `Absent`")
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn constructor_arity_and_unresolved_names_keep_their_existing_diagnostics() {
     let source = SourceFile::new(
         "main.veln",

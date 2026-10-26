@@ -127,10 +127,31 @@ pub(crate) fn check_variant_refinement_bases(
     collect_type_annotations(module, environment, &mut diagnostics);
     collect_effect_annotations(module, environment, &mut diagnostics);
     collect_schema_annotations(module, environment, &mut diagnostics);
+    collect_module_value_annotations(module, environment, &mut diagnostics);
     collect_function_annotations(module, environment, &mut diagnostics);
     collect_handler_annotations(module, environment, &mut diagnostics);
 
     diagnostics
+}
+
+fn collect_module_value_annotations(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
+) {
+    for value in &module.module_values {
+        collect_declaration_annotation(
+            &value.annotation_refinements,
+            &value.annotation_paths,
+            value.module_name.as_deref(),
+            environment,
+            &[],
+            value.node_id.display("module-value"),
+            [value.node_id.display("module-value")],
+            ParseDiagnosticLocation::type_annotation("module_value"),
+            diagnostics,
+        );
+    }
 }
 
 pub(crate) fn variant_refinement_is_fully_resolved(

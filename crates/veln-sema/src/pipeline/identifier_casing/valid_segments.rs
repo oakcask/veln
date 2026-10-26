@@ -127,6 +127,37 @@ pub(super) fn valid_qualified_path_segments(
             }
         }
     }
+    for value in &module.module_values {
+        let current_module = value.module_name.as_deref();
+        collect_type_path_segments(
+            &value.annotation_paths,
+            &value.annotation_refinements,
+            current_module,
+            environment,
+            &mut segments,
+            &mut suppressed_locations,
+        );
+        if include_variant_refinements {
+            collect_variant_refinement_segments(
+                &value.annotation_refinements,
+                current_module,
+                environment,
+                &[],
+                require_valid_variant_refinements,
+                &mut segments,
+                &mut suppressed_locations,
+            );
+        }
+        collect_valid_segments_from_expr(
+            &value.initializer,
+            current_module,
+            environment,
+            include_variant_refinements,
+            require_valid_variant_refinements,
+            &mut segments,
+            &mut suppressed_locations,
+        );
+    }
     for function in &module.functions {
         crate::pipeline::record_variant_refinement_casing_work(1);
         let current_module = function.module_name.as_deref();

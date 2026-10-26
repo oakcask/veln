@@ -8,6 +8,7 @@ use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use super::{FunctionChecker, VariantDiagnosticInterner};
 use crate::adt::registry::ConstructorLookup;
 use crate::diagnostics::span_json;
+use crate::type_syntax::parse_type_annotation;
 use crate::types::TypeEnvironment;
 
 #[derive(Clone)]
@@ -83,7 +84,18 @@ pub(crate) fn check_module_values(
         );
         checker.check_body();
         diagnostics.append(&mut checker.diagnostics);
-        invalid[index] = diagnostics.len() != diagnostic_count;
+        let annotation_is_closed =
+            parse_type_annotation(&value.annotation).is_ok_and(|annotation| {
+                environment.type_annotation_is_fully_resolved(
+                    &annotation,
+                    value.module_name.as_deref(),
+                    &[],
+                )
+            });
+        if !annotation_is_closed {
+            push_unresolved_annotation_paths(value, environment, &mut diagnostics);
+        }
+        invalid[index] = diagnostics.len() != diagnostic_count || !annotation_is_closed;
     }
 
     let (cycle_diagnostics, cyclic) = cycle_diagnostics(module, &dependencies);
@@ -124,6 +136,39 @@ pub(crate) fn check_module_values(
                 )
             })
             .collect(),
+    }
+}
+
+fn push_unresolved_annotation_paths(
+    declaration: &veln_ast::ModuleValueDecl,
+    environment: &TypeEnvironment,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for path in &declaration.annotation_paths {
+        let symbol = path.segments.join("::");
+        if environment.type_path_is_resolved(&symbol, declaration.module_name.as_deref())
+            || diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "name.unresolved"
+                    && diagnostic.span.as_ref() == Some(&path.application_span)
+            })
+        {
+            continue;
+        }
+        diagnostics.push(Diagnostic::new(
+            "name.unresolved",
+            Severity::Error,
+            DiagnosticKind::Name,
+            format!("unresolved type `{symbol}`"),
+            Some(path.application_span.clone()),
+            JsonValue::object([
+                ("phase", JsonValue::string("name")),
+                ("node_id", JsonValue::Null),
+                ("symbol", JsonValue::string(symbol)),
+                ("namespace", JsonValue::string("type")),
+                ("resolution_status", JsonValue::string("unresolved")),
+                ("candidates", JsonValue::array([])),
+            ]),
+        ));
     }
 }
 

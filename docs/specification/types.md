@@ -542,7 +542,10 @@ available for checking function bodies. The checked
 [`module-value initializer failure`](../../examples/specification/check/module-value-initializer-unsupported-human/)
 and
 [`cycle JSON`](../../examples/specification/check/module-value-initializer-cycle-json/)
-cases cover the observable boundaries.
+cases cover the initializer and dependency boundaries. The checked
+[`open annotation failure`](../../examples/specification/check/module-value-open-annotation-human/)
+case verifies that an undeclared type parameter cannot escape through a module
+value annotation.
 
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved
