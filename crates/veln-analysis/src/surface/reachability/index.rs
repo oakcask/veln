@@ -202,6 +202,9 @@ struct InvalidUse<'a> {
     module_path_segments: Vec<&'a veln_ast::InvalidName>,
 }
 
+type UseTarget = (Option<String>, String, Option<String>);
+type InvalidNameSpans = HashSet<(veln_source::SourcePath, usize, usize)>;
+
 impl<'a> UseIndex<'a> {
     fn new(standard: Option<&'a SurfaceModule>, application: &'a SurfaceModule) -> Self {
         let modules = standard
@@ -212,91 +215,157 @@ impl<'a> UseIndex<'a> {
             .iter()
             .flat_map(|module| module.uses.iter())
             .collect::<Vec<_>>();
-        let mut alias_groups = HashMap::<(Option<String>, String), (usize, bool)>::new();
-        for declaration in declarations.iter().copied().filter(|declaration| {
-            declaration.origin == veln_ast::UseOrigin::Source
-                && !declaration.recovered
-                && !(declaration.has_explicit_alias() && declaration.alias == "prelude")
-        }) {
-            let group = alias_groups
-                .entry((declaration.module_name.clone(), declaration.alias.clone()))
-                .or_default();
-            group.0 += 1;
-            group.1 |= declaration.has_explicit_alias();
-        }
-        let blocked_aliases: BlockedImportAliases = alias_groups
-            .into_iter()
-            .filter_map(|(alias, (count, has_explicit))| {
-                (count > 1 && has_explicit).then_some(alias)
-            })
-            .collect();
-        let mut invalid_segments_by_file =
-            HashMap::<veln_source::SourcePath, Vec<&veln_ast::InvalidName>>::new();
-        for invalid in modules.iter().flat_map(|module| &module.invalid_names) {
-            if invalid.class == veln_ast::NameClass::Module
-                && invalid.occurrence == veln_ast::NameOccurrence::PathSegment
-            {
-                invalid_segments_by_file
-                    .entry(invalid.span.file.clone())
-                    .or_default()
-                    .push(invalid);
-            }
-        }
-        for invalid_segments in invalid_segments_by_file.values_mut() {
-            invalid_segments.sort_by_key(|invalid| invalid.span.start.offset);
-        }
-
-        let mut valid = Vec::new();
-        let mut invalid = Vec::new();
-        for declaration in declarations.iter().copied() {
-            let module_path_segments = invalid_segments_by_file
-                .get(&declaration.span.file)
-                .map(|candidates| invalid_segments_in_span(candidates, &declaration.span))
-                .unwrap_or_default();
-            let invalid_alias = declaration.alias_span.as_ref().is_some_and(|alias_span| {
-                modules
-                    .iter()
-                    .flat_map(|module| &module.invalid_names)
-                    .any(|invalid| {
-                        invalid.class == veln_ast::NameClass::Module
-                            && invalid.occurrence == veln_ast::NameOccurrence::Declaration
-                            && invalid.span == *alias_span
-                    })
-            });
-            let duplicate_target = declarations.iter().copied().any(|other| {
-                !std::ptr::eq(other, declaration)
-                    && other.origin == veln_ast::UseOrigin::Source
-                    && declaration.origin == veln_ast::UseOrigin::Source
-                    && !other.recovered
-                    && !declaration.recovered
-                    && other.module_name == declaration.module_name
-                    && other.written_name == declaration.written_name
-                    && other.package == declaration.package
-            });
-            if module_path_segments.is_empty()
-                && !invalid_alias
-                && !declaration.recovered
-                && !(declaration.has_explicit_alias() && declaration.alias == "prelude")
-                && !duplicate_target
-            {
-                valid.push(declaration);
-            } else if !module_path_segments.is_empty()
-                && !blocked_aliases
-                    .contains(&(declaration.module_name.clone(), declaration.alias.clone()))
-                && !duplicate_target
-            {
-                invalid.push(InvalidUse {
-                    declaration,
-                    module_path_segments,
-                });
-            }
-        }
+        let blocked_aliases = blocked_import_aliases(&declarations);
+        let duplicate_targets = duplicate_import_targets(&declarations);
+        let (invalid_segments_by_file, invalid_alias_spans) = invalid_import_names(&modules);
+        let (valid, invalid) = classify_use_declarations(
+            &declarations,
+            &invalid_segments_by_file,
+            &invalid_alias_spans,
+            &duplicate_targets,
+            &blocked_aliases,
+        );
         Self {
             valid,
             invalid,
             blocked_aliases,
         }
     }
+}
+
+fn blocked_import_aliases(declarations: &[&UseDecl]) -> BlockedImportAliases {
+    let mut groups = HashMap::<(Option<String>, String), (usize, bool)>::new();
+    for declaration in declarations.iter().copied().filter(|declaration| {
+        declaration.origin == veln_ast::UseOrigin::Source
+            && !declaration.recovered
+            && !has_reserved_alias(declaration)
+    }) {
+        let group = groups
+            .entry((declaration.module_name.clone(), declaration.alias.clone()))
+            .or_default();
+        group.0 += 1;
+        group.1 |= declaration.has_explicit_alias();
+    }
+    groups
+        .into_iter()
+        .filter_map(|(alias, (count, has_explicit))| (count > 1 && has_explicit).then_some(alias))
+        .collect()
+}
+
+fn duplicate_import_targets(declarations: &[&UseDecl]) -> HashSet<UseTarget> {
+    let mut counts = HashMap::<UseTarget, usize>::new();
+    for declaration in declarations
+        .iter()
+        .copied()
+        .filter(|declaration| declaration.origin == veln_ast::UseOrigin::Source)
+        .filter(|declaration| !declaration.recovered)
+    {
+        *counts.entry(use_target(declaration)).or_default() += 1;
+    }
+    counts
+        .into_iter()
+        .filter_map(|(target, count)| (count > 1).then_some(target))
+        .collect()
+}
+
+fn invalid_import_names<'a>(
+    modules: &[&'a SurfaceModule],
+) -> (
+    HashMap<veln_source::SourcePath, Vec<&'a veln_ast::InvalidName>>,
+    InvalidNameSpans,
+) {
+    let mut segments_by_file = HashMap::<_, Vec<_>>::new();
+    let mut alias_spans = HashSet::new();
+    for invalid in modules.iter().flat_map(|module| &module.invalid_names) {
+        if invalid.class != veln_ast::NameClass::Module {
+            continue;
+        }
+        match invalid.occurrence {
+            veln_ast::NameOccurrence::PathSegment => segments_by_file
+                .entry(invalid.span.file.clone())
+                .or_default()
+                .push(invalid),
+            veln_ast::NameOccurrence::Declaration => {
+                alias_spans.insert(span_key(&invalid.span));
+            }
+            _ => {}
+        }
+    }
+    for segments in segments_by_file.values_mut() {
+        segments.sort_by_key(|invalid| invalid.span.start.offset);
+    }
+    (segments_by_file, alias_spans)
+}
+
+fn classify_use_declarations<'a>(
+    declarations: &[&'a UseDecl],
+    invalid_segments_by_file: &HashMap<veln_source::SourcePath, Vec<&'a veln_ast::InvalidName>>,
+    invalid_alias_spans: &InvalidNameSpans,
+    duplicate_targets: &HashSet<UseTarget>,
+    blocked_aliases: &BlockedImportAliases,
+) -> (Vec<&'a UseDecl>, Vec<InvalidUse<'a>>) {
+    let mut valid = Vec::new();
+    let mut invalid = Vec::new();
+    for declaration in declarations.iter().copied() {
+        let module_path_segments = invalid_segments_by_file
+            .get(&declaration.span.file)
+            .map(|candidates| invalid_segments_in_span(candidates, &declaration.span))
+            .unwrap_or_default();
+        let duplicate_target = declaration.origin == veln_ast::UseOrigin::Source
+            && !declaration.recovered
+            && duplicate_targets.contains(&use_target(declaration));
+        let invalid_alias = declaration
+            .alias_span
+            .as_ref()
+            .is_some_and(|span| invalid_alias_spans.contains(&span_key(span)));
+        if is_valid_use(
+            declaration,
+            module_path_segments.is_empty(),
+            invalid_alias,
+            duplicate_target,
+        ) {
+            valid.push(declaration);
+        } else if !module_path_segments.is_empty()
+            && !blocked_aliases
+                .contains(&(declaration.module_name.clone(), declaration.alias.clone()))
+            && !duplicate_target
+        {
+            invalid.push(InvalidUse {
+                declaration,
+                module_path_segments,
+            });
+        }
+    }
+    (valid, invalid)
+}
+
+fn is_valid_use(
+    declaration: &UseDecl,
+    module_path_is_valid: bool,
+    invalid_alias: bool,
+    duplicate_target: bool,
+) -> bool {
+    module_path_is_valid
+        && !invalid_alias
+        && !declaration.recovered
+        && !has_reserved_alias(declaration)
+        && !duplicate_target
+}
+
+fn has_reserved_alias(declaration: &UseDecl) -> bool {
+    declaration.has_explicit_alias() && declaration.alias == "prelude"
+}
+
+fn use_target(declaration: &UseDecl) -> UseTarget {
+    (
+        declaration.module_name.clone(),
+        declaration.written_name.clone(),
+        declaration.package.clone(),
+    )
+}
+
+fn span_key(span: &SourceSpan) -> (veln_source::SourcePath, usize, usize) {
+    (span.file.clone(), span.start.offset, span.end.offset)
 }
 
 fn invalid_segments_in_span<'a>(
