@@ -522,38 +522,6 @@ does not establish a transparent alias for match refinement. Function-value
 expressions do not produce ADT values that can exercise alias match refinement
 independently.
 
-### Module immutable value initializers
-
-Every typed module `let` initializer is checked against its written closed
-annotation, even when the declaration is unused. The admitted initializer
-language contains integer, Boolean, string, and unit literals; negative integer
-literals; records whose fields are admitted; visible nullary and payload ADT
-constructors whose payloads are admitted; and same-module module value
-references. Parentheses preserve admission. Float literals, collection
-literals, functions and ordinary calls, other operators, field access, control
-flow, effects, handlers, and holes are not admitted.
-An empty `{}` follows its contextual type: it is rejected as a collection
-literal when a `Dict<K, V>` annotation, record field, constructor payload, or
-resolved alias supplies that expectation. Without a dictionary expectation it
-remains an admitted empty structural record.
-
-Same-module references form a dependency graph independent of declaration
-order. An acyclic forward reference has the target's written annotation. Each
-cyclic component is rejected once at a deterministic reference that closes
-the cycle. An invalid declaration and every declaration that depends on it are
-withheld from later semantic facts; unrelated valid declarations remain
-available for checking function bodies. The checked
-[`module-value initializer failure`](../../examples/specification/check/module-value-initializer-unsupported-human/)
-and
-[`cycle JSON`](../../examples/specification/check/module-value-initializer-cycle-json/)
-cases cover the initializer and dependency boundaries. The checked
-[`admitted initializer JSON`](../../examples/specification/check/module-value-admitted-json/)
-case verifies that representative finite-data declarations reach only the
-checked-core execution gate. The checked
-[`open annotation failure`](../../examples/specification/check/module-value-open-annotation-human/)
-case verifies that an undeclared type parameter cannot escape through a module
-value annotation.
-
 Without an expected result, refinements of the same ADT identity join by taking
 the union of their variant sets when every generic argument is fully resolved
 and identical. The union is independent of arm order and renders in ADT
@@ -649,6 +617,38 @@ These counters, rather than elapsed time, define the regression checks;
 reported wall-clock timings are observational. Final serialized JSON can still
 grow quadratically when a linear number of diagnostics must each expose the
 complete refined domain.
+
+### Module immutable value initializers
+
+Every typed module `let` initializer is checked against its written closed
+annotation, even when the declaration is unused. The admitted initializer
+language contains integer, Boolean, string, and unit literals; negative integer
+literals; records whose fields are admitted; visible nullary and payload ADT
+constructors whose payloads are admitted; and same-module module value
+references. Parentheses preserve admission. Float literals, collection
+literals, functions and ordinary calls, other operators, field access, control
+flow, effects, handlers, and holes are not admitted.
+An empty `{}` follows its contextual type: it is rejected as a collection
+literal when a `Dict<K, V>` annotation, record field, constructor payload, or
+resolved alias supplies that expectation. Without a dictionary expectation it
+remains an admitted empty structural record.
+
+Same-module references form a dependency graph independent of declaration
+order. An acyclic forward reference has the target's written annotation. Each
+cyclic component is rejected once at a deterministic reference that closes
+the cycle. An invalid declaration and every declaration that depends on it are
+withheld from later semantic facts; unrelated valid declarations remain
+available for checking function bodies. The checked
+[`module-value initializer failure`](../../examples/specification/check/module-value-initializer-unsupported-human/)
+and
+[`cycle JSON`](../../examples/specification/check/module-value-initializer-cycle-json/)
+cases cover the initializer and dependency boundaries. The checked
+[`admitted initializer JSON`](../../examples/specification/check/module-value-admitted-json/)
+case verifies that representative finite-data declarations reach only the
+checked-core execution gate. The checked
+[`open annotation failure`](../../examples/specification/check/module-value-open-annotation-human/)
+case verifies that an undeclared type parameter cannot escape through a module
+value annotation.
 
 ### Result propagation
 

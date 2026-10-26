@@ -47,13 +47,21 @@ consumers must preserve diagnostic and related-note order.
 
 ## Diagnostic families
 
-A module immutable value initializer outside the finite-data language reports
-`value.module_initializer_unsupported` at the smallest unsupported expression.
-Related entries identify the declaration and the permitted initializer
-categories. A cyclic dependency component reports one
-`value.module_initializer_cycle` at the deterministic reference that closes
-the cycle. Its related entries identify every participating declaration and
-dependency reference.
+A known expression form outside the module immutable value finite-data
+language reports `value.module_initializer_unsupported` at the smallest
+unsupported expression. Related entries identify the declaration and the
+permitted initializer categories. Unresolved names and call targets retain
+`name.unresolved`, and a constructor with the wrong payload arity retains
+`core.constructor_arity_mismatch`; these failures do not add
+`value.module_initializer_unsupported`. A cyclic dependency component reports
+one `value.module_initializer_cycle` at the deterministic reference that
+closes the cycle. Its related entries identify every participating declaration
+and dependency reference.
+
+A function type in a module value annotation uses the ordinary effect-list
+diagnostics. An unbound row tail reports `effect.row_unbound`, and an unknown
+effect label reports `effect.unknown`. Their details identify the boundary as
+`module_value_type`.
 
 A module value selected as a call target reports `type.not_callable` at that
 target. Its details identify `call_target` as the failed constraint and
