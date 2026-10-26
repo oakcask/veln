@@ -168,12 +168,21 @@ pub struct UseDecl {
     pub node_id: NodeId,
     pub module_name: Option<String>,
     pub name: String,
+    pub written_name: String,
     pub alias: String,
+    pub alias_span: Option<SourceSpan>,
     pub name_spans: Vec<SourceSpan>,
     pub package: Option<String>,
     pub package_span: Option<SourceSpan>,
     pub span: SourceSpan,
+    pub recovered: bool,
     pub origin: UseOrigin,
+}
+
+impl UseDecl {
+    pub fn has_explicit_alias(&self) -> bool {
+        self.alias_span.is_some()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -188,11 +197,14 @@ impl UseDecl {
             node_id: NodeId::new(u32::MAX),
             module_name: Some(module_name),
             name: "std::prelude".to_string(),
+            written_name: "std::prelude".to_string(),
             alias: "prelude".to_string(),
+            alias_span: None,
             name_spans: Vec::new(),
             package: Some("std".to_string()),
             package_span: None,
             span,
+            recovered: false,
             origin: UseOrigin::ImplicitStandardPrelude,
         }
     }

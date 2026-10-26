@@ -32,6 +32,20 @@ end
 The sections below explain declarations and source boundaries. The grammar
 provides the production notation for these forms.
 
+An import can bind an explicit module qualifier with `as` before an optional
+package source:
+
+```veln
+use transport::net as wire from "std"
+```
+
+`as` is contextual in an import and remains an ordinary identifier elsewhere.
+The alias is one identifier and must start with an ASCII lowercase letter.
+The parser retains uppercase and underscore-led aliases for casing diagnostics.
+A malformed alias clause recovers at its declaration newline, so the next
+import or item remains available, but the recovered import supplies no lookup
+binding. Formatting retains an accepted alias before `from` and is idempotent.
+
 A source `type` declaration may contain zero variants:
 
 ```veln
@@ -452,7 +466,10 @@ the optional retained-effect list and the boundary of the next declaration.
 ```text
 Module        ::= ModuleHeader? UseDecl* Item*
 ModuleHeader  ::= "mod" ModuleHeaderPath NL
-UseDecl       ::= "use" ModulePath ImportSource? NL
+UseDecl       ::= "use" ModulePath UseAlias? ImportSource? NL
+UseAlias      ::= "as" AliasName
+AliasName     ::= Identifier
+UseAlias      ::= "as" AliasName
 ImportSource  ::= "from" PackageString
 ModuleHeaderPath ::= ModuleHeaderSegment ("::" ModuleHeaderSegment)*
 ModuleHeaderSegment ::= Name | HoleName

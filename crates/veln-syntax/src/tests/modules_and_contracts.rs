@@ -75,6 +75,65 @@ fn parses_external_package_use_declaration() {
 }
 
 #[test]
+fn parses_and_formats_explicit_import_alias_before_package_source() {
+    let source = SourceFile::new(
+        "main.veln",
+        "use transport::net as wire from \"std\"\nfn main() -> ()\n  ()\nend\n",
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let use_decl = &output.tree.uses[0];
+    assert_eq!(use_decl.name, "transport::net");
+    let alias = use_decl.alias.as_ref().expect("explicit alias");
+    assert_eq!(alias.name, "wire");
+    assert_eq!((alias.span.start.line, alias.span.start.column), (1, 23));
+    assert_eq!(use_decl.package.as_ref().unwrap().name, "std");
+    assert!(!use_decl.recovered);
+    let formatted = format_tree(&output.tree);
+    assert!(formatted.starts_with("use transport::net as wire from \"std\"\n"));
+    let reparsed = parse(&SourceFile::new("main.veln", formatted));
+    assert_eq!(format_tree(&reparsed.tree), format_tree(&output.tree));
+}
+
+#[test]
+fn retains_invalid_case_alias_tokens_for_semantic_diagnostics() {
+    for alias in ["Wire", "_wire", "_"] {
+        let source = SourceFile::new("main.veln", format!("use transport::net as {alias}\n"));
+        let output = parse(&source);
+        assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+        assert_eq!(output.tree.uses[0].alias.as_ref().unwrap().name, alias);
+        assert!(!output.tree.uses[0].recovered);
+    }
+}
+
+#[test]
+fn malformed_import_aliases_recover_at_the_declaration_newline() {
+    let cases = [
+        "use a as\n",
+        "use a as from \"pkg\"\n",
+        "use a as \"local\"\n",
+        "use a as b::c\n",
+        "use a from \"pkg\" as local\n",
+        "use a as b as c\n",
+        "use a as b from\n",
+    ];
+    for malformed in cases {
+        let source = SourceFile::new(
+            "main.veln",
+            format!("{malformed}use valid\nfn main() -> ()\n  ()\nend\n"),
+        );
+        let output = parse(&source);
+        assert!(!output.diagnostics.is_empty(), "{malformed}");
+        assert!(output.tree.uses[0].recovered, "{malformed}");
+        assert_eq!(output.tree.uses[1].name, "valid", "{malformed}");
+        assert!(!output.tree.uses[1].recovered, "{malformed}");
+        assert!(matches!(output.tree.items[0], SyntaxItem::Function(_)));
+    }
+}
+
+#[test]
 fn parses_function_return_type_effects_before_declaration_effects() {
     let source = SourceFile::new(
         "main.veln",

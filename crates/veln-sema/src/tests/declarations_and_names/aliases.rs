@@ -102,7 +102,10 @@ fn duplicate_use_aliases_are_static_errors() {
 
     assert_eq!(diagnostics.len(), 1);
     assert_eq!(diagnostics[0].id, "name.duplicate");
-    assert_eq!(diagnostics[0].message, "duplicate import alias name `io`");
+    assert_eq!(
+        diagnostics[0].message,
+        "duplicate import name `platform.io`"
+    );
     assert_eq!(diagnostics[0].related.len(), 1);
     assert!(
         diagnostics[0]
@@ -110,6 +113,36 @@ fn duplicate_use_aliases_are_static_errors() {
             .to_json()
             .contains("\"namespace\":\"module\"")
     );
+}
+
+#[test]
+fn explicit_import_alias_collisions_and_repeated_targets_are_static_errors() {
+    for source in [
+        "mod app\nuse alpha as shared\nuse beta as shared\n",
+        "mod app\nuse alpha as shared\nuse beta::shared\n",
+        "mod app\nuse alpha as first\nuse alpha as second\n",
+    ] {
+        let module = lower_surface_ast(&parse(&SourceFile::new("main.veln", source)).tree);
+        let diagnostics = analyze_surface_module(&module);
+        let duplicates = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.duplicate")
+            .collect::<Vec<_>>();
+        assert_eq!(duplicates.len(), 1, "{diagnostics:#?}");
+        assert_eq!(duplicates[0].related.len(), 1);
+    }
+}
+
+#[test]
+fn explicit_prelude_alias_is_reserved_at_the_alias_token() {
+    let source = SourceFile::new("main.veln", "mod app\nuse alpha as prelude\n");
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+    let reserved = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "name.reserved")
+        .expect("reserved alias diagnostic");
+    assert_eq!(reserved.span.as_ref().unwrap().start.column, 14);
 }
 
 #[test]

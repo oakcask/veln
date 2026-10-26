@@ -187,11 +187,14 @@ impl Writer {
         self.node_id(value.node_id);
         self.option(&value.module_name, |writer, value| writer.string(value));
         self.string(&value.name);
+        self.string(&value.written_name);
         self.string(&value.alias);
+        self.option(&value.alias_span, Self::span);
         self.vec(&value.name_spans, Self::span);
         self.option(&value.package, |writer, value| writer.string(value));
         self.option(&value.package_span, Self::span);
         self.span(&value.span);
+        self.bool(value.recovered);
         self.use_origin(value.origin);
     }
 

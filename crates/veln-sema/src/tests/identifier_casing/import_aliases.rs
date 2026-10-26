@@ -587,7 +587,7 @@ fn duplicate_invalid_implicit_import_aliases_stay_in_duplicate_analysis() {
         "{diagnostics:#?}"
     );
     assert_eq!(
-        diagnostics[2].message, "duplicate import alias name `HTTP`",
+        diagnostics[2].message, "duplicate import name `HTTP`",
         "{diagnostics:#?}"
     );
 }
@@ -620,4 +620,37 @@ fn quarantined_import_alias_use_reports_unresolved_when_target_is_missing() {
         diagnostics[1].message, "unresolved call_target `HTTP::entry`",
         "{diagnostics:#?}"
     );
+}
+
+#[test]
+fn explicit_import_alias_casing_uses_the_alias_token_and_quarantines_the_import() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        "mod app\nuse http as HTTP\nfn main() -> Int\n  HTTP::entry()\nend\n",
+    );
+    let http_source = SourceFile::new("http.veln", "mod http\npub fn entry() -> Int\n  1\nend\n");
+    let mut module = lower_surface_ast(&parse(&app_source).tree);
+    let http = lower_surface_ast(&parse(&http_source).tree);
+    module.functions.extend(http.functions);
+    module.invalid_names.extend(http.invalid_names);
+    let diagnostics = analyze_surface_module(&module);
+    let casing = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "name.invalid_case")
+        .expect("alias casing diagnostic");
+
+    assert_eq!(casing.span.as_ref().unwrap().start.column, 13);
+    assert!(
+        casing
+            .details
+            .to_json()
+            .contains("\"occurrence\":\"declaration\"")
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+    assert!(lower_checked_surface_module(&module).core.is_none());
 }

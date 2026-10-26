@@ -199,10 +199,17 @@ struct InvalidUse<'a> {
 
 impl<'a> UseIndex<'a> {
     fn new(standard: Option<&'a SurfaceModule>, application: &'a SurfaceModule) -> Self {
-        let modules = standard.into_iter().chain(std::iter::once(application));
+        let modules = standard
+            .into_iter()
+            .chain(std::iter::once(application))
+            .collect::<Vec<_>>();
+        let declarations = modules
+            .iter()
+            .flat_map(|module| module.uses.iter())
+            .collect::<Vec<_>>();
         let mut invalid_segments_by_file =
             HashMap::<veln_source::SourcePath, Vec<&veln_ast::InvalidName>>::new();
-        for invalid in modules.clone().flat_map(|module| &module.invalid_names) {
+        for invalid in modules.iter().flat_map(|module| &module.invalid_names) {
             if invalid.class == veln_ast::NameClass::Module
                 && invalid.occurrence == veln_ast::NameOccurrence::PathSegment
             {
@@ -218,14 +225,36 @@ impl<'a> UseIndex<'a> {
 
         let mut valid = Vec::new();
         let mut invalid = Vec::new();
-        for declaration in modules.flat_map(|module| &module.uses) {
+        for declaration in declarations.iter().copied() {
             let module_path_segments = invalid_segments_by_file
                 .get(&declaration.span.file)
                 .map(|candidates| invalid_segments_in_span(candidates, &declaration.span))
                 .unwrap_or_default();
-            if module_path_segments.is_empty() {
+            let invalid_alias = declaration.alias_span.as_ref().is_some_and(|alias_span| {
+                modules
+                    .iter()
+                    .flat_map(|module| &module.invalid_names)
+                    .any(|invalid| {
+                        invalid.class == veln_ast::NameClass::Module
+                            && invalid.occurrence == veln_ast::NameOccurrence::Declaration
+                            && invalid.span == *alias_span
+                    })
+            });
+            let duplicate_target = declarations.iter().copied().any(|other| {
+                !std::ptr::eq(other, declaration)
+                    && other.origin == veln_ast::UseOrigin::Source
+                    && declaration.origin == veln_ast::UseOrigin::Source
+                    && other.module_name == declaration.module_name
+                    && other.written_name == declaration.written_name
+                    && other.package == declaration.package
+            });
+            if module_path_segments.is_empty()
+                && !invalid_alias
+                && !declaration.recovered
+                && !duplicate_target
+            {
                 valid.push(declaration);
-            } else {
+            } else if !module_path_segments.is_empty() {
                 invalid.push(InvalidUse {
                     declaration,
                     module_path_segments,

@@ -529,7 +529,8 @@ impl TypeEnvironment {
             && function.visibility == Visibility::Public
             && function.module_name.as_deref().is_some_and(|module_name| {
                 self.uses.iter().any(|use_decl| {
-                    use_decl.module_name.as_deref() == current_module
+                    crate::name_recovery::use_decl_contributes_bare_exports(use_decl)
+                        && use_decl.module_name.as_deref() == current_module
                         && use_decl.name.as_str() == module_name
                 })
             })

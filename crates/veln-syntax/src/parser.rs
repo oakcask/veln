@@ -13,7 +13,7 @@ use crate::{
     PublicAliasKind, RecordField, RecordFieldPath, SatisfyClause, SchemaDecl, SchemaField,
     SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SyntaxItem, SyntaxTree,
     Token, TokenKind, TypeDecl, TypePathSegments, TypeVariantDecl, TypeVariantField,
-    TypeVariantFieldDelimiter, UseDecl, UsePackage, VariantRefinementAlternative,
+    TypeVariantFieldDelimiter, UseAlias, UseDecl, UsePackage, VariantRefinementAlternative,
     VariantRefinementType, VariantRefinementTypeArgument, Visibility, lex,
 };
 

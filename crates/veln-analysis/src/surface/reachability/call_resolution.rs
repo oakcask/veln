@@ -290,17 +290,29 @@ pub(super) fn imported_use_for_path<'a>(
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
-    uses.iter().copied().find(|use_decl| {
-        use_decl.module_name.as_deref() == current_module
-            && (use_decl.name == module_path
-                || simple_import_alias_matches(use_decl, &module_path)
-                || standard_package_relative_import_matches(use_decl, &module_path, current_module))
-    })
+    let candidates = uses
+        .iter()
+        .copied()
+        .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
+        .collect::<Vec<_>>();
+    let mut exact = candidates.iter().copied().filter(|use_decl| {
+        use_decl.written_name == module_path
+            || standard_package_relative_import_matches(use_decl, &module_path, current_module)
+    });
+    if let Some(first) = exact.next() {
+        return exact.next().is_none().then_some(first);
+    }
+    let mut aliases = candidates
+        .into_iter()
+        .filter(|use_decl| simple_import_alias_matches(use_decl, &module_path));
+    let first = aliases.next()?;
+    aliases.next().is_none().then_some(first)
 }
 
 fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str) -> bool {
     use_decl.alias == module_path
-        && (use_decl.package.is_some()
+        && (use_decl.has_explicit_alias()
+            || use_decl.package.is_some()
             || !use_decl.name.contains("::")
             || use_decl.origin == veln_ast::UseOrigin::ImplicitStandardPrelude)
 }
@@ -314,7 +326,7 @@ fn standard_package_relative_import_matches(
         || (use_decl.package.is_none()
             && current_module.is_some_and(|module| module.starts_with("std::"))))
         && use_decl
-            .name
+            .written_name
             .strip_prefix("std::")
             .is_some_and(|package_relative| package_relative == module_path)
 }
@@ -386,7 +398,8 @@ pub(super) fn bare_target_visible(
     target.bare_importable
         && target.module_name.as_deref().is_some_and(|module_name| {
             uses.iter().any(|use_decl| {
-                use_decl.module_name.as_deref() == Some(current_module)
+                !use_decl.has_explicit_alias()
+                    && use_decl.module_name.as_deref() == Some(current_module)
                     && use_decl.name == module_name
                     && imported_target_is_visible(target, use_decl)
             })

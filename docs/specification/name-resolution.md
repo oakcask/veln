@@ -55,6 +55,31 @@ that position admits both namespaces. Namespace selection is therefore fixed
 by the syntactic role, while same-namespace duplicates remain errors and
 unrelated namespaces may share a spelling.
 
+### Explicit import aliases
+
+`use a::b as local` binds `local` in the importing module's import namespace.
+`local::member` and the full written path `a::b::member` select the same target
+module identity. The declaration contributes neither the implicit `b`
+qualifier nor bare exported members. This remains true when the explicit alias
+equals `b`. Imports without `as` retain their implicit qualifier and bare
+exports. Import aliases are not values and do not leak through another module.
+
+An exact full written path is selected before a local qualifier. An ambiguous
+exact path is unresolved and does not fall through. A qualifier must select
+exactly one eligible import. Two implicit leaf qualifiers can remain
+declaration-valid but are ambiguous at lookup. If either colliding qualifier is
+explicit, the later qualifier reports `name.duplicate` and neither binding is
+eligible through that qualifier. Repeating one origin and written target path
+reports a duplicate import even when the aliases differ, and both imports are
+quarantined.
+
+An explicit alias named `prelude` reports `name.reserved`. An uppercase or
+underscore-led alias reports `name.invalid_case` at the alias token as a
+module-class declaration. Invalid target casing, invalid alias casing, syntax
+recovery, and duplicate target imports quarantine the complete import. They
+supply no qualifier, full-path, bare-export, or reachable-code candidate.
+Independent target, collision, and casing diagnostics remain visible.
+
 A typed module `let` enters the declaring module's value namespace with the
 identity of its module and declared name. Its written annotation supplies the
 reference type. A same-module reference can use the bare name, the complete

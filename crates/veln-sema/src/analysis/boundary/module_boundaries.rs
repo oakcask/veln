@@ -166,37 +166,68 @@ pub(super) fn alias_kind_mismatch_diagnostic(
 
 pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut seen =
-        BTreeMap::<(Option<String>, String, String, Option<String>), (String, SourceSpan)>::new();
+    let mut previous = Vec::<&UseDecl>::new();
 
     for use_decl in module
         .uses
         .iter()
         .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
     {
-        let node_id = use_decl.node_id.display("use");
-        let key = (
-            use_decl.module_name.clone(),
-            use_decl.alias.clone(),
-            use_decl.name.clone(),
-            use_decl.package.clone(),
-        );
-        if let Some((first_node_id, first_span)) = seen.get(&key) {
+        let duplicate_target = previous.iter().copied().find(|first| {
+            first.module_name == use_decl.module_name
+                && first.written_name == use_decl.written_name
+                && first.package == use_decl.package
+        });
+        if let Some(first) = duplicate_target {
+            diagnostics.push(duplicate_name_diagnostic(
+                &use_decl.written_name,
+                "module",
+                "import",
+                use_decl.node_id.display("use"),
+                import_target_span(use_decl),
+                first.node_id.display("use"),
+                &import_target_span(first),
+            ));
+        }
+        if let Some(first) = previous.iter().copied().find(|first| {
+            first.module_name == use_decl.module_name
+                && first.alias == use_decl.alias
+                && (first.has_explicit_alias() || use_decl.has_explicit_alias())
+                && duplicate_target.is_none_or(|target| !std::ptr::eq(*first, target))
+        }) {
             diagnostics.push(duplicate_name_diagnostic(
                 &use_decl.alias,
                 "module",
                 "import alias",
-                node_id,
-                use_decl.span.clone(),
-                first_node_id.clone(),
-                first_span,
+                use_decl.node_id.display("use"),
+                import_qualifier_span(use_decl),
+                first.node_id.display("use"),
+                &import_qualifier_span(first),
             ));
-        } else {
-            seen.insert(key, (node_id, use_decl.span.clone()));
         }
+        previous.push(use_decl);
     }
 
     diagnostics
+}
+
+fn import_target_span(use_decl: &UseDecl) -> SourceSpan {
+    let Some(first) = use_decl.name_spans.first() else {
+        return use_decl.span.clone();
+    };
+    let mut span = first.clone();
+    if let Some(last) = use_decl.name_spans.last() {
+        span.end = last.end;
+    }
+    span
+}
+
+fn import_qualifier_span(use_decl: &UseDecl) -> SourceSpan {
+    use_decl
+        .alias_span
+        .clone()
+        .or_else(|| use_decl.name_spans.last().cloned())
+        .unwrap_or_else(|| use_decl.span.clone())
 }
 
 pub(crate) fn check_reserved_prelude_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
@@ -221,17 +252,18 @@ pub(crate) fn check_reserved_prelude_aliases(module: &SurfaceModule) -> Vec<Diag
         .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
     {
         if use_decl.alias == PRELUDE_MODULE
-            && !use_decl
-                .module_name
-                .as_deref()
-                .is_some_and(|module_name| module_name.starts_with("std::"))
+            && (use_decl.has_explicit_alias()
+                || !use_decl
+                    .module_name
+                    .as_deref()
+                    .is_some_and(|module_name| module_name.starts_with("std::")))
         {
             diagnostics.push(reserved_prelude_diagnostic(
                 use_decl.node_id.display("use"),
-                use_decl.span.clone(),
+                import_qualifier_span(use_decl),
                 "module",
                 "import alias",
-                "Choose a non-conflicting import path.",
+                "Choose a non-conflicting import alias.",
             ));
         }
     }

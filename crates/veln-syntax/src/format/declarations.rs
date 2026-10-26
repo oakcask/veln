@@ -39,10 +39,13 @@ fn format_module_header_and_uses(out: &mut String, comments: &LineComments, tree
         );
     }
     for use_decl in &tree.uses {
-        let source = match &use_decl.package {
-            Some(package) => format!("use {} from \"{}\"", use_decl.name, package.name),
-            None => format!("use {}", use_decl.name),
-        };
+        let mut source = format!("use {}", use_decl.name);
+        if let Some(alias) = &use_decl.alias {
+            source.push_str(&format!(" as {}", alias.name));
+        }
+        if let Some(package) = &use_decl.package {
+            source.push_str(&format!(" from \"{}\"", package.name));
+        }
         push_source_line(out, comments, use_decl.span.start.line, 0, source);
     }
     if (tree.module.is_some() || !tree.uses.is_empty()) && !tree.items.is_empty() {

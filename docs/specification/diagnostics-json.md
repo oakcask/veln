@@ -921,6 +921,15 @@ original source span, and details containing
 `segment`.
 Recovery diagnostics do not create cascaded unresolved-name records.
 
+An invalid explicit import alias uses `origin: source`, `occurrence:
+declaration`, `name_class: module`, and `required_initial: ascii_lowercase`.
+Its primary span is the alias token. A reserved `prelude` alias and a duplicate
+explicit-involved qualifier also use that token; repair and first-binding
+context appear as related notes. A duplicate target import uses its written
+target path. Parser diagnostics precede casing diagnostics for one import;
+reserved and duplicate facts follow casing, while target-resolution facts stay
+independent. Combined module sources retain stable source and token order.
+
 Companion diagnostics expose `details.companion_path` and
 `details.target_path` where applicable. Private companion effect and handler
 wrong-target failures use `effect.private_companion_target` or

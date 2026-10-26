@@ -1,0 +1,4 @@
+use transport::net as
+fn main() -> ()
+	()
+end

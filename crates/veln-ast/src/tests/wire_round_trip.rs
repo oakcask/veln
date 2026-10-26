@@ -3,12 +3,28 @@ use super::*;
 #[test]
 fn surface_wire_rejects_the_previous_layout_header() {
     let mut encoded = encode_surface_module(&lower_source("fn main() -> ()\n  ()\nend\n"));
-    assert_eq!(&encoded[..9], b"VLNAST19\n");
-    encoded.splice(..9, b"VLNAST18\n".iter().copied());
+    assert_eq!(&encoded[..9], b"VLNAST20\n");
+    encoded.splice(..9, b"VLNAST19\n".iter().copied());
 
     let error =
         decode_surface_module(&encoded).expect_err("previous wire layout should be rejected");
     assert_eq!(error, "invalid surface module wire header");
+}
+
+#[test]
+fn surface_wire_preserves_explicit_import_alias_provenance() {
+    let module = lower_source("use transport::net as wire from \"std\"\n");
+    let use_decl = &module.uses[0];
+    assert_eq!(use_decl.written_name, "transport::net");
+    assert_eq!(use_decl.alias, "wire");
+    assert!(use_decl.has_explicit_alias());
+
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+    assert_eq!(decoded.uses[0].written_name, "transport::net");
+    assert_eq!(decoded.uses[0].alias, "wire");
+    assert!(decoded.uses[0].has_explicit_alias());
+    assert_eq!(encode_surface_module(&decoded), encoded);
 }
 
 #[test]

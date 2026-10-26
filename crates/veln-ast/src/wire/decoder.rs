@@ -286,11 +286,14 @@ impl<'a> Reader<'a> {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
             name: self.string()?,
+            written_name: self.string()?,
             alias: self.string()?,
+            alias_span: self.option(Self::span)?,
             name_spans: self.vec(Self::span)?,
             package: self.option(Self::string)?,
             package_span: self.option(Self::span)?,
             span: self.span()?,
+            recovered: self.bool()?,
             origin: self.use_origin()?,
         })
     }

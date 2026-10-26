@@ -54,18 +54,53 @@ pub(crate) fn use_decl_has_invalid_module_segment(
 ) -> bool {
     module.invalid_names.iter().any(|invalid| {
         invalid.class == NameClass::Module
-            && invalid.occurrence == NameOccurrence::PathSegment
+            && (invalid.occurrence == NameOccurrence::PathSegment
+                || (use_decl.alias_span.as_ref() == Some(&invalid.span)
+                    && invalid.occurrence == NameOccurrence::Declaration))
             && invalid.span.file == use_decl.span.file
             && use_decl.span.start.offset <= invalid.span.start.offset
             && invalid.span.end.offset <= use_decl.span.end.offset
     })
 }
 
+pub(crate) fn use_decl_has_invalid_alias(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
+    let Some(alias_span) = &use_decl.alias_span else {
+        return false;
+    };
+    module.invalid_names.iter().any(|invalid| {
+        invalid.class == NameClass::Module
+            && invalid.occurrence == NameOccurrence::Declaration
+            && invalid.span == *alias_span
+    })
+}
+
+pub(crate) fn use_decl_has_duplicate_target(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
+    module.uses.iter().any(|other| {
+        !std::ptr::eq(other, use_decl)
+            && other.origin == veln_ast::UseOrigin::Source
+            && use_decl.origin == veln_ast::UseOrigin::Source
+            && other.module_name == use_decl.module_name
+            && other.written_name == use_decl.written_name
+            && other.package == use_decl.package
+    })
+}
+
+pub(crate) fn use_decl_is_quarantined(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
+    use_decl.recovered
+        || use_decl_has_invalid_module_segment(module, use_decl)
+        || use_decl_has_invalid_alias(module, use_decl)
+        || use_decl_has_duplicate_target(module, use_decl)
+}
+
+pub(crate) fn use_decl_contributes_bare_exports(use_decl: &UseDecl) -> bool {
+    !use_decl.has_explicit_alias()
+}
+
 pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
     module
         .uses
         .iter()
-        .filter(|use_decl| !use_decl_has_invalid_module_segment(module, use_decl))
+        .filter(|use_decl| !use_decl_is_quarantined(module, use_decl))
         .map(resolved_import_use_decl)
         .collect()
 }
@@ -82,10 +117,35 @@ pub(crate) fn normal_imported_use_for_path<'a>(
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
-    module.uses.iter().find(|use_decl| {
-        !use_decl_has_invalid_module_segment(module, use_decl)
-            && use_decl_matches_import_path(use_decl, &module_path, current_module)
-    })
+    select_use_decl_for_path(
+        module
+            .uses
+            .iter()
+            .filter(|use_decl| !use_decl_is_quarantined(module, use_decl)),
+        &module_path,
+        current_module,
+    )
+}
+
+pub(crate) fn select_use_decl_for_path<'a>(
+    uses: impl Iterator<Item = &'a UseDecl>,
+    module_path: &str,
+    current_module: Option<&str>,
+) -> Option<&'a UseDecl> {
+    let candidates = uses
+        .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
+        .collect::<Vec<_>>();
+    let mut exact = candidates.iter().copied().filter(|use_decl| {
+        use_decl_matches_exact_import_path(use_decl, module_path, current_module)
+    });
+    if let Some(first) = exact.next() {
+        return exact.next().is_none().then_some(first);
+    }
+    let mut qualified = candidates
+        .into_iter()
+        .filter(|use_decl| simple_import_alias_matches(use_decl, module_path));
+    let first = qualified.next()?;
+    qualified.next().is_none().then_some(first)
 }
 
 pub(crate) fn schema_composition_imported_use_for_path<'a>(
@@ -93,25 +153,18 @@ pub(crate) fn schema_composition_imported_use_for_path<'a>(
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
-    let module_path = segments.join("::");
-    module
-        .uses
-        .iter()
-        .find(|use_decl| {
-            !use_decl_has_invalid_module_segment(module, use_decl)
-                && use_decl_matches_exact_import_path(use_decl, &module_path, current_module)
-        })
-        .or_else(|| normal_imported_use_for_path(module, segments, current_module))
-        .or_else(|| {
-            let mut candidates = module.uses.iter().filter(|use_decl| {
-                use_decl.package.is_none()
-                    && use_decl.module_name.as_deref() == current_module
-                    && !use_decl_has_invalid_module_segment(module, use_decl)
-                    && use_decl.alias == module_path
-            });
-            let candidate = candidates.next()?;
-            candidates.next().is_none().then_some(candidate)
-        })
+    normal_imported_use_for_path(module, segments, current_module).or_else(|| {
+        let module_path = segments.join("::");
+        let mut candidates = module.uses.iter().filter(|use_decl| {
+            use_decl.package.is_none()
+                && use_decl.module_name.as_deref() == current_module
+                && !use_decl_is_quarantined(module, use_decl)
+                && !use_decl.has_explicit_alias()
+                && use_decl.alias == module_path
+        });
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then_some(candidate)
+    })
 }
 
 pub(crate) fn resolved_import_module_name(
@@ -147,12 +200,12 @@ pub(crate) fn use_decl_matches_exact_import_path(
     if use_decl.module_name.as_deref() != current_module {
         return false;
     }
-    if use_decl.name == module_path {
+    if use_decl.written_name == module_path {
         return true;
     }
     if use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
         && use_decl
-            .name
+            .written_name
             .strip_prefix("std::")
             .is_some_and(|package_relative| package_relative == module_path)
     {
@@ -164,14 +217,15 @@ pub(crate) fn use_decl_matches_exact_import_path(
         return false;
     }
     use_decl
-        .name
+        .written_name
         .strip_prefix("std::")
         .is_some_and(|package_relative| package_relative == module_path)
 }
 
 fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str) -> bool {
     use_decl.alias == module_path
-        && (use_decl.package.is_some()
+        && (use_decl.has_explicit_alias()
+            || use_decl.package.is_some()
             || !use_decl.name.contains("::")
             || use_decl.origin == veln_ast::UseOrigin::ImplicitStandardPrelude)
 }
