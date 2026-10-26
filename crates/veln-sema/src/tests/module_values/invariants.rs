@@ -154,6 +154,53 @@ fn module_value_cycle_selection_is_independent_of_declaration_order() {
     assert_eq!(forward, reversed);
 }
 
+#[test]
+fn module_value_cycle_diagnostics_are_independent_of_source_enumeration_order() {
+    let analyze = |sources| {
+        let module = merged_modules_with_identities(sources);
+        let diagnostics = analyze_surface_module(&module);
+        let cycle = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.id == "value.module_initializer_cycle")
+            .expect("cycle diagnostic");
+        veln_diagnostics::JsonValue::object([
+            ("id", veln_diagnostics::JsonValue::string(&cycle.id)),
+            (
+                "severity",
+                veln_diagnostics::JsonValue::string(format!("{:?}", cycle.severity)),
+            ),
+            (
+                "kind",
+                veln_diagnostics::JsonValue::string(format!("{:?}", cycle.kind)),
+            ),
+            (
+                "message",
+                veln_diagnostics::JsonValue::string(cycle.message.to_string()),
+            ),
+            (
+                "span",
+                cycle
+                    .span
+                    .as_ref()
+                    .map(crate::diagnostics::span_json)
+                    .unwrap_or(veln_diagnostics::JsonValue::Null),
+            ),
+            ("details", cycle.details.clone()),
+            (
+                "related",
+                veln_diagnostics::JsonValue::array(cycle.related.clone()),
+            ),
+        ])
+    };
+    let alpha = || SourceFile::new("alpha.veln", "let alpha: Int = beta\n");
+    let beta = || SourceFile::new("beta.veln", "let beta: Int = alpha\n");
+
+    let forward = analyze(vec![("app", alpha()), ("app", beta())]);
+    let reversed = analyze(vec![("app", beta()), ("app", alpha())]);
+
+    assert_eq!(forward, reversed);
+}
+
 fn cycle_facts(text: &str) -> (String, String, Vec<String>) {
     let source = SourceFile::new("main.veln", text);
     let parsed = parse(&source);
