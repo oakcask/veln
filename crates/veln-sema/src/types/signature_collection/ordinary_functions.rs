@@ -17,6 +17,15 @@ pub(in crate::types) fn ordinary_function_signatures(
     adts: &AdtRegistry,
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Vec<FunctionSignature> {
+    let mut name_counts = BTreeMap::<String, usize>::new();
+    for function in module
+        .functions
+        .iter()
+        .filter(|function| function.kind == FunctionKind::Function)
+        .filter_map(|function| function.name.as_ref())
+    {
+        *name_counts.entry(function.clone()).or_default() += 1;
+    }
     let uses = normal_use_decls(module);
     let quarantined_uses = module
         .uses
@@ -30,6 +39,7 @@ pub(in crate::types) fn ordinary_function_signatures(
         effects,
         adts,
         companion_effect_access_targets,
+        name_counts: &name_counts,
     };
     module
         .functions
@@ -45,6 +55,7 @@ struct OrdinarySignatureContext<'a> {
     effects: &'a [EffectSignature],
     adts: &'a AdtRegistry,
     companion_effect_access_targets: &'a BTreeMap<String, CompanionAccessTarget>,
+    name_counts: &'a BTreeMap<String, usize>,
 }
 
 impl OrdinarySignatureContext<'_> {
@@ -76,7 +87,11 @@ fn ordinary_function_signature(
     let current_module = function.module_name.as_deref();
     let (params, variadic) = function_signature_params(function);
     Some(FunctionSignature {
-        target_name: crate::standard_symbols::standard_function_link_name(current_module, &name),
+        target_name: crate::standard_symbols::function_link_name(
+            current_module,
+            &name,
+            context.name_counts.get(&name).copied().unwrap_or_default() > 1,
+        ),
         name,
         module_name: function.module_name.clone(),
         visibility: function.visibility,

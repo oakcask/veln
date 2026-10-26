@@ -157,7 +157,7 @@ pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
             group.0 += 1;
             group.1 |= use_decl.has_explicit_alias();
         }
-        if use_decl.origin == veln_ast::UseOrigin::Source {
+        if use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.recovered {
             let mut exact_paths = vec![use_decl.written_name.clone()];
             if (use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
                 || (use_decl.package.is_none()
@@ -219,7 +219,8 @@ pub(crate) fn normal_imported_use_for_path<'a>(
         .uses
         .iter()
         .filter(|use_decl| {
-            use_decl_matches_exact_import_path(use_decl, &module_path, current_module)
+            !use_decl.recovered
+                && use_decl_matches_exact_import_path(use_decl, &module_path, current_module)
         })
         .collect::<Vec<_>>();
     if !exact.is_empty() {

@@ -91,8 +91,11 @@ fn recovered_import_does_not_block_valid_alias_reachability() {
             "mod app::main\n",
             "use app::math as\n",
             "use app::math as wire\n",
-            "pub fn main() -> Int\n",
+            "pub fn alias_entry() -> Int\n",
             "  wire::double(2)\n",
+            "end\n",
+            "pub fn exact_entry() -> Int\n",
+            "  app::math::double(2)\n",
             "end\n",
         ),
     ));
@@ -106,10 +109,16 @@ fn recovered_import_does_not_block_valid_alias_reachability() {
     ));
     module.functions.extend(dependency.functions);
 
-    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+    let reachable = reachable_entry_module(&module, "alias_entry", FunctionKind::Function);
     assert_eq!(
         reachable_function_names(&reachable),
-        vec![("app::main", "main"), ("app::math", "double")]
+        vec![("app::main", "alias_entry"), ("app::math", "double")]
+    );
+
+    let reachable = reachable_entry_module(&module, "exact_entry", FunctionKind::Function);
+    assert_eq!(
+        reachable_function_names(&reachable),
+        vec![("app::main", "exact_entry"), ("app::math", "double")]
     );
 }
 

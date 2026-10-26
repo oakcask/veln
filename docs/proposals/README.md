@@ -27,8 +27,7 @@ also states it.
   [module-immutable-values.md](module-immutable-values.md).
 - Generic named-type variance, bounded inference, and variance metadata:
   [generic-and-function-variance.md](generic-and-function-variance.md).
-- Runtime validation and source-tool navigation for implemented explicit
-  module import aliases:
+- Source-tool navigation for implemented explicit module import aliases:
   [explicit-import-aliases.md](explicit-import-aliases.md).
 - Bounded buffered observation export and explicit shutdown:
   [observability.md](observability.md).

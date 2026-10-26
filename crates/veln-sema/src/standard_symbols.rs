@@ -643,6 +643,18 @@ pub(crate) fn standard_function_link_name(module: Option<&str>, name: &str) -> S
     format!("__veln_std${module}${name}")
 }
 
+pub(crate) fn function_link_name(
+    module: Option<&str>,
+    name: &str,
+    qualify_application: bool,
+) -> String {
+    let standard = standard_function_link_name(module, name);
+    if standard != name || !qualify_application {
+        return standard;
+    }
+    module.map_or_else(|| name.to_string(), |module| format!("{module}::{name}"))
+}
+
 #[cfg(test)]
 #[path = "standard_symbols/tests.rs"]
 mod tests;

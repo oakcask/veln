@@ -18,8 +18,12 @@ use the selected target module and declaration identity for calls,
 constructors, schemas, effects, and handlers. An invalid, recovered, reserved,
 or colliding alias cannot itself make a module executable or add declarations
 to the reachable set. A valid exact written path remains usable when only its
-local qualifier collides. End-to-end JVM execution of alias-selected calls is
-not yet validated and remains planned work.
+local qualifier collides. An alias-qualified call and a call through the full
+written import path execute the same declaration. Same-named declarations in
+distinct modules retain separate runtime identities, and an explicitly aliased
+import does not add a bare runtime call candidate. The checked
+[`explicit-import-alias-runtime`](../../examples/specification/run/explicit-import-alias-runtime/)
+case exercises these identities through the JVM backend.
 
 The JVM host boundary associates resources created by `net::system()` with the
 active `net::IO` handler frame. Popping that frame closes its remaining

@@ -148,10 +148,18 @@ impl<'a> CoreLowerer<'a> {
             .iter()
             .map(|clause| CoreHandlerProvider {
                 operation: clause.operation.clone(),
-                function: crate::standard_symbols::standard_function_link_name(
-                    clause.module_name.as_deref(),
-                    &clause.function,
-                ),
+                function: match self
+                    .environment
+                    .unqualified_function(&clause.function, clause.module_name.as_deref())
+                {
+                    FunctionLookup::Found(signature) => signature.target_name.clone(),
+                    FunctionLookup::Ambiguous | FunctionLookup::Missing => {
+                        crate::standard_symbols::standard_function_link_name(
+                            clause.module_name.as_deref(),
+                            &clause.function,
+                        )
+                    }
+                },
             })
             .collect::<Vec<_>>();
         let lowered = self.lower_expr(body, expected);

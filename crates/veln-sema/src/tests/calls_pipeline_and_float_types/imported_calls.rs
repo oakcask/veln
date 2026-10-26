@@ -51,6 +51,34 @@ fn assert_main_passes_function_value(module: &SurfaceModule, index: usize, expec
     ));
 }
 
+fn collect_core_function_call_targets(function: &veln_core::CoreFunction) -> Vec<&str> {
+    fn collect<'a>(expr: &'a CoreExpr, targets: &mut Vec<&'a str>) {
+        match &expr.kind {
+            CoreExprKind::Call { target, args } => {
+                if let CoreCallTarget::Function(name) = target {
+                    targets.push(name);
+                }
+                for arg in args {
+                    collect(arg, targets);
+                }
+            }
+            CoreExprKind::Binary { left, right, .. } => {
+                collect(left, targets);
+                collect(right, targets);
+            }
+            _ => {}
+        }
+    }
+
+    let mut targets = Vec::new();
+    for statement in &function.body {
+        if let CoreStmtKind::Expr { expr } | CoreStmtKind::Return { expr } = &statement.kind {
+            collect(expr, &mut targets);
+        }
+    }
+    targets
+}
+
 #[test]
 fn infers_non_constructor_calls_from_local_function_signatures() {
     let source = SourceFile::new(
@@ -134,6 +162,58 @@ fn explicit_import_alias_and_written_path_select_the_same_function_identity() {
         let module = merged_import_module(main_source, vec![math_source]);
         assert_main_returns_function_call(&module, "double");
     }
+}
+
+#[test]
+fn same_named_imports_keep_distinct_module_link_identities() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app::main\n",
+            "use app::math as calc\n",
+            "use app::other\n",
+            "pub fn main() -> Int\n",
+            "  calc::double(2) + app::math::double(3) + double(4)\n",
+            "end\n",
+        ),
+    );
+    let math_source = SourceFile::new(
+        "math.veln",
+        "mod app::math\npub fn double(value: Int) -> Int\n  value + value\nend\n",
+    );
+    let other_source = SourceFile::new(
+        "other.veln",
+        "mod app::other\npub fn double(value: Int) -> Int\n  value\nend\n",
+    );
+    let module = merged_import_module(main_source, vec![math_source, other_source]);
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    assert!(
+        core.functions
+            .iter()
+            .any(|function| function.name == "app::math::double")
+    );
+    assert!(
+        core.functions
+            .iter()
+            .any(|function| function.name == "app::other::double")
+    );
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let targets = collect_core_function_call_targets(main);
+    assert_eq!(
+        targets,
+        vec![
+            "app::math::double",
+            "app::math::double",
+            "app::other::double",
+        ]
+    );
 }
 
 #[test]
@@ -282,6 +362,15 @@ fn recovered_import_does_not_quarantine_a_following_valid_import() {
         crate::name_recovery::normal_imported_use_for_path(
             &module,
             &["wire".to_string()],
+            Some("app::main"),
+        )
+        .map(|use_decl| use_decl.name.as_str()),
+        Some("app::math")
+    );
+    assert_eq!(
+        crate::name_recovery::normal_imported_use_for_path(
+            &module,
+            &["app".to_string(), "math".to_string()],
             Some("app::main"),
         )
         .map(|use_decl| use_decl.name.as_str()),

@@ -185,6 +185,9 @@ impl<'a> CoreLowerer<'a> {
     }
 
     pub(super) fn lowered_function_name(&self) -> String {
+        if let Some(signature) = self.environment.function_for(self.function) {
+            return signature.target_name.clone();
+        }
         self.function.name.as_deref().map_or_else(
             || "<missing>".to_string(),
             |name| {

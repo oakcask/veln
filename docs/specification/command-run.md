@@ -38,7 +38,9 @@ the [name-resolution specification](name-resolution.md#explicit-import-aliases)
 defines their lookup boundary. A reachable invalid dependency declaration
 blocks the run; unreachable declarations in an imported dependency and
 diagnostics in an unimported manifest dependency do not. An unreachable local
-function does not block the selected entry.
+function does not block the selected entry. Alias-qualified, full-written-path,
+and bare calls retain the selected module identity through JVM execution when
+distinct imported modules export the same function name.
 
 A module immutable value declaration in the selected analysis is semantically
 checked before backend launch. Invalid finite-data initializers, annotation
@@ -140,10 +142,6 @@ back to another cache root after a configuration failure. Static gates prevent
 artifact generation and Java launch, so no user output is produced before a
 static failure. A call-site-aware entry is such a static failure even when its
 body does not read the built-in value.
-
-Explicit import aliases participate in analysis and reachability, but their
-end-to-end JVM call execution remains outside the current contract until its
-checked runtime case passes.
 
 ## References
 
