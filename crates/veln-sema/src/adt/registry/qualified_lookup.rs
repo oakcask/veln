@@ -171,7 +171,7 @@ impl AdtRegistry {
         let mut fallback;
         let modules = if let Some(indexed) = indexed {
             indexed
-        } else if self.qualified_import_modules.is_empty() {
+        } else {
             fallback = QualifiedImportModules::default();
             for use_decl in uses {
                 crate::adt::lookup_validation::record_import_path_comparison();
@@ -192,8 +192,6 @@ impl AdtRegistry {
                 }
             }
             &fallback
-        } else {
-            return None;
         };
         let candidates = if modules.exact.is_empty() {
             &modules.implicit
@@ -236,7 +234,8 @@ impl AdtRegistry {
             current_module,
         );
 
-        if self.qualified_import_recovery_modules.is_empty() {
+        let key = (current_module.map(str::to_string), normalized);
+        let Some(candidates) = self.qualified_import_recovery_modules.get(&key) else {
             return self.fallback_recovered_import_identity(
                 type_name,
                 qualifiers,
@@ -244,15 +243,9 @@ impl AdtRegistry {
                 uses,
                 selected,
             );
-        }
+        };
 
-        let key = (current_module.map(str::to_string), normalized);
-        for candidate in self
-            .qualified_import_recovery_modules
-            .get(&key)
-            .into_iter()
-            .flatten()
-        {
+        for candidate in candidates {
             crate::adt::lookup_validation::record_qualified_path_work(candidate.module_path.len());
             if !is_single_initial_recovery(qualifiers, &candidate.module_path)
                 || self.is_current_module_identity(
@@ -528,10 +521,9 @@ impl AdtRegistry {
             }
             return descriptor.module_name.as_deref() == Some(module_name);
         }
-        if self.qualified_import_modules.is_empty()
-            && let Some(module_name) =
-                crate::name_recovery::select_use_decl_for_path(uses.iter(), first, current_module)
-                    .map(|use_decl| use_decl.name.as_str())
+        if let Some(module_name) =
+            crate::name_recovery::select_use_decl_for_path(uses.iter(), first, current_module)
+                .map(|use_decl| use_decl.name.as_str())
         {
             return descriptor.module_name.as_deref() == Some(module_name);
         }

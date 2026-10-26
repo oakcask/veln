@@ -185,7 +185,13 @@ impl<'a> CoreLowerer<'a> {
     }
 
     pub(super) fn lowered_function_name(&self) -> String {
-        if let Some(signature) = self.environment.function_for(self.function) {
+        if self
+            .function
+            .name
+            .as_deref()
+            .is_some_and(|name| name.as_bytes().first().is_some_and(u8::is_ascii_lowercase))
+            && let Some(signature) = self.environment.function_for(self.function)
+        {
             return signature.target_name.clone();
         }
         self.function.name.as_deref().map_or_else(
