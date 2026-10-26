@@ -54,18 +54,20 @@ An alternative with type arguments retains any `TypePath` before those
 arguments, so semantic analysis can diagnose and recover an invalid-cased
 generic base. Its descriptor publishes the current
 singleton and finite-set identity, subset assignability and direct widening,
-aggregate and control-flow joins, stable match-path narrowing, runtime erasure,
+complete record and function assignment, aggregate and control-flow joins,
+stable match-path narrowing, runtime erasure,
 transitive alias-qualified identity and presentation, complete-domain alias
 reconciliation, generic payload propagation across alias-qualified constructor
 and pattern boundaries, recursive public-signature and public-ADT-payload
 visibility, transitive publication quarantine, focused mixed-union base
 failure, invalid-signature quarantine, and the
 qualified-value limit.
-The selected examples demonstrate refined call typing, control-flow result
-joins, alias-qualified identity and presentation, generic alias boundaries,
-structural visibility, and publication quarantine. The current type and source
-specifications remain authoritative for those behaviors and the accepted
-source forms, including malformed-form boundaries.
+The selected examples demonstrate refined call typing, complete structural
+assignment, control-flow result joins, alias-qualified identity and
+presentation, generic alias boundaries, structural visibility, and publication
+quarantine. The current type and source specifications remain authoritative
+for those behaviors and the accepted source forms, including malformed-form
+boundaries.
 The `contracts` topic selects the function-contract, schema-validation, and
 schema-field predicate entry productions. The complete grammar distinguishes
 function contracts and hole `satisfy` predicates, which admit integer `%`,
