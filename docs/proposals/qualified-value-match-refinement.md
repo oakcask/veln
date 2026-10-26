@@ -8,10 +8,10 @@ update-when: Module immutable-value declarations or qualified stable-value match
 Extend stable-value match refinement to qualified references to module immutable
 data. This proposal depends on
 [Module Immutable Values](module-immutable-values.md). It becomes selectable
-only after the declaration's remaining semantic and name-resolution contract
-is implemented. The source grammar and formatter already accept typed module
-`let` declarations, but those declarations are not executable or addressable
-as values.
+only after imported lookup, cross-module visibility, and execution are
+implemented. Typed module `let` declarations already support parsing,
+formatting, finite-data checking, and same-module references, but they do not
+produce runtime values or resolve through imports.
 
 ## Contract
 
@@ -51,13 +51,14 @@ page and its catalog entry.
 
 ## Related Work And Design Choice
 
-The current [source surface](../specification/source-surface.md#module-immutable-value-declarations)
-accepts typed module `let` declarations but stops before initializer typing,
-lookup, and execution. The current
-[name-resolution specification](../specification/name-resolution.md)
-distinguishes qualified constructors and functions without publishing module
-data values. These inspected contracts explain why the parsed declaration and
-a qualified constructor are both insufficient evidence for this extension.
+The current [type specification](../specification/types.md#module-immutable-value-initializers)
+defines finite-data initializer typing, and the current
+[name-resolution specification](../specification/name-resolution.md#namespaces-and-use-roles)
+defines same-module lookup and declaration identity. Imported lookup,
+visibility, and execution remain in the
+[module immutable data completion proposal](module-immutable-values.md).
+Those remaining boundaries explain why a same-module declaration and a
+qualified constructor are both insufficient evidence for this extension.
 
 The existing [stable-value rules](../specification/types.md#inference-rules)
 provide the semantic model to extend. This proposal chooses declaration

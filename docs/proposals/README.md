@@ -33,9 +33,9 @@ also states it.
 
 ## Blocked
 
-- Qualified immutable-value match refinement depends on module immutable value
-  lookup, declaration identity, visibility, and execution semantics beyond the
-  implemented parser and formatter support:
+- Qualified immutable-value match refinement depends on imported module-value
+  lookup, cross-module visibility, and execution semantics beyond the
+  implemented finite-data analysis and same-module declaration identity:
   [qualified-value-match-refinement.md](qualified-value-match-refinement.md).
 
 ## Design In Progress
