@@ -253,8 +253,8 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn infer_module_value_call(&mut self, callee: &Expr, args: &[Expr]) -> Option<Type> {
-        if let ExprKind::NamePath { segments, .. } = &callee.kind
-            && !matches!(segments.as_slice(), [name] if self.visible_binding_index(name).is_some())
+        if let Some(segments) = callee.callee_name_path()
+            && !matches!(segments, [name] if self.visible_binding_index(name).is_some())
         {
             let value = match self
                 .environment

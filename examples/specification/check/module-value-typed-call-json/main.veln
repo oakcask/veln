@@ -1,0 +1,5 @@
+let answer: Int = 42
+
+fn use_answer() -> Int
+	answer<String>()
+end

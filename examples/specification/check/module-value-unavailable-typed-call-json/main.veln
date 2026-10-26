@@ -1,0 +1,5 @@
+let invalid: Int = 1 + 2
+
+fn calls_invalid() -> String
+	invalid<String>(missing_argument)
+end
