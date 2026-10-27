@@ -778,7 +778,7 @@ impl TypeEnvironment {
         if use_decl.package.is_some() {
             return false;
         }
-        if current_module.is_some_and(|module| module.starts_with("std::"))
+        if use_decl.importing_package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
             && function
                 .module_name
                 .as_deref()

@@ -23,28 +23,7 @@ pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
 }
 
 pub(crate) fn use_decl_exact_paths(use_decl: &UseDecl) -> Vec<String> {
-    let mut paths = vec![use_decl.written_name.clone()];
-    if is_standard_import(use_decl) {
-        paths.push(use_decl.name.clone());
-        for path in [use_decl.written_name.as_str(), use_decl.name.as_str()] {
-            if let Some(relative) = path.strip_prefix("std::") {
-                paths.push(relative.to_string());
-            }
-        }
-    }
-    paths.sort();
-    paths.dedup();
-    paths
-}
-
-fn is_standard_import(use_decl: &UseDecl) -> bool {
-    use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
-        || use_decl.name.starts_with("std::")
-        || (use_decl.package.is_none()
-            && use_decl
-                .module_name
-                .as_deref()
-                .is_some_and(|module| module.starts_with("std::")))
+    use_decl.exact_paths()
 }
 
 pub(crate) fn resolved_import_use_decl(use_decl: &UseDecl) -> UseDecl {

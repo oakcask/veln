@@ -285,6 +285,7 @@ impl<'a> Reader<'a> {
         Ok(UseDecl {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
+            importing_package: self.option(Self::string)?,
             name: self.string()?,
             written_name: self.string()?,
             alias: self.string()?,

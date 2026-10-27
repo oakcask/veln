@@ -1,6 +1,49 @@
 use super::*;
 
 #[test]
+fn local_std_path_does_not_create_an_unwritten_relative_qualifier() {
+    fn reachable_for(import: &str, qualifier: &str) -> Vec<(String, String)> {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    format!("{import}\nfn main() -> Int\n  {qualifier}::answer()\nend\n"),
+                ),
+                SourceFile::new("std/helper.veln", "pub fn answer() -> Int\n  42\nend\n"),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        reachable_function_names(&reachable)
+            .into_iter()
+            .map(|(module, name)| (module.to_string(), name.to_string()))
+            .collect()
+    }
+
+    assert_eq!(
+        reachable_for("use std::helper", "helper"),
+        [("main".to_string(), "main".to_string())]
+    );
+    assert_eq!(
+        reachable_for("use std::helper", "std::helper"),
+        [
+            ("main".to_string(), "main".to_string()),
+            ("std::helper".to_string(), "answer".to_string())
+        ]
+    );
+    assert_eq!(
+        reachable_for("use std::helper as helper", "helper"),
+        [
+            ("main".to_string(), "main".to_string()),
+            ("std::helper".to_string(), "answer".to_string())
+        ]
+    );
+}
+
+#[test]
 fn invalid_import_collision_blocks_alias_reachability_but_keeps_exact_path() {
     let mut module = lower(concat!(
         "mod app::main\n",

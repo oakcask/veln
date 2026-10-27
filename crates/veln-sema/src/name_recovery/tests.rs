@@ -1,6 +1,54 @@
 use super::*;
 
 #[test]
+fn standard_relative_exact_paths_follow_retained_package_origin() {
+    fn lowered_use(text: &str, importing_package: Option<&str>, canonical_name: &str) -> UseDecl {
+        let source = veln_source::SourceFile::new("module.veln", text);
+        let parsed = veln_syntax::parse(&source);
+        let mut module = match importing_package {
+            Some(package) => veln_ast::lower_surface_ast_with_package_module_identity(
+                &parsed.tree,
+                package.to_string(),
+                "module".to_string(),
+                source.span(veln_source::TextRange::new(0, 0)),
+            ),
+            None => veln_ast::lower_surface_ast_with_module_identity(
+                &parsed.tree,
+                "module".to_string(),
+                source.span(veln_source::TextRange::new(0, 0)),
+            ),
+        };
+        module.uses[0].name = canonical_name.to_string();
+        module.uses.remove(0)
+    }
+
+    let local = lowered_use("use std::helper\n", None, "std::helper");
+    assert_eq!(use_decl_exact_paths(&local), ["std::helper"]);
+
+    let standard_internal = lowered_use("use helper\n", Some("std"), "std::helper");
+    assert_eq!(
+        use_decl_exact_paths(&standard_internal),
+        ["helper", "std::helper"]
+    );
+
+    let explicit_standard = lowered_use("use helper from \"std\"\n", None, "std::helper");
+    assert_eq!(
+        use_decl_exact_paths(&explicit_standard),
+        ["helper", "std::helper"]
+    );
+
+    let explicit_other_from_standard = lowered_use(
+        "use std::helper from \"other\"\n",
+        Some("std"),
+        "other::std::helper",
+    );
+    assert_eq!(
+        use_decl_exact_paths(&explicit_other_from_standard),
+        ["std::helper"]
+    );
+}
+
+#[test]
 fn invalid_explicit_aliases_are_atomically_quarantined() {
     for alias in ["_wire", "_"] {
         let source = veln_source::SourceFile::new(

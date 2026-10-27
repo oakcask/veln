@@ -186,6 +186,9 @@ impl Writer {
     fn use_decl(&mut self, value: &UseDecl) {
         self.node_id(value.node_id);
         self.option(&value.module_name, |writer, value| writer.string(value));
+        self.option(&value.importing_package, |writer, value| {
+            writer.string(value)
+        });
         self.string(&value.name);
         self.string(&value.written_name);
         self.string(&value.alias);

@@ -1,0 +1,5 @@
+use std::helper
+
+fn main() -> Int
+	helper::answer()
+end

@@ -92,7 +92,9 @@ impl AstBuilder {
         let uses = tree
             .uses
             .iter()
-            .map(|use_decl| self.lower_use_decl(use_decl, module_name.clone()))
+            .map(|use_decl| {
+                self.lower_use_decl(use_decl, module_name.clone(), package_name.clone())
+            })
             .collect();
         let items = self.lower_items(&tree.items, &module_name, &package_name);
 
@@ -177,10 +179,16 @@ impl AstBuilder {
         }
     }
 
-    fn lower_use_decl(&mut self, use_decl: &SyntaxUse, module_name: Option<String>) -> UseDecl {
+    fn lower_use_decl(
+        &mut self,
+        use_decl: &SyntaxUse,
+        module_name: Option<String>,
+        importing_package: Option<String>,
+    ) -> UseDecl {
         UseDecl {
             node_id: self.alloc(),
             module_name,
+            importing_package,
             name: use_decl.name.clone(),
             written_name: use_decl.name.clone(),
             alias: use_decl.alias.as_ref().map_or_else(

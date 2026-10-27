@@ -240,9 +240,10 @@ fn lowered_standard_module_bytes(path: &str, text: &str) -> Vec<u8> {
     let source = SourceFile::new(path, text);
     let parsed = parse(&source);
     assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
-    let mut lowered = veln_ast::lower_surface_ast_with_module_identity(
+    let mut lowered = veln_ast::lower_surface_ast_with_package_module_identity(
         &parsed.tree,
-        standard_module_name(path),
+        veln_stdlib::PACKAGE_NAME.to_string(),
+        path.trim_end_matches(".veln").replace('/', "::"),
         source.span(veln_source::TextRange::new(0, 0)),
     );
     for use_decl in &mut lowered.uses {

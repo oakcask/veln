@@ -193,6 +193,7 @@ impl<'a> CoreLowerer<'a> {
         {
             return synthetic_handler_clause_function_target_from_name(
                 self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
                 name,
             );
         }
@@ -213,6 +214,7 @@ impl<'a> CoreLowerer<'a> {
                 } else {
                     crate::standard_symbols::standard_function_link_name(
                         self.function.module_name.as_deref(),
+                        self.function.package_name.as_deref(),
                         name,
                     )
                 }

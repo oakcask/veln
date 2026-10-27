@@ -347,14 +347,16 @@ fn public_type_alias_resolves_nested_import_path_target() {
         "detail.veln",
         concat!("pub type Document\n", "  pub Text(String)\n", "end\n",),
     );
-    let api = lower_surface_ast_with_module_identity(
+    let api = veln_ast::lower_surface_ast_with_package_module_identity(
         &parse(&api_source).tree,
-        "std::http2::core".to_string(),
+        veln_stdlib::PACKAGE_NAME.to_string(),
+        "http2::core".to_string(),
         api_source.span(TextRange::new(0, 0)),
     );
-    let detail = lower_surface_ast_with_module_identity(
+    let detail = veln_ast::lower_surface_ast_with_package_module_identity(
         &parse(&detail_source).tree,
-        "std::http2::core::detail".to_string(),
+        veln_stdlib::PACKAGE_NAME.to_string(),
+        "http2::core::detail".to_string(),
         detail_source.span(TextRange::new(0, 0)),
     );
     let module = SurfaceModule {
@@ -415,14 +417,16 @@ fn public_type_alias_preserves_target_nominal_identity_across_module_calls() {
             "end\n",
         ),
     );
-    let api = lower_surface_ast_with_module_identity(
+    let api = veln_ast::lower_surface_ast_with_package_module_identity(
         &parse(&api_source).tree,
-        "std::http2::core".to_string(),
+        veln_stdlib::PACKAGE_NAME.to_string(),
+        "http2::core".to_string(),
         api_source.span(TextRange::new(0, 0)),
     );
-    let detail = lower_surface_ast_with_module_identity(
+    let detail = veln_ast::lower_surface_ast_with_package_module_identity(
         &parse(&detail_source).tree,
-        "std::http2::core::detail".to_string(),
+        veln_stdlib::PACKAGE_NAME.to_string(),
+        "http2::core::detail".to_string(),
         detail_source.span(TextRange::new(0, 0)),
     );
     let module = SurfaceModule {

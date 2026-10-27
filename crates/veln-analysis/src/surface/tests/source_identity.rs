@@ -1,6 +1,30 @@
 use super::*;
 
 #[test]
+fn local_std_spelling_does_not_gain_standard_import_origin() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![
+            SourceFile::new(
+                "main.veln",
+                "use std::helper\nfn main() -> Int\n  std::helper::answer()\nend\n",
+            ),
+            SourceFile::new("std/helper.veln", "pub fn answer() -> Int\n  42\nend\n"),
+        ],
+        manifest: None,
+    };
+
+    let (module, diagnostics) = load_surface_module(&project);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(module.uses[0].name, "std::helper");
+    assert_eq!(module.uses[0].written_name, "std::helper");
+    assert_eq!(module.uses[0].package, None);
+    assert_eq!(module.uses[0].importing_package, None);
+    assert!(!module.uses[0].is_standard_package_import());
+}
+
+#[test]
 fn modules_manifest_section_is_rejected() {
     let source = SourceFile::new("src/main.veln", "fn main() -> ()\n  ()\nend\n");
     let project = Project {

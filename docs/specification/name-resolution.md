@@ -115,6 +115,15 @@ access, or make an import transitive. Public function, type, and schema aliases
 may select an explicit import in their own declaring module, but the local
 import qualifier does not become part of the published identity.
 
+Every import retains both its written target package and the package that owns
+the importing source. An explicit `from` package determines target origin;
+otherwise, the importing package determines origin for package-internal
+imports. Standard-package imports accept the written path, its canonical
+`std::` path, and the corresponding standard-relative path as exact spellings.
+No other import gains those additional spellings from a `std::` prefix alone.
+For example, a local `use std::helper` accepts `std::helper::answer()` but does
+not introduce `helper::answer()` unless the source writes `as helper`.
+
 For `N` source imports, the semantic diagnostic pipeline builds one shared
 import classification for duplicate detection, casing recovery, and lookup.
 Deterministic scaling checks compare 128 and 256 imports for both distinct
@@ -129,15 +138,16 @@ metric by at most twice its smaller-input value plus a fixed delimiter
 allowance. These checks use operation and byte metrics instead of elapsed time,
 so runner timing noise does not affect the bounds.
 
-Reachability builds one immutable import-selection index for each combined or
-separated surface input. The index records each owning module's exact paths and
-qualifiers as unique, ambiguous, or blocked selections. A qualified reference
-joins its requested path once and performs at most one exact-path probe and one
-qualifier probe; a blocked or ambiguous exact path cannot fall back to a
-qualifier. A deterministic check compares 64 and 128 distinct explicit imports
-with the same number of reachable alias-qualified calls. It requires one index
-build, linear source-import visits and index entries, one lookup per call, and
-at most two probes per lookup.
+Reachability selection remains linear in the imports and qualified references
+it processes. A deterministic workload compares 64 and 128 distinct explicit
+imports with the same number of reachable alias-qualified calls. Its work
+metric aggregates import declarations and candidate bindings processed or
+retained, qualified-reference requests, and candidate-selection steps. For
+workload size `N`, call this total `W(N)`. The check requires
+`W(128) <= 2 * W(64) + 16`. The fixed allowance covers size-independent setup,
+and operation counting avoids runner timing noise. This bound permits any
+selection representation that preserves the observable exact-path,
+ambiguity, blocking, qualifier, and reachability rules.
 
 A typed module `let` enters the declaring module's value namespace with the
 identity of its module and declared name. Its written annotation supplies the
@@ -773,14 +783,14 @@ not become fallback targets.
   | Behavior | Evidence |
   | --- | --- |
   | Syntax, parser recovery, AST preservation, and formatting | `docs/specification/source-surface-executable.pl`, `docs/specification/source-surface-fixtures/`, `crates/veln-syntax/src/tests/import_aliases.rs`, and `crates/veln-ast/src/tests/wire_round_trip.rs` |
-  | Qualifier, exact-path, implicit-leaf, and bare selection | `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs`, `crates/veln-sema/src/adt/tests/variant_lookup.rs`, and `examples/specification/check/explicit-import-alias-canonical-standard/` |
+  | Qualifier, exact-path, implicit-leaf, and bare selection | `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs`, `crates/veln-sema/src/adt/tests/variant_lookup.rs`, `crates/veln-sema/src/name_recovery/tests.rs`, `examples/specification/check/explicit-import-alias-canonical-standard/`, and [`explicit-import-alias-local-std-origin`](../../examples/specification/check/explicit-import-alias-local-std-origin/) |
   | Collision, origin ambiguity, and duplicate-target quarantine | `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs`, `examples/specification/check/explicit-import-alias-distinct-origins/`, `examples/specification/check/explicit-import-alias-duplicate-human/`, and `examples/specification/check/explicit-import-alias-duplicate-json/` |
   | Reserved-name and casing quarantine and recovery | `crates/veln-sema/src/tests/identifier_casing/explicit_import_aliases.rs`, `crates/veln-sema/src/tests/identifier_casing/explicit_import_targets.rs`, `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs`, `crates/veln-analysis/src/surface/tests/explicit_import_reachability.rs`, `examples/specification/check/explicit-import-alias-casing-human/`, `examples/specification/check/explicit-import-alias-casing-json/`, `examples/specification/check/explicit-import-alias-target-casing-human/`, `examples/specification/check/explicit-import-alias-target-casing-json/`, `examples/specification/check/explicit-import-alias-independent-carrier-failures-human/`, and `examples/specification/check/explicit-import-alias-independent-carrier-failures-json/` |
   | Cross-carrier semantic identity | `examples/specification/check/explicit-import-alias-carriers/` and the explicit-import-alias semantic tests under `crates/veln-sema/src/tests/` |
-  | Runtime, lowering, and reachability identity | `examples/specification/run/explicit-import-alias-runtime/`, `examples/specification/run/explicit-import-alias-handler/`, `examples/specification/run/explicit-import-alias-handler-identity/`, and explicit-import-alias reachability tests under `crates/veln-analysis/src/surface/tests/` |
+  | Runtime, lowering, and reachability identity | `examples/specification/run/explicit-import-alias-runtime/`, `examples/specification/run/explicit-import-alias-handler/`, `examples/specification/run/explicit-import-alias-handler-identity/`, [`explicit-import-alias-local-std-origin`](../../examples/specification/run/explicit-import-alias-local-std-origin/), [`explicit-import-alias-local-std-runtime`](../../examples/specification/run/explicit-import-alias-local-std-runtime/), and explicit-import-alias reachability tests under `crates/veln-analysis/src/surface/tests/` |
   | Package, standard-origin, publication, and visibility boundaries | `examples/specification/check/explicit-import-alias-package/`, `examples/specification/check/explicit-import-alias-package-boundaries/`, loader recovery tests in `crates/veln-analysis/src/surface/tests/external_dependencies.rs` and `crates/veln-analysis/src/surface/tests/standard_initialization.rs`, and publication and visibility tests in `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs` and `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs` |
   | Stable source and token diagnostic ordering | [`explicit-import-alias-combined-order-human`](../../examples/specification/check/explicit-import-alias-combined-order-human/), [`explicit-import-alias-combined-order-json`](../../examples/specification/check/explicit-import-alias-combined-order-json/), `combined_module_import_diagnostics_use_stable_source_order`, and `combined_module_explicit_alias_casing_diagnostics_use_stable_source_order` under `crates/veln-sema/src/tests/` |
-  | Shared classification and bounded import/path scaling | `duplicate_import_diagnostic_pipeline_classifies_once_and_scales_linearly` and `invalid_target_recovery_pipeline_classifies_once_and_scales_linearly` in `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs`, `recovery_target_materialization_scales_with_qualified_identity_bytes` in `crates/veln-sema/src/name_recovery/tests.rs`, and `qualified_import_selection_scales_linearly` in `crates/veln-analysis/src/surface/tests/reachable_inputs.rs` |
+  | Shared classification and bounded import/path scaling | `duplicate_import_diagnostic_pipeline_classifies_once_and_scales_linearly` and `invalid_target_recovery_pipeline_classifies_once_and_scales_linearly` in `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs`, `recovery_target_materialization_scales_with_qualified_identity_bytes` in `crates/veln-sema/src/name_recovery/tests.rs`, `qualified_import_selection_scales_linearly` in `crates/veln-analysis/src/surface/tests/reachable_inputs.rs`, and `checked_lowering_qualified_function_alias_import_work_scales_linearly` in `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/public_visibility/publication_worklist.rs` |
 - Deferred binding visibility:
   `examples/specification/check/defer-binding-visibility/`.
 - Module-value function-alias diagnostics:

@@ -167,6 +167,7 @@ pub struct ModuleHeader {
 pub struct UseDecl {
     pub node_id: NodeId,
     pub module_name: Option<String>,
+    pub importing_package: Option<String>,
     pub name: String,
     pub written_name: String,
     pub alias: String,
@@ -183,6 +184,28 @@ impl UseDecl {
     pub fn has_explicit_alias(&self) -> bool {
         self.alias_span.is_some()
     }
+
+    pub fn is_standard_package_import(&self) -> bool {
+        self.package
+            .as_deref()
+            .or(self.importing_package.as_deref())
+            == Some("std")
+    }
+
+    pub fn exact_paths(&self) -> Vec<String> {
+        let mut paths = vec![self.written_name.clone()];
+        if self.is_standard_package_import() {
+            paths.push(self.name.clone());
+            for path in [self.written_name.as_str(), self.name.as_str()] {
+                if let Some(relative) = path.strip_prefix("std::") {
+                    paths.push(relative.to_string());
+                }
+            }
+        }
+        paths.sort();
+        paths.dedup();
+        paths
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -196,6 +219,7 @@ impl UseDecl {
         Self {
             node_id: NodeId::new(u32::MAX),
             module_name: Some(module_name),
+            importing_package: None,
             name: "std::prelude".to_string(),
             written_name: "std::prelude".to_string(),
             alias: "prelude".to_string(),

@@ -186,18 +186,21 @@ pub(crate) fn synthetic_handler_clause_function_name(handler: &str, operation: &
 
 pub(crate) fn synthetic_handler_clause_function_target(
     module: Option<&str>,
+    package: Option<&str>,
     handler: &str,
     operation: &str,
 ) -> String {
     synthetic_handler_clause_function_target_from_name(
         module,
+        package,
         &synthetic_handler_clause_function_name(handler, operation),
     )
 }
 
 pub(crate) fn synthetic_handler_clause_function_target_from_name(
     module: Option<&str>,
+    package: Option<&str>,
     function: &str,
 ) -> String {
-    crate::standard_symbols::function_link_name(module, function, true)
+    crate::standard_symbols::function_link_name(module, package, function, true)
 }

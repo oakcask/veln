@@ -3,8 +3,8 @@ use super::*;
 #[test]
 fn surface_wire_rejects_the_previous_layout_header() {
     let mut encoded = encode_surface_module(&lower_source("fn main() -> ()\n  ()\nend\n"));
-    assert_eq!(&encoded[..9], b"VLNAST20\n");
-    encoded.splice(..9, b"VLNAST19\n".iter().copied());
+    assert_eq!(&encoded[..9], b"VLNAST21\n");
+    encoded.splice(..9, b"VLNAST20\n".iter().copied());
 
     let error =
         decode_surface_module(&encoded).expect_err("previous wire layout should be rejected");
@@ -213,6 +213,7 @@ fn surface_wire_round_trip_preserves_dependency_package_identity() {
     let source = SourceFile::new(
         "shared.veln",
         concat!(
+            "use helper\n",
             "effect Ask\n",
             "  value() -> Int\n",
             "end\n",
@@ -242,6 +243,10 @@ fn surface_wire_round_trip_preserves_dependency_package_identity() {
     );
     assert_eq!(
         decoded.handlers[0].package_name.as_deref(),
+        Some("example/dependency")
+    );
+    assert_eq!(
+        decoded.uses[0].importing_package.as_deref(),
         Some("example/dependency")
     );
     assert_eq!(encode_surface_module(&decoded), encoded);

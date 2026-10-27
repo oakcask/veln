@@ -136,7 +136,8 @@ pub(super) fn imported_effects_are_visible(
     visibility == Visibility::Public
         || (use_decl.package.is_none()
             && current_module.is_some_and(|current_module| {
-                (current_module.starts_with("std::") && target_module.starts_with("std::"))
+                (use_decl.importing_package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+                    && target_module.starts_with("std::"))
                     || companion_access_targets
                         .get(current_module)
                         .is_some_and(|allowed| allowed == target_module)
@@ -153,7 +154,8 @@ pub(super) fn imported_handler_is_visible(
         || (use_decl.package.is_none()
             && current_module.is_some_and(|current_module| {
                 handler.module_name.as_deref().is_some_and(|target_module| {
-                    (current_module.starts_with("std::") && target_module.starts_with("std::"))
+                    (use_decl.importing_package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+                        && target_module.starts_with("std::"))
                         || companion_access_targets
                             .get(current_module)
                             .is_some_and(|access| access.target_module == target_module)

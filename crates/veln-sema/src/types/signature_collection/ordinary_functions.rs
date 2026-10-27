@@ -84,6 +84,7 @@ fn ordinary_function_signature(
     Some(FunctionSignature {
         target_name: crate::standard_symbols::function_link_name(
             current_module,
+            function.package_name.as_deref(),
             &name,
             context.name_counts.get(&name).copied().unwrap_or_default() > 1,
         ),

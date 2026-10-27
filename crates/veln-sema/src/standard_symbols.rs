@@ -635,7 +635,14 @@ pub(crate) fn effect_strings(symbol: &StandardSymbolDescriptor) -> Vec<String> {
         .collect()
 }
 
-pub(crate) fn standard_function_link_name(module: Option<&str>, name: &str) -> String {
+pub(crate) fn standard_function_link_name(
+    module: Option<&str>,
+    package: Option<&str>,
+    name: &str,
+) -> String {
+    if package != Some(veln_stdlib::PACKAGE_NAME) {
+        return name.to_string();
+    }
     let Some(module) = module.and_then(|module| module.strip_prefix("std::")) else {
         return name.to_string();
     };
@@ -645,10 +652,11 @@ pub(crate) fn standard_function_link_name(module: Option<&str>, name: &str) -> S
 
 pub(crate) fn function_link_name(
     module: Option<&str>,
+    package: Option<&str>,
     name: &str,
     qualify_application: bool,
 ) -> String {
-    let standard = standard_function_link_name(module, name);
+    let standard = standard_function_link_name(module, package, name);
     if standard != name || !qualify_application {
         return standard;
     }

@@ -8,6 +8,7 @@ pub(super) struct LocalBinding {
 
 pub(super) struct FunctionCalleeContext<'a> {
     pub(super) current_module: Option<&'a str>,
+    pub(super) current_package: Option<&'a str>,
     pub(super) uses: &'a [&'a UseDecl],
     pub(super) import_selections: &'a ImportSelectionIndex<'a>,
     pub(super) function_targets: &'a FunctionTargetIndex,
@@ -45,6 +46,7 @@ pub(super) fn direct_function_callees(
     let mut callees = Vec::new();
     let context = FunctionCalleeContext {
         current_module: function.module_name.as_deref(),
+        current_package: function.package_name.as_deref(),
         uses: &inputs.uses,
         import_selections: inputs.import_selections,
         function_targets,
@@ -316,12 +318,13 @@ pub(super) fn collect_opaque_function_value_callees(
     shape: &FunctionShape,
     arg_count: Option<usize>,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[&UseDecl],
     function_targets: &FunctionTargetIndex,
     _companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
 ) {
-    if current_module.is_some_and(|module| module.starts_with("std::")) {
+    if current_package == Some(veln_stdlib::PACKAGE_NAME) {
         return;
     }
     if shape.variadic.is_some() && arg_count.is_some_and(|arg_count| arg_count < shape.fixed_arity)

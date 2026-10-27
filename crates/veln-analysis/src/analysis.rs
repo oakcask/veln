@@ -360,12 +360,7 @@ impl ProjectAnalysis {
         self.module
             .functions
             .iter()
-            .all(|function| {
-                function
-                    .module_name
-                    .as_deref()
-                    .is_some_and(|module| module.starts_with("std::"))
-            })
+            .all(|function| function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME))
             .then_some(self.checked.ir.as_ref())
             .flatten()
     }

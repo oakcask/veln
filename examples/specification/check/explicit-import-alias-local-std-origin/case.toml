@@ -1,0 +1,27 @@
+command = ["check", "--json", "main.veln", "std/helper.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["unresolved call_target `helper::answer`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics"
+length = 1
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+
+[diagnostics.span]
+file = "main.veln"
+line = 4
+column = 2

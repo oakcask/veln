@@ -122,18 +122,13 @@ pub(crate) fn lower_project_surface_module_to_core(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> CoreLoweringOutput {
-    let has_application_functions = module.functions.iter().any(|function| {
-        !function
-            .module_name
-            .as_deref()
-            .is_some_and(|module| module.starts_with("std::"))
-    });
+    let has_application_functions = module
+        .functions
+        .iter()
+        .any(|function| function.package_name.as_deref() != Some(veln_stdlib::PACKAGE_NAME));
     lower_surface_module_to_core_if(module, environment, false, |function| {
         !has_application_functions
-            || !function
-                .module_name
-                .as_deref()
-                .is_some_and(|module| module.starts_with("std::"))
+            || function.package_name.as_deref() != Some(veln_stdlib::PACKAGE_NAME)
     })
 }
 

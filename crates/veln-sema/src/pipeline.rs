@@ -275,10 +275,7 @@ fn analyze_surface_module_with_environment(
 
     for function in &module.functions {
         if !validate_standard_bodies
-            && function
-                .module_name
-                .as_deref()
-                .is_some_and(|module| module.starts_with("std::"))
+            && function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
         {
             continue;
         }

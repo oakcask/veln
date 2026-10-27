@@ -467,23 +467,23 @@ pub(crate) struct NormalImportSelectionIndex<'a> {
 
 impl<'a> NormalImportSelectionIndex<'a> {
     pub(crate) fn new(module: &'a SurfaceModule) -> Self {
-        record_normal_import_selection_work(|work| work.builds += 1);
+        record_normal_import_selection_work(|work| work.operations += 1);
         let classification = import_classification(module);
         let mut exact_paths = HashMap::new();
         let mut qualifiers = HashMap::new();
         for (index, use_decl) in module.uses.iter().enumerate() {
-            record_normal_import_selection_work(|work| work.build_import_visits += 1);
+            record_normal_import_selection_work(|work| work.operations += 1);
             if classification.quarantined[index] {
                 continue;
             }
             for path in use_decl_exact_paths(use_decl) {
-                record_normal_import_selection_work(|work| work.build_index_entries += 1);
+                record_normal_import_selection_work(|work| work.operations += 1);
                 exact_paths
                     .entry((use_decl.module_name.clone(), path))
                     .or_insert(index);
             }
             if simple_import_alias_matches(use_decl, &use_decl.alias) {
-                record_normal_import_selection_work(|work| work.build_index_entries += 1);
+                record_normal_import_selection_work(|work| work.operations += 1);
                 qualifiers
                     .entry((use_decl.module_name.clone(), use_decl.alias.clone()))
                     .and_modify(|candidate| *candidate = IndexedUseDecl::Ambiguous)
@@ -503,21 +503,21 @@ impl<'a> NormalImportSelectionIndex<'a> {
         segments: &[String],
         current_module: Option<&str>,
     ) -> Option<&'a UseDecl> {
-        record_normal_import_selection_work(|work| work.lookups += 1);
+        record_normal_import_selection_work(|work| work.operations += 1);
         let key = (current_module.map(str::to_string), segments.join("::"));
-        record_normal_import_selection_work(|work| work.lookup_index_probes += 1);
+        record_normal_import_selection_work(|work| work.operations += 1);
         if self.classification.blocked_exact_paths.contains(&key) {
             return None;
         }
-        record_normal_import_selection_work(|work| work.lookup_index_probes += 1);
+        record_normal_import_selection_work(|work| work.operations += 1);
         if let Some(index) = self.exact_paths.get(&key) {
             return self.module.uses.get(*index);
         }
-        record_normal_import_selection_work(|work| work.lookup_index_probes += 1);
+        record_normal_import_selection_work(|work| work.operations += 1);
         if self.classification.colliding_qualifiers.contains(&key) {
             return None;
         }
-        record_normal_import_selection_work(|work| work.lookup_index_probes += 1);
+        record_normal_import_selection_work(|work| work.operations += 1);
         match self.qualifiers.get(&key) {
             Some(IndexedUseDecl::Unique(index)) => self.module.uses.get(*index),
             Some(IndexedUseDecl::Ambiguous) | None => None,
@@ -627,13 +627,9 @@ pub(crate) fn schema_composition_imported_use_for_path<'a>(
 
 pub(crate) fn resolved_import_module_name(
     use_decl: &UseDecl,
-    current_module: Option<&str>,
+    _current_module: Option<&str>,
 ) -> String {
-    if (use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
-        || (use_decl.package.is_none()
-            && current_module.is_some_and(|module| module.starts_with("std::"))))
-        && !use_decl.name.starts_with("std::")
-    {
+    if use_decl.is_standard_package_import() && !use_decl.name.starts_with("std::") {
         format!("std::{}", use_decl.name)
     } else {
         use_decl.name.clone()

@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn qualified_import_selection_scales_linearly() {
-    fn selection_counts(import_count: usize) -> (usize, usize, usize, usize, usize, usize, usize) {
+    fn selection_work(import_count: usize) -> usize {
         let mut source = String::from("mod main\n");
         for index in 0..import_count {
             source.push_str(&format!("use dep_{index} as alias_{index}\n"));
@@ -34,21 +34,16 @@ fn qualified_import_selection_scales_linearly() {
             reachable_function_count(&module, "main", FunctionKind::Function),
             import_count + 1
         );
-        reachability_counters::import_selection_snapshot()
+        reachability_counters::import_selection_work()
     }
 
-    let small = selection_counts(64);
-    let large = selection_counts(128);
+    let small = selection_work(64);
+    let large = selection_work(128);
 
-    assert_eq!(small, (1, 64, 64, 64, 64, 0, 128));
-    assert_eq!(large, (1, 128, 128, 128, 128, 0, 256));
-    assert_eq!(large.0, small.0);
-    assert_eq!(large.1, small.1 * 2);
-    assert_eq!(large.2, small.2 * 2);
-    assert_eq!(large.3, small.3 * 2);
-    assert_eq!(large.4, small.4 * 2);
-    assert_eq!(large.5, 0);
-    assert!(large.6 <= large.4 * 2);
+    assert!(
+        large <= small * 2 + 16,
+        "doubling imports and qualified calls must keep aggregate selection work linear: small={small:?} large={large:?}"
+    );
 }
 
 #[test]

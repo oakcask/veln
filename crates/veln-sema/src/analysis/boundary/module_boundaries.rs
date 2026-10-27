@@ -329,10 +329,7 @@ pub(crate) fn check_reserved_prelude_aliases(module: &SurfaceModule) -> Vec<Diag
     {
         if use_decl.alias == PRELUDE_MODULE
             && (use_decl.has_explicit_alias()
-                || !use_decl
-                    .module_name
-                    .as_deref()
-                    .is_some_and(|module_name| module_name.starts_with("std::")))
+                || use_decl.importing_package.as_deref() != Some(veln_stdlib::PACKAGE_NAME))
         {
             diagnostics.push(reserved_prelude_diagnostic(
                 use_decl.node_id.display("use"),

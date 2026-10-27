@@ -1,0 +1,8 @@
+use std::helper as helper
+use stdio
+
+fn main() -> () effects [stdio]
+	let full = std::helper::answer()
+	let aliased = helper::answer()
+	stdio::println(int_to_string(full + aliased))
+end

@@ -1090,10 +1090,13 @@ examines.
 
 For `N` valid imports and `N` qualified public function aliases, checked
 lowering performs import selection work that grows linearly with `N`. The
-deterministic scaling check compares `N = 64` and `N = 128`. It requires one
-selection-index construction, `N` import visits, `2N` index entries, `N`
-lookups, and `4N` bounded index probes. The check counts semantic work instead
-of elapsed time, so runner timing noise does not affect the bound.
+deterministic scaling check compares `N = 64` and `N = 128`. Its work metric
+aggregates imports and candidate bindings processed or retained, alias target
+requests, and candidate-selection steps. For workload size `N`, call this
+total `W(N)`. The check requires `W(128) <= 2 * W(64) + 16`. The fixed
+allowance covers size-independent setup. The check counts semantic work
+instead of elapsed time, so runner timing noise does not affect the bound or
+prescribe a selection data structure.
 
 For one direct refinement whose qualified base requires initial-only casing
 recovery, increasing the qualifier depth adds linear path-normalization and
@@ -1434,5 +1437,7 @@ inventing an arithmetic rewrite.
 - Direct variant-refinement visibility, union-base comparison and diagnostic
   rendering, and qualified-path recovery scaling:
   `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/scaling.rs`.
+- Qualified public-alias import-selection scaling:
+  `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/public_visibility/publication_worklist.rs`.
 - Parser coverage: `crates/veln-syntax/src/tests/calls_and_generics.rs`,
   `literals_and_numbers.rs`, and `patterns_and_control_flow.rs`.

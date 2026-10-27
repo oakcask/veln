@@ -208,7 +208,7 @@ pub(crate) fn imported_function_is_visible(
         return true;
     }
     if use_decl.package.is_none()
-        && current_module.is_some_and(|module| module.starts_with("std::"))
+        && use_decl.importing_package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
         && function
             .module_name
             .as_deref()

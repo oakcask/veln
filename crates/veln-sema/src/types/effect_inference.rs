@@ -867,7 +867,8 @@ pub(crate) fn imported_effect_is_visible(
     visibility == Visibility::Public
         || (use_decl.package.is_none()
             && current_module.is_some_and(|current_module| {
-                (current_module.starts_with("std::") && target_module.starts_with("std::"))
+                (use_decl.importing_package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+                    && target_module.starts_with("std::"))
                     || companion_effect_access_targets
                         .get(current_module)
                         .is_some_and(|access| access.target_module == target_module)

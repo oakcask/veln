@@ -685,6 +685,7 @@ fn operation_clause_signatures(handler: &HandlerDecl) -> Vec<HandlerOperationCla
                 operation: clause.operation.clone()?,
                 target_name: synthetic_handler_clause_function_target(
                     handler.module_name.as_deref(),
+                    handler.package_name.as_deref(),
                     handler.name.as_deref().unwrap_or("missing"),
                     clause.operation.as_deref().unwrap_or("missing"),
                 ),

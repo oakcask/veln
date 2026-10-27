@@ -72,22 +72,14 @@ pub(super) fn record_import_classification_build() {}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct NormalImportSelectionWork {
-    pub(crate) builds: usize,
-    pub(crate) build_import_visits: usize,
-    pub(crate) build_index_entries: usize,
-    pub(crate) lookups: usize,
-    pub(crate) lookup_index_probes: usize,
+    pub(crate) operations: usize,
 }
 
 #[cfg(test)]
 thread_local! {
     static NORMAL_IMPORT_SELECTION_WORK: Cell<NormalImportSelectionWork> =
         const { Cell::new(NormalImportSelectionWork {
-            builds: 0,
-            build_import_visits: 0,
-            build_index_entries: 0,
-            lookups: 0,
-            lookup_index_probes: 0,
+            operations: 0,
         }) };
 }
 

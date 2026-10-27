@@ -148,6 +148,7 @@ pub(super) fn collect_function_name_reference(
                 shape,
                 arg_count,
                 current_module,
+                context.current_package,
                 uses,
                 function_targets,
                 companion_access_targets,
@@ -216,6 +217,7 @@ pub(super) fn collect_handler_operation_clause_callees(
     for handler in matching_handlers {
         let context = FunctionCalleeContext {
             current_module: handler.module_name.as_deref(),
+            current_package: handler.package_name.as_deref(),
             uses: outer_context.uses,
             import_selections: outer_context.import_selections,
             function_targets: outer_context.function_targets,
@@ -379,7 +381,7 @@ pub(super) fn imported_target_visible_from_module(
     if target.requires_public_import || use_decl.package.is_some() {
         return false;
     }
-    if current_module.is_some_and(|module| module.starts_with("std::"))
+    if use_decl.importing_package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
         && target
             .module_name
             .as_deref()
