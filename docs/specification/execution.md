@@ -30,6 +30,14 @@ and
 cases exercise call and handler behavior through the JVM backend. The
 [`explicit-import-alias-handler-identity`](../../examples/specification/run/explicit-import-alias-handler-identity/)
 case checks that same-named handlers keep distinct declaration identities.
+A local application module whose written path starts with `std::` keeps
+application runtime identity. Its full written path and an explicit alias can
+execute the local declaration, while the standard-relative leaf alone remains
+unresolved. The checked
+[`explicit-import-alias-local-std-runtime`](../../examples/specification/run/explicit-import-alias-local-std-runtime/)
+and
+[`explicit-import-alias-local-std-origin`](../../examples/specification/run/explicit-import-alias-local-std-origin/)
+cases cover the successful JVM linkage and the rejected relative lookup.
 
 The JVM host boundary associates resources created by `net::system()` with the
 active `net::IO` handler frame. Popping that frame closes its remaining

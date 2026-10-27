@@ -46,11 +46,13 @@ The parser retains uppercase and underscore-led aliases for casing diagnostics.
 ### Import alias preservation and formatting
 
 A valid explicit import retains the written target, the explicit alias and its
-span, and the optional package source. Formatting writes the alias before
-`from`. A second formatting pass produces the same source. The syntax tree and
-lowered AST also retain the complete declaration span and recovery state. The
-AST wire layout serializes that provenance and rejects the preceding layout
-header, whose import record lacks the explicit-alias fields.
+span, and the optional target package source. The lowered AST also retains the
+package that owns the importing source; that origin remains distinct from an
+explicit target package. Formatting writes the alias before `from`. A second
+formatting pass produces the same source. The syntax tree and lowered AST also
+retain the complete declaration span and recovery state. The AST wire layout
+serializes that provenance and rejects the preceding layout header, whose
+import record lacks the importing-package field.
 
 ### Import alias recovery limits
 
