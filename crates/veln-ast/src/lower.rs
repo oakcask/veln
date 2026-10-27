@@ -243,10 +243,12 @@ impl AstBuilder {
         &mut self,
         value: &SyntaxModuleValue,
         module_name: Option<String>,
+        package_name: Option<String>,
     ) -> ModuleValueDecl {
         ModuleValueDecl {
             node_id: self.alloc(),
             module_name,
+            package_name,
             visibility: match value.visibility {
                 SyntaxVisibility::Public => Visibility::Public,
                 SyntaxVisibility::Private => Visibility::Private,
@@ -266,10 +268,12 @@ impl AstBuilder {
         &mut self,
         type_decl: &SyntaxTypeDecl,
         module_name: Option<String>,
+        package_name: Option<String>,
     ) -> TypeDecl {
         TypeDecl {
             node_id: self.alloc(),
             module_name,
+            package_name,
             visibility: match type_decl.visibility {
                 SyntaxVisibility::Public => Visibility::Public,
                 SyntaxVisibility::Private => Visibility::Private,
@@ -310,10 +314,12 @@ impl AstBuilder {
         &mut self,
         effect: &SyntaxEffectDecl,
         module_name: Option<String>,
+        package_name: Option<String>,
     ) -> EffectDecl {
         EffectDecl {
             node_id: self.alloc(),
             module_name,
+            package_name,
             visibility: match effect.visibility {
                 SyntaxVisibility::Public => Visibility::Public,
                 SyntaxVisibility::Private => Visibility::Private,
@@ -405,10 +411,12 @@ impl AstBuilder {
         &mut self,
         schema: &SyntaxSchemaDecl,
         module_name: Option<String>,
+        package_name: Option<String>,
     ) -> SchemaDecl {
         SchemaDecl {
             node_id: self.alloc(),
             module_name,
+            package_name,
             visibility: match schema.visibility {
                 SyntaxVisibility::Public => Visibility::Public,
                 SyntaxVisibility::Private => Visibility::Private,

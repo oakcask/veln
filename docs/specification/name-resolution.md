@@ -300,11 +300,12 @@ remain unresolved. Direct, `Repeat`, and array-payload leaves do not select an
 ineligible alias or enter an eligible alias reference set.
 
 A multi-segment schema composition or operation target resolves through either
-the full written import module path or its implicit leaf alias. An exact full
-import path takes precedence over a same-spelled implicit leaf alias. Without
-an exact match, the leaf alias resolves only when exactly one valid workspace
-or package import provides it. Conflicting exact imports and colliding implicit
-leaf aliases remain unresolved in either import order. Duplicate and
+the full written import module path or the import's local qualifier. An
+explicit alias is the local qualifier; an unaliased import uses its implicit
+leaf qualifier. An exact full import path takes precedence over a same-spelled
+qualifier. Without an exact match, the qualifier resolves only when exactly one
+valid workspace or package import provides it. Conflicting exact imports and
+colliding qualifiers remain unresolved in either import order. Duplicate and
 syntax-recovered dependency imports do not provide dependency schema
 visibility. A clean or syntax-recovered package schema alias with
 the selected name prevents a same-spelled package schema from acting as a
@@ -314,7 +315,7 @@ This includes member paths accepted by schema analysis. Comments and strings
 do not participate in schema composition lookup. These rules preserve
 workspace and direct-dependency alias identity across sources. Retained
 standard-library schema
-targets use the same full-path and unique implicit-leaf resolution, exact-path
+targets use the same full-path and unique-qualifier resolution, exact-path
 precedence, import-collision, repeated-count, and lexical-exclusion rules.
 Their package origin keeps them distinct from same-spelled workspace and
 direct-dependency schemas. Eligible standard-library schema aliases are

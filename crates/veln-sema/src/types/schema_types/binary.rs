@@ -515,15 +515,22 @@ pub(crate) fn schema_dispatch_payload_schema<'a>(
     match segments.as_slice() {
         [name] => same_module_schema(module, schema, name),
         [_, .., name] => {
-            let use_decl = normal_imported_use_for_path(
+            let use_decl = normal_imported_use_for_path_in_owner(
                 module,
                 &segments[..segments.len() - 1],
                 schema.module_name.as_deref(),
+                schema.package_name.as_deref(),
             )?;
-            let target_module = Some(use_decl.name.as_str());
+            let target_package = use_decl.resolved_target().package;
+            let target_module_name = crate::name_recovery::resolved_import_module_name(
+                use_decl,
+                schema.module_name.as_deref(),
+            );
+            let target_module = Some(target_module_name.as_str());
             module.schemas.iter().find(|candidate| {
                 candidate.name.as_deref() == Some(name)
                     && candidate.module_name.as_deref() == target_module
+                    && candidate.package_name.as_deref() == target_package.as_deref()
                     && candidate.visibility == Visibility::Public
                     && candidate.format.as_ref().map(|format| format.name.as_str())
                         == Some("binary")

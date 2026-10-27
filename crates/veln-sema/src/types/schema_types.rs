@@ -1,7 +1,8 @@
 use super::*;
 use crate::adt::registry::AdtRegistry;
 use crate::name_recovery::{
-    normal_imported_use_for_path, schema_composition_imported_use_for_path,
+    normal_imported_use_for_path, normal_imported_use_for_path_in_owner,
+    schema_composition_imported_use_for_path_in_owner,
 };
 
 mod binary;
@@ -22,27 +23,34 @@ fn schema_reference<'a>(
     module: &'a SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     allow_private_local_schema: bool,
-    visited_aliases: &mut Vec<(Option<String>, String)>,
+    visited_aliases: &mut Vec<(Option<String>, Option<String>, String)>,
 ) -> Option<&'a SchemaDecl> {
     let companion_access_targets = companion_access_targets(module);
     match segments {
         [name] => schema_in_module(
             module,
             current_module,
+            current_package,
             name,
             allow_private_local_schema,
             visited_aliases,
         ),
         [_, .., name] => {
-            let use_decl = schema_composition_imported_use_for_path(
+            let use_decl = schema_composition_imported_use_for_path_in_owner(
                 module,
                 &segments[..segments.len() - 1],
                 current_module,
+                current_package,
             )?;
+            let target_package = use_decl.resolved_target().package;
+            let target_module =
+                crate::name_recovery::resolved_import_module_name(use_decl, current_module);
             schema_in_module(
                 module,
-                Some(&use_decl.name),
+                Some(&target_module),
+                target_package.as_deref(),
                 name,
                 companion_private_schema_access_allowed(
                     use_decl,
@@ -69,6 +77,7 @@ pub(crate) fn schema_field_target<'a>(
         module,
         &segments,
         containing_schema.module_name.as_deref(),
+        containing_schema.package_name.as_deref(),
         true,
         &mut Vec::new(),
     )
@@ -96,12 +105,15 @@ pub(crate) fn schema_field_uses_existing_grammar(schema: &SchemaDecl, text: &str
 fn schema_in_module<'a>(
     module: &'a SurfaceModule,
     module_name: Option<&str>,
+    package_name: Option<&str>,
     name: &str,
     allow_private_schema: bool,
-    visited_aliases: &mut Vec<(Option<String>, String)>,
+    visited_aliases: &mut Vec<(Option<String>, Option<String>, String)>,
 ) -> Option<&'a SchemaDecl> {
     if let Some(schema) = module.schemas.iter().find(|schema| {
-        schema.name.as_deref() == Some(name) && schema.module_name.as_deref() == module_name
+        schema.name.as_deref() == Some(name)
+            && schema.module_name.as_deref() == module_name
+            && schema.package_name.as_deref() == package_name
     }) {
         return (allow_private_schema || schema.visibility == Visibility::Public).then_some(schema);
     }
@@ -109,9 +121,14 @@ fn schema_in_module<'a>(
         alias.kind == PublicAliasKind::Schema
             && alias.name.as_deref() == Some(name)
             && alias.module_name.as_deref() == module_name
+            && alias.package_name.as_deref() == package_name
     })?;
     let alias_name = alias.name.as_ref()?;
-    let key = (alias.module_name.clone(), alias_name.clone());
+    let key = (
+        alias.package_name.clone(),
+        alias.module_name.clone(),
+        alias_name.clone(),
+    );
     if visited_aliases.contains(&key) {
         return None;
     }
@@ -120,6 +137,7 @@ fn schema_in_module<'a>(
         module,
         &alias.target,
         alias.module_name.as_deref(),
+        alias.package_name.as_deref(),
         false,
         visited_aliases,
     );

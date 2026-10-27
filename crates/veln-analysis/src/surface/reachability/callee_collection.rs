@@ -17,6 +17,15 @@ pub(super) struct FunctionCalleeContext<'a> {
     pub(super) types: &'a [&'a veln_ast::TypeDecl],
 }
 
+impl FunctionCalleeContext<'_> {
+    fn owner(&self) -> veln_ast::ResolvedImportOwner {
+        veln_ast::ResolvedImportOwner {
+            package: self.current_package.map(str::to_string),
+            module: self.current_module.map(str::to_string),
+        }
+    }
+}
+
 pub(super) struct CalleeCollectionInputs<'a> {
     uses: Vec<&'a UseDecl>,
     import_selections: &'a ImportSelectionIndex<'a>,
@@ -63,10 +72,10 @@ pub(super) fn direct_function_callees(
         })
         .collect::<Vec<_>>();
     for contract in &function.contracts {
+        let owner = context.owner();
         collect_contract_callees(
             &contract.text,
-            context.current_module,
-            context.current_package,
+            &owner,
             context.uses,
             context.import_selections,
             function_targets,
@@ -113,8 +122,7 @@ fn collect_body_callees(
 
 pub(super) fn collect_contract_callees(
     predicate: &str,
-    current_module: Option<&str>,
-    current_package: Option<&str>,
+    owner: &veln_ast::ResolvedImportOwner,
     uses: &[&UseDecl],
     import_selections: &ImportSelectionIndex<'_>,
     function_targets: &FunctionTargetIndex,
@@ -152,8 +160,7 @@ pub(super) fn collect_contract_callees(
         }
         for callee in resolve_function_reference(
             &segments,
-            current_module,
-            current_package,
+            owner,
             uses,
             import_selections,
             function_targets,
@@ -166,8 +173,7 @@ pub(super) fn collect_contract_callees(
     }
     collect_contract_function_value_references(
         &tokens,
-        current_module,
-        current_package,
+        owner,
         uses,
         import_selections,
         function_targets,
@@ -178,8 +184,7 @@ pub(super) fn collect_contract_callees(
 
 pub(super) fn collect_contract_function_value_references(
     tokens: &[veln_syntax::Token],
-    current_module: Option<&str>,
-    current_package: Option<&str>,
+    owner: &veln_ast::ResolvedImportOwner,
     uses: &[&UseDecl],
     import_selections: &ImportSelectionIndex<'_>,
     function_targets: &FunctionTargetIndex,
@@ -236,8 +241,7 @@ pub(super) fn collect_contract_function_value_references(
         let public_or_same_module_access = HashMap::new();
         for callee in resolve_function_reference(
             &segments,
-            current_module,
-            current_package,
+            owner,
             uses,
             import_selections,
             function_targets,

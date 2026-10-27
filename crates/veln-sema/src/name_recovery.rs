@@ -653,6 +653,20 @@ pub(crate) fn schema_composition_imported_use_for_path<'a>(
     } else {
         return None;
     };
+    schema_composition_imported_use_for_path_in_owner(
+        module,
+        segments,
+        current_module,
+        current_package,
+    )
+}
+
+pub(crate) fn schema_composition_imported_use_for_path_in_owner<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+) -> Option<&'a UseDecl> {
     let classification = import_classification(module);
     normal_imported_use_for_path_with_classification(
         module,

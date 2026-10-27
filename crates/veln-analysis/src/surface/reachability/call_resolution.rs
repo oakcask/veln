@@ -248,8 +248,7 @@ pub(super) fn collect_handler_operation_clause_callees(
 
 pub(super) fn resolve_function_reference(
     segments: &[String],
-    current_module: Option<&str>,
-    current_package: Option<&str>,
+    owner: &veln_ast::ResolvedImportOwner,
     uses: &[&UseDecl],
     import_selections: &ImportSelectionIndex<'_>,
     function_targets: &FunctionTargetIndex,
@@ -260,14 +259,14 @@ pub(super) fn resolve_function_reference(
         [_, .., _] => imported_use_for_path(
             import_selections,
             &segments[..segments.len() - 1],
-            current_module,
-            current_package,
+            owner.module.as_deref(),
+            owner.package.as_deref(),
         ),
         _ => None,
     };
     resolve_function_reference_with_selected_import(
         segments,
-        current_module,
+        owner.module.as_deref(),
         uses,
         selected_import,
         function_targets,

@@ -245,7 +245,7 @@ fn synthetic_module_value_function(value: &veln_ast::ModuleValueDecl, index: usi
     Function {
         node_id: value.node_id,
         module_name: value.module_name.clone(),
-        package_name: None,
+        package_name: value.package_name.clone(),
         kind: FunctionKind::Function,
         visibility: Visibility::Private,
         name: Some(format!("__module_value_{index}")),

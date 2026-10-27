@@ -43,6 +43,7 @@ pub struct SurfaceModule {
 pub struct ModuleValueDecl {
     pub node_id: NodeId,
     pub module_name: Option<String>,
+    pub package_name: Option<String>,
     pub visibility: Visibility,
     pub name: Option<String>,
     pub name_span: Option<SourceSpan>,
@@ -288,6 +289,7 @@ pub enum PublicAliasKind {
 pub struct EffectDecl {
     pub node_id: NodeId,
     pub module_name: Option<String>,
+    pub package_name: Option<String>,
     pub visibility: Visibility,
     pub name: Option<String>,
     pub operations: Vec<EffectOperationDecl>,
@@ -310,6 +312,7 @@ pub struct EffectOperationDecl {
 pub struct TypeDecl {
     pub node_id: NodeId,
     pub module_name: Option<String>,
+    pub package_name: Option<String>,
     pub visibility: Visibility,
     pub name: Option<String>,
     pub params: Vec<String>,
@@ -341,6 +344,7 @@ pub struct TypeVariantField {
 pub struct SchemaDecl {
     pub node_id: NodeId,
     pub module_name: Option<String>,
+    pub package_name: Option<String>,
     pub visibility: Visibility,
     pub name: Option<String>,
     pub format: Option<SchemaFormatClause>,

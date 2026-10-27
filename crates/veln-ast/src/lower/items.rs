@@ -34,30 +34,38 @@ impl AstBuilder {
     ) {
         match item {
             SyntaxItem::ModuleValue(value) => {
-                lowered
-                    .module_values
-                    .push(self.lower_module_value(value, module_name.clone()));
+                lowered.module_values.push(self.lower_module_value(
+                    value,
+                    module_name.clone(),
+                    package_name.clone(),
+                ));
             }
             SyntaxItem::Function(function) => {
                 self.lower_function_item(function, module_name, package_name, lowered);
             }
             SyntaxItem::Effect(effect) => {
-                lowered
-                    .effects
-                    .push(self.lower_effect_decl(effect, module_name.clone()));
+                lowered.effects.push(self.lower_effect_decl(
+                    effect,
+                    module_name.clone(),
+                    package_name.clone(),
+                ));
             }
             SyntaxItem::Handler(handler) => {
                 self.lower_handler_item(handler, module_name, package_name, lowered);
             }
             SyntaxItem::Type(type_decl) => {
-                lowered
-                    .types
-                    .push(self.lower_type_decl(type_decl, module_name.clone()));
+                lowered.types.push(self.lower_type_decl(
+                    type_decl,
+                    module_name.clone(),
+                    package_name.clone(),
+                ));
             }
             SyntaxItem::Schema(schema) => {
-                lowered
-                    .schemas
-                    .push(self.lower_schema_decl(schema, module_name.clone()));
+                lowered.schemas.push(self.lower_schema_decl(
+                    schema,
+                    module_name.clone(),
+                    package_name.clone(),
+                ));
             }
             SyntaxItem::PublicAlias(alias) => {
                 lowered.aliases.push(self.lower_public_alias(

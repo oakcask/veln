@@ -233,6 +233,7 @@ impl<'a> Reader<'a> {
         Ok(ModuleValueDecl {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
+            package_name: self.option(Self::string)?,
             visibility: self.visibility()?,
             name: self.option(Self::string)?,
             name_span: self.option(Self::span)?,
@@ -341,6 +342,7 @@ impl<'a> Reader<'a> {
         Ok(EffectDecl {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
+            package_name: self.option(Self::string)?,
             visibility: self.visibility()?,
             name: self.option(Self::string)?,
             operations: self.vec(Self::effect_operation)?,
@@ -393,6 +395,7 @@ impl<'a> Reader<'a> {
         Ok(TypeDecl {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
+            package_name: self.option(Self::string)?,
             visibility: self.visibility()?,
             name: self.option(Self::string)?,
             params: self.vec(Self::string)?,
@@ -427,6 +430,7 @@ impl<'a> Reader<'a> {
         Ok(SchemaDecl {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
+            package_name: self.option(Self::string)?,
             visibility: self.visibility()?,
             name: self.option(Self::string)?,
             format: self.option(Self::schema_format)?,

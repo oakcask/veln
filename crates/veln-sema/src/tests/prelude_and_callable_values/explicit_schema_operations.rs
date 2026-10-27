@@ -272,6 +272,72 @@ fn explicit_import_alias_schema_operations_keep_selected_target_identity() {
 }
 
 #[test]
+fn schema_import_selection_uses_the_containing_schema_owner_package() {
+    fn lower(source: SourceFile, package: &str, module: &str) -> SurfaceModule {
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        veln_ast::lower_surface_ast_with_package_module_identity(
+            &parsed.tree,
+            package.to_string(),
+            module.to_string(),
+            source.span(veln_source::TextRange::new(0, 0)),
+        )
+    }
+
+    let app_owner = lower(
+        SourceFile::new(
+            "app/shared.veln",
+            "use payload as item\nschema Holder\n  body: item::Payload\nend\n",
+        ),
+        "app",
+        "shared",
+    );
+    let std_owner = lower(
+        SourceFile::new(
+            "std/shared.veln",
+            "use payload as item\nschema Holder\n  body: item::Payload\nend\n",
+        ),
+        "std",
+        "shared",
+    );
+    let app_target = lower(
+        SourceFile::new(
+            "app/payload.veln",
+            "pub schema Payload\n  app_value: Int\nend\n",
+        ),
+        "app",
+        "payload",
+    );
+    let std_target = lower(
+        SourceFile::new(
+            "std/payload.veln",
+            "pub schema Payload\n  std_value: Int\nend\n",
+        ),
+        "std",
+        "payload",
+    );
+
+    let mut module = app_owner;
+    for source in [std_owner, app_target, std_target] {
+        module.uses.extend(source.uses);
+        module.schemas.extend(source.schemas);
+    }
+    let standard_holder = module
+        .schemas
+        .iter()
+        .find(|schema| {
+            schema.name.as_deref() == Some("Holder")
+                && schema.package_name.as_deref() == Some("std")
+        })
+        .expect("standard holder schema");
+    let selected = schema_field_target(&module, standard_holder, "item::Payload")
+        .expect("standard owner import should select a schema");
+
+    assert_eq!(selected.package_name.as_deref(), Some("std"));
+    assert_eq!(selected.fields[0].name, "std_value");
+}
+
+#[test]
 fn explicit_schema_operations_resolve_public_schema_alias_to_target_schema() {
     let app_source = SourceFile::new(
         "app.veln",

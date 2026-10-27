@@ -3,8 +3,8 @@ use super::*;
 #[test]
 fn surface_wire_rejects_the_previous_layout_header() {
     let mut encoded = encode_surface_module(&lower_source("fn main() -> ()\n  ()\nend\n"));
-    assert_eq!(&encoded[..9], b"VLNAST21\n");
-    encoded.splice(..9, b"VLNAST20\n".iter().copied());
+    assert_eq!(&encoded[..9], b"VLNAST22\n");
+    encoded.splice(..9, b"VLNAST21\n".iter().copied());
 
     let error =
         decode_surface_module(&encoded).expect_err("previous wire layout should be rejected");
@@ -214,11 +214,18 @@ fn surface_wire_round_trip_preserves_dependency_package_identity() {
         "shared.veln",
         concat!(
             "use helper\n",
+            "let value: Int = 1\n",
             "effect Ask\n",
             "  value() -> Int\n",
             "end\n",
             "handler ask() for Ask\n",
             "  value() => 1\n",
+            "end\n",
+            "pub type Answer\n",
+            "  Answer(Int)\n",
+            "end\n",
+            "pub schema Packet\n",
+            "  value: Int\n",
             "end\n",
             "pub fn alias = helper::run\n",
             "fn located() -> SourceLocation callsite\n",
@@ -244,6 +251,22 @@ fn surface_wire_round_trip_preserves_dependency_package_identity() {
     );
     assert_eq!(
         decoded.handlers[0].package_name.as_deref(),
+        Some("example/dependency")
+    );
+    assert_eq!(
+        decoded.module_values[0].package_name.as_deref(),
+        Some("example/dependency")
+    );
+    assert_eq!(
+        decoded.effects[0].package_name.as_deref(),
+        Some("example/dependency")
+    );
+    assert_eq!(
+        decoded.types[0].package_name.as_deref(),
+        Some("example/dependency")
+    );
+    assert_eq!(
+        decoded.schemas[0].package_name.as_deref(),
         Some("example/dependency")
     );
     assert_eq!(
