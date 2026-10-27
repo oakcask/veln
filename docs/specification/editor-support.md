@@ -86,6 +86,13 @@ keyword tokens in the lexical fallback and the VSCode grammar. A handler
 declaration classifies its `for` separator as a keyword. `handles` is an
 ordinary identifier in both semantic-token fallback and the VSCode grammar.
 
+In a complete `validate Schema from value at offset` expression, `validate`,
+`from`, and `at` are `keyword` tokens. The schema path keeps its ordinary
+`type` classification. Names and variant-refinement type arguments inside both
+operand expressions keep their ordinary semantic classifications. Outside
+this expression form, a binding or reference named `validate` keeps the token
+class for that binding or reference instead of becoming a keyword.
+
 The only Veln-specific semantic token modifiers are `test`, `result`, and
 `hole`.
 
