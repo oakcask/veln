@@ -1,6 +1,10 @@
 use super::*;
 
 pub fn format_tree(tree: &SyntaxTree) -> String {
+    if tree.uses.iter().any(|use_decl| use_decl.recovered) {
+        return lossless_text(tree);
+    }
+
     let comments = LineComments::from_tree(tree);
     if comments.requires_lossless_preservation {
         return lossless_text(tree);

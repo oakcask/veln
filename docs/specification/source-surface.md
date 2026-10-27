@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-specification-coverage: usage=#usage-and-declaration-forms; behavior=#schemas; limits=#diagnostics
+specification-coverage: usage=#usage-and-declaration-forms; behavior=#import-alias-preservation-and-formatting; limits=#import-alias-recovery-limits
 update-when: Veln declarations, expressions, literals, schema syntax, companion sources, executable source grammar, source formatting, syntax-tree or lowered-AST structural preservation, or the AST wire layout changes.
 ---
 
@@ -42,16 +42,42 @@ use transport::net as wire from "std"
 `as` is contextual in an import and remains an ordinary identifier elsewhere.
 The alias is one identifier and must start with an ASCII lowercase letter.
 The parser retains uppercase and underscore-led aliases for casing diagnostics.
+
+### Import alias preservation and formatting
+
+A valid explicit import retains the written target, the explicit alias and its
+span, and the optional package source. Formatting writes the alias before
+`from`. A second formatting pass produces the same source. The syntax tree and
+lowered AST also retain the complete declaration span and recovery state. The
+AST wire layout serializes that provenance and rejects the preceding layout
+header, whose import record lacks the explicit-alias fields.
+
+### Import alias recovery limits
+
 A malformed alias clause recovers at its declaration newline, so the next
 import or item remains available, but the recovered import supplies no lookup
 binding. Semantic analysis continues after that bounded recovery so retained
 target and alias spellings can report casing diagnostics; the recovered import
 still cannot contribute a qualifier, exact path, or bare export. Formatting
-retains an accepted alias before `from` and is idempotent.
-The syntax tree and lowered AST retain the written target, explicit alias and
-its span, optional package source, complete declaration span, and recovery
-state. The AST wire layout serializes that provenance and rejects the preceding
-layout header, whose import record lacks the explicit-alias fields.
+preserves the malformed declaration text. It does not turn a recovered import
+into a valid binding. Reparsing formatted output retains the recovered state,
+and another formatting pass is unchanged.
+
+Recovery retains only the provenance parsed before the malformed remainder:
+
+| Malformed declaration shape | Retained explicit alias | Retained package source |
+| --- | --- | --- |
+| `use a as` | Absent | Absent |
+| `use a as from "pkg"` | Absent | `pkg` |
+| `use a as "local"` | Absent | Absent |
+| `use a as b::c` | `b` | Absent |
+| `use a from "pkg" as local` | Absent | `pkg` |
+| `use a as b as c` | `b` | Absent |
+| `use a as b from` | `b` | Absent |
+
+Missing aliases, non-identifier aliases, trailing alias paths, misplaced or
+repeated `as`, and missing package strings all follow this newline-bounded,
+non-binding rule. A retained alias or package is diagnostic provenance only.
 
 A source `type` declaration may contain zero variants:
 

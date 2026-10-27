@@ -171,6 +171,26 @@ fn independent_target_and_qualifier_collisions_report_both_facts() {
             .iter()
             .all(|diagnostic| diagnostic.related.len() == 1)
     );
+    assert_eq!(
+        duplicates
+            .iter()
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "duplicate import name `alpha`",
+            "duplicate import alias name `other`",
+        ]
+    );
+    assert!(
+        duplicates[0].related[0]
+            .to_json()
+            .contains("\"start\":{\"line\":2,")
+    );
+    assert!(
+        duplicates[1].related[0]
+            .to_json()
+            .contains("\"start\":{\"line\":3,")
+    );
 }
 
 #[test]

@@ -156,10 +156,8 @@ fn malformed_import_aliases_recover_at_the_declaration_newline() {
         ),
     ];
     for (malformed, diagnostic_id, column, expected_alias, expected_package) in cases {
-        let source = SourceFile::new(
-            "main.veln",
-            format!("{malformed}use valid\nfn main() -> ()\n  ()\nend\n"),
-        );
+        let source_text = format!("{malformed}use valid\nfn main() -> ()\n  ()\nend\n");
+        let source = SourceFile::new("main.veln", source_text.clone());
         let output = parse(&source);
         let diagnostic = output
             .diagnostics
@@ -202,6 +200,38 @@ fn malformed_import_aliases_recover_at_the_declaration_newline() {
         assert_eq!(output.tree.uses[1].name, "valid", "{malformed}");
         assert!(!output.tree.uses[1].recovered, "{malformed}");
         assert!(matches!(output.tree.items[0], SyntaxItem::Function(_)));
+
+        let formatted = format_tree(&output.tree);
+        assert_eq!(formatted, source_text, "{malformed}");
+
+        let reparsed = parse(&SourceFile::new("main.veln", formatted.clone()));
+        assert_eq!(
+            reparsed.diagnostics.first().map(|diagnostic| diagnostic.id),
+            Some(diagnostic_id),
+            "{malformed}"
+        );
+        let reparsed_use = &reparsed.tree.uses[0];
+        assert!(
+            reparsed_use.recovered,
+            "formatting must not turn {malformed:?} into a binding"
+        );
+        assert_eq!(reparsed_use.name, recovered.name, "{malformed}");
+        assert_eq!(
+            reparsed_use.alias.as_ref().map(|alias| alias.name.as_str()),
+            expected_alias,
+            "{malformed}"
+        );
+        assert_eq!(
+            reparsed_use
+                .package
+                .as_ref()
+                .map(|package| package.name.as_str()),
+            expected_package,
+            "{malformed}"
+        );
+        assert_eq!(reparsed.tree.uses[1].name, "valid", "{malformed}");
+        assert!(!reparsed.tree.uses[1].recovered, "{malformed}");
+        assert_eq!(format_tree(&reparsed.tree), formatted, "{malformed}");
     }
 }
 

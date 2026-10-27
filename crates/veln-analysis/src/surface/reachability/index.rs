@@ -268,13 +268,7 @@ fn blocked_exact_import_paths(
             invalid_alias,
             duplicate_target,
         );
-        let mut exact_paths = vec![declaration.written_name.clone()];
-        if standard_import_has_relative_spelling(declaration)
-            && let Some(relative) = declaration.written_name.strip_prefix("std::")
-        {
-            exact_paths.push(relative.to_string());
-        }
-        for path in exact_paths {
+        for path in use_decl_exact_paths(declaration) {
             let group = groups
                 .entry((declaration.module_name.clone(), path))
                 .or_default();
@@ -286,15 +280,6 @@ fn blocked_exact_import_paths(
         .into_iter()
         .filter_map(|(path, (count, quarantined))| (count != 1 || quarantined).then_some(path))
         .collect()
-}
-
-fn standard_import_has_relative_spelling(declaration: &UseDecl) -> bool {
-    declaration.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
-        || (declaration.package.is_none()
-            && declaration
-                .module_name
-                .as_deref()
-                .is_some_and(|module| module.starts_with("std::")))
 }
 
 fn blocked_import_aliases(declarations: &[&UseDecl]) -> BlockedImportAliases {

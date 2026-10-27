@@ -330,10 +330,10 @@ fn imported_use_for_path_with_exact_mode<'a>(
         .copied()
         .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
         .collect::<Vec<_>>();
-    let mut exact = candidates.iter().copied().filter(|use_decl| {
-        use_decl.written_name == module_path
-            || standard_package_relative_import_matches(use_decl, &module_path, current_module)
-    });
+    let mut exact = candidates
+        .iter()
+        .copied()
+        .filter(|use_decl| use_decl_exact_paths(use_decl).contains(&module_path));
     let blocked_exact = blocked_imports
         .exact_paths
         .contains(&(current_module.map(str::to_string), module_path.clone()));
@@ -365,20 +365,6 @@ fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str) -> bool {
             || use_decl.package.is_some()
             || !use_decl.name.contains("::")
             || use_decl.origin == veln_ast::UseOrigin::ImplicitStandardPrelude)
-}
-
-fn standard_package_relative_import_matches(
-    use_decl: &UseDecl,
-    module_path: &str,
-    current_module: Option<&str>,
-) -> bool {
-    (use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
-        || (use_decl.package.is_none()
-            && current_module.is_some_and(|module| module.starts_with("std::"))))
-        && use_decl
-            .written_name
-            .strip_prefix("std::")
-            .is_some_and(|package_relative| package_relative == module_path)
 }
 
 pub(super) fn imported_target_is_visible(target: &FunctionTarget, use_decl: &UseDecl) -> bool {

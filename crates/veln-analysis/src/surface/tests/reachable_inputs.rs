@@ -155,6 +155,66 @@ fn reserved_explicit_prelude_alias_adds_no_reachable_target() {
 }
 
 #[test]
+fn canonical_standard_path_keeps_aliased_import_target_reachable() {
+    let standard = lower(concat!(
+        "mod std::net\n",
+        "pub fn endpoint() -> Int\n",
+        "  1\n",
+        "end\n",
+    ));
+    let mut application = lower(concat!(
+        "mod app\n",
+        "use net as wire from \"std\"\n",
+        "pub fn main() -> Int\n",
+        "  std::net::endpoint()\n",
+        "end\n",
+    ));
+    application.uses[0].name = "std::net".to_string();
+
+    let reachable = reachable_entry_module_with_standard_cache(
+        &standard,
+        &application,
+        "main",
+        FunctionKind::Function,
+        &ReachabilityCache::default(),
+    );
+
+    assert_eq!(
+        reachable_function_names(&reachable),
+        vec![("app", "main"), ("std::net", "endpoint")]
+    );
+}
+
+#[test]
+fn quarantined_standard_import_blocks_its_canonical_exact_path() {
+    let standard = lower(concat!(
+        "mod std::net\n",
+        "pub fn endpoint() -> Int\n",
+        "  1\n",
+        "end\n",
+    ));
+    let mut application = lower(concat!(
+        "mod app\n",
+        "use net as Wire from \"std\"\n",
+        "use std::net as other\n",
+        "pub fn main() -> Int\n",
+        "  std::net::endpoint()\n",
+        "end\n",
+    ));
+    application.uses[0].name = "std::net".to_string();
+
+    let reachable = reachable_entry_module_with_standard_cache(
+        &standard,
+        &application,
+        "main",
+        FunctionKind::Function,
+        &ReachabilityCache::default(),
+    );
+
+    assert_eq!(reachable_function_names(&reachable), vec![("app", "main")]);
+}
+
+#[test]
 fn reachability_cache_keeps_entry_results_independent() {
     let module = lower(concat!(
         "mod app\n",

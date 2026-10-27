@@ -75,8 +75,13 @@ explicit, the later qualifier reports `name.duplicate` and neither binding is
 eligible through that qualifier. A non-colliding exact written path remains
 eligible when only the qualifier collides. Repeating one origin and written
 target path reports a duplicate import even when the aliases differ, and both
-imports are quarantined. The same written path from distinct package origins
-is ambiguous in its exact form but remains available through distinct aliases.
+imports are quarantined. If a later import repeats both a target and a
+qualifier from the same earlier import, the checker emits one `name.duplicate`
+diagnostic for that earlier origin. If the repeated target and colliding
+qualifier refer to different earlier imports, the checker preserves both
+diagnostics and both related origins. The same written path from distinct
+package origins is ambiguous in its exact form but remains available through
+distinct aliases.
 Import selection chooses the module before member lookup. A selected module
 that lacks the requested member does not redirect lookup to a different module
 whose alias or implicit qualifier has the same spelling.
