@@ -281,8 +281,7 @@ struct ModuleImportSelections<'a> {
 }
 
 pub(super) struct ImportSelectionIndex<'a> {
-    root: ModuleImportSelections<'a>,
-    modules: HashMap<String, ModuleImportSelections<'a>>,
+    owners: HashMap<ImportOwner, ModuleImportSelections<'a>>,
 }
 
 impl<'a> ImportSelectionIndex<'a> {
@@ -305,8 +304,7 @@ impl<'a> ImportSelectionIndex<'a> {
             .map(|invalid| use_decl_key(invalid.declaration))
             .collect::<HashSet<_>>();
         let mut index = Self {
-            root: ModuleImportSelections::default(),
-            modules: HashMap::new(),
+            owners: HashMap::new(),
         };
         for declaration in declarations.iter().copied() {
             #[cfg(test)]
@@ -340,7 +338,7 @@ impl<'a> ImportSelectionIndex<'a> {
         } else {
             return;
         };
-        let module = self.module_mut(declaration.module_name.as_deref());
+        let module = self.owner_mut(declaration.resolved_owner());
         let (exact, qualifier) = if recovery {
             (&mut module.recovery_exact, &mut module.recovery_qualifier)
         } else {
@@ -359,8 +357,8 @@ impl<'a> ImportSelectionIndex<'a> {
     }
 
     fn block_exact_paths(&mut self, blocked: &BlockedExactImportPaths) {
-        for (module_name, path) in blocked {
-            let module = self.module_mut(module_name.as_deref());
+        for (owner, path) in blocked {
+            let module = self.owner_mut(owner.clone());
             module
                 .normal_exact
                 .insert(path.clone(), ImportSelection::Blocked);
@@ -372,8 +370,8 @@ impl<'a> ImportSelectionIndex<'a> {
     }
 
     fn block_aliases(&mut self, blocked: &BlockedImportAliases) {
-        for (module_name, alias) in blocked {
-            let module = self.module_mut(module_name.as_deref());
+        for (owner, alias) in blocked {
+            let module = self.owner_mut(owner.clone());
             module
                 .normal_qualifier
                 .insert(alias.clone(), ImportSelection::Blocked);
@@ -383,30 +381,32 @@ impl<'a> ImportSelectionIndex<'a> {
         }
     }
 
-    fn module_mut(&mut self, module_name: Option<&str>) -> &mut ModuleImportSelections<'a> {
-        match module_name {
-            Some(module_name) => self.modules.entry(module_name.to_string()).or_default(),
-            None => &mut self.root,
-        }
+    fn owner_mut(&mut self, owner: ImportOwner) -> &mut ModuleImportSelections<'a> {
+        self.owners.entry(owner).or_default()
     }
 
-    fn module(&self, module_name: Option<&str>) -> Option<&ModuleImportSelections<'a>> {
-        match module_name {
-            Some(module_name) => self.modules.get(module_name),
-            None => Some(&self.root),
-        }
+    fn owner(
+        &self,
+        package: Option<&str>,
+        module: Option<&str>,
+    ) -> Option<&ModuleImportSelections<'a>> {
+        self.owners.get(&ImportOwner {
+            package: package.map(str::to_string),
+            module: module.map(str::to_string),
+        })
     }
 
     pub(super) fn select(
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
         recovery: bool,
     ) -> Option<&'a UseDecl> {
         #[cfg(test)]
         reachability_counters::record_import_selection_lookup(recovery);
         let path = segments.join("::");
-        let module = self.module(current_module)?;
+        let module = self.owner(current_package, current_module)?;
         let (exact, qualifier) = if recovery {
             (&module.recovery_exact, &module.recovery_qualifier)
         } else {
@@ -433,7 +433,7 @@ fn blocked_exact_import_paths(
     invalid_alias_spans: &InvalidNameSpans,
     duplicate_targets: &HashSet<UseTarget>,
 ) -> BlockedExactImportPaths {
-    let mut groups = HashMap::<(Option<String>, String), (usize, bool)>::new();
+    let mut groups = HashMap::<(ImportOwner, String), (usize, bool)>::new();
     for declaration in declarations.iter().copied().filter(|declaration| {
         declaration.origin == veln_ast::UseOrigin::Source && !declaration.recovered
     }) {
@@ -460,7 +460,7 @@ fn blocked_exact_import_paths(
             .cloned()
         {
             let group = groups
-                .entry((declaration.module_name.clone(), path))
+                .entry((declaration.resolved_owner(), path))
                 .or_default();
             group.0 += 1;
             group.1 |= quarantined;
@@ -473,14 +473,14 @@ fn blocked_exact_import_paths(
 }
 
 fn blocked_import_aliases(declarations: &[&UseDecl]) -> BlockedImportAliases {
-    let mut groups = HashMap::<(Option<String>, String), (usize, bool)>::new();
+    let mut groups = HashMap::<(ImportOwner, String), (usize, bool)>::new();
     for declaration in declarations.iter().copied().filter(|declaration| {
         declaration.origin == veln_ast::UseOrigin::Source
             && !declaration.recovered
             && !has_reserved_alias(declaration)
     }) {
         let group = groups
-            .entry((declaration.module_name.clone(), declaration.alias.clone()))
+            .entry((declaration.resolved_owner(), declaration.alias.clone()))
             .or_default();
         group.0 += 1;
         group.1 |= declaration.has_explicit_alias();
@@ -565,8 +565,7 @@ fn classify_use_declarations<'a>(
         ) {
             valid.push(declaration);
         } else if !module_path_segments.is_empty()
-            && !blocked_aliases
-                .contains(&(declaration.module_name.clone(), declaration.alias.clone()))
+            && !blocked_aliases.contains(&(declaration.resolved_owner(), declaration.alias.clone()))
             && !duplicate_target
         {
             invalid.push(InvalidUse {

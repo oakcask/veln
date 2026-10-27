@@ -220,6 +220,7 @@ fn surface_wire_round_trip_preserves_dependency_package_identity() {
             "handler ask() for Ask\n",
             "  value() => 1\n",
             "end\n",
+            "pub fn alias = helper::run\n",
             "fn located() -> SourceLocation callsite\n",
             "  callsite\n",
             "end\n",
@@ -247,6 +248,10 @@ fn surface_wire_round_trip_preserves_dependency_package_identity() {
     );
     assert_eq!(
         decoded.uses[0].importing_package.as_deref(),
+        Some("example/dependency")
+    );
+    assert_eq!(
+        decoded.aliases[0].package_name.as_deref(),
         Some("example/dependency")
     );
     assert_eq!(encode_surface_module(&decoded), encoded);

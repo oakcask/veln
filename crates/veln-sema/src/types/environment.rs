@@ -541,7 +541,16 @@ impl TypeEnvironment {
         segments: &[String],
         current_module: Option<&str>,
     ) -> Option<&FunctionSignature> {
-        self.function_path_with_companion_access(segments, current_module, true)
+        self.function_path_with_inferred_owner(segments, current_module, true)
+    }
+
+    pub(crate) fn function_path_in_owner(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<&FunctionSignature> {
+        self.function_path_with_companion_access(segments, current_module, current_package, true)
     }
 
     pub(crate) fn function_path_for_value(
@@ -549,10 +558,10 @@ impl TypeEnvironment {
         segments: &[String],
         current_module: Option<&str>,
     ) -> Option<&FunctionSignature> {
-        self.function_path_with_companion_access(segments, current_module, false)
+        self.function_path_with_inferred_owner(segments, current_module, false)
     }
 
-    fn function_path_with_companion_access(
+    fn function_path_with_inferred_owner(
         &self,
         segments: &[String],
         current_module: Option<&str>,
@@ -565,6 +574,37 @@ impl TypeEnvironment {
                     &self.uses,
                     &segments[..segments.len() - 1],
                     current_module,
+                )?;
+                let module_name = use_decl.name.as_str();
+                self.functions_named(name).find(|function| {
+                    function.module_name.as_deref() == Some(module_name)
+                        && self.imported_function_is_visible(
+                            function,
+                            use_decl,
+                            current_module,
+                            allow_companion_private_access,
+                        )
+                })
+            }
+            _ => None,
+        }
+    }
+
+    fn function_path_with_companion_access(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+        allow_companion_private_access: bool,
+    ) -> Option<&FunctionSignature> {
+        match segments {
+            [name] => self.function(name),
+            [_, .., name] => {
+                let use_decl = imported_use_for_path_in_owner(
+                    &self.uses,
+                    &segments[..segments.len() - 1],
+                    current_module,
+                    current_package,
                 )?;
                 let module_name = use_decl.name.as_str();
                 self.functions_named(name).find(|function| {

@@ -1,0 +1,6 @@
+use http2::hpack from "std"
+
+pub fn owner_probe() -> Int
+	let standard_headers = hpack::empty_header_list()
+	7
+end

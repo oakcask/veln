@@ -108,6 +108,48 @@ fn equivalent_standard_target_spellings_are_quarantined_in_both_orders() {
 }
 
 #[test]
+fn equal_targets_in_same_spelled_modules_from_distinct_owner_packages_do_not_cross_quarantine() {
+    let source = SourceFile::new(
+        "owners.veln",
+        concat!(
+            "mod shared\n",
+            "use net as local_wire from \"std\"\n",
+            "use std::net as standard_wire from \"std\"\n",
+        ),
+    );
+    let mut module = lower_surface_ast(&parse(&source).tree);
+    for use_decl in &mut module.uses {
+        use_decl.name = "std::net".to_string();
+    }
+    module.uses[1].importing_package = Some("std".to_string());
+
+    let diagnostics = analyze_surface_module(&module);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.duplicate"),
+        "{diagnostics:#?}"
+    );
+
+    for (package, path, alias) in [
+        (None, "local_wire", "local_wire"),
+        (Some("std"), "standard_wire", "standard_wire"),
+        (None, "net", "local_wire"),
+        (Some("std"), "std::net", "standard_wire"),
+    ] {
+        let segments = path.split("::").map(str::to_string).collect::<Vec<_>>();
+        let selected = crate::name_recovery::normal_imported_use_for_path_in_owner(
+            &module,
+            &segments,
+            Some("shared"),
+            package,
+        )
+        .unwrap_or_else(|| panic!("owner {package:?} should select {path}"));
+        assert_eq!(selected.alias, alias);
+    }
+}
+
+#[test]
 fn equal_written_import_paths_from_distinct_origins_remain_distinct_targets() {
     let source = SourceFile::new(
         "main.veln",

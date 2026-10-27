@@ -319,7 +319,11 @@ impl<'a> CoreLowerer<'a> {
                     }),
                 _ => self
                     .environment
-                    .function_path(segments, self.function.module_name.as_deref())
+                    .function_path_in_owner(
+                        segments,
+                        self.function.module_name.as_deref(),
+                        self.function.package_name.as_deref(),
+                    )
                     .map(|function| core_type(&function.ty())),
             },
             ExprKind::Call { callee, .. } => self

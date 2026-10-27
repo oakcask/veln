@@ -1,0 +1,8 @@
+use http2::core as wire from "std"
+use std::http2::core as local_core
+use stdio
+
+fn main() -> () effects [stdio]
+	let standard_headers = wire::empty_header_list()
+	stdio::println("owner scopes remain distinct")
+end

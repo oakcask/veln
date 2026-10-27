@@ -414,6 +414,7 @@ fn function_alias_target_key(
     let use_decl = import_index?.imported_use_for_path(
         &alias.target[..alias.target.len() - 1],
         alias.module_name.as_deref(),
+        alias.package_name.as_deref(),
     )?;
     Some((
         Some(crate::name_recovery::resolved_import_module_name(

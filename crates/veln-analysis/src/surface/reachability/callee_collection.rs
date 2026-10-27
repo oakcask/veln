@@ -66,6 +66,7 @@ pub(super) fn direct_function_callees(
         collect_contract_callees(
             &contract.text,
             context.current_module,
+            context.current_package,
             context.uses,
             context.import_selections,
             function_targets,
@@ -113,6 +114,7 @@ fn collect_body_callees(
 pub(super) fn collect_contract_callees(
     predicate: &str,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[&UseDecl],
     import_selections: &ImportSelectionIndex<'_>,
     function_targets: &FunctionTargetIndex,
@@ -151,6 +153,7 @@ pub(super) fn collect_contract_callees(
         for callee in resolve_function_reference(
             &segments,
             current_module,
+            current_package,
             uses,
             import_selections,
             function_targets,
@@ -164,6 +167,7 @@ pub(super) fn collect_contract_callees(
     collect_contract_function_value_references(
         &tokens,
         current_module,
+        current_package,
         uses,
         import_selections,
         function_targets,
@@ -175,6 +179,7 @@ pub(super) fn collect_contract_callees(
 pub(super) fn collect_contract_function_value_references(
     tokens: &[veln_syntax::Token],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[&UseDecl],
     import_selections: &ImportSelectionIndex<'_>,
     function_targets: &FunctionTargetIndex,
@@ -232,6 +237,7 @@ pub(super) fn collect_contract_function_value_references(
         for callee in resolve_function_reference(
             &segments,
             current_module,
+            current_package,
             uses,
             import_selections,
             function_targets,

@@ -52,6 +52,7 @@ pub(super) fn function_alias_targets(
                 import_selections,
                 function_targets,
                 alias.module_name.as_deref(),
+                alias.package_name.as_deref(),
             )?;
             if companion_alias_targets_imported_private_function(alias, target) {
                 return None;
@@ -94,6 +95,7 @@ pub(super) fn target_for_alias_path<'a>(
     import_selections: &ImportSelectionIndex<'_>,
     function_targets: &'a [FunctionTarget],
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<&'a FunctionTarget> {
     match segments {
         [name] => function_targets.iter().find(|target| {
@@ -108,6 +110,7 @@ pub(super) fn target_for_alias_path<'a>(
                 import_selections,
                 &segments[..segments.len() - 1],
                 current_module,
+                current_package,
             )?;
             let module_name = use_decl.name.as_str();
             function_targets.iter().find(|target| {

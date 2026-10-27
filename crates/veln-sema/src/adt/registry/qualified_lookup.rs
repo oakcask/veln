@@ -165,9 +165,11 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<QualifiedSourceIdentity> {
-        let indexed = self
-            .qualified_import_modules
-            .get(&(current_module.map(str::to_string), module_path.to_string()));
+        let owner = import_owner_for_module(uses, current_module);
+        let indexed = owner.as_ref().and_then(|owner| {
+            self.qualified_import_modules
+                .get(&(owner.clone(), module_path.to_string()))
+        });
         let mut fallback;
         let modules = if let Some(indexed) = indexed {
             indexed
@@ -236,7 +238,10 @@ impl AdtRegistry {
             current_module,
         );
 
-        let key = (current_module.map(str::to_string), normalized);
+        let Some(owner) = import_owner_for_module(uses, current_module) else {
+            return selected;
+        };
+        let key = (owner, normalized);
         let Some(candidates) = self.qualified_import_recovery_modules.get(&key) else {
             if self.source_import_count == uses.len() {
                 return selected;

@@ -311,6 +311,7 @@ impl<'a> Reader<'a> {
         Ok(PublicAlias {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
+            package_name: self.option(Self::string)?,
             kind: self.public_alias_kind()?,
             name: self.option(Self::string)?,
             target: self.vec(Self::string)?,

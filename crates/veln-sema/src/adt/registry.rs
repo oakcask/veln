@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
-use veln_ast::{PublicAlias, UseDecl, Visibility};
+use veln_ast::{PublicAlias, ResolvedImportOwner, UseDecl, Visibility};
 use veln_core::CoreType;
 use veln_source::{SourcePath, SourceSpan};
 
@@ -33,9 +33,9 @@ pub(crate) struct AdtRegistry {
     resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     declaration_spans: HashMap<DescriptorKey, SourceSpan>,
     variant_declaration_spans: HashMap<VariantDescriptorKey, SourceSpan>,
-    qualified_import_modules: HashMap<(Option<String>, String), QualifiedImportModules>,
+    qualified_import_modules: HashMap<(ResolvedImportOwner, String), QualifiedImportModules>,
     qualified_import_recovery_modules:
-        HashMap<(Option<String>, String), Vec<QualifiedRecoveryModules>>,
+        HashMap<(ResolvedImportOwner, String), Vec<QualifiedRecoveryModules>>,
     imported_descriptors_by_type: HashMap<(Option<String>, String), Option<usize>>,
     imported_descriptors_by_type_arity: HashMap<(Option<String>, String, usize), Option<usize>>,
     quarantined_type_identities: HashSet<String>,
@@ -67,6 +67,28 @@ struct QualifiedRecoveryModules {
 struct ImportedDescriptorCandidates {
     any_arity: HashMap<(Option<String>, String), Option<usize>>,
     exact_arity: HashMap<(Option<String>, String, usize), Option<usize>>,
+}
+
+fn import_owner_for_module(
+    uses: &[UseDecl],
+    current_module: Option<&str>,
+) -> Option<ResolvedImportOwner> {
+    let mut packages = uses
+        .iter()
+        .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
+        .map(|use_decl| use_decl.importing_package.as_deref())
+        .collect::<HashSet<_>>();
+    let package = if packages.remove(&None) {
+        None
+    } else if packages.len() == 1 {
+        packages.into_iter().next().flatten().map(str::to_string)
+    } else {
+        return None;
+    };
+    Some(ResolvedImportOwner {
+        package,
+        module: current_module.map(str::to_string),
+    })
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]

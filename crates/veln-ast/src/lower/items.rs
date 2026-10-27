@@ -60,9 +60,11 @@ impl AstBuilder {
                     .push(self.lower_schema_decl(schema, module_name.clone()));
             }
             SyntaxItem::PublicAlias(alias) => {
-                lowered
-                    .aliases
-                    .push(self.lower_public_alias(alias, module_name.clone()));
+                lowered.aliases.push(self.lower_public_alias(
+                    alias,
+                    module_name.clone(),
+                    package_name.clone(),
+                ));
             }
         }
     }

@@ -180,6 +180,55 @@ fn canonical_standard_path_keeps_aliased_import_target_reachable() {
 }
 
 #[test]
+fn same_spelled_owner_modules_do_not_cross_quarantine_reachable_imports() {
+    let mut standard = lower(concat!(
+        "mod shared\n",
+        "use net as standard_wire from \"std\"\n",
+        "pub fn standard_entry() -> Int\n",
+        "  standard_wire::endpoint()\n",
+        "end\n",
+    ));
+    standard.uses[0].name = "std::net".to_string();
+    standard.uses[0].importing_package = Some("std".to_string());
+    standard.functions[0].package_name = Some("std".to_string());
+    let mut target = lower(concat!(
+        "mod std::net\n",
+        "pub fn endpoint() -> Int\n",
+        "  1\n",
+        "end\n",
+    ));
+    target.functions[0].package_name = Some("std".to_string());
+    standard.functions.extend(target.functions);
+
+    let mut application = lower(concat!(
+        "mod shared\n",
+        "use std::net as local_wire from \"std\"\n",
+        "pub fn qualifier() -> Int\n",
+        "  local_wire::endpoint()\n",
+        "end\n",
+        "pub fn exact() -> Int\n",
+        "  std::net::endpoint()\n",
+        "end\n",
+    ));
+    application.uses[0].name = "std::net".to_string();
+
+    for entry in ["qualifier", "exact"] {
+        let reachable = reachable_entry_module_with_standard_cache(
+            &standard,
+            &application,
+            entry,
+            FunctionKind::Function,
+            &ReachabilityCache::default(),
+        );
+        assert_eq!(
+            reachable_function_names(&reachable),
+            vec![("shared", entry), ("std::net", "endpoint")],
+            "entry={entry}"
+        );
+    }
+}
+
+#[test]
 fn equivalent_standard_target_spellings_add_no_reachable_code_in_both_orders() {
     let standard = lower(concat!(
         "mod std::net\n",
@@ -313,6 +362,55 @@ fn project_loading_canonicalizes_and_quarantines_equivalent_standard_targets() {
             reachable.module.functions
         );
     }
+}
+
+#[test]
+fn production_loading_keeps_same_spelled_import_owners_distinct_during_lowering() {
+    let analysis = analyze_project(
+        Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "use http2::core as wire from \"std\"\n",
+                        "use std::http2::core as local_core\n",
+                        "fn main() -> Int\n",
+                        "  let headers = wire::empty_header_list()\n",
+                        "  7\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "std/http2/core.veln",
+                    concat!(
+                        "use http2::hpack from \"std\"\n",
+                        "pub fn owner_probe() -> Int\n",
+                        "  7\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        },
+        DoctestMode::Exclude,
+    );
+    assert!(
+        analysis.semantic_diagnostics().is_empty(),
+        "{:#?}",
+        analysis.semantic_diagnostics()
+    );
+
+    let reachable = analysis.lower_reachable_entry("main", FunctionKind::Function);
+    assert!(
+        reachable.lowered.diagnostics.is_empty(),
+        "{:#?}",
+        reachable.lowered.diagnostics
+    );
+    assert!(
+        reachable.lowered.ir.is_some(),
+        "reachable lowering produced no IR"
+    );
 }
 
 #[test]

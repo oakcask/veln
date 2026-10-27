@@ -29,7 +29,7 @@ impl AdtRegistry {
         let Some(first) = segments.first() else {
             return false;
         };
-        if let Some(module_name) = self.indexed_import_module(first, current_module) {
+        if let Some(module_name) = self.indexed_import_module(first, current_module, uses) {
             return module_name
                 .is_some_and(|module_name| descriptor.module_name.as_deref() == Some(module_name));
         }
@@ -50,10 +50,12 @@ impl AdtRegistry {
         &self,
         qualifier: &str,
         current_module: Option<&str>,
+        uses: &[UseDecl],
     ) -> Option<Option<&str>> {
+        let owner = import_owner_for_module(uses, current_module)?;
         let modules = self
             .qualified_import_modules
-            .get(&(current_module.map(str::to_string), qualifier.to_string()))?;
+            .get(&(owner, qualifier.to_string()))?;
         let candidates = if modules.exact.is_empty() {
             &modules.implicit
         } else {

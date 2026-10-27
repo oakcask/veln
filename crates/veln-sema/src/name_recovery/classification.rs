@@ -290,5 +290,5 @@ fn import_target_key(use_decl: &UseDecl) -> ImportTargetKey {
 }
 
 fn import_binding_key(use_decl: &UseDecl) -> ImportBindingKey {
-    (use_decl.module_name.clone(), use_decl.alias.clone())
+    (use_decl.resolved_owner(), use_decl.alias.clone())
 }

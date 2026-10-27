@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
-use veln_ast::{PublicAliasKind, SurfaceModule, UseDecl, Visibility};
+use veln_ast::{PublicAliasKind, ResolvedImportOwner, SurfaceModule, UseDecl, Visibility};
 use veln_source::SourceSpan;
 
 use crate::name_recovery::normal_use_decls;
@@ -554,13 +554,13 @@ fn extend_alias_annotation_types(
 
 fn qualified_import_modules(
     uses: &[UseDecl],
-) -> HashMap<(Option<String>, String), QualifiedImportModules> {
-    let mut modules = HashMap::<(Option<String>, String), QualifiedImportModules>::new();
+) -> HashMap<(ResolvedImportOwner, String), QualifiedImportModules> {
+    let mut modules = HashMap::<(ResolvedImportOwner, String), QualifiedImportModules>::new();
     for use_decl in uses {
         for path in crate::name_recovery::use_decl_exact_paths(use_decl) {
             crate::adt::lookup_validation::record_import_path_comparison();
             modules
-                .entry((use_decl.module_name.clone(), path))
+                .entry((use_decl.resolved_owner(), path))
                 .or_default()
                 .exact
                 .insert(use_decl.name.clone());
@@ -572,7 +572,7 @@ fn qualified_import_modules(
         ) {
             crate::adt::lookup_validation::record_import_path_comparison();
             modules
-                .entry((use_decl.module_name.clone(), use_decl.alias.clone()))
+                .entry((use_decl.resolved_owner(), use_decl.alias.clone()))
                 .or_default()
                 .implicit
                 .insert(use_decl.name.clone());
@@ -582,8 +582,8 @@ fn qualified_import_modules(
 }
 
 fn qualified_import_recovery_modules(
-    exact: &HashMap<(Option<String>, String), QualifiedImportModules>,
-) -> HashMap<(Option<String>, String), Vec<QualifiedRecoveryModules>> {
+    exact: &HashMap<(ResolvedImportOwner, String), QualifiedImportModules>,
+) -> HashMap<(ResolvedImportOwner, String), Vec<QualifiedRecoveryModules>> {
     let mut recovered = HashMap::<_, Vec<_>>::new();
     for ((owner, module_path), modules) in exact {
         recovered

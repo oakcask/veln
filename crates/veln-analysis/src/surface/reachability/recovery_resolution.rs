@@ -329,7 +329,12 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         current_module: Option<&str>,
         mut visible: impl FnMut(T, Option<&str>) -> bool,
     ) -> Vec<T> {
-        let target = visible_path_target(self.import_selections, segments, current_module);
+        let target = visible_path_target(
+            self.import_selections,
+            segments,
+            current_module,
+            self.current_package.as_deref(),
+        );
         let Some(leaf) = path_leaf(segments).map(str::to_string) else {
             return Vec::new();
         };
@@ -351,7 +356,12 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         segments: &[String],
         current_module: Option<&str>,
     ) -> Option<&'a veln_ast::HandlerDecl> {
-        let target = visible_path_target(self.import_selections, segments, current_module);
+        let target = visible_path_target(
+            self.import_selections,
+            segments,
+            current_module,
+            self.current_package.as_deref(),
+        );
         self.handlers.iter().copied().find(|handler| {
             handler.name.as_deref() == path_leaf(segments)
                 && (declaration_visible(
@@ -398,6 +408,7 @@ pub(super) fn visible_path_target(
     import_selections: &ImportSelectionIndex<'_>,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<String> {
     match segments {
         [_] => current_module.map(str::to_string),
@@ -405,6 +416,7 @@ pub(super) fn visible_path_target(
             import_selections,
             &segments[..segments.len() - 1],
             current_module,
+            current_package,
         )
         .map(|use_decl| use_decl.name.clone()),
         _ => None,

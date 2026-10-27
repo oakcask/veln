@@ -13,6 +13,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         let constructors_by_name = index_constructors_by_name(&types);
         Self {
             import_selections: inputs.import_selections(),
+            current_package: None,
             invalid_use_segments: inputs
                 .invalid_uses_with_segments()
                 .map(|(use_decl, invalid_segments)| {
@@ -40,6 +41,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         function: &Function,
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
+        self.current_package.clone_from(&function.package_name);
         let mut local_bindings = function
             .params
             .iter()
@@ -431,6 +433,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             self.import_selections,
             &segments[..segments.len().saturating_sub(1)],
             current_module,
+            self.current_package.as_deref(),
         ) else {
             return false;
         };
@@ -448,6 +451,8 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         handler: &veln_ast::HandlerDecl,
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
+        let outer_package =
+            std::mem::replace(&mut self.current_package, handler.package_name.clone());
         let current_module = handler.module_name.as_deref();
         let mut local_bindings = handler
             .params
@@ -468,6 +473,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             self.collect_expr(&clause.body, current_module, &mut local_bindings, spans);
             local_bindings.truncate(binding_count);
         }
+        self.current_package = outer_package;
     }
 }
 

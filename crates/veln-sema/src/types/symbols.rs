@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use crate::adt::registry::AdtRegistry;
 use veln_ast::{NameClass, PublicAliasKind, SchemaField, SurfaceModule, UseDecl, Visibility};
@@ -397,8 +397,34 @@ pub(super) fn imported_use_for_path<'a>(
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
+    let mut packages = uses
+        .iter()
+        .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
+        .map(|use_decl| use_decl.importing_package.as_deref())
+        .collect::<HashSet<_>>();
+    let current_package = if packages.remove(&None) {
+        None
+    } else if packages.len() == 1 {
+        packages.into_iter().next().flatten()
+    } else {
+        return None;
+    };
+    imported_use_for_path_in_owner(uses, segments, current_module, current_package)
+}
+
+pub(super) fn imported_use_for_path_in_owner<'a>(
+    uses: &'a [UseDecl],
+    segments: &[String],
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
-    crate::name_recovery::select_use_decl_for_path(uses.iter(), &module_path, current_module)
+    crate::name_recovery::select_use_decl_for_path(
+        uses.iter()
+            .filter(|use_decl| use_decl.importing_package.as_deref() == current_package),
+        &module_path,
+        current_module,
+    )
 }
 
 pub(super) fn companion_private_schema_access_allowed(

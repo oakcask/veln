@@ -171,9 +171,11 @@ impl<'a> CoreLowerer<'a> {
                 .environment
                 .unqualified_function(name, self.function.module_name.as_deref())
                 .found(),
-            _ => self
-                .environment
-                .function_path(&segments, self.function.module_name.as_deref()),
+            _ => self.environment.function_path_in_owner(
+                &segments,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            ),
         };
         let signature = signature.filter(|signature| signature.callsite)?;
         Some(CoreContractCall {

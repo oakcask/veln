@@ -27,8 +27,9 @@ use targets::*;
 
 struct LocalNameBinding(String);
 
-type BlockedImportAliases = HashSet<(Option<String>, String)>;
-type BlockedExactImportPaths = HashSet<(Option<String>, String)>;
+type ImportOwner = veln_ast::ResolvedImportOwner;
+type BlockedImportAliases = HashSet<(ImportOwner, String)>;
+type BlockedExactImportPaths = HashSet<(ImportOwner, String)>;
 
 struct BlockedImports {
     aliases: BlockedImportAliases,

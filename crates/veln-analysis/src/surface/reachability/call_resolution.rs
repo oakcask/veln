@@ -133,6 +133,7 @@ pub(super) fn collect_function_name_reference(
             context.import_selections,
             &segments[..segments.len() - 1],
             current_module,
+            context.current_package,
         ),
         _ => None,
     };
@@ -192,6 +193,7 @@ pub(super) fn collect_handler_operation_clause_callees(
             outer_context.import_selections,
             &handler[..handler.len() - 1],
             outer_context.current_module,
+            outer_context.current_package,
         )
         .map(|use_decl| use_decl.name.as_str()),
         _ => None,
@@ -247,6 +249,7 @@ pub(super) fn collect_handler_operation_clause_callees(
 pub(super) fn resolve_function_reference(
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[&UseDecl],
     import_selections: &ImportSelectionIndex<'_>,
     function_targets: &FunctionTargetIndex,
@@ -258,6 +261,7 @@ pub(super) fn resolve_function_reference(
             import_selections,
             &segments[..segments.len() - 1],
             current_module,
+            current_package,
         ),
         _ => None,
     };
@@ -338,16 +342,18 @@ pub(super) fn imported_use_for_path<'a>(
     import_selections: &'a ImportSelectionIndex<'a>,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<&'a UseDecl> {
-    import_selections.select(segments, current_module, false)
+    import_selections.select(segments, current_module, current_package, false)
 }
 
 pub(super) fn recovery_imported_use_for_path<'a>(
     import_selections: &'a ImportSelectionIndex<'a>,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<&'a UseDecl> {
-    import_selections.select(segments, current_module, true)
+    import_selections.select(segments, current_module, current_package, true)
 }
 
 pub(super) fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str) -> bool {

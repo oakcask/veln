@@ -2,7 +2,9 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 
-use veln_ast::{NameClass, NameOccurrence, ResolvedImportTarget, SurfaceModule, UseDecl};
+use veln_ast::{
+    NameClass, NameOccurrence, ResolvedImportOwner, ResolvedImportTarget, SurfaceModule, UseDecl,
+};
 
 mod alias_validity;
 mod classification;
@@ -35,7 +37,7 @@ pub(crate) use selection_helpers::{normal_use_decls, use_decl_exact_paths};
 pub(crate) use target_recovery::{quarantined_use_decls, recovered_import_target_name};
 use target_recovery::{recovered_target_names, recovery_names_by_file};
 
-type ImportBindingKey = (Option<String>, String);
+type ImportBindingKey = (ResolvedImportOwner, String);
 type ImportTargetKey = ResolvedImportTarget;
 
 struct NormalUseGroups {
@@ -205,7 +207,7 @@ impl NormalUseGroups {
         if use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.recovered && !reserved {
             let group = self
                 .qualifiers
-                .entry((use_decl.module_name.clone(), use_decl.alias.clone()))
+                .entry((use_decl.resolved_owner(), use_decl.alias.clone()))
                 .or_default();
             group.0 += 1;
             group.1 |= use_decl.has_explicit_alias();
@@ -217,7 +219,7 @@ impl NormalUseGroups {
                 .push(index);
             for path in use_decl_exact_paths(use_decl) {
                 self.exact_paths
-                    .entry((use_decl.module_name.clone(), path))
+                    .entry((use_decl.resolved_owner(), path))
                     .or_default()
                     .push(index);
             }
@@ -320,7 +322,7 @@ impl NormalUseGroups {
             .iter()
             .enumerate()
             .map(|(index, use_decl)| {
-                let qualifier = (use_decl.module_name.clone(), use_decl.alias.clone());
+                let qualifier = (use_decl.resolved_owner(), use_decl.alias.clone());
                 self.invalid_module_segments[index]
                     && !use_decl.recovered
                     && !use_decl_has_reserved_alias(use_decl)
@@ -439,11 +441,34 @@ pub(crate) fn normal_imported_use_for_path<'a>(
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
+    let mut packages = module
+        .uses
+        .iter()
+        .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
+        .map(|use_decl| use_decl.importing_package.as_deref())
+        .collect::<HashSet<_>>();
+    let current_package = if packages.remove(&None) {
+        None
+    } else if packages.len() == 1 {
+        packages.into_iter().next().flatten()
+    } else {
+        return None;
+    };
+    normal_imported_use_for_path_in_owner(module, segments, current_module, current_package)
+}
+
+pub(crate) fn normal_imported_use_for_path_in_owner<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+) -> Option<&'a UseDecl> {
     let classification = import_classification(module);
     normal_imported_use_for_path_with_classification(
         module,
         segments,
         current_module,
+        current_package,
         &classification,
     )
 }
@@ -484,13 +509,13 @@ impl<'a> NormalImportSelectionIndex<'a> {
             for path in use_decl_exact_paths(use_decl) {
                 record_normal_import_selection_work(|work| work.operations += 1);
                 exact_paths
-                    .entry((use_decl.module_name.clone(), path))
+                    .entry((use_decl.resolved_owner(), path))
                     .or_insert(index);
             }
             if simple_import_alias_matches(use_decl, &use_decl.alias) {
                 record_normal_import_selection_work(|work| work.operations += 1);
                 qualifiers
-                    .entry((use_decl.module_name.clone(), use_decl.alias.clone()))
+                    .entry((use_decl.resolved_owner(), use_decl.alias.clone()))
                     .and_modify(|candidate| *candidate = IndexedUseDecl::Ambiguous)
                     .or_insert(IndexedUseDecl::Unique(index));
             }
@@ -507,9 +532,16 @@ impl<'a> NormalImportSelectionIndex<'a> {
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> Option<&'a UseDecl> {
         record_normal_import_selection_work(|work| work.operations += 1);
-        let key = (current_module.map(str::to_string), segments.join("::"));
+        let key = (
+            ResolvedImportOwner {
+                package: current_package.map(str::to_string),
+                module: current_module.map(str::to_string),
+            },
+            segments.join("::"),
+        );
         record_normal_import_selection_work(|work| work.operations += 1);
         if self.classification.blocked_exact_paths.contains(&key) {
             return None;
@@ -534,10 +566,17 @@ fn normal_imported_use_for_path_with_classification<'a>(
     module: &'a SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     classification: &ImportClassification,
 ) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
-    let key = (current_module.map(str::to_string), module_path.clone());
+    let key = (
+        ResolvedImportOwner {
+            package: current_package.map(str::to_string),
+            module: current_module.map(str::to_string),
+        },
+        module_path.clone(),
+    );
     if classification.blocked_exact_paths.contains(&key) {
         return None;
     }
@@ -548,6 +587,7 @@ fn normal_imported_use_for_path_with_classification<'a>(
         .find_map(|(index, use_decl)| {
             record_import_classification_work();
             (!use_decl.recovered
+                && use_decl.importing_package.as_deref() == current_package
                 && use_decl_matches_exact_import_path(use_decl, &module_path, current_module)
                 && !classification.quarantined[index])
                 .then_some(use_decl)
@@ -565,6 +605,7 @@ fn normal_imported_use_for_path_with_classification<'a>(
         .filter(|(index, use_decl)| {
             record_import_classification_work();
             !classification.quarantined[*index]
+                && use_decl.importing_package.as_deref() == current_package
                 && use_decl.module_name.as_deref() == current_module
                 && simple_import_alias_matches(use_decl, &module_path)
         })
@@ -599,16 +640,36 @@ pub(crate) fn schema_composition_imported_use_for_path<'a>(
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
+    let mut packages = module
+        .uses
+        .iter()
+        .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
+        .map(|use_decl| use_decl.importing_package.as_deref())
+        .collect::<HashSet<_>>();
+    let current_package = if packages.remove(&None) {
+        None
+    } else if packages.len() == 1 {
+        packages.into_iter().next().flatten()
+    } else {
+        return None;
+    };
     let classification = import_classification(module);
     normal_imported_use_for_path_with_classification(
         module,
         segments,
         current_module,
+        current_package,
         &classification,
     )
     .or_else(|| {
         let module_path = segments.join("::");
-        let key = (current_module.map(str::to_string), module_path.clone());
+        let key = (
+            ResolvedImportOwner {
+                package: current_package.map(str::to_string),
+                module: current_module.map(str::to_string),
+            },
+            module_path.clone(),
+        );
         if classification.colliding_qualifiers.contains(&key) {
             return None;
         }
@@ -619,6 +680,7 @@ pub(crate) fn schema_composition_imported_use_for_path<'a>(
             .filter(|(index, use_decl)| {
                 record_import_classification_work();
                 use_decl.package.is_none()
+                    && use_decl.importing_package.as_deref() == current_package
                     && use_decl.module_name.as_deref() == current_module
                     && !classification.quarantined[*index]
                     && !use_decl.has_explicit_alias()

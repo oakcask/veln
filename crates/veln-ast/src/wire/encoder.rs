@@ -211,6 +211,7 @@ impl Writer {
     fn public_alias(&mut self, value: &PublicAlias) {
         self.node_id(value.node_id);
         self.option(&value.module_name, |writer, value| writer.string(value));
+        self.option(&value.package_name, |writer, value| writer.string(value));
         self.public_alias_kind(value.kind);
         self.option(&value.name, |writer, value| writer.string(value));
         self.vec(&value.target, |writer, value| writer.string(value));

@@ -221,10 +221,12 @@ impl AstBuilder {
         &mut self,
         alias: &SyntaxPublicAlias,
         module_name: Option<String>,
+        package_name: Option<String>,
     ) -> PublicAlias {
         PublicAlias {
             node_id: self.alloc(),
             module_name,
+            package_name,
             kind: match alias.kind {
                 SyntaxPublicAliasKind::Function => PublicAliasKind::Function,
                 SyntaxPublicAliasKind::Type => PublicAliasKind::Type,

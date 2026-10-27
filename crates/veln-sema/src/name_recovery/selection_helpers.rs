@@ -11,7 +11,7 @@ pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
         .filter(|(_, quarantined)| !**quarantined)
         .map(|(use_decl, _)| {
             let mut resolved = resolved_import_use_decl(use_decl);
-            let qualifier = (use_decl.module_name.clone(), use_decl.alias.clone());
+            let qualifier = (use_decl.resolved_owner(), use_decl.alias.clone());
             if classification.colliding_qualifiers.contains(&qualifier)
                 || classification.blocked_exact_paths.contains(&qualifier)
             {

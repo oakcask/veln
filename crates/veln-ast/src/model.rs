@@ -181,8 +181,14 @@ pub struct UseDecl {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ResolvedImportOwner {
+    pub package: Option<String>,
+    pub module: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ResolvedImportTarget {
-    pub owning_module: Option<String>,
+    pub owner: ResolvedImportOwner,
     pub package: Option<String>,
     pub module: String,
 }
@@ -216,12 +222,19 @@ impl UseDecl {
 
     pub fn resolved_target(&self) -> ResolvedImportTarget {
         ResolvedImportTarget {
-            owning_module: self.module_name.clone(),
+            owner: self.resolved_owner(),
             package: self
                 .package
                 .clone()
                 .or_else(|| self.importing_package.clone()),
             module: self.name.clone(),
+        }
+    }
+
+    pub fn resolved_owner(&self) -> ResolvedImportOwner {
+        ResolvedImportOwner {
+            package: self.importing_package.clone(),
+            module: self.module_name.clone(),
         }
     }
 }
@@ -256,6 +269,7 @@ impl UseDecl {
 pub struct PublicAlias {
     pub node_id: NodeId,
     pub module_name: Option<String>,
+    pub package_name: Option<String>,
     pub kind: PublicAliasKind,
     pub name: Option<String>,
     pub target: Vec<String>,
