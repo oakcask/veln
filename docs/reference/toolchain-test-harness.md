@@ -619,10 +619,12 @@ field checks. A binary fixture `schema` may be a same-module schema name or a
 qualified schema selected through a valid import in the command's primary
 source module. Qualified selection accepts an explicit import alias or the full
 written import path, including a dependency import. An exact written path takes
-precedence over a qualifier; an ambiguous exact path does not fall through to
-another qualifier. Selection rejects invalid, reserved, syntax-recovered, and
-duplicate-target imports instead of choosing the first declaration. The
-selected schema must be public when it is outside the primary module. The
+precedence over a qualifier. After that exact module is selected, a missing
+schema does not fall through to another module selected by the qualifier. An
+ambiguous exact path also does not fall through. Selection rejects invalid,
+reserved, syntax-recovered, and duplicate-target imports instead of choosing
+the first declaration. The selected schema must be public when it is outside
+the primary module. The
 [name-resolution contract](../specification/name-resolution.md#explicit-import-aliases)
 defines the shared import-selection and quarantine rules. Output chunk lists
 compare a named, ordered sequence of complete lowercase hex chunks against
