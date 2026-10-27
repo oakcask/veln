@@ -312,32 +312,55 @@ impl<'a> ImportSelectionIndex<'a> {
             #[cfg(test)]
             reachability_counters::record_import_selection_source_visit();
             let declaration_key = use_decl_key(declaration);
-            let recovery = if valid_ids.contains(&declaration_key) {
-                false
-            } else if invalid_ids.contains(&declaration_key) {
-                true
-            } else {
-                continue;
-            };
-            let module = index.module_mut(declaration.module_name.as_deref());
-            let (exact, qualifier) = if recovery {
-                (&mut module.recovery_exact, &mut module.recovery_qualifier)
-            } else {
-                (&mut module.normal_exact, &mut module.normal_qualifier)
-            };
-            for path in exact_paths.get(&declaration_key).into_iter().flatten() {
-                #[cfg(test)]
-                reachability_counters::record_import_selection_exact_entry();
-                ImportSelection::add(exact, path.clone(), declaration);
-            }
-            if simple_import_alias_matches(declaration, &declaration.alias) {
-                #[cfg(test)]
-                reachability_counters::record_import_selection_qualifier_entry();
-                ImportSelection::add(qualifier, declaration.alias.clone(), declaration);
-            }
+            index.add_declaration(
+                declaration,
+                declaration_key,
+                exact_paths,
+                &valid_ids,
+                &invalid_ids,
+            );
         }
-        for (module_name, path) in &blocked.exact_paths {
-            let module = index.module_mut(module_name.as_deref());
+        index.block_exact_paths(&blocked.exact_paths);
+        index.block_aliases(&blocked.aliases);
+        index
+    }
+
+    fn add_declaration(
+        &mut self,
+        declaration: &'a UseDecl,
+        declaration_key: usize,
+        exact_paths: &HashMap<usize, Vec<String>>,
+        valid_ids: &HashSet<usize>,
+        invalid_ids: &HashSet<usize>,
+    ) {
+        let recovery = if valid_ids.contains(&declaration_key) {
+            false
+        } else if invalid_ids.contains(&declaration_key) {
+            true
+        } else {
+            return;
+        };
+        let module = self.module_mut(declaration.module_name.as_deref());
+        let (exact, qualifier) = if recovery {
+            (&mut module.recovery_exact, &mut module.recovery_qualifier)
+        } else {
+            (&mut module.normal_exact, &mut module.normal_qualifier)
+        };
+        for path in exact_paths.get(&declaration_key).into_iter().flatten() {
+            #[cfg(test)]
+            reachability_counters::record_import_selection_exact_entry();
+            ImportSelection::add(exact, path.clone(), declaration);
+        }
+        if simple_import_alias_matches(declaration, &declaration.alias) {
+            #[cfg(test)]
+            reachability_counters::record_import_selection_qualifier_entry();
+            ImportSelection::add(qualifier, declaration.alias.clone(), declaration);
+        }
+    }
+
+    fn block_exact_paths(&mut self, blocked: &BlockedExactImportPaths) {
+        for (module_name, path) in blocked {
+            let module = self.module_mut(module_name.as_deref());
             module
                 .normal_exact
                 .insert(path.clone(), ImportSelection::Blocked);
@@ -346,8 +369,11 @@ impl<'a> ImportSelectionIndex<'a> {
                 .entry(path.clone())
                 .or_insert(ImportSelection::Blocked);
         }
-        for (module_name, alias) in &blocked.aliases {
-            let module = index.module_mut(module_name.as_deref());
+    }
+
+    fn block_aliases(&mut self, blocked: &BlockedImportAliases) {
+        for (module_name, alias) in blocked {
+            let module = self.module_mut(module_name.as_deref());
             module
                 .normal_qualifier
                 .insert(alias.clone(), ImportSelection::Blocked);
@@ -355,7 +381,6 @@ impl<'a> ImportSelectionIndex<'a> {
                 .recovery_qualifier
                 .insert(alias.clone(), ImportSelection::Blocked);
         }
-        index
     }
 
     fn module_mut(&mut self, module_name: Option<&str>) -> &mut ModuleImportSelections<'a> {
