@@ -80,6 +80,8 @@ earlier successful writes.
 
 ## References
 
-Implementation: `crates/veln-cli/src/commands/fmt.rs`. Formatter golden tests
-cover precedence, comments, schema spellings, multi-file atomicity, and
-idempotence.
+Implementation: `crates/veln-cli/src/commands/fmt.rs`. The checked
+[`explicit-import-alias`](../../examples/specification/fmt/explicit-import-alias/)
+case covers alias placement and idempotence. Formatter golden tests cover
+precedence, comments, schema spellings, multi-file atomicity, and other
+idempotence boundaries.

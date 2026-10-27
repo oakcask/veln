@@ -40,8 +40,7 @@ navigation features.
 
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |
-| A11 | Definition, references, rename, hover, and completion on an alias and member | Alias and target identity remain distinct; target-member references and rename include alias-qualified member occurrences without changing the alias declaration, alias qualifiers, or written import target; rejected rename has no partial edits; saved LSP and MCP results agree. | Shared-language-service, LSP, MCP, and saved-workspace tests that observe the alias-qualified target-member edit set. |
-| A12 | Reorder selected sources with a combined module identity | Alias navigation selections and ordered locations remain stable across source permutations. | Shared-language-service navigation permutation cases and saved LSP/MCP projections where applicable. |
+| A11 | Definition, references, rename, hover, and completion on an alias and member, including reordered selected sources with a combined module identity | Alias and target identity remain distinct; target-member references and rename include alias-qualified member occurrences without changing the alias declaration, alias qualifiers, or written import target; rejected rename has no partial edits; saved LSP and MCP results agree; navigation selections and ordered locations remain stable across source permutations. | Shared-language-service, LSP, MCP, and saved-workspace tests that observe the alias-qualified target-member edit set, plus shared-language-service navigation permutation cases and saved LSP/MCP projections where applicable. |
 
 ## Related work
 
