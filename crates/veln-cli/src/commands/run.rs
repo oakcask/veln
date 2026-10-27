@@ -34,7 +34,7 @@ mod value_diagnostics;
 
 use byte_diagnostics::byte_result_failure_diagnostic;
 use diagnostic_details::*;
-use entry_args::checked_entry_arg_types;
+use entry_args::checked_entry;
 use protocol_diagnostics::protocol_result_failure_diagnostic;
 use value_diagnostics::value_result_failure_diagnostic;
 
@@ -65,8 +65,11 @@ pub(crate) fn run_entry(
     };
 
     let backend_start = timings.is_some().then(Instant::now);
-    let jvm =
-        generate_classfiles_with_entry_arg_types(&prepared.ir, &entry, &prepared.entry_arg_types);
+    let jvm = generate_classfiles_with_entry_arg_types(
+        &prepared.ir,
+        &prepared.entry_target,
+        &prepared.entry_arg_types,
+    );
     let execution = match prepare_run_jvm_execution(json, &mut timings, backend_start)? {
         Some(execution) => execution,
         None => return Ok(ExitCode::from(1)),
@@ -93,6 +96,7 @@ pub(crate) fn run_entry(
 
 struct PreparedRun {
     ir: veln_ir::TypedProgram,
+    entry_target: String,
     entry_arg_types: Vec<EntryArgType>,
 }
 
@@ -111,17 +115,25 @@ fn prepare_run_program(
         return Ok(None);
     }
 
-    let Some(entry_arg_types) = checked_entry_arg_types(&analysis, entry, entry_args) else {
+    let Some(checked_entry) = checked_entry(&analysis, entry, entry_args) else {
         write_timings(timings)?;
         return Ok(None);
     };
-    let Some(ir) = lower_run_entry(json, &analysis, entry, timings.as_mut())? else {
+    let Some(lowered_entry) = lower_run_entry(
+        json,
+        &analysis,
+        entry,
+        &checked_entry.function,
+        timings.as_mut(),
+    )?
+    else {
         write_timings(timings)?;
         return Ok(None);
     };
     Ok(Some(PreparedRun {
-        ir,
-        entry_arg_types,
+        ir: lowered_entry.ir,
+        entry_target: lowered_entry.target,
+        entry_arg_types: checked_entry.arg_types,
     }))
 }
 
@@ -296,19 +308,24 @@ fn observed_module_initial(name: &str) -> &'static str {
     })
 }
 
+struct LoweredRunEntry {
+    ir: veln_ir::TypedProgram,
+    target: String,
+}
+
 fn lower_run_entry(
     json: bool,
     analysis: &ProjectAnalysis,
     entry: &str,
+    entry_function: &veln_ast::Function,
     timings: Option<&mut RunAnalysisTimings>,
-) -> Result<Option<veln_ir::TypedProgram>, String> {
+) -> Result<Option<LoweredRunEntry>, String> {
     let reachable = if let Some(timings) = timings {
-        let (reachable, timing) =
-            analysis.lower_reachable_entry_with_timing(entry, FunctionKind::Function);
+        let (reachable, timing) = analysis.lower_reachable_function_with_timing(entry_function);
         timings.push_analysis(timing);
         reachable
     } else {
-        analysis.lower_reachable_entry(entry, FunctionKind::Function)
+        analysis.lower_reachable_function(entry_function)
     };
     let lowered = reachable.lowered;
     if has_error(&lowered.diagnostics) {
@@ -333,7 +350,12 @@ fn lower_run_entry(
         eprintln!("veln: run blocked: checked program is not executable");
         return Ok(None);
     };
-    Ok(Some(ir))
+    let Some(target) = reachable.entry_target else {
+        return Err(format!(
+            "veln: lowered run entry `{entry}` has no runtime target"
+        ));
+    };
+    Ok(Some(LoweredRunEntry { ir, target }))
 }
 
 fn callsite_entry_diagnostic(module: &veln_ast::SurfaceModule, entry: &str) -> Option<Diagnostic> {

@@ -48,6 +48,25 @@ fn explicit_import_alias_and_written_path_select_the_same_function_identity() {
 }
 
 #[test]
+fn contextual_import_aliases_select_qualified_calls() {
+    for alias in ["callsite", "handler", "handle"] {
+        let main_source = SourceFile::new(
+            "main.veln",
+            format!(
+                "mod app::main\nuse app::helper as {alias}\npub fn main() -> Int\n\t{alias}::answer()\nend\n"
+            ),
+        );
+        let helper_source = SourceFile::new(
+            "helper.veln",
+            "mod app::helper\npub fn answer() -> Int\n\t42\nend\n",
+        );
+        let module = merged_import_module(main_source, vec![helper_source]);
+
+        assert_main_returns_function_call(&module, "answer");
+    }
+}
+
+#[test]
 fn explicit_import_alias_contributes_no_old_leaf_qualifier() {
     let main_source = SourceFile::new(
         "main.veln",

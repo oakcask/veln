@@ -680,16 +680,37 @@ pub fn lower_project_reachable_surface_modules_with_standard_environment(
     selected_standard_module: &SurfaceModule,
     standard: &ReusableStandardEnvironment,
 ) -> LoweredSurfaceModule {
+    lower_project_reachable_surface_modules_with_standard_environment_and_target(
+        reachable_module,
+        selected_standard_module,
+        standard,
+        None,
+    )
+    .0
+}
+
+pub fn lower_project_reachable_surface_modules_with_standard_environment_and_target(
+    reachable_module: &SurfaceModule,
+    selected_standard_module: &SurfaceModule,
+    standard: &ReusableStandardEnvironment,
+    selected_function: Option<&veln_ast::Function>,
+) -> (LoweredSurfaceModule, Option<String>) {
     crate::name_recovery::with_import_classification(reachable_module, || {
         if let Err(failure) = validate_source_less_lookup_registries() {
-            return lowered_internal_failure(vec![failure.diagnostic()]);
+            return (lowered_internal_failure(vec![failure.diagnostic()]), None);
         }
         let environment = TypeEnvironment::from_application_module_with_standard(
             reachable_module,
             selected_standard_module,
             standard,
         );
-        lower_project_reachable_surface_module_with_environment(reachable_module, environment)
+        let target = selected_function
+            .and_then(|function| environment.function_for(function))
+            .map(|signature| signature.target_name.clone());
+        (
+            lower_project_reachable_surface_module_with_environment(reachable_module, environment),
+            target,
+        )
     })
 }
 

@@ -35,6 +35,52 @@ fn retains_invalid_case_alias_tokens_for_semantic_diagnostics() {
 }
 
 #[test]
+fn contextual_import_aliases_are_usable_as_qualified_call_paths() {
+    for alias in ["callsite", "handler", "handle"] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!("use helper as {alias}\n\nfn main() -> Int\n\t{alias}::answer()\nend\n"),
+        );
+        let output = parse(&source);
+
+        assert!(
+            output.diagnostics.is_empty(),
+            "{alias}: {:#?}",
+            output.diagnostics
+        );
+        assert_eq!(output.tree.uses[0].alias.as_ref().unwrap().name, alias);
+        assert!(!output.tree.uses[0].recovered);
+        let function = first_function(&output);
+        let BodyLine::Expr { expr, .. } = &function.body[0] else {
+            panic!("expected qualified call expression");
+        };
+        let ExprKind::Call { callee, args } = &expr.kind else {
+            panic!("expected qualified call for {alias}");
+        };
+        assert!(args.is_empty());
+        assert!(matches!(
+            &callee.kind,
+            ExprKind::NamePath { segments, .. }
+                if segments == &vec![alias.to_string(), "answer".to_string()]
+        ));
+    }
+
+    let ordinary = parse(&SourceFile::new(
+        "main.veln",
+        "fn main() -> Int\n\thandle answer() with handler()\nend\n",
+    ));
+    assert!(
+        ordinary.diagnostics.is_empty(),
+        "{:#?}",
+        ordinary.diagnostics
+    );
+    let BodyLine::Expr { expr, .. } = &first_function(&ordinary).body[0] else {
+        panic!("expected handle expression");
+    };
+    assert!(matches!(&expr.kind, ExprKind::Handle { .. }));
+}
+
+#[test]
 fn malformed_import_aliases_recover_at_the_declaration_newline() {
     let cases = [
         ("use a as\n", "parse.expected_identifier", 9, None, None),

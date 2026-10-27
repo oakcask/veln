@@ -33,11 +33,18 @@ fn run_generation_excludes_companion_sources() {
         "production analysis should exclude companion diagnostics: {:#?}",
         analysis.checked_diagnostics()
     );
-    let ir = lower_run_entry(false, &analysis, "main", None)
+    let entry_function = analysis
+        .module
+        .functions
+        .iter()
+        .find(|function| function.name.as_deref() == Some("main"))
+        .expect("entry function should exist");
+    let lowered_entry = lower_run_entry(false, &analysis, "main", entry_function, None)
         .expect("entry should lower")
         .expect("entry should produce IR");
 
-    let jvm = generate_classfiles_with_entry_arg_types(&ir, "main", &[]);
+    let jvm =
+        generate_classfiles_with_entry_arg_types(&lowered_entry.ir, &lowered_entry.target, &[]);
 
     assert!(
         jvm.classes
@@ -53,6 +60,36 @@ fn run_generation_excludes_companion_sources() {
             .iter()
             .map(|class| class.path.as_str())
             .collect::<Vec<_>>()
+    );
+
+    fs::remove_dir_all(root).expect("test project should be removed");
+}
+
+#[test]
+fn prepared_run_preserves_the_selected_entry_link_target() {
+    let root = temp_dir("prepared-run-preserves-selected-entry-link-target");
+    fs::write(
+        root.join("app.veln"),
+        "use helper as other\n\npub fn main() -> Int\n\tother::main() + 1\nend\n",
+    )
+    .expect("entry source should be written");
+    fs::write(
+        root.join("helper.veln"),
+        "pub fn main() -> Int\n\t41\nend\n",
+    )
+    .expect("helper source should be written");
+
+    let prepared = prepare_run_program(root.clone(), &[], "main", &[], false, &mut None)
+        .expect("run preparation should succeed")
+        .expect("run preparation should produce a program");
+
+    assert_eq!(prepared.entry_target, "app::main");
+    assert!(
+        prepared
+            .ir
+            .functions
+            .iter()
+            .any(|function| function.name == prepared.entry_target)
     );
 
     fs::remove_dir_all(root).expect("test project should be removed");

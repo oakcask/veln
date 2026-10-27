@@ -2,17 +2,25 @@ use veln_analysis::ProjectAnalysis;
 use veln_ast::{Function, FunctionKind, Param};
 use veln_backend_jvm::{EntryArgScalar, EntryArgType};
 
-pub(super) fn checked_entry_arg_types(
+pub(super) struct CheckedEntry {
+    pub(super) function: Function,
+    pub(super) arg_types: Vec<EntryArgType>,
+}
+
+pub(super) fn checked_entry(
     analysis: &ProjectAnalysis,
     entry: &str,
     entry_args: &[String],
-) -> Option<Vec<EntryArgType>> {
+) -> Option<CheckedEntry> {
     let Some(entry_function) = find_entry_function(analysis, entry) else {
         eprintln!("veln: run entry `{entry}` was not found");
         return None;
     };
     match validate_entry_args(entry_function, entry_args) {
-        Ok(entry_arg_types) => Some(entry_arg_types),
+        Ok(arg_types) => Some(CheckedEntry {
+            function: entry_function.clone(),
+            arg_types,
+        }),
         Err(error) => {
             error.report(entry);
             None

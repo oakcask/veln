@@ -13,6 +13,9 @@ impl<'a> ExprParser<'a> {
             TokenKind::Float => self.parse_literal_primary(token, ExprKind::FloatLiteral),
             TokenKind::Ident | TokenKind::Callsite | TokenKind::Handler => self.parse_name_path(),
             TokenKind::Perform => self.parse_perform_primary(token),
+            TokenKind::Handle if self.peek_kind(1) == Some(TokenKind::DoubleColon) => {
+                self.parse_name_path()
+            }
             TokenKind::Handle => self.parse_handle_primary(token),
             TokenKind::Decode => self.parse_schema_decode_primary(token),
             TokenKind::Encode => self.parse_schema_encode_primary(token),
