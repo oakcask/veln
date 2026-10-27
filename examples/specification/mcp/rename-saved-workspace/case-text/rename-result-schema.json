@@ -68,17 +68,26 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "symbol_class": { "enum": ["type", "constructor", "function", "value_binding"] },
+        "symbol_class": { "enum": ["import_alias", "type", "constructor", "function", "value_binding"] },
         "requested_name": { "type": "string" },
         "required_initial": { "enum": ["ascii_uppercase", "ascii_lowercase"] }
       },
       "required": ["symbol_class", "requested_name", "required_initial"]
     },
+    "reserved_name_details": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "symbol_class": { "const": "import_alias" },
+        "requested_name": { "const": "prelude" }
+      },
+      "required": ["symbol_class", "requested_name"]
+    },
     "conflict_details": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "symbol_class": { "enum": ["type", "constructor", "function", "value_binding"] },
+        "symbol_class": { "enum": ["import_alias", "type", "constructor", "function", "value_binding"] },
         "requested_name": { "type": "string" },
         "conflicting_declaration": { "$ref": "#/$defs/location" },
         "affected_scope": {
@@ -131,6 +140,16 @@
         "code": { "const": "rename.invalid_case" },
         "message": { "type": "string" },
         "details": { "$ref": "#/$defs/invalid_case_details" }
+      },
+      "required": ["code", "message", "details"]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": { "const": "rename.reserved" },
+        "message": { "type": "string" },
+        "details": { "$ref": "#/$defs/reserved_name_details" }
       },
       "required": ["code", "message", "details"]
     },
