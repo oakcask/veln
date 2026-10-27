@@ -11,6 +11,7 @@ pub struct TypedProgram {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IrSchemaDecodeSpec {
     pub schema_name: String,
+    pub declaration_name: String,
     pub function_name: String,
     pub fields: Vec<IrSchemaDecodeField>,
     pub validation: Option<String>,
@@ -29,6 +30,12 @@ pub struct IrSchemaDecodeField {
     pub payload_schema: Option<Box<IrSchemaDecodeSpec>>,
     pub dispatch: Option<IrSchemaDecodeDispatch>,
     pub reserved_bits: Option<IrSchemaReservedBits>,
+    pub variant_refinement: Option<IrSchemaVariantRefinement>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IrSchemaVariantRefinement {
+    pub expected_variants: Vec<String>,
 }
 
 impl IrSchemaDecodeField {
@@ -45,6 +52,7 @@ impl IrSchemaDecodeField {
             payload_schema: None,
             dispatch: None,
             reserved_bits: None,
+            variant_refinement: None,
         }
     }
 }
@@ -274,6 +282,7 @@ pub enum IrCallTarget {
     SchemaEncode(String),
     SchemaEncodeStep(String),
     SchemaValidate(String),
+    SchemaRefinementValidate(String),
     StdioBuiltin(String),
     ConcurrencyBuiltin(String),
     StandardLibraryBuiltin(String),

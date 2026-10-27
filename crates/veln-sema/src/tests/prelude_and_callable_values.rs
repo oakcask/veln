@@ -12,6 +12,7 @@ const FORMAT_NEUTRAL_HELPER_SUPPORTED: &str = "recursive format-neutral visible 
 enum ExpectedSchemaBoundary {
     DecodeStep,
     Encode,
+    Validate,
 }
 
 fn assert_named_schema_boundary(
@@ -23,6 +24,7 @@ fn assert_named_schema_boundary(
     let expected_argument_count = match expected {
         ExpectedSchemaBoundary::DecodeStep => 2,
         ExpectedSchemaBoundary::Encode => 1,
+        ExpectedSchemaBoundary::Validate => 2,
     };
     let core = lowered.core.as_ref().expect("checked core should be built");
     let function = core
@@ -40,7 +42,8 @@ fn assert_named_schema_boundary(
     assert!(
         match (expected, target) {
             (ExpectedSchemaBoundary::DecodeStep, CoreCallTarget::SchemaDecodeStep(name))
-            | (ExpectedSchemaBoundary::Encode, CoreCallTarget::SchemaEncode(name)) =>
+            | (ExpectedSchemaBoundary::Encode, CoreCallTarget::SchemaEncode(name))
+            | (ExpectedSchemaBoundary::Validate, CoreCallTarget::SchemaRefinementValidate(name)) =>
                 name == schema_name,
             _ => false,
         },
@@ -63,7 +66,8 @@ fn assert_named_schema_boundary(
     assert!(
         match (expected, target) {
             (ExpectedSchemaBoundary::DecodeStep, IrCallTarget::SchemaDecodeStep(name))
-            | (ExpectedSchemaBoundary::Encode, IrCallTarget::SchemaEncode(name)) =>
+            | (ExpectedSchemaBoundary::Encode, IrCallTarget::SchemaEncode(name))
+            | (ExpectedSchemaBoundary::Validate, IrCallTarget::SchemaRefinementValidate(name)) =>
                 name == schema_name,
             _ => false,
         },

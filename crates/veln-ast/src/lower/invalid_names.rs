@@ -376,6 +376,10 @@ fn collect_invalid_expr_names(
         SyntaxExprKind::SchemaEncode { value, .. } => {
             collect_invalid_expr_names(value, invalid, enclosing);
         }
+        SyntaxExprKind::SchemaValidate { value, base, .. } => {
+            collect_invalid_expr_names(value, invalid, enclosing.clone());
+            collect_invalid_expr_names(base, invalid, enclosing);
+        }
         SyntaxExprKind::Record(fields) => {
             collect_invalid_record_field_expr_names(fields, invalid, enclosing);
         }

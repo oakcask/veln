@@ -1,6 +1,53 @@
 use super::*;
 
 impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
+    pub(super) fn emit_schema_refinement_validate_call(
+        &mut self,
+        code: &mut MethodCode,
+        name: &str,
+        args: &[IrExpr],
+    ) {
+        let schema = self
+            .program
+            .program
+            .schema_decoders
+            .iter()
+            .find(|schema| schema.schema_name == name)
+            .unwrap_or_else(|| panic!("missing schema refinement validation spec `{name}`"));
+        let [value, base_offset] = args else {
+            panic!("schema refinement validation should receive a value and offset");
+        };
+        self.emit_expr(code, value);
+        self.emit_expr(code, base_offset);
+        code.ldc_string(&schema.declaration_name);
+        self.emit_schema_field_names(code, schema);
+        self.emit_object_array(code, schema.fields.len(), |this, code, index| {
+            let variants = schema.fields[index]
+                .variant_refinement
+                .as_ref()
+                .map(|refinement| refinement.expected_variants.as_slice())
+                .unwrap_or(&[]);
+            this.emit_object_array(code, variants.len(), |_, code, variant_index| {
+                code.ldc_string(&variants[variant_index]);
+            });
+            code.invokestatic(
+                &this.program.options.runtime_class,
+                "list",
+                "([Ljava/lang/Object;)Ljava/util/List;",
+            );
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "validateSchemaRefinements",
+            &object_method_descriptor(5),
+        );
+    }
+
     fn emit_schema_field_list(
         &mut self,
         code: &mut MethodCode,

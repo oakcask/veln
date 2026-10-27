@@ -1,0 +1,9 @@
+other.test.veln:2:15: error[name.duplicate]: duplicate import alias name `wire`
+  note: other.test.veln:1:14: First import alias with this name is here.
+other.test.veln:19:11: error[schema.validate_expression]: schema validate expression cannot resolve `MissingPacket` as an eligible format-neutral schema
+other.test.veln:20:11: error[schema.validate_expression]: schema validate expression target `WrongTarget` is a type, not a schema
+other.test.veln:21:11: error[schema.validate_expression]: schema validate expression target `wire::Packet` is ambiguous in the schema namespace
+other.test.veln:22:11: error[schema.validate_expression]: schema validate expression schema `hidden::PrivatePacket` is private
+  note: This test companion may access private schemas only from target module `other`.
+other.test.veln:23:11: error[schema.validate_expression]: schema validate expression cannot resolve `BinaryPacket` as an eligible format-neutral schema
+other.test.veln:24:11: error[schema.validate_expression]: schema validate expression cannot resolve `NestedPacket` as an eligible format-neutral schema

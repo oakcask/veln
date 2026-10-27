@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The `veln check --json` diagnostic schema, human `veln check` rendering, stable `veln check` detail fields, or `veln check` diagnostic producers change.
+update-when: The `veln check --json` diagnostic schema, human `veln check` rendering, stable check detail fields, check diagnostic producers, or source-visible runtime diagnostic projection changes.
 specification-coverage: usage=#usage; behavior=#diagnostic-families; limits=#limits
 ---
 
@@ -990,6 +990,30 @@ references, validation predicates, dispatch payload eligibility, explicit
 schema operation path resolution, and generated helper availability. Mapping
 clauses are rejected by the parser and therefore have no current schema
 mapping diagnostic.
+
+Static failures for `validate Schema from value at offset` use
+`schema.validate_expression`. The details include `phase: "body_analysis"`,
+`node_id`, `schema_path`, `operation: "runtime_validate"`, and a stable
+`reason` such as `unresolved_schema`, `wrong_kind`, `ambiguous_target`, or
+`private_schema`; a resolved wrong-kind diagnostic also supplies
+`resolved_kind`. The primary span covers the written schema path without the
+`validate` keyword or either operand. A missing path in
+`validate from value at offset` instead uses
+`parse.schema_validate_expression` with `schema path` as its expected input.
+The checked
+[`schema-runtime-validation-targets-human`](../../examples/specification/check/schema-runtime-validation-targets-human/)
+and
+[`schema-runtime-validation-targets-json`](../../examples/specification/check/schema-runtime-validation-targets-json/)
+cases fix the target spans, messages, stable reasons, and JSON fields. The
+rejected
+[`schema-runtime-validation-missing-path`](source-surface-fixtures/rejected/schema-runtime-validation-missing-path.veln)
+fixture fixes the missing-path parse boundary. Runtime constructor rejection
+uses `schema.variant_refinement_mismatch`, and a negative offset uses
+`schema.validation_offset_invalid`. Their byte-diagnostic projection preserves
+the exact `ByteOffset`, `reason`, and decoded JSON Pointer `field_path`. The
+root segment has kind `schema` and the terminal declaration name; following
+segments have kind `field`. Human rendering identifies the failed fact at the
+offset and places the path and mismatch or offset reason in notes.
 
 Type inference diagnostics include:
 

@@ -1,0 +1,26 @@
+use first as wire
+use second as wire
+use hidden
+
+type WrongTarget
+	WrongTarget
+end
+
+schema BinaryPacket
+	format binary
+	value: UInt8
+end
+
+schema NestedPacket
+	nested: {value: Int}
+end
+
+fn reject_invalid_targets(base: ByteOffset) -> ()
+	validate MissingPacket from {} at base
+	validate WrongTarget from {} at base
+	validate wire::Packet from {} at base
+	validate hidden::PrivatePacket from {} at base
+	validate BinaryPacket from {} at base
+	validate NestedPacket from {} at base
+	()
+end

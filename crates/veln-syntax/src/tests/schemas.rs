@@ -1,6 +1,157 @@
 use super::*;
 
 #[test]
+fn parses_and_formats_schema_validate_expression() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn check(value: {state: State}, base: ByteOffset) -> Result<{state: State::Connected}, DecodeError>\n",
+            "  validate wire::ConnectedPacket from value at base\n",
+            "end\n",
+        ),
+    );
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression body line");
+    };
+    let ExprKind::SchemaValidate {
+        schema, recovered, ..
+    } = &expr.kind
+    else {
+        panic!("expected schema validate expression");
+    };
+    assert_eq!(schema, &["wire", "ConnectedPacket"]);
+    assert!(!recovered);
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn check(value: { state : State }, base: ByteOffset) -> Result<{ state : State::Connected }, DecodeError>\n",
+            "\tvalidate wire::ConnectedPacket from value at base\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn parses_and_formats_schema_validate_expression_with_contextual_qualifiers() {
+    for qualifier in ["handle", "handler", "callsite"] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "fn check(value: {{state: State}}, base: ByteOffset) -> Result<{{state: State::Connected}}, DecodeError>\n  validate {qualifier}::ConnectedPacket from value at base\nend\n"
+            ),
+        );
+
+        let output = parse(&source);
+
+        assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+        let function = first_function(&output);
+        let BodyLine::Expr { expr, .. } = &function.body[0] else {
+            panic!("expected expression body line");
+        };
+        let ExprKind::SchemaValidate { schema, .. } = &expr.kind else {
+            panic!("expected schema validate expression");
+        };
+        assert_eq!(schema, &[qualifier, "ConnectedPacket"]);
+        assert_eq!(
+            format_tree(&output.tree),
+            format!(
+                "fn check(value: {{ state : State }}, base: ByteOffset) -> Result<{{ state : State::Connected }}, DecodeError>\n\tvalidate {qualifier}::ConnectedPacket from value at base\nend\n"
+            )
+        );
+    }
+}
+
+#[test]
+fn rejects_schema_validate_expression_missing_at() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn check(value: {state: State}, base: ByteOffset) -> ()\n",
+            "  validate ConnectedPacket from value base\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.schema_validate_expression")
+        .expect("expected schema validate expression diagnostic");
+    assert_eq!(
+        diagnostic.message,
+        "schema validate expression is missing `at`"
+    );
+    assert_eq!(diagnostic.expected, vec!["at"]);
+}
+
+#[test]
+fn recovers_schema_validate_expression_missing_schema_path() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn check(value: {state: State}, base: ByteOffset) -> ()\n",
+            "  validate from value at base\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.schema_validate_expression")
+        .expect("expected schema validate expression diagnostic");
+    assert_eq!(
+        diagnostic.message,
+        "schema validate expression is missing a schema path"
+    );
+    assert_eq!(diagnostic.expected, vec!["schema path"]);
+
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression body line");
+    };
+    let ExprKind::SchemaValidate {
+        schema, recovered, ..
+    } = &expr.kind
+    else {
+        panic!("expected recovered schema validate expression");
+    };
+    assert!(schema.is_empty());
+    assert!(recovered);
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn check(value: { state : State }, base: ByteOffset) -> ()\n",
+            "\tvalidate from value at base\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn schema_validate_marker_remains_an_ordinary_identifier() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn keep(validate: Int) -> Int\n",
+            "  validate\n",
+            "end\n",
+            "fn apply(validate: fn(Int) -> Int) -> Int\n",
+            "  validate(1)\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+}
+
+#[test]
 fn parses_and_formats_schema_decode_expression() {
     let source = SourceFile::new(
         "main.veln",

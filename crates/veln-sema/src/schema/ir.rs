@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use veln_ast::{SchemaDecl, SchemaField, SurfaceModule};
 use veln_ir::{
     IrSchemaDecodeDispatch, IrSchemaDecodeDispatchCase, IrSchemaDecodeField, IrSchemaDecodeSpec,
-    IrSchemaRepeat, IrSchemaReservedBits,
+    IrSchemaRepeat, IrSchemaReservedBits, IrSchemaVariantRefinement,
 };
 
 use crate::adt::registry::AdtRegistry;
@@ -81,12 +81,12 @@ fn format_neutral_schema_decode_spec(
         .fields
         .iter()
         .map(|field| {
+            let field_ty = format_neutral_schema_encode_field_type_for_schema(
+                module, schema, &adts, &field.ty,
+            );
             if format_neutral_schema_field_type_for_schema(module, schema, &adts, &field.ty)
                 .is_none()
-                && format_neutral_schema_encode_field_type_for_schema(
-                    module, schema, &adts, &field.ty,
-                )
-                .is_none()
+                && field_ty.is_none()
             {
                 return None;
             }
@@ -103,12 +103,16 @@ fn format_neutral_schema_decode_spec(
                     .as_ref()
                     .map(|where_clause| where_clause.predicate.clone()),
                 payload_schema,
+                variant_refinement: field_ty
+                    .as_ref()
+                    .and_then(|ty| ir_schema_variant_refinement(ty, &adts)),
                 ..IrSchemaDecodeField::new(field.name.clone())
             })
         })
         .collect::<Option<Vec<_>>>()?;
     Some(IrSchemaDecodeSpec {
         schema_name: crate::schema::schema_link_name(module, schema),
+        declaration_name: schema_name.clone(),
         function_name: schema_decode_function_name(schema_name),
         fields,
         validation: ir_schema_validation(schema),
@@ -134,6 +138,7 @@ fn schema_decode_spec_inner_after_push(
     }
     Some(IrSchemaDecodeSpec {
         schema_name: crate::schema::schema_link_name(module, schema),
+        declaration_name: schema_name.clone(),
         function_name: schema_decode_function_name(schema_name),
         fields,
         validation: ir_schema_validation(schema),
@@ -349,11 +354,29 @@ fn ir_schema_anonymous_record_spec_inner(
         Type::Record(visible_fields),
         IrSchemaDecodeSpec {
             schema_name: String::new(),
+            declaration_name: String::new(),
             function_name: String::new(),
             fields: ir_fields,
             validation: None,
         },
     ))
+}
+
+fn ir_schema_variant_refinement(
+    ty: &Type,
+    adts: &AdtRegistry,
+) -> Option<IrSchemaVariantRefinement> {
+    let Type::VariantRefinement { variants, .. } = ty else {
+        return None;
+    };
+    let descriptor = adts.descriptor_for_type(ty)?;
+    let expected_variants = descriptor
+        .variants
+        .iter()
+        .filter(|variant| variants.iter().any(|selected| selected == &variant.name))
+        .map(|variant| variant.name.clone())
+        .collect::<Vec<_>>();
+    (!expected_variants.is_empty()).then_some(IrSchemaVariantRefinement { expected_variants })
 }
 
 fn ir_schema_dispatch_field(

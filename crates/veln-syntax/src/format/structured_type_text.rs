@@ -128,6 +128,10 @@ fn prepare_expr(expr: &mut Expr, source: &str) {
             prepare_expr(input, source);
             prepare_expr(base, source);
         }
+        ExprKind::SchemaValidate { value, base, .. } => {
+            prepare_expr(value, source);
+            prepare_expr(base, source);
+        }
         ExprKind::SchemaEncode { value, .. }
         | ExprKind::FieldAccess { base: value, .. }
         | ExprKind::Try { expr: value, .. }

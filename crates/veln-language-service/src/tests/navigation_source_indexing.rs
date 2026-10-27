@@ -2,6 +2,46 @@ mod navigation_source_indexing_tests {
     use super::*;
 
     #[test]
+    fn schema_validation_indexes_nested_symbols_in_both_operands() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type State\n",
+                "  Ready\n",
+                "end\n\n",
+                "effect Fetch\n",
+                "  value() -> {state: State}\n",
+                "  offset() -> ByteOffset\n",
+                "end\n\n",
+                "handler gate() for Fetch\n",
+                "  value() => {state: Ready}\n",
+                "  offset() => byte_offset(0)?\n",
+                "end\n\n",
+                "schema Packet\n",
+                "  state: State::Ready\n",
+                "end\n\n",
+                "fn check() -> () effects [Fetch]\n",
+                "  validate Packet from identity<State::Ready>(handle perform Fetch::value() with gate()) at offset_identity<State::Ready>(handle perform Fetch::offset() with gate())\n",
+                "end\n",
+            ),
+        )];
+
+        for (column, kind) in [
+            (62, SymbolKind::Effect),
+            (69, SymbolKind::EffectOperation),
+            (82, SymbolKind::Handler),
+            (138, SymbolKind::Effect),
+            (145, SymbolKind::EffectOperation),
+            (159, SymbolKind::Handler),
+            (40, SymbolKind::Constructor),
+            (116, SymbolKind::Constructor),
+        ] {
+            let selected = query(sources.clone(), "main.veln", 20, column).unwrap();
+            assert_eq!(selected.selected_symbol.kind, kind, "column {column}");
+        }
+    }
+
+    #[test]
     fn mixed_workspace_indexes_keep_effect_handler_and_dependency_schema_navigation() {
         let dependency = dependency_snapshot(
             "example/wire",

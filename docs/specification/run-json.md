@@ -250,6 +250,17 @@ These ids use schema-local field-path segments and the common bounded preview
 where bytes were inspected. A field-local validation offset identifies the
 owning field; a schema-level validation offset follows the decoded body.
 
+Format-neutral runtime refinement validation reports these result failures in
+`details.byte_diagnostic`, although validation performs no byte input:
+
+| ID | Additional fields |
+| --- | --- |
+| `schema.variant_refinement_mismatch` | The exact supplied `byte_offset`, a `field_path` starting at the terminal schema declaration and ending at the rejected direct field, and `reason` naming the actual and admitted variants. |
+| `schema.validation_offset_invalid` | The exact negative supplied `byte_offset`, the terminal schema declaration root in `field_path`, and `reason` naming the rejected offset. |
+
+Both failures retain the supplied offset. Their paths do not start at a public
+alias used to reach the terminal schema.
+
 ### Value diagnostic projection
 
 A source-visible `RuntimeValueDiagnostic` projects `details.value_diagnostic`.

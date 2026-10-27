@@ -146,6 +146,15 @@ fn collect_valid_schema_operation_leaf_spans(expr: &Expr, spans: &mut Vec<Source
                 spans.push(leaf.clone());
             }
         }
+        ExprKind::SchemaValidate {
+            schema_spans,
+            recovered,
+            ..
+        } => {
+            if !recovered && let Some(leaf) = schema_spans.last() {
+                spans.push(leaf.clone());
+            }
+        }
         _ => {}
     }
     expr.for_each_child(&mut |child| {

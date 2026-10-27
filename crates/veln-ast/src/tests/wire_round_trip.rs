@@ -3,12 +3,39 @@ use super::*;
 #[test]
 fn surface_wire_rejects_the_previous_layout_header() {
     let mut encoded = encode_surface_module(&lower_source("fn main() -> ()\n  ()\nend\n"));
-    assert_eq!(&encoded[..9], b"VLNAST22\n");
-    encoded.splice(..9, b"VLNAST21\n".iter().copied());
+    assert_eq!(&encoded[..9], b"VLNAST24\n");
+    encoded.splice(..9, b"VLNAST23\n".iter().copied());
 
     let error =
         decode_surface_module(&encoded).expect_err("previous wire layout should be rejected");
     assert_eq!(error, "invalid surface module wire header");
+}
+
+#[test]
+fn surface_wire_preserves_schema_validate_expression() {
+    let module = lower_source(
+        "fn check(value: {state: State}, offset: ByteOffset) -> ()\n  validate Packet from value at offset\nend\n",
+    );
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+    assert_eq!(encode_surface_module(&decoded), encoded);
+    let BodyLineKind::Expr { expr } = &decoded.functions[0].body[0].kind else {
+        panic!("expected expression body line");
+    };
+    let ExprKind::SchemaValidate {
+        schema,
+        schema_spans,
+        ..
+    } = &expr.kind
+    else {
+        panic!("expected schema validation expression");
+    };
+    assert_eq!(schema, &["Packet"]);
+    assert_eq!(schema_spans.len(), 1);
+    assert_eq!(
+        (schema_spans[0].start.column, schema_spans[0].end.column),
+        (12, 18)
+    );
 }
 
 #[test]

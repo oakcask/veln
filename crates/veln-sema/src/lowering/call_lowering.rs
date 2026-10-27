@@ -586,6 +586,54 @@ impl<'a> CoreLowerer<'a> {
         )
     }
 
+    pub(super) fn lower_schema_validate(
+        &mut self,
+        expr: &Expr,
+        schema: &[String],
+        value: &Expr,
+        base: &Expr,
+    ) -> CoreExpr {
+        let signature = self
+            .environment
+            .schema_runtime_validation_signature_in_owner(
+                schema,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            )
+            .cloned();
+        let params = signature
+            .as_ref()
+            .map(|signature| signature.params.iter().map(core_type).collect::<Vec<_>>());
+        let value = self.lower_expr(value, params.as_ref().and_then(|params| params.first()));
+        let base = self.lower_expr(
+            base,
+            params
+                .as_ref()
+                .and_then(|params| params.get(1))
+                .or(Some(&CoreType::named("ByteOffset", Vec::new()))),
+        );
+        let Some(signature) = signature else {
+            self.blockers.push(CoreBlocker::UnsupportedExpression {
+                node_id: expr.node_id,
+                reason: "schema_validate_expression".to_string(),
+            });
+            return self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing);
+        };
+        let schema_name = signature
+            .target_name
+            .strip_prefix(SCHEMA_REFINEMENT_VALIDATE_TARGET_PREFIX)
+            .unwrap_or_else(|| schema.last().map(String::as_str).unwrap_or("<missing>"))
+            .to_string();
+        self.core_expr(
+            expr,
+            core_type(&signature.return_type),
+            CoreExprKind::Call {
+                target: CoreCallTarget::SchemaRefinementValidate(schema_name),
+                args: vec![value, base],
+            },
+        )
+    }
+
     pub(super) fn validate_call_arity(
         &mut self,
         expr: &Expr,

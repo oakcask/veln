@@ -117,6 +117,15 @@ resolved finite ADT refinement also fails the semantic gate. The
 capability boundary, and the
 [diagnostic specification](diagnostics-json.md#diagnostic-families) defines
 the human and JSON output.
+An unresolved, wrong-kind, ambiguous, private, binary, or otherwise ineligible
+target in a parse-clean `validate Schema from value at offset` expression also
+fails the semantic gate. Human and JSON modes report the target-specific
+`schema.validate_expression` contract defined by the diagnostic specification.
+The checked
+[`schema-runtime-validation-targets-human`](../../examples/specification/check/schema-runtime-validation-targets-human/)
+and
+[`schema-runtime-validation-targets-json`](../../examples/specification/check/schema-runtime-validation-targets-json/)
+cases fix both command projections.
 The checked
 [`publication-closure`](../../examples/specification/check/adt-variant-refinement-publication-closure-human/)
 case verifies that one causal diagnostic blocks command success. Focused

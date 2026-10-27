@@ -214,13 +214,14 @@ grammar_line(266, "                  | \"<\" | \"<=\" | \">\" | \">=\" | \"<<\" 
 grammar_line(267, "                  | \"+\" | \"-\" | \"*\" | \"/\" | \"%\"").
 grammar_line(270, "PrefixExpr    ::= (\"not\" | \"-\" | \"~\") PrefixExpr | PostfixExpr").
 grammar_line(280, "PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | \"?\")*").
-grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | BeginExpr | \"(\" Expr \")\" | \"()\"").
+grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | SchemaValidate | BeginExpr | \"(\" Expr \")\" | \"()\"").
 grammar_line(300, "                  | Record | Dict | List | Match | If").
 grammar_line(300, "Hole          ::= (\"_\" | HoleName) SatisfyClause?").
 grammar_line(300, "SatisfyClause ::= \"satisfy\" Name \"=>\" SatisfyPredicate").
 grammar_line(301, "BeginExpr     ::= \"begin\" NL Body \"end\"").
 grammar_line(305, "SchemaDecode  ::= \"decode\" MemberPath \"from\" Expr \"at\" Expr").
 grammar_line(307, "SchemaEncode  ::= \"encode\" MemberPath \"from\" Expr").
+grammar_line(309, "SchemaValidate ::= \"validate\" MemberPath \"from\" Expr \"at\" Expr").
 grammar_line(308, "Perform       ::= \"perform\" MemberPath \"::\" Name \"(\" ArgList? \")\"").
 grammar_line(309, "Handle        ::= \"handle\" Expr \"with\" MemberPath \"(\" ArgList? \")\"").
 grammar_line(310, "Call          ::= \"(\" ArgList? \")\"").
@@ -1089,6 +1090,7 @@ primary_expr --> perform_expr.
 primary_expr --> handle_expr.
 primary_expr --> schema_decode_expr.
 primary_expr --> schema_encode_expr.
+primary_expr --> schema_validate_expr.
 primary_expr --> name_path.
 primary_expr --> tok(lparen), nls, tok(rparen).
 primary_expr --> tok(lparen), nls, expr, nls, tok(rparen).
@@ -1134,6 +1136,14 @@ schema_encode_expr -->
     tok(encode),
     member_path,
     tok(from),
+    expr.
+
+schema_validate_expr -->
+    ident_text("validate"),
+    member_path,
+    tok(from),
+    expr,
+    tok(at),
     expr.
 
 perform_expr -->

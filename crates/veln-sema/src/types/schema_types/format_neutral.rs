@@ -42,6 +42,70 @@ pub(super) fn format_neutral_schema_decode_function_signature_for_schema(
     })
 }
 
+pub(crate) fn format_neutral_schema_runtime_validation_types(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    adts: &AdtRegistry,
+) -> Option<(Type, Type)> {
+    if schema.format.is_some()
+        || !schema.validations.is_empty()
+        || schema
+            .fields
+            .iter()
+            .any(|field| field.where_clause.is_some())
+    {
+        return None;
+    }
+    let refined_fields = format_neutral_schema_encode_record_fields(module, schema, adts)?;
+    let mut erased_fields = Vec::with_capacity(refined_fields.len());
+    let mut has_refinement = false;
+    for (name, refined) in &refined_fields {
+        let erased = match refined {
+            Type::VariantRefinement {
+                name,
+                identity,
+                args,
+                unresolved_alternatives,
+                ..
+            } if unresolved_alternatives.is_empty()
+                && args
+                    .iter()
+                    .all(|arg| !format_neutral_type_contains_refinement(arg)) =>
+            {
+                has_refinement = true;
+                Type::resolved_named(name.clone(), identity.clone(), args.clone())
+            }
+            _ if !format_neutral_type_contains_refinement(refined) => refined.clone(),
+            _ => return None,
+        };
+        erased_fields.push((name.clone(), erased));
+    }
+    has_refinement.then_some((Type::Record(erased_fields), Type::Record(refined_fields)))
+}
+
+fn format_neutral_type_contains_refinement(ty: &Type) -> bool {
+    match ty {
+        Type::VariantRefinement { .. } => true,
+        Type::Named { args, .. } => args.iter().any(format_neutral_type_contains_refinement),
+        Type::Record(fields) => fields
+            .iter()
+            .any(|(_, field_ty)| format_neutral_type_contains_refinement(field_ty)),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            ..
+        } => {
+            params.iter().any(format_neutral_type_contains_refinement)
+                || variadic
+                    .as_deref()
+                    .is_some_and(format_neutral_type_contains_refinement)
+                || format_neutral_type_contains_refinement(return_type)
+        }
+        Type::Unknown => false,
+    }
+}
+
 pub(crate) fn format_neutral_schema_decode_record_fields(
     module: &SurfaceModule,
     schema: &SchemaDecl,

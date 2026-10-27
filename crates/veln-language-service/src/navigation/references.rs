@@ -289,6 +289,11 @@ fn queue_cleanup_expr_children<'a>(
             pending.extend(args.iter().map(CleanupReferenceWork::Expr));
         }
         ExprKind::SchemaDecode { input, base, .. }
+        | ExprKind::SchemaValidate {
+            value: input,
+            base,
+            ..
+        }
         | ExprKind::Binary {
             left: input,
             right: base,
@@ -357,6 +362,7 @@ fn queue_structured_cleanup_expr_children<'a>(
         | ExprKind::Perform { .. }
         | ExprKind::List(_)
         | ExprKind::SchemaDecode { .. }
+        | ExprKind::SchemaValidate { .. }
         | ExprKind::Binary { .. } => unreachable!("linear expression children handled first"),
     }
 }

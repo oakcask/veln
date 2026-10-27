@@ -11,6 +11,14 @@ impl<'a> ExprParser<'a> {
             TokenKind::String => self.parse_literal_primary(token, ExprKind::StringLiteral),
             TokenKind::Int => self.parse_literal_primary(token, ExprKind::IntLiteral),
             TokenKind::Float => self.parse_literal_primary(token, ExprKind::FloatLiteral),
+            TokenKind::Ident
+                if token.text == crate::VALIDATE_MARKER
+                    && self.tokens.get(self.cursor + 1).is_some_and(|next| {
+                        is_contextual_identifier(next.kind) || next.kind == TokenKind::From
+                    }) =>
+            {
+                self.parse_schema_validate_primary(token)
+            }
             TokenKind::Ident | TokenKind::Callsite | TokenKind::Handler => self.parse_name_path(),
             TokenKind::Perform => self.parse_perform_primary(token),
             TokenKind::Handle if self.peek_kind(1) == Some(TokenKind::DoubleColon) => {
@@ -214,6 +222,37 @@ impl<'a> ExprParser<'a> {
         }
     }
 
+    pub(super) fn parse_schema_validate_primary(&mut self, token: Token) -> Expr {
+        let start = token.range;
+        let diagnostic_count = self.diagnostics.len();
+        self.bump();
+        let (schema, schema_spans) = self.parse_schema_operation_path("validate");
+        self.expect_expr_token(
+            TokenKind::From,
+            "parse.schema_validate_expression",
+            "schema validate expression is missing `from`",
+            vec!["from"],
+        );
+        let value = self.parse_expr(0);
+        self.expect_expr_token(
+            TokenKind::At,
+            "parse.schema_validate_expression",
+            "schema validate expression is missing `at`",
+            vec!["at"],
+        );
+        let base = self.parse_expr(0);
+        Expr {
+            span: self.source.span(start.cover(lhs_range(&base))),
+            kind: ExprKind::SchemaValidate {
+                schema,
+                schema_spans,
+                recovered: self.diagnostics.len() != diagnostic_count,
+                value: Box::new(value),
+                base: Box::new(base),
+            },
+        }
+    }
+
     pub(super) fn parse_schema_operation_path(
         &mut self,
         operation: &str,
@@ -225,6 +264,11 @@ impl<'a> ExprParser<'a> {
                 "parse.schema_encode_expression",
                 "schema encode expression is missing a schema path",
                 "schema encode expression has an incomplete schema path",
+            ),
+            "validate" => (
+                "parse.schema_validate_expression",
+                "schema validate expression is missing a schema path",
+                "schema validate expression has an incomplete schema path",
             ),
             _ => (
                 "parse.schema_decode_expression",

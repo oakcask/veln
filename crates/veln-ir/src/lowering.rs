@@ -426,6 +426,9 @@ fn lower_schema_call_target(target: &CoreCallTarget) -> Option<IrCallTarget> {
             Some(IrCallTarget::SchemaEncodeStep(name.clone()))
         }
         CoreCallTarget::SchemaValidate(name) => Some(IrCallTarget::SchemaValidate(name.clone())),
+        CoreCallTarget::SchemaRefinementValidate(name) => {
+            Some(IrCallTarget::SchemaRefinementValidate(name.clone()))
+        }
         _ => None,
     }
 }

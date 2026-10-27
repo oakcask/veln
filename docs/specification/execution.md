@@ -378,6 +378,18 @@ install that production client boundary.
   against the schema-local visible record shape and return
   `Result<ByteChunk, EncodeError>`. Public schema aliases lower through the
   same generated boundary as the aliased schema.
+- Explicit schema validation evaluates its erased base-record value once and
+  then its `ByteOffset` once. For supported direct refinement fields, runtime
+  checks follow schema field declaration order and accept constructors in the
+  refinement's source-ADT declaration order. Success returns the identical
+  record value in `Ok` with the refined static type. The first excluded
+  constructor returns `Err(DecodeErrorWithReason(...))` with
+  `schema.variant_refinement_mismatch`, the exact supplied offset, and a JSON
+  Pointer formed from the terminal schema declaration and field names. Pointer
+  tokens escape `~` as `~0` and `/` as `~1`; selecting a public alias does not
+  replace the terminal declaration root. A negative supplied offset fails
+  before field traversal with `schema.validation_offset_invalid` at the schema
+  root. Validation performs no byte I/O and does not invoke a schema decoder.
 - Compatibility generated binary schema decode helpers read fields in
   declaration order and return the schema-local visible record shape. They are
   retained for old fixtures and runtime adapter coverage, not as the public
@@ -640,8 +652,18 @@ than degrading it to a generic rendered result value.
 ## References
 
 - Cross-package function and handler selection through reachability, lowering,
-  and JVM linkage is checked in
-  `crates/veln-backend-jvm/src/tests/basic_backend.rs`.
+  and JVM linkage, together with validation operand evaluation order, are
+  checked in `crates/veln-backend-jvm/src/tests/basic_backend.rs`.
+- Direct-field runtime refinement success and declaration-order failure are
+  checked by
+  [`schema-runtime-refinement-validation`](../../examples/specification/run/schema-runtime-refinement-validation/).
+  Focused command projections are checked in
+  [`human`](../../examples/specification/run/schema-runtime-refinement-validation-human/)
+  and
+  [`JSON`](../../examples/specification/run/schema-runtime-refinement-validation-json/)
+  forms. Imported public-alias resolution and terminal-declaration paths are
+  checked by
+  [`schema-runtime-refinement-validation-alias`](../../examples/specification/run/schema-runtime-refinement-validation-alias/).
 - Format-neutral refinement encode behavior is checked by
   [`adt-variant-refinement-format-neutral-schema-encode`](../../examples/specification/run/adt-variant-refinement-format-neutral-schema-encode/)
   and

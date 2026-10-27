@@ -237,19 +237,46 @@ pub(super) fn schema_encode_function_signatures(
 
 pub(super) fn schema_validate_function_signatures(
     module: &SurfaceModule,
+    adts: &AdtRegistry,
 ) -> Vec<FunctionSignature> {
     module
         .schemas
         .iter()
-        .filter_map(|schema| schema_validate_function_signature_for_schema(module, schema))
+        .filter_map(|schema| schema_validate_function_signature_for_schema(module, schema, adts))
         .collect()
 }
 
 fn schema_validate_function_signature_for_schema(
     module: &SurfaceModule,
     schema: &SchemaDecl,
+    adts: &AdtRegistry,
 ) -> Option<FunctionSignature> {
     let schema_name = schema.name.as_ref()?;
+    if schema.format.is_none() {
+        let (erased_type, refined_type) =
+            format_neutral_schema_runtime_validation_types(module, schema, adts)?;
+        return Some(FunctionSignature {
+            name: schema_runtime_validation_function_name(schema_name),
+            target_name: format!(
+                "{}{}",
+                SCHEMA_REFINEMENT_VALIDATE_TARGET_PREFIX,
+                crate::schema::schema_link_name(module, schema)
+            ),
+            module_name: schema.module_name.clone(),
+            package_name: schema.package_name.clone(),
+            visibility: schema.visibility,
+            params: vec![erased_type, Type::named("ByteOffset", Vec::new())],
+            variadic: None,
+            return_type: Type::named(
+                "Result",
+                vec![refined_type, Type::named("DecodeError", Vec::new())],
+            ),
+            effects: Vec::new(),
+            callsite: false,
+            node_id: schema.node_id,
+            span: schema.span.clone(),
+        });
+    }
     if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
         return None;
     }
@@ -367,6 +394,10 @@ pub(crate) fn schema_encode_function_name(schema_name: &str) -> String {
 
 pub(crate) fn schema_validate_function_name(schema_name: &str) -> String {
     format!("validate_{}", snake_case_identifier(schema_name))
+}
+
+pub(crate) fn schema_runtime_validation_function_name(schema_name: &str) -> String {
+    format!("validate_runtime_{}", snake_case_identifier(schema_name))
 }
 
 fn snake_case_identifier(name: &str) -> String {

@@ -1,6 +1,379 @@
 use super::*;
 
 #[test]
+fn explicit_schema_validate_expression_erases_direct_refinement_inputs() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Connected\n",
+            "  Closing\n",
+            "  Closed\n",
+            "end\n",
+            "schema UnrefinedPacket\n",
+            "  state: State\n",
+            "end\n",
+            "schema ConnectedPacket\n",
+            "  state: State::Connected | State::Closing\n",
+            "  states: List<State>\n",
+            "  nested: {state: State}\n",
+            "  composed: UnrefinedPacket\n",
+            "end\n",
+            "fn check(packet: {state: State, states: List<State>, nested: {state: State}, composed: {state: State}}, base: ByteOffset) -> Result<{state: State::Connected | State::Closing, states: List<State>, nested: {state: State}, composed: {state: State}}, DecodeError>\n",
+            "  validate ConnectedPacket from packet at base\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let function = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "check")
+        .expect("validation function should lower");
+    let IrStmtKind::Return { value } = &function.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaRefinementValidate(name),
+            args,
+        } if name == "ConnectedPacket" && args.len() == 2
+    ));
+    assert_eq!(
+        ir.schema_decoders
+            .iter()
+            .find(|schema| schema.schema_name == "ConnectedPacket")
+            .expect("validation schema metadata")
+            .fields[0]
+            .variant_refinement
+            .as_ref()
+            .map(|refinement| refinement.expected_variants.as_slice()),
+        Some(["Connected".to_string(), "Closing".to_string()].as_slice())
+    );
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "ConnectedPacket")
+        .expect("validation schema metadata");
+    assert!(
+        schema.fields[1..]
+            .iter()
+            .all(|field| field.variant_refinement.is_none())
+    );
+}
+
+#[test]
+fn explicit_schema_validate_expression_checks_erased_inputs_and_offset() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "type OtherState\n  Connected\nend\n",
+            "type Box<A>\n  Wrapped(value: A)\nend\n",
+            "schema Packet\n",
+            "  state: State::Connected\n",
+            "  boxed: Box<Int>::Wrapped\n",
+            "end\n",
+            "fn wrong_identity(packet: {state: OtherState, boxed: Box<Int>}, base: ByteOffset) -> ()\n",
+            "  validate Packet from packet at base\n  ()\nend\n",
+            "fn wrong_generic(packet: {state: State, boxed: Box<String>}, base: ByteOffset) -> ()\n",
+            "  validate Packet from packet at base\n  ()\nend\n",
+            "fn wrong_shape(packet: {state: State}, base: ByteOffset) -> ()\n",
+            "  validate Packet from packet at base\n  ()\nend\n",
+            "fn wrong_offset(packet: {state: State, boxed: Box<Int>}, base: Int) -> ()\n",
+            "  validate Packet from packet at base\n  ()\nend\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+    let mismatches = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
+        .collect::<Vec<_>>();
+
+    assert_eq!(mismatches.len(), 4, "{:#?}", lowered.diagnostics);
+    for constraint in ["schema_validation_value", "schema_validation_offset"] {
+        assert!(
+            mismatches.iter().any(|diagnostic| {
+                matches!(
+                    &diagnostic.details,
+                    veln_diagnostics::JsonValue::Object(entries)
+                        if entries.iter().any(|(key, value)| {
+                            key == "constraint"
+                                && value
+                                    == &veln_diagnostics::JsonValue::string(constraint)
+                        })
+                )
+            }),
+            "missing {constraint}: {mismatches:#?}"
+        );
+    }
+    for expected in ["OtherState", "Box<String>", "boxed", "ByteOffset"] {
+        assert!(
+            mismatches
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(expected)),
+            "missing mismatch for {expected}: {mismatches:#?}"
+        );
+    }
+}
+
+#[test]
+fn explicit_schema_validate_expression_rejects_unsupported_refinement_shapes() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "schema RefinedChild\n  state: State::Connected\nend\n",
+            "schema NestedPacket\n  direct: State::Connected\n  nested: {state: State::Connected}\nend\n",
+            "schema ContainerPacket\n  direct: State::Connected\n  states: List<State::Connected>\nend\n",
+            "schema ComposedPacket\n  direct: State::Connected\n  child: RefinedChild\nend\n",
+            "schema PredicatePacket\n  direct: State::Connected where true\nend\n",
+            "fn nested(value: {direct: State, nested: {state: State}}, base: ByteOffset) -> ()\n",
+            "  validate NestedPacket from value at base\n  ()\nend\n",
+            "fn container(value: {direct: State, states: List<State>}, base: ByteOffset) -> ()\n",
+            "  validate ContainerPacket from value at base\n  ()\nend\n",
+            "fn composed(value: {direct: State, child: {state: State}}, base: ByteOffset) -> ()\n",
+            "  validate ComposedPacket from value at base\n  ()\nend\n",
+            "fn predicate(value: {direct: State}, base: ByteOffset) -> ()\n",
+            "  validate PredicatePacket from value at base\n  ()\nend\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+    let validation_diagnostics = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.validate_expression")
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        validation_diagnostics.len(),
+        4,
+        "{:#?}",
+        lowered.diagnostics
+    );
+    for schema in [
+        "NestedPacket",
+        "ContainerPacket",
+        "ComposedPacket",
+        "PredicatePacket",
+    ] {
+        assert!(
+            validation_diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(schema)),
+            "missing unsupported target {schema}: {validation_diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
+fn explicit_schema_validate_expression_resolves_alias_and_rejects_invalid_targets() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type State\n  pub Connected\n  pub Closed\nend\n",
+            "pub schema Packet\n  state: State::Connected\nend\n",
+            "pub schema AliasPacket = Packet\n",
+            "schema BinaryPacket\n  format binary\n  value: UInt8\nend\n",
+            "fn good(value: {state: State}, base: ByteOffset) -> Result<{state: State::Connected}, DecodeError>\n",
+            "  validate AliasPacket from value at base\nend\n",
+            "fn bad(value: {state: State}, base: ByteOffset) -> ()\n",
+            "  validate Missing from value at base\n",
+            "  validate State from value at base\n",
+            "  validate BinaryPacket from value at base\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+    let validate_diagnostics = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.validate_expression")
+        .collect::<Vec<_>>();
+    assert_eq!(validate_diagnostics.len(), 3, "{:#?}", lowered.diagnostics);
+    for reason in ["unresolved_schema", "wrong_kind"] {
+        assert!(
+            validate_diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    &diagnostic.details,
+                    veln_diagnostics::JsonValue::Object(entries)
+                        if entries.iter().any(|(key, value)| {
+                            key == "reason"
+                                && value == &veln_diagnostics::JsonValue::string(reason)
+                        })
+                )
+            }),
+            "missing reason {reason}: {validate_diagnostics:#?}"
+        );
+    }
+    assert!(validate_diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("eligible format-neutral schema")
+            && diagnostic.message.contains("BinaryPacket")
+    }));
+}
+
+#[test]
+fn explicit_schema_validate_expression_selects_schema_before_equal_spelling_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "type Packet\n  Packet\nend\n",
+            "schema Packet\n  state: State::Connected\nend\n",
+            "fn check(value: {state: State}, base: ByteOffset) -> Result<{state: State::Connected}, DecodeError>\n",
+            "  validate Packet from value at base\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let function = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "check")
+        .expect("validation function should lower");
+    let IrStmtKind::Return { value } = &function.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaRefinementValidate(name),
+            args,
+        } if name == "Packet" && args.len() == 2
+    ));
+}
+
+#[test]
+fn explicit_schema_validate_expression_reports_ambiguous_schema_qualifier() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use first as wire\n",
+            "use second as wire\n",
+            "fn check(value: {state: Int}, base: ByteOffset) -> ()\n",
+            "  validate wire::Packet from value at base\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let first_source = SourceFile::new(
+        "first.veln",
+        "mod first\npub schema Packet\n  state: Int\nend\n",
+    );
+    let second_source = SourceFile::new(
+        "second.veln",
+        "mod second\npub schema Packet\n  state: Int\nend\n",
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let first = lower_surface_ast(&parse(&first_source).tree);
+    let second = lower_surface_ast(&parse(&second_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: app.types,
+        schemas: [first.schemas, second.schemas].concat(),
+        module_values: Vec::new(),
+        functions: [app.functions, first.functions, second.functions].concat(),
+        invalid_names: app.invalid_names,
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+    let diagnostic = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "schema.validate_expression")
+        .expect("ambiguous validation target should be diagnosed");
+    assert!(
+        diagnostic
+            .message
+            .contains("ambiguous in the schema namespace"),
+        "{diagnostic:#?}"
+    );
+    assert!(matches!(
+        &diagnostic.details,
+        veln_diagnostics::JsonValue::Object(entries)
+            if entries.iter().any(|(key, value)| {
+                key == "reason"
+                    && value == &veln_diagnostics::JsonValue::string("ambiguous_target")
+            })
+    ));
+}
+
+#[test]
+fn explicit_schema_validate_expression_rejects_inaccessible_private_target() {
+    let caller_source = SourceFile::new(
+        "other.test.veln",
+        concat!(
+            "mod other__test_companion\n",
+            "use math\n",
+            "fn check(value: {state: math::State}, base: ByteOffset) -> ()\n",
+            "  let checked: Result<{state: math::State::Connected}, DecodeError> = validate math::Packet from value at base\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "pub type State\n  pub Connected\n  pub Closed\nend\n",
+            "schema Packet\n  state: State::Connected\nend\n",
+        ),
+    );
+    let caller = lower_surface_ast(&parse(&caller_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let module = SurfaceModule {
+        module: caller.module,
+        uses: caller.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: target.types,
+        schemas: target.schemas,
+        module_values: Vec::new(),
+        functions: caller.functions,
+        invalid_names: Vec::new(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+    assert!(
+        lowered.diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.validate_expression"
+                && diagnostic.message
+                    == "schema validate expression schema `math::Packet` is private"
+        }),
+        "{:#?}",
+        lowered.diagnostics
+    );
+}
+
+#[test]
 fn generated_format_neutral_schema_decode_helpers_reject_functions_inside_record_fields() {
     let source = SourceFile::new(
         "main.veln",
@@ -417,6 +790,62 @@ fn explicit_schema_operations_resolve_public_schema_alias_to_target_schema() {
 }
 
 #[test]
+fn explicit_schema_validate_resolves_contextual_import_qualifier_and_public_alias() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use facade as handler\n",
+            "use wire\n",
+            "fn check(value: {state: wire::State}, base: ByteOffset) -> Result<{state: wire::State::Connected}, DecodeError>\n",
+            "  validate handler::AliasPacket from value at base\n",
+            "end\n",
+        ),
+    );
+    let facade_source = SourceFile::new(
+        "facade.veln",
+        concat!(
+            "mod facade\n",
+            "use wire\n",
+            "pub schema AliasPacket = wire::PublicPacket\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "pub type State\n  pub Connected\n  pub Closed\nend\n",
+            "pub schema PublicPacket\n  state: State::Connected\nend\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let facade = lower_surface_ast(&parse(&facade_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: [app.uses, facade.uses].concat(),
+        aliases: facade.aliases,
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: wire.types,
+        schemas: wire.schemas,
+        module_values: Vec::new(),
+        functions: app.functions,
+        invalid_names: Vec::new(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    assert_named_schema_boundary(
+        &lowered,
+        "check",
+        "PublicPacket",
+        ExpectedSchemaBoundary::Validate,
+    );
+}
+
+#[test]
 fn explicit_schema_decode_expression_reports_unresolved_private_and_wrong_kind_schema_paths() {
     let app_source = SourceFile::new(
         "app.veln",
@@ -574,6 +1003,7 @@ fn matching_companion_resolves_private_target_schema_operations_and_composition(
             "  let encoded: Result<ByteChunk, EncodeError> = encode math::Packet from value\n",
             "  let state: math::State::Hidden = math::State::Hidden\n",
             "  let refined: Result<{state: math::State::Hidden}, String> = encode math::RefinedPacket from {state: state}\n",
+            "  let validated: Result<{state: math::State::Hidden}, DecodeError> = validate math::RefinedPacket from {state: state} at offset\n",
             "  ()\n",
             "end\n",
         ),

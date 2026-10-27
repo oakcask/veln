@@ -107,6 +107,11 @@ impl<'a> Classifier<'a> {
         {
             return self.simple(token, SemanticTokenType::Keyword);
         }
+        if token.text == veln_syntax::VALIDATE_MARKER
+            && self.ident_starts_schema_validate_expression()
+        {
+            return self.simple(token, SemanticTokenType::Keyword);
+        }
         if self.previous_significant_kind() == Some(TokenKind::Dot) {
             return self.simple(token, SemanticTokenType::Property);
         }
@@ -227,5 +232,16 @@ impl<'a> Classifier<'a> {
             .skip(self.cursor + 1)
             .find(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
             .map(|token| token.kind)
+    }
+
+    fn ident_starts_schema_validate_expression(&self) -> bool {
+        let mut significant = self.tokens[self.cursor + 1..]
+            .iter()
+            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+            .filter(|token| token.kind != TokenKind::Whitespace);
+        significant
+            .next()
+            .is_some_and(|token| token.kind.is_contextual_identifier())
+            && significant.any(|token| token.kind == TokenKind::From)
     }
 }

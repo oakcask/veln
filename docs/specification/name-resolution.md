@@ -45,8 +45,8 @@ Implemented checker namespaces are:
 Equal spellings in different namespaces are accepted where the source grammar
 permits them. A source position selects only the namespace fixed by that
 position. Type annotations select the type namespace even when a schema has the
-same spelling. Schema encode and decode expressions select the schema
-namespace. Effect lists and `perform Effect::operation(...)` forms select
+same spelling. Schema decode, encode, and runtime-validation expressions select
+the schema namespace. Effect lists and `perform Effect::operation(...)` forms select
 effect and operation namespaces. `handle Body with handler(...)` forms select
 the handler namespace. Ordinary value calls do not select schema, effect,
 handler, or operation declarations. Schema composition remains ambiguous when
@@ -352,12 +352,12 @@ leaves. The explicit qualifier uses a standard-library alias only when
 `prelude` selects that package alias. If both imports provide the exact name,
 the qualifier remains unresolved in either import order and does not fall back
 to the standard library. These rules apply consistently to direct, `Repeat`,
-array-payload, `decode`, and `encode` leaves. Written `prelude` imports still
+array-payload, `decode`, `encode`, and runtime-validation leaves. Written `prelude` imports still
 report `name.reserved`; a parse-clean reserved import participates in
 navigation precedence, while a syntax-recovered import does not. For a bare
 name, a same-named local schema, schema alias, type, or type alias blocks
-implicit prelude fallback in composition. In `decode` and
-`encode`, which select only the schema namespace, a local schema or schema
+implicit prelude fallback in composition. In `decode`, `encode`, and runtime
+validation, which select only the schema namespace, a local schema or schema
 alias blocks fallback while a local type or type alias does not. An ineligible
 declaration in the applicable namespace also blocks fallback. This includes a
 syntax-recovered local schema alias whose target is missing. A same-named local
@@ -790,13 +790,19 @@ type-role reference selects only the visible type declaration or supported
 direct-dependency public type-alias identity owned by the written qualifier.
 The alias identity remains separate from the target type identity.
 Schema operation selection uses the schema namespace. A bare schema path in a
-`decode` or `encode` expression selects a same-module schema declaration, or an
+`decode`, `encode`, or `validate Schema from value at offset` expression
+selects a same-module schema declaration, or an
 eligible implicit standard-library schema alias when no same-spelled local
 schema or alias blocks that fallback. A written import does not expose the
 imported module's schemas to bare schema operation paths. Imported schemas are
 selectable through accepted qualified schema paths, including
 import-alias-qualified paths. An ineligible same-module public schema alias
 blocks fallback to a same-spelled schema declaration.
+An equal-spelling type does not compete with a schema operation target because
+the operation does not search the type namespace. If two written imports own
+the same qualifier, a qualified schema operation path through that qualifier is
+ambiguous in the schema namespace and selects neither import, regardless of
+import order.
 
 When `veln.toml` contains manifest export data, `[modules]` is rejected and
 `[lib].exports` is checked as a list of public package-relative source files.

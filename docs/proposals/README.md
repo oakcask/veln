@@ -16,8 +16,9 @@ also states it.
 
 ## Ready
 
-- Explicit runtime validation of a base-typed record against a format-neutral
-  schema, composed with ordinary decoder functions:
+- Recursive runtime validation through nested records, containers, source-ADT
+  payloads, composed format-neutral schemas, predicates, and ordinary decoder
+  functions, extending the implemented direct-field operation:
   [schema-runtime-refinement-validation.md](schema-runtime-refinement-validation.md).
 - With current typed module `let` source syntax and formatting as implemented
   prerequisites and same-module semantic analysis implemented, add imported

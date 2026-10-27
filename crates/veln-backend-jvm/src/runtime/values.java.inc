@@ -537,6 +537,10 @@
         return Result.ok(value);
     }
 
+    private static Result okPreservingValue(Object value) {
+        return new Result(true, value);
+    }
+
     public static Result err(Object value) {
         return Result.err(value);
     }

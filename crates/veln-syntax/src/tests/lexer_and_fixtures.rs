@@ -179,6 +179,9 @@ fn rejected_source_surface_fixtures_produce_diagnostics() {
             Some("defer-missing-block-end.veln") => Some("parse.defer_missing_end"),
             Some("remainder-schema-field-predicate.veln") => Some("parse.schema_field_where"),
             Some("remainder-schema-validation.veln") => Some("parse.schema_validation"),
+            Some("schema-runtime-validation-missing-path.veln") => {
+                Some("parse.schema_validate_expression")
+            }
             _ => None,
         };
         if let Some(expected_diagnostic) = expected_diagnostic {

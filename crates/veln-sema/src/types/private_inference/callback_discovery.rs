@@ -474,6 +474,7 @@ pub(crate) fn private_prelude_callback_expr_references_slot(
         ExprKind::Perform { .. }
         | ExprKind::Handle { .. }
         | ExprKind::SchemaDecode { .. }
+        | ExprKind::SchemaValidate { .. }
         | ExprKind::SchemaEncode { .. }
         | ExprKind::FieldAccess { .. }
         | ExprKind::Try { .. }
@@ -573,6 +574,14 @@ pub(crate) fn private_prelude_callback_wrapped_expr_references_slot(
         | ExprKind::Try { expr: value, .. }
         | ExprKind::Prefix { expr: value, .. } => {
             private_prelude_callback_expr_references_slot(value, None, context)
+        }
+        ExprKind::SchemaValidate { value, base, .. } => {
+            private_prelude_callback_expr_references_slot(value, None, context)
+                || private_prelude_callback_expr_references_slot(
+                    base,
+                    Some(&Type::named("ByteOffset", Vec::new())),
+                    context,
+                )
         }
         _ => false,
     }

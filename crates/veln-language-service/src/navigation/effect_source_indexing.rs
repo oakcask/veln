@@ -418,6 +418,10 @@ fn collect_perform_effect_regions(expr: &Expr, regions: &mut Vec<(usize, usize)>
         ExprKind::SchemaEncode { value, .. } => {
             collect_perform_effect_regions(value, regions);
         }
+        ExprKind::SchemaValidate { value, base, .. } => {
+            collect_perform_effect_regions(value, regions);
+            collect_perform_effect_regions(base, regions);
+        }
         ExprKind::Record(fields) => {
             for field in fields {
                 collect_perform_effect_regions(&field.expr, regions);

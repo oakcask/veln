@@ -32,6 +32,12 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::SchemaEncode { schema, value } => {
                 self.infer_schema_encode(expr, schema, value)
             }
+            ExprKind::SchemaValidate {
+                schema,
+                schema_spans,
+                value,
+                base,
+            } => self.infer_schema_validate(expr, schema, schema_spans, value, base),
             ExprKind::FieldAccess {
                 base,
                 field,
@@ -357,7 +363,13 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         schema: &[String],
     ) {
-        self.push_schema_operation_expression_diagnostic(expr, schema, "decode", "decode_step");
+        self.push_schema_operation_expression_diagnostic(
+            expr,
+            schema,
+            "decode",
+            "decode_step",
+            None,
+        );
     }
 
     pub(super) fn infer_schema_encode(
@@ -419,7 +431,76 @@ impl<'a> FunctionChecker<'a> {
                     &unsupported.field,
                 ));
         }
-        self.push_schema_operation_expression_diagnostic(expr, schema, "encode", "encode");
+        self.push_schema_operation_expression_diagnostic(expr, schema, "encode", "encode", None);
+    }
+
+    pub(super) fn infer_schema_validate(
+        &mut self,
+        expr: &Expr,
+        schema: &[String],
+        schema_spans: &[SourceSpan],
+        value: &Expr,
+        base: &Expr,
+    ) -> Type {
+        let signature = self
+            .environment
+            .schema_runtime_validation_signature_in_owner(
+                schema,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            )
+            .cloned();
+        let value_expected = signature
+            .as_ref()
+            .and_then(|signature| signature.params.first())
+            .cloned()
+            .map(|ty| ExpectedType {
+                ty,
+                source: ExpectedTypeSource::DeclaredParameter,
+                origin_node_id: expr.node_id,
+                origin_span: Some(expr.span.clone()),
+                origin_message: "Schema validation value must match the erased schema record.",
+            });
+        let value_actual = self.infer_expr(value, value_expected.as_ref());
+        if let Some(expected) = &value_expected {
+            self.check_assignable(
+                value,
+                &expected.ty,
+                &value_actual,
+                expected,
+                "schema_validation_value",
+            );
+        }
+        let offset_expected = ExpectedType {
+            ty: Type::named("ByteOffset", Vec::new()),
+            source: ExpectedTypeSource::DeclaredParameter,
+            origin_node_id: expr.node_id,
+            origin_span: Some(expr.span.clone()),
+            origin_message: "Schema validation offset must be a ByteOffset.",
+        };
+        let offset_actual = self.infer_expr(base, Some(&offset_expected));
+        self.check_assignable(
+            base,
+            &offset_expected.ty,
+            &offset_actual,
+            &offset_expected,
+            "schema_validation_offset",
+        );
+        let Some(signature) = signature else {
+            let mut schema_span = schema_spans.first().cloned();
+            if let (Some(span), Some(last)) = (&mut schema_span, schema_spans.last()) {
+                span.end = last.end;
+            }
+            self.push_schema_operation_expression_diagnostic(
+                expr,
+                schema,
+                "validate",
+                "runtime_validate",
+                schema_span.as_ref(),
+            );
+            return Type::Unknown;
+        };
+        signature.return_type
     }
 
     pub(super) fn push_schema_operation_expression_diagnostic(
@@ -428,6 +509,7 @@ impl<'a> FunctionChecker<'a> {
         schema: &[String],
         operation: &str,
         operation_detail: &str,
+        primary_span: Option<&SourceSpan>,
     ) {
         let symbol = if schema.is_empty() {
             "<missing>".to_string()
@@ -444,6 +526,7 @@ impl<'a> FunctionChecker<'a> {
             SchemaReferenceErrorKind::Unresolved => "unresolved_schema",
             SchemaReferenceErrorKind::Private => "private_schema",
             SchemaReferenceErrorKind::WrongKind => "wrong_kind",
+            SchemaReferenceErrorKind::Ambiguous => "ambiguous_target",
         };
         let message = match (error.kind, error.resolved_kind) {
             (SchemaReferenceErrorKind::Private, _) => {
@@ -452,11 +535,17 @@ impl<'a> FunctionChecker<'a> {
             (SchemaReferenceErrorKind::WrongKind, Some(kind)) => {
                 format!("schema {operation} expression target `{symbol}` is a {kind}, not a schema")
             }
+            (SchemaReferenceErrorKind::Ambiguous, Some(kind)) => format!(
+                "schema {operation} expression target `{symbol}` is ambiguous between a schema and a {kind}"
+            ),
+            (SchemaReferenceErrorKind::Ambiguous, None) => format!(
+                "schema {operation} expression target `{symbol}` is ambiguous in the schema namespace"
+            ),
             _ => {
-                let eligibility = if operation == "encode" {
-                    "eligible schema encode helper"
-                } else {
-                    "eligible binary schema"
+                let eligibility = match operation {
+                    "encode" => "eligible schema encode helper",
+                    "validate" => "eligible format-neutral schema",
+                    _ => "eligible binary schema",
                 };
                 format!(
                     "schema {operation} expression cannot resolve `{symbol}` as an {eligibility}"
@@ -488,7 +577,7 @@ impl<'a> FunctionChecker<'a> {
             Severity::Error,
             DiagnosticKind::Type,
             message,
-            Some(expr.span.clone()),
+            Some(primary_span.unwrap_or(&expr.span).clone()),
             JsonValue::object(details),
         );
         if error.kind == SchemaReferenceErrorKind::Private

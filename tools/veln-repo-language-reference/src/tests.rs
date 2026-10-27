@@ -71,6 +71,7 @@ macro_rules! mini_grammar {
             "SchemaFieldType ::= TypeText\n",
             "SchemaDecode  ::= \"decode\" MemberPath \"from\" Expr \"at\" Expr\n",
             "SchemaEncode  ::= \"encode\" MemberPath \"from\" Expr\n",
+            "SchemaValidate ::= \"validate\" MemberPath \"from\" Expr \"at\" Expr\n",
             "HoleName      ::= \"_\" identifier-continue+\n",
             "LetPattern    ::= \"_\"\n",
             "PackageString ::= String\n",

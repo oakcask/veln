@@ -423,6 +423,8 @@ fn decode_error_result_failure_diagnostic(
         "codec.unsupported_feature" => unsupported_feature_result_failure_diagnostic,
         "codec.trailing_input" => trailing_input_result_failure_diagnostic,
         "codec.consumed_count_invalid" => consumed_count_invalid_result_failure_diagnostic,
+        "schema.variant_refinement_mismatch" => schema_variant_refinement_result_failure_diagnostic,
+        "schema.validation_offset_invalid" => schema_offset_result_failure_diagnostic,
         _ => {
             return generic_decode_error_result_failure_diagnostic(
                 failure,
@@ -434,6 +436,38 @@ fn decode_error_result_failure_diagnostic(
         }
     };
     reason_diagnostic(failure, byte_diagnostic, byte_entries, &id, byte_offset)
+}
+
+fn schema_variant_refinement_result_failure_diagnostic(
+    failure: &TestFailure,
+    byte_diagnostic: &JsonValue,
+    byte_entries: &[(String, JsonValue)],
+    id: &str,
+    byte_offset: i64,
+) -> Diagnostic {
+    let diagnostic = start_decode_reason_diagnostic(
+        byte_diagnostic,
+        byte_entries,
+        id,
+        format!("schema variant refinement mismatch at byte offset {byte_offset}"),
+    );
+    finish_decode_reason_diagnostic(diagnostic, failure, byte_entries, "Variant mismatch reason")
+}
+
+fn schema_offset_result_failure_diagnostic(
+    failure: &TestFailure,
+    byte_diagnostic: &JsonValue,
+    byte_entries: &[(String, JsonValue)],
+    id: &str,
+    byte_offset: i64,
+) -> Diagnostic {
+    let diagnostic = start_decode_reason_diagnostic(
+        byte_diagnostic,
+        byte_entries,
+        id,
+        format!("schema validation offset is invalid at byte offset {byte_offset}"),
+    );
+    finish_decode_reason_diagnostic(diagnostic, failure, byte_entries, "Invalid offset reason")
 }
 
 fn generic_decode_error_result_failure_diagnostic(

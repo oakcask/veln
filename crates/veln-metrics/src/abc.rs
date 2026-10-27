@@ -121,6 +121,11 @@ fn count_expr_children(expr: &Expr, vector: &mut AbcVector) {
             base: second,
             ..
         }
+        | ExprKind::SchemaValidate {
+            value: first,
+            base: second,
+            ..
+        }
         | ExprKind::Binary {
             left: first,
             right: second,

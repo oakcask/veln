@@ -2108,7 +2108,7 @@
             mergeDecodeErrorReasonByteContext(details, reasonValue);
         }
         details.add(DiagnosticDetail.string("field_path_display", fieldPath));
-        return new ByteDiagnostic(id, byteOffset, encodeErrorFieldPath(fieldPath), details);
+        return new ByteDiagnostic(id, byteOffset, decodeErrorFieldPath(fieldPath), details);
     }
 
     private static void mergeChecksumMismatchReason(
@@ -2964,6 +2964,22 @@
             if (segment.isEmpty()) {
                 continue;
             }
+            path.add(new ByteDiagnosticFieldPathSegment(index == 0 ? "schema" : "field", segment));
+        }
+        return path;
+    }
+
+    private static java.util.List<ByteDiagnosticFieldPathSegment> decodeErrorFieldPath(
+        String fieldPath
+    ) {
+        if (fieldPath == null || !fieldPath.startsWith("/")) {
+            return encodeErrorFieldPath(fieldPath);
+        }
+        java.util.ArrayList<ByteDiagnosticFieldPathSegment> path =
+            new java.util.ArrayList<ByteDiagnosticFieldPathSegment>();
+        String[] segments = fieldPath.substring(1).split("/", -1);
+        for (int index = 0; index < segments.length; index += 1) {
+            String segment = segments[index].replace("~1", "/").replace("~0", "~");
             path.add(new ByteDiagnosticFieldPathSegment(index == 0 ? "schema" : "field", segment));
         }
         return path;

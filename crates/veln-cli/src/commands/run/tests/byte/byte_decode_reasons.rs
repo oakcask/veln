@@ -584,3 +584,112 @@ fn byte_result_failure_diagnostic_projects_magic_mismatch_reason() {
         "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.magic_mismatch, ByteOffset(18), ManualPacketWire.magic, expected_magic=VELN; actual_magic=VEIN; reason=file magic did not match expected signature).\"}"
     );
 }
+
+#[test]
+fn byte_result_failure_diagnostic_projects_schema_variant_refinement_result() {
+    let byte_diagnostic = JsonValue::object([
+        ("kind", JsonValue::string("byte_diagnostic")),
+        (
+            "id",
+            JsonValue::string("schema.variant_refinement_mismatch"),
+        ),
+        (
+            "byte_offset",
+            JsonValue::object([
+                ("kind", JsonValue::string("ByteOffset")),
+                ("value", JsonValue::Number(19)),
+            ]),
+        ),
+        (
+            "field_path",
+            JsonValue::array([
+                JsonValue::object([
+                    ("kind", JsonValue::string("schema")),
+                    ("name", JsonValue::string("ConnectedPacket")),
+                ]),
+                JsonValue::object([
+                    ("kind", JsonValue::string("field")),
+                    ("name", JsonValue::string("state")),
+                ]),
+            ]),
+        ),
+        (
+            "reason",
+            JsonValue::string("actual variant `Closed`; expected one of `Connected`"),
+        ),
+    ]);
+    let failure = TestFailure::result_with_details(
+        "DecodeErrorWithReason(schema.variant_refinement_mismatch, ByteOffset(19), /ConnectedPacket/state, actual variant `Closed`; expected one of `Connected`)".to_string(),
+        None,
+        Some(byte_diagnostic.clone()),
+        None,
+    );
+
+    let diagnostic =
+        byte_result_failure_diagnostic(&failure).expect("validation result should project");
+
+    assert_eq!(diagnostic.id, "schema.variant_refinement_mismatch");
+    assert_eq!(
+        diagnostic.message,
+        "schema variant refinement mismatch at byte offset 19"
+    );
+    assert_eq!(diagnostic.details, byte_diagnostic);
+    assert_eq!(
+        diagnostic.related[0].to_json(),
+        "{\"message\":\"Field path: schema `ConnectedPacket` / field `state`.\"}"
+    );
+    assert_eq!(
+        diagnostic.related[1].to_json(),
+        "{\"message\":\"Variant mismatch reason: actual variant `Closed`; expected one of `Connected`.\"}"
+    );
+}
+
+#[test]
+fn byte_result_failure_diagnostic_projects_schema_validation_offset_result() {
+    let byte_diagnostic = JsonValue::object([
+        ("kind", JsonValue::string("byte_diagnostic")),
+        ("id", JsonValue::string("schema.validation_offset_invalid")),
+        (
+            "byte_offset",
+            JsonValue::object([
+                ("kind", JsonValue::string("ByteOffset")),
+                ("value", JsonValue::Number(-1)),
+            ]),
+        ),
+        (
+            "field_path",
+            JsonValue::array([JsonValue::object([
+                ("kind", JsonValue::string("schema")),
+                ("name", JsonValue::string("ConnectedPacket")),
+            ])]),
+        ),
+        (
+            "reason",
+            JsonValue::string("offset=-1; expected a non-negative ByteOffset"),
+        ),
+    ]);
+    let failure = TestFailure::result_with_details(
+        "DecodeErrorWithReason(schema.validation_offset_invalid, ByteOffset(-1), /ConnectedPacket, offset=-1; expected a non-negative ByteOffset)".to_string(),
+        None,
+        Some(byte_diagnostic.clone()),
+        None,
+    );
+
+    let diagnostic =
+        byte_result_failure_diagnostic(&failure).expect("validation result should project");
+
+    assert_eq!(diagnostic.id, "schema.validation_offset_invalid");
+    assert_eq!(
+        diagnostic.message,
+        "schema validation offset is invalid at byte offset -1"
+    );
+    assert_eq!(diagnostic.details, byte_diagnostic);
+    assert_eq!(
+        diagnostic.related[0].to_json(),
+        "{\"message\":\"Field path: schema `ConnectedPacket`.\"}"
+    );
+    assert_eq!(
+        diagnostic.related[1].to_json(),
+        "{\"message\":\"Invalid offset reason: offset=-1; expected a non-negative ByteOffset.\"}"
+    );
+}

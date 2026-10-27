@@ -293,9 +293,9 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
             id: "schemas",
             title: "Schemas",
             summary: "Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates.",
-            keywords: &["schemas", "binary", "codec", "decode", "encode"],
+            keywords: &["schemas", "binary", "codec", "decode", "encode", "validate"],
             body: &[
-                "The schema topic selects schema declaration, field, primitive, repeat, encode, and decode grammar.",
+                "The schema topic selects schema declaration, field, primitive, repeat, decode, encode, and runtime-validation grammar.",
                 "The selected example covers schema composition precedence through a successful check case.",
             ],
             related: &[
@@ -309,6 +309,7 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
                 "SchemaFieldType",
                 "SchemaDecode",
                 "SchemaEncode",
+                "SchemaValidate",
             ],
             examples: &[ExampleSelection {
                 case: "check/schema-composition-grammar-precedence",
