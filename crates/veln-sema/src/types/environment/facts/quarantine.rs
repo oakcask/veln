@@ -1,6 +1,9 @@
 use super::*;
 use std::collections::{HashMap, HashSet, VecDeque};
 
+type SourceTypeKey = (Option<String>, Option<String>, String);
+type DependentTypes = HashMap<String, Vec<(SourceTypeKey, String)>>;
+
 pub(super) fn quarantine_invalid_variant_refinement_signatures(
     module: &SurfaceModule,
     environment: &mut TypeEnvironment,
@@ -36,7 +39,22 @@ pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
 ) {
     quarantine_invalid_variant_refinement_effect_types(module, environment, effects);
     quarantine_invalid_variant_refinement_adt_payload_types(module, environment, adts);
-    let mut invalid_types = module
+    let mut invalid_types = initially_invalid_declaration_types(module, environment);
+    let (dependent_types, mut invalid_identities) =
+        declaration_type_dependencies(module, environment, &invalid_types);
+    propagate_invalid_declaration_types(
+        &mut invalid_types,
+        &dependent_types,
+        &mut invalid_identities,
+    );
+    adts.quarantine_public_source_types(&invalid_types);
+}
+
+fn initially_invalid_declaration_types(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> HashSet<SourceTypeKey> {
+    module
         .types
         .iter()
         .filter(|declaration| {
@@ -49,10 +67,15 @@ pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
                 declaration.name.clone()?,
             ))
         })
-        .collect::<HashSet<_>>();
+        .collect()
+}
 
-    let mut dependent_types =
-        HashMap::<String, Vec<((Option<String>, Option<String>, String), String)>>::new();
+fn declaration_type_dependencies(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    invalid_types: &HashSet<SourceTypeKey>,
+) -> (DependentTypes, VecDeque<String>) {
+    let mut dependent_types = DependentTypes::new();
     let mut invalid_identities = environment
         .adts
         .quarantined_type_identities()
@@ -88,6 +111,14 @@ pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
                 .push((key.clone(), identity.clone()));
         }
     }
+    (dependent_types, invalid_identities)
+}
+
+fn propagate_invalid_declaration_types(
+    invalid_types: &mut HashSet<SourceTypeKey>,
+    dependent_types: &DependentTypes,
+    invalid_identities: &mut VecDeque<String>,
+) {
     while let Some(identity) = invalid_identities.pop_front() {
         let Some(dependents) = dependent_types.get(&identity) else {
             continue;
@@ -98,7 +129,6 @@ pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
             }
         }
     }
-    adts.quarantine_public_source_types(&invalid_types);
 }
 
 fn annotation_has_invalid_refinement(
