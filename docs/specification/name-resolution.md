@@ -92,20 +92,20 @@ module-class declaration. Reserved explicit aliases, invalid target casing,
 invalid alias casing, syntax recovery, and duplicate target imports quarantine
 the complete import. They supply no qualifier, full-path, bare-export, or
 reachable-code candidate.
-Invalid-cased source imports still participate in explicit qualifier and
-duplicate-target checks, so removing an invalid candidate cannot make a
-colliding qualifier resolve. A syntax-recovered import participates in neither
-check and cannot quarantine a later valid import. Independent target,
-collision, and casing diagnostics remain visible. Casing recovery suppresses
-a derivative member diagnostic only when one visible target export proves
-that casing is the sole failure. When that proof uniquely identifies a public
-ADT or constructor through an invalid-cased explicit alias, analysis retains
-the identity only for independently provable type diagnostics. A constructor
-call can therefore report its payload arity, and a finite match can report a
-missing case, without also reporting an unresolved member. The import remains
-quarantined and cannot make the module executable. Missing, private,
-wrong-kind, ambiguous, and colliding targets do not gain normal lookup or
-executable readiness through recovery.
+Source imports with an invalid-cased target segment or explicit alias still
+participate in explicit qualifier and duplicate-target checks, so removing an
+invalid candidate cannot make a colliding qualifier resolve. A
+syntax-recovered import participates in neither check and cannot quarantine a
+later valid import. Independent target, collision, and casing diagnostics
+remain visible. Casing recovery suppresses a derivative member diagnostic only
+when correcting the target path or alias selects one source module and one
+visible export of the required kind. When that proof uniquely identifies a
+public ADT or constructor, analysis retains the identity only for independently
+provable type diagnostics. A constructor call can therefore report its payload
+arity, and a finite match can report a missing case, without also reporting an
+unresolved member. The import remains quarantined and cannot make the module
+executable. Missing, private, wrong-kind, ambiguous, and colliding targets do
+not gain normal lookup or executable readiness through recovery.
 
 The selected import retains its package and module identity for values and
 calls, types and refinements, constructors and patterns, schemas, effects,
@@ -483,16 +483,17 @@ invalid module path segment does not enter normal import lookup for value,
 call, type, constructor, schema, effect, handler, inference, lowering, or
 reachability consumers. The original written import still participates in
 duplicate import-alias analysis. If no selected source derives the written
-local module path, `module.unresolved_import` is still reported. A use through
-the invalid implicit alias may suppress a derivative unresolved, type-origin,
-constructor-arity, or exhaustiveness diagnostic only when one matching
-selected source export proves that quarantine is the sole failure. This
-same quarantine proof suppresses derivative unknown-effect and
-unknown-handler diagnostics for public effect and handler exports. Missing
-target modules, missing exports, private targets, and wrong-kind targets
-remain independently reported. This quarantine applies consistently to value,
-type, constructor, schema, effect, handler, and reachability consumers; an
-invalid import is never promoted merely because another use mentions it.
+local module path, `module.unresolved_import` is still reported. A qualified
+use through the import's explicit alias or implicit leaf may suppress a
+derivative unresolved, type-origin, constructor-arity, or exhaustiveness
+diagnostic only when correcting the target casing selects one module and one
+matching selected-source export. The same quarantine proof suppresses
+derivative unknown-effect and unknown-handler diagnostics for public effect
+and handler exports. Missing target modules, missing exports, private targets,
+wrong-kind targets, ambiguous repairs, and colliding imports remain
+independently reported. This quarantine applies consistently to value, type,
+constructor, schema, effect, handler, and reachability consumers; an invalid
+import is never promoted merely because another use mentions it.
 Valid implicit standard prelude symbols remain normal lookup candidates. A
 same-spelled application recovery record does not shadow the valid prelude
 symbol for a function call or constructor path, and does not enter
@@ -577,8 +578,9 @@ Each invalid role-fixed segment reports `name.invalid_case` at the exact
 segment token span with occurrence `path_segment` and the zero-based
 `segment_index`. A call-target diagnostic whose only cause is the resolved or
 uniquely recovered invalid segment that owns that use is suppressed. Missing
-targets, private imported targets, and recovery links that would cross an
-import boundary still report `name.unresolved`. These role records apply to
+targets, private imported targets, and ordinary declaration or binding
+recovery links that would cross an import boundary still report
+`name.unresolved`. These role records apply to
 expression, pattern, handler, declaration, ADT, effect, and schema carriers;
 an unresolved intermediate segment receives no guessed casing role.
 Qualified constructor patterns keep constructor syntax. A qualified
@@ -732,10 +734,13 @@ does not affect name resolution.
 
 ## Limits
 
-Resolution is case-sensitive after the role-specific casing check. Recovery is
-limited to one same-source declaration or binding, never crosses an import
-boundary, and cannot override a valid candidate. Invalid module identities are
-quarantined from lookup and reachability; valid sibling sources remain usable.
+Resolution is case-sensitive after the role-specific casing check. Ordinary
+declaration or binding recovery is limited to one same-source identity, never
+crosses an import boundary, and cannot override a valid candidate. The
+quarantine-only import recovery described above can retain one corrected target
+identity for independent diagnostics, but it supplies no normal lookup or
+reachability candidate. Invalid module identities are quarantined from lookup
+and reachability; valid sibling sources remain usable.
 Schema alias navigation is finite and acyclic: cyclic chains are rejected,
 while finite direct-dependency chains may be eligible when every hop and its
 exported terminal satisfy the rules above. Ambiguous or recovered imports do

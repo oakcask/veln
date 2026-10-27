@@ -923,18 +923,25 @@ Recovery diagnostics do not create cascaded unresolved-name records.
 
 An invalid explicit import alias uses `origin: source`, `occurrence:
 declaration`, `name_class: module`, and `required_initial: ascii_lowercase`.
-Its primary span is the alias token. A reserved `prelude` alias also uses that
-token. A duplicate qualifier involving an explicit alias uses the later
+Its primary span is the alias token. An invalid import-target segment instead
+uses `occurrence: path_segment`, includes its zero-based `segment_index`, and
+spans that target token. A reserved `prelude` alias also uses the alias token.
+A duplicate qualifier involving an explicit alias uses the later
 explicit-alias token or later implicit-leaf token, according to which import is
-reported; first-binding context appears as a related note. A duplicate
-target import uses its written target path. Parser diagnostics precede casing
+reported; first-binding context appears as a related note. A duplicate target
+import uses its written target path. Parser diagnostics precede casing
 diagnostics for one import; reserved and duplicate facts follow casing, while
-target-resolution facts stay independent. When one public ADT or constructor
-uniquely proves the target behind an invalid-cased explicit alias, the casing
-diagnostic remains first and independently provable
-`core.constructor_arity_mismatch` and `type.match_non_exhaustive` records
-remain visible. The recovered member does not add `name.unresolved`. Combined
-module sources retain stable source and token order. The checked
+target-resolution facts stay independent. When correcting an invalid target
+segment or alias uniquely selects one public export, the casing diagnostic
+remains and the recovered member does not add `name.unresolved`. For a public
+ADT or constructor, independently provable `core.constructor_arity_mismatch`
+and `type.match_non_exhaustive` records remain visible. Combined module sources
+retain stable source and token order. The checked target-casing
+[`human`](../../examples/specification/check/explicit-import-alias-target-casing-human/)
+and
+[`JSON`](../../examples/specification/check/explicit-import-alias-target-casing-json/)
+cases fix the target token span, casing fields, and unresolved-member
+suppression. The checked
 [`explicit-import-alias-combined-order-human`](../../examples/specification/check/explicit-import-alias-combined-order-human/)
 and
 [`explicit-import-alias-combined-order-json`](../../examples/specification/check/explicit-import-alias-combined-order-json/)
