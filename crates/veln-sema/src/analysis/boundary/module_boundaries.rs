@@ -378,8 +378,10 @@ pub(super) fn reserved_prelude_diagnostic(
 
 pub(crate) fn check_duplicate_constructor_names(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut seen =
-        BTreeMap::<(Option<String>, Option<String>, String), (String, SourceSpan)>::new();
+    let mut seen = BTreeMap::<
+        (Option<String>, Option<String>, Option<String>, String),
+        (String, SourceSpan),
+    >::new();
 
     for type_decl in &module.types {
         for variant in &type_decl.variants {
@@ -387,6 +389,7 @@ pub(crate) fn check_duplicate_constructor_names(module: &SurfaceModule) -> Vec<D
                 continue;
             };
             let key = (
+                type_decl.package_name.clone(),
                 type_decl.module_name.clone(),
                 type_decl.name.clone(),
                 name.clone(),

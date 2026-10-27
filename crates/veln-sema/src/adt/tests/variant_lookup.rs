@@ -143,11 +143,10 @@ fn same_written_path_from_distinct_origins_is_ambiguous_before_alias_lookup() {
                 use_decl.name = "pkg::foo".to_string();
             }
         }
+        let mut external = lookup_descriptor("pkg::foo", 0);
+        external.package_name = Some("pkg".to_string());
         let base = AdtRegistry::from_parts(
-            vec![
-                lookup_descriptor("foo", 0),
-                lookup_descriptor("pkg::foo", 0),
-            ],
+            vec![lookup_descriptor("foo", 0), external],
             std::collections::BTreeMap::new(),
         );
         let registry = AdtRegistry::from_module_with_base(&module, &base);
@@ -197,10 +196,9 @@ fn canonical_standard_path_remains_an_exact_import_spelling() {
     let mut module = veln_ast::lower_surface_ast(&parsed.tree);
     module.uses[0].name = "std::transport".to_string();
     module.uses[0].package = Some(veln_stdlib::PACKAGE_NAME.to_string());
-    let base = AdtRegistry::from_parts(
-        vec![lookup_descriptor("std::transport", 0)],
-        std::collections::BTreeMap::new(),
-    );
+    let mut standard = lookup_descriptor("std::transport", 0);
+    standard.package_name = Some(veln_stdlib::PACKAGE_NAME.to_string());
+    let base = AdtRegistry::from_parts(vec![standard], std::collections::BTreeMap::new());
     let registry = AdtRegistry::from_module_with_base(&module, &base);
     let uses = crate::name_recovery::normal_use_decls(&module);
 

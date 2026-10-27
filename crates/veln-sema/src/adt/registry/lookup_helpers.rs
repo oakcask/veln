@@ -1,4 +1,4 @@
-use super::{AdtDescriptor, AdtRegistry, UseDecl, Visibility};
+use super::*;
 
 impl AdtRegistry {
     pub(super) fn descriptor_matches_arity(
@@ -15,7 +15,7 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
-        self.descriptor_in_current_module(name, args_len, current_module)
+        self.descriptor_in_current_module(name, args_len, current_module, uses)
             .or_else(|| self.root_descriptor(name, args_len))
             .or_else(|| self.unique_imported_descriptor(name, args_len, current_module, uses))
     }
@@ -25,11 +25,34 @@ impl AdtRegistry {
         name: &str,
         args_len: Option<usize>,
         current_module: Option<&str>,
+        uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
-        self.descriptors_by_source_identity
-            .get(&(current_module.map(str::to_string), name.to_string()))
-            .into_iter()
-            .flatten()
+        if let Some(owner) = import_owner_for_module(uses, current_module) {
+            return self
+                .descriptors_by_source_identity
+                .get(&(
+                    owner.package,
+                    current_module.map(str::to_string),
+                    name.to_string(),
+                ))
+                .into_iter()
+                .flatten()
+                .rev()
+                .map(|index| self.descriptor_lookup_candidate(*index))
+                .find(|descriptor| Self::descriptor_matches_arity(descriptor, args_len));
+        }
+        let mut matching_identities =
+            self.descriptors_by_source_identity
+                .iter()
+                .filter(|((_, module, type_name), _)| {
+                    module.as_deref() == current_module && type_name == name
+                });
+        let (_, indices) = matching_identities.next()?;
+        if matching_identities.next().is_some() {
+            return None;
+        }
+        indices
+            .iter()
             .rev()
             .map(|index| self.descriptor_lookup_candidate(*index))
             .find(|descriptor| Self::descriptor_matches_arity(descriptor, args_len))
@@ -41,7 +64,7 @@ impl AdtRegistry {
         args_len: Option<usize>,
     ) -> Option<&AdtDescriptor> {
         self.descriptors_by_source_identity
-            .get(&(None, name.to_string()))
+            .get(&(None, None, name.to_string()))
             .into_iter()
             .flatten()
             .map(|index| self.descriptor_lookup_candidate(*index))
@@ -90,7 +113,8 @@ impl AdtRegistry {
                     crate::adt::lookup_validation::record_import_path_comparison();
                     crate::name_recovery::use_decl_contributes_bare_exports(use_decl)
                         && use_decl.module_name.as_deref() == current_module
-                        && &use_decl.name == module
+                        && use_decl.resolved_target().module == *module
+                        && descriptor.package_name == use_decl.resolved_target().package
                 })
             })
     }

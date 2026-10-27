@@ -188,8 +188,12 @@ impl TypeCanonicalizer<'_> {
         if !use_decl.has_explicit_alias() {
             return None;
         }
-        self.adts
-            .unique_public_descriptor_for_type_in_module(type_name, args_len, &use_decl.name)
+        self.adts.unique_public_descriptor_for_type_in_module(
+            type_name,
+            args_len,
+            use_decl.resolved_target().package.as_deref(),
+            &use_decl.resolved_target().module,
+        )
     }
 
     fn canonicalize_named_variant(&self, name: &str, args: &[Type]) -> Option<Type> {

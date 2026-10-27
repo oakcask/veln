@@ -150,10 +150,11 @@ impl TypeEnvironment {
         {
             return None;
         }
-        match self
-            .adts
-            .public_constructor_in_module(&use_decl.name, constructor_segments)
-        {
+        match self.adts.public_constructor_in_module(
+            use_decl.resolved_target().package.as_deref(),
+            &use_decl.resolved_target().module,
+            constructor_segments,
+        ) {
             ConstructorLookup::Found(constructor) => Some(constructor),
             ConstructorLookup::Ambiguous | ConstructorLookup::Missing => None,
         }

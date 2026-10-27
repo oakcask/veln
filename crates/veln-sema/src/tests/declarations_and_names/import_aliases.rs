@@ -150,6 +150,153 @@ fn equal_targets_in_same_spelled_modules_from_distinct_owner_packages_do_not_cro
 }
 
 #[test]
+fn same_spelled_declarations_from_distinct_owner_packages_do_not_collide() {
+    let local_source = SourceFile::new(
+        "local.veln",
+        concat!(
+            "fn probe() -> Int\n  1\nend\n",
+            "let marker: Int = 1\n",
+            "type HeaderList\n  LocalHeader(code: Int)\nend\n",
+            "effect Observe\n  read() -> Int\nend\n",
+            "schema Packet\n  code: Int\nend\n",
+        ),
+    );
+    let standard_source = SourceFile::new(
+        "standard.veln",
+        concat!(
+            "fn probe() -> Int\n  2\nend\n",
+            "let marker: Int = 2\n",
+            "type HeaderList\n  LocalHeader(code: String)\nend\n",
+            "effect Observe\n  read() -> String\nend\n",
+            "schema Packet\n  code: String\nend\n",
+        ),
+    );
+    let local = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&local_source).tree,
+        "std::http2::core".to_string(),
+        local_source.span(TextRange::new(0, 0)),
+    );
+    let standard = veln_ast::lower_surface_ast_with_package_module_identity(
+        &parse(&standard_source).tree,
+        "std".to_string(),
+        "http2::core".to_string(),
+        standard_source.span(TextRange::new(0, 0)),
+    );
+    let module = SurfaceModule {
+        module: local.module,
+        uses: [local.uses, standard.uses].concat(),
+        aliases: [local.aliases, standard.aliases].concat(),
+        effects: [local.effects, standard.effects].concat(),
+        handlers: [local.handlers, standard.handlers].concat(),
+        types: [local.types, standard.types].concat(),
+        schemas: [local.schemas, standard.schemas].concat(),
+        module_values: [local.module_values, standard.module_values].concat(),
+        functions: [local.functions, standard.functions].concat(),
+        invalid_names: [local.invalid_names, standard.invalid_names].concat(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.duplicate"),
+        "{diagnostics:#?}"
+    );
+    let identities = TypeEnvironment::from_module(&module)
+        .adts
+        .descriptors()
+        .iter()
+        .filter(|descriptor| descriptor.type_name == "HeaderList")
+        .map(|descriptor| descriptor.identity())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(identities.len(), 2, "{identities:#?}");
+}
+
+#[test]
+fn same_spelled_owner_types_reject_the_other_owners_shape() {
+    let app_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use http2::core as wire from \"std\"\n",
+            "use std::http2::core as local_core\n",
+            "fn reject(value: wire::Headers) -> local_core::Headers\n",
+            "  value\n",
+            "end\n",
+            "fn reject_refinement(value: wire::HeaderList::EmptyHeaderList) -> local_core::HeaderList::LocalHeader\n",
+            "  value\n",
+            "end\n",
+            "fn reject_constructor() -> local_core::HeaderList\n",
+            "  wire::HeaderList::EmptyHeaderList\n",
+            "end\n",
+        ),
+    );
+    let local_source = SourceFile::new(
+        "local.veln",
+        concat!(
+            "pub type HeaderList\n  LocalHeader(code: Int)\nend\n",
+            "pub type Headers = HeaderList\n",
+        ),
+    );
+    let standard_source = SourceFile::new(
+        "standard.veln",
+        concat!(
+            "pub type HeaderList\n  EmptyHeaderList\nend\n",
+            "pub type Headers = HeaderList\n",
+        ),
+    );
+    let mut app = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&app_source).tree,
+        "main".to_string(),
+        app_source.span(TextRange::new(0, 0)),
+    );
+    app.uses[0].name = "std::http2::core".to_string();
+    let local = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&local_source).tree,
+        "std::http2::core".to_string(),
+        local_source.span(TextRange::new(0, 0)),
+    );
+    let standard = veln_ast::lower_surface_ast_with_package_module_identity(
+        &parse(&standard_source).tree,
+        "std".to_string(),
+        "http2::core".to_string(),
+        standard_source.span(TextRange::new(0, 0)),
+    );
+    let module = SurfaceModule {
+        module: app.module,
+        uses: [app.uses, local.uses, standard.uses].concat(),
+        aliases: [app.aliases, local.aliases, standard.aliases].concat(),
+        effects: [app.effects, local.effects, standard.effects].concat(),
+        handlers: [app.handlers, local.handlers, standard.handlers].concat(),
+        types: [app.types, local.types, standard.types].concat(),
+        schemas: [app.schemas, local.schemas, standard.schemas].concat(),
+        module_values: [
+            app.module_values,
+            local.module_values,
+            standard.module_values,
+        ]
+        .concat(),
+        functions: [app.functions, local.functions, standard.functions].concat(),
+        invalid_names: [
+            app.invalid_names,
+            local.invalid_names,
+            standard.invalid_names,
+        ]
+        .concat(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic.message == "expected `HeaderList`, but found `HeaderList`"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn equal_written_import_paths_from_distinct_origins_remain_distinct_targets() {
     let source = SourceFile::new(
         "main.veln",

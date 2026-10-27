@@ -38,7 +38,7 @@ impl AdtRegistry {
         current_module: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
-        self.unique_local_descriptor_any_arity(name, current_module)
+        self.unique_local_descriptor_any_arity(name, current_module, uses)
             .or_else(|| self.unique_builtin_descriptor_any_arity(name))
             .or_else(|| self.unique_imported_descriptor_any_arity(name, current_module, uses))
             .flatten()
@@ -48,15 +48,18 @@ impl AdtRegistry {
         &self,
         name: &str,
         current_module: Option<&str>,
+        uses: &[UseDecl],
     ) -> Option<Option<&AdtDescriptor>> {
-        let local_indices = self
+        let owner = import_owner_for_module(uses, current_module);
+        let local = self
             .descriptors_by_source_identity
-            .get(&(current_module.map(str::to_string), name.to_string()))
-            .map(Vec::as_slice)
-            .unwrap_or_default();
-        let local = local_indices
             .iter()
-            .copied()
+            .filter(|((package, module, type_name), _)| {
+                module.as_deref() == current_module
+                    && type_name == name
+                    && owner.as_ref().is_none_or(|owner| package == &owner.package)
+            })
+            .flat_map(|(_, indices)| indices.iter().copied())
             .filter(|index| *index >= self.local_descriptor_start)
             .map(|index| self.descriptor_lookup_candidate(index));
         Self::unique_candidate(local)
@@ -65,7 +68,7 @@ impl AdtRegistry {
     fn unique_builtin_descriptor_any_arity(&self, name: &str) -> Option<Option<&AdtDescriptor>> {
         let builtin_indices = self
             .descriptors_by_source_identity
-            .get(&(None, name.to_string()))
+            .get(&(None, None, name.to_string()))
             .map(Vec::as_slice)
             .unwrap_or_default();
         let builtin = builtin_indices
@@ -147,10 +150,13 @@ impl AdtRegistry {
     ) -> Option<QualifiedSourceIdentity> {
         let module_path = segments[..segments.len().saturating_sub(1)].join("::");
         crate::adt::lookup_validation::record_qualified_path_work(module_path.len());
+        let current_package =
+            import_owner_for_module(uses, current_module).and_then(|owner| owner.package);
         if current_module == Some(module_path.as_str())
-            && self.source_identity_exists(current_module, type_name)
+            && self.source_identity_exists(current_package.as_deref(), current_module, type_name)
         {
             return Some(QualifiedSourceIdentity::Source((
+                current_package,
                 current_module.map(str::to_string),
                 type_name.to_string(),
             )));
@@ -182,7 +188,10 @@ impl AdtRegistry {
                     module_path,
                     current_module,
                 ) {
-                    fallback.exact.insert(use_decl.name.clone());
+                    fallback.exact.insert({
+                        let target = use_decl.resolved_target();
+                        (target.package, target.module)
+                    });
                 }
                 crate::adt::lookup_validation::record_import_path_comparison();
                 if crate::name_recovery::use_decl_matches_implicit_import_alias(
@@ -190,7 +199,10 @@ impl AdtRegistry {
                     module_path,
                     current_module,
                 ) {
-                    fallback.implicit.insert(use_decl.name.clone());
+                    fallback.implicit.insert({
+                        let target = use_decl.resolved_target();
+                        (target.package, target.module)
+                    });
                 }
             }
             &fallback
@@ -203,22 +215,31 @@ impl AdtRegistry {
             &modules.exact
         };
         let mut candidates = candidates.iter();
-        let module = candidates.next()?;
+        let (package, module) = candidates.next()?;
         if candidates.next().is_some() {
             return Some(QualifiedSourceIdentity::Ambiguous);
         }
-        if !self.source_identity_exists(Some(module), type_name) {
+        if !self.source_identity_exists(package.as_deref(), Some(module), type_name) {
             return None;
         }
         Some(QualifiedSourceIdentity::Source((
+            package.clone(),
             Some(module.clone()),
             type_name.to_string(),
         )))
     }
 
-    fn source_identity_exists(&self, module_name: Option<&str>, type_name: &str) -> bool {
-        self.descriptors_by_source_identity
-            .contains_key(&(module_name.map(str::to_string), type_name.to_string()))
+    fn source_identity_exists(
+        &self,
+        package_name: Option<&str>,
+        module_name: Option<&str>,
+        type_name: &str,
+    ) -> bool {
+        self.descriptors_by_source_identity.contains_key(&(
+            package_name.map(str::to_string),
+            module_name.map(str::to_string),
+            type_name.to_string(),
+        ))
     }
 
     fn recovered_qualified_source_identity(
@@ -236,6 +257,7 @@ impl AdtRegistry {
             qualifiers,
             &normalized,
             current_module,
+            uses,
         );
 
         let Some(owner) = import_owner_for_module(uses, current_module) else {
@@ -262,6 +284,7 @@ impl AdtRegistry {
                     type_name,
                     current_module,
                     &candidate.module_path,
+                    uses,
                 )
             {
                 continue;
@@ -280,15 +303,18 @@ impl AdtRegistry {
         qualifiers: &[String],
         normalized: &str,
         current_module: Option<&str>,
+        uses: &[UseDecl],
     ) -> Option<QualifiedSourceIdentity> {
         let module_path = current_module.filter(|module_path| {
             crate::adt::lookup_validation::record_qualified_path_work(module_path.len());
             normalized_qualified_path(module_path) == normalized
                 && is_single_initial_recovery(qualifiers, module_path)
         })?;
-        self.source_identity_exists(Some(module_path), type_name)
+        let package = import_owner_for_module(uses, current_module).and_then(|owner| owner.package);
+        self.source_identity_exists(package.as_deref(), Some(module_path), type_name)
             .then(|| {
                 QualifiedSourceIdentity::Source((
+                    package,
                     Some(module_path.to_string()),
                     type_name.to_string(),
                 ))
@@ -304,7 +330,7 @@ impl AdtRegistry {
         mut selected: Option<QualifiedSourceIdentity>,
     ) -> Option<QualifiedSourceIdentity> {
         for (module_path, modules) in fallback_recovery_modules(qualifiers, current_module, uses) {
-            if self.is_current_module_identity(type_name, current_module, &module_path) {
+            if self.is_current_module_identity(type_name, current_module, &module_path, uses) {
                 continue;
             }
             let identity = self.source_identity_from_import_modules(type_name, &modules);
@@ -320,9 +346,16 @@ impl AdtRegistry {
         type_name: &str,
         current_module: Option<&str>,
         module_path: &str,
+        uses: &[UseDecl],
     ) -> bool {
         current_module == Some(module_path)
-            && self.source_identity_exists(current_module, type_name)
+            && self.source_identity_exists(
+                import_owner_for_module(uses, current_module)
+                    .and_then(|owner| owner.package)
+                    .as_deref(),
+                current_module,
+                type_name,
+            )
     }
 
     fn source_identity_from_import_modules(
@@ -336,14 +369,15 @@ impl AdtRegistry {
             &modules.exact
         };
         let mut candidates = candidates.iter();
-        let module = candidates.next()?;
+        let (package, module) = candidates.next()?;
         if candidates.next().is_some() {
             return Some(QualifiedSourceIdentity::Ambiguous);
         }
-        if !self.source_identity_exists(Some(module), type_name) {
+        if !self.source_identity_exists(package.as_deref(), Some(module), type_name) {
             return None;
         }
         Some(QualifiedSourceIdentity::Source((
+            package.clone(),
             Some(module.clone()),
             type_name.to_string(),
         )))
@@ -384,7 +418,7 @@ impl AdtRegistry {
                 .unwrap_or_default(),
             QualifiedSourceIdentity::CompilerKnown(type_name) => self
                 .descriptors_by_source_identity
-                .get(&(None, type_name.clone()))
+                .get(&(None, None, type_name.clone()))
                 .map(Vec::as_slice)
                 .unwrap_or_default(),
             QualifiedSourceIdentity::Ambiguous => &[],
@@ -404,9 +438,13 @@ impl AdtRegistry {
         uses: &[UseDecl],
     ) -> bool {
         match identity {
-            QualifiedSourceIdentity::Source((module_name, _)) => {
+            QualifiedSourceIdentity::Source((package_name, module_name, _)) => {
                 if module_name.as_deref() == current_module {
-                    return true;
+                    let current_package = import_owner_for_module(uses, current_module)
+                        .and_then(|owner| owner.package);
+                    if package_name == &current_package {
+                        return true;
+                    }
                 }
                 descriptor.visibility == Visibility::Public
                     || self.companion_private_access_allowed(
@@ -546,11 +584,10 @@ fn fallback_recovery_modules(
         for path in crate::name_recovery::use_decl_exact_paths(use_decl) {
             crate::adt::lookup_validation::record_qualified_path_work(path.len());
             if is_single_initial_recovery(qualifiers, &path) {
-                candidates
-                    .entry(path)
-                    .or_default()
-                    .exact
-                    .insert(use_decl.name.clone());
+                candidates.entry(path).or_default().exact.insert({
+                    let target = use_decl.resolved_target();
+                    (target.package, target.module)
+                });
             }
         }
         crate::adt::lookup_validation::record_qualified_path_work(use_decl.alias.len());
@@ -565,7 +602,10 @@ fn fallback_recovery_modules(
                 .entry(use_decl.alias.clone())
                 .or_default()
                 .implicit
-                .insert(use_decl.name.clone());
+                .insert({
+                    let target = use_decl.resolved_target();
+                    (target.package, target.module)
+                });
         }
     }
     candidates

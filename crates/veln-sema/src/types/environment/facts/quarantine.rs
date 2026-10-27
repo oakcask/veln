@@ -43,11 +43,16 @@ pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
             crate::analysis::adt_has_private_variant_refinement_exposure(declaration, environment)
         })
         .filter_map(|declaration| {
-            Some((declaration.module_name.clone(), declaration.name.clone()?))
+            Some((
+                declaration.package_name.clone(),
+                declaration.module_name.clone(),
+                declaration.name.clone()?,
+            ))
         })
         .collect::<HashSet<_>>();
 
-    let mut dependent_types = HashMap::<String, Vec<((Option<String>, String), String)>>::new();
+    let mut dependent_types =
+        HashMap::<String, Vec<((Option<String>, Option<String>, String), String)>>::new();
     let mut invalid_identities = environment
         .adts
         .quarantined_type_identities()
@@ -65,7 +70,11 @@ pub(super) fn quarantine_invalid_variant_refinement_declaration_types(
         ) else {
             continue;
         };
-        let key = (declaration.module_name.clone(), name.clone());
+        let key = (
+            declaration.package_name.clone(),
+            declaration.module_name.clone(),
+            name.clone(),
+        );
         let identity = descriptor.identity();
         if invalid_types.contains(&key) {
             invalid_identities.push_back(identity.clone());
@@ -278,6 +287,7 @@ fn quarantine_invalid_variant_refinement_adt_payload_types(
                 continue;
             };
             invalid.insert((
+                declaration.package_name.clone(),
                 declaration.module_name.clone(),
                 type_name.to_string(),
                 variant_name.to_string(),

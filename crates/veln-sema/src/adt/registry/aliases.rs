@@ -74,7 +74,7 @@ enum TypeAliasTarget {
     Missing,
 }
 
-type TypeAliasKey = (Option<String>, String);
+type TypeAliasKey = (Option<String>, Option<String>, String);
 
 struct TypeAliasResolver<'a> {
     descriptors: &'a [AdtDescriptor],
@@ -221,6 +221,7 @@ fn alias_descriptor(alias: &PublicAlias, target: &AdtDescriptor) -> AdtDescripto
     descriptor.nominal_identity =
         (alias.module_name.as_deref() != Some("std::prelude")).then(|| target.identity());
     descriptor.type_name = alias.name.clone().expect("filtered alias has a name");
+    descriptor.package_name = alias.package_name.clone();
     descriptor.module_name = alias.module_name.clone();
     descriptor.visibility = Visibility::Public;
     descriptor
@@ -239,8 +240,8 @@ struct TypeAliasTargetIndex {
 
 #[derive(Default)]
 struct TypeAliasImportTargets {
-    exact: HashSet<String>,
-    implicit: HashSet<String>,
+    exact: HashSet<(Option<String>, String)>,
+    implicit: HashSet<(Option<String>, String)>,
 }
 
 impl TypeAliasTargetIndex {
@@ -288,24 +289,29 @@ impl TypeAliasTargetIndex {
     fn index_aliases(&mut self, aliases: &[&PublicAlias]) {
         for (position, alias) in aliases.iter().enumerate() {
             let key = (
+                alias.package_name.clone(),
                 alias.module_name.clone(),
                 alias.name.clone().expect("filtered alias has a name"),
             );
             self.alias_first.entry(key.clone()).or_insert(position);
             self.alias_last.insert(key.clone(), position);
             if alias.module_name.as_deref() == Some("std::prelude") {
-                self.index_prelude_target(key.1, TypeAliasTarget::Alias(position));
+                self.index_prelude_target(key.2, TypeAliasTarget::Alias(position));
             }
         }
     }
 
     fn index_imports(&mut self, uses: &[UseDecl]) {
         for use_decl in uses {
+            let owner_package = use_decl.importing_package.clone();
             let module = use_decl.module_name.clone();
-            let target = use_decl.name.clone();
+            let target = {
+                let target = use_decl.resolved_target();
+                (target.package, target.module)
+            };
             for path in crate::name_recovery::use_decl_exact_paths(use_decl) {
                 self.imports
-                    .entry((module.clone(), path))
+                    .entry((owner_package.clone(), module.clone(), path))
                     .or_default()
                     .exact
                     .insert(target.clone());
@@ -316,7 +322,7 @@ impl TypeAliasTargetIndex {
                 module.as_deref(),
             ) {
                 self.imports
-                    .entry((module, use_decl.alias.clone()))
+                    .entry((owner_package, module, use_decl.alias.clone()))
                     .or_default()
                     .implicit
                     .insert(target);
@@ -337,7 +343,11 @@ impl TypeAliasTargetIndex {
             return TypeAliasTarget::Missing;
         };
         if alias.target.len() == 1 {
-            let key = (alias.module_name.clone(), name.clone());
+            let key = (
+                alias.package_name.clone(),
+                alias.module_name.clone(),
+                name.clone(),
+            );
             match self.local_target(&key) {
                 IndexedTarget::Unique(target) => return target,
                 IndexedTarget::Ambiguous => return TypeAliasTarget::Missing,
@@ -354,7 +364,11 @@ impl TypeAliasTargetIndex {
             return TypeAliasTarget::Missing;
         }
         let qualifier = alias.target[..alias.target.len() - 1].join("::");
-        let key = (alias.module_name.clone(), qualifier);
+        let key = (
+            alias.package_name.clone(),
+            alias.module_name.clone(),
+            qualifier,
+        );
         let Some(imports) = self.imports.get(&key) else {
             return TypeAliasTarget::Missing;
         };
@@ -364,13 +378,13 @@ impl TypeAliasTargetIndex {
             &imports.exact
         };
         let mut candidates = candidates.iter();
-        let Some(module) = candidates.next() else {
+        let Some((package, module)) = candidates.next() else {
             return TypeAliasTarget::Missing;
         };
         if candidates.next().is_some() {
             return TypeAliasTarget::Missing;
         }
-        let key = (Some(module.clone()), name.clone());
+        let key = (package.clone(), Some(module.clone()), name.clone());
         match self.local_target(&key) {
             IndexedTarget::Unique(target) => target,
             IndexedTarget::Absent | IndexedTarget::Ambiguous => TypeAliasTarget::Missing,
@@ -429,7 +443,13 @@ pub(super) fn descriptor_for_alias_target<'a>(
             .iter()
             .rev()
             .find(|descriptor| {
-                descriptor.type_name == *name && descriptor.module_name.as_deref() == current_module
+                descriptor.type_name == *name
+                    && descriptor.module_name.as_deref() == current_module
+                    && descriptor.package_name.as_deref()
+                        == uses
+                            .iter()
+                            .find(|use_decl| use_decl.module_name.as_deref() == current_module)
+                            .and_then(|use_decl| use_decl.importing_package.as_deref())
             })
             .or_else(|| {
                 descriptors.iter().find(|descriptor| {
@@ -449,15 +469,16 @@ pub(super) fn descriptor_for_alias_target<'a>(
         [_, .., name] => {
             let import_path = &segments[..segments.len() - 1];
             let module_path = import_path.join("::");
-            let module_name = crate::name_recovery::select_use_decl_for_path(
+            let use_decl = crate::name_recovery::select_use_decl_for_path(
                 uses.iter(),
                 &module_path,
                 current_module,
-            )
-            .map(|use_decl| use_decl.name.as_str())?;
+            )?;
+            let target = use_decl.resolved_target();
             descriptors.iter().find(|descriptor| {
                 descriptor.type_name == *name
-                    && descriptor.module_name.as_deref() == Some(module_name)
+                    && descriptor.package_name == target.package
+                    && descriptor.module_name.as_deref() == Some(target.module.as_str())
             })
         }
         _ => None,

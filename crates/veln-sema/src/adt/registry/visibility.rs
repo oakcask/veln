@@ -13,7 +13,13 @@ impl AdtRegistry {
             return true;
         }
         if descriptor.module_name.as_deref() == current_module {
-            return true;
+            let owner = import_owner_for_module(uses, current_module);
+            if owner
+                .as_ref()
+                .is_none_or(|owner| descriptor.package_name == owner.package)
+            {
+                return true;
+            }
         }
         if !include_imports {
             return false;
@@ -29,16 +35,19 @@ impl AdtRegistry {
         let Some(first) = segments.first() else {
             return false;
         };
-        if let Some(module_name) = self.indexed_import_module(first, current_module, uses) {
-            return module_name
-                .is_some_and(|module_name| descriptor.module_name.as_deref() == Some(module_name));
+        if let Some(target) = self.indexed_import_module(first, current_module, uses) {
+            return target.is_some_and(|(package_name, module_name)| {
+                descriptor.package_name.as_deref() == package_name
+                    && descriptor.module_name.as_deref() == Some(module_name)
+            });
         }
         if self.source_import_count != uses.len()
-            && let Some(module_name) =
+            && let Some(use_decl) =
                 crate::name_recovery::select_use_decl_for_path(uses.iter(), first, current_module)
-                    .map(|use_decl| use_decl.name.as_str())
         {
-            return descriptor.module_name.as_deref() == Some(module_name);
+            let target = use_decl.resolved_target();
+            return descriptor.package_name == target.package
+                && descriptor.module_name.as_deref() == Some(target.module.as_str());
         }
         if imported_descriptor_path_matches(descriptor, segments, current_module, uses) {
             return true;
@@ -51,7 +60,7 @@ impl AdtRegistry {
         qualifier: &str,
         current_module: Option<&str>,
         uses: &[UseDecl],
-    ) -> Option<Option<&str>> {
+    ) -> Option<Option<(Option<&str>, &str)>> {
         let owner = import_owner_for_module(uses, current_module)?;
         let modules = self
             .qualified_import_modules
@@ -62,8 +71,10 @@ impl AdtRegistry {
             &modules.exact
         };
         let mut candidates = candidates.iter();
-        let module_name = candidates.next().map(String::as_str);
-        Some(module_name.filter(|_| candidates.next().is_none()))
+        let target = candidates
+            .next()
+            .map(|(package, module)| (package.as_deref(), module.as_str()));
+        Some(target.filter(|_| candidates.next().is_none()))
     }
 
     fn descriptor_has_bare_import(
@@ -77,7 +88,11 @@ impl AdtRegistry {
             || (segments.len() == 2 && segments.first() == Some(&descriptor.type_name)))
             && uses.iter().any(|use_decl| {
                 use_decl.module_name.as_deref() == current_module
-                    && descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
+                    && {
+                        let target = use_decl.resolved_target();
+                        descriptor.module_name.as_deref() == Some(target.module.as_str())
+                            && descriptor.package_name == target.package
+                    }
                     && crate::name_recovery::use_decl_contributes_bare_exports(use_decl)
             })
     }
@@ -90,7 +105,12 @@ impl AdtRegistry {
         uses: &[UseDecl],
         segments: &[String],
     ) -> bool {
-        if descriptor.module_name.is_none() || descriptor.module_name.as_deref() == current_module {
+        if descriptor.module_name.is_none()
+            || (descriptor.module_name.as_deref() == current_module
+                && import_owner_for_module(uses, current_module)
+                    .as_ref()
+                    .is_none_or(|owner| descriptor.package_name == owner.package))
+        {
             return true;
         }
         if self.companion_private_access_allowed(descriptor, segments, current_module, uses) {
@@ -130,7 +150,7 @@ impl AdtRegistry {
             use_decl.package.is_none()
                 && use_decl.module_name.as_deref() == Some(current_module)
                 && use_decl.alias == *first
-                && use_decl.name == target_module
+                && use_decl.resolved_target().module == target_module
         })
     }
 }

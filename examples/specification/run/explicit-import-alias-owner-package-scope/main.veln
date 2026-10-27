@@ -2,7 +2,14 @@ use http2::core as wire from "std"
 use std::http2::core as local_core
 use stdio
 
+fn standard_header_count(headers: wire::HeaderList) -> Int
+	0
+end
+
 fn main() -> () effects [stdio]
-	let standard_headers = wire::empty_header_list()
-	stdio::println("owner scopes remain distinct")
+	let local_headers: local_core::HeaderList = local_core::local_header_list(7)
+	let local_code = local_core::local_header_code(local_headers)
+	let standard_headers: wire::HeaderList = wire::empty_header_list()
+	let standard_count = standard_header_count(standard_headers)
+	stdio::println(string::concat("owner scopes remain distinct: ", int_to_string(local_code + standard_count)))
 end

@@ -62,6 +62,7 @@ impl AdtRegistry {
 
     pub(crate) fn public_constructor_in_module(
         &self,
+        package_name: Option<&str>,
         module_name: &str,
         segments: &[String],
     ) -> ConstructorLookup<'_> {
@@ -74,6 +75,7 @@ impl AdtRegistry {
             .variants_named(variant_name)
             .filter(|(descriptor, variant)| {
                 descriptor.module_name.as_deref() == Some(module_name)
+                    && descriptor.package_name.as_deref() == package_name
                     && descriptor.visibility == Visibility::Public
                     && variant.visibility == Visibility::Public
                     && type_name.is_none_or(|type_name| type_name == &descriptor.type_name)
@@ -172,7 +174,7 @@ impl AdtRegistry {
         }
         let mut matches =
             self.lookup_constructor_candidates(segments, current_module, uses, include_imports);
-        prefer_current_module_constructors(&mut matches, segments, current_module);
+        prefer_current_module_constructors(&mut matches, segments, current_module, uses);
         match matches.as_slice() {
             [] => ConstructorLookup::Missing,
             [constructor] => ConstructorLookup::Found(*constructor),
@@ -237,6 +239,7 @@ fn prefer_current_module_constructors<'a>(
     matches: &mut Vec<AdtConstructor<'a>>,
     segments: &[String],
     current_module: Option<&str>,
+    uses: &[UseDecl],
 ) {
     if segments.len() != 1 {
         return;
@@ -244,13 +247,16 @@ fn prefer_current_module_constructors<'a>(
     let Some(current_module) = current_module else {
         return;
     };
-    if !matches
-        .iter()
-        .any(|constructor| constructor.descriptor.module_name.as_deref() == Some(current_module))
-    {
+    let current_package =
+        import_owner_for_module(uses, Some(current_module)).and_then(|owner| owner.package);
+    if !matches.iter().any(|constructor| {
+        constructor.descriptor.module_name.as_deref() == Some(current_module)
+            && constructor.descriptor.package_name == current_package
+    }) {
         return;
     }
     matches.retain(|constructor| {
         constructor.descriptor.module_name.as_deref() == Some(current_module)
+            && constructor.descriptor.package_name == current_package
     });
 }

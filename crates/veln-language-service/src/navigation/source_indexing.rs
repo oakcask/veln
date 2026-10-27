@@ -58,6 +58,9 @@ fn index_dependency_sources(
                 .extend(package_schema_alias_declarations(&file, &parsed.tree));
             let mut source_module = veln_ast::lower_surface_ast(&parsed.tree);
             assign_module_name(&mut source_module, &file.module);
+            if !dependency.standard_library {
+                assign_package_name(&mut source_module, &package);
+            }
             if parsed.diagnostics.is_empty() {
                 declarations.extend(file_declarations(&file, &parsed.tree));
                 append_surface_module(&mut dependency_module, source_module.clone());
@@ -489,5 +492,32 @@ fn assign_module_name(module: &mut veln_ast::SurfaceModule, name: &str) {
     }
     for function in &mut module.functions {
         function.module_name = Some(name.to_string());
+    }
+}
+
+fn assign_package_name(module: &mut veln_ast::SurfaceModule, name: &str) {
+    for use_decl in &mut module.uses {
+        use_decl.importing_package = Some(name.to_string());
+    }
+    for alias in &mut module.aliases {
+        alias.package_name = Some(name.to_string());
+    }
+    for effect in &mut module.effects {
+        effect.package_name = Some(name.to_string());
+    }
+    for handler in &mut module.handlers {
+        handler.package_name = Some(name.to_string());
+    }
+    for type_decl in &mut module.types {
+        type_decl.package_name = Some(name.to_string());
+    }
+    for schema in &mut module.schemas {
+        schema.package_name = Some(name.to_string());
+    }
+    for value in &mut module.module_values {
+        value.package_name = Some(name.to_string());
+    }
+    for function in &mut module.functions {
+        function.package_name = Some(name.to_string());
     }
 }

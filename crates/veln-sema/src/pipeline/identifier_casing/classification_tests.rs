@@ -46,7 +46,7 @@ fn path_classification_preserves_dependency_alias_constructor_and_recovery_roles
             "end\n",
         ),
     );
-    let dependency = named_module(
+    let mut dependency = named_module(
         "helper",
         concat!(
             "pub type Item\n  pub Ready\nend\n",
@@ -55,6 +55,15 @@ fn path_classification_preserves_dependency_alias_constructor_and_recovery_roles
             "fn constrain() -> Int\n  identity(1)\nend\n",
         ),
     );
+    for declaration in &mut dependency.types {
+        declaration.package_name = Some("example/pkg".to_string());
+    }
+    for function in &mut dependency.functions {
+        function.package_name = Some("example/pkg".to_string());
+    }
+    for alias in &mut dependency.aliases {
+        alias.package_name = Some("example/pkg".to_string());
+    }
     let mut project = workspace.clone();
     project.types.extend(dependency.types);
     project.functions.extend(dependency.functions);
@@ -69,7 +78,8 @@ fn path_classification_preserves_dependency_alias_constructor_and_recovery_roles
     assert!(
         expected
             .iter()
-            .any(|segment| { segment.evidence == QualifiedPathSegmentEvidence::UniqueRecovery })
+            .any(|segment| { segment.evidence == QualifiedPathSegmentEvidence::UniqueRecovery }),
+        "{expected:#?}"
     );
 
     assert_eq!(

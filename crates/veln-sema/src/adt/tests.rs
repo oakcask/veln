@@ -60,6 +60,7 @@ fn lookup_descriptor(module: &str, arity: usize) -> AdtDescriptor {
     AdtDescriptor {
         type_name: "State".to_string(),
         name_class: SourceLessNameClass::Type,
+        package_name: None,
         module_name: Some(module.to_string()),
         nominal_identity: None,
         type_parameters: (0..arity).map(|index| format!("T{index}")).collect(),
@@ -407,6 +408,7 @@ fn validated_registry_indexes_descriptor_and_constructor_owners() {
     let descriptor = AdtDescriptor {
         type_name: "Owned".to_string(),
         name_class: SourceLessNameClass::Type,
+        package_name: None,
         module_name: Some("example".to_string()),
         nominal_identity: None,
         type_parameters: Vec::new(),
