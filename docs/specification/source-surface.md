@@ -78,6 +78,9 @@ Recovery retains only the provenance parsed before the malformed remainder:
 Missing aliases, non-identifier aliases, trailing alias paths, misplaced or
 repeated `as`, and missing package strings all follow this newline-bounded,
 non-binding rule. A retained alias or package is diagnostic provenance only.
+If a syntax tree contains any recovered import, formatting returns the complete
+source text unchanged. This whole-source preservation prevents formatting of
+other declarations from turning retained recovery provenance into a binding.
 
 A source `type` declaration may contain zero variants:
 
@@ -646,6 +649,9 @@ MemberPath    ::= Name ("::" Name)*
 
 - Grammar artifact: [source-surface-executable.pl](source-surface-executable.pl).
 - Parser: `crates/veln-syntax/src/parser/` and `crates/veln-syntax/src/lexer.rs`.
+- Formatter and recovered-import preservation:
+  `crates/veln-syntax/src/format/declarations.rs` and
+  `crates/veln-syntax/src/tests/modules_and_contracts.rs`.
 - Source identity and companion visibility: `crates/veln-analysis/src/surface/`.
 ## Read by task
 
