@@ -17,9 +17,43 @@ path = "/result"
 length = 3
 
 [[lsp_assert]]
+id = 3
+path = "/result/0/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 3
+path = "/result/0/range"
+equals = {"start":{"line":0,"character":12},"end":{"line":0,"character":16}}
+
+[[lsp_assert]]
+id = 3
+path = "/result/1/range"
+equals = {"start":{"line":4,"character":2},"end":{"line":4,"character":6}}
+
+[[lsp_assert]]
+id = 3
+path = "/result/1/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 3
+path = "/result/2/range"
+equals = {"start":{"line":8,"character":2},"end":{"line":8,"character":6}}
+
+[[lsp_assert]]
+id = 3
+path = "/result/2/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
 id = 4
 path = "/result/changes/$workspace_file_uri:main.veln"
-length = 3
+equals = [
+  {"range":{"start":{"line":0,"character":12},"end":{"line":0,"character":16}},"newText":"numbers"},
+  {"range":{"start":{"line":4,"character":2},"end":{"line":4,"character":6}},"newText":"numbers"},
+  {"range":{"start":{"line":8,"character":2},"end":{"line":8,"character":6}},"newText":"numbers"}
+]
 
 [[lsp_assert]]
 id = 5
@@ -32,14 +66,49 @@ path = "/result"
 length = 3
 
 [[lsp_assert]]
+id = 6
+path = "/result/0/uri"
+workspace_file_uri = "math.veln"
+
+[[lsp_assert]]
+id = 6
+path = "/result/0/range"
+equals = {"start":{"line":0,"character":7},"end":{"line":0,"character":13}}
+
+[[lsp_assert]]
+id = 6
+path = "/result/1/range"
+equals = {"start":{"line":4,"character":8},"end":{"line":4,"character":14}}
+
+[[lsp_assert]]
+id = 6
+path = "/result/1/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 6
+path = "/result/2/range"
+equals = {"start":{"line":8,"character":8},"end":{"line":8,"character":14}}
+
+[[lsp_assert]]
+id = 6
+path = "/result/2/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
 id = 7
 path = "/result/changes/$workspace_file_uri:main.veln"
-length = 2
+equals = [
+  {"range":{"start":{"line":4,"character":8},"end":{"line":4,"character":14}},"newText":"twice"},
+  {"range":{"start":{"line":8,"character":8},"end":{"line":8,"character":14}},"newText":"twice"}
+]
 
 [[lsp_assert]]
 id = 7
 path = "/result/changes/$workspace_file_uri:math.veln"
-length = 1
+equals = [
+  {"range":{"start":{"line":0,"character":7},"end":{"line":0,"character":13}},"newText":"twice"}
+]
 
 [[lsp_assert]]
 id = 8

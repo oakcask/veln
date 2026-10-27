@@ -112,6 +112,14 @@ mod explicit_import_alias_navigation_tests {
             3,
             14,
         );
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&snapshot, &result, "extra").unwrap_err(),
+            RenameNameClass::ImportAlias,
+            "extra",
+            "app.veln",
+            3,
+            14,
+        );
     }
 
     #[test]
@@ -163,6 +171,46 @@ mod explicit_import_alias_navigation_tests {
         assert!(query(collision.clone(), "collision.veln", 1, 13).is_none());
         assert!(query(collision.clone(), "collision.veln", 2, 14).is_none());
         assert!(query(collision, "collision.veln", 5, 3).is_none());
+
+        let duplicate_target = vec![
+            source("math.veln", "pub fn double() -> Int\n  2\nend\n"),
+            source(
+                "duplicate.veln",
+                concat!(
+                    "use math as first\n",
+                    "use math as second\n\n",
+                    "fn main() -> Int\n",
+                    "  first::double()\n",
+                    "end\n",
+                ),
+            ),
+        ];
+        assert!(query(duplicate_target.clone(), "duplicate.veln", 1, 13).is_none());
+        assert!(query(duplicate_target.clone(), "duplicate.veln", 2, 13).is_none());
+        assert!(query(duplicate_target, "duplicate.veln", 5, 3).is_none());
+    }
+
+    #[test]
+    fn invalid_alias_declarations_do_not_fall_back_to_prelude_symbols() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub fn vec_len(items: Vec<A>) -> Int\n  prelude_builtin::vec_len(items)\nend\n",
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("alpha.veln", "pub fn value() -> Int\n  1\nend\n"),
+            source("beta.veln", "pub fn value() -> Int\n  2\nend\n"),
+            source(
+                "invalid.veln",
+                "use alpha as vec_len\nuse beta as vec_len\n",
+            ),
+        ])
+        .with_standard_library(standard_library);
+
+        assert!(query_snapshot(&snapshot, "invalid.veln", 1, 14).is_none());
+        assert!(query_snapshot(&snapshot, "invalid.veln", 2, 13).is_none());
     }
 
     #[test]

@@ -288,6 +288,12 @@ impl SymbolIndex {
         ) {
             return Some(SelectedNavigationSymbol::bare(Symbol::ImportAlias(alias)));
         }
+        if line_tokens_before(tokens, token_index)
+            .iter()
+            .any(|token| token.kind == TokenKind::Use)
+        {
+            return None;
+        }
         if file
             .variant_refinement_final_ranges
             .contains(&(token.range.start, token.range.end))
