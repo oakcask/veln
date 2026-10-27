@@ -12,14 +12,12 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         let types_by_name = index_types_by_name(&types);
         let constructors_by_name = index_constructors_by_name(&types);
         Self {
-            uses: inputs.uses(),
-            blocked_imports: inputs.blocked_imports(),
-            invalid_uses: inputs.invalid_uses().collect(),
+            import_selections: inputs.import_selections(),
             invalid_use_segments: inputs
                 .invalid_uses_with_segments()
                 .map(|(use_decl, invalid_segments)| {
                     (
-                        use_decl,
+                        use_decl_key(use_decl),
                         invalid_segments
                             .iter()
                             .map(|invalid| ReachableInvalidNameSpan::Name(invalid.span.clone()))
@@ -430,8 +428,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) -> bool {
         let Some(use_decl) = recovery_imported_use_for_path(
-            &self.invalid_uses,
-            self.blocked_imports,
+            self.import_selections,
             &segments[..segments.len().saturating_sub(1)],
             current_module,
         ) else {
@@ -439,10 +436,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         };
         spans.extend(
             self.invalid_use_segments
-                .iter()
-                .find(|(invalid_use, _)| std::ptr::eq(*invalid_use, use_decl))
+                .get(&use_decl_key(use_decl))
                 .into_iter()
-                .flat_map(|(_, invalid_spans)| invalid_spans.iter().cloned()),
+                .flat_map(|invalid_spans| invalid_spans.iter().cloned()),
         );
         true
     }

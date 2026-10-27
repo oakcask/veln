@@ -40,8 +40,7 @@ pub(super) fn function_alias_targets(
     inputs: &ReachabilityInputs<'_>,
     function_targets: &[FunctionTarget],
 ) -> Vec<FunctionTarget> {
-    let uses = inputs.uses();
-    let blocked_imports = inputs.blocked_imports();
+    let import_selections = inputs.import_selections();
     inputs
         .aliases()
         .filter(|alias| alias.kind == PublicAliasKind::Function)
@@ -50,8 +49,7 @@ pub(super) fn function_alias_targets(
             let recovery = !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase);
             let target = target_for_alias_path(
                 &alias.target,
-                &uses,
-                blocked_imports,
+                import_selections,
                 function_targets,
                 alias.module_name.as_deref(),
             )?;
@@ -93,8 +91,7 @@ pub(super) fn companion_alias_targets_imported_private_function(
 
 pub(super) fn target_for_alias_path<'a>(
     segments: &[String],
-    uses: &[&UseDecl],
-    blocked_imports: &BlockedImports,
+    import_selections: &ImportSelectionIndex<'_>,
     function_targets: &'a [FunctionTarget],
     current_module: Option<&str>,
 ) -> Option<&'a FunctionTarget> {
@@ -108,8 +105,7 @@ pub(super) fn target_for_alias_path<'a>(
         }),
         [_, .., name] => {
             let use_decl = imported_use_for_path(
-                uses,
-                blocked_imports,
+                import_selections,
                 &segments[..segments.len() - 1],
                 current_module,
             )?;

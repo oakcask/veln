@@ -20,7 +20,7 @@ mod targets;
 use call_resolution::*;
 use callee_collection::*;
 pub(crate) use index::ReachabilityCache;
-use index::{FunctionTargetIndex, ReachabilityIndex, ReachabilityInputs};
+use index::{FunctionTargetIndex, ImportSelectionIndex, ReachabilityIndex, ReachabilityInputs};
 use recovery_index::*;
 use recovery_resolution::*;
 use targets::*;
@@ -33,6 +33,10 @@ type BlockedExactImportPaths = HashSet<(Option<String>, String)>;
 struct BlockedImports {
     aliases: BlockedImportAliases,
     exact_paths: BlockedExactImportPaths,
+}
+
+fn use_decl_key(use_decl: &UseDecl) -> usize {
+    std::ptr::from_ref(use_decl) as usize
 }
 
 fn use_decl_exact_paths(use_decl: &UseDecl) -> Vec<String> {
@@ -75,6 +79,26 @@ pub(crate) fn reachable_entry_module_with_cache(
 ) -> SurfaceModule {
     let inputs = ReachabilityInputs::combined(module);
     reachable_module_for_inputs(inputs, entry, entry_kind, &cache.function_targets, cache)
+}
+
+#[cfg(test)]
+pub(crate) fn reachable_function_count(
+    module: &SurfaceModule,
+    entry: &str,
+    entry_kind: FunctionKind,
+) -> usize {
+    let inputs = ReachabilityInputs::combined(module);
+    let reachability_index = reachable_function_targets(&inputs);
+    let companion_access_targets = companion_function_access_targets(&inputs);
+    reachable_functions(
+        &inputs,
+        entry,
+        entry_kind,
+        &reachability_index,
+        &companion_access_targets,
+        &ReachabilityCache::default(),
+    )
+    .len()
 }
 
 pub(crate) fn reachable_entry_module_with_standard_cache(
@@ -460,6 +484,13 @@ pub(crate) mod reachability_counters {
         static RECOVERY_SELECTOR_CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
         static CALLEE_CONTEXT_PREPARATIONS: Cell<usize> = const { Cell::new(0) };
         static INVALID_IMPORT_CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
+        static IMPORT_SELECTION_INDEX_BUILDS: Cell<usize> = const { Cell::new(0) };
+        static IMPORT_SELECTION_SOURCE_VISITS: Cell<usize> = const { Cell::new(0) };
+        static IMPORT_SELECTION_EXACT_ENTRIES: Cell<usize> = const { Cell::new(0) };
+        static IMPORT_SELECTION_QUALIFIER_ENTRIES: Cell<usize> = const { Cell::new(0) };
+        static IMPORT_SELECTION_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+        static IMPORT_SELECTION_RECOVERY_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+        static IMPORT_SELECTION_PROBES: Cell<usize> = const { Cell::new(0) };
     }
 
     pub(crate) fn reset() {
@@ -469,6 +500,13 @@ pub(crate) mod reachability_counters {
         RECOVERY_SELECTOR_CANDIDATE_SCANS.set(0);
         CALLEE_CONTEXT_PREPARATIONS.set(0);
         INVALID_IMPORT_CANDIDATE_SCANS.set(0);
+        IMPORT_SELECTION_INDEX_BUILDS.set(0);
+        IMPORT_SELECTION_SOURCE_VISITS.set(0);
+        IMPORT_SELECTION_EXACT_ENTRIES.set(0);
+        IMPORT_SELECTION_QUALIFIER_ENTRIES.set(0);
+        IMPORT_SELECTION_LOOKUPS.set(0);
+        IMPORT_SELECTION_RECOVERY_LOOKUPS.set(0);
+        IMPORT_SELECTION_PROBES.set(0);
     }
 
     pub(crate) fn record_function_lookup_scan() {
@@ -495,12 +533,52 @@ pub(crate) mod reachability_counters {
         INVALID_IMPORT_CANDIDATE_SCANS.set(INVALID_IMPORT_CANDIDATE_SCANS.get() + 1);
     }
 
+    pub(crate) fn record_import_selection_index_build() {
+        IMPORT_SELECTION_INDEX_BUILDS.set(IMPORT_SELECTION_INDEX_BUILDS.get() + 1);
+    }
+
+    pub(crate) fn record_import_selection_source_visit() {
+        IMPORT_SELECTION_SOURCE_VISITS.set(IMPORT_SELECTION_SOURCE_VISITS.get() + 1);
+    }
+
+    pub(crate) fn record_import_selection_exact_entry() {
+        IMPORT_SELECTION_EXACT_ENTRIES.set(IMPORT_SELECTION_EXACT_ENTRIES.get() + 1);
+    }
+
+    pub(crate) fn record_import_selection_qualifier_entry() {
+        IMPORT_SELECTION_QUALIFIER_ENTRIES.set(IMPORT_SELECTION_QUALIFIER_ENTRIES.get() + 1);
+    }
+
+    pub(crate) fn record_import_selection_lookup(recovery: bool) {
+        if recovery {
+            IMPORT_SELECTION_RECOVERY_LOOKUPS.set(IMPORT_SELECTION_RECOVERY_LOOKUPS.get() + 1);
+        } else {
+            IMPORT_SELECTION_LOOKUPS.set(IMPORT_SELECTION_LOOKUPS.get() + 1);
+        }
+    }
+
+    pub(crate) fn record_import_selection_probe() {
+        IMPORT_SELECTION_PROBES.set(IMPORT_SELECTION_PROBES.get() + 1);
+    }
+
     pub(crate) fn callee_context_preparations() -> usize {
         CALLEE_CONTEXT_PREPARATIONS.get()
     }
 
     pub(crate) fn invalid_import_candidate_scans() -> usize {
         INVALID_IMPORT_CANDIDATE_SCANS.get()
+    }
+
+    pub(crate) fn import_selection_snapshot() -> (usize, usize, usize, usize, usize, usize, usize) {
+        (
+            IMPORT_SELECTION_INDEX_BUILDS.get(),
+            IMPORT_SELECTION_SOURCE_VISITS.get(),
+            IMPORT_SELECTION_EXACT_ENTRIES.get(),
+            IMPORT_SELECTION_QUALIFIER_ENTRIES.get(),
+            IMPORT_SELECTION_LOOKUPS.get(),
+            IMPORT_SELECTION_RECOVERY_LOOKUPS.get(),
+            IMPORT_SELECTION_PROBES.get(),
+        )
     }
 
     pub(crate) fn snapshot() -> (usize, usize, usize, usize) {

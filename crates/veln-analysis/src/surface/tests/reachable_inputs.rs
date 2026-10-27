@@ -1,6 +1,57 @@
 use super::*;
 
 #[test]
+fn qualified_import_selection_scales_linearly() {
+    fn selection_counts(import_count: usize) -> (usize, usize, usize, usize, usize, usize, usize) {
+        let mut source = String::from("mod main\n");
+        for index in 0..import_count {
+            source.push_str(&format!("use dep_{index} as alias_{index}\n"));
+        }
+        source.push_str("\npub fn main() -> Int\n");
+        for index in 0..import_count {
+            source.push_str(&format!("  alias_{index}::value()\n"));
+        }
+        source.push_str("  0\nend\n");
+        for index in 0..import_count {
+            source.push_str(&format!(
+                "\npub fn imported_{index}() -> Int\n  {index}\nend\n"
+            ));
+        }
+        let mut module = lower(&source);
+        for function in &mut module.functions {
+            let Some(name) = function.name.as_deref() else {
+                continue;
+            };
+            let Some(index) = name.strip_prefix("imported_").map(str::to_string) else {
+                continue;
+            };
+            function.name = Some("value".to_string());
+            function.module_name = Some(format!("dep_{index}"));
+        }
+
+        reachability_counters::reset();
+        assert_eq!(
+            reachable_function_count(&module, "main", FunctionKind::Function),
+            import_count + 1
+        );
+        reachability_counters::import_selection_snapshot()
+    }
+
+    let small = selection_counts(64);
+    let large = selection_counts(128);
+
+    assert_eq!(small, (1, 64, 64, 64, 64, 0, 128));
+    assert_eq!(large, (1, 128, 128, 128, 128, 0, 256));
+    assert_eq!(large.0, small.0);
+    assert_eq!(large.1, small.1 * 2);
+    assert_eq!(large.2, small.2 * 2);
+    assert_eq!(large.3, small.3 * 2);
+    assert_eq!(large.4, small.4 * 2);
+    assert_eq!(large.5, 0);
+    assert!(large.6 <= large.4 * 2);
+}
+
+#[test]
 fn reachable_resolution_skips_unrelated_annotated_functions() {
     fn resolution_scans(unrelated_count: usize) -> (usize, usize, usize, usize) {
         let mut source =

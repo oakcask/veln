@@ -141,15 +141,8 @@ impl<'a> ReachabilityInputs<'a> {
         self.use_index.valid.clone()
     }
 
-    pub(super) fn blocked_imports(&self) -> &BlockedImports {
-        &self.use_index.blocked
-    }
-
-    pub(super) fn invalid_uses(&self) -> impl Iterator<Item = &'a UseDecl> + '_ {
-        self.use_index
-            .invalid
-            .iter()
-            .map(|invalid| invalid.declaration)
+    pub(super) fn import_selections(&self) -> &ImportSelectionIndex<'a> {
+        &self.use_index.selections
     }
 
     pub(super) fn invalid_uses_with_segments(
@@ -194,7 +187,7 @@ impl<'a> ReachabilityInputs<'a> {
 struct UseIndex<'a> {
     valid: Vec<&'a UseDecl>,
     invalid: Vec<InvalidUse<'a>>,
-    blocked: BlockedImports,
+    selections: ImportSelectionIndex<'a>,
 }
 
 struct InvalidUse<'a> {
@@ -215,11 +208,16 @@ impl<'a> UseIndex<'a> {
             .iter()
             .flat_map(|module| module.uses.iter())
             .collect::<Vec<_>>();
+        let exact_paths = declarations
+            .iter()
+            .map(|declaration| (use_decl_key(declaration), use_decl_exact_paths(declaration)))
+            .collect::<HashMap<_, _>>();
         let blocked_aliases = blocked_import_aliases(&declarations);
         let duplicate_targets = duplicate_import_targets(&declarations);
         let (invalid_segments_by_file, invalid_alias_spans) = invalid_import_names(&modules);
         let blocked_exact_paths = blocked_exact_import_paths(
             &declarations,
+            &exact_paths,
             &invalid_segments_by_file,
             &invalid_alias_spans,
             &duplicate_targets,
@@ -231,19 +229,181 @@ impl<'a> UseIndex<'a> {
             &duplicate_targets,
             &blocked_aliases,
         );
+        let blocked = BlockedImports {
+            aliases: blocked_aliases,
+            exact_paths: blocked_exact_paths,
+        };
+        let selections =
+            ImportSelectionIndex::new(&declarations, &exact_paths, &valid, &invalid, &blocked);
         Self {
             valid,
             invalid,
-            blocked: BlockedImports {
-                aliases: blocked_aliases,
-                exact_paths: blocked_exact_paths,
-            },
+            selections,
         }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum ImportSelection<'a> {
+    Unique(&'a UseDecl),
+    Ambiguous,
+    Blocked,
+}
+
+impl<'a> ImportSelection<'a> {
+    fn add(slot: &mut HashMap<String, Self>, key: String, declaration: &'a UseDecl) {
+        use std::collections::hash_map::Entry;
+
+        match slot.entry(key) {
+            Entry::Vacant(entry) => {
+                entry.insert(Self::Unique(declaration));
+            }
+            Entry::Occupied(mut entry) => {
+                entry.insert(Self::Ambiguous);
+            }
+        }
+    }
+
+    fn declaration(self) -> Option<&'a UseDecl> {
+        match self {
+            Self::Unique(declaration) => Some(declaration),
+            Self::Ambiguous | Self::Blocked => None,
+        }
+    }
+}
+
+#[derive(Default)]
+struct ModuleImportSelections<'a> {
+    normal_exact: HashMap<String, ImportSelection<'a>>,
+    normal_qualifier: HashMap<String, ImportSelection<'a>>,
+    recovery_exact: HashMap<String, ImportSelection<'a>>,
+    recovery_qualifier: HashMap<String, ImportSelection<'a>>,
+}
+
+pub(super) struct ImportSelectionIndex<'a> {
+    root: ModuleImportSelections<'a>,
+    modules: HashMap<String, ModuleImportSelections<'a>>,
+}
+
+impl<'a> ImportSelectionIndex<'a> {
+    fn new(
+        declarations: &[&'a UseDecl],
+        exact_paths: &HashMap<usize, Vec<String>>,
+        valid: &[&'a UseDecl],
+        invalid: &[InvalidUse<'a>],
+        blocked: &BlockedImports,
+    ) -> Self {
+        #[cfg(test)]
+        reachability_counters::record_import_selection_index_build();
+
+        let valid_ids = valid
+            .iter()
+            .map(|declaration| use_decl_key(declaration))
+            .collect::<HashSet<_>>();
+        let invalid_ids = invalid
+            .iter()
+            .map(|invalid| use_decl_key(invalid.declaration))
+            .collect::<HashSet<_>>();
+        let mut index = Self {
+            root: ModuleImportSelections::default(),
+            modules: HashMap::new(),
+        };
+        for declaration in declarations.iter().copied() {
+            #[cfg(test)]
+            reachability_counters::record_import_selection_source_visit();
+            let declaration_key = use_decl_key(declaration);
+            let recovery = if valid_ids.contains(&declaration_key) {
+                false
+            } else if invalid_ids.contains(&declaration_key) {
+                true
+            } else {
+                continue;
+            };
+            let module = index.module_mut(declaration.module_name.as_deref());
+            let (exact, qualifier) = if recovery {
+                (&mut module.recovery_exact, &mut module.recovery_qualifier)
+            } else {
+                (&mut module.normal_exact, &mut module.normal_qualifier)
+            };
+            for path in exact_paths.get(&declaration_key).into_iter().flatten() {
+                #[cfg(test)]
+                reachability_counters::record_import_selection_exact_entry();
+                ImportSelection::add(exact, path.clone(), declaration);
+            }
+            if simple_import_alias_matches(declaration, &declaration.alias) {
+                #[cfg(test)]
+                reachability_counters::record_import_selection_qualifier_entry();
+                ImportSelection::add(qualifier, declaration.alias.clone(), declaration);
+            }
+        }
+        for (module_name, path) in &blocked.exact_paths {
+            let module = index.module_mut(module_name.as_deref());
+            module
+                .normal_exact
+                .insert(path.clone(), ImportSelection::Blocked);
+            module
+                .recovery_exact
+                .entry(path.clone())
+                .or_insert(ImportSelection::Blocked);
+        }
+        for (module_name, alias) in &blocked.aliases {
+            let module = index.module_mut(module_name.as_deref());
+            module
+                .normal_qualifier
+                .insert(alias.clone(), ImportSelection::Blocked);
+            module
+                .recovery_qualifier
+                .insert(alias.clone(), ImportSelection::Blocked);
+        }
+        index
+    }
+
+    fn module_mut(&mut self, module_name: Option<&str>) -> &mut ModuleImportSelections<'a> {
+        match module_name {
+            Some(module_name) => self.modules.entry(module_name.to_string()).or_default(),
+            None => &mut self.root,
+        }
+    }
+
+    fn module(&self, module_name: Option<&str>) -> Option<&ModuleImportSelections<'a>> {
+        match module_name {
+            Some(module_name) => self.modules.get(module_name),
+            None => Some(&self.root),
+        }
+    }
+
+    pub(super) fn select(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        recovery: bool,
+    ) -> Option<&'a UseDecl> {
+        #[cfg(test)]
+        reachability_counters::record_import_selection_lookup(recovery);
+        let path = segments.join("::");
+        let module = self.module(current_module)?;
+        let (exact, qualifier) = if recovery {
+            (&module.recovery_exact, &module.recovery_qualifier)
+        } else {
+            (&module.normal_exact, &module.normal_qualifier)
+        };
+        #[cfg(test)]
+        reachability_counters::record_import_selection_probe();
+        if let Some(selection) = exact.get(path.as_str()) {
+            return selection.declaration();
+        }
+        #[cfg(test)]
+        reachability_counters::record_import_selection_probe();
+        qualifier
+            .get(path.as_str())
+            .copied()
+            .and_then(ImportSelection::declaration)
     }
 }
 
 fn blocked_exact_import_paths(
     declarations: &[&UseDecl],
+    exact_paths: &HashMap<usize, Vec<String>>,
     invalid_segments_by_file: &HashMap<veln_source::SourcePath, Vec<&veln_ast::InvalidName>>,
     invalid_alias_spans: &InvalidNameSpans,
     duplicate_targets: &HashSet<UseTarget>,
@@ -268,7 +428,12 @@ fn blocked_exact_import_paths(
             invalid_alias,
             duplicate_target,
         );
-        for path in use_decl_exact_paths(declaration) {
+        for path in exact_paths
+            .get(&use_decl_key(declaration))
+            .into_iter()
+            .flatten()
+            .cloned()
+        {
             let group = groups
                 .entry((declaration.module_name.clone(), path))
                 .or_default();

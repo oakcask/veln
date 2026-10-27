@@ -87,11 +87,17 @@ pub(super) fn path_has_valid_constructor(
     segments: &[String],
     arg_count: Option<usize>,
     current_module: Option<&str>,
-    uses: &[&UseDecl],
-    blocked_imports: &BlockedImports,
+    selected_import: Option<&UseDecl>,
     types: &[&veln_ast::TypeDecl],
 ) -> bool {
-    let target = visible_path_target(uses, blocked_imports, segments, current_module);
+    if types.is_empty() {
+        return false;
+    }
+    let target = match segments {
+        [_] => current_module.map(str::to_string),
+        [_, .., _] => selected_import.map(|use_decl| use_decl.name.clone()),
+        _ => None,
+    };
     let leaf = path_leaf(segments);
     types.iter().copied().any(|type_decl| {
         declaration_visible(
@@ -122,6 +128,14 @@ pub(super) fn collect_function_name_reference(
     let function_targets = context.function_targets;
     let companion_access_targets = context.companion_access_targets;
     let types = context.types;
+    let selected_import = match segments {
+        [_, .., _] => imported_use_for_path(
+            context.import_selections,
+            &segments[..segments.len() - 1],
+            current_module,
+        ),
+        _ => None,
+    };
 
     if let [name] = segments
         && let Some(binding) = local_bindings
@@ -142,14 +156,7 @@ pub(super) fn collect_function_name_reference(
         }
         return;
     }
-    if path_has_valid_constructor(
-        segments,
-        None,
-        current_module,
-        uses,
-        context.blocked_imports,
-        types,
-    ) {
+    if path_has_valid_constructor(segments, None, current_module, selected_import, types) {
         return;
     }
     let public_or_same_module_access;
@@ -159,11 +166,11 @@ pub(super) fn collect_function_name_reference(
         public_or_same_module_access = HashMap::new();
         &public_or_same_module_access
     };
-    for callee in resolve_function_reference(
+    for callee in resolve_function_reference_with_selected_import(
         segments,
         current_module,
         uses,
-        context.blocked_imports,
+        selected_import,
         function_targets,
         access_targets,
         arg_count,
@@ -180,6 +187,15 @@ pub(super) fn collect_handler_operation_clause_callees(
     let ExprKind::Handle { handler, .. } = &expr.kind else {
         return;
     };
+    let selected_module = match handler.as_slice() {
+        [_, .., _] => imported_use_for_path(
+            outer_context.import_selections,
+            &handler[..handler.len() - 1],
+            outer_context.current_module,
+        )
+        .map(|use_decl| use_decl.name.as_str()),
+        _ => None,
+    };
     let matching_handlers = outer_context.handlers.iter().filter(|candidate| {
         let Some(name) = &candidate.name else {
             return false;
@@ -189,15 +205,10 @@ pub(super) fn collect_handler_operation_clause_callees(
                 name == segment && candidate.module_name.as_deref() == outer_context.current_module
             }
             [_, .., segment] => {
-                let Some(use_decl) = imported_use_for_path(
-                    outer_context.uses,
-                    outer_context.blocked_imports,
-                    &handler[..handler.len() - 1],
-                    outer_context.current_module,
-                ) else {
+                let Some(module_name) = selected_module else {
                     return false;
                 };
-                name == segment && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
+                name == segment && candidate.module_name.as_deref() == Some(module_name)
             }
             _ => false,
         }
@@ -206,7 +217,7 @@ pub(super) fn collect_handler_operation_clause_callees(
         let context = FunctionCalleeContext {
             current_module: handler.module_name.as_deref(),
             uses: outer_context.uses,
-            blocked_imports: outer_context.blocked_imports,
+            import_selections: outer_context.import_selections,
             function_targets: outer_context.function_targets,
             companion_access_targets: outer_context.companion_access_targets,
             handlers: outer_context.handlers,
@@ -236,7 +247,35 @@ pub(super) fn resolve_function_reference(
     segments: &[String],
     current_module: Option<&str>,
     uses: &[&UseDecl],
-    blocked_imports: &BlockedImports,
+    import_selections: &ImportSelectionIndex<'_>,
+    function_targets: &FunctionTargetIndex,
+    companion_access_targets: &HashMap<String, String>,
+    arg_count: Option<usize>,
+) -> Vec<ReachableFunction> {
+    let selected_import = match segments {
+        [_, .., _] => imported_use_for_path(
+            import_selections,
+            &segments[..segments.len() - 1],
+            current_module,
+        ),
+        _ => None,
+    };
+    resolve_function_reference_with_selected_import(
+        segments,
+        current_module,
+        uses,
+        selected_import,
+        function_targets,
+        companion_access_targets,
+        arg_count,
+    )
+}
+
+fn resolve_function_reference_with_selected_import(
+    segments: &[String],
+    current_module: Option<&str>,
+    uses: &[&UseDecl],
+    selected_import: Option<&UseDecl>,
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
     arg_count: Option<usize>,
@@ -254,12 +293,7 @@ pub(super) fn resolve_function_reference(
             .map(reachable_function_from_target)
             .collect(),
         [_, .., name] => {
-            let Some(use_decl) = imported_use_for_path(
-                uses,
-                blocked_imports,
-                &segments[..segments.len() - 1],
-                current_module,
-            ) else {
+            let Some(use_decl) = selected_import else {
                 return Vec::new();
             };
             let module_name = use_decl.name.as_str();
@@ -300,66 +334,22 @@ pub(super) fn recovery_target_accepts_arg_count(
 }
 
 pub(super) fn imported_use_for_path<'a>(
-    uses: &'a [&'a UseDecl],
-    blocked_imports: &BlockedImports,
+    import_selections: &'a ImportSelectionIndex<'a>,
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
-    imported_use_for_path_with_exact_mode(uses, blocked_imports, segments, current_module, true)
+    import_selections.select(segments, current_module, false)
 }
 
 pub(super) fn recovery_imported_use_for_path<'a>(
-    uses: &'a [&'a UseDecl],
-    blocked_imports: &BlockedImports,
+    import_selections: &'a ImportSelectionIndex<'a>,
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
-    imported_use_for_path_with_exact_mode(uses, blocked_imports, segments, current_module, false)
+    import_selections.select(segments, current_module, true)
 }
 
-fn imported_use_for_path_with_exact_mode<'a>(
-    uses: &'a [&'a UseDecl],
-    blocked_imports: &BlockedImports,
-    segments: &[String],
-    current_module: Option<&str>,
-    blocked_exact_wins: bool,
-) -> Option<&'a UseDecl> {
-    let module_path = segments.join("::");
-    let candidates = uses
-        .iter()
-        .copied()
-        .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
-        .collect::<Vec<_>>();
-    let mut exact = candidates
-        .iter()
-        .copied()
-        .filter(|use_decl| use_decl_exact_paths(use_decl).contains(&module_path));
-    let blocked_exact = blocked_imports
-        .exact_paths
-        .contains(&(current_module.map(str::to_string), module_path.clone()));
-    if blocked_exact_wins && blocked_exact {
-        return None;
-    }
-    if let Some(first) = exact.next() {
-        return exact.next().is_none().then_some(first);
-    }
-    if blocked_exact {
-        return None;
-    }
-    if blocked_imports
-        .aliases
-        .contains(&(current_module.map(str::to_string), module_path.clone()))
-    {
-        return None;
-    }
-    let mut aliases = candidates
-        .into_iter()
-        .filter(|use_decl| simple_import_alias_matches(use_decl, &module_path));
-    let first = aliases.next()?;
-    aliases.next().is_none().then_some(first)
-}
-
-fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str) -> bool {
+pub(super) fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str) -> bool {
     use_decl.alias == module_path
         && (use_decl.has_explicit_alias()
             || use_decl.package.is_some()

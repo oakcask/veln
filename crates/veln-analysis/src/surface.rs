@@ -221,6 +221,7 @@ pub(crate) use reachability::{ReachabilityCache, reachable_entry_module_with_sta
 #[cfg(test)]
 pub(crate) use reachability::{
     reachability_counters, reachable_entry_module, reachable_entry_module_with_cache,
+    reachable_function_count,
 };
 
 #[cfg(test)]
