@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://veln.dev/schemas/observability/v1/json-lines-record.schema.json",
+  "$id": "https://raw.githubusercontent.com/oakcask/veln/main/crates/veln-stdlib/schemas/observability/v1/json-lines-record.schema.json",
   "title": "Veln JSON Lines observation record",
   "type": "object",
   "additionalProperties": false,

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://veln.dev/schemas/observability/v1/json-lines-exporter-health.schema.json",
+  "$id": "https://raw.githubusercontent.com/oakcask/veln/main/crates/veln-stdlib/schemas/observability/v1/json-lines-exporter-health.schema.json",
   "title": "Veln JSON Lines exporter health summary",
   "type": "object",
   "additionalProperties": false,
