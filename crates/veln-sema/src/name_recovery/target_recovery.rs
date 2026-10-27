@@ -1,14 +1,22 @@
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashSet};
 
 use veln_ast::{SurfaceModule, UseDecl};
 
-use super::{import_classification, record_import_classification_work};
+use super::{
+    import_classification, record_import_classification_work, record_recovery_target_work,
+};
 
 pub(super) fn recovered_target_names(
     module: &SurfaceModule,
     recovery_candidates: &[bool],
 ) -> Vec<Option<String>> {
-    let targets = recovery_target_index(module);
+    if !recovery_candidates.iter().any(|candidate| *candidate) {
+        return vec![None; module.uses.len()];
+    }
+    let targets = declared_module_identities(module);
+    record_recovery_target_work(|work| {
+        work.declared_identity_bytes += targets.iter().map(String::len).sum::<usize>();
+    });
     module
         .uses
         .iter()
@@ -18,19 +26,13 @@ pub(super) fn recovered_target_names(
                 return None;
             }
             record_import_classification_work();
-            targets.get(&use_decl.name).cloned().flatten()
+            record_recovery_target_work(|work| {
+                work.candidate_bytes += use_decl.name.len() + use_decl.written_name.len();
+            });
+            let corrected = corrected_target_spelling(use_decl)?;
+            targets.contains(&corrected).then_some(corrected)
         })
         .collect()
-}
-
-fn recovery_target_index(module: &SurfaceModule) -> HashMap<String, Option<String>> {
-    let mut targets = HashMap::<String, Option<String>>::new();
-    for identity in declared_module_identities(module) {
-        for written in invalid_cased_target_spellings(&identity) {
-            record_recovery_target(&mut targets, written, &identity);
-        }
-    }
-    targets
 }
 
 fn declared_module_identities(module: &SurfaceModule) -> BTreeSet<String> {
@@ -85,40 +87,44 @@ fn declared_module_identities(module: &SurfaceModule) -> BTreeSet<String> {
         .collect()
 }
 
-fn invalid_cased_target_spellings(identity: &str) -> Vec<String> {
-    let segments = identity.split("::").collect::<Vec<_>>();
-    let mut spellings = Vec::new();
-    for (index, segment) in segments.iter().copied().enumerate() {
-        record_import_classification_work();
-        let Some(first) = segment.as_bytes().first().copied() else {
-            continue;
-        };
-        if !first.is_ascii_lowercase() {
-            continue;
-        }
-        let mut written = segments.clone();
-        let mut repaired = String::with_capacity(segment.len());
-        repaired.push((first as char).to_ascii_uppercase());
-        repaired.push_str(&segment[1..]);
-        written[index] = &repaired;
-        spellings.push(written.join("::"));
+fn corrected_target_spelling(use_decl: &UseDecl) -> Option<String> {
+    let written_segments = use_decl.written_name.split("::").collect::<Vec<_>>();
+    let mut invalid_indices = written_segments
+        .iter()
+        .enumerate()
+        .filter_map(|(index, segment)| {
+            segment
+                .as_bytes()
+                .first()
+                .is_some_and(u8::is_ascii_uppercase)
+                .then_some(index)
+        });
+    let invalid_index = invalid_indices.next()?;
+    if invalid_indices.next().is_some() {
+        return None;
     }
-    spellings
-}
 
-fn record_recovery_target(
-    targets: &mut HashMap<String, Option<String>>,
-    written: String,
-    identity: &str,
-) {
-    targets
-        .entry(written)
-        .and_modify(|selected| {
-            if selected.as_deref() != Some(identity) {
-                *selected = None;
-            }
-        })
-        .or_insert_with(|| Some(identity.to_owned()));
+    let internal_segments = use_decl.name.split("::").collect::<Vec<_>>();
+    let prefix_count = internal_segments
+        .len()
+        .checked_sub(written_segments.len())?;
+    let internal_index = prefix_count + invalid_index;
+    let segment = *internal_segments.get(internal_index)?;
+    let first = segment.as_bytes().first().copied()?;
+    if !first.is_ascii_uppercase() {
+        return None;
+    }
+    let byte_offset = internal_segments[..internal_index]
+        .iter()
+        .map(|segment| segment.len() + 2)
+        .sum::<usize>();
+    let mut corrected = use_decl.name.clone();
+    corrected.replace_range(
+        byte_offset..byte_offset + 1,
+        &(first as char).to_ascii_lowercase().to_string(),
+    );
+    record_recovery_target_work(|work| work.corrected_bytes += corrected.len());
+    Some(corrected)
 }
 
 pub(crate) fn quarantined_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {

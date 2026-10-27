@@ -120,8 +120,14 @@ import classification for duplicate detection, casing recovery, and lookup.
 Deterministic scaling checks compare 128 and 256 imports for both distinct
 explicit aliases and invalid-cased targets with qualified calls. In each case,
 doubling the input adds at most twice the instrumented classification work plus
-a fixed allowance of 16 operations. The checks count semantic work instead of
-elapsed time, so runner timing noise does not affect the bound.
+a fixed allowance of 16 operations. Separate checks vary qualified-identity
+depth and segment width on clean and recovery-candidate imports. Clean imports
+materialize no recovery-target data. For recovery candidates, the checks count
+bytes processed for candidates and bytes retained for declared and corrected
+identities; doubling either path depth or total path bytes increases each
+metric by at most twice its smaller-input value plus a fixed delimiter
+allowance. These checks use operation and byte metrics instead of elapsed time,
+so runner timing noise does not affect the bounds.
 
 A typed module `let` enters the declaring module's value namespace with the
 identity of its module and declared name. Its written annotation supplies the
@@ -762,9 +768,9 @@ not become fallback targets.
   | Reserved-name and casing quarantine and recovery | `crates/veln-sema/src/tests/identifier_casing/explicit_import_aliases.rs`, `crates/veln-sema/src/tests/identifier_casing/explicit_import_targets.rs`, `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs`, `crates/veln-analysis/src/surface/tests/explicit_import_reachability.rs`, `examples/specification/check/explicit-import-alias-casing-human/`, `examples/specification/check/explicit-import-alias-casing-json/`, `examples/specification/check/explicit-import-alias-target-casing-human/`, `examples/specification/check/explicit-import-alias-target-casing-json/`, `examples/specification/check/explicit-import-alias-independent-carrier-failures-human/`, and `examples/specification/check/explicit-import-alias-independent-carrier-failures-json/` |
   | Cross-carrier semantic identity | `examples/specification/check/explicit-import-alias-carriers/` and the explicit-import-alias semantic tests under `crates/veln-sema/src/tests/` |
   | Runtime, lowering, and reachability identity | `examples/specification/run/explicit-import-alias-runtime/`, `examples/specification/run/explicit-import-alias-handler/`, `examples/specification/run/explicit-import-alias-handler-identity/`, and explicit-import-alias reachability tests under `crates/veln-analysis/src/surface/tests/` |
-  | Package, publication, and visibility boundaries | `examples/specification/check/explicit-import-alias-package/`, `examples/specification/check/explicit-import-alias-package-boundaries/`, and publication and visibility tests in `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs` and `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs` |
+  | Package, standard-origin, publication, and visibility boundaries | `examples/specification/check/explicit-import-alias-package/`, `examples/specification/check/explicit-import-alias-package-boundaries/`, loader recovery tests in `crates/veln-analysis/src/surface/tests/external_dependencies.rs` and `crates/veln-analysis/src/surface/tests/standard_initialization.rs`, and publication and visibility tests in `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs` and `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs` |
   | Stable source and token diagnostic ordering | [`explicit-import-alias-combined-order-human`](../../examples/specification/check/explicit-import-alias-combined-order-human/), [`explicit-import-alias-combined-order-json`](../../examples/specification/check/explicit-import-alias-combined-order-json/), `combined_module_import_diagnostics_use_stable_source_order`, and `combined_module_explicit_alias_casing_diagnostics_use_stable_source_order` under `crates/veln-sema/src/tests/` |
-  | Shared classification and linear import scaling | `duplicate_import_diagnostic_pipeline_classifies_once_and_scales_linearly` and `invalid_target_recovery_pipeline_classifies_once_and_scales_linearly` in `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs` |
+  | Shared classification and bounded import/path scaling | `duplicate_import_diagnostic_pipeline_classifies_once_and_scales_linearly` and `invalid_target_recovery_pipeline_classifies_once_and_scales_linearly` in `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs`, plus `recovery_target_materialization_scales_with_qualified_identity_bytes` in `crates/veln-sema/src/name_recovery/tests.rs` |
 - Deferred binding visibility:
   `examples/specification/check/defer-binding-visibility/`.
 - Module-value function-alias diagnostics:

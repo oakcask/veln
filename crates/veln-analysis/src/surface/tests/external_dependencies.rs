@@ -123,6 +123,224 @@ fn invalid_cased_dependency_export_isolated_from_valid_sibling() {
 }
 
 #[test]
+fn dependency_loader_preserves_written_paths_for_quarantined_public_alias_recovery() {
+    let temp = TempProject::new("dependency-written-path-alias-recovery");
+    temp.write(
+        "veln.toml",
+        "[dependencies.\"example.com/pkg\"]\npath = \"vendor/pkg\"\n",
+    );
+    temp.write(
+        "main.veln",
+        concat!(
+            "use Http as wire from \"example.com/pkg\"\n",
+            "\n",
+            "pub fn written_entry = Http::entry\n",
+            "pub fn qualified_entry = wire::entry\n",
+            "pub type WrittenState = Http::State\n",
+            "pub type QualifiedState = wire::State\n",
+            "pub schema WrittenPacket = Http::Packet\n",
+            "pub schema QualifiedPacket = wire::Packet\n",
+            "\n",
+            "pub fn main() -> Int\n",
+            "  0\n",
+            "end\n",
+        ),
+    );
+    temp.write(
+        "vendor/pkg/veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"example.com/pkg\"\n",
+            "\n",
+            "[lib]\n",
+            "exports = [\"http.veln\"]\n",
+        ),
+    );
+    temp.write(
+        "vendor/pkg/http.veln",
+        concat!(
+            "pub fn entry() -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "pub type State\n",
+            "  Ready\n",
+            "end\n",
+            "\n",
+            "pub schema Packet\n",
+            "  value: Int\n",
+            "end\n",
+        ),
+    );
+
+    let project =
+        Project::discover(temp.root().to_path_buf(), &[PathBuf::from("main.veln")]).unwrap();
+    let analysis = analyze_project(project, DoctestMode::Exclude);
+    let diagnostics = analysis.checked_diagnostics();
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "module.unexported_import")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "written and alias-qualified targets must recover equally: {diagnostics:#?}"
+    );
+    assert!(
+        analysis
+            .module
+            .uses
+            .iter()
+            .all(|use_decl| use_decl.name != "Http"),
+        "loader must rewrite internal package identities: {:#?}",
+        analysis.module.uses
+    );
+    let reachable = analysis.lower_reachable_entry("main", FunctionKind::Function);
+    assert!(reachable.lowered.core.is_none());
+    assert!(
+        reachable
+            .module
+            .functions
+            .iter()
+            .all(|function| function.module_name.as_deref() != Some("example.com/pkg::http")),
+        "recovery must not restore target reachability: {:#?}",
+        reachable.module.functions
+    );
+}
+
+#[test]
+fn dependency_loader_keeps_failed_quarantined_alias_selection_unresolved() {
+    let temp = TempProject::new("dependency-alias-recovery-boundaries");
+    temp.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"example.com/pkg\"]\n",
+            "path = \"vendor/pkg\"\n",
+            "[dependencies.\"example.com/first\"]\n",
+            "path = \"vendor/first\"\n",
+            "[dependencies.\"example.com/second\"]\n",
+            "path = \"vendor/second\"\n",
+        ),
+    );
+    temp.write(
+        "main.veln",
+        concat!(
+            "use Http as wire from \"example.com/pkg\"\n",
+            "use Collide as clash from \"example.com/pkg\"\n",
+            "use Other as clash from \"example.com/pkg\"\n",
+            "use Shared as first from \"example.com/first\"\n",
+            "use Shared as second from \"example.com/second\"\n",
+            "\n",
+            "pub fn missing_written = Http::missing\n",
+            "pub fn missing_qualified = wire::missing\n",
+            "pub type PrivateWritten = Http::Secret\n",
+            "pub type PrivateQualified = wire::Secret\n",
+            "pub schema WrongWritten = Http::State\n",
+            "pub schema WrongQualified = wire::State\n",
+            "pub fn ambiguous_written = Http::duplicate\n",
+            "pub fn ambiguous_qualified = wire::duplicate\n",
+            "pub type CollisionWritten = Collide::State\n",
+            "pub type CollisionQualified = clash::State\n",
+            "pub schema ImportAmbiguous = Shared::Packet\n",
+            "pub schema FirstControl = first::Packet\n",
+            "pub schema SecondControl = second::Packet\n",
+            "\n",
+            "pub fn main() -> Int\n",
+            "  0\n",
+            "end\n",
+        ),
+    );
+    temp.write(
+        "vendor/pkg/veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"example.com/pkg\"\n",
+            "[lib]\n",
+            "exports = [\"http.veln\", \"collide.veln\", \"other.veln\"]\n",
+        ),
+    );
+    temp.write(
+        "vendor/pkg/http.veln",
+        concat!(
+            "pub type State\n  Ready\nend\n",
+            "type Secret\n  Hidden\nend\n",
+            "pub fn duplicate() -> Int\n  1\nend\n",
+            "pub fn duplicate() -> Int\n  2\nend\n",
+        ),
+    );
+    temp.write("vendor/pkg/collide.veln", "pub type State\n  Ready\nend\n");
+    temp.write("vendor/pkg/other.veln", "pub type State\n  Ready\nend\n");
+    for package in ["first", "second"] {
+        temp.write(
+            &format!("vendor/{package}/veln.toml"),
+            &format!(
+                "[package]\nname = \"example.com/{package}\"\n[lib]\nexports = [\"shared.veln\"]\n"
+            ),
+        );
+        temp.write(
+            &format!("vendor/{package}/shared.veln"),
+            "pub schema Packet\n  value: Int\nend\n",
+        );
+    }
+
+    let project =
+        Project::discover(temp.root().to_path_buf(), &[PathBuf::from("main.veln")]).unwrap();
+    let analysis = analyze_project(project, DoctestMode::Exclude);
+    let diagnostics = analysis.checked_diagnostics();
+    let unresolved_targets = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.unresolved")
+        .filter_map(|diagnostic| detail_string(diagnostic, "target"))
+        .collect::<Vec<_>>();
+
+    for target in [
+        "Http::missing",
+        "wire::missing",
+        "Http::Secret",
+        "wire::Secret",
+        "Http::State",
+        "wire::State",
+        "Http::duplicate",
+        "wire::duplicate",
+        "Collide::State",
+        "clash::State",
+        "Shared::Packet",
+    ] {
+        assert!(
+            unresolved_targets.contains(&target),
+            "missing unresolved target {target}: {diagnostics:#?}"
+        );
+    }
+    assert_eq!(unresolved_targets.len(), 11, "{diagnostics:#?}");
+    assert!(
+        unresolved_targets
+            .iter()
+            .all(|target| !matches!(*target, "first::Packet" | "second::Packet")),
+        "unique qualifier controls must still recover: {diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.duplicate"),
+        "collision and duplicate declarations must retain independent diagnostics"
+    );
+}
+
+#[test]
 fn external_git_dependency_loads_materialized_subdir_package_root() {
     let temp = TempProject::new("external-git-dependency-subdir-root");
     temp.write(

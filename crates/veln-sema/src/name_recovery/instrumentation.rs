@@ -5,6 +5,19 @@ use std::cell::Cell;
 thread_local! {
     static IMPORT_CLASSIFICATION_WORK: Cell<usize> = const { Cell::new(0) };
     static IMPORT_CLASSIFICATION_BUILDS: Cell<usize> = const { Cell::new(0) };
+    static RECOVERY_TARGET_WORK: Cell<RecoveryTargetWork> =
+        const { Cell::new(RecoveryTargetWork {
+            declared_identity_bytes: 0,
+            candidate_bytes: 0,
+            corrected_bytes: 0,
+        }) };
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct RecoveryTargetWork {
+    pub(crate) declared_identity_bytes: usize,
+    pub(crate) candidate_bytes: usize,
+    pub(crate) corrected_bytes: usize,
 }
 
 #[cfg(test)]
@@ -19,6 +32,7 @@ pub(super) fn record_import_classification_work() {}
 pub(crate) fn reset_import_classification_work() {
     IMPORT_CLASSIFICATION_WORK.set(0);
     IMPORT_CLASSIFICATION_BUILDS.set(0);
+    RECOVERY_TARGET_WORK.set(RecoveryTargetWork::default());
 }
 
 #[cfg(test)]
@@ -30,6 +44,23 @@ pub(crate) fn import_classification_work() -> usize {
 pub(crate) fn import_classification_builds() -> usize {
     IMPORT_CLASSIFICATION_BUILDS.get()
 }
+
+#[cfg(test)]
+pub(crate) fn recovery_target_work() -> RecoveryTargetWork {
+    RECOVERY_TARGET_WORK.get()
+}
+
+#[cfg(test)]
+pub(super) fn record_recovery_target_work(update: impl FnOnce(&mut RecoveryTargetWork)) {
+    RECOVERY_TARGET_WORK.set({
+        let mut work = RECOVERY_TARGET_WORK.get();
+        update(&mut work);
+        work
+    });
+}
+
+#[cfg(not(test))]
+pub(super) fn record_recovery_target_work(_update: impl FnOnce(&mut RecoveryTargetWork)) {}
 
 #[cfg(test)]
 pub(super) fn record_import_classification_build() {

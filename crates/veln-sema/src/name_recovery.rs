@@ -23,12 +23,13 @@ use classification::{
 pub(crate) use instrumentation::NormalImportSelectionWork;
 #[cfg(test)]
 pub(crate) use instrumentation::{
-    import_classification_builds, import_classification_work, normal_import_selection_work,
-    reset_import_classification_work, reset_normal_import_selection_work,
+    RecoveryTargetWork, import_classification_builds, import_classification_work,
+    normal_import_selection_work, recovery_target_work, reset_import_classification_work,
+    reset_normal_import_selection_work,
 };
 use instrumentation::{
     record_import_classification_build, record_import_classification_work,
-    record_normal_import_selection_work,
+    record_normal_import_selection_work, record_recovery_target_work,
 };
 pub(crate) use selection_helpers::{normal_use_decls, use_decl_exact_paths};
 pub(crate) use target_recovery::{quarantined_use_decls, recovered_import_target_name};

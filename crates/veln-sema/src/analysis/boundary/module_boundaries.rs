@@ -2,7 +2,8 @@ use crate::adt::type_operations as adt;
 use crate::diagnostics::{module_details, span_json};
 pub(super) use crate::name_recovery::normal_imported_use_for_path;
 use crate::name_recovery::{
-    import_classification, resolved_import_module_name, use_decl_is_recovery_candidate,
+    import_classification, resolved_import_module_name, select_use_decl_for_path,
+    use_decl_is_recovery_candidate,
 };
 use crate::semantic_model::Type;
 use crate::standard_names::PRELUDE_MODULE;
@@ -89,11 +90,14 @@ pub(super) fn quarantined_imported_use_for_path<'a>(
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
-    module.uses.iter().find(|use_decl| {
-        use_decl_is_recovery_candidate(module, use_decl)
-            && use_decl.module_name.as_deref() == current_module
-            && (use_decl.name == module_path || use_decl.alias == module_path)
-    })
+    select_use_decl_for_path(
+        module
+            .uses
+            .iter()
+            .filter(|use_decl| use_decl_is_recovery_candidate(module, use_decl)),
+        &module_path,
+        current_module,
+    )
 }
 
 pub(super) fn quarantined_imported_module_for_path(
