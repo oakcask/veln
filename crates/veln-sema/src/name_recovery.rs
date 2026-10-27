@@ -2,185 +2,32 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 
-use veln_ast::{NameClass, NameOccurrence, PublicAlias, SurfaceModule, UseDecl};
+use veln_ast::{NameClass, NameOccurrence, SurfaceModule, UseDecl};
+
+mod alias_validity;
+mod classification;
+mod instrumentation;
+mod selection_helpers;
 
 #[cfg(test)]
-use std::cell::Cell;
-
+use alias_validity::use_decl_is_quarantined;
+pub(crate) use alias_validity::{
+    InvalidAliasTargetIndex, public_alias_has_invalid_target_leaf,
+    use_decl_contributes_bare_exports, use_decl_has_reserved_alias, use_decl_is_recovery_candidate,
+};
+use classification::{duplicate_diagnostic_origins, source_ordered_import_indices};
 #[cfg(test)]
-thread_local! {
-    static IMPORT_CLASSIFICATION_WORK: Cell<usize> = const { Cell::new(0) };
-    static IMPORT_CLASSIFICATION_BUILDS: Cell<usize> = const { Cell::new(0) };
-}
-
+pub(crate) use instrumentation::NormalImportSelectionWork;
 #[cfg(test)]
-fn record_import_classification_work() {
-    IMPORT_CLASSIFICATION_WORK.set(IMPORT_CLASSIFICATION_WORK.get() + 1);
-}
-
-#[cfg(not(test))]
-fn record_import_classification_work() {}
-
-#[cfg(test)]
-pub(crate) fn reset_import_classification_work() {
-    IMPORT_CLASSIFICATION_WORK.set(0);
-    IMPORT_CLASSIFICATION_BUILDS.set(0);
-}
-
-#[cfg(test)]
-pub(crate) fn import_classification_work() -> usize {
-    IMPORT_CLASSIFICATION_WORK.get()
-}
-
-#[cfg(test)]
-pub(crate) fn import_classification_builds() -> usize {
-    IMPORT_CLASSIFICATION_BUILDS.get()
-}
-
-#[cfg(test)]
-fn record_import_classification_build() {
-    IMPORT_CLASSIFICATION_BUILDS.set(IMPORT_CLASSIFICATION_BUILDS.get() + 1);
-}
-
-#[cfg(not(test))]
-fn record_import_classification_build() {}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) struct NormalImportSelectionWork {
-    pub(crate) builds: usize,
-    pub(crate) build_import_visits: usize,
-    pub(crate) build_index_entries: usize,
-    pub(crate) lookups: usize,
-    pub(crate) lookup_index_probes: usize,
-}
-
-#[cfg(test)]
-thread_local! {
-    static NORMAL_IMPORT_SELECTION_WORK: Cell<NormalImportSelectionWork> =
-        const { Cell::new(NormalImportSelectionWork {
-            builds: 0,
-            build_import_visits: 0,
-            build_index_entries: 0,
-            lookups: 0,
-            lookup_index_probes: 0,
-        }) };
-}
-
-#[cfg(test)]
-fn record_normal_import_selection_work(update: impl FnOnce(&mut NormalImportSelectionWork)) {
-    NORMAL_IMPORT_SELECTION_WORK.set({
-        let mut work = NORMAL_IMPORT_SELECTION_WORK.get();
-        update(&mut work);
-        work
-    });
-}
-
-#[cfg(not(test))]
-fn record_normal_import_selection_work(_update: impl FnOnce(&mut NormalImportSelectionWork)) {}
-
-#[cfg(test)]
-pub(crate) fn reset_normal_import_selection_work() {
-    NORMAL_IMPORT_SELECTION_WORK.set(NormalImportSelectionWork::default());
-}
-
-#[cfg(test)]
-pub(crate) fn normal_import_selection_work() -> NormalImportSelectionWork {
-    NORMAL_IMPORT_SELECTION_WORK.get()
-}
-
-pub(crate) struct InvalidAliasTargetIndex {
-    spans_by_file: BTreeMap<String, Vec<(usize, usize)>>,
-}
-
-impl InvalidAliasTargetIndex {
-    pub(crate) fn new(module: &SurfaceModule) -> Self {
-        let mut spans_by_file = BTreeMap::<String, Vec<_>>::new();
-        for invalid in &module.invalid_names {
-            if invalid.occurrence == NameOccurrence::AliasTarget {
-                spans_by_file
-                    .entry(invalid.span.file.as_str().to_owned())
-                    .or_default()
-                    .push((invalid.span.start.offset, invalid.span.end.offset));
-            }
-        }
-        for spans in spans_by_file.values_mut() {
-            spans.sort_unstable_by_key(|(start, _)| *start);
-        }
-        Self { spans_by_file }
-    }
-
-    pub(crate) fn contains(&self, alias: &PublicAlias) -> bool {
-        let Some(spans) = self.spans_by_file.get(alias.span.file.as_str()) else {
-            return false;
-        };
-        let first = spans.partition_point(|(start, _)| *start < alias.span.start.offset);
-        spans.get(first).is_some_and(|(start, end)| {
-            *start < alias.span.end.offset && *end <= alias.span.end.offset
-        })
-    }
-}
-
-pub(crate) fn public_alias_has_invalid_target_leaf(
-    module: &SurfaceModule,
-    alias: &PublicAlias,
-    class: Option<NameClass>,
-) -> bool {
-    module.invalid_names.iter().any(|invalid| {
-        invalid.occurrence == NameOccurrence::AliasTarget
-            && class.is_none_or(|class| invalid.class == class)
-            && invalid.span.file == alias.span.file
-            && alias.span.start.offset <= invalid.span.start.offset
-            && invalid.span.end.offset <= alias.span.end.offset
-    })
-}
-
-#[cfg(test)]
-pub(crate) fn use_decl_has_invalid_module_segment(
-    module: &SurfaceModule,
-    use_decl: &UseDecl,
-) -> bool {
-    import_classification(module).has_invalid_module_segment(use_decl)
-}
-
-#[cfg(test)]
-pub(crate) fn use_decl_has_invalid_alias(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
-    let Some(alias_span) = &use_decl.alias_span else {
-        return false;
-    };
-    module.invalid_names.iter().any(|invalid| {
-        invalid.class == NameClass::Module
-            && invalid.occurrence == NameOccurrence::Declaration
-            && invalid.span == *alias_span
-    })
-}
-
-#[cfg(test)]
-pub(crate) fn use_decl_has_duplicate_target(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
-    import_classification(module).has_duplicate_target(use_decl)
-}
-
-pub(crate) fn use_decl_has_reserved_alias(use_decl: &UseDecl) -> bool {
-    use_decl.origin == veln_ast::UseOrigin::Source
-        && use_decl.has_explicit_alias()
-        && use_decl.alias == "prelude"
-}
-
-pub(crate) fn use_decl_is_recovery_candidate(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
-    import_classification(module).is_recovery_candidate(use_decl)
-}
-
-#[cfg(test)]
-pub(crate) fn use_decl_is_quarantined(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
-    use_decl.recovered
-        || use_decl_has_invalid_module_segment(module, use_decl)
-        || use_decl_has_invalid_alias(module, use_decl)
-        || use_decl_has_reserved_alias(use_decl)
-        || use_decl_has_duplicate_target(module, use_decl)
-}
-
-pub(crate) fn use_decl_contributes_bare_exports(use_decl: &UseDecl) -> bool {
-    !use_decl.has_explicit_alias()
-}
+pub(crate) use instrumentation::{
+    import_classification_builds, import_classification_work, normal_import_selection_work,
+    reset_import_classification_work, reset_normal_import_selection_work,
+};
+use instrumentation::{
+    record_import_classification_build, record_import_classification_work,
+    record_normal_import_selection_work,
+};
+pub(crate) use selection_helpers::{normal_use_decls, use_decl_exact_paths};
 
 type ImportBindingKey = (Option<String>, String);
 type ImportTargetKey = (Option<String>, String, Option<String>);
@@ -390,57 +237,18 @@ impl NormalUseGroups {
     }
 
     fn finish(mut self, module: &SurfaceModule) -> ImportClassification {
-        let mut repeated_targets = vec![false; module.uses.len()];
-        let duplicate_target_groups = std::mem::take(&mut self.duplicate_targets);
-        for indices in duplicate_target_groups.into_values() {
-            if indices.len() > 1 {
-                for index in indices {
-                    repeated_targets[index] = true;
-                    self.quarantined[index] = true;
-                }
-            }
-        }
-        let blocked_exact_paths = blocked_exact_path_keys(self.exact_paths, &self.quarantined);
-        let colliding_qualifiers = colliding_binding_keys(self.qualifiers);
+        let repeated_targets = self.mark_repeated_targets(module.uses.len());
+        let blocked_exact_paths =
+            blocked_exact_path_keys(std::mem::take(&mut self.exact_paths), &self.quarantined);
+        let colliding_qualifiers = colliding_binding_keys(std::mem::take(&mut self.qualifiers));
         let source_order = source_ordered_import_indices(module);
         let (duplicate_target_origins, duplicate_qualifier_origins) =
             duplicate_diagnostic_origins(module, &source_order);
-        let recovery_candidates = module
-            .uses
-            .iter()
-            .enumerate()
-            .map(|(index, use_decl)| {
-                let qualifier = (use_decl.module_name.clone(), use_decl.alias.clone());
-                self.invalid_module_segments[index]
-                    && !use_decl.recovered
-                    && !use_decl_has_reserved_alias(use_decl)
-                    && !repeated_targets[index]
-                    && !colliding_qualifiers.contains(&qualifier)
-            })
-            .collect::<Vec<_>>();
-        let mut recovery_names_by_file = HashSet::new();
-        for (index, use_decl) in module.uses.iter().enumerate() {
-            if recovery_candidates[index] {
-                let file = use_decl.span.file.as_str().to_owned();
-                recovery_names_by_file.insert((file.clone(), use_decl.alias.clone()));
-                recovery_names_by_file.insert((
-                    file,
-                    use_decl
-                        .name
-                        .rsplit("::")
-                        .next()
-                        .unwrap_or(use_decl.name.as_str())
-                        .to_owned(),
-                ));
-            }
-        }
+        let recovery_candidates =
+            self.recovery_candidates(module, &repeated_targets, &colliding_qualifiers);
+        let recovery_names_by_file = recovery_names_by_file(module, &recovery_candidates);
         ImportClassification {
-            indices: module
-                .uses
-                .iter()
-                .enumerate()
-                .map(|(index, use_decl)| (use_decl as *const UseDecl as usize, index))
-                .collect(),
+            indices: import_indices(module),
             #[cfg(test)]
             invalid_module_segments: self.invalid_module_segments,
             #[cfg(test)]
@@ -456,122 +264,72 @@ impl NormalUseGroups {
             duplicate_qualifier_origins,
         }
     }
+
+    fn mark_repeated_targets(&mut self, use_count: usize) -> Vec<bool> {
+        let mut repeated = vec![false; use_count];
+        for indices in std::mem::take(&mut self.duplicate_targets).into_values() {
+            if indices.len() < 2 {
+                continue;
+            }
+            for index in indices {
+                repeated[index] = true;
+                self.quarantined[index] = true;
+            }
+        }
+        repeated
+    }
+
+    fn recovery_candidates(
+        &self,
+        module: &SurfaceModule,
+        repeated_targets: &[bool],
+        colliding_qualifiers: &HashSet<ImportBindingKey>,
+    ) -> Vec<bool> {
+        module
+            .uses
+            .iter()
+            .enumerate()
+            .map(|(index, use_decl)| {
+                let qualifier = (use_decl.module_name.clone(), use_decl.alias.clone());
+                self.invalid_module_segments[index]
+                    && !use_decl.recovered
+                    && !use_decl_has_reserved_alias(use_decl)
+                    && !repeated_targets[index]
+                    && !colliding_qualifiers.contains(&qualifier)
+            })
+            .collect()
+    }
 }
 
-fn source_ordered_import_indices(module: &SurfaceModule) -> Vec<usize> {
-    let mut indices = module
+fn import_indices(module: &SurfaceModule) -> HashMap<usize, usize> {
+    module
         .uses
         .iter()
         .enumerate()
-        .filter_map(|(index, use_decl)| {
-            (use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.recovered).then_some(index)
-        })
-        .collect::<Vec<_>>();
-    if indices.len() < 2 {
-        return indices;
-    }
-    let mut scratch = vec![0; indices.len()];
-    for use_end in [true, false] {
-        for shift in (0..usize::BITS).step_by(8) {
-            radix_sort_import_offset_byte(module, &indices, &mut scratch, shift, use_end);
-            std::mem::swap(&mut indices, &mut scratch);
-        }
-    }
-    radix_sort_import_file_bytes(module, &mut indices, &mut scratch);
-    indices
+        .map(|(index, use_decl)| (use_decl as *const UseDecl as usize, index))
+        .collect()
 }
 
-fn radix_sort_import_offset_byte(
+fn recovery_names_by_file(
     module: &SurfaceModule,
-    indices: &[usize],
-    output: &mut [usize],
-    shift: u32,
-    use_end: bool,
-) {
-    let mut counts = [0usize; 256];
-    for &index in indices {
-        record_import_classification_work();
-        let span = &module.uses[index].span;
-        let offset = if use_end {
-            span.end.offset
-        } else {
-            span.start.offset
-        };
-        counts[(offset >> shift) as u8 as usize] += 1;
-    }
-    prefix_bucket_offsets(&mut counts);
-    for &index in indices {
-        record_import_classification_work();
-        let span = &module.uses[index].span;
-        let offset = if use_end {
-            span.end.offset
-        } else {
-            span.start.offset
-        };
-        let bucket = (offset >> shift) as u8 as usize;
-        output[counts[bucket]] = index;
-        counts[bucket] += 1;
-    }
-}
-
-fn radix_sort_import_file_bytes(
-    module: &SurfaceModule,
-    indices: &mut [usize],
-    scratch: &mut [usize],
-) {
-    let Some(&first) = indices.first() else {
-        return;
-    };
-    let first_file = &module.uses[first].span.file;
-    if indices
-        .iter()
-        .all(|index| module.uses[*index].span.file == *first_file)
-    {
-        return;
-    }
-    let mut pending = vec![(0usize, indices.len(), 0usize)];
-    while let Some((start, end, byte_index)) = pending.pop() {
-        if end - start < 2 {
+    recovery_candidates: &[bool],
+) -> HashSet<(String, String)> {
+    let mut names = HashSet::new();
+    for (index, use_decl) in module.uses.iter().enumerate() {
+        if !recovery_candidates[index] {
             continue;
         }
-        let mut sizes = [0usize; 257];
-        for &index in &indices[start..end] {
-            record_import_classification_work();
-            sizes[import_file_byte_bucket(&module.uses[index], byte_index)] += 1;
-        }
-        let mut positions = sizes;
-        let mut next = start;
-        for position in &mut positions {
-            let bucket_start = next;
-            next += *position;
-            *position = bucket_start;
-        }
-        for &index in &indices[start..end] {
-            record_import_classification_work();
-            let bucket = import_file_byte_bucket(&module.uses[index], byte_index);
-            scratch[positions[bucket]] = index;
-            positions[bucket] += 1;
-        }
-        indices[start..end].copy_from_slice(&scratch[start..end]);
-        let mut bucket_end = end;
-        for bucket in (1..sizes.len()).rev() {
-            let bucket_start = bucket_end - sizes[bucket];
-            if bucket_end - bucket_start > 1 {
-                pending.push((bucket_start, bucket_end, byte_index + 1));
-            }
-            bucket_end = bucket_start;
-        }
+        let file = use_decl.span.file.as_str().to_owned();
+        names.insert((file.clone(), use_decl.alias.clone()));
+        let leaf = use_decl
+            .name
+            .rsplit("::")
+            .next()
+            .unwrap_or(use_decl.name.as_str())
+            .to_owned();
+        names.insert((file, leaf));
     }
-}
-
-fn import_file_byte_bucket(use_decl: &UseDecl, byte_index: usize) -> usize {
-    use_decl
-        .span
-        .file
-        .as_str()
-        .as_bytes()
-        .get(byte_index)
-        .map_or(0, |byte| usize::from(*byte) + 1)
+    names
 }
 
 fn prefix_bucket_offsets(counts: &mut [usize]) {
@@ -581,70 +339,6 @@ fn prefix_bucket_offsets(counts: &mut [usize]) {
         next += *count;
         *count = start;
     }
-}
-
-#[derive(Clone, Copy, Default)]
-struct FirstTwo {
-    first: Option<usize>,
-    second: Option<usize>,
-}
-
-impl FirstTwo {
-    fn push(&mut self, index: usize) {
-        if self.first.is_none() {
-            self.first = Some(index);
-        } else if self.second.is_none() {
-            self.second = Some(index);
-        }
-    }
-
-    fn first_except(self, excluded: Option<usize>) -> Option<usize> {
-        self.first
-            .filter(|candidate| Some(*candidate) != excluded)
-            .or_else(|| self.second.filter(|candidate| Some(*candidate) != excluded))
-    }
-}
-
-fn duplicate_diagnostic_origins(
-    module: &SurfaceModule,
-    source_order: &[usize],
-) -> (Vec<Option<usize>>, Vec<Option<usize>>) {
-    let mut target_origins = vec![None; module.uses.len()];
-    let mut qualifier_origins = vec![None; module.uses.len()];
-    let mut first_targets = HashMap::<ImportTargetKey, usize>::new();
-    let mut first_qualifiers = HashMap::<ImportBindingKey, FirstTwo>::new();
-    let mut first_explicit_qualifiers = HashMap::<ImportBindingKey, FirstTwo>::new();
-    for &index in source_order {
-        record_import_classification_work();
-        let use_decl = &module.uses[index];
-        let target = (
-            use_decl.module_name.clone(),
-            use_decl.written_name.clone(),
-            use_decl.package.clone(),
-        );
-        let duplicate_target = first_targets.get(&target).copied();
-        target_origins[index] = duplicate_target;
-        let qualifier = (use_decl.module_name.clone(), use_decl.alias.clone());
-        let candidates = if use_decl.has_explicit_alias() {
-            first_qualifiers.get(&qualifier).copied()
-        } else {
-            first_explicit_qualifiers.get(&qualifier).copied()
-        };
-        qualifier_origins[index] =
-            candidates.and_then(|candidates| candidates.first_except(duplicate_target));
-        first_targets.entry(target).or_insert(index);
-        first_qualifiers
-            .entry(qualifier.clone())
-            .or_default()
-            .push(index);
-        if use_decl.has_explicit_alias() {
-            first_explicit_qualifiers
-                .entry(qualifier)
-                .or_default()
-                .push(index);
-        }
-    }
-    (target_origins, qualifier_origins)
 }
 
 fn colliding_binding_keys(
@@ -663,26 +357,6 @@ fn blocked_exact_path_keys(
     groups
         .into_iter()
         .filter_map(|(key, indices)| (indices.len() != 1 || quarantined[indices[0]]).then_some(key))
-        .collect()
-}
-
-pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
-    let classification = import_classification(module);
-    module
-        .uses
-        .iter()
-        .zip(classification.quarantined.iter())
-        .filter(|(_, quarantined)| !**quarantined)
-        .map(|(use_decl, _)| {
-            let mut resolved = resolved_import_use_decl(use_decl);
-            let qualifier = (use_decl.module_name.clone(), use_decl.alias.clone());
-            if classification.colliding_qualifiers.contains(&qualifier)
-                || classification.blocked_exact_paths.contains(&qualifier)
-            {
-                resolved.alias.clear();
-            }
-            resolved
-        })
         .collect()
 }
 
@@ -770,37 +444,6 @@ fn use_decl_has_indexed_invalid_module_segment(
         .any(|(start, end)| {
             use_decl.span.start.offset <= *start && *end <= use_decl.span.end.offset
         })
-}
-
-pub(crate) fn use_decl_exact_paths(use_decl: &UseDecl) -> Vec<String> {
-    let mut paths = vec![use_decl.written_name.clone()];
-    if is_standard_import(use_decl) {
-        paths.push(use_decl.name.clone());
-        for path in [use_decl.written_name.as_str(), use_decl.name.as_str()] {
-            if let Some(relative) = path.strip_prefix("std::") {
-                paths.push(relative.to_string());
-            }
-        }
-    }
-    paths.sort();
-    paths.dedup();
-    paths
-}
-
-fn is_standard_import(use_decl: &UseDecl) -> bool {
-    use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
-        || use_decl.name.starts_with("std::")
-        || (use_decl.package.is_none()
-            && use_decl
-                .module_name
-                .as_deref()
-                .is_some_and(|module| module.starts_with("std::")))
-}
-
-pub(crate) fn resolved_import_use_decl(use_decl: &UseDecl) -> UseDecl {
-    let mut resolved = use_decl.clone();
-    resolved.name = resolved_import_module_name(use_decl, use_decl.module_name.as_deref());
-    resolved
 }
 
 pub(crate) fn normal_imported_use_for_path<'a>(
@@ -1046,82 +689,4 @@ pub(crate) fn use_decl_matches_implicit_import_alias(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn invalid_explicit_aliases_are_atomically_quarantined() {
-        for alias in ["_wire", "_"] {
-            let source = veln_source::SourceFile::new(
-                "app.veln",
-                format!("mod app\nuse transport as {alias}\n"),
-            );
-            let parsed = veln_syntax::parse(&source);
-            assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-            let module = veln_ast::lower_surface_ast(&parsed.tree);
-            assert_eq!(module.uses.len(), 1, "alias={alias}");
-            assert!(use_decl_is_quarantined(&module, &module.uses[0]));
-            assert!(normal_use_decls(&module).is_empty(), "alias={alias}");
-        }
-    }
-
-    #[test]
-    fn normal_import_classification_work_scales_linearly() {
-        fn work(count: usize) -> usize {
-            let mut text = String::from("mod app\n");
-            for index in 0..count {
-                text.push_str(&format!("use dependency{index} as alias{index}\n"));
-            }
-            let source = veln_source::SourceFile::new("app.veln", text);
-            let parsed = veln_syntax::parse(&source);
-            assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-            let module = veln_ast::lower_surface_ast(&parsed.tree);
-            reset_import_classification_work();
-            assert_eq!(normal_use_decls(&module).len(), count);
-            import_classification_work()
-        }
-
-        let small = work(128);
-        let large = work(256);
-        assert!(
-            large <= small * 2 + 8,
-            "normal import classification must remain linear: small={small} large={large}"
-        );
-    }
-
-    #[test]
-    fn missing_qualifier_lookup_work_scales_linearly() {
-        fn work(count: usize, schema_fallback: bool) -> usize {
-            let mut text = String::from("mod app\n");
-            for index in 0..count {
-                text.push_str(&format!("use dependency{index} as alias{index}\n"));
-            }
-            let source = veln_source::SourceFile::new("app.veln", text);
-            let parsed = veln_syntax::parse(&source);
-            assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-            let module = veln_ast::lower_surface_ast(&parsed.tree);
-            let missing = vec!["missing".to_string()];
-
-            reset_import_classification_work();
-            let resolved = if schema_fallback {
-                schema_composition_imported_use_for_path(&module, &missing, Some("app"))
-            } else {
-                normal_imported_use_for_path(&module, &missing, Some("app"))
-            };
-            assert!(resolved.is_none());
-            import_classification_work()
-        }
-
-        for schema_fallback in [false, true] {
-            let small = work(128, schema_fallback);
-            let large = work(256, schema_fallback);
-            eprintln!(
-                "missing-qualifier import work: fallback={schema_fallback} 128={small} 256={large}"
-            );
-            assert!(
-                large <= small * 2 + 8,
-                "missing qualifier lookup must remain linear: fallback={schema_fallback} small={small} large={large}"
-            );
-        }
-    }
-}
+mod tests;
