@@ -346,7 +346,7 @@ ordinary UTF-16 coordinate conversion. The checked
 case covers alias and target-member projection, exact-path precedence,
 recovered-import rename, stable conflict details, edit-free rejection, and
 invalid-alias exclusion. Shared-language-service tests cover complete
-combined-source rename permutations.
+rename edit sets in the original and reversed combined-source order.
 
 Alias-index construction retains module-owned import bindings and resolved
 qualifier occurrences. For the generated workload that doubles files,
