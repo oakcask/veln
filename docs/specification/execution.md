@@ -27,7 +27,9 @@ operation clauses. The checked
 [`explicit-import-alias-runtime`](../../examples/specification/run/explicit-import-alias-runtime/)
 and
 [`explicit-import-alias-handler`](../../examples/specification/run/explicit-import-alias-handler/)
-cases exercise call and handler identities through the JVM backend.
+cases exercise call and handler behavior through the JVM backend. The
+[`explicit-import-alias-handler-identity`](../../examples/specification/run/explicit-import-alias-handler-identity/)
+case checks that same-named handlers keep distinct declaration identities.
 
 The JVM host boundary associates resources created by `net::system()` with the
 active `net::IO` handler frame. Popping that frame closes its remaining
