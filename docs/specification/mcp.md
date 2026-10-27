@@ -781,7 +781,8 @@ declarations and equal spelling in another module or symbol class. An
 unrelated parse error does not remove a complete parse-clean occurrence.
 
 Schema
-references include direct fields, `decode`, `encode`, `Repeat`, array
+references include direct fields, `decode`, `encode`, runtime validation,
+`Repeat`, array
 payloads, and resolved composition leaves. Workspace aliases have a separate
 identity from their target and are eligible only when the direct target is a
 public workspace schema; alias chains and package targets are ineligible.
@@ -791,18 +792,18 @@ public alias and the terminal hop is an exported public schema in the same
 retained package. The alias identity remains separate from its target and from
 same-spelled aliases in other package origins. An eligible alias in the
 standard-library `prelude` module is also selectable by its bare name in
-composition, `decode`, and `encode` leaves, or by an explicit `prelude::`
+composition, `decode`, `encode`, and runtime-validation leaves, or by an explicit `prelude::`
 qualifier when `prelude` does not resolve as a written import. An exact
 workspace or package import named `prelude` instead selects that import's
-schema-alias identity across direct, `Repeat`, array, `decode`, and `encode`
-leaves. A collision between exact workspace and package imports returns a
+schema-alias identity across direct, `Repeat`, array, `decode`, `encode`, and
+runtime-validation leaves. A collision between exact workspace and package imports returns a
 successful empty reference result and does not fall back to the standard
 library, regardless of import order. A parse-clean written import named
 `prelude` participates in this precedence even though analysis reports
 `name.reserved`; syntax-recovered imports do not participate. For a bare name,
 a same-named local schema, schema alias, type, or type alias blocks implicit
-prelude fallback in composition. In `decode` and
-`encode`, a local schema or schema alias blocks fallback while a local type or
+prelude fallback in composition. In `decode`, `encode`, and runtime validation,
+a local schema or schema alias blocks fallback while a local type or
 type alias does not. A syntax-recovered local schema alias with no target also
 blocks bare fallback in every leaf. A local declaration does not block the
 explicit qualifier.

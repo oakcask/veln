@@ -245,6 +245,8 @@ Generated binary schema byte diagnostics use these additional ids:
 | `schema.integer_out_of_range` | `byte_width`, `min_value`, `max_value`, and `actual_value` or `actual_value_text`. |
 | `schema.reserved_bits_mismatch` | `bit_width`, `expected_value`, `actual_value`. |
 | `schema.validation_failed` | Predicate owner offset, `predicate`, `decoded_values`; length diagnostics may also expose `length`, `padding_length`. |
+| `schema.variant_refinement_mismatch` | Exact supplied `byte_offset`, decoded schema-and-field `field_path`, and `reason` naming the actual and admitted variants. |
+| `schema.validation_offset_invalid` | Negative supplied `byte_offset`, the terminal schema root in `field_path`, and `reason` naming the rejected offset. |
 
 These ids use schema-local field-path segments and the common bounded preview
 where bytes were inspected. A field-local validation offset identifies the

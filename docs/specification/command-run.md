@@ -124,6 +124,12 @@ schema, byte-write, and protocol failures use the diagnostic shapes routed by
 printed after the primary message in cleanup execution order. Runtime trace
 files remain isolated to this invocation.
 
+An excluded constructor returned by explicit schema runtime validation reports
+`schema.variant_refinement_mismatch` at the exact supplied byte offset. A
+negative supplied offset reports `schema.validation_offset_invalid` before
+field traversal. Human mode identifies the failed fact and renders the schema
+and field path plus the mismatch or offset reason as related context.
+
 If `net::system()` returns a host socket failure from `listen` or `connect` and
 the selected entry returns that `Err`, human mode prints the stable transport
 failure message instead of the rendered `NetError` value. The primary message

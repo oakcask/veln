@@ -1090,6 +1090,7 @@ primary_expr --> perform_expr.
 primary_expr --> handle_expr.
 primary_expr --> schema_decode_expr.
 primary_expr --> schema_encode_expr.
+primary_expr --> schema_validate_expr.
 primary_expr --> name_path.
 primary_expr --> tok(lparen), nls, tok(rparen).
 primary_expr --> tok(lparen), nls, expr, nls, tok(rparen).
@@ -1135,6 +1136,14 @@ schema_encode_expr -->
     tok(encode),
     member_path,
     tok(from),
+    expr.
+
+schema_validate_expr -->
+    ident_text("validate"),
+    member_path,
+    tok(from),
+    expr,
+    tok(at),
     expr.
 
 perform_expr -->

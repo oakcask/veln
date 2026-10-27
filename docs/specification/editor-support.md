@@ -566,11 +566,13 @@ Comments and strings do not contribute handler references. An unrelated parse
 error does not remove a complete parse-clean handler occurrence.
 
 For a selected workspace schema declaration, `textDocument/references` returns
-the declaration when requested plus `decode`, `encode`, and directly resolved
+the declaration when requested plus `decode`, `encode`, runtime-validation,
+and directly resolved
 schema-composition path leaves that resolve to that schema in workspace
 sources. Composition references include direct fields and both supported
 repeated-payload spellings. An eligible public schema alias has its own
-declaration identity and returns the `decode`, `encode`, direct-composition,
+declaration identity and returns the `decode`, `encode`, runtime-validation,
+direct-composition,
 `Repeat`, and array-payload leaves that resolve to that alias, without merging
 them into its direct public workspace schema target. Workspace alias chains are
 not eligible. An eligible public package alias in an exported retained
@@ -578,16 +580,16 @@ direct-dependency or standard-library module can resolve through a finite,
 acyclic chain of public aliases to an exported public schema in the same
 package. An eligible alias in the standard-library `prelude` module is also
 selectable by its bare name or an explicit `prelude::` qualifier in
-composition, `decode`, and `encode` leaves when `prelude` does not resolve as a
+composition, `decode`, `encode`, and runtime-validation leaves when `prelude` does not resolve as a
 written import. An exact workspace or package import named `prelude` instead
 selects that import's schema-alias identity across direct, `Repeat`, array,
-`decode`, and `encode` leaves. A collision between exact workspace and package
+`decode`, `encode`, and runtime-validation leaves. A collision between exact workspace and package
 imports selects neither identity and does not fall back to the standard
 library, regardless of import order. For a bare name, a same-named local
 schema or schema alias blocks implicit prelude fallback in every leaf. Because
 composition also admits the type namespace, a same-named local type or type
 alias additionally blocks the fallback there, but does not block it in
-`decode` or `encode`. A syntax-recovered local schema alias with no target also
+`decode`, `encode`, or runtime validation. A syntax-recovered local schema alias with no target also
 blocks bare fallback in every leaf. A local declaration does not block the
 explicit qualifier.
 Although a written import named `prelude` reports `name.reserved`, a

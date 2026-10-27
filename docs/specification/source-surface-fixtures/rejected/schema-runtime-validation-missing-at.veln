@@ -1,0 +1,11 @@
+type State
+	Ready
+end
+
+schema ReadyPacket
+	state: State::Ready
+end
+
+fn validate_packet(value: {state: State}, offset: ByteOffset) -> Result<{state: State::Ready}, DecodeError>
+	validate ReadyPacket from value offset
+end

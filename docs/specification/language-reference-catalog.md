@@ -79,6 +79,11 @@ function contracts and hole `satisfy` predicates, which admit integer `%`,
 from schema predicates, which do not. The current contract, hole, type, and
 source-surface specifications remain authoritative for predicate typing,
 validation, execution, and nesting limits.
+The `schemas` topic selects explicit decode, encode, and runtime-validation
+expression productions in addition to schema declarations and fields. The
+runtime-validation production is `validate MemberPath from Expr at Expr`; the
+current source, type, execution, and diagnostic specifications own its
+resolution, result, failure, and direct-field limits.
 The expressions-and-patterns topic identifies lexical cleanup forms as a
 static, tooling, and executable surface. Its body states that checked core,
 typed IR, and the JVM backend preserve registration-time captures and run
