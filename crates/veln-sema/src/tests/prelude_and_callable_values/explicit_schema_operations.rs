@@ -273,31 +273,39 @@ fn explicit_import_alias_schema_operations_keep_selected_target_identity() {
 
 #[test]
 fn schema_import_selection_uses_the_containing_schema_owner_package() {
-    fn lower(source: SourceFile, package: &str, module: &str) -> SurfaceModule {
+    fn lower(source: SourceFile, package: Option<&str>, module: &str) -> SurfaceModule {
         let parsed = parse(&source);
         assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-        veln_ast::lower_surface_ast_with_package_module_identity(
-            &parsed.tree,
-            package.to_string(),
-            module.to_string(),
-            source.span(veln_source::TextRange::new(0, 0)),
-        )
+        let module_span = source.span(veln_source::TextRange::new(0, 0));
+        match package {
+            Some(package) => veln_ast::lower_surface_ast_with_package_module_identity(
+                &parsed.tree,
+                package.to_string(),
+                module.to_string(),
+                module_span,
+            ),
+            None => veln_ast::lower_surface_ast_with_module_identity(
+                &parsed.tree,
+                module.to_string(),
+                module_span,
+            ),
+        }
     }
 
     let app_owner = lower(
         SourceFile::new(
             "app/shared.veln",
-            "use payload as item\nschema Holder\n  body: item::Payload\nend\n",
+            "use std::payload as item\nschema Holder\n  body: item::Payload\nend\n",
         ),
-        "app",
-        "shared",
+        None,
+        "std::shared",
     );
     let std_owner = lower(
         SourceFile::new(
             "std/shared.veln",
             "use payload as item\nschema Holder\n  body: item::Payload\nend\n",
         ),
-        "std",
+        Some("std"),
         "shared",
     );
     let app_target = lower(
@@ -305,15 +313,15 @@ fn schema_import_selection_uses_the_containing_schema_owner_package() {
             "app/payload.veln",
             "pub schema Payload\n  app_value: Int\nend\n",
         ),
-        "app",
-        "payload",
+        None,
+        "std::payload",
     );
     let std_target = lower(
         SourceFile::new(
             "std/payload.veln",
             "pub schema Payload\n  std_value: Int\nend\n",
         ),
-        "std",
+        Some("std"),
         "payload",
     );
 
