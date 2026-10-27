@@ -63,20 +63,34 @@ defines target selection, and the diagnostic specification defines the human
 and JSON fields.
 
 Parse diagnostics suppress semantic diagnostics for that file unless every
-parse diagnostic is the recoverable ASCII-lowercase final-segment error for a
-structurally complete variant refinement. In that case, `check` reports the
-parse diagnostic and independently provable semantic diagnostics without
-accepting the annotation. A parse-clean non-generic path with lowercase base
-and final segments follows the same output contract when unique
-initial-only base recovery selects its refinement interpretation; `check`
-inserts the parse diagnostic before casing and type diagnostics. Any unrelated
-parse diagnostic restores the file-level suppression. Other eligible files may
-still report semantic errors.
-The [source-surface specification](source-surface.md#variant-refinement-shaped-type-text)
-defines the recoverable syntax boundary, and the
-[diagnostic specification](diagnostics-json.md#diagnostic-families)
-defines the overlap and ordering. Cross-file imports and qualified calls from
-analyzed files participate in the same analysis path as `run` and `test`.
+parse diagnostic is one of these recoverable forms:
+
+- An import-declaration diagnostic recovered at the declaration newline.
+  Analysis retains the written target, an identifier-shaped alias, and a
+  parseable package source for independent casing and target diagnostics. The
+  recovered import supplies no lookup binding and does not participate in
+  import collision checks.
+- The ASCII-lowercase final-segment error for a structurally complete variant
+  refinement. Analysis reports independently provable semantic diagnostics
+  without accepting the annotation.
+
+For either form, `check` emits parse diagnostics before semantic diagnostics.
+A parse-clean non-generic path with lowercase base and final segments follows
+the same output contract when unique initial-only base recovery selects its
+refinement interpretation; `check` inserts the parse diagnostic before casing
+and type diagnostics. Any other parse diagnostic restores the file-level
+suppression. Other eligible files may still report semantic errors.
+The [import source-surface contract](source-surface.md#usage-and-declaration-forms)
+and [variant-refinement contract](source-surface.md#variant-refinement-shaped-type-text)
+define the two recoverable syntax boundaries. The
+[diagnostic specification](diagnostics-json.md#diagnostic-families) defines
+the overlap and ordering. The checked
+[`explicit-import-alias-combined-order-human`](../../examples/specification/check/explicit-import-alias-combined-order-human/)
+and
+[`explicit-import-alias-combined-order-json`](../../examples/specification/check/explicit-import-alias-combined-order-json/)
+cases fix the import-recovery output order. Cross-file imports and qualified
+calls from analyzed files participate in the same analysis path as `run` and
+`test`.
 Lowering reports checked-core blockers such as missing expressions and call or
 constructor arity mismatches. Parse-clean, semantically valid `begin` and
 `defer` forms pass checked-core readiness.

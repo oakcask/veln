@@ -36,9 +36,15 @@ Parsing and formatting remain available as specified by the
 [source-surface boundary](source-surface.md#module-immutable-value-declarations).
 
 A source with a non-recoverable parse diagnostic is excluded from semantic
-analysis. The [source-surface specification](source-surface.md#variant-refinement-shaped-type-text)
-defines the recoverable syntax boundary. Other eligible sources in the same
-project can still proceed to semantic analysis.
+analysis. Import-declaration diagnostics recovered at the declaration newline
+and ASCII-lowercase final-segment diagnostics for structurally complete variant
+refinements permit semantic analysis only when every parse diagnostic in that
+source is one of those forms. A recovered import retains diagnostic provenance
+but supplies no lookup binding. The
+[import source-surface contract](source-surface.md#usage-and-declaration-forms)
+and [variant-refinement contract](source-surface.md#variant-refinement-shaped-type-text)
+define those recovery boundaries. Other eligible sources in the same project
+can still proceed to semantic analysis.
 
 Shared semantic analysis keeps unambiguous type and constructor identities for
 recovery, but it does not publish a public function or ADT whose signature
