@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-specification-coverage: usage=#usage-and-declaration-forms; behavior=#import-alias-preservation-and-formatting; limits=#import-alias-recovery-limits
+specification-coverage: usage=#usage-and-declaration-forms; behavior=#schemas; limits=#diagnostics
 update-when: Veln declarations, expressions, literals, schema syntax, companion sources, executable source grammar, source formatting, syntax-tree or lowered-AST structural preservation, or the AST wire layout changes.
 ---
 
