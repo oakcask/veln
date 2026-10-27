@@ -35,6 +35,36 @@ fn parses_and_formats_schema_validate_expression() {
 }
 
 #[test]
+fn parses_and_formats_schema_validate_expression_with_contextual_qualifiers() {
+    for qualifier in ["handle", "handler", "callsite"] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "fn check(value: {{state: State}}, base: ByteOffset) -> Result<{{state: State::Connected}}, DecodeError>\n  validate {qualifier}::ConnectedPacket from value at base\nend\n"
+            ),
+        );
+
+        let output = parse(&source);
+
+        assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+        let function = first_function(&output);
+        let BodyLine::Expr { expr, .. } = &function.body[0] else {
+            panic!("expected expression body line");
+        };
+        let ExprKind::SchemaValidate { schema, .. } = &expr.kind else {
+            panic!("expected schema validate expression");
+        };
+        assert_eq!(schema, &[qualifier, "ConnectedPacket"]);
+        assert_eq!(
+            format_tree(&output.tree),
+            format!(
+                "fn check(value: {{ state : State }}, base: ByteOffset) -> Result<{{ state : State::Connected }}, DecodeError>\n\tvalidate {qualifier}::ConnectedPacket from value at base\nend\n"
+            )
+        );
+    }
+}
+
+#[test]
 fn rejects_schema_validate_expression_missing_at() {
     let source = SourceFile::new(
         "main.veln",

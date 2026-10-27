@@ -468,9 +468,12 @@ the schema-local record after replacing each supported direct refinement with
 its base ADT, and `base_offset` must be `ByteOffset`. The result is
 `Result<SchemaRecord, DecodeError>` with the refinements retained. A supported
 validation schema has at least one such field and has no field-local or
-schema-level predicate. Nested refinements, containers, composed schemas,
-recursive payload traversal, and binary schemas are not eligible. The value
-and offset expressions are evaluated once, in that order. Schema-path lookup,
+schema-level predicate. Other supported fields may contain unrefined
+containers, anonymous records, or composed format-neutral schemas; validation
+preserves those fields without traversing them. Refinement erasure and
+traversal inside those shapes, recursive payload traversal, and binary schemas
+are not eligible. The value and offset expressions are evaluated once, in that
+order. Schema-path lookup,
 public aliases, and exact-companion private access follow the decode and encode
 rules above. This expression use of `validate` is distinct from a schema-body
 validation predicate.

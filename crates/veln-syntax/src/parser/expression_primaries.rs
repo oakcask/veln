@@ -13,7 +13,10 @@ impl<'a> ExprParser<'a> {
             TokenKind::Float => self.parse_literal_primary(token, ExprKind::FloatLiteral),
             TokenKind::Ident
                 if token.text == crate::VALIDATE_MARKER
-                    && self.peek_kind(1) == Some(TokenKind::Ident) =>
+                    && self
+                        .tokens
+                        .get(self.cursor + 1)
+                        .is_some_and(|next| is_contextual_identifier(next.kind)) =>
             {
                 self.parse_schema_validate_primary(token)
             }

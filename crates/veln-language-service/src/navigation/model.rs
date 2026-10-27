@@ -352,8 +352,10 @@ fn schema_navigation_candidate(
     let Some(line) = source.text().lines().nth(position.line.saturating_sub(1)) else {
         return false;
     };
-    let likely_operation =
-        (line.contains("decode") || line.contains("encode")) && line.contains("from");
+    let likely_operation = (line.contains("decode")
+        || line.contains("encode")
+        || line.contains(veln_syntax::VALIDATE_MARKER))
+        && line.contains("from");
     if !likely_operation && !line.contains(':') {
         return false;
     }

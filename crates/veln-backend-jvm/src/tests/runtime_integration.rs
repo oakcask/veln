@@ -95,6 +95,113 @@ public final class SchemaRefinementNegativeOffsetHarness {
 }
 
 #[test]
+fn jvm_runtime_schema_refinement_validation_preserves_record_identity_on_success() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        eprintln!("skipping schema refinement identity verification because a JDK is unavailable");
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-schema-refinement-success-identity",
+        "SchemaRefinementSuccessIdentityHarness.java",
+        r#"
+public final class SchemaRefinementSuccessIdentityHarness {
+    public static void main(String[] args) {
+        Object state = VelnRuntime.adt("State::Connected", new Object[] {});
+        Object value = VelnRuntime.record("state", state);
+        Object result = VelnRuntime.validateSchemaRefinements(
+            value,
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(7) }),
+            "ConnectedPacket",
+            VelnRuntime.list("state"),
+            VelnRuntime.list(VelnRuntime.list("Connected"))
+        );
+        if (VelnRuntime.unwrapOk(result) != value) {
+            throw new AssertionError("validation rebuilt the supplied record");
+        }
+        if (VelnRuntime.recordField(value, "state") != state) {
+            throw new AssertionError("validation rebuilt the supplied payload");
+        }
+        System.out.println("validation preserved record identity");
+    }
+}
+"#,
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "validation preserved record identity\n"
+    );
+}
+
+#[test]
+fn jvm_runtime_schema_refinement_rejection_leaves_input_unchanged() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        eprintln!("skipping schema refinement rejection verification because a JDK is unavailable");
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-schema-refinement-rejection-identity",
+        "SchemaRefinementRejectionIdentityHarness.java",
+        r#"
+public final class SchemaRefinementRejectionIdentityHarness {
+    public static void main(String[] args) {
+        Object statePayload = Long.valueOf(9);
+        Object state = VelnRuntime.adt("State::Closed", new Object[] { statePayload });
+        Object metadata = VelnRuntime.list("unchanged");
+        Object value = VelnRuntime.record("state", state, "metadata", metadata);
+        Object suppliedState = VelnRuntime.recordField(value, "state");
+        Object suppliedMetadata = VelnRuntime.recordField(value, "metadata");
+        Object suppliedStatePayload = VelnRuntime.adtPayload(suppliedState, 0);
+        String before = value.toString();
+        VelnRuntime.Result result = (VelnRuntime.Result) VelnRuntime.validateSchemaRefinements(
+            value,
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(7) }),
+            "ConnectedPacket",
+            VelnRuntime.list("state", "metadata"),
+            VelnRuntime.list(VelnRuntime.list("Connected"), VelnRuntime.list())
+        );
+        if (result.isOk()
+                || !result.toString().contains("schema.variant_refinement_mismatch")) {
+            throw new AssertionError("expected validation rejection");
+        }
+        if (VelnRuntime.recordField(value, "state") != suppliedState
+                || VelnRuntime.recordField(value, "metadata") != suppliedMetadata
+                || VelnRuntime.adtPayload(suppliedState, 0) != suppliedStatePayload
+                || !Long.valueOf(9).equals(suppliedStatePayload)
+                || !value.toString().equals(before)) {
+            throw new AssertionError("validation changed the rejected input");
+        }
+        System.out.println("rejection left input unchanged");
+    }
+}
+"#,
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "rejection left input unchanged\n"
+    );
+}
+
+#[test]
 fn jvm_runtime_preserves_cancellation_entering_host_connect_when_java_is_available() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

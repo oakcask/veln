@@ -293,6 +293,7 @@
                 "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
                 "  decode AliasPacket from view at byte_offset(0)?\n",
                 "  encode AliasPacket from packet\n",
+                "  validate AliasPacket from packet at byte_offset(0)?\n",
                 "end\n",
             ),
         )])
@@ -304,14 +305,19 @@
             ["prelude.veln"],
         ));
 
-        for (line, column) in [(2, 12), (6, 10), (7, 10)] {
+        for (line, column) in [(2, 12), (6, 10), (7, 10), (8, 12)] {
             let selected = query_snapshot(&snapshot, "main.veln", line, column)
                 .unwrap_or_else(|| panic!("missing bare prelude alias at {line}:{column}"));
             assert_eq!(selected.selected_symbol.name, "AliasPacket");
             assert_eq!(selected.selected_symbol.package_origin, Some(PackageOrigin::StandardLibrary));
             assert_eq!(
                 locations(&selected.references),
-                [("main.veln", 2, 11), ("main.veln", 6, 10), ("main.veln", 7, 10)]
+                [
+                    ("main.veln", 2, 11),
+                    ("main.veln", 6, 10),
+                    ("main.veln", 7, 10),
+                    ("main.veln", 8, 12),
+                ]
             );
         }
     }
@@ -327,6 +333,7 @@
                 "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
                 "  decode prelude::AliasPacket from view at byte_offset(0)?\n",
                 "  encode prelude::AliasPacket from packet\n",
+                "  validate prelude::AliasPacket from packet at byte_offset(0)?\n",
                 "end\n",
             ),
         )])
@@ -338,13 +345,18 @@
             ["prelude.veln"],
         ));
 
-        for (line, column) in [(2, 20), (6, 19), (7, 19)] {
+        for (line, column) in [(2, 20), (6, 19), (7, 19), (8, 21)] {
             let selected = query_snapshot(&snapshot, "main.veln", line, column)
                 .unwrap_or_else(|| panic!("missing qualified prelude alias at {line}:{column}"));
             assert_eq!(selected.selected_symbol.name, "AliasPacket");
             assert_eq!(
                 locations(&selected.references),
-                [("main.veln", 2, 20), ("main.veln", 6, 19), ("main.veln", 7, 19)]
+                [
+                    ("main.veln", 2, 20),
+                    ("main.veln", 6, 19),
+                    ("main.veln", 7, 19),
+                    ("main.veln", 8, 21),
+                ]
             );
         }
     }

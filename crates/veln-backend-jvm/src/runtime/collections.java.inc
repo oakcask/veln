@@ -60,7 +60,7 @@
                 }
             ));
         }
-        return ok(value);
+        return okPreservingValue(value);
     }
 
     private static String adtLeafName(String name) {

@@ -358,6 +358,7 @@
                         "fn operations(view: ByteView, packet: {value: Int}) -> ()\n",
                         "  decode dep::Packet from view at byte_offset(0)?\n",
                         "  encode dep::Packet from packet\n",
+                        "  validate dep::Packet from packet at byte_offset(0)?\n",
                         "end\n",
                     ),
                 ),
@@ -388,6 +389,7 @@
                         "  decode dep::Packet junk from view at byte_offset(0)?\n",
                         "  decode dep::Packet from view byte_offset(0)?\n",
                         "  encode dep::Packet junk from {value: 1}\n",
+                        "  validate dep::Packet junk from {value: 1} at byte_offset(0)?\n",
                         "end\n",
                     ),
                 ),
@@ -398,7 +400,11 @@
         let valid = query_snapshot(&snapshot, "main.veln", 4, 16).unwrap();
         assert_eq!(
             locations(&valid.references),
-            [("main.veln", 4, 15), ("main.veln", 5, 15)]
+            [
+                ("main.veln", 4, 15),
+                ("main.veln", 5, 15),
+                ("main.veln", 6, 17),
+            ]
         );
         for (path, line, column) in [
             ("broken_decode.veln", 4, 16),
@@ -406,6 +412,7 @@
             ("recovery.veln", 5, 16),
             ("recovery.veln", 6, 16),
             ("recovery.veln", 7, 16),
+            ("recovery.veln", 8, 18),
         ] {
             let result = query_snapshot(&snapshot, path, line, column).unwrap();
             assert!(result.references.is_empty(), "{path}:{line}: {result:#?}");

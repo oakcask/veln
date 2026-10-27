@@ -2,6 +2,61 @@ mod navigation_schema_references_tests {
     use super::*;
 
     #[test]
+    fn workspace_schema_validation_references_preserve_local_and_public_alias_identity() {
+        let sources = vec![
+            source(
+                "core.veln",
+                concat!(
+                    "pub type State\n  pub Ready\n  pub Closed\nend\n\n",
+                    "pub schema Packet\n  state: State::Ready\nend\n\n",
+                    "fn local(value: {state: State}, offset: ByteOffset) -> ()\n",
+                    "  validate Packet from value at offset\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "aliases.veln",
+                concat!(
+                    "use core\n\n",
+                    "pub schema WirePacket = core::Packet\n\n",
+                    "fn local(value: {state: core::State}, offset: ByteOffset) -> ()\n",
+                    "  validate WirePacket from value at offset\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "main.veln",
+                concat!(
+                    "use aliases\nuse core\n\n",
+                    "fn imported(value: {state: core::State}, offset: ByteOffset) -> ()\n",
+                    "  validate aliases::WirePacket from value at offset\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let local = query(sources.clone(), "core.veln", 11, 12).unwrap();
+        assert_eq!(local.selected_symbol.kind, SymbolKind::Schema);
+        assert_location(&local.definition, "core.veln", 6, 12);
+
+        let alias = query(sources.clone(), "aliases.veln", 3, 12).unwrap();
+        assert_eq!(alias.selected_symbol.kind, SymbolKind::Schema);
+        assert_eq!(
+            alias.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_eq!(
+            locations(&alias.references),
+            [("aliases.veln", 6, 12), ("main.veln", 5, 21)]
+        );
+        for (file, line, column) in [("aliases.veln", 6, 12), ("main.veln", 5, 21)] {
+            let selected = query(sources.clone(), file, line, column).unwrap();
+            assert_eq!(selected.definition, alias.definition);
+            assert_eq!(selected.references, alias.references);
+        }
+    }
+
+    #[test]
     fn workspace_schema_references_cover_local_and_qualified_imported_operations() {
         let result = query(
             vec![

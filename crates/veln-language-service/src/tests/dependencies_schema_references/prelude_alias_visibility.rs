@@ -18,6 +18,7 @@
             "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
             "  decode prelude::AliasPacket from view at byte_offset(0)?\n",
             "  encode prelude::AliasPacket from packet\n",
+            "  validate prelude::AliasPacket from packet at byte_offset(0)?\n",
             "end\n",
         );
         let dependency = dependency_snapshot(
@@ -85,7 +86,7 @@
             "prelude::AliasPacket",
             "AliasPacket",
         );
-        assert_eq!(selections.len(), 5, "{name}");
+        assert_eq!(selections.len(), 6, "{name}");
         let Some(expected_origin) = expected_origin else {
             assert!(selections.iter().all(Option::is_none), "{name}: {selections:#?}");
             return;
@@ -139,6 +140,7 @@
             "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
             "  decode prelude::AliasPacket from view at byte_offset(0)?\n",
             "  encode prelude::AliasPacket from packet\n",
+            "  validate prelude::AliasPacket from packet at byte_offset(0)?\n",
             "end\n",
         );
         let expected = [
@@ -147,6 +149,7 @@
             ("main.veln", 5, 20),
             ("main.veln", 9, 19),
             ("main.veln", 10, 19),
+            ("main.veln", 11, 21),
         ];
 
         for (name, blocker) in [
@@ -176,7 +179,14 @@
                 ["prelude.veln"],
             ));
 
-            for (line, column) in [(3, 20), (4, 36), (5, 20), (9, 19), (10, 19)] {
+            for (line, column) in [
+                (3, 20),
+                (4, 36),
+                (5, 20),
+                (9, 19),
+                (10, 19),
+                (11, 21),
+            ] {
                 let selected = query_snapshot(&snapshot, "main.veln", line, column)
                     .unwrap_or_else(|| panic!("{name} blocked qualified alias at {line}:{column}"));
                 assert_eq!(selected.selected_symbol.name, "AliasPacket", "{name}");

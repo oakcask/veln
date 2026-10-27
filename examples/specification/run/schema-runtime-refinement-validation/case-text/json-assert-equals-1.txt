@@ -1,4 +1,7 @@
 ok:3
+nested:23
+metadata:29
+states:preserved
 schema.variant_refinement_mismatch
 19
 /ConnectedPacket/primary

@@ -208,7 +208,11 @@ fn is_schema_operation_path_leaf_candidate_token(tokens: &[Token], index: usize)
     tokens[index].kind == TokenKind::Ident
         && line_tokens_before(tokens, index)
             .iter()
-            .any(|token| matches!(token.kind, TokenKind::Decode | TokenKind::Encode))
+            .any(|token| {
+                matches!(token.kind, TokenKind::Decode | TokenKind::Encode)
+                    || (token.kind == TokenKind::Ident
+                        && token.text == veln_syntax::VALIDATE_MARKER)
+            })
         && tokens[index + 1..]
             .iter()
             .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)

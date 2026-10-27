@@ -382,6 +382,7 @@
                 "fn broken(view: ByteView) -> ()\n",
                 "  decode wire::Packet junk from view at byte_offset(0)?\n",
                 "  encode wire::Packet junk from {value: 1}\n",
+                "  validate wire::Packet junk from {value: 1} at byte_offset(0)?\n",
                 "end\n",
             ),
         )])
@@ -392,7 +393,7 @@
         let valid = query_snapshot(&recovered_leaves, "main.veln", 5, 20)
             .expect("the valid composition leaf should remain navigable");
         assert_eq!(locations(&valid.references), [("main.veln", 5, 17)]);
-        for (line, column) in [(6, 31), (7, 25), (11, 16), (12, 16)] {
+        for (line, column) in [(6, 31), (7, 25), (11, 16), (12, 16), (13, 18)] {
             if let Some(result) = query_snapshot(&recovered_leaves, "main.veln", line, column)
             {
                 assert!(result.references.is_empty(), "recovered leaf at {line}:{column}");

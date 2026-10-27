@@ -7,20 +7,44 @@ type State
 	Closed(value: Int)
 end
 
+schema Metadata
+	version: Int
+end
+
 schema ConnectedPacket
 	primary: State::Connected | State::Closing
 	secondary: State::Connected
+	states: List<State>
+	nested: {state: State}
+	metadata: Metadata
 end
 
-fn validate_packet(packet: {primary: State, secondary: State}, offset: ByteOffset) -> Result<{primary: State::Connected | State::Closing, secondary: State::Connected}, DecodeError>
+fn validate_packet(packet: {primary: State, secondary: State, states: List<State>, nested: {state: State}, metadata: {version: Int}}, offset: ByteOffset) -> Result<{primary: State::Connected | State::Closing, secondary: State::Connected, states: List<State>, nested: {state: State}, metadata: {version: Int}}, DecodeError>
 	validate ConnectedPacket from packet at offset
 end
 
-fn report(result: Result<{primary: State::Connected | State::Closing, secondary: State::Connected}, DecodeError>) -> () effects [stdio]
+fn state_value(state: State) -> Int
+	match state
+		Connected(value) => value
+		Closing(value) => value
+		Closed(value) => value
+	end
+end
+
+fn report(result: Result<{primary: State::Connected | State::Closing, secondary: State::Connected, states: List<State>, nested: {state: State}, metadata: {version: Int}}, DecodeError>) -> () effects [stdio]
 	match result
-		Ok(packet) => match packet.primary
-			Connected(value) => stdio::println(string::concat("ok:", int_to_string(value)))
-			Closing(value) => stdio::println(string::concat("ok:", int_to_string(value)))
+		Ok(packet) => begin
+			match packet.primary
+				Connected(value) => stdio::println(string::concat("ok:", int_to_string(value)))
+				Closing(value) => stdio::println(string::concat("ok:", int_to_string(value)))
+			end
+			stdio::println(string::concat("nested:", int_to_string(state_value(packet.nested.state))))
+			stdio::println(string::concat("metadata:", int_to_string(packet.metadata.version)))
+			if list_is_empty(packet.states)
+				stdio::println("states:empty")
+			else
+				stdio::println("states:preserved")
+			end
 		end
 		Err(DecodeErrorWithReason(id, offset, path, reason)) => begin
 			stdio::println(id)
@@ -39,7 +63,9 @@ end
 pub fn main() -> Result<(), String> effects [stdio]
 	let first_offset = byte_offset(7)?
 	let second_offset = byte_offset(19)?
-	report(validate_packet({primary: Connected(3), secondary: Connected(5)}, first_offset))
-	report(validate_packet({primary: Closed(11), secondary: Closed(13)}, second_offset))
+	let first_states: List<State> = list_cons(Closed(17), list_nil())
+	let second_states: List<State> = list_cons(Connected(31), list_nil())
+	report(validate_packet({primary: Connected(3), secondary: Connected(5), states: first_states, nested: {state: Closed(23)}, metadata: {version: 29}}, first_offset))
+	report(validate_packet({primary: Closed(11), secondary: Closed(13), states: second_states, nested: {state: Connected(37)}, metadata: {version: 41}}, second_offset))
 	Ok(())
 end

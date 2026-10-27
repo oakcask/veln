@@ -91,6 +91,65 @@ fn collector_classifies_schema_encode_expression_tokens() {
         ))
     );
 }
+
+#[test]
+fn collector_classifies_schema_validate_and_both_nested_operands() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn keep(validate: Int) -> Int\n",
+            "  validate\n",
+            "end\n",
+            "fn check(value: {state: input::State::Ready}, offset: ByteOffset) -> Result<{state: input::State::Ready}, DecodeError>\n",
+            "  validate wire::Packet from wrap(tag<input::State::Ready>(value)) at shift(tag_offset<base::Offset::Exact>(offset))\n",
+            "end\n",
+        ),
+    );
+
+    let tokens = collect_text(&source);
+    for keyword in ["validate", "from", "at"] {
+        assert!(tokens.contains(&(
+            keyword.to_string(),
+            SemanticTokenType::Keyword,
+            SemanticTokenModifiers::empty().bits()
+        )));
+    }
+    assert_eq!(
+        tokens
+            .iter()
+            .filter(|(text, token_type, _)| {
+                text == "validate" && *token_type == SemanticTokenType::Keyword
+            })
+            .count(),
+        1
+    );
+    assert!(tokens.iter().any(|(text, token_type, _)| {
+        text == "validate" && *token_type == SemanticTokenType::Parameter
+    }));
+    for function in ["wrap", "shift"] {
+        assert!(tokens.iter().any(|(text, token_type, _)| {
+            text == function && *token_type == SemanticTokenType::Function
+        }));
+    }
+    for parameter in ["value", "offset"] {
+        assert!(tokens.iter().any(|(text, token_type, modifiers)| {
+            text == parameter
+                && *token_type == SemanticTokenType::Parameter
+                && *modifiers
+                    == SemanticTokenModifiers::empty()
+                        .with(SemanticTokenModifier::Readonly)
+                        .bits()
+        }));
+    }
+    for variant in ["Ready", "Exact"] {
+        assert!(tokens.iter().any(|(text, token_type, _)| {
+            text == variant && *token_type == SemanticTokenType::EnumMember
+        }));
+    }
+    assert!(tokens.iter().any(|(text, token_type, _)| {
+        text == "Packet" && *token_type == SemanticTokenType::Type
+    }));
+}
 #[test]
 fn collector_classifies_unnamed_holes_and_boolean_literals() {
     let source = SourceFile::new(
