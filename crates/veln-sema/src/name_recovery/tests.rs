@@ -17,6 +17,38 @@ fn invalid_explicit_aliases_are_atomically_quarantined() {
 }
 
 #[test]
+fn recovered_target_identity_preserves_the_rewritten_package_boundary() {
+    let app_source = veln_source::SourceFile::new(
+        "app.veln",
+        "use Http as wire from \"pkg\"\nfn main() -> Int\n  wire::entry()\nend\n",
+    );
+    let app_parsed = veln_syntax::parse(&app_source);
+    let mut module = veln_ast::lower_surface_ast_with_module_identity(
+        &app_parsed.tree,
+        "app".to_string(),
+        app_source.span(veln_source::TextRange::new(0, 0)),
+    );
+    module.uses[0].name = "pkg::Http".to_string();
+
+    let target_source =
+        veln_source::SourceFile::new("http.veln", "pub fn entry() -> Int\n  1\nend\n");
+    let target_parsed = veln_syntax::parse(&target_source);
+    let target = veln_ast::lower_surface_ast_with_package_module_identity(
+        &target_parsed.tree,
+        "pkg".to_string(),
+        "http".to_string(),
+        target_source.span(veln_source::TextRange::new(0, 0)),
+    );
+    module.functions.extend(target.functions);
+
+    let recovered = quarantined_use_decls(&module);
+    assert_eq!(recovered.len(), 1);
+    assert_eq!(recovered[0].name, "pkg::http");
+    assert_eq!(recovered[0].package.as_deref(), Some("pkg"));
+    assert_eq!(module.uses[0].name, "pkg::Http");
+}
+
+#[test]
 fn normal_import_classification_work_scales_linearly() {
     fn work(count: usize) -> usize {
         let mut text = String::from("mod app\n");

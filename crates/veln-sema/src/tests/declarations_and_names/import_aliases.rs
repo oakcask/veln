@@ -403,7 +403,7 @@ fn duplicate_import_diagnostic_pipeline_classifies_once_and_scales_linearly() {
 }
 
 #[test]
-fn invalid_alias_recovery_pipeline_classifies_once_and_scales_linearly() {
+fn invalid_target_recovery_pipeline_classifies_once_and_scales_linearly() {
     fn work(count: usize) -> usize {
         let mut text = String::from("mod app\n");
         for index in 0..count {
@@ -411,10 +411,17 @@ fn invalid_alias_recovery_pipeline_classifies_once_and_scales_linearly() {
         }
         for index in 0..count {
             text.push_str(&format!(
-                "fn call{index}() -> Int\n  Dependency{index}::entry()\nend\n"
+                "fn call{index}() -> Int\n  alias{index}::entry()\nend\n"
             ));
         }
-        let module = lower_surface_ast(&parse(&SourceFile::new("main.veln", text)).tree);
+        let mut sources = vec![SourceFile::new("main.veln", text)];
+        for index in 0..count {
+            sources.push(SourceFile::new(
+                format!("dependency{index}.veln"),
+                format!("mod dependency{index}\npub fn entry() -> Int\n  {index}\nend\n"),
+            ));
+        }
+        let module = merged_modules(sources);
         crate::name_recovery::reset_import_classification_work();
         let diagnostics = analyze_surface_module(&module);
         assert_eq!(
@@ -425,6 +432,12 @@ fn invalid_alias_recovery_pipeline_classifies_once_and_scales_linearly() {
             count,
             "{diagnostics:#?}"
         );
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "name.unresolved"),
+            "{diagnostics:#?}"
+        );
         assert_eq!(crate::name_recovery::import_classification_builds(), 1);
         crate::name_recovery::import_classification_work()
     }
@@ -433,7 +446,7 @@ fn invalid_alias_recovery_pipeline_classifies_once_and_scales_linearly() {
     let large = work(256);
     assert!(
         large <= small * 2 + 16,
-        "invalid-alias recovery import classification must remain linear: small={small} large={large}"
+        "invalid-target recovery import classification must remain linear: small={small} large={large}"
     );
 }
 

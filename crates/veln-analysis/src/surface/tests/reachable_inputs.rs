@@ -299,6 +299,54 @@ fn reachable_entry_keeps_invalid_import_segments_with_alias_proof_only() {
 }
 
 #[test]
+fn repaired_explicit_alias_target_does_not_add_reachable_code() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use Http as wire\n",
+                    "\n",
+                    "fn main() -> Int\n",
+                    "  wire::entry()\n",
+                    "end\n",
+                ),
+            ),
+            SourceFile::new(
+                "http.veln",
+                concat!(
+                    "pub fn entry() -> Int\n",
+                    "  helper()\n",
+                    "end\n",
+                    "fn helper() -> Int\n",
+                    "  1\n",
+                    "end\n"
+                ),
+            ),
+        ],
+        manifest: None,
+    };
+    let (module, diagnostics) = load_surface_module(&project);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert!(module.invalid_names.iter().any(|invalid| {
+        invalid.name == "Http"
+            && invalid.class == veln_ast::NameClass::Module
+            && invalid.occurrence == veln_ast::NameOccurrence::PathSegment
+    }));
+
+    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+    assert_eq!(reachable_function_names(&reachable), vec![("app", "main")]);
+    assert!(
+        reachable
+            .uses
+            .iter()
+            .any(|use_decl| use_decl.name == "Http" && use_decl.alias == "wire")
+    );
+}
+
+#[test]
 fn reachable_entry_skips_invalid_import_in_unselected_module() {
     let project = Project {
         root: ".".into(),

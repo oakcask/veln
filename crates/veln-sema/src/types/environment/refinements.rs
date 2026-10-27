@@ -112,6 +112,32 @@ impl TypeEnvironment {
                 &self.uses,
             );
         }
+        if let Some(descriptor) = self.adts.unique_descriptor_for_type_path(
+            base,
+            args_len,
+            current_module,
+            &self.quarantined_uses,
+        ) {
+            return Some(descriptor);
+        }
+        if self
+            .adts
+            .descriptor_for_type_path(base, args_len, current_module, &self.quarantined_uses)
+            .is_some()
+        {
+            return None;
+        }
+        if self
+            .adts
+            .descriptor_for_type_path_any_arity(base, current_module, &self.quarantined_uses)
+            .is_some()
+        {
+            return self.adts.unique_descriptor_for_type_path_any_arity(
+                base,
+                current_module,
+                &self.quarantined_uses,
+            );
+        }
 
         let recovered = recover_type_case(base)?;
         self.adts

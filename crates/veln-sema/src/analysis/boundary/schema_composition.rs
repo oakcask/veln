@@ -195,9 +195,11 @@ pub(super) fn quarantined_schema_composition_reference_reason(
     };
     let use_decl =
         quarantined_imported_use_for_path(module, &path[..path.len() - 1], current_module)?;
+    let target_module = crate::name_recovery::recovered_import_target_name(module, use_decl)
+        .unwrap_or_else(|| use_decl.name.clone());
     if module.schemas.iter().any(|candidate| {
         candidate.name.as_deref() == Some(name.as_str())
-            && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
+            && candidate.module_name.as_deref() == Some(target_module.as_str())
             && candidate.visibility != Visibility::Public
     }) {
         return Some("private_schema");
@@ -244,14 +246,16 @@ pub(super) fn schema_composition_quarantine_is_sole_failure(
     ) else {
         return false;
     };
+    let target_module = crate::name_recovery::recovered_import_target_name(module, use_decl)
+        .unwrap_or_else(|| use_decl.name.clone());
     module.schemas.iter().any(|candidate| {
         candidate.name.as_deref() == Some(name.as_str())
-            && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
+            && candidate.module_name.as_deref() == Some(target_module.as_str())
             && candidate.visibility == Visibility::Public
     }) || module.aliases.iter().any(|alias| {
         alias.kind == PublicAliasKind::Schema
             && alias.name.as_deref() == Some(name.as_str())
-            && alias.module_name.as_deref() == Some(use_decl.name.as_str())
+            && alias.module_name.as_deref() == Some(target_module.as_str())
             && !public_alias_has_invalid_target_leaf(module, alias, None)
     })
 }

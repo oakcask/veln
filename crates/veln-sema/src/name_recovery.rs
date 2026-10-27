@@ -50,6 +50,7 @@ pub(crate) struct ImportClassification {
     #[cfg(test)]
     duplicate_targets: Vec<bool>,
     recovery_candidates: Vec<bool>,
+    recovered_target_names: Vec<Option<String>>,
     invalid_import_locations: HashSet<(String, usize, usize)>,
     recovery_names_by_file: HashSet<(String, String)>,
     quarantined: Vec<bool>,
@@ -136,6 +137,11 @@ impl ImportClassification {
     fn is_recovery_candidate(&self, use_decl: &UseDecl) -> bool {
         self.index(use_decl)
             .is_some_and(|index| self.recovery_candidates[index])
+    }
+
+    fn recovered_target_name<'a>(&'a self, use_decl: &UseDecl) -> Option<&'a str> {
+        self.index(use_decl)
+            .and_then(|index| self.recovered_target_names[index].as_deref())
     }
 
     pub(crate) fn source_order(&self) -> &[usize] {
@@ -268,6 +274,7 @@ impl NormalUseGroups {
             duplicate_diagnostic_origins(module, &source_order);
         let recovery_candidates =
             self.recovery_candidates(module, &repeated_targets, &colliding_qualifiers);
+        let recovered_target_names = recovered_target_names(module, &recovery_candidates);
         let recovery_names_by_file = recovery_names_by_file(module, &recovery_candidates);
         ImportClassification {
             indices: import_indices(module),
@@ -276,6 +283,7 @@ impl NormalUseGroups {
             #[cfg(test)]
             duplicate_targets: repeated_targets,
             recovery_candidates,
+            recovered_target_names,
             invalid_import_locations: self.invalid_import_locations,
             recovery_names_by_file,
             quarantined: self.quarantined,
@@ -321,6 +329,115 @@ impl NormalUseGroups {
             })
             .collect()
     }
+}
+
+fn recovered_target_names(
+    module: &SurfaceModule,
+    recovery_candidates: &[bool],
+) -> Vec<Option<String>> {
+    let targets = recovery_target_index(module);
+    module
+        .uses
+        .iter()
+        .enumerate()
+        .map(|(index, use_decl)| {
+            if !recovery_candidates[index] {
+                return None;
+            }
+            record_import_classification_work();
+            targets.get(&use_decl.name).cloned().flatten()
+        })
+        .collect()
+}
+
+fn recovery_target_index(module: &SurfaceModule) -> HashMap<String, Option<String>> {
+    let mut identities = std::collections::BTreeSet::new();
+    let mut record = |name: &Option<String>| {
+        if let Some(name) = name {
+            identities.insert(name.clone());
+        }
+    };
+    for use_decl in &module.uses {
+        record(&use_decl.module_name);
+    }
+    for alias in &module.aliases {
+        record(&alias.module_name);
+    }
+    for effect in &module.effects {
+        record(&effect.module_name);
+    }
+    for handler in &module.handlers {
+        record(&handler.module_name);
+    }
+    for type_decl in &module.types {
+        record(&type_decl.module_name);
+    }
+    for schema in &module.schemas {
+        record(&schema.module_name);
+    }
+    for value in &module.module_values {
+        record(&value.module_name);
+    }
+    for function in &module.functions {
+        record(&function.module_name);
+    }
+    let mut targets = HashMap::<String, Option<String>>::new();
+    for identity in identities {
+        let segments = identity.split("::").collect::<Vec<_>>();
+        for index in 0..segments.len() {
+            record_import_classification_work();
+            let segment = segments[index];
+            let Some(first) = segment.as_bytes().first().copied() else {
+                continue;
+            };
+            if !first.is_ascii_lowercase() {
+                continue;
+            }
+            let mut written = segments.clone();
+            let mut repaired = String::with_capacity(segment.len());
+            repaired.push((first as char).to_ascii_uppercase());
+            repaired.push_str(&segment[1..]);
+            written[index] = &repaired;
+            let written = written.join("::");
+            targets
+                .entry(written)
+                .and_modify(|selected| {
+                    if selected.as_deref() != Some(identity.as_str()) {
+                        *selected = None;
+                    }
+                })
+                .or_insert_with(|| Some(identity.clone()));
+        }
+    }
+    targets
+}
+
+pub(crate) fn quarantined_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
+    let classification = import_classification(module);
+    module
+        .uses
+        .iter()
+        .filter(|use_decl| classification.is_recovery_candidate(use_decl))
+        .map(|use_decl| {
+            let recovered_target = classification
+                .recovered_target_name(use_decl)
+                .map(str::to_string);
+            let mut recovered = use_decl.clone();
+            if let Some(target) = recovered_target {
+                recovered.name = target;
+            }
+            recovered
+        })
+        .collect()
+}
+
+pub(crate) fn recovered_import_target_name(
+    module: &SurfaceModule,
+    use_decl: &UseDecl,
+) -> Option<String> {
+    import_classification(module)
+        .recovered_target_name(use_decl)
+        .map(str::to_string)
 }
 
 fn import_indices(module: &SurfaceModule) -> HashMap<usize, usize> {

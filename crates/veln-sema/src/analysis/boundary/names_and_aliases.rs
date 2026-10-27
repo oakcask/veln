@@ -11,8 +11,8 @@ use crate::types::TypeEnvironment;
 
 use super::module_boundaries::{
     alias_kind_mismatch_diagnostic, duplicate_name_diagnostic, function_target,
-    normal_imported_module_for_path, private_alias_diagnostic, type_target,
-    unresolved_alias_diagnostic,
+    normal_imported_module_for_path, private_alias_diagnostic, quarantined_function_target,
+    quarantined_schema_target, quarantined_type_target, type_target, unresolved_alias_diagnostic,
 };
 
 type SeenNames = BTreeMap<(Option<String>, String), (String, SourceSpan)>;
@@ -302,7 +302,15 @@ pub(crate) fn check_public_aliases(
                         diagnostics.push(unresolved_alias_diagnostic(alias, "schema"));
                     }
                     SchemaAliasCheckResolution::Unresolved => {
-                        diagnostics.push(unresolved_alias_diagnostic(alias, "schema"));
+                        if quarantined_schema_target(
+                            module,
+                            &alias.target,
+                            alias.module_name.as_deref(),
+                        )
+                        .is_none()
+                        {
+                            diagnostics.push(unresolved_alias_diagnostic(alias, "schema"));
+                        }
                     }
                 }
             }
@@ -323,7 +331,9 @@ pub(super) fn check_function_alias_target(
             "function",
             "module_value",
         ))
-    } else if function_target(module, &alias.target, module_name).is_some() {
+    } else if function_target(module, &alias.target, module_name).is_some()
+        || quarantined_function_target(module, &alias.target, module_name).is_some()
+    {
         None
     } else if type_target(module, &alias.target, module_name).is_some() {
         Some(alias_kind_mismatch_diagnostic(alias, "function", "type"))
@@ -340,6 +350,7 @@ pub(super) fn check_type_alias_target(
 ) -> Option<Diagnostic> {
     if adts.resolves_type_alias(alias)
         || type_target(module, &alias.target, module_name).is_some()
+        || quarantined_type_target(module, &alias.target, module_name).is_some()
         || is_standard_type_alias_target(module, &alias.target, module_name)
     {
         None

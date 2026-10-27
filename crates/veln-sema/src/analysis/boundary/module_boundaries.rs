@@ -96,6 +96,85 @@ pub(super) fn quarantined_imported_use_for_path<'a>(
     })
 }
 
+pub(super) fn quarantined_imported_module_for_path(
+    module: &SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<String> {
+    let use_decl = quarantined_imported_use_for_path(module, segments, current_module)?;
+    Some(
+        crate::name_recovery::recovered_import_target_name(module, use_decl)
+            .unwrap_or_else(|| use_decl.name.clone()),
+    )
+}
+
+pub(super) fn quarantined_function_target<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<&'a veln_ast::Function> {
+    let [_, .., name] = segments else {
+        return None;
+    };
+    let module_name = quarantined_imported_module_for_path(
+        module,
+        &segments[..segments.len() - 1],
+        current_module,
+    )?;
+    let mut candidates = module.functions.iter().filter(|function| {
+        function.kind == FunctionKind::Function
+            && function.name.as_deref() == Some(name)
+            && function.module_name.as_deref() == Some(module_name.as_str())
+            && function.visibility == veln_ast::Visibility::Public
+    });
+    let first = candidates.next()?;
+    candidates.next().is_none().then_some(first)
+}
+
+pub(super) fn quarantined_type_target<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<&'a veln_ast::TypeDecl> {
+    let [_, .., name] = segments else {
+        return None;
+    };
+    let module_name = quarantined_imported_module_for_path(
+        module,
+        &segments[..segments.len() - 1],
+        current_module,
+    )?;
+    let mut candidates = module.types.iter().filter(|type_decl| {
+        type_decl.name.as_deref() == Some(name)
+            && type_decl.module_name.as_deref() == Some(module_name.as_str())
+            && type_decl.visibility == veln_ast::Visibility::Public
+    });
+    let first = candidates.next()?;
+    candidates.next().is_none().then_some(first)
+}
+
+pub(super) fn quarantined_schema_target<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<&'a veln_ast::SchemaDecl> {
+    let [_, .., name] = segments else {
+        return None;
+    };
+    let module_name = quarantined_imported_module_for_path(
+        module,
+        &segments[..segments.len() - 1],
+        current_module,
+    )?;
+    let mut candidates = module.schemas.iter().filter(|schema| {
+        schema.name.as_deref() == Some(name)
+            && schema.module_name.as_deref() == Some(module_name.as_str())
+            && schema.visibility == veln_ast::Visibility::Public
+    });
+    let first = candidates.next()?;
+    candidates.next().is_none().then_some(first)
+}
+
 pub(super) fn unresolved_alias_diagnostic(
     alias: &veln_ast::PublicAlias,
     expected_kind: &'static str,

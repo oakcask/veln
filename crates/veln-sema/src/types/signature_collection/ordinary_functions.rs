@@ -27,12 +27,7 @@ pub(in crate::types) fn ordinary_function_signatures(
         *name_counts.entry(function.clone()).or_default() += 1;
     }
     let uses = normal_use_decls(module);
-    let quarantined_uses = module
-        .uses
-        .iter()
-        .filter(|use_decl| crate::name_recovery::use_decl_is_recovery_candidate(module, use_decl))
-        .cloned()
-        .collect::<Vec<_>>();
+    let quarantined_uses = crate::name_recovery::quarantined_use_decls(module);
     let context = OrdinarySignatureContext {
         uses: &uses,
         quarantined_uses: &quarantined_uses,
