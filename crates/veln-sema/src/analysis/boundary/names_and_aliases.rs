@@ -20,14 +20,14 @@ type SeenNames = BTreeMap<(Option<String>, Option<String>, String), (String, Sou
 fn record_name(
     seen: &mut SeenNames,
     diagnostics: &mut Vec<Diagnostic>,
-    package_name: Option<&str>,
-    module_name: Option<&str>,
+    owner: (Option<&str>, Option<&str>),
     name: &str,
     kind: (&'static str, &'static str),
     node_id: String,
     span: &SourceSpan,
 ) {
     let (namespace, subject) = kind;
+    let (package_name, module_name) = owner;
     let key = (
         package_name.map(str::to_owned),
         module_name.map(str::to_owned),
@@ -59,8 +59,10 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
         record_name(
             &mut seen,
             &mut diagnostics,
-            function.package_name.as_deref(),
-            function.module_name.as_deref(),
+            (
+                function.package_name.as_deref(),
+                function.module_name.as_deref(),
+            ),
             name,
             ("function", "function declaration"),
             function.node_id.display(function.kind.node_prefix()),
@@ -78,8 +80,7 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
         record_name(
             &mut seen,
             &mut diagnostics,
-            alias.package_name.as_deref(),
-            alias.module_name.as_deref(),
+            (alias.package_name.as_deref(), alias.module_name.as_deref()),
             name,
             ("function", "function alias"),
             alias.node_id.display("alias"),
@@ -93,8 +94,7 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
         record_name(
             &mut seen,
             &mut diagnostics,
-            value.package_name.as_deref(),
-            value.module_name.as_deref(),
+            (value.package_name.as_deref(), value.module_name.as_deref()),
             name,
             ("function", "module value declaration"),
             value.node_id.display("module-value"),
@@ -116,8 +116,10 @@ pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnost
         record_name(
             &mut seen,
             &mut diagnostics,
-            type_decl.package_name.as_deref(),
-            type_decl.module_name.as_deref(),
+            (
+                type_decl.package_name.as_deref(),
+                type_decl.module_name.as_deref(),
+            ),
             name,
             ("type", "type declaration"),
             type_decl.node_id.display("type"),
@@ -135,8 +137,7 @@ pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnost
         record_name(
             &mut seen,
             &mut diagnostics,
-            alias.package_name.as_deref(),
-            alias.module_name.as_deref(),
+            (alias.package_name.as_deref(), alias.module_name.as_deref()),
             name,
             ("type", "type alias"),
             alias.node_id.display("alias"),
@@ -158,8 +159,10 @@ pub(crate) fn check_duplicate_effect_names(module: &SurfaceModule) -> Vec<Diagno
         record_name(
             &mut seen,
             &mut diagnostics,
-            effect.package_name.as_deref(),
-            effect.module_name.as_deref(),
+            (
+                effect.package_name.as_deref(),
+                effect.module_name.as_deref(),
+            ),
             name,
             ("effect", "effect declaration"),
             effect.node_id.display("effect"),
@@ -174,8 +177,7 @@ pub(crate) fn check_duplicate_effect_names(module: &SurfaceModule) -> Vec<Diagno
             record_name(
                 &mut operations,
                 &mut diagnostics,
-                None,
-                None,
+                (None, None),
                 operation_name,
                 ("operation", "effect operation declaration"),
                 operation.node_id.display("operation"),
@@ -198,8 +200,10 @@ pub(crate) fn check_duplicate_schema_names(module: &SurfaceModule) -> Vec<Diagno
         record_name(
             &mut seen,
             &mut diagnostics,
-            schema.package_name.as_deref(),
-            schema.module_name.as_deref(),
+            (
+                schema.package_name.as_deref(),
+                schema.module_name.as_deref(),
+            ),
             name,
             ("schema", "schema declaration"),
             schema.node_id.display("schema"),
@@ -217,8 +221,7 @@ pub(crate) fn check_duplicate_schema_names(module: &SurfaceModule) -> Vec<Diagno
         record_name(
             &mut seen,
             &mut diagnostics,
-            alias.package_name.as_deref(),
-            alias.module_name.as_deref(),
+            (alias.package_name.as_deref(), alias.module_name.as_deref()),
             name,
             ("schema", "schema alias"),
             alias.node_id.display("alias"),
