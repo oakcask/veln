@@ -933,7 +933,11 @@ import reports the later import's written target path even when package loading
 has normalized different source spellings to the same package and module
 identity. The first import's target path appears as related context. Equal
 written paths in distinct package origins do not produce this duplicate-target
-diagnostic.
+diagnostic. If initial-only casing correction gives an invalid target the same
+module identity as another import target, the later import reports that same
+duplicate-target shape and the earlier target remains its related context.
+This ordering follows source order even when the invalid spelling is later;
+the independent `name.invalid_case` record is retained.
 Parser diagnostics precede casing diagnostics for one import; reserved and
 duplicate facts follow casing, while target-resolution facts stay independent.
 When correcting an invalid target

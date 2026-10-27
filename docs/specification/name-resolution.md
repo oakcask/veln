@@ -103,6 +103,12 @@ reachable-code candidate.
 Source imports with an invalid-cased target segment or explicit alias still
 participate in explicit qualifier and duplicate-target checks, so removing an
 invalid candidate cannot make a colliding qualifier resolve. A
+uniquely corrected target identity also participates in duplicate-target
+checks. If one import writes `Http` and another writes `http` for the same
+source module, the later import reports one duplicate-target diagnostic with
+the earlier target as related context, regardless of which spelling comes
+first. The invalid-casing diagnostic remains independent, and both imports are
+quarantined under their written paths and aliases. A
 syntax-recovered import participates in neither check and cannot quarantine a
 later valid import. Independent target, collision, and casing diagnostics
 remain visible. Casing recovery suppresses a derivative member diagnostic only
@@ -818,7 +824,7 @@ not become fallback targets.
   | --- | --- |
   | Syntax, parser recovery, AST preservation, and formatting | `docs/specification/source-surface-executable.pl`, `docs/specification/source-surface-fixtures/`, `crates/veln-syntax/src/tests/import_aliases.rs`, and `crates/veln-ast/src/tests/wire_round_trip.rs` |
   | Qualifier, exact-path, implicit-leaf, and bare selection | `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs`, `crates/veln-sema/src/adt/tests/variant_lookup.rs`, `crates/veln-sema/src/name_recovery/tests.rs`, `examples/specification/check/explicit-import-alias-canonical-standard/`, and [`explicit-import-alias-local-std-origin`](../../examples/specification/check/explicit-import-alias-local-std-origin/) |
-  | Collision, origin ambiguity, and duplicate-target quarantine | `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs`, `examples/specification/check/explicit-import-alias-distinct-origins/`, `examples/specification/check/explicit-import-alias-duplicate-human/`, and `examples/specification/check/explicit-import-alias-duplicate-json/` |
+  | Collision, origin ambiguity, corrected-target overlap, and duplicate-target quarantine | `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs`, `examples/specification/check/explicit-import-alias-distinct-origins/`, `examples/specification/check/explicit-import-alias-duplicate-human/`, and `examples/specification/check/explicit-import-alias-duplicate-json/` |
   | Reserved-name and casing quarantine and recovery | `crates/veln-sema/src/tests/identifier_casing/explicit_import_aliases.rs`, `crates/veln-sema/src/tests/identifier_casing/explicit_import_targets.rs`, `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs`, `crates/veln-analysis/src/surface/tests/explicit_import_reachability.rs`, `examples/specification/check/explicit-import-alias-casing-human/`, `examples/specification/check/explicit-import-alias-casing-json/`, `examples/specification/check/explicit-import-alias-target-casing-human/`, `examples/specification/check/explicit-import-alias-target-casing-json/`, `examples/specification/check/explicit-import-alias-independent-carrier-failures-human/`, and `examples/specification/check/explicit-import-alias-independent-carrier-failures-json/` |
   | Cross-carrier semantic identity | `examples/specification/check/explicit-import-alias-carriers/` and the explicit-import-alias semantic tests under `crates/veln-sema/src/tests/` |
   | Runtime, lowering, and reachability identity | `examples/specification/run/explicit-import-alias-runtime/`, `examples/specification/run/explicit-import-alias-entry-target/`, `examples/specification/run/explicit-import-alias-handler/`, `examples/specification/run/explicit-import-alias-handler-identity/`, [`explicit-import-alias-local-std-origin`](../../examples/specification/run/explicit-import-alias-local-std-origin/), [`explicit-import-alias-local-std-runtime`](../../examples/specification/run/explicit-import-alias-local-std-runtime/), [`explicit-import-alias-owner-package-scope`](../../examples/specification/run/explicit-import-alias-owner-package-scope/), and explicit-import-alias reachability tests under `crates/veln-analysis/src/surface/tests/` |

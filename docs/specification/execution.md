@@ -27,7 +27,9 @@ qualifier collides. An alias-qualified call and a call through the full written
 import path execute the same declaration. Same-named declarations with
 distinct package or module identities retain separate runtime identities, and
 an explicitly aliased import does not add a bare runtime call candidate. An
-imported handler retains
+import-selected function or handler keeps its selected package identity
+through reachability, lowering, and JVM linkage; a loaded namesake from another
+package cannot replace the selected declaration. An imported handler retains
 the declaration module as the lookup scope for private functions called by its
 operation clauses. The checked
 [`explicit-import-alias-runtime`](../../examples/specification/run/explicit-import-alias-runtime/)
@@ -637,6 +639,9 @@ than degrading it to a generic rendered result value.
 
 ## References
 
+- Cross-package function and handler selection through reachability, lowering,
+  and JVM linkage is checked in
+  `crates/veln-backend-jvm/src/tests/basic_backend.rs`.
 - Format-neutral refinement encode behavior is checked by
   [`adt-variant-refinement-format-neutral-schema-encode`](../../examples/specification/run/adt-variant-refinement-format-neutral-schema-encode/)
   and

@@ -98,6 +98,12 @@ A function type nested in a module `let` annotation receives the same label
 validation. A module value has no effect row binder, so a row tail in that
 annotation reports `effect.row_unbound`; an unknown label reports
 `effect.unknown`.
+Nominal labels in declaration effect lists and function type annotations
+resolve through the imports owned by that declaration's package and module.
+Same-spelled modules in different packages may therefore bind the same local
+qualifier to distinct nominal effects. Parameter, result, and local-binding
+annotations retain the selected package identity through checking and
+lowering, independent of source loading order.
 Nominal effect paths that use an import with an invalid module path segment or
 invalid explicit alias follow that name-resolution quarantine boundary. One
 visible public effect export can suppress the derivative `effect.unknown`
@@ -146,7 +152,10 @@ module as the lookup scope for private functions called by its operation
 clauses; the local qualifier does not become runtime identity. An import selects
 effects and handlers from both the target module and target package. An effect
 or handler in a same-spelled module owned by another package is not a candidate
-and cannot replace a missing declaration in the selected package. A path that
+and cannot replace a missing declaration in the selected package. Effect
+inference, handler discharge, and private handler dependency inference retain
+that selected package identity; a namesake effect or private dependency from
+another package does not enter the inferred effect set. A path that
 uses an import with an invalid module path segment or invalid explicit alias
 follows the same name-resolution quarantine boundary: one visible public
 handler export can suppress the derivative `handler.unknown` diagnostic, but

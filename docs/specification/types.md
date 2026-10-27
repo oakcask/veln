@@ -310,6 +310,14 @@ when their variant names and payload shapes match. A value, refinement, or
 constructor selected from one owner is not compatible with the namesake
 selected from another owner.
 
+Type annotations resolve imported identities in the package and module that
+own the annotated declaration. This applies to function parameters and
+results, module values, local bindings, and nested function types. If
+same-spelled modules in two packages bind one qualifier to different nominal
+declarations, each annotation retains the declaration selected by its own
+package's import. Source loading order does not let the namesake from the other
+package replace that identity during checking or lowering.
+
 An import with an invalid-cased target segment or explicit alias remains
 unavailable for normal type and constructor lookup. If correcting that casing
 selects one source module and one visible public ADT or constructor, the
@@ -1448,6 +1456,7 @@ inventing an arithmetic rewrite.
 - Qualified public-alias import-selection scaling:
   `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/public_visibility/publication_worklist.rs`.
 - Import-selected package identity and namesake ADT compatibility:
-  `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs`.
+  `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs` and
+  `crates/veln-sema/src/tests/import_package_identity.rs`.
 - Parser coverage: `crates/veln-syntax/src/tests/calls_and_generics.rs`,
   `literals_and_numbers.rs`, and `patterns_and_control_flow.rs`.
