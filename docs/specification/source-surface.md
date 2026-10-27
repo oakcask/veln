@@ -58,6 +58,12 @@ retain the complete declaration span and recovery state. The AST wire layout
 serializes that provenance and rejects the preceding layout header, whose
 import record lacks the importing-package field.
 
+Lowered functions, handlers, module values, effects, source types, schemas,
+and public aliases retain both their declaring package and module identity.
+The AST wire form preserves both identities so declarations from different
+packages do not become one declaration merely because their module and name
+spellings match.
+
 ### Import alias recovery limits
 
 A malformed alias clause recovers at its declaration newline, so the next
@@ -122,7 +128,8 @@ indentation and applies the ordinary canonical type and expression layout.
 The syntax tree and lowered AST preserve the declaration's visibility, name,
 written annotation, exact annotation span, structured type paths and
 refinements, initializer, and source spans. The lowered AST also records the
-declaring module identity. The AST wire layout serializes the annotation span.
+declaring package and module identity. The AST wire layout serializes the
+annotation span and both identities.
 Incompatible older layout headers are rejected rather than decoded with an
 older module-value record shape.
 

@@ -134,6 +134,11 @@ module. Sources in different packages do not share import bindings or
 quarantine merely because their module paths have the same spelling. A valid
 import owned by one package therefore remains selectable when a same-spelled
 module owned by another package has an equal, colliding, or quarantined import.
+Declarations also retain that owner-package identity. Same-spelled
+declarations in same-spelled modules owned by different packages do not report
+`name.duplicate` solely because their module paths match. Qualified lookup
+selects the declaration owned by the imported target package, including for
+ADTs and their constructors.
 Standard-package imports accept the written path, its canonical
 `std::` path, and the corresponding standard-relative path as exact spellings.
 No other import gains those additional spellings from a `std::` prefix alone.
@@ -657,13 +662,16 @@ Current duplicate checks reject:
 
 - duplicate resolved import targets in one source module and package origin,
   including distinct written paths that load the same module identity
-- duplicate schema declaration names in the same source module
-- duplicate effect declaration names in the same source module
-- duplicate handler declaration names in the same source module
+- duplicate schema declaration names in the same owner package and source module
+- duplicate effect declaration names in the same owner package and source module
+- duplicate handler declaration names in the same owner package and source module
 - duplicate operation names inside one effect declaration
-- duplicate top-level function, test, or public function alias names
-- duplicate top-level source type or public type alias names
-- duplicate constructor names inside one source type declaration
+- duplicate top-level function, test, or public function alias names in the same
+  owner package and source module
+- duplicate top-level source type or public type alias names in the same owner
+  package and source module
+- duplicate constructor names inside one source type declaration identified by
+  owner package, source module, and type name
 - duplicate parameter names in one function
 - a result binding that duplicates a parameter name
 - duplicate `let` names in the same function value scope, including names that

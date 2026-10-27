@@ -304,6 +304,12 @@ defines qualifier selection and quarantine; this page's compatibility,
 inference, visibility, and payload rules apply to the selected identity without
 regard to the local qualifier spelling.
 
+The owner package is part of a source ADT's nominal identity. ADTs with equal
+type and module spellings but different owner packages remain distinct, even
+when their variant names and payload shapes match. A value, refinement, or
+constructor selected from one owner is not compatible with the namesake
+selected from another owner.
+
 An import with an invalid-cased target segment or explicit alias remains
 unavailable for normal type and constructor lookup. If correcting that casing
 selects one source module and one visible public ADT or constructor, the
@@ -1228,9 +1234,9 @@ defined as follows:
 | `A<T>` | a singleton or variant set | Rejected. |
 | `A<T>::W` | a different singleton `A<T>::V` | Rejected. |
 
-The base ADT identity is nominal and includes the resolved owning module. A
-refinement of one ADT cannot widen to a same-spelled base ADT from another
-module.
+The base ADT identity is nominal and includes the resolved owning package and
+module. A refinement of one ADT cannot widen to a same-spelled base ADT from
+another package or module.
 
 The type checker applies the same rules to refined call parameters and declared
 function results. A final `if` or `match` checks every successfully typed branch
@@ -1441,5 +1447,7 @@ inventing an arithmetic rewrite.
   `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/scaling.rs`.
 - Qualified public-alias import-selection scaling:
   `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/public_visibility/publication_worklist.rs`.
+- Import-selected package identity and namesake ADT compatibility:
+  `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs`.
 - Parser coverage: `crates/veln-syntax/src/tests/calls_and_generics.rs`,
   `literals_and_numbers.rs`, and `patterns_and_control_flow.rs`.
