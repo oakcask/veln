@@ -93,9 +93,14 @@ colliding qualifier resolve. A syntax-recovered import participates in neither
 check and cannot quarantine a later valid import. Independent target,
 collision, and casing diagnostics remain visible. Casing recovery suppresses
 a derivative member diagnostic only when one visible target export proves
-that casing is the sole failure. Missing, private, wrong-kind, ambiguous, and
-colliding targets do not gain normal lookup or executable readiness through
-recovery.
+that casing is the sole failure. When that proof uniquely identifies a public
+ADT or constructor through an invalid-cased explicit alias, analysis retains
+the identity only for independently provable type diagnostics. A constructor
+call can therefore report its payload arity, and a finite match can report a
+missing case, without also reporting an unresolved member. The import remains
+quarantined and cannot make the module executable. Missing, private,
+wrong-kind, ambiguous, and colliding targets do not gain normal lookup or
+executable readiness through recovery.
 
 The selected import retains its package and module identity for values and
 calls, types and refinements, constructors and patterns, schemas, effects,

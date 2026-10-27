@@ -304,6 +304,13 @@ defines qualifier selection and quarantine; this page's compatibility,
 inference, visibility, and payload rules apply to the selected identity without
 regard to the local qualifier spelling.
 
+An invalid-cased explicit alias remains unavailable for normal type and
+constructor lookup. If one visible public target proves the intended ADT or
+constructor identity, the checker retains that identity only for independent
+failures. It checks constructor payload arity and uses the ADT's finite domain
+for match exhaustiveness. It does not accept the import, publish a type fact,
+or make the containing module executable.
+
 Compiler-known collection and option/result helpers propagate concrete callback context.
 The input container determines callback item types; an explicit `_with` context is the
 first callback argument; a concrete helper result determines the callback return

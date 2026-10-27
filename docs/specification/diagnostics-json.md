@@ -929,12 +929,21 @@ explicit-alias token or later implicit-leaf token, according to which import is
 reported; first-binding context appears as a related note. A duplicate
 target import uses its written target path. Parser diagnostics precede casing
 diagnostics for one import; reserved and duplicate facts follow casing, while
-target-resolution facts stay independent. Combined module sources retain
-stable source and token order. The checked
+target-resolution facts stay independent. When one public ADT or constructor
+uniquely proves the target behind an invalid-cased explicit alias, the casing
+diagnostic remains first and independently provable
+`core.constructor_arity_mismatch` and `type.match_non_exhaustive` records
+remain visible. The recovered member does not add `name.unresolved`. Combined
+module sources retain stable source and token order. The checked
 [`explicit-import-alias-combined-order-human`](../../examples/specification/check/explicit-import-alias-combined-order-human/)
 and
 [`explicit-import-alias-combined-order-json`](../../examples/specification/check/explicit-import-alias-combined-order-json/)
 cases fix the complete observable order in text and JSON output.
+The checked
+[`explicit-import-alias-independent-carrier-failures-human`](../../examples/specification/check/explicit-import-alias-independent-carrier-failures-human/)
+and
+[`explicit-import-alias-independent-carrier-failures-json`](../../examples/specification/check/explicit-import-alias-independent-carrier-failures-json/)
+cases fix the independent constructor and match records.
 
 Companion diagnostics expose `details.companion_path` and
 `details.target_path` where applicable. Private companion effect and handler
