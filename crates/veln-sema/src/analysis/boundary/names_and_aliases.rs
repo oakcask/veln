@@ -1,6 +1,6 @@
 use crate::adt::registry::AdtRegistry;
 use crate::name_recovery::{
-    public_alias_has_invalid_target_leaf, schema_composition_imported_use_for_path,
+    public_alias_has_invalid_target_leaf, schema_composition_imported_use_for_path_in_owner,
 };
 use std::collections::BTreeMap;
 use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, Visibility};
@@ -243,23 +243,28 @@ pub(super) enum SchemaAliasCheckResolution {
 
 pub(super) fn codec_schema_wrong_kind(
     module: &SurfaceModule,
+    package_name: Option<&str>,
     module_name: Option<&str>,
     name: &str,
 ) -> Option<&'static str> {
     if module.functions.iter().any(|function| {
         function.kind == FunctionKind::Function
             && function.name.as_deref() == Some(name)
+            && function.package_name.as_deref() == package_name
             && function.module_name.as_deref() == module_name
     }) {
         return Some("function");
     }
     if module.types.iter().any(|type_decl| {
-        type_decl.name.as_deref() == Some(name) && type_decl.module_name.as_deref() == module_name
+        type_decl.name.as_deref() == Some(name)
+            && type_decl.package_name.as_deref() == package_name
+            && type_decl.module_name.as_deref() == module_name
     }) {
         return Some("type");
     }
     if let Some(alias) = module.aliases.iter().find(|alias| {
         alias.name.as_deref() == Some(name)
+            && alias.package_name.as_deref() == package_name
             && alias.module_name.as_deref() == module_name
             && !public_alias_has_invalid_target_leaf(module, alias, None)
     }) {
@@ -300,6 +305,7 @@ pub(crate) fn check_public_aliases(
                     module,
                     &alias.target,
                     alias.module_name.as_deref(),
+                    alias.package_name.as_deref(),
                     false,
                     &mut Vec::new(),
                     &mut schema_alias_cache,
@@ -323,6 +329,7 @@ pub(crate) fn check_public_aliases(
                             module,
                             &alias.target,
                             alias.module_name.as_deref(),
+                            alias.package_name.as_deref(),
                         )
                         .is_none()
                         {
@@ -452,13 +459,15 @@ pub(super) fn resolve_schema_alias_check_reference(
     module: &SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     allow_private_local_schema: bool,
-    visited_aliases: &mut Vec<(Option<String>, String)>,
-    cache: &mut BTreeMap<(Option<String>, String), SchemaAliasCheckResolution>,
+    visited_aliases: &mut Vec<(Option<String>, Option<String>, String)>,
+    cache: &mut BTreeMap<(Option<String>, Option<String>, String), SchemaAliasCheckResolution>,
 ) -> SchemaAliasCheckResolution {
     match segments {
         [name] => resolve_schema_alias_check_in_module(
             module,
+            current_package,
             current_module,
             name,
             allow_private_local_schema,
@@ -466,16 +475,19 @@ pub(super) fn resolve_schema_alias_check_reference(
             cache,
         ),
         [_, .., name] => {
-            let Some(use_decl) = schema_composition_imported_use_for_path(
+            let Some(use_decl) = schema_composition_imported_use_for_path_in_owner(
                 module,
                 &segments[..segments.len() - 1],
                 current_module,
+                current_package,
             ) else {
                 return SchemaAliasCheckResolution::Unresolved;
             };
+            let target = use_decl.resolved_target();
             resolve_schema_alias_check_in_module(
                 module,
-                Some(&use_decl.name),
+                target.package.as_deref(),
+                Some(&target.module),
                 name,
                 false,
                 visited_aliases,
@@ -488,14 +500,17 @@ pub(super) fn resolve_schema_alias_check_reference(
 
 pub(super) fn resolve_schema_alias_check_in_module(
     module: &SurfaceModule,
+    package_name: Option<&str>,
     module_name: Option<&str>,
     name: &str,
     allow_private_schema: bool,
-    visited_aliases: &mut Vec<(Option<String>, String)>,
-    cache: &mut BTreeMap<(Option<String>, String), SchemaAliasCheckResolution>,
+    visited_aliases: &mut Vec<(Option<String>, Option<String>, String)>,
+    cache: &mut BTreeMap<(Option<String>, Option<String>, String), SchemaAliasCheckResolution>,
 ) -> SchemaAliasCheckResolution {
     if let Some(schema) = module.schemas.iter().find(|schema| {
-        schema.name.as_deref() == Some(name) && schema.module_name.as_deref() == module_name
+        schema.name.as_deref() == Some(name)
+            && schema.package_name.as_deref() == package_name
+            && schema.module_name.as_deref() == module_name
     }) {
         return if allow_private_schema || schema.visibility == Visibility::Public {
             SchemaAliasCheckResolution::Resolved
@@ -507,12 +522,13 @@ pub(super) fn resolve_schema_alias_check_in_module(
     if let Some(alias) = module.aliases.iter().find(|alias| {
         alias.kind == PublicAliasKind::Schema
             && alias.name.as_deref() == Some(name)
+            && alias.package_name.as_deref() == package_name
             && alias.module_name.as_deref() == module_name
     }) {
         return resolve_schema_alias_check_target(module, alias, visited_aliases, cache);
     }
 
-    codec_schema_wrong_kind(module, module_name, name).map_or(
+    codec_schema_wrong_kind(module, package_name, module_name, name).map_or(
         SchemaAliasCheckResolution::Unresolved,
         SchemaAliasCheckResolution::WrongKind,
     )
@@ -521,13 +537,17 @@ pub(super) fn resolve_schema_alias_check_in_module(
 pub(super) fn resolve_schema_alias_check_target(
     module: &SurfaceModule,
     alias: &veln_ast::PublicAlias,
-    visited_aliases: &mut Vec<(Option<String>, String)>,
-    cache: &mut BTreeMap<(Option<String>, String), SchemaAliasCheckResolution>,
+    visited_aliases: &mut Vec<(Option<String>, Option<String>, String)>,
+    cache: &mut BTreeMap<(Option<String>, Option<String>, String), SchemaAliasCheckResolution>,
 ) -> SchemaAliasCheckResolution {
     let Some(name) = &alias.name else {
         return SchemaAliasCheckResolution::Unresolved;
     };
-    let key = (alias.module_name.clone(), name.clone());
+    let key = (
+        alias.package_name.clone(),
+        alias.module_name.clone(),
+        name.clone(),
+    );
     if let Some(resolution) = cache.get(&key) {
         return *resolution;
     }
@@ -540,6 +560,7 @@ pub(super) fn resolve_schema_alias_check_target(
         module,
         &alias.target,
         alias.module_name.as_deref(),
+        alias.package_name.as_deref(),
         false,
         visited_aliases,
         cache,

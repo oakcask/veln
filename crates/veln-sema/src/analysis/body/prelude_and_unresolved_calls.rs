@@ -176,6 +176,7 @@ impl<'a> FunctionChecker<'a> {
                     .quarantined_import_call_recovery_candidate_count(
                         segments,
                         self.function.module_name.as_deref(),
+                        self.function.package_name.as_deref(),
                         args.len(),
                     )
                     == 1;
@@ -272,6 +273,7 @@ impl<'a> FunctionChecker<'a> {
                 .quarantined_import_call_recovery_candidate_count(
                     corrected,
                     self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
                     arg_count,
                 )
                 == 1
@@ -315,6 +317,7 @@ impl<'a> FunctionChecker<'a> {
                 .quarantined_import_call_recovery_candidate_count(
                     &corrected,
                     self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
                     arg_count,
                 )
                 == 1

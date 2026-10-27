@@ -1,7 +1,7 @@
 use super::*;
 use crate::adt::registry::AdtRegistry;
 use crate::name_recovery::{
-    public_alias_has_invalid_target_leaf, schema_composition_imported_use_for_path,
+    public_alias_has_invalid_target_leaf, schema_composition_imported_use_for_path_in_owner,
 };
 use crate::schema::dispatch::{
     SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec,

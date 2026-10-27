@@ -1,5 +1,102 @@
 use super::*;
 
+fn lower_recovery_source(path: &str, text: &str) -> SurfaceModule {
+    let source = SourceFile::new(path, text);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    lower_surface_ast(&parsed.tree)
+}
+
+fn assign_recovery_package(module: &mut SurfaceModule, package: &str) {
+    for function in &mut module.functions {
+        function.package_name = Some(package.to_string());
+    }
+    for alias in &mut module.aliases {
+        alias.package_name = Some(package.to_string());
+    }
+    for type_decl in &mut module.types {
+        type_decl.package_name = Some(package.to_string());
+    }
+}
+
+fn extend_recovery_declarations(module: &mut SurfaceModule, other: SurfaceModule) {
+    module.functions.extend(other.functions);
+    module.aliases.extend(other.aliases);
+    module.types.extend(other.types);
+    module.invalid_names.extend(other.invalid_names);
+}
+
+#[test]
+fn reachable_invalid_name_recovery_keeps_selected_package_identity() {
+    let cases = [
+        (
+            "function",
+            "fn main() -> Int\n  Bad()\nend\n",
+            "pub fn Bad() -> Int\n  1\nend\n",
+            "Bad",
+        ),
+        (
+            "function alias",
+            "fn main() -> Int\n  BadAlias()\nend\n",
+            "fn good() -> Int\n  1\nend\npub fn BadAlias = good\n",
+            "BadAlias",
+        ),
+        (
+            "type",
+            "fn main(value: item) -> item\n  value\nend\n",
+            "pub type item\n  Value\nend\n",
+            "item",
+        ),
+        (
+            "constructor",
+            "fn main() -> Item\n  value\nend\n",
+            "pub type Item\n  value\nend\n",
+            "value",
+        ),
+    ];
+
+    for (carrier, main_body, declaration, invalid_name) in cases {
+        for reverse in [false, true] {
+            let mut module = lower_recovery_source("app.veln", &format!("mod shared\n{main_body}"));
+            let selected = lower_recovery_source(
+                "selected/shared.veln",
+                &format!("mod shared\n{declaration}"),
+            );
+            let mut namesake = lower_recovery_source(
+                "namesake/shared.veln",
+                &format!("mod shared\n{declaration}"),
+            );
+            assign_recovery_package(&mut namesake, "namesake");
+            let declarations = if reverse {
+                [namesake, selected]
+            } else {
+                [selected, namesake]
+            };
+            for declarations in declarations {
+                extend_recovery_declarations(&mut module, declarations);
+            }
+
+            let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+            let selected_invalid = reachable
+                .invalid_names
+                .iter()
+                .filter(|invalid| invalid.name == invalid_name)
+                .collect::<Vec<_>>();
+            assert_eq!(
+                selected_invalid.len(),
+                1,
+                "carrier={carrier}, reverse={reverse}: {:#?}",
+                reachable.invalid_names,
+            );
+            assert_eq!(
+                selected_invalid[0].span.file.as_str(),
+                "selected/shared.veln",
+                "carrier={carrier}, reverse={reverse}",
+            );
+        }
+    }
+}
+
 #[test]
 fn run_entry_filters_unreachable_invalid_non_function_names() {
     let module = lower(concat!(

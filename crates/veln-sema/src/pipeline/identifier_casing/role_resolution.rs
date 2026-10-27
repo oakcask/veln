@@ -83,13 +83,20 @@ pub(super) fn invalid_value_segment_lacks_value_role_for_path(
     segments: &[String],
     segment_spans: &[veln_source::SourceSpan],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     environment: &TypeEnvironment,
 ) -> bool {
     if matching_segment_index(invalid, segment_spans).is_none() {
         return false;
     }
     if invalid.class == NameClass::Module {
-        return !module_segment_role_is_fixed(invalid, segments, current_module, environment);
+        return !module_segment_role_is_fixed(
+            invalid,
+            segments,
+            current_module,
+            current_package,
+            environment,
+        );
     }
     if !path_resolves_as_value(segments, current_module, environment)
         && !lowercase_corrected_value_path_resolves(invalid, segments, current_module, environment)
@@ -109,6 +116,7 @@ pub(super) fn module_segment_role_is_fixed(
     invalid: &InvalidName,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     environment: &TypeEnvironment,
 ) -> bool {
     let Some(index) = invalid.segment_index else {
@@ -122,11 +130,15 @@ pub(super) fn module_segment_role_is_fixed(
         || environment
             .function_path(segments, current_module)
             .is_some()
-        || environment.quarantined_import_value_recovery_candidate_count(segments, current_module)
-            == 1
-        || environment.quarantined_import_constructor_recovery_candidate_count(
+        || environment.quarantined_import_value_recovery_candidate_count(
             segments,
             current_module,
+            current_package,
+        ) == 1
+        || environment.quarantined_import_constructor_recovery_candidate_count_in_owner(
+            segments,
+            current_module,
+            current_package,
             None,
         ) == 1
         || qualified_prelude_signature(segments, None).is_some()
@@ -146,11 +158,15 @@ pub(super) fn module_segment_role_is_fixed(
         || environment
             .function_path(&corrected, current_module)
             .is_some()
-        || environment.quarantined_import_value_recovery_candidate_count(&corrected, current_module)
-            == 1
-        || environment.quarantined_import_constructor_recovery_candidate_count(
+        || environment.quarantined_import_value_recovery_candidate_count(
             &corrected,
             current_module,
+            current_package,
+        ) == 1
+        || environment.quarantined_import_constructor_recovery_candidate_count_in_owner(
+            &corrected,
+            current_module,
+            current_package,
             None,
         ) == 1
         || qualified_prelude_signature(&corrected, None).is_some()
@@ -348,6 +364,7 @@ pub(super) fn invalid_type_segment_lacks_constructor_role(
                 &occurrence.segments,
                 &occurrence.segment_spans,
                 occurrence.current_module.as_deref(),
+                occurrence.current_package.as_deref(),
                 environment,
             )
         })
@@ -374,6 +391,7 @@ pub(super) fn invalid_type_segment_has_module_role(
                 &occurrence.segments,
                 &occurrence.segment_spans,
                 occurrence.current_module.as_deref(),
+                occurrence.current_package.as_deref(),
                 environment,
             )
         })
@@ -384,6 +402,7 @@ pub(super) fn invalid_type_segment_has_module_role_for_path(
     segments: &[String],
     segment_spans: &[veln_source::SourceSpan],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     environment: &TypeEnvironment,
 ) -> bool {
     let Some(index) = matching_segment_index(invalid, segment_spans) else {
@@ -399,7 +418,13 @@ pub(super) fn invalid_type_segment_has_module_role_for_path(
     {
         return false;
     }
-    module_segment_role_is_fixed(invalid, &corrected, current_module, environment)
+    module_segment_role_is_fixed(
+        invalid,
+        &corrected,
+        current_module,
+        current_package,
+        environment,
+    )
 }
 
 pub(super) fn invalid_type_segment_lacks_constructor_role_for_path(
@@ -407,6 +432,7 @@ pub(super) fn invalid_type_segment_lacks_constructor_role_for_path(
     segments: &[String],
     segment_spans: &[veln_source::SourceSpan],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     environment: &TypeEnvironment,
 ) -> bool {
     let Some(index) = matching_segment_index(invalid, segment_spans) else {
@@ -436,9 +462,10 @@ pub(super) fn invalid_type_segment_lacks_constructor_role_for_path(
     let mut corrected = segments.to_vec();
     corrected[index] = uppercase_initial(&invalid.name);
     !path_resolves_as_constructor(&corrected, current_module, environment)
-        && environment.quarantined_import_constructor_recovery_candidate_count(
+        && environment.quarantined_import_constructor_recovery_candidate_count_in_owner(
             &corrected,
             current_module,
+            current_package,
             None,
         ) != 1
 }

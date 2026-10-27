@@ -189,6 +189,7 @@ impl<'a> FunctionChecker<'a> {
             .quarantined_import_value_recovery_candidate_count(
                 segments,
                 self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
             )
             == 1
         {

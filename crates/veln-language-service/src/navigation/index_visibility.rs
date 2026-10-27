@@ -51,36 +51,56 @@ fn visible_imported_type_alias_for_bare_reference(
 fn visible_type_for_qualified_reference(
     file: &IndexedFile,
     symbol: &TypeSymbol,
-    qualified_modules: &[QualifiedModuleIdentity],
+    qualified_modules: &[String],
     name: &str,
 ) -> bool {
     symbol.name == name
-        && qualified_modules.iter().any(|identity| match identity {
-            QualifiedModuleIdentity::Workspace(module) => {
-                symbol.package.is_none() && module == &symbol.module
+        && qualified_modules
+            .iter()
+            .any(|module| module == &symbol.module)
+        && match &symbol.package {
+            Some(package) => {
+                file.external_uses
+                    .contains(&(symbol.module.clone(), package.clone()))
+                    || symbol.standard_prelude
             }
-            QualifiedModuleIdentity::External { package, module } => {
-                symbol.package.as_ref() == Some(package) && module == &symbol.module
-            }
-        })
-        && (symbol.public || (symbol.package.is_none() && symbol.module == file.module))
+            None => symbol.module == file.module || file.uses.contains(&symbol.module),
+        }
 }
 
 fn visible_type_alias_for_qualified_reference(
-    _file: &IndexedFile,
+    file: &IndexedFile,
     symbol: &TypeAliasSymbol,
-    qualified_modules: &[QualifiedModuleIdentity],
+    qualified_modules: &[String],
     name: &str,
 ) -> bool {
     symbol.name == name
-        && qualified_modules.iter().any(|identity| match identity {
-            QualifiedModuleIdentity::Workspace(module) => {
-                symbol.package.is_none() && module == &symbol.module
+        && qualified_modules
+            .iter()
+            .any(|module| module == &symbol.module)
+        && match &symbol.package {
+            Some(package) => {
+                file.external_uses
+                    .contains(&(symbol.module.clone(), package.clone()))
+                    || symbol.standard_prelude
             }
-            QualifiedModuleIdentity::External { package, module } => {
-                symbol.package.as_ref() == Some(package) && module == &symbol.module
-            }
-        })
+            None => symbol.module == file.module || file.uses.contains(&symbol.module),
+        }
+}
+
+fn resolve_external_qualified_alias(
+    aliases: &BTreeMap<String, (String, String)>,
+    qualifier: &str,
+) -> Option<(String, String)> {
+    let mut parts = qualifier.split("::");
+    let alias = parts.next()?;
+    let (module, package) = aliases.get(alias)?;
+    let rest = parts.collect::<Vec<_>>();
+    if rest.is_empty() {
+        Some((module.clone(), package.clone()))
+    } else {
+        Some((format!("{}::{}", module, rest.join("::")), package.clone()))
+    }
 }
 
 fn local_binding_declaration(file: &IndexedFile, binding: &LocalBinding) -> SourceSpan {

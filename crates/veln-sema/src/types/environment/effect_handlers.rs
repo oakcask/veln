@@ -73,7 +73,11 @@ impl TypeEnvironment {
             current_module,
             current_package,
         ) else {
-            return self.missing_or_quarantined_effect_path(segments, current_module);
+            return self.missing_or_quarantined_effect_path(
+                segments,
+                current_module,
+                current_package,
+            );
         };
         let module_name = use_decl.name.as_str();
         let Some(effect) = self.effects.iter().find(|effect| {
@@ -99,8 +103,14 @@ impl TypeEnvironment {
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> UserEffectPathResolution<'_> {
-        if self.quarantined_import_effect_recovery_candidate_count(segments, current_module) == 1 {
+        if self.quarantined_import_effect_recovery_candidate_count(
+            segments,
+            current_module,
+            current_package,
+        ) == 1
+        {
             UserEffectPathResolution::QuarantinedImportTarget
         } else {
             UserEffectPathResolution::Missing
@@ -196,7 +206,11 @@ impl TypeEnvironment {
             current_package,
         );
         let Some(use_decl) = use_decl else {
-            return self.missing_or_quarantined_handler_path(segments, current_module);
+            return self.missing_or_quarantined_handler_path(
+                segments,
+                current_module,
+                current_package,
+            );
         };
         let Some(handler) = self.handlers.iter().find(|handler| {
             handler.name == name
@@ -220,8 +234,14 @@ impl TypeEnvironment {
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> HandlerPathResolution<'_> {
-        if self.quarantined_import_handler_recovery_candidate_count(segments, current_module) == 1 {
+        if self.quarantined_import_handler_recovery_candidate_count(
+            segments,
+            current_module,
+            current_package,
+        ) == 1
+        {
             HandlerPathResolution::QuarantinedImportTarget
         } else {
             HandlerPathResolution::Missing

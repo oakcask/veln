@@ -7,11 +7,13 @@ impl TypeEnvironment {
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
         arg_count: usize,
     ) -> usize {
         self.quarantined_import_function_recovery_candidate_count(
             segments,
             current_module,
+            current_package,
             Some(arg_count),
         )
     }
@@ -20,10 +22,11 @@ impl TypeEnvironment {
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
         arg_count: Option<usize>,
     ) -> usize {
         let Some((use_decl, name)) =
-            self.quarantined_import_for_segments(segments, current_module, None)
+            self.quarantined_import_for_segments(segments, current_module, current_package)
         else {
             return 0;
         };
@@ -43,8 +46,14 @@ impl TypeEnvironment {
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> usize {
-        self.quarantined_import_function_recovery_candidate_count(segments, current_module, None)
+        self.quarantined_import_function_recovery_candidate_count(
+            segments,
+            current_module,
+            current_package,
+            None,
+        )
     }
 
     pub(crate) fn quarantined_import_type_path_lacks_visible_leaf(
@@ -52,10 +61,14 @@ impl TypeEnvironment {
         segments: &[String],
         current_module: Option<&str>,
     ) -> bool {
+        let Some(current_package) = self.unique_quarantined_import_owner_package(current_module)
+        else {
+            return false;
+        };
         self.quarantined_import_type_path_lacks_visible_leaf_in_owner(
             segments,
             current_module,
-            None,
+            current_package,
         )
     }
 
@@ -85,17 +98,42 @@ impl TypeEnvironment {
         segments: &[String],
         current_module: Option<&str>,
     ) -> bool {
-        self.quarantined_import_for_segments(segments, current_module, None)
+        let Some(current_package) = self.unique_quarantined_import_owner_package(current_module)
+        else {
+            return false;
+        };
+        self.quarantined_import_for_segments(segments, current_module, current_package)
             .is_some_and(|(use_decl, _)| use_decl.name.contains("::"))
+    }
+
+    fn unique_quarantined_import_owner_package(
+        &self,
+        current_module: Option<&str>,
+    ) -> Option<Option<&str>> {
+        let mut selected = None;
+        for use_decl in self
+            .quarantined_uses
+            .iter()
+            .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
+        {
+            let candidate = use_decl.importing_package.as_deref();
+            match selected {
+                None => selected = Some(candidate),
+                Some(known) if known == candidate => {}
+                Some(_) => return None,
+            }
+        }
+        selected
     }
 
     pub(super) fn quarantined_import_effect_recovery_candidate_count(
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> usize {
         let Some((use_decl, name)) =
-            self.quarantined_import_for_segments(segments, current_module, None)
+            self.quarantined_import_for_segments(segments, current_module, current_package)
         else {
             return 0;
         };
@@ -115,9 +153,10 @@ impl TypeEnvironment {
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> usize {
         let Some((use_decl, name)) =
-            self.quarantined_import_for_segments(segments, current_module, None)
+            self.quarantined_import_for_segments(segments, current_module, current_package)
         else {
             return 0;
         };
@@ -133,6 +172,7 @@ impl TypeEnvironment {
             .count()
     }
 
+    #[cfg(test)]
     pub(crate) fn quarantined_import_constructor_recovery_candidate_count(
         &self,
         segments: &[String],

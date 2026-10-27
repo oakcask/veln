@@ -608,15 +608,23 @@ impl SymbolIndex {
         file: &IndexedFile,
         symbol: &FunctionSymbol,
     ) -> bool {
-        !self
-            .qualifiers_for_module(file, &symbol.module, symbol.package.as_deref())
-            .is_empty()
-            && (symbol.public
-                || (symbol.package.is_none()
-                    && file
-                        .companion_target_module
-                        .as_ref()
-                        .is_some_and(|target| target == &symbol.module)))
+        match &symbol.package {
+            Some(package) => {
+                symbol.public
+                    && (symbol.standard_prelude
+                        || file
+                            .external_uses
+                            .contains(&(symbol.module.clone(), package.clone())))
+            }
+            None => {
+                file.uses.contains(&symbol.module)
+                    && (symbol.public
+                        || file
+                            .companion_target_module
+                            .as_ref()
+                            .is_some_and(|target| target == &symbol.module))
+            }
+        }
     }
 
     fn qualified_function_references(
@@ -1040,30 +1048,17 @@ impl SymbolIndex {
             })
     }
 
-    fn qualified_module_candidates(
-        &self,
-        file: &IndexedFile,
-        qualifier: &str,
-    ) -> Vec<QualifiedModuleIdentity> {
-        if qualifier == file.module {
-            return vec![QualifiedModuleIdentity::Workspace(qualifier.to_string())];
+    fn qualified_module_candidates(&self, file: &IndexedFile, qualifier: &str) -> Vec<String> {
+        let mut modules = vec![qualifier.to_string()];
+        if let Some(module) = resolve_qualified_alias(&file.import_aliases, qualifier) {
+            modules.push(module);
         }
-        if qualifier == "prelude" || qualifier.starts_with("prelude::") {
-            return vec![QualifiedModuleIdentity::External {
-                package: "std".to_string(),
-                module: qualifier.to_string(),
-            }];
+        if let Some((module, _package)) =
+            resolve_external_qualified_alias(&file.external_import_aliases, qualifier)
+        {
+            modules.push(module);
         }
-        let Some(imports) = self.schema_alias_module_imports.get(&file.module) else {
-            return Vec::new();
-        };
-        if let Some(candidate) = exact_qualified_module_candidate(imports, qualifier) {
-            return candidate;
-        }
-        if let Some(candidate) = prefixed_qualified_module_candidate(imports, qualifier) {
-            return candidate;
-        }
-        alias_qualified_module_candidate(imports, qualifier)
+        modules
     }
 
     fn qualifiers_for_module(
@@ -1072,173 +1067,25 @@ impl SymbolIndex {
         module: &str,
         package: Option<&str>,
     ) -> Vec<String> {
-        let Some(imports) = self.schema_alias_module_imports.get(&file.module) else {
-            return if package == Some("std") && module == "prelude" {
-                vec!["prelude".to_string()]
-            } else {
-                Vec::new()
-            };
-        };
-        let mut qualifiers = if package == Some("std") && module == "prelude" {
-            vec!["prelude".to_string()]
-        } else {
-            Vec::new()
-        };
+        let mut qualifiers = vec![module.to_string()];
         match package {
-            Some(package) => {
-                if imports
-                    .valid_external_imports_by_module
-                    .get(module)
-                    .is_some_and(|routes| {
-                        routes.contains(&(module.to_string(), package.to_string()))
-                    })
-                {
-                    qualifiers.push(module.to_string());
-                }
-                qualifiers.extend(
-                imports.valid_external_imports_by_alias
+            Some(package) => qualifiers.extend(
+                file.external_import_aliases
                     .iter()
-                    .filter(|(_, routes)| {
-                        routes.len() == 1
-                            && routes.contains(&(module.to_string(), package.to_string()))
+                    .filter(|(_, (target_module, target_package))| {
+                        target_module == module && target_package == package
                     })
                     .map(|(alias, _)| alias.clone()),
-            )}
-            None => {
-                if imports.valid_workspace_imports.contains(module) {
-                    qualifiers.push(module.to_string());
-                }
-                qualifiers.extend(
-                imports.valid_workspace_imports_by_alias
+            ),
+            None => qualifiers.extend(
+                file.import_aliases
                     .iter()
-                    .filter(|(_, targets)| targets.len() == 1 && targets.contains(module))
+                    .filter(|(_, target)| *target == module)
                     .map(|(alias, _)| alias.clone()),
-            )}
+            ),
         }
-        qualifiers.sort();
-        qualifiers.dedup();
         qualifiers
     }
-}
-
-fn exact_qualified_module_candidate(
-    imports: &SchemaAliasModuleImports,
-    qualifier: &str,
-) -> Option<Vec<QualifiedModuleIdentity>> {
-    let exact_workspace = imports.workspace_imports.contains(qualifier);
-    let exact_external = imports.external_imports_by_module.contains_key(qualifier);
-    if exact_workspace && exact_external {
-        return Some(Vec::new());
-    }
-    if exact_workspace {
-        return Some(workspace_module_candidate(imports, qualifier, qualifier));
-    }
-    if !exact_external {
-        return None;
-    }
-    let candidate = imports
-        .valid_external_imports_by_module
-        .get(qualifier)
-        .and_then(|routes| unique_external_route(routes, None))
-        .map(|(module, package)| QualifiedModuleIdentity::External { package, module });
-    Some(candidate.into_iter().collect())
-}
-
-fn prefixed_qualified_module_candidate(
-    imports: &SchemaAliasModuleImports,
-    qualifier: &str,
-) -> Option<Vec<QualifiedModuleIdentity>> {
-    let workspace = longest_module_prefix(qualifier, imports.workspace_imports.iter());
-    let external = longest_module_prefix(qualifier, imports.external_imports_by_module.keys());
-    match (workspace, external) {
-        (Some(workspace), Some(external)) if workspace.len() == external.len() => Some(Vec::new()),
-        (Some(module), None) => Some(workspace_module_candidate(imports, module, qualifier)),
-        (Some(module), Some(external)) if module.len() > external.len() => {
-            Some(workspace_module_candidate(imports, module, qualifier))
-        }
-        (_, Some(module)) => Some(external_prefixed_module_candidate(
-            imports, module, qualifier,
-        )),
-        (None, None) => None,
-    }
-}
-
-fn longest_module_prefix<'a>(
-    qualifier: &str,
-    modules: impl Iterator<Item = &'a String>,
-) -> Option<&'a String> {
-    modules
-        .filter(|module| {
-            qualifier
-                .strip_prefix(module.as_str())
-                .is_some_and(|suffix| suffix.starts_with("::"))
-        })
-        .max_by_key(|module| module.len())
-}
-
-fn workspace_module_candidate(
-    imports: &SchemaAliasModuleImports,
-    imported_module: &str,
-    selected_module: &str,
-) -> Vec<QualifiedModuleIdentity> {
-    if imports.valid_workspace_imports.contains(imported_module) {
-        vec![QualifiedModuleIdentity::Workspace(
-            selected_module.to_string(),
-        )]
-    } else {
-        Vec::new()
-    }
-}
-
-fn external_prefixed_module_candidate(
-    imports: &SchemaAliasModuleImports,
-    imported_module: &str,
-    selected_module: &str,
-) -> Vec<QualifiedModuleIdentity> {
-    let Some((_, package)) = imports
-        .valid_external_imports_by_module
-        .get(imported_module)
-        .and_then(|routes| unique_external_route(routes, None))
-    else {
-        return Vec::new();
-    };
-    vec![QualifiedModuleIdentity::External {
-        package,
-        module: selected_module.to_string(),
-    }]
-}
-
-fn alias_qualified_module_candidate(
-    imports: &SchemaAliasModuleImports,
-    qualifier: &str,
-) -> Vec<QualifiedModuleIdentity> {
-    let (alias, suffix) = split_import_qualifier(qualifier);
-    let workspace_routes = imports.workspace_imports_by_alias.get(alias);
-    let external_routes = imports.external_imports_by_alias.get(alias);
-    let route_count = workspace_routes.map_or(0, BTreeSet::len)
-        + external_routes.map_or(0, BTreeSet::len);
-    if route_count != 1 {
-        return Vec::new();
-    }
-    if workspace_routes.is_some() {
-        return imports
-            .valid_workspace_imports_by_alias
-            .get(alias)
-            .and_then(|modules| (modules.len() == 1).then(|| modules.iter().next()))
-            .flatten()
-            .map(|module| {
-                QualifiedModuleIdentity::Workspace(append_module_suffix(module, suffix))
-            })
-            .into_iter()
-            .collect();
-    }
-    imports
-        .valid_external_imports_by_alias
-        .get(alias)
-        .and_then(|routes| unique_external_route(routes, suffix))
-        .map(|(module, package)| QualifiedModuleIdentity::External { package, module })
-        .into_iter()
-        .collect()
 }
 
 fn local_reference_value_scope<'a>(

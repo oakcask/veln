@@ -181,6 +181,7 @@ pub(super) struct QualifiedPathOccurrence {
     pub(super) segments: Vec<String>,
     pub(super) segment_spans: Vec<veln_source::SourceSpan>,
     pub(super) current_module: Option<String>,
+    pub(super) current_package: Option<String>,
     pub(super) call_role: bool,
     pub(super) pattern_role: bool,
 }
@@ -197,12 +198,21 @@ impl QualifiedPathOccurrenceIndex {
             crate::pipeline::record_variant_refinement_casing_work(1);
             for line in &function.body {
                 crate::pipeline::record_variant_refinement_casing_work(1);
-                index.collect_body_line(line, function.module_name.as_deref());
+                index.collect_body_line(
+                    line,
+                    function.module_name.as_deref(),
+                    function.package_name.as_deref(),
+                );
             }
         }
         for handler in &module.handlers {
             for clause in &handler.operation_clauses {
-                index.collect_expr(&clause.body, handler.module_name.as_deref(), false);
+                index.collect_expr(
+                    &clause.body,
+                    handler.module_name.as_deref(),
+                    handler.package_name.as_deref(),
+                    false,
+                );
             }
         }
         index
@@ -223,16 +233,23 @@ impl QualifiedPathOccurrenceIndex {
             .unwrap_or(&[])
     }
 
-    fn collect_body_line(&mut self, line: &veln_ast::BodyLine, current_module: Option<&str>) {
+    fn collect_body_line(
+        &mut self,
+        line: &veln_ast::BodyLine,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) {
         match &line.kind {
             veln_ast::BodyLineKind::Let { pattern, expr, .. } => {
-                self.collect_pattern(pattern, current_module);
-                self.collect_expr(expr, current_module, false);
+                self.collect_pattern(pattern, current_module, current_package);
+                self.collect_expr(expr, current_module, current_package, false);
             }
-            veln_ast::BodyLineKind::Expr { expr } => self.collect_expr(expr, current_module, false),
+            veln_ast::BodyLineKind::Expr { expr } => {
+                self.collect_expr(expr, current_module, current_package, false)
+            }
             veln_ast::BodyLineKind::Defer { body, .. } => {
                 for line in body {
-                    self.collect_body_line(line, current_module);
+                    self.collect_body_line(line, current_module, current_package);
                 }
             }
         }
@@ -242,53 +259,73 @@ impl QualifiedPathOccurrenceIndex {
         &mut self,
         expr: &veln_ast::Expr,
         current_module: Option<&str>,
+        current_package: Option<&str>,
         call_role: bool,
     ) {
         match &expr.kind {
             veln_ast::ExprKind::NamePath {
                 segments,
                 segment_spans,
-            } => self.insert(segments, segment_spans, current_module, call_role, false),
+            } => self.insert(
+                segments,
+                segment_spans,
+                current_module,
+                current_package,
+                call_role,
+                false,
+            ),
             veln_ast::ExprKind::Call { callee, args } => {
-                self.collect_expr(callee, current_module, true);
+                self.collect_expr(callee, current_module, current_package, true);
                 for arg in args {
-                    self.collect_expr(arg, current_module, false);
+                    self.collect_expr(arg, current_module, current_package, false);
                 }
             }
             veln_ast::ExprKind::TypeApply { callee, .. }
             | veln_ast::ExprKind::FieldAccess { base: callee, .. }
             | veln_ast::ExprKind::Try { expr: callee, .. }
             | veln_ast::ExprKind::Prefix { expr: callee, .. } => {
-                self.collect_expr(callee, current_module, call_role);
+                self.collect_expr(callee, current_module, current_package, call_role);
             }
             veln_ast::ExprKind::Match { scrutinee, arms } => {
-                self.collect_expr(scrutinee, current_module, false);
+                self.collect_expr(scrutinee, current_module, current_package, false);
                 for arm in arms {
-                    self.collect_pattern(&arm.pattern, current_module);
-                    self.collect_expr(&arm.expr, current_module, false);
+                    self.collect_pattern(&arm.pattern, current_module, current_package);
+                    self.collect_expr(&arm.expr, current_module, current_package, false);
                 }
             }
             _ => expr.for_each_child(&mut |child| {
-                self.collect_expr(child, current_module, false);
+                self.collect_expr(child, current_module, current_package, false);
             }),
         }
     }
 
-    fn collect_pattern(&mut self, pattern: &veln_ast::Pattern, current_module: Option<&str>) {
+    fn collect_pattern(
+        &mut self,
+        pattern: &veln_ast::Pattern,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) {
         match &pattern.kind {
             veln_ast::PatternKind::Constructor {
                 name,
                 name_spans,
                 args,
             } => {
-                self.insert(name, name_spans, current_module, false, true);
+                self.insert(
+                    name,
+                    name_spans,
+                    current_module,
+                    current_package,
+                    false,
+                    true,
+                );
                 for arg in args {
-                    self.collect_pattern(arg, current_module);
+                    self.collect_pattern(arg, current_module, current_package);
                 }
             }
             veln_ast::PatternKind::Record(fields) => {
                 for field in fields {
-                    self.collect_pattern(&field.pattern, current_module);
+                    self.collect_pattern(&field.pattern, current_module, current_package);
                 }
             }
             _ => {}
@@ -300,6 +337,7 @@ impl QualifiedPathOccurrenceIndex {
         segments: &[String],
         segment_spans: &[veln_source::SourceSpan],
         current_module: Option<&str>,
+        current_package: Option<&str>,
         call_role: bool,
         pattern_role: bool,
     ) {
@@ -310,6 +348,7 @@ impl QualifiedPathOccurrenceIndex {
             segments: segments.to_vec(),
             segment_spans: segment_spans.to_vec(),
             current_module: current_module.map(str::to_string),
+            current_package: current_package.map(str::to_string),
             call_role,
             pattern_role,
         };
@@ -398,6 +437,7 @@ fn invalid_value_segment_lacks_value_role(
                     &occurrence.segments,
                     &occurrence.segment_spans,
                     occurrence.current_module.as_deref(),
+                    occurrence.current_package.as_deref(),
                     environment,
                 )
         })

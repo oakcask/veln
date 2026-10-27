@@ -13,6 +13,7 @@ type RecoveredQualifiedSegmentPush = fn(
     &[String],
     &[veln_source::SourceSpan],
     Option<&str>,
+    Option<&str>,
     &veln_source::SourceSpan,
     &TypeEnvironment,
     &mut Vec<InvalidName>,
