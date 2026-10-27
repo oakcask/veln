@@ -171,16 +171,8 @@ fn independent_target_and_qualifier_collisions_report_both_facts() {
             .iter()
             .all(|diagnostic| diagnostic.related.len() == 1)
     );
-    assert_eq!(
-        duplicates
-            .iter()
-            .map(|diagnostic| diagnostic.message.as_str())
-            .collect::<Vec<_>>(),
-        vec![
-            "duplicate import name `alpha`",
-            "duplicate import alias name `other`",
-        ]
-    );
+    assert_eq!(duplicates[0].message, "duplicate import name `alpha`");
+    assert_eq!(duplicates[1].message, "duplicate import alias name `other`");
     assert!(
         duplicates[0].related[0]
             .to_json()
@@ -190,6 +182,40 @@ fn independent_target_and_qualifier_collisions_report_both_facts() {
         duplicates[1].related[0]
             .to_json()
             .contains("\"start\":{\"line\":3,")
+    );
+}
+
+#[test]
+fn same_target_qualifier_collision_keeps_its_distinct_origin() {
+    let source = SourceFile::new(
+        "main.veln",
+        "mod app\nuse alpha as one\nuse alpha as shared\nuse alpha as shared\n",
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+    let duplicates = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.duplicate")
+        .collect::<Vec<_>>();
+
+    assert_eq!(duplicates.len(), 3, "{diagnostics:#?}");
+    assert_eq!(duplicates[0].message, "duplicate import name `alpha`");
+    assert_eq!(duplicates[1].message, "duplicate import name `alpha`");
+    assert_eq!(
+        duplicates[2].message,
+        "duplicate import alias name `shared`"
+    );
+    assert!(
+        duplicates[1].related[0]
+            .to_json()
+            .contains("\"start\":{\"line\":2,"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        duplicates[2].related[0]
+            .to_json()
+            .contains("\"start\":{\"line\":3,"),
+        "{diagnostics:#?}"
     );
 }
 

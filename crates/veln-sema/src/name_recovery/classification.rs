@@ -195,16 +195,12 @@ impl FirstTwoDistinctTargets {
         }
     }
 
-    fn first_for_different_target(&self, target: &ImportTargetKey) -> Option<usize> {
-        self.first
-            .as_ref()
-            .filter(|(candidate, _)| candidate != target)
-            .or_else(|| {
-                self.second
-                    .as_ref()
-                    .filter(|(candidate, _)| candidate != target)
-            })
-            .map(|(_, index)| *index)
+    fn first_except_origin(&self, excluded: Option<usize>) -> Option<usize> {
+        let (_, first_index) = self.first.as_ref()?;
+        if Some(*first_index) != excluded {
+            return Some(*first_index);
+        }
+        self.second.as_ref().map(|(_, index)| *index)
     }
 }
 
@@ -234,14 +230,14 @@ impl DiagnosticOrigins {
 
         let qualifier = import_binding_key(use_decl);
         self.qualifier_origins[index] =
-            self.qualifier_origin(&qualifier, &target, use_decl.has_explicit_alias());
+            self.qualifier_origin(&qualifier, duplicate_target, use_decl.has_explicit_alias());
         self.remember(index, target, qualifier, use_decl.has_explicit_alias());
     }
 
     fn qualifier_origin(
         &self,
         qualifier: &ImportBindingKey,
-        target: &ImportTargetKey,
+        duplicate_target: Option<usize>,
         explicit: bool,
     ) -> Option<usize> {
         let candidates = if explicit {
@@ -249,7 +245,7 @@ impl DiagnosticOrigins {
         } else {
             self.first_explicit_qualifiers.get(qualifier)
         };
-        candidates.and_then(|candidates| candidates.first_for_different_target(target))
+        candidates.and_then(|candidates| candidates.first_except_origin(duplicate_target))
     }
 
     fn remember(
