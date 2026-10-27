@@ -84,12 +84,22 @@ pub(super) fn contract_failure_from_trace_line(line: &str) -> Option<TestFailure
     let function = decode_hex_text(fields.next()?)?;
     let blame = fields.next()?.to_string();
     let node_id = decode_hex_text(fields.next()?)?;
+    let span = source_span_from_trace_fields(&mut fields)?;
+    let message = format!("contract failure: {clause} `{predicate}` in `{function}` blame {blame}");
+    Some(TestFailure::contract(
+        message, clause, predicate, function, blame, node_id, span,
+    ))
+}
+
+fn source_span_from_trace_fields<'a>(
+    fields: &mut impl Iterator<Item = &'a str>,
+) -> Option<SourceSpan> {
     let source_file = decode_hex_text(fields.next()?)?;
     let start_line = fields.next()?.parse::<usize>().ok()?;
     let start_column = fields.next()?.parse::<usize>().ok()?;
     let end_line = fields.next()?.parse::<usize>().ok()?;
     let end_column = fields.next()?.parse::<usize>().ok()?;
-    let span = SourceSpan {
+    Some(SourceSpan {
         file: SourcePath::new(source_file),
         start: LineCol {
             line: start_line,
@@ -102,11 +112,7 @@ pub(super) fn contract_failure_from_trace_line(line: &str) -> Option<TestFailure
             offset: 0,
         },
         generated_origin: None,
-    };
-    let message = format!("contract failure: {clause} `{predicate}` in `{function}` blame {blame}");
-    Some(TestFailure::contract(
-        message, clause, predicate, function, blame, node_id, span,
-    ))
+    })
 }
 
 pub(super) fn result_failure_from_trace_line(line: &str) -> Option<TestFailure> {

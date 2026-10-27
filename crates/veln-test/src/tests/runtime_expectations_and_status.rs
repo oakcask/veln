@@ -170,6 +170,23 @@ fn contract_trace_skips_non_contract_and_malformed_lines() {
 }
 
 #[test]
+fn contract_trace_skips_malformed_span_before_valid_failure() {
+    let trace = concat!(
+        "contract\trequire\t66616c7365\t72656a65637473\tcaller\t636f6e74726163742d31\t6d61696e2e76656c6e\tinvalid\t1\t2\t14\n",
+        "contract\trequire\t66616c7365\t72656a65637473\tcaller\t636f6e74726163742d32\t6d61696e2e76656c6e\t2\t1\t2\t14\n",
+    );
+
+    let failure = contract_failure_from_trace(trace).expect("valid trace should decode");
+
+    assert!(
+        failure
+            .to_json()
+            .to_json()
+            .contains("\"node_id\":\"contract-2\"")
+    );
+}
+
+#[test]
 fn expands_absolute_source_target_to_absolute_paired_test_file() {
     let root = test_root("absolute-paired-source");
     fs::create_dir_all(&root).expect("create test root");
