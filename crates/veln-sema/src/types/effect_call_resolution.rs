@@ -1,3 +1,4 @@
+use super::effect_inference::{EffectsByFunction, EffectsByModulePath};
 use super::*;
 
 use crate::effect_rows::{collect_effect_row_substitution, instantiate_effect_rows};
@@ -28,22 +29,24 @@ pub(super) fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_
             .find(|binding| binding.name == *name)
             .map(|binding| binding.ty.clone())
             .or_else(|| {
-                function_signature_path(
+                effect_function_signature_path(
                     segments,
                     context.uses,
                     context.functions,
                     context.current_module,
+                    context.current_package,
                     context.companion_access_targets,
                 )
                 .map(FunctionSignature::ty)
             }),
         _ => {
             let public_or_same_module_access = BTreeMap::new();
-            function_signature_path(
+            effect_function_signature_path(
                 segments,
                 context.uses,
                 context.functions,
                 context.current_module,
+                context.current_package,
                 &public_or_same_module_access,
             )
             .map(FunctionSignature::ty)
@@ -69,6 +72,7 @@ pub(super) fn concurrency_effects_for_call(
                         segments,
                         context.uses,
                         context.current_module,
+                        context.current_package,
                         context.bindings,
                         context.effects_by_function,
                         context.effects_by_module_path,
@@ -83,22 +87,38 @@ pub(super) fn concurrency_effects_for_call(
     Some(effects)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn effects_for_callee_path<'a>(
     segments: &[String],
     uses: &[UseDecl],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     bindings: &'a [Binding],
-    effects_by_function: &'a BTreeMap<(Option<String>, String), Vec<String>>,
-    effects_by_module_path: &'a BTreeMap<(String, String), (Vec<String>, Visibility)>,
+    effects_by_function: &'a EffectsByFunction,
+    effects_by_module_path: &'a EffectsByModulePath,
     companion_access_targets: &'a BTreeMap<String, String>,
 ) -> Option<&'a [String]> {
     match segments {
-        [name] => effects_for_bare_callee(name, current_module, bindings, effects_by_function),
+        [name] => effects_for_bare_callee(
+            name,
+            current_module,
+            current_package,
+            bindings,
+            effects_by_function,
+        ),
         [_, .., name] => {
-            let use_decl =
-                imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)?;
+            let use_decl = imported_use_for_path_in_owner(
+                uses,
+                &segments[..segments.len() - 1],
+                current_module,
+                current_package,
+            )?;
             effects_by_module_path
-                .get(&(use_decl.name.clone(), name.clone()))
+                .get(&(
+                    use_decl.resolved_target().package,
+                    Some(use_decl.name.clone()),
+                    name.clone(),
+                ))
                 .filter(|(_, visibility)| {
                     imported_effects_are_visible(
                         use_decl,
@@ -117,7 +137,8 @@ pub(super) fn effects_for_callee_path<'a>(
 pub(super) fn lexical_effects_for_bare_callee<'a>(
     name: &str,
     bindings: &'a [Binding],
-    effects_by_function: &'a BTreeMap<(Option<String>, String), Vec<String>>,
+    effects_by_function: &'a EffectsByFunction,
+    _current_package: Option<&str>,
 ) -> Option<&'a [String]> {
     let binding = bindings.iter().rev().find(|binding| binding.name == name)?;
     if let Some(target) = &binding.private_function_value {
@@ -251,24 +272,70 @@ fn collect_companion_access_targets<'a>(
 pub(super) fn effects_for_bare_callee<'a>(
     name: &str,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     bindings: &'a [Binding],
-    effects_by_function: &'a BTreeMap<(Option<String>, String), Vec<String>>,
+    effects_by_function: &'a EffectsByFunction,
 ) -> Option<&'a [String]> {
-    if let Some(effects) = lexical_effects_for_bare_callee(name, bindings, effects_by_function) {
+    if let Some(effects) =
+        lexical_effects_for_bare_callee(name, bindings, effects_by_function, current_package)
+    {
         return Some(effects);
     }
     if let Some(current_module) = current_module {
         return effects_by_function
-            .get(&(Some(current_module.to_string()), name.to_string()))
+            .get(&(
+                current_package.map(str::to_string),
+                Some(current_module.to_string()),
+                name.to_string(),
+            ))
             .map(Vec::as_slice);
     }
     effects_by_function
-        .get(&(None, name.to_string()))
+        .get(&(current_package.map(str::to_string), None, name.to_string()))
         .map(Vec::as_slice)
 }
 
 pub(super) fn push_unique_effect(effects: &mut Vec<String>, effect: &str) {
     if !effects.iter().any(|existing| existing == effect) {
         effects.push(effect.to_string());
+    }
+}
+
+/// Resolve inference call targets without dropping the importing owner package.
+pub(super) fn effect_function_signature_path<'a>(
+    segments: &[String],
+    uses: &[UseDecl],
+    functions: &'a [FunctionSignature],
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    companion_access_targets: &BTreeMap<String, String>,
+) -> Option<&'a FunctionSignature> {
+    match segments {
+        [name] => functions.iter().find(|function| {
+            function.name == *name
+                && function.module_name.as_deref() == current_module
+                && function.package_name.as_deref() == current_package
+        }),
+        [_, .., name] => {
+            let use_decl = imported_use_for_path_in_owner(
+                uses,
+                &segments[..segments.len() - 1],
+                current_module,
+                current_package,
+            )?;
+            functions.iter().find(|function| {
+                function.name == *name
+                    && function.module_name.as_deref() == Some(use_decl.name.as_str())
+                    && function.package_name == use_decl.resolved_target().package
+                    && imported_function_is_visible(
+                        function,
+                        use_decl,
+                        current_module,
+                        current_package,
+                        companion_access_targets,
+                    )
+            })
+        }
+        _ => None,
     }
 }

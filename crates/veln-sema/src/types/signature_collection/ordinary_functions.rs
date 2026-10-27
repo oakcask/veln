@@ -9,7 +9,7 @@ use crate::types::private_inference::function_signature_params;
 use crate::types::signatures::{CompanionAccessTarget, EffectSignature, FunctionSignature};
 use veln_ast::{Function, UseDecl};
 
-use super::{canonical_declared_effects, canonicalize_type_effects};
+use super::{canonical_declared_effects, canonicalize_type_effects_in_owner};
 
 pub(in crate::types) fn ordinary_function_signatures(
     module: &SurfaceModule,
@@ -58,12 +58,14 @@ impl OrdinarySignatureContext<'_> {
         &self,
         ty: crate::semantic_model::Type,
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> crate::semantic_model::Type {
-        canonicalize_type_effects(
+        canonicalize_type_effects_in_owner(
             ty,
             self.uses,
             self.quarantined_uses,
             current_module,
+            current_package,
             self.effects,
             self.adts,
             self.companion_effect_access_targets,
@@ -94,18 +96,21 @@ fn ordinary_function_signature(
         visibility: function.visibility,
         params: params
             .into_iter()
-            .map(|ty| context.canonicalize(ty, current_module))
+            .map(|ty| context.canonicalize(ty, current_module, function.package_name.as_deref()))
             .collect(),
-        variadic: variadic.map(|ty| context.canonicalize(ty, current_module)),
+        variadic: variadic
+            .map(|ty| context.canonicalize(ty, current_module, function.package_name.as_deref())),
         return_type: context.canonicalize(
             parse_type_or_unknown(function.return_type.as_deref()),
             current_module,
+            function.package_name.as_deref(),
         ),
         effects: canonical_declared_effects(
             function.effects.clone().unwrap_or_default(),
             context.uses,
             context.quarantined_uses,
             current_module,
+            function.package_name.as_deref(),
             context.effects,
             context.companion_effect_access_targets,
         ),

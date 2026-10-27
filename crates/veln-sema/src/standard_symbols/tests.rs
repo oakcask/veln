@@ -8,6 +8,39 @@ fn path(module: &str, name: &str) -> Vec<String> {
 }
 
 #[test]
+fn function_link_names_retain_package_origin_and_standard_encoding() {
+    assert_eq!(
+        function_link_name(Some("shared"), Some("dependency"), "value", false),
+        "dependency::shared::value"
+    );
+    assert_eq!(
+        function_link_name(
+            Some("dependency::shared"),
+            Some("dependency"),
+            "value",
+            true
+        ),
+        "dependency::shared::value"
+    );
+    assert_eq!(
+        function_link_name(None, Some("dependency"), "value", false),
+        "dependency::value"
+    );
+    assert_eq!(
+        function_link_name(Some("std::net"), Some("std"), "value", true),
+        "__veln_std$net$value"
+    );
+    assert_eq!(
+        function_link_name(Some("std::net"), None, "value", true),
+        "workspace::std::net::value"
+    );
+    assert_eq!(
+        function_link_name(Some("app"), None, "value", false),
+        "value"
+    );
+}
+
+#[test]
 fn descriptor_table_carries_runtime_effect_metadata() {
     let symbol = qualified_symbol(&path("stdio", "println")).expect("stdio descriptor");
 

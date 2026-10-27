@@ -55,6 +55,71 @@ fn explicit_import_alias_collisions_and_repeated_targets_are_static_errors() {
 }
 
 #[test]
+fn uniquely_corrected_import_targets_quarantine_both_spellings_in_both_orders() {
+    for imports in [
+        "use Http as bad\nuse http as good\n",
+        "use http as good\nuse Http as bad\n",
+    ] {
+        let module = merged_modules(vec![
+            SourceFile::new(
+                "app.veln",
+                format!(
+                    "mod app\n{imports}fn main() -> Int\n  bad::entry()\n  good::entry()\n  http::entry()\nend\nfn independent() -> Bool\n  1\nend\n"
+                ),
+            ),
+            SourceFile::new("http.veln", "mod http\npub fn entry() -> Int\n  1\nend\n"),
+        ]);
+        let diagnostics = analyze_surface_module(&module);
+        let duplicate = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.duplicate")
+            .collect::<Vec<_>>();
+        assert_eq!(duplicate.len(), 1, "{imports:?}: {diagnostics:#?}");
+        assert_eq!(duplicate[0].span.as_ref().unwrap().start.line, 3);
+        assert_eq!(duplicate[0].related.len(), 1);
+        assert!(
+            duplicate[0].related[0]
+                .to_json()
+                .contains("\"start\":{\"line\":2,")
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+                .count(),
+            1,
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "type.mismatch"),
+            "{diagnostics:#?}"
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "name.unresolved")
+                .count(),
+            3,
+            "{diagnostics:#?}"
+        );
+        for path in ["bad", "good", "Http", "http"] {
+            assert!(
+                crate::name_recovery::normal_imported_use_for_path(
+                    &module,
+                    &[path.to_string()],
+                    Some("app")
+                )
+                .is_none(),
+                "{imports:?}: {path}"
+            );
+        }
+        assert!(crate::name_recovery::quarantined_use_decls(&module).is_empty());
+    }
+}
+
+#[test]
 fn equivalent_standard_target_spellings_are_quarantined_in_both_orders() {
     for (source, later_spelling) in [
         (

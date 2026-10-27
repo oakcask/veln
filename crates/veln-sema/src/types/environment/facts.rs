@@ -326,6 +326,7 @@ fn invalid_alias_recovery_signature(
         &module.uses,
         functions,
         alias.module_name.as_deref(),
+        alias.package_name.as_deref(),
         access_targets,
     )?;
     Some(FunctionSignature {

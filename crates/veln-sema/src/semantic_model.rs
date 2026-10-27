@@ -2,7 +2,7 @@ use std::sync::Arc;
 use veln_ast::NodeId;
 use veln_source::SourceSpan;
 
-pub(crate) type FunctionKey = (Option<String>, String);
+pub(crate) type FunctionKey = (Option<String>, Option<String>, String);
 
 pub(crate) struct CallOrigin {
     pub(crate) node_id: NodeId,

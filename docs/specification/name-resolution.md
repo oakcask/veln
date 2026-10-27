@@ -170,8 +170,9 @@ Reachability selection remains linear in the imports and qualified references
 it processes. A deterministic workload compares 64 and 128 distinct explicit
 imports with the same number of reachable alias-qualified calls. Its work
 metric aggregates import declarations and candidate bindings processed or
-retained, qualified-reference requests, and candidate-selection steps. For
-workload size `N`, call this total `W(N)`. The check requires
+retained, qualified-reference requests, candidate-selection steps, and every
+reachable-callee membership or deduplication operation. For workload size `N`,
+call this total `W(N)`. The check requires
 `W(128) <= 2 * W(64) + 16`. The fixed allowance covers size-independent setup,
 and operation counting avoids runner timing noise. This bound permits any
 selection representation that preserves the observable exact-path,

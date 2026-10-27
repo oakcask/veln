@@ -3,6 +3,12 @@ use super::*;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum ReachableInvalidNameSpan {
     Declaration(SourceSpan),
+    HandlerDeclaration {
+        span: SourceSpan,
+        package_name: Option<String>,
+        module_name: Option<String>,
+        name: Option<String>,
+    },
     Name(SourceSpan),
 }
 
@@ -19,7 +25,28 @@ impl ReachableRecoveryCandidate {
 
 impl ReachableInvalidNameSpan {
     pub(super) fn is_declaration(&self, span: &SourceSpan) -> bool {
-        matches!(self, Self::Declaration(reachable) if reachable == span)
+        match self {
+            Self::Declaration(reachable)
+            | Self::HandlerDeclaration {
+                span: reachable, ..
+            } => reachable == span,
+            Self::Name(_) => false,
+        }
+    }
+
+    pub(super) fn is_handler_declaration(&self, handler: &veln_ast::HandlerDecl) -> bool {
+        matches!(
+            self,
+            Self::HandlerDeclaration {
+                span,
+                package_name,
+                module_name,
+                name,
+            } if span == &handler.span
+                && package_name == &handler.package_name
+                && module_name == &handler.module_name
+                && name == &handler.name
+        )
     }
 }
 

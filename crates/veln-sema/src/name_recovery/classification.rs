@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use veln_ast::{SurfaceModule, UseDecl};
 
 use super::{
-    ImportBindingKey, ImportTargetKey, prefix_bucket_offsets, record_import_classification_work,
+    ImportBindingKey, ImportTargetKey, import_target_key, prefix_bucket_offsets,
+    record_import_classification_work,
 };
 
 pub(super) fn source_ordered_import_indices(module: &SurfaceModule) -> Vec<usize> {
@@ -223,8 +224,8 @@ impl DiagnosticOrigins {
         }
     }
 
-    fn record(&mut self, index: usize, use_decl: &UseDecl) {
-        let target = import_target_key(use_decl);
+    fn record(&mut self, index: usize, use_decl: &UseDecl, recovered_target: Option<&str>) {
+        let target = import_target_key(use_decl, recovered_target);
         let duplicate_target = self.first_targets.get(&target).copied();
         self.target_origins[index] = duplicate_target;
 
@@ -276,17 +277,18 @@ impl DiagnosticOrigins {
 pub(super) fn duplicate_diagnostic_origins(
     module: &SurfaceModule,
     source_order: &[usize],
+    recovered_target_names: &[Option<String>],
 ) -> (Vec<Option<usize>>, Vec<Option<usize>>) {
     let mut origins = DiagnosticOrigins::new(module.uses.len());
     for &index in source_order {
         record_import_classification_work();
-        origins.record(index, &module.uses[index]);
+        origins.record(
+            index,
+            &module.uses[index],
+            recovered_target_names[index].as_deref(),
+        );
     }
     origins.finish()
-}
-
-fn import_target_key(use_decl: &UseDecl) -> ImportTargetKey {
-    use_decl.resolved_target()
 }
 
 fn import_binding_key(use_decl: &UseDecl) -> ImportBindingKey {

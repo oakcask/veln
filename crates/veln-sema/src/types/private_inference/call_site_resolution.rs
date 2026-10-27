@@ -30,6 +30,7 @@ pub(crate) fn private_call_site_non_target_params(
     if let Some(signature) = private_call_site_declared_signature(
         segments,
         context.current_module,
+        context.current_package,
         context.constraints.uses,
         context.constraints.signatures_by_path,
     )
@@ -108,6 +109,7 @@ fn private_prelude_non_target_params(
     private_prelude_constraint_name(
         segments,
         context.current_module,
+        context.current_package,
         context.constraints.function_by_path,
     )
     .and_then(|name| {
@@ -116,6 +118,7 @@ fn private_prelude_non_target_params(
                 arg,
                 None,
                 context.current_module,
+                context.current_package,
                 context.constraints.uses,
                 context.bindings,
                 context.constraints.returns_by_path,
@@ -131,6 +134,7 @@ fn private_prelude_non_target_params(
                     arg,
                     None,
                     context.current_module,
+                    context.current_package,
                     context.constraints.uses,
                     context.bindings,
                     context.constraints.returns_by_path,
@@ -233,24 +237,40 @@ pub(crate) fn private_function_value_target(
     {
         return binding.private_function_value.clone();
     }
-    Some((context.current_module.map(str::to_string), name.clone()))
+    Some((
+        context.current_package.map(str::to_string),
+        context.current_module.map(str::to_string),
+        name.clone(),
+    ))
 }
 
 pub(crate) fn private_call_site_declared_signature<'a>(
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[UseDecl],
     signatures_by_path: &'a FunctionSignatureMap,
 ) -> Option<&'a FunctionSignature> {
     match segments {
-        [name] => signatures_by_path.get(&(current_module.map(str::to_string), name.clone())),
-        [_, .., name] => {
-            imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
-                .and_then(|use_decl| {
-                    signatures_by_path.get(&(Some(use_decl.name.clone()), name.clone()))
-                })
-                .filter(|signature| signature.visibility == Visibility::Public)
-        }
+        [name] => signatures_by_path.get(&(
+            current_package.map(str::to_string),
+            current_module.map(str::to_string),
+            name.clone(),
+        )),
+        [_, .., name] => imported_use_for_path_in_owner(
+            uses,
+            &segments[..segments.len() - 1],
+            current_module,
+            current_package,
+        )
+        .and_then(|use_decl| {
+            signatures_by_path.get(&(
+                use_decl.resolved_target().package,
+                Some(use_decl.name.clone()),
+                name.clone(),
+            ))
+        })
+        .filter(|signature| signature.visibility == Visibility::Public),
         _ => None,
     }
 }
@@ -265,12 +285,17 @@ pub(crate) fn parameter_annotation_is_omitted(param: &veln_ast::Param) -> bool {
 pub(crate) fn private_name_path_target(
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     function_by_path: &FunctionAstMap<'_>,
 ) -> Option<FunctionKey> {
     let [name] = segments else {
         return None;
     };
-    let key = (current_module.map(str::to_string), name.clone());
+    let key = (
+        current_package.map(str::to_string),
+        current_module.map(str::to_string),
+        name.clone(),
+    );
     let function = function_by_path.get(&key)?;
     (function.kind == FunctionKind::Function && function.visibility == Visibility::Private)
         .then_some(key)
@@ -279,17 +304,18 @@ pub(crate) fn private_name_path_target(
 pub(crate) fn private_same_module_call_target(
     callee: &Expr,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     function_by_path: &FunctionAstMap<'_>,
 ) -> Option<FunctionKey> {
     let ExprKind::NamePath { segments, .. } = &callee.kind else {
         return None;
     };
-    private_name_path_target(segments, current_module, function_by_path)
+    private_name_path_target(segments, current_module, current_package, function_by_path)
 }
 
 pub(crate) fn update_private_signature_param(
     functions: &mut [FunctionSignature],
-    key: &(Option<String>, String),
+    key: &FunctionKey,
     index: usize,
     inferred: Type,
     changed: &mut bool,
@@ -305,7 +331,7 @@ pub(crate) fn update_private_signature_param(
 
 pub(crate) fn update_private_signature_variadic(
     functions: &mut [FunctionSignature],
-    key: &(Option<String>, String),
+    key: &FunctionKey,
     inferred: Type,
     changed: &mut bool,
 ) {
@@ -320,7 +346,7 @@ pub(crate) fn update_private_signature_variadic(
 
 pub(crate) fn update_private_signature_return(
     functions: &mut [FunctionSignature],
-    key: &(Option<String>, String),
+    key: &FunctionKey,
     inferred: Type,
     changed: &mut bool,
 ) {
@@ -332,7 +358,7 @@ pub(crate) fn update_private_signature_return(
 
 fn update_private_signature_return_from_function_value(
     functions: &mut [FunctionSignature],
-    key: &(Option<String>, String),
+    key: &FunctionKey,
     inferred: Type,
     changed: &mut bool,
 ) {
@@ -354,9 +380,9 @@ fn private_signature_mut<'a>(
     functions: &'a mut [FunctionSignature],
     key: &FunctionKey,
 ) -> Option<&'a mut FunctionSignature> {
-    functions
-        .iter_mut()
-        .find(|function| function.module_name == key.0 && function.name == key.1)
+    functions.iter_mut().find(|function| {
+        function.package_name == key.0 && function.module_name == key.1 && function.name == key.2
+    })
 }
 
 fn update_unknown_private_signature_type(current: &mut Type, inferred: Type, changed: &mut bool) {

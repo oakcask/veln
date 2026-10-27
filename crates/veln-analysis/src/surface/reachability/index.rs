@@ -152,6 +152,40 @@ impl<'a> ReachabilityInputs<'a> {
         self.use_index.valid.clone()
     }
 
+    pub(super) fn cloned_uses(&self) -> Vec<UseDecl> {
+        self.standard
+            .into_iter()
+            .chain(std::iter::once(self.application))
+            .flat_map(|module| &module.uses)
+            .map(|declaration| {
+                let mut retained = declaration.clone();
+                if let Some(corrected) = self
+                    .use_index
+                    .corrected_duplicate_targets
+                    .get(&use_decl_key(declaration))
+                {
+                    // Keep the duplicate identity after its declarations are pruned.
+                    // Written spelling and invalid-name spans still diagnose the target.
+                    retained.name.clone_from(corrected);
+                }
+                retained
+            })
+            .collect()
+    }
+
+    pub(super) fn corrected_duplicate_import_contains(&self, span: &SourceSpan) -> bool {
+        self.standard
+            .into_iter()
+            .chain(std::iter::once(self.application))
+            .flat_map(|module| &module.uses)
+            .any(|declaration| {
+                self.use_index
+                    .corrected_duplicate_targets
+                    .contains_key(&use_decl_key(declaration))
+                    && span_contains(&declaration.span, span)
+            })
+    }
+
     pub(super) fn import_selections(&self) -> &ImportSelectionIndex<'a> {
         &self.use_index.selections
     }
@@ -199,6 +233,7 @@ struct UseIndex<'a> {
     valid: Vec<&'a UseDecl>,
     invalid: Vec<InvalidUse<'a>>,
     selections: ImportSelectionIndex<'a>,
+    corrected_duplicate_targets: HashMap<usize, String>,
 }
 
 struct InvalidUse<'a> {
@@ -224,7 +259,8 @@ impl<'a> UseIndex<'a> {
             .map(|declaration| (use_decl_key(declaration), use_decl_exact_paths(declaration)))
             .collect::<HashMap<_, _>>();
         let blocked_aliases = blocked_import_aliases(&declarations);
-        let duplicate_targets = duplicate_import_targets(&declarations);
+        let (duplicate_targets, corrected_duplicate_targets) =
+            duplicate_import_targets(&declarations, &modules);
         let (invalid_segments_by_file, invalid_alias_spans) = invalid_import_names(&modules);
         let blocked_exact_paths = blocked_exact_import_paths(
             &declarations,
@@ -250,6 +286,7 @@ impl<'a> UseIndex<'a> {
             valid,
             invalid,
             selections,
+            corrected_duplicate_targets,
         }
     }
 }
@@ -442,7 +479,7 @@ fn blocked_exact_import_paths(
     exact_paths: &HashMap<usize, Vec<String>>,
     invalid_segments_by_file: &HashMap<veln_source::SourcePath, Vec<&veln_ast::InvalidName>>,
     invalid_alias_spans: &InvalidNameSpans,
-    duplicate_targets: &HashSet<UseTarget>,
+    duplicate_targets: &HashSet<usize>,
 ) -> BlockedExactImportPaths {
     let mut groups = HashMap::<(ImportOwner, String), (usize, bool)>::new();
     for declaration in declarations.iter().copied().filter(|declaration| {
@@ -457,7 +494,7 @@ fn blocked_exact_import_paths(
             .alias_span
             .as_ref()
             .is_some_and(|span| invalid_alias_spans.contains(&span_key(span)));
-        let duplicate_target = duplicate_targets.contains(&use_target(declaration));
+        let duplicate_target = duplicate_targets.contains(&use_decl_key(declaration));
         let quarantined = !is_valid_use(
             declaration,
             module_path_is_valid,
@@ -502,19 +539,105 @@ fn blocked_import_aliases(declarations: &[&UseDecl]) -> BlockedImportAliases {
         .collect()
 }
 
-fn duplicate_import_targets(declarations: &[&UseDecl]) -> HashSet<UseTarget> {
-    let mut counts = HashMap::<UseTarget, usize>::new();
-    for declaration in declarations
+fn duplicate_import_targets(
+    declarations: &[&UseDecl],
+    modules: &[&SurfaceModule],
+) -> (HashSet<usize>, HashMap<usize, String>) {
+    let corrected = declarations
         .iter()
-        .copied()
-        .filter(|declaration| declaration.origin == veln_ast::UseOrigin::Source)
-        .filter(|declaration| !declaration.recovered)
-    {
-        *counts.entry(use_target(declaration)).or_default() += 1;
+        .map(|declaration| declaration.corrected_target_case())
+        .collect::<Vec<_>>();
+    let declared = if corrected.iter().any(Option::is_some) {
+        declared_module_targets(modules)
+    } else {
+        HashSet::new()
+    };
+    let mut groups = HashMap::<UseTarget, Vec<usize>>::new();
+    let mut corrected_names = HashMap::new();
+    for (declaration, corrected) in declarations.iter().copied().zip(corrected) {
+        if declaration.origin != veln_ast::UseOrigin::Source || declaration.recovered {
+            continue;
+        }
+        let mut target = declaration.resolved_target();
+        if let Some(corrected) = corrected
+            && declared.contains(&(target.package.as_deref(), corrected.as_str()))
+        {
+            target.module.clone_from(&corrected);
+            corrected_names.insert(use_decl_key(declaration), corrected);
+        }
+        groups
+            .entry(target)
+            .or_default()
+            .push(use_decl_key(declaration));
     }
-    counts
-        .into_iter()
-        .filter_map(|(target, count)| (count > 1).then_some(target))
+    let duplicates = groups
+        .into_values()
+        .filter(|indices| indices.len() > 1)
+        .flatten()
+        .collect::<HashSet<_>>();
+    corrected_names.retain(|index, _| duplicates.contains(index));
+    (duplicates, corrected_names)
+}
+
+fn declared_module_targets<'a>(
+    modules: &[&'a SurfaceModule],
+) -> HashSet<(Option<&'a str>, &'a str)> {
+    modules
+        .iter()
+        .flat_map(|module| {
+            module
+                .uses
+                .iter()
+                .map(|declaration| {
+                    (
+                        declaration.importing_package.as_deref(),
+                        declaration.module_name.as_deref(),
+                    )
+                })
+                .chain(module.aliases.iter().map(|declaration| {
+                    (
+                        declaration.package_name.as_deref(),
+                        declaration.module_name.as_deref(),
+                    )
+                }))
+                .chain(module.effects.iter().map(|declaration| {
+                    (
+                        declaration.package_name.as_deref(),
+                        declaration.module_name.as_deref(),
+                    )
+                }))
+                .chain(module.handlers.iter().map(|declaration| {
+                    (
+                        declaration.package_name.as_deref(),
+                        declaration.module_name.as_deref(),
+                    )
+                }))
+                .chain(module.types.iter().map(|declaration| {
+                    (
+                        declaration.package_name.as_deref(),
+                        declaration.module_name.as_deref(),
+                    )
+                }))
+                .chain(module.schemas.iter().map(|declaration| {
+                    (
+                        declaration.package_name.as_deref(),
+                        declaration.module_name.as_deref(),
+                    )
+                }))
+                .chain(module.module_values.iter().map(|declaration| {
+                    (
+                        declaration.package_name.as_deref(),
+                        declaration.module_name.as_deref(),
+                    )
+                }))
+                .chain(module.functions.iter().map(|declaration| {
+                    (
+                        declaration.package_name.as_deref(),
+                        declaration.module_name.as_deref(),
+                    )
+                }))
+                .filter_map(|(package, name)| name.map(|name| (package, name)))
+        })
         .collect()
 }
 
@@ -551,7 +674,7 @@ fn classify_use_declarations<'a>(
     declarations: &[&'a UseDecl],
     invalid_segments_by_file: &HashMap<veln_source::SourcePath, Vec<&'a veln_ast::InvalidName>>,
     invalid_alias_spans: &InvalidNameSpans,
-    duplicate_targets: &HashSet<UseTarget>,
+    duplicate_targets: &HashSet<usize>,
     blocked_aliases: &BlockedImportAliases,
 ) -> (Vec<&'a UseDecl>, Vec<InvalidUse<'a>>) {
     let mut valid = Vec::new();
@@ -563,7 +686,7 @@ fn classify_use_declarations<'a>(
             .unwrap_or_default();
         let duplicate_target = declaration.origin == veln_ast::UseOrigin::Source
             && !declaration.recovered
-            && duplicate_targets.contains(&use_target(declaration));
+            && duplicate_targets.contains(&use_decl_key(declaration));
         let invalid_alias = declaration
             .alias_span
             .as_ref()
@@ -605,10 +728,6 @@ fn has_reserved_alias(declaration: &UseDecl) -> bool {
     declaration.has_explicit_alias() && declaration.alias == "prelude"
 }
 
-fn use_target(declaration: &UseDecl) -> UseTarget {
-    declaration.resolved_target()
-}
-
 fn span_key(span: &SourceSpan) -> (veln_source::SourcePath, usize, usize) {
     (span.file.clone(), span.start.offset, span.end.offset)
 }
@@ -645,20 +764,24 @@ pub(super) enum ReachabilityInput {
 pub(super) struct FunctionTargetIndex {
     pub(super) all: Vec<FunctionTarget>,
     by_name: HashMap<String, Vec<usize>>,
-    by_qualified_name: HashMap<(String, String), Vec<usize>>,
+    by_qualified_name: HashMap<(Option<String>, String, String), Vec<usize>>,
     by_shape: HashMap<FunctionShape, Vec<usize>>,
 }
 
 impl FunctionTargetIndex {
     pub(super) fn new(all: Vec<FunctionTarget>) -> Self {
         let mut by_name = HashMap::<String, Vec<usize>>::new();
-        let mut by_qualified_name = HashMap::<(String, String), Vec<usize>>::new();
+        let mut by_qualified_name = HashMap::<(Option<String>, String, String), Vec<usize>>::new();
         let mut by_shape = HashMap::<FunctionShape, Vec<usize>>::new();
         for (index, target) in all.iter().enumerate() {
             by_name.entry(target.name.clone()).or_default().push(index);
             if let Some(module_name) = &target.module_name {
                 by_qualified_name
-                    .entry((module_name.clone(), target.name.clone()))
+                    .entry((
+                        target.package_name.clone(),
+                        module_name.clone(),
+                        target.name.clone(),
+                    ))
                     .or_default()
                     .push(index);
             }
@@ -685,11 +808,16 @@ impl FunctionTargetIndex {
 
     pub(super) fn qualified(
         &self,
+        package_name: Option<&str>,
         module_name: &str,
         name: &str,
     ) -> impl Iterator<Item = &FunctionTarget> {
         self.by_qualified_name
-            .get(&(module_name.to_string(), name.to_string()))
+            .get(&(
+                package_name.map(str::to_string),
+                module_name.to_string(),
+                name.to_string(),
+            ))
             .into_iter()
             .flatten()
             .map(|index| &self.all[*index])

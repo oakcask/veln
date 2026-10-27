@@ -7,7 +7,10 @@ pub(crate) fn private_function_mentions_candidate(
     candidates: &BTreeSet<String>,
 ) -> bool {
     visit_private_function_references(function, function_by_path, &mut |key| {
-        if key.0.as_deref() == function.module_name.as_deref() && candidates.contains(&key.1) {
+        if key.0 == function.package_name
+            && key.1.as_deref() == function.module_name.as_deref()
+            && candidates.contains(&key.2)
+        {
             ControlFlow::Break(())
         } else {
             ControlFlow::Continue(())
@@ -48,11 +51,13 @@ fn visit_private_function_references(
     visitor: &mut impl FnMut(FunctionKey) -> ControlFlow<()>,
 ) -> ControlFlow<()> {
     let current_module = function.module_name.as_deref();
+    let current_package = function.package_name.as_deref();
     let mut bindings = private_reference_initial_bindings(function);
     for line in &function.body {
         visit_private_line_references(
             line,
             current_module,
+            current_package,
             function_by_path,
             &mut bindings,
             visitor,
@@ -64,6 +69,7 @@ fn visit_private_function_references(
 fn visit_private_line_references(
     line: &BodyLine,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     function_by_path: &FunctionAstMap<'_>,
     bindings: &mut PrivateBindings,
     visitor: &mut impl FnMut(FunctionKey) -> ControlFlow<()>,
@@ -73,12 +79,18 @@ fn visit_private_line_references(
             visit_private_expr_references(
                 expr,
                 current_module,
+                current_package,
                 function_by_path,
                 bindings,
                 visitor,
             )?;
-            let initializer_private_function =
-                private_expr_reference_target(expr, current_module, function_by_path, bindings);
+            let initializer_private_function = private_expr_reference_target(
+                expr,
+                current_module,
+                current_package,
+                function_by_path,
+                bindings,
+            );
             collect_let_pattern_bindings(
                 pattern,
                 &Type::Unknown,
@@ -87,9 +99,14 @@ fn visit_private_line_references(
             );
             ControlFlow::Continue(())
         }
-        BodyLineKind::Expr { expr } => {
-            visit_private_expr_references(expr, current_module, function_by_path, bindings, visitor)
-        }
+        BodyLineKind::Expr { expr } => visit_private_expr_references(
+            expr,
+            current_module,
+            current_package,
+            function_by_path,
+            bindings,
+            visitor,
+        ),
         BodyLineKind::Defer { body, .. } => {
             let binding_count = bindings.len();
             record_scoped_binding_count(bindings);
@@ -97,6 +114,7 @@ fn visit_private_line_references(
                 let result = visit_private_line_references(
                     line,
                     current_module,
+                    current_package,
                     function_by_path,
                     bindings,
                     visitor,
@@ -115,13 +133,18 @@ fn visit_private_line_references(
 fn visit_private_expr_references(
     expr: &Expr,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     function_by_path: &FunctionAstMap<'_>,
     bindings: &mut PrivateBindings,
     visitor: &mut impl FnMut(FunctionKey) -> ControlFlow<()>,
 ) -> ControlFlow<()> {
-    if let Some(key) =
-        private_expr_reference_target(expr, current_module, function_by_path, bindings)
-    {
+    if let Some(key) = private_expr_reference_target(
+        expr,
+        current_module,
+        current_package,
+        function_by_path,
+        bindings,
+    ) {
         visitor(key)?;
     }
     match &expr.kind {
@@ -129,6 +152,7 @@ fn visit_private_expr_references(
             visit_private_expr_references(
                 scrutinee,
                 current_module,
+                current_package,
                 function_by_path,
                 bindings,
                 visitor,
@@ -139,6 +163,7 @@ fn visit_private_expr_references(
                 let result = visit_private_expr_references(
                     &arm.expr,
                     current_module,
+                    current_package,
                     function_by_path,
                     bindings,
                     visitor,
@@ -155,6 +180,7 @@ fn visit_private_expr_references(
                 let result = visit_private_line_references(
                     line,
                     current_module,
+                    current_package,
                     function_by_path,
                     bindings,
                     visitor,
@@ -173,6 +199,7 @@ fn visit_private_expr_references(
             visit_private_expr_references(
                 child,
                 current_module,
+                current_package,
                 function_by_path,
                 bindings,
                 visitor,
@@ -184,18 +211,26 @@ fn visit_private_expr_references(
 pub(crate) fn private_expr_reference_target(
     expr: &Expr,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     function_by_path: &FunctionAstMap<'_>,
     bindings: &[Binding],
 ) -> Option<FunctionKey> {
     let ExprKind::NamePath { segments, .. } = &expr.kind else {
         return None;
     };
-    private_reference_name_path_target(segments, current_module, function_by_path, bindings)
+    private_reference_name_path_target(
+        segments,
+        current_module,
+        current_package,
+        function_by_path,
+        bindings,
+    )
 }
 
 pub(crate) fn private_reference_name_path_target(
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     function_by_path: &FunctionAstMap<'_>,
     bindings: &[Binding],
 ) -> Option<FunctionKey> {
@@ -205,7 +240,7 @@ pub(crate) fn private_reference_name_path_target(
     if let Some(binding) = bindings.iter().rev().find(|binding| binding.name == *name) {
         return binding.private_function_value.clone();
     }
-    private_name_path_target(segments, current_module, function_by_path)
+    private_name_path_target(segments, current_module, current_package, function_by_path)
 }
 
 pub(crate) fn signatures_by_path(functions: &[FunctionSignature]) -> FunctionSignatureMap {
@@ -213,7 +248,11 @@ pub(crate) fn signatures_by_path(functions: &[FunctionSignature]) -> FunctionSig
         .iter()
         .map(|function| {
             (
-                (function.module_name.clone(), function.name.clone()),
+                (
+                    function.package_name.clone(),
+                    function.module_name.clone(),
+                    function.name.clone(),
+                ),
                 function.clone(),
             )
         })
@@ -227,12 +266,15 @@ pub(crate) fn private_call_site_constraint_contributors(
 ) -> BTreeSet<FunctionKey> {
     let modules_with_omitted_slots = omitted_private_slots
         .keys()
-        .map(|key| key.0.clone())
+        .map(|key| (key.0.clone(), key.1.clone()))
         .collect::<BTreeSet<_>>();
     module
         .functions
         .iter()
-        .filter(|function| modules_with_omitted_slots.contains(&function.module_name))
+        .filter(|function| {
+            modules_with_omitted_slots
+                .contains(&(function.package_name.clone(), function.module_name.clone()))
+        })
         .filter_map(|function| {
             let key = function_key(function)?;
             #[cfg(test)]
@@ -254,7 +296,11 @@ pub(crate) fn signatures_by_path_with_aliases(
 ) -> FunctionSignatureMap {
     let mut signatures = signatures_by_path(functions);
     for alias in function_alias_signatures(module, functions) {
-        let key = (alias.module_name.clone(), alias.name.clone());
+        let key = (
+            alias.package_name.clone(),
+            alias.module_name.clone(),
+            alias.name.clone(),
+        );
         signatures.entry(key).or_insert(alias);
     }
     signatures
@@ -265,7 +311,11 @@ pub(crate) fn returns_by_path(functions: &[FunctionSignature]) -> FunctionReturn
         .iter()
         .map(|function| {
             (
-                (function.module_name.clone(), function.name.clone()),
+                (
+                    function.package_name.clone(),
+                    function.module_name.clone(),
+                    function.name.clone(),
+                ),
                 function.return_type.clone(),
             )
         })

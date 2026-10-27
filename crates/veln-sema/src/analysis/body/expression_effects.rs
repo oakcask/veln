@@ -341,10 +341,11 @@ impl<'a> FunctionChecker<'a> {
             "schema_decode_base_offset",
         );
 
-        let Some(signature) = self
-            .environment
-            .schema_decode_step_signature(schema, self.function.module_name.as_deref())
-        else {
+        let Some(signature) = self.environment.schema_decode_step_signature_in_owner(
+            schema,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) else {
             self.push_schema_decode_expression_diagnostic(expr, schema);
             return Type::Unknown;
         };
@@ -367,7 +368,11 @@ impl<'a> FunctionChecker<'a> {
     ) -> Type {
         let Some(signature) = self
             .environment
-            .schema_encode_signature(schema, self.function.module_name.as_deref())
+            .schema_encode_signature_in_owner(
+                schema,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            )
             .cloned()
         else {
             self.infer_expr(value, None);
@@ -402,10 +407,11 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         schema: &[String],
     ) {
-        if let Some(unsupported) = self
-            .environment
-            .unsupported_schema_encode_field(schema, self.function.module_name.as_deref())
-        {
+        if let Some(unsupported) = self.environment.unsupported_schema_encode_field(
+            schema,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
             self.diagnostics
                 .push(format_neutral_schema_encode_helper_diagnostic(
                     &unsupported.schema_name,
@@ -429,9 +435,11 @@ impl<'a> FunctionChecker<'a> {
             schema.join("::")
         };
         let current_module = self.function.module_name.as_deref();
-        let error = self
-            .environment
-            .schema_reference_error(schema, current_module);
+        let error = self.environment.schema_reference_error_in_owner(
+            schema,
+            current_module,
+            self.function.package_name.as_deref(),
+        );
         let reason = match error.kind {
             SchemaReferenceErrorKind::Unresolved => "unresolved_schema",
             SchemaReferenceErrorKind::Private => "private_schema",

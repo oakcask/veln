@@ -193,13 +193,16 @@ impl NormalUseGroups {
             exact_paths: HashMap::new(),
         };
         groups.classify_invalid_module_segments(module, &use_order, &invalid_module_spans);
+        // Target identity must be known before duplicates can disable recovery itself.
+        let recovered_target_names =
+            recovered_target_names(module, &groups.invalid_module_segments);
         for (index, use_decl) in module.uses.iter().enumerate() {
-            groups.record(index, use_decl);
+            groups.record(index, use_decl, recovered_target_names[index].as_deref());
         }
-        groups.finish(module)
+        groups.finish(module, recovered_target_names)
     }
 
-    fn record(&mut self, index: usize, use_decl: &UseDecl) {
+    fn record(&mut self, index: usize, use_decl: &UseDecl, recovered_target: Option<&str>) {
         record_import_classification_work();
         let reserved = use_decl_has_reserved_alias(use_decl);
         self.quarantined[index] =
@@ -214,7 +217,7 @@ impl NormalUseGroups {
         }
         if use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.recovered {
             self.duplicate_targets
-                .entry(use_decl.resolved_target())
+                .entry(import_target_key(use_decl, recovered_target))
                 .or_default()
                 .push(index);
             for path in use_decl_exact_paths(use_decl) {
@@ -266,17 +269,20 @@ impl NormalUseGroups {
         }
     }
 
-    fn finish(mut self, module: &SurfaceModule) -> ImportClassification {
+    fn finish(
+        mut self,
+        module: &SurfaceModule,
+        recovered_target_names: Vec<Option<String>>,
+    ) -> ImportClassification {
         let repeated_targets = self.mark_repeated_targets(module.uses.len());
         let blocked_exact_paths =
             blocked_exact_path_keys(std::mem::take(&mut self.exact_paths), &self.quarantined);
         let colliding_qualifiers = colliding_binding_keys(std::mem::take(&mut self.qualifiers));
         let source_order = source_ordered_import_indices(module);
         let (duplicate_target_origins, duplicate_qualifier_origins) =
-            duplicate_diagnostic_origins(module, &source_order);
+            duplicate_diagnostic_origins(module, &source_order, &recovered_target_names);
         let recovery_candidates =
             self.recovery_candidates(module, &repeated_targets, &colliding_qualifiers);
-        let recovered_target_names = recovered_target_names(module, &recovery_candidates);
         let recovery_names_by_file = recovery_names_by_file(module, &recovery_candidates);
         ImportClassification {
             indices: import_indices(module),
@@ -331,6 +337,14 @@ impl NormalUseGroups {
             })
             .collect()
     }
+}
+
+fn import_target_key(use_decl: &UseDecl, recovered_target: Option<&str>) -> ImportTargetKey {
+    let mut target = use_decl.resolved_target();
+    if let Some(name) = recovered_target {
+        target.module = name.to_owned();
+    }
+    target
 }
 
 fn import_indices(module: &SurfaceModule) -> HashMap<usize, usize> {

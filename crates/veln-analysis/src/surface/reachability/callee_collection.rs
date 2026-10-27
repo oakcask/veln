@@ -52,7 +52,7 @@ pub(super) fn direct_function_callees(
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
 ) -> Vec<ReachableFunction> {
-    let mut callees = Vec::new();
+    let mut callees = ReachableCallees::default();
     let context = FunctionCalleeContext {
         current_module: function.module_name.as_deref(),
         current_package: function.package_name.as_deref(),
@@ -84,14 +84,14 @@ pub(super) fn direct_function_callees(
         );
     }
     collect_body_callees(&function.body, &context, &mut local_bindings, &mut callees);
-    callees
+    callees.into_ordered()
 }
 
 fn collect_body_callees(
     body: &[veln_ast::BodyLine],
     context: &FunctionCalleeContext<'_>,
     local_bindings: &mut Vec<LocalBinding>,
-    callees: &mut Vec<ReachableFunction>,
+    callees: &mut ReachableCallees,
 ) {
     for line in body {
         match &line.kind {
@@ -127,7 +127,7 @@ pub(super) fn collect_contract_callees(
     import_selections: &ImportSelectionIndex<'_>,
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
-    callees: &mut Vec<ReachableFunction>,
+    callees: &mut ReachableCallees,
 ) {
     let source = SourceFile::new("<contract>", predicate);
     let tokens = lex(&source)
@@ -189,7 +189,7 @@ pub(super) fn collect_contract_function_value_references(
     import_selections: &ImportSelectionIndex<'_>,
     function_targets: &FunctionTargetIndex,
     _companion_access_targets: &HashMap<String, String>,
-    callees: &mut Vec<ReachableFunction>,
+    callees: &mut ReachableCallees,
 ) {
     let mut index = 0usize;
     while index < tokens.len() {
@@ -257,7 +257,7 @@ pub(super) fn collect_function_callees(
     expr: &Expr,
     context: &FunctionCalleeContext<'_>,
     local_bindings: &mut Vec<LocalBinding>,
-    callees: &mut Vec<ReachableFunction>,
+    callees: &mut ReachableCallees,
 ) {
     match &expr.kind {
         ExprKind::NamePath { segments, .. } => {
@@ -331,7 +331,7 @@ pub(super) fn collect_opaque_function_value_callees(
     current_package: Option<&str>,
     uses: &[&UseDecl],
     function_targets: &FunctionTargetIndex,
-    callees: &mut Vec<ReachableFunction>,
+    callees: &mut ReachableCallees,
 ) {
     if current_package == Some(veln_stdlib::PACKAGE_NAME) {
         return;

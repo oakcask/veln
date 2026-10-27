@@ -1,2 +1,5 @@
+main.veln:3:5: error[name.invalid_case]: module name `Http` must start with an ASCII lowercase letter
 main.veln:2:13: error[name.duplicate]: duplicate import alias name `shared`
   note: main.veln:1:14: First import alias with this name is here.
+main.veln:4:5: error[name.duplicate]: duplicate import name `http`
+  note: main.veln:3:5: First import with this name is here.

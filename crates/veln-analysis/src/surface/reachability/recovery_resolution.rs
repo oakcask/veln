@@ -362,8 +362,20 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             current_module,
             self.current_package.as_deref(),
         );
+        let target_package = match segments {
+            [_, .., _] => imported_use_for_path(
+                self.import_selections,
+                &segments[..segments.len() - 1],
+                current_module,
+                self.current_package.as_deref(),
+            )
+            .and_then(|use_decl| use_decl.resolved_target().package),
+            [_] => self.current_package.clone(),
+            _ => None,
+        };
         self.handlers.iter().copied().find(|handler| {
             handler.name.as_deref() == path_leaf(segments)
+                && handler.package_name == target_package
                 && (declaration_visible(
                     handler.module_name.as_deref(),
                     handler.visibility,

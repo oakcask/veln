@@ -521,6 +521,7 @@ impl TypeEnvironment {
             function.node_id == source.node_id
                 && function.name == name
                 && function.module_name == source.module_name
+                && function.package_name == source.package_name
                 && function.span == source.span
         })
     }
@@ -689,35 +690,54 @@ impl TypeEnvironment {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn schema_decode_step_signature(
         &self,
         schema_path: &[String],
         current_module: Option<&str>,
     ) -> Option<&FunctionSignature> {
+        self.schema_decode_step_signature_in_owner(schema_path, current_module, None)
+    }
+
+    pub(crate) fn schema_decode_step_signature_in_owner(
+        &self,
+        schema_path: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<&FunctionSignature> {
         self.schema_helper_signature(
             schema_path,
             current_module,
+            current_package,
             schema_decode_step_function_name,
         )
     }
 
-    pub(crate) fn schema_encode_signature(
+    pub(crate) fn schema_encode_signature_in_owner(
         &self,
         schema_path: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> Option<&FunctionSignature> {
-        self.schema_helper_signature(schema_path, current_module, schema_encode_function_name)
+        self.schema_helper_signature(
+            schema_path,
+            current_module,
+            current_package,
+            schema_encode_function_name,
+        )
     }
 
     fn schema_helper_signature(
         &self,
         schema_path: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
         helper_name_for: fn(&str) -> String,
     ) -> Option<&FunctionSignature> {
         let schema = self.schema_symbols.schema_target_path(
             schema_path,
             current_module,
+            current_package,
             &self.uses,
             true,
             &self.companion_schema_access_targets,
@@ -726,6 +746,7 @@ impl TypeEnvironment {
         let helper_name = helper_name_for(&schema.name);
         self.functions_named(&helper_name).find(|function| {
             function.module_name == schema.module_name
+                && function.package_name == schema.package_name
                 && self.schema_helper_is_visible(
                     function.visibility,
                     schema.module_name.as_deref(),
@@ -738,10 +759,12 @@ impl TypeEnvironment {
         &self,
         schema_path: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> Option<UnsupportedSchemaEncodeField> {
         let schema = self.schema_symbols.schema_target_path(
             schema_path,
             current_module,
+            current_package,
             &self.uses,
             true,
             &self.companion_schema_access_targets,
@@ -755,14 +778,25 @@ impl TypeEnvironment {
         })
     }
 
+    #[cfg(test)]
     pub(crate) fn schema_reference_error(
         &self,
         schema_path: &[String],
         current_module: Option<&str>,
     ) -> SchemaReferenceError {
+        self.schema_reference_error_in_owner(schema_path, current_module, None)
+    }
+
+    pub(crate) fn schema_reference_error_in_owner(
+        &self,
+        schema_path: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> SchemaReferenceError {
         if self.schema_symbols.private_schema(
             schema_path,
             current_module,
+            current_package,
             &self.uses,
             &self.companion_schema_access_targets,
         ) {
@@ -771,20 +805,24 @@ impl TypeEnvironment {
                 resolved_kind: Some("schema"),
             };
         }
-        if let Some(alias_target) =
-            self.schema_symbols
-                .schema_alias_target(schema_path, current_module, &self.uses)
-            && let Some(kind) = self.wrong_schema_reference_kind(
-                &alias_target.target,
-                alias_target.module_name.as_deref(),
-            )
-        {
+        if let Some(alias_target) = self.schema_symbols.schema_alias_target(
+            schema_path,
+            current_module,
+            current_package,
+            &self.uses,
+        ) && let Some(kind) = self.wrong_schema_reference_kind(
+            &alias_target.target,
+            alias_target.module_name.as_deref(),
+            alias_target.package_name.as_deref(),
+        ) {
             return SchemaReferenceError {
                 kind: SchemaReferenceErrorKind::WrongKind,
                 resolved_kind: Some(kind),
             };
         }
-        if let Some(kind) = self.wrong_schema_reference_kind(schema_path, current_module) {
+        if let Some(kind) =
+            self.wrong_schema_reference_kind(schema_path, current_module, current_package)
+        {
             return SchemaReferenceError {
                 kind: SchemaReferenceErrorKind::WrongKind,
                 resolved_kind: Some(kind),
@@ -810,17 +848,21 @@ impl TypeEnvironment {
         &self,
         schema_path: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> Option<&'static str> {
-        let (name, module_name) = self.resolve_symbol_module(schema_path, current_module)?;
+        let (name, module_name, package_name) =
+            self.resolve_symbol_module(schema_path, current_module, current_package)?;
         if self.type_symbols.iter().any(|symbol| {
             symbol.name == name.as_str()
                 && symbol.module_name.as_deref() == module_name.as_deref()
+                && symbol.package_name == package_name
                 && self.symbol_is_visible(symbol, module_name.as_deref(), current_module)
         }) {
             return Some("type");
         }
         if self.functions_named(&name).any(|function| {
             function.module_name.as_deref() == module_name.as_deref()
+                && function.package_name == package_name
                 && self.symbol_is_visible(function, module_name.as_deref(), current_module)
         }) {
             return Some("function");
@@ -832,16 +874,26 @@ impl TypeEnvironment {
         &self,
         segments: &[String],
         current_module: Option<&str>,
-    ) -> Option<(String, Option<String>)> {
+        current_package: Option<&str>,
+    ) -> Option<(String, Option<String>, Option<String>)> {
         match segments {
-            [name] => Some((name.clone(), current_module.map(str::to_string))),
+            [name] => Some((
+                name.clone(),
+                current_module.map(str::to_string),
+                current_package.map(str::to_string),
+            )),
             [_, .., name] => {
-                let use_decl = imported_use_for_path(
+                let use_decl = imported_use_for_path_in_owner(
                     &self.uses,
                     &segments[..segments.len() - 1],
                     current_module,
+                    current_package,
                 )?;
-                Some((name.clone(), Some(use_decl.name.clone())))
+                Some((
+                    name.clone(),
+                    Some(use_decl.name.clone()),
+                    use_decl.resolved_target().package,
+                ))
             }
             _ => None,
         }

@@ -24,7 +24,11 @@ pub(crate) fn infer_private_function_body_return_types(
             let Some(name) = &function.name else {
                 continue;
             };
-            let key = (function.module_name.clone(), name.clone());
+            let key = (
+                function.package_name.clone(),
+                function.module_name.clone(),
+                name.clone(),
+            );
             let inferred = infer_private_function_tail_type(
                 function,
                 &uses,
@@ -35,10 +39,11 @@ pub(crate) fn infer_private_function_body_return_types(
             if inferred == Type::Unknown {
                 continue;
             }
-            let Some(signature) = functions
-                .iter_mut()
-                .find(|signature| signature.module_name == key.0 && signature.name == key.1)
-            else {
+            let Some(signature) = functions.iter_mut().find(|signature| {
+                signature.package_name == key.0
+                    && signature.module_name == key.1
+                    && signature.name == key.2
+            }) else {
                 continue;
             };
             if signature.return_type == inferred {
@@ -136,20 +141,28 @@ pub(crate) fn infer_private_function_call_site_signature_types(
 }
 
 pub(crate) fn function_key(function: &Function) -> Option<FunctionKey> {
-    Some((function.module_name.clone(), function.name.clone()?))
+    Some((
+        function.package_name.clone(),
+        function.module_name.clone(),
+        function.name.clone()?,
+    ))
 }
 
 pub(crate) fn private_function_key(function: &Function) -> Option<FunctionKey> {
-    Some((function.module_name.clone(), function.name.clone()?))
+    Some((
+        function.package_name.clone(),
+        function.module_name.clone(),
+        function.name.clone()?,
+    ))
 }
 
 pub(crate) fn signature_for_key<'a>(
     functions: &'a [FunctionSignature],
     key: &FunctionKey,
 ) -> Option<&'a FunctionSignature> {
-    functions
-        .iter()
-        .find(|signature| signature.module_name == key.0 && signature.name == key.1)
+    functions.iter().find(|signature| {
+        signature.package_name == key.0 && signature.module_name == key.1 && signature.name == key.2
+    })
 }
 
 pub(crate) fn omitted_private_returns_that_can_change(
@@ -207,20 +220,22 @@ pub(crate) fn omitted_private_slots_that_can_change(
 
 pub(crate) fn modules_with_private_slot_omissions(
     omitted_private_slots: &PrivateSlotMap,
-) -> BTreeSet<Option<String>> {
+) -> BTreeSet<(Option<String>, Option<String>)> {
     modules_with_private_omissions(omitted_private_slots.keys())
 }
 
 pub(crate) fn modules_with_private_return_omissions(
     omitted_private_returns: &BTreeSet<FunctionKey>,
-) -> BTreeSet<Option<String>> {
+) -> BTreeSet<(Option<String>, Option<String>)> {
     modules_with_private_omissions(omitted_private_returns.iter())
 }
 
 fn modules_with_private_omissions<'a>(
     keys: impl IntoIterator<Item = &'a FunctionKey>,
-) -> BTreeSet<Option<String>> {
-    keys.into_iter().map(|key| key.0.clone()).collect()
+) -> BTreeSet<(Option<String>, Option<String>)> {
+    keys.into_iter()
+        .map(|key| (key.0.clone(), key.1.clone()))
+        .collect()
 }
 
 pub(crate) fn omitted_private_returns_requiring_prelude_pass(
@@ -251,14 +266,17 @@ fn omitted_private_return_functions(module: &SurfaceModule) -> impl Iterator<Ite
 pub(crate) fn private_reference_map(
     module: &SurfaceModule,
     function_by_path: &FunctionAstMap<'_>,
-    modules_with_omitted_slots: &BTreeSet<Option<String>>,
+    modules_with_omitted_slots: &BTreeSet<(Option<String>, Option<String>)>,
     omitted_private_keys: &BTreeSet<FunctionKey>,
 ) -> PrivateReferenceMap {
     let candidates_by_module = private_reference_candidates_by_module(omitted_private_keys);
     module
         .functions
         .iter()
-        .filter(|function| modules_with_omitted_slots.contains(&function.module_name))
+        .filter(|function| {
+            modules_with_omitted_slots
+                .contains(&(function.package_name.clone(), function.module_name.clone()))
+        })
         .filter(|function| {
             private_function_needs_reference_index(
                 function,
@@ -280,11 +298,12 @@ pub(crate) fn private_reference_map(
 
 pub(crate) fn private_reference_candidates_by_module(
     omitted_private_keys: &BTreeSet<FunctionKey>,
-) -> BTreeMap<Option<String>, BTreeSet<String>> {
-    let mut candidates: BTreeMap<Option<String>, BTreeSet<String>> = BTreeMap::new();
-    for (module_name, name) in omitted_private_keys {
+) -> BTreeMap<(Option<String>, Option<String>), BTreeSet<String>> {
+    let mut candidates: BTreeMap<(Option<String>, Option<String>), BTreeSet<String>> =
+        BTreeMap::new();
+    for (package_name, module_name, name) in omitted_private_keys {
         candidates
-            .entry(module_name.clone())
+            .entry((package_name.clone(), module_name.clone()))
             .or_default()
             .insert(name.clone());
     }
@@ -294,7 +313,7 @@ pub(crate) fn private_reference_candidates_by_module(
 pub(crate) fn private_function_needs_reference_index(
     function: &Function,
     function_by_path: &FunctionAstMap<'_>,
-    candidates_by_module: &BTreeMap<Option<String>, BTreeSet<String>>,
+    candidates_by_module: &BTreeMap<(Option<String>, Option<String>), BTreeSet<String>>,
     omitted_private_keys: &BTreeSet<FunctionKey>,
 ) -> bool {
     let Some(key) = function_key(function) else {
@@ -303,7 +322,9 @@ pub(crate) fn private_function_needs_reference_index(
     if omitted_private_keys.contains(&key) {
         return true;
     }
-    let Some(candidates) = candidates_by_module.get(&function.module_name) else {
+    let Some(candidates) =
+        candidates_by_module.get(&(function.package_name.clone(), function.module_name.clone()))
+    else {
         return false;
     };
     #[cfg(test)]

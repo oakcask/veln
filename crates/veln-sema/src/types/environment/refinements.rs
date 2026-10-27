@@ -29,6 +29,7 @@ impl TypeEnvironment {
             &self.uses,
             &self.quarantined_uses,
             current_module,
+            None,
             &self.effects,
             &self.adts,
             &self.companion_effect_access_targets,

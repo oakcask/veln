@@ -9,13 +9,21 @@ pub(crate) fn private_tail_can_use_expected(
     let Some(BodyLineKind::Expr { expr }) = function.body.last().map(|line| &line.kind) else {
         return false;
     };
-    tail_expr_can_use_expected(expr, expected, function.module_name.as_deref(), uses, adts)
+    tail_expr_can_use_expected(
+        expr,
+        expected,
+        function.module_name.as_deref(),
+        function.package_name.as_deref(),
+        uses,
+        adts,
+    )
 }
 
 pub(crate) fn tail_expr_can_use_expected(
     expr: &Expr,
     expected: &Type,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[UseDecl],
     adts: &AdtRegistry,
 ) -> bool {
@@ -47,12 +55,24 @@ pub(crate) fn tail_expr_can_use_expected(
                 ConstructorLookup::Missing => false,
             }
         }
-        ExprKind::Call { callee, .. } => {
-            constructor_tail_can_use_expected(callee, expected, current_module, uses, adts)
-        }
-        ExprKind::Match { arms, .. } => arms
-            .iter()
-            .all(|arm| tail_expr_can_use_expected(&arm.expr, expected, current_module, uses, adts)),
+        ExprKind::Call { callee, .. } => constructor_tail_can_use_expected(
+            callee,
+            expected,
+            current_module,
+            current_package,
+            uses,
+            adts,
+        ),
+        ExprKind::Match { arms, .. } => arms.iter().all(|arm| {
+            tail_expr_can_use_expected(
+                &arm.expr,
+                expected,
+                current_module,
+                current_package,
+                uses,
+                adts,
+            )
+        }),
         ExprKind::If {
             then_branch,
             else_if_branches,
@@ -61,11 +81,20 @@ pub(crate) fn tail_expr_can_use_expected(
         } => std::iter::once(then_branch.as_ref())
             .chain(else_if_branches.iter().map(|branch| &branch.expr))
             .chain(std::iter::once(else_branch.as_ref()))
-            .all(|branch| tail_expr_can_use_expected(branch, expected, current_module, uses, adts)),
+            .all(|branch| {
+                tail_expr_can_use_expected(
+                    branch,
+                    expected,
+                    current_module,
+                    current_package,
+                    uses,
+                    adts,
+                )
+            }),
         ExprKind::Begin { body, .. } => matches!(
             body.last().map(|line| &line.kind),
             Some(BodyLineKind::Expr { expr })
-                if tail_expr_can_use_expected(expr, expected, current_module, uses, adts)
+                if tail_expr_can_use_expected(expr, expected, current_module, current_package, uses, adts)
         ),
         _ => false,
     }
@@ -84,6 +113,7 @@ fn constructor_tail_can_use_expected(
     callee: &Expr,
     expected: &Type,
     current_module: Option<&str>,
+    _current_package: Option<&str>,
     uses: &[UseDecl],
     adts: &AdtRegistry,
 ) -> bool {
@@ -110,8 +140,8 @@ fn constructor_tail_can_use_expected(
 pub(crate) fn infer_private_function_tail_type(
     function: &veln_ast::Function,
     uses: &[UseDecl],
-    signatures_by_path: &BTreeMap<(Option<String>, String), FunctionSignature>,
-    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
+    signatures_by_path: &BTreeMap<FunctionKey, FunctionSignature>,
+    returns_by_path: &BTreeMap<FunctionKey, Type>,
     adts: &AdtRegistry,
 ) -> Type {
     #[cfg(test)]
@@ -123,6 +153,7 @@ pub(crate) fn infer_private_function_tail_type(
         &function.body,
         None,
         function.module_name.as_deref(),
+        function.package_name.as_deref(),
         uses,
         &mut bindings,
         Some(signatures_by_path),
@@ -138,15 +169,17 @@ pub(super) fn infer_private_body_type(
     body: &[BodyLine],
     expected: Option<&Type>,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[UseDecl],
     bindings: &mut PrivateBindings,
     signatures_by_path: Option<&FunctionSignatureMap>,
-    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
+    returns_by_path: &BTreeMap<FunctionKey, Type>,
     adts: &AdtRegistry,
     failures: &mut usize,
 ) -> PrivateExprInference {
     let mut context = PrivateSignatureInferContext {
         current_module,
+        current_package,
         uses,
         bindings,
         signatures_by_path,
@@ -206,6 +239,7 @@ fn infer_private_let_line(
             parse_type_or_unknown(Some(annotation)),
             context.uses,
             context.current_module,
+            context.current_package,
             context.adts,
         )
     });
@@ -237,6 +271,7 @@ fn infer_private_body_expr(
         expr,
         expected,
         context.current_module,
+        context.current_package,
         context.uses,
         context.bindings,
         context.signatures_by_path,
@@ -250,13 +285,15 @@ fn canonicalize_private_annotation_type(
     ty: Type,
     uses: &[UseDecl],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     adts: &AdtRegistry,
 ) -> Type {
-    crate::types::canonicalize_type_effects(
+    crate::types::signature_collection::canonicalize_type_effects_in_owner(
         ty,
         uses,
         &[],
         current_module,
+        current_package,
         &[],
         adts,
         &BTreeMap::new(),
@@ -265,12 +302,15 @@ fn canonicalize_private_annotation_type(
 
 pub(crate) fn private_function_body_bindings(
     function: &veln_ast::Function,
-    signatures_by_path: &BTreeMap<(Option<String>, String), FunctionSignature>,
+    signatures_by_path: &BTreeMap<FunctionKey, FunctionSignature>,
 ) -> PrivateBindings {
-    let signature = function
-        .name
-        .as_ref()
-        .and_then(|name| signatures_by_path.get(&(function.module_name.clone(), name.clone())));
+    let signature = function.name.as_ref().and_then(|name| {
+        signatures_by_path.get(&(
+            function.package_name.clone(),
+            function.module_name.clone(),
+            name.clone(),
+        ))
+    });
     let mut bindings = PrivateBindings::for_function(function);
     if function.callsite.is_some() {
         bindings.push(Binding::builtin_callsite());

@@ -483,7 +483,11 @@ impl<'a> CoreLowerer<'a> {
     ) -> CoreExpr {
         let signature = self
             .environment
-            .schema_decode_step_signature(schema, self.function.module_name.as_deref())
+            .schema_decode_step_signature_in_owner(
+                schema,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            )
             .cloned();
         let params = signature
             .as_ref()
@@ -532,7 +536,11 @@ impl<'a> CoreLowerer<'a> {
     ) -> CoreExpr {
         let signature = self
             .environment
-            .schema_encode_signature(schema, self.function.module_name.as_deref())
+            .schema_encode_signature_in_owner(
+                schema,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            )
             .cloned();
         let value = self.lower_expr(
             value,

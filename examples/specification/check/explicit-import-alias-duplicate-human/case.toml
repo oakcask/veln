@@ -1,4 +1,4 @@
-command = ["check", "main.veln", "alpha.veln", "beta.veln"]
+command = ["check", "main.veln", "alpha.veln", "beta.veln", "http.veln"]
 exit = 1
 
 [stdout]

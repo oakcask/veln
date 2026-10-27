@@ -56,7 +56,7 @@ use veln_ast::{
 use veln_project::{classify_companion_source, companion_access_target};
 use veln_source::{SourcePath, SourceSpan};
 
-use crate::semantic_model::{Binding, FunctionKey, Type};
+use crate::semantic_model::{Binding, Type};
 
 fn record_scoped_binding_count(bindings: &[Binding]) {
     #[cfg(test)]

@@ -20,7 +20,13 @@ pub(crate) fn private_callback_return_constraint_can_update(
         .rev()
         .find(|binding| binding.name == *name)
         .and_then(|binding| binding.private_function_value.clone())
-        .unwrap_or_else(|| (context.current_module.map(str::to_string), name.clone()));
+        .unwrap_or_else(|| {
+            (
+                context.current_package.map(str::to_string),
+                context.current_module.map(str::to_string),
+                name.clone(),
+            )
+        });
     if !context.omitted_private_returns.contains(&key) {
         return false;
     }
@@ -35,12 +41,13 @@ pub(crate) fn private_callback_return_constraint_can_update(
 
 pub(crate) struct PrivatePreludeCallbackConstraintContext<'a> {
     pub(crate) current_module: Option<&'a str>,
+    pub(crate) current_package: Option<&'a str>,
     pub(crate) uses: &'a [UseDecl],
     pub(crate) bindings: &'a mut PrivateBindings,
-    pub(crate) function_by_path: &'a BTreeMap<(Option<String>, String), &'a Function>,
-    pub(crate) omitted_private_returns: &'a BTreeSet<(Option<String>, String)>,
-    pub(crate) returns_by_path: &'a mut BTreeMap<(Option<String>, String), Type>,
-    pub(crate) selected_callback_returns: &'a mut BTreeSet<(Option<String>, String)>,
+    pub(crate) function_by_path: &'a BTreeMap<FunctionKey, &'a Function>,
+    pub(crate) omitted_private_returns: &'a BTreeSet<FunctionKey>,
+    pub(crate) returns_by_path: &'a mut BTreeMap<FunctionKey, Type>,
+    pub(crate) selected_callback_returns: &'a mut BTreeSet<FunctionKey>,
     pub(crate) adts: &'a AdtRegistry,
     pub(crate) changed: &'a mut bool,
 }
@@ -76,6 +83,7 @@ pub(crate) fn collect_private_prelude_callback_expr_constraints(
                 body,
                 expected,
                 context.current_module,
+                context.current_package,
                 context.uses,
                 context.function_by_path,
                 context.omitted_private_returns,
@@ -245,6 +253,7 @@ pub(crate) fn collect_private_prelude_callback_call_constraints(
         expected,
         &mut PrivateSignatureInferContext {
             current_module: context.current_module,
+            current_package: context.current_package,
             uses: context.uses,
             bindings: context.bindings,
             signatures_by_path: None,
@@ -272,7 +281,12 @@ pub(crate) fn private_prelude_callback_call_params(
     let ExprKind::NamePath { segments, .. } = &callee.kind else {
         return None;
     };
-    let name = private_prelude_constraint_name(segments, context.current_module, function_by_path)?;
+    let name = private_prelude_constraint_name(
+        segments,
+        context.current_module,
+        context.current_package,
+        function_by_path,
+    )?;
     let input_type = private_prelude_input_arg(args, name).map(|arg| context.infer(arg, None));
     let (mut params, _) =
         crate::prelude::prelude_signature_with_input(name, expected, input_type.as_ref())?;
@@ -308,12 +322,16 @@ pub(crate) fn apply_vec_try_map_with_context_param(
 pub(crate) fn private_prelude_constraint_name<'a>(
     segments: &'a [String],
     current_module: Option<&str>,
-    function_by_path: &BTreeMap<(Option<String>, String), &Function>,
+    current_package: Option<&str>,
+    function_by_path: &BTreeMap<FunctionKey, &Function>,
 ) -> Option<&'a str> {
     match segments {
         [name]
-            if !function_by_path
-                .contains_key(&(current_module.map(str::to_string), name.clone())) =>
+            if !function_by_path.contains_key(&(
+                current_package.map(str::to_string),
+                current_module.map(str::to_string),
+                name.clone(),
+            )) =>
         {
             Some(name)
         }
@@ -361,7 +379,13 @@ pub(crate) fn collect_private_callback_return_constraint_for_segments(
         .rev()
         .find(|binding| binding.name == *name)
         .and_then(|binding| binding.private_function_value.clone())
-        .unwrap_or_else(|| (context.current_module.map(str::to_string), name.clone()));
+        .unwrap_or_else(|| {
+            (
+                context.current_package.map(str::to_string),
+                context.current_module.map(str::to_string),
+                name.clone(),
+            )
+        });
     if !context.omitted_private_returns.contains(&key) {
         return;
     }

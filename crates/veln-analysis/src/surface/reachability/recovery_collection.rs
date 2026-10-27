@@ -413,10 +413,18 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         if let Some(handler) = self.visible_handler(segments, current_module) {
-            if spans.iter().any(|span| span.is_declaration(&handler.span)) {
+            if spans
+                .iter()
+                .any(|span| span.is_handler_declaration(handler))
+            {
                 return;
             }
-            spans.push(ReachableInvalidNameSpan::Declaration(handler.span.clone()));
+            spans.push(ReachableInvalidNameSpan::HandlerDeclaration {
+                span: handler.span.clone(),
+                package_name: handler.package_name.clone(),
+                module_name: handler.module_name.clone(),
+                name: handler.name.clone(),
+            });
             self.collect_handler(handler, spans);
         } else {
             self.select_invalid_import_path(segments, current_module, spans);

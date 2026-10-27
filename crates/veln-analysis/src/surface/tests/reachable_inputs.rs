@@ -1,6 +1,54 @@
 use super::*;
 
 #[test]
+fn uniquely_corrected_duplicate_targets_supply_no_reachable_functions_in_both_orders() {
+    for imports in [
+        "use Http as bad\nuse http as good\n",
+        "use http as good\nuse Http as bad\n",
+    ] {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "app.veln",
+                    format!(
+                        "{imports}fn main() -> Int\n  bad::entry()\n  good::entry()\n  http::entry()\nend\n"
+                    ),
+                ),
+                SourceFile::new(
+                    "http.veln",
+                    "pub fn entry() -> Int\n  private_dependency()\nend\nfn private_dependency() -> Int\n  1\nend\n",
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        assert_eq!(
+            reachable_function_names(&reachable),
+            [("app", "main")],
+            "{imports:?}"
+        );
+        let diagnostics = veln_sema::analyze_surface_module(&reachable);
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "name.duplicate")
+                .count(),
+            1,
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "name.invalid_case"),
+            "{diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
 fn qualified_import_selection_scales_linearly() {
     fn selection_work(import_count: usize) -> usize {
         let mut source = String::from("mod main\n");
@@ -34,7 +82,17 @@ fn qualified_import_selection_scales_linearly() {
             reachable_function_count(&module, "main", FunctionKind::Function),
             import_count + 1
         );
-        reachability_counters::import_selection_work()
+        let (_, target_scans, _, _) = reachability_counters::snapshot();
+        let membership_work = reachability_counters::callee_membership_work();
+        assert!(
+            membership_work >= import_count,
+            "every discovered callee must record its membership work"
+        );
+        let work = reachability_counters::import_selection_work() + target_scans + membership_work;
+        eprintln!(
+            "imports={import_count}, selection_work={work}, membership_work={membership_work}"
+        );
+        work
     }
 
     let small = selection_work(64);

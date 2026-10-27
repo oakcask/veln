@@ -122,24 +122,33 @@ fn standard_loader_preserves_relative_and_canonical_paths_for_alias_recovery() {
     })
     .collect();
     let standard = EmbeddedStandardPackage { modules };
-    let application = single_file_project(concat!(
-        "use http as loaded from \"std\"\n",
-        "use Http as wire from \"std\"\n",
-        "\n",
-        "pub fn relative_entry = Http::entry\n",
-        "pub fn qualified_entry = wire::entry\n",
-        "pub fn canonical_entry = std::Http::entry\n",
-        "pub type RelativeState = Http::State\n",
-        "pub type QualifiedState = wire::State\n",
-        "pub type CanonicalState = std::Http::State\n",
-        "pub schema RelativePacket = Http::Packet\n",
-        "pub schema QualifiedPacket = wire::Packet\n",
-        "pub schema CanonicalPacket = std::Http::Packet\n",
-        "\n",
-        "pub fn main() -> Int\n",
-        "  0\n",
-        "end\n",
-    ));
+    let application = Project {
+        root: ".".into(),
+        files: vec![
+            SourceFile::new("loader.veln", "use http as loaded from \"std\"\n"),
+            SourceFile::new(
+                "main.veln",
+                concat!(
+                    "use Http as wire from \"std\"\n",
+                    "\n",
+                    "pub fn relative_entry = Http::entry\n",
+                    "pub fn qualified_entry = wire::entry\n",
+                    "pub fn canonical_entry = std::Http::entry\n",
+                    "pub type RelativeState = Http::State\n",
+                    "pub type QualifiedState = wire::State\n",
+                    "pub type CanonicalState = std::Http::State\n",
+                    "pub schema RelativePacket = Http::Packet\n",
+                    "pub schema QualifiedPacket = wire::Packet\n",
+                    "pub schema CanonicalPacket = std::Http::Packet\n",
+                    "\n",
+                    "pub fn main() -> Int\n",
+                    "  0\n",
+                    "end\n",
+                ),
+            ),
+        ],
+        manifest: None,
+    };
     let mut diagnostics = Vec::new();
     let mut parts = SurfaceParts::new();
     load_project_sources(&application, &mut diagnostics, &mut parts, None, None, None);

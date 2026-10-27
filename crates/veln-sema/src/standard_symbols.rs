@@ -657,10 +657,26 @@ pub(crate) fn function_link_name(
     qualify_application: bool,
 ) -> String {
     let standard = standard_function_link_name(module, package, name);
-    if standard != name || !qualify_application {
+    if standard != name {
         return standard;
     }
-    module.map_or_else(|| name.to_string(), |module| format!("{module}::{name}"))
+    if let Some(package) = package {
+        return match module {
+            Some(module) if module == package || module.starts_with(&format!("{package}::")) => {
+                format!("{module}::{name}")
+            }
+            Some(module) => format!("{package}::{module}::{name}"),
+            None => format!("{package}::{name}"),
+        };
+    }
+    if !qualify_application {
+        return name.to_string();
+    }
+    match module {
+        Some(module) if module.starts_with("std::") => format!("workspace::{module}::{name}"),
+        Some(module) => format!("{module}::{name}"),
+        None => name.to_string(),
+    }
 }
 
 #[cfg(test)]

@@ -195,6 +195,49 @@ pub struct ResolvedImportTarget {
 }
 
 impl UseDecl {
+    /// Correct one uppercase source target segment while retaining any loaded package prefix.
+    pub fn corrected_target_case(&self) -> Option<String> {
+        let written_segments = self.written_name.split("::");
+        let mut invalid_indices =
+            written_segments
+                .clone()
+                .enumerate()
+                .filter_map(|(index, segment)| {
+                    segment
+                        .as_bytes()
+                        .first()
+                        .is_some_and(u8::is_ascii_uppercase)
+                        .then_some(index)
+                });
+        let invalid_index = invalid_indices.next()?;
+        if invalid_indices.next().is_some() {
+            return None;
+        }
+        let internal_segments = self.name.split("::").collect::<Vec<_>>();
+        let prefix_count = internal_segments
+            .len()
+            .checked_sub(written_segments.count())?;
+        let internal_index = prefix_count + invalid_index;
+        let first = internal_segments
+            .get(internal_index)?
+            .as_bytes()
+            .first()
+            .copied()?;
+        if !first.is_ascii_uppercase() {
+            return None;
+        }
+        let byte_offset = internal_segments[..internal_index]
+            .iter()
+            .map(|segment| segment.len() + 2)
+            .sum::<usize>();
+        let mut corrected = self.name.clone();
+        corrected.replace_range(
+            byte_offset..byte_offset + 1,
+            &(first as char).to_ascii_lowercase().to_string(),
+        );
+        Some(corrected)
+    }
+
     pub fn has_explicit_alias(&self) -> bool {
         self.alias_span.is_some()
     }

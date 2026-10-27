@@ -1,5 +1,7 @@
 use alpha as shared
 use beta as shared
+use Http as bad
+use http as good
 
 fn main() -> Int
   1

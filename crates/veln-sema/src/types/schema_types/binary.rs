@@ -12,8 +12,9 @@ fn schema_decode_record_fields_inner(
     schema: &SchemaDecl,
     stack: &mut Vec<String>,
 ) -> Option<Vec<(String, Type, u8)>> {
-    let schema_name = schema.name.as_ref()?;
-    if stack.iter().any(|name| name == schema_name) {
+    schema.name.as_ref()?;
+    let schema_name = crate::schema::schema_link_name(module, schema);
+    if stack.iter().any(|name| name == &schema_name) {
         return None;
     }
     stack.push(schema_name.clone());

@@ -191,6 +191,8 @@ fn reachable_functions(
     }];
 
     while let Some(key) = stack.pop() {
+        #[cfg(test)]
+        reachability_counters::record_callee_membership();
         if !reachable.insert(key.clone()) {
             continue;
         }
@@ -224,6 +226,8 @@ fn reachable_functions(
             callees
         });
         for callee in callees {
+            #[cfg(test)]
+            reachability_counters::record_callee_membership();
             if !reachable.contains(&callee) {
                 stack.push(callee);
             }
@@ -244,15 +248,19 @@ fn module_with_reachable_functions(
         &functions,
         &reachable_invalid_name_spans,
     ));
+    let uses = inputs.cloned_uses();
     let invalid_names_by_declaration = inputs.cloned_declarations(|module| &module.invalid_names);
     let invalid_names = inputs
         .cloned_declarations(|module| &module.invalid_names)
         .into_iter()
-        .filter(|invalid| invalid_name_is_reachable(invalid, &reachable_invalid_name_spans))
+        .filter(|invalid| {
+            invalid_name_is_reachable(invalid, &reachable_invalid_name_spans)
+                || inputs.corrected_duplicate_import_contains(&invalid.span)
+        })
         .collect();
     SurfaceModule {
         module: inputs.module_header(),
-        uses: inputs.cloned_declarations(|module| &module.uses),
+        uses,
         aliases: inputs
             .cloned_declarations(|module| &module.aliases)
             .into_iter()
@@ -274,7 +282,7 @@ fn module_with_reachable_functions(
             .filter(|handler| {
                 reachable_invalid_name_spans
                     .iter()
-                    .any(|span| span.is_declaration(&handler.span))
+                    .any(|span| span.is_handler_declaration(handler))
             })
             .collect(),
         types: inputs.cloned_declarations(|module| &module.types),
@@ -333,7 +341,10 @@ fn invalid_name_is_reachable(
             .any(|reachable| reachable.is_declaration(span));
     }
     reachable_spans.iter().any(|reachable| match reachable {
-        ReachableInvalidNameSpan::Declaration(span) => span_contains(span, &invalid.span),
+        ReachableInvalidNameSpan::Declaration(span)
+        | ReachableInvalidNameSpan::HandlerDeclaration { span, .. } => {
+            span_contains(span, &invalid.span)
+        }
         ReachableInvalidNameSpan::Name(span) => span == &invalid.span,
     })
 }
@@ -476,6 +487,7 @@ pub(crate) mod reachability_counters {
         static CALLEE_CONTEXT_PREPARATIONS: Cell<usize> = const { Cell::new(0) };
         static INVALID_IMPORT_CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
         static IMPORT_SELECTION_WORK: Cell<usize> = const { Cell::new(0) };
+        static CALLEE_MEMBERSHIP_WORK: Cell<usize> = const { Cell::new(0) };
     }
 
     pub(crate) fn reset() {
@@ -486,6 +498,7 @@ pub(crate) mod reachability_counters {
         CALLEE_CONTEXT_PREPARATIONS.set(0);
         INVALID_IMPORT_CANDIDATE_SCANS.set(0);
         IMPORT_SELECTION_WORK.set(0);
+        CALLEE_MEMBERSHIP_WORK.set(0);
     }
 
     pub(crate) fn record_function_lookup_scan() {
@@ -546,6 +559,14 @@ pub(crate) mod reachability_counters {
 
     pub(crate) fn import_selection_work() -> usize {
         IMPORT_SELECTION_WORK.get()
+    }
+
+    pub(crate) fn record_callee_membership() {
+        CALLEE_MEMBERSHIP_WORK.set(CALLEE_MEMBERSHIP_WORK.get() + 1);
+    }
+
+    pub(crate) fn callee_membership_work() -> usize {
+        CALLEE_MEMBERSHIP_WORK.get()
     }
 
     pub(crate) fn snapshot() -> (usize, usize, usize, usize) {

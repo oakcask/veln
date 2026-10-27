@@ -1,5 +1,25 @@
 use super::*;
 
+#[derive(Default)]
+pub(super) struct ReachableCallees {
+    ordered: Vec<ReachableFunction>,
+    members: HashSet<ReachableFunction>,
+}
+
+impl ReachableCallees {
+    pub(super) fn insert(&mut self, callee: ReachableFunction) {
+        #[cfg(test)]
+        reachability_counters::record_callee_membership();
+        if self.members.insert(callee.clone()) {
+            self.ordered.push(callee);
+        }
+    }
+
+    pub(super) fn into_ordered(self) -> Vec<ReachableFunction> {
+        self.ordered
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(super) struct ReachableFunction {
     pub(super) kind: FunctionKind,

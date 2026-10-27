@@ -18,6 +18,7 @@ pub(super) struct SchemaSymbolTable {
 struct SchemaSymbol {
     name: String,
     module_name: Option<String>,
+    package_name: Option<String>,
     visibility: Visibility,
     span: SourceSpan,
     unsupported_format_neutral_encode_field: Option<SchemaField>,
@@ -27,12 +28,14 @@ struct SchemaSymbol {
 struct SchemaAliasSymbol {
     name: String,
     module_name: Option<String>,
+    package_name: Option<String>,
     target: Vec<String>,
 }
 
 pub(super) struct ResolvedSchemaSymbol {
     pub(super) name: String,
     pub(super) module_name: Option<String>,
+    pub(super) package_name: Option<String>,
     pub(super) span: SourceSpan,
     pub(super) unsupported_format_neutral_encode_field: Option<SchemaField>,
 }
@@ -40,6 +43,7 @@ pub(super) struct ResolvedSchemaSymbol {
 pub(super) struct SchemaAliasTarget {
     pub(super) target: Vec<String>,
     pub(super) module_name: Option<String>,
+    pub(super) package_name: Option<String>,
 }
 
 impl SchemaSymbolTable {
@@ -67,6 +71,7 @@ impl SchemaSymbolTable {
                 Some(SchemaSymbol {
                     name: schema.name.clone()?,
                     module_name: schema.module_name.clone(),
+                    package_name: schema.package_name.clone(),
                     visibility: schema.visibility,
                     span: schema.span.clone(),
                     unsupported_format_neutral_encode_field:
@@ -83,6 +88,7 @@ impl SchemaSymbolTable {
                 Some(SchemaAliasSymbol {
                     name: alias.name.clone()?,
                     module_name: alias.module_name.clone(),
+                    package_name: alias.package_name.clone(),
                     target: alias.target.clone(),
                 })
             })
@@ -94,12 +100,14 @@ impl SchemaSymbolTable {
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
         uses: &[UseDecl],
         companion_access_targets: &BTreeMap<String, String>,
     ) -> bool {
         self.schema_path(
             segments,
             current_module,
+            current_package,
             uses,
             true,
             companion_access_targets,
@@ -111,14 +119,23 @@ impl SchemaSymbolTable {
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
         uses: &[UseDecl],
     ) -> Option<SchemaAliasTarget> {
         match segments {
-            [name] => self.schema_alias_target_in_module(current_module, name),
+            [name] => self.schema_alias_target_in_module(current_module, current_package, name),
             [_, .., name] => {
-                let use_decl =
-                    imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)?;
-                self.schema_alias_target_in_module(Some(&use_decl.name), name)
+                let use_decl = imported_use_for_path_in_owner(
+                    uses,
+                    &segments[..segments.len() - 1],
+                    current_module,
+                    current_package,
+                )?;
+                self.schema_alias_target_in_module(
+                    Some(&use_decl.name),
+                    use_decl.resolved_target().package.as_deref(),
+                    name,
+                )
             }
             _ => None,
         }
@@ -127,30 +144,36 @@ impl SchemaSymbolTable {
     fn schema_alias_target_in_module(
         &self,
         module_name: Option<&str>,
+        package_name: Option<&str>,
         name: &str,
     ) -> Option<SchemaAliasTarget> {
-        let alias = self
-            .aliases
-            .iter()
-            .find(|alias| alias.name == name && alias.module_name.as_deref() == module_name)?;
+        let alias = self.aliases.iter().find(|alias| {
+            alias.name == name
+                && alias.module_name.as_deref() == module_name
+                && alias.package_name.as_deref() == package_name
+        })?;
         Some(SchemaAliasTarget {
             target: alias.target.clone(),
             module_name: alias.module_name.clone(),
+            package_name: alias.package_name.clone(),
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn schema_target_path(
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
         uses: &[UseDecl],
         allow_private_local_schema: bool,
         companion_access_targets: &BTreeMap<String, String>,
-        visited_aliases: &mut Vec<(Option<String>, String)>,
+        visited_aliases: &mut Vec<(Option<String>, Option<String>, String)>,
     ) -> Option<ResolvedSchemaSymbol> {
         match segments {
             [name] => self.schema_target_in_module(
                 current_module,
+                current_package,
                 name,
                 allow_private_local_schema,
                 uses,
@@ -158,10 +181,15 @@ impl SchemaSymbolTable {
                 visited_aliases,
             ),
             [_, .., name] => {
-                let use_decl =
-                    imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)?;
+                let use_decl = imported_use_for_path_in_owner(
+                    uses,
+                    &segments[..segments.len() - 1],
+                    current_module,
+                    current_package,
+                )?;
                 self.schema_target_in_module(
                     Some(&use_decl.name),
+                    use_decl.resolved_target().package.as_deref(),
                     name,
                     companion_private_schema_access_allowed(
                         use_decl,
@@ -177,24 +205,27 @@ impl SchemaSymbolTable {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn schema_target_in_module(
         &self,
         module_name: Option<&str>,
+        package_name: Option<&str>,
         name: &str,
         allow_private_schema: bool,
         uses: &[UseDecl],
         companion_access_targets: &BTreeMap<String, String>,
-        visited_aliases: &mut Vec<(Option<String>, String)>,
+        visited_aliases: &mut Vec<(Option<String>, Option<String>, String)>,
     ) -> Option<ResolvedSchemaSymbol> {
-        if let Some(schema) = self
-            .schemas
-            .iter()
-            .find(|schema| schema.name == name && schema.module_name.as_deref() == module_name)
-        {
+        if let Some(schema) = self.schemas.iter().find(|schema| {
+            schema.name == name
+                && schema.module_name.as_deref() == module_name
+                && schema.package_name.as_deref() == package_name
+        }) {
             return (allow_private_schema || schema.visibility == Visibility::Public).then(|| {
                 ResolvedSchemaSymbol {
                     name: schema.name.clone(),
                     module_name: schema.module_name.clone(),
+                    package_name: schema.package_name.clone(),
                     span: schema.span.clone(),
                     unsupported_format_neutral_encode_field: schema
                         .unsupported_format_neutral_encode_field
@@ -202,11 +233,16 @@ impl SchemaSymbolTable {
                 }
             });
         }
-        let alias = self
-            .aliases
-            .iter()
-            .find(|alias| alias.name == name && alias.module_name.as_deref() == module_name)?;
-        let key = (alias.module_name.clone(), alias.name.clone());
+        let alias = self.aliases.iter().find(|alias| {
+            alias.name == name
+                && alias.module_name.as_deref() == module_name
+                && alias.package_name.as_deref() == package_name
+        })?;
+        let key = (
+            alias.package_name.clone(),
+            alias.module_name.clone(),
+            alias.name.clone(),
+        );
         if visited_aliases.contains(&key) {
             return None;
         }
@@ -214,6 +250,7 @@ impl SchemaSymbolTable {
         let result = self.schema_target_path(
             &alias.target,
             alias.module_name.as_deref(),
+            alias.package_name.as_deref(),
             uses,
             false,
             companion_access_targets,
@@ -223,18 +260,21 @@ impl SchemaSymbolTable {
         result
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn schema_path(
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
         uses: &[UseDecl],
         allow_private_local_schema: bool,
         companion_access_targets: &BTreeMap<String, String>,
-        visited_aliases: &mut Vec<(Option<String>, String)>,
+        visited_aliases: &mut Vec<(Option<String>, Option<String>, String)>,
     ) -> SchemaPathLookup {
         match segments {
             [name] => self.schema_in_module(
                 current_module,
+                current_package,
                 name,
                 allow_private_local_schema,
                 uses,
@@ -242,13 +282,17 @@ impl SchemaSymbolTable {
                 visited_aliases,
             ),
             [_, .., name] => {
-                let Some(use_decl) =
-                    imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
-                else {
+                let Some(use_decl) = imported_use_for_path_in_owner(
+                    uses,
+                    &segments[..segments.len() - 1],
+                    current_module,
+                    current_package,
+                ) else {
                     return SchemaPathLookup::Missing;
                 };
                 self.schema_in_module(
                     Some(&use_decl.name),
+                    use_decl.resolved_target().package.as_deref(),
                     name,
                     companion_private_schema_access_allowed(
                         use_decl,
@@ -264,34 +308,40 @@ impl SchemaSymbolTable {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn schema_in_module(
         &self,
         module_name: Option<&str>,
+        package_name: Option<&str>,
         name: &str,
         allow_private_schema: bool,
         uses: &[UseDecl],
         companion_access_targets: &BTreeMap<String, String>,
-        visited_aliases: &mut Vec<(Option<String>, String)>,
+        visited_aliases: &mut Vec<(Option<String>, Option<String>, String)>,
     ) -> SchemaPathLookup {
-        if let Some(schema) = self
-            .schemas
-            .iter()
-            .find(|schema| schema.name == name && schema.module_name.as_deref() == module_name)
-        {
+        if let Some(schema) = self.schemas.iter().find(|schema| {
+            schema.name == name
+                && schema.module_name.as_deref() == module_name
+                && schema.package_name.as_deref() == package_name
+        }) {
             return if allow_private_schema || schema.visibility == Visibility::Public {
                 SchemaPathLookup::Visible
             } else {
                 SchemaPathLookup::Private
             };
         }
-        let Some(alias) = self
-            .aliases
-            .iter()
-            .find(|alias| alias.name == name && alias.module_name.as_deref() == module_name)
-        else {
+        let Some(alias) = self.aliases.iter().find(|alias| {
+            alias.name == name
+                && alias.module_name.as_deref() == module_name
+                && alias.package_name.as_deref() == package_name
+        }) else {
             return SchemaPathLookup::Missing;
         };
-        let key = (alias.module_name.clone(), alias.name.clone());
+        let key = (
+            alias.package_name.clone(),
+            alias.module_name.clone(),
+            alias.name.clone(),
+        );
         if visited_aliases.contains(&key) {
             return SchemaPathLookup::Missing;
         }
@@ -299,6 +349,7 @@ impl SchemaSymbolTable {
         let result = self.schema_path(
             &alias.target,
             alias.module_name.as_deref(),
+            alias.package_name.as_deref(),
             uses,
             false,
             companion_access_targets,
@@ -312,6 +363,7 @@ impl SchemaSymbolTable {
 #[derive(Clone)]
 pub(super) struct NamedSymbol {
     pub(super) name: String,
+    pub(super) package_name: Option<String>,
     pub(super) module_name: Option<String>,
     visibility: Visibility,
 }
@@ -351,6 +403,7 @@ pub(super) fn named_type_symbols(module: &SurfaceModule) -> Vec<NamedSymbol> {
             Some(NamedSymbol {
                 name,
                 module_name: ty.module_name.clone(),
+                package_name: ty.package_name.clone(),
                 visibility: ty.visibility,
             })
         })
@@ -371,6 +424,7 @@ pub(super) fn named_type_symbols(module: &SurfaceModule) -> Vec<NamedSymbol> {
                 Some(NamedSymbol {
                     name,
                     module_name: alias.module_name.clone(),
+                    package_name: alias.package_name.clone(),
                     visibility: Visibility::Public,
                 })
             }),

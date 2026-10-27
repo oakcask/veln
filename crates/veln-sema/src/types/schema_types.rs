@@ -183,7 +183,10 @@ fn schema_decode_function_signatures_for_schema(
     vec![
         FunctionSignature {
             name: schema_decode_function_name(schema_name),
-            target_name: format!("{SCHEMA_DECODE_TARGET_PREFIX}{schema_name}"),
+            target_name: format!(
+                "{SCHEMA_DECODE_TARGET_PREFIX}{}",
+                crate::schema::schema_link_name(module, schema)
+            ),
             module_name: schema.module_name.clone(),
             package_name: schema.package_name.clone(),
             visibility: schema.visibility,
@@ -197,7 +200,10 @@ fn schema_decode_function_signatures_for_schema(
         },
         FunctionSignature {
             name: schema_decode_step_function_name(schema_name),
-            target_name: format!("{SCHEMA_DECODE_STEP_TARGET_PREFIX}{schema_name}"),
+            target_name: format!(
+                "{SCHEMA_DECODE_STEP_TARGET_PREFIX}{}",
+                crate::schema::schema_link_name(module, schema)
+            ),
             module_name: schema.module_name.clone(),
             package_name: schema.package_name.clone(),
             visibility: schema.visibility,
@@ -255,7 +261,10 @@ fn schema_validate_function_signature_for_schema(
     let decoded_type = Type::Record(fields);
     Some(FunctionSignature {
         name: schema_validate_function_name(schema_name),
-        target_name: format!("{SCHEMA_VALIDATE_TARGET_PREFIX}{schema_name}"),
+        target_name: format!(
+            "{SCHEMA_VALIDATE_TARGET_PREFIX}{}",
+            crate::schema::schema_link_name(module, schema)
+        ),
         module_name: schema.module_name.clone(),
         package_name: schema.package_name.clone(),
         visibility: schema.visibility,
@@ -281,7 +290,10 @@ fn schema_encode_function_signature_for_schema(
         )?);
         return Some(FunctionSignature {
             name: schema_encode_function_name(schema_name),
-            target_name: format!("{SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX}{schema_name}"),
+            target_name: format!(
+                "{SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX}{}",
+                crate::schema::schema_link_name(module, schema)
+            ),
             module_name: schema.module_name.clone(),
             package_name: schema.package_name.clone(),
             visibility: schema.visibility,
@@ -305,7 +317,10 @@ fn schema_encode_function_signature_for_schema(
     let encode_error = Type::named("EncodeError", Vec::new());
     Some(FunctionSignature {
         name: schema_encode_function_name(schema_name),
-        target_name: format!("{SCHEMA_ENCODE_TARGET_PREFIX}{schema_name}"),
+        target_name: format!(
+            "{SCHEMA_ENCODE_TARGET_PREFIX}{}",
+            crate::schema::schema_link_name(module, schema)
+        ),
         module_name: schema.module_name.clone(),
         package_name: schema.package_name.clone(),
         visibility: schema.visibility,

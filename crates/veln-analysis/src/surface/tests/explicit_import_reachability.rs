@@ -150,12 +150,13 @@ fn reserved_explicit_prelude_alias_adds_no_reachable_target() {
 
 #[test]
 fn canonical_standard_path_keeps_aliased_import_target_reachable() {
-    let standard = lower(concat!(
+    let mut standard = lower(concat!(
         "mod std::net\n",
         "pub fn endpoint() -> Int\n",
         "  1\n",
         "end\n",
     ));
+    standard.functions[0].package_name = Some("std".to_string());
     let mut application = lower(concat!(
         "mod app\n",
         "use net as wire from \"std\"\n",
@@ -273,6 +274,171 @@ fn qualified_calls_keep_same_spelled_target_packages_distinct() {
         endpoint_packages,
         [None, Some("std".to_string())].into_iter().collect()
     );
+}
+
+#[test]
+fn each_alias_selects_only_its_package_for_calls_and_function_values() {
+    for expression in [
+        "wire::endpoint()",
+        "let callback = wire::endpoint\n  callback()",
+    ] {
+        for (import, expected_package) in [
+            ("use shared as wire", None),
+            ("use shared as wire from \"dependency\"", Some("dependency")),
+        ] {
+            let mut module = lower(&format!(
+                "mod app\n{import}\npub fn main() -> Int\n  {expression}\nend\n"
+            ));
+            for (package, result) in [(None, 1), (Some("dependency"), 2)] {
+                let mut target = lower(&format!(
+                    "mod shared\npub fn endpoint() -> Int\n  {result}\nend\n"
+                ));
+                target.functions[0].package_name = package.map(str::to_string);
+                module.functions.extend(target.functions);
+            }
+            let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+            let packages = reachable
+                .functions
+                .iter()
+                .filter(|function| function.name.as_deref() == Some("endpoint"))
+                .map(|function| function.package_name.as_deref())
+                .collect::<Vec<_>>();
+            assert_eq!(
+                packages,
+                [expected_package],
+                "import={import}, expression={expression}"
+            );
+        }
+    }
+}
+
+#[test]
+fn each_alias_lowers_calls_to_its_package_function_identity() {
+    use veln_core::{CoreCallTarget, CoreExprKind, CoreStmtKind};
+
+    for (alias, expected_target, reachable_target) in [
+        ("local_wire", "shared::endpoint", "endpoint"),
+        (
+            "dependency_wire",
+            "dependency::shared::endpoint",
+            "dependency::shared::endpoint",
+        ),
+    ] {
+        let mut module = lower(&format!(
+            concat!(
+                "mod app\nuse shared as local_wire\n",
+                "use shared as dependency_wire from \"dependency\"\n",
+                "pub fn main() -> Int\n  {}::endpoint()\nend\n"
+            ),
+            alias
+        ));
+        for (package, result) in [(None, 1), (Some("dependency"), 2)] {
+            let mut target = lower(&format!(
+                "mod shared\npub fn endpoint() -> Int\n  {result}\nend\n"
+            ));
+            target.functions[0].package_name = package.map(str::to_string);
+            module.functions.extend(target.functions);
+        }
+
+        for (selected, target, expected_names) in [
+            (
+                module.clone(),
+                expected_target,
+                vec!["main", "shared::endpoint", "dependency::shared::endpoint"],
+            ),
+            (
+                reachable_entry_module(&module, "main", FunctionKind::Function),
+                reachable_target,
+                vec!["main", reachable_target],
+            ),
+        ] {
+            let lowered = veln_sema::lower_checked_surface_module(&selected);
+            assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+            let core = lowered
+                .core
+                .expect("selected package functions should lower");
+            assert_eq!(
+                core.functions
+                    .iter()
+                    .map(|function| function.name.as_str())
+                    .collect::<Vec<_>>(),
+                expected_names
+            );
+            let main = core
+                .functions
+                .iter()
+                .find(|function| function.name == "main")
+                .expect("main entry");
+            assert!(main.body.iter().any(|statement| {
+                matches!(&statement.kind, CoreStmtKind::Return { expr } if matches!(&expr.kind,
+                    CoreExprKind::Call { target: CoreCallTarget::Function(name), .. } if name == target))
+            }), "alias={alias}, main={main:#?}");
+        }
+    }
+}
+
+#[test]
+fn opaque_callable_candidates_stay_with_the_imported_package() {
+    for (import, expected_package) in [
+        ("use shared as wire", None),
+        ("use shared as wire from \"dependency\"", Some("dependency")),
+    ] {
+        let mut module = lower(&format!(
+            "mod app\n{import}\npub fn main(callback: fn() -> Int) -> Int\n  callback()\nend\n"
+        ));
+        for (package, result) in [(None, 1), (Some("dependency"), 2)] {
+            let mut target = lower(&format!(
+                "mod shared\npub fn endpoint() -> Int\n  {result}\nend\n"
+            ));
+            target.functions[0].package_name = package.map(str::to_string);
+            module.functions.extend(target.functions);
+        }
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let packages = reachable
+            .functions
+            .iter()
+            .filter(|function| function.name.as_deref() == Some("endpoint"))
+            .map(|function| function.package_name.as_deref())
+            .collect::<Vec<_>>();
+        assert_eq!(packages, [expected_package], "import={import}");
+    }
+}
+
+#[test]
+fn each_handler_alias_keeps_only_its_package_private_dependencies() {
+    for (import, expected_package) in [
+        ("use shared as wire", None),
+        ("use shared as wire from \"dependency\"", Some("dependency")),
+    ] {
+        let mut module = lower(&format!(
+            "mod app\n{import}\npub fn main() -> Int\n  handle 0 with wire::answer()\nend\n"
+        ));
+        for (package, result) in [(None, 1), (Some("dependency"), 2)] {
+            let mut target = lower(&format!(
+                concat!(
+                    "mod shared\n",
+                    "effect Ask\n  value() -> Int\nend\n",
+                    "pub handler answer() for Ask\n  value() => private_value()\nend\n",
+                    "fn private_value() -> Int\n  {}\nend\n"
+                ),
+                result
+            ));
+            for function in &mut target.functions {
+                function.package_name = package.map(str::to_string);
+            }
+            target.handlers[0].package_name = package.map(str::to_string);
+            module.functions.extend(target.functions);
+            module.handlers.extend(target.handlers);
+        }
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let packages = reachable
+            .functions
+            .iter()
+            .filter(|function| function.name.as_deref() == Some("private_value"))
+            .map(|function| function.package_name.as_deref())
+            .collect::<Vec<_>>();
+        assert_eq!(packages, [expected_package], "import={import}");
+    }
 }
 
 #[test]

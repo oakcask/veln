@@ -1,6 +1,117 @@
 use super::*;
 
 #[test]
+fn explicit_aliases_execute_only_the_selected_package_function_and_handler() {
+    // Exercise package selection and JVM linkage for same-spelled declarations.
+    let root = temp_dir("explicit-alias-package-identity");
+    fs::create_dir_all(root.join("vendor/dependency")).expect("dependency source directory");
+    fs::write(
+        root.join("veln.toml"),
+        "[dependencies.\"dependency\"]\npath = \"vendor/dependency\"\n",
+    )
+    .expect("project manifest");
+    fs::write(
+        root.join("vendor/dependency/veln.toml"),
+        "[package]\nname = \"dependency\"\n[lib]\nexports = [\"shared.veln\"]\n",
+    )
+    .expect("dependency manifest");
+    fs::write(root.join("main.veln"), concat!(
+        "use shared as local_wire\n",
+        "use shared as dependency_wire from \"dependency\"\n",
+        "pub fn local_call() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(local_wire::endpoint()))\nend\n",
+        "pub fn dependency_call() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(dependency_wire::endpoint()))\nend\n",
+        "pub fn local_handler() -> () effects [stdio]\n",
+        "  let result = handle perform local_wire::Ask::value() with local_wire::answer()\n",
+        "  stdio::println(int_to_string(result))\nend\n",
+        "pub fn dependency_handler() -> () effects [stdio]\n",
+        "  let result = handle perform dependency_wire::Ask::value() with dependency_wire::answer()\n",
+        "  stdio::println(int_to_string(result))\nend\n",
+    )).expect("entry sources");
+    for (path, value) in [("shared.veln", 1), ("vendor/dependency/shared.veln", 2)] {
+        fs::write(
+            root.join(path),
+            format!(
+                concat!(
+                    "pub fn endpoint() -> Int\n  {}\nend\n",
+                    "pub effect Ask\n  value() -> Int\nend\n",
+                    "pub handler answer() for Ask\n  value() => private_value()\nend\n",
+                    "fn private_value() -> Int\n  {}\nend\n",
+                ),
+                value, value
+            ),
+        )
+        .expect("same-spelled target source");
+    }
+    let project = Project::discover(
+        root.clone(),
+        &[
+            std::path::PathBuf::from("main.veln"),
+            std::path::PathBuf::from("shared.veln"),
+        ],
+    )
+    .expect("package fixture project");
+    let analysis = analyze_project(project, DoctestMode::Exclude);
+    let diagnostics = analysis.checked_diagnostics();
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    for (entry, target, package, output_text) in [
+        ("local_call", "endpoint", None, "1\n"),
+        ("dependency_call", "endpoint", Some("dependency"), "2\n"),
+        ("local_handler", "private_value", None, "1\n"),
+        (
+            "dependency_handler",
+            "private_value",
+            Some("dependency"),
+            "2\n",
+        ),
+    ] {
+        let reachable = analysis.lower_reachable_entry(entry, FunctionKind::Function);
+        let packages = reachable
+            .module
+            .functions
+            .iter()
+            .filter(|function| function.name.as_deref() == Some(target))
+            .map(|function| function.package_name.as_deref())
+            .collect::<Vec<_>>();
+        assert_eq!(packages, [package], "entry={entry}");
+        if target == "private_value" {
+            let handler_packages = reachable
+                .module
+                .handlers
+                .iter()
+                .filter(|handler| handler.name.as_deref() == Some("answer"))
+                .map(|handler| handler.package_name.as_deref())
+                .collect::<Vec<_>>();
+            assert_eq!(handler_packages, [package], "entry={entry}");
+        }
+        assert!(
+            reachable.lowered.diagnostics.is_empty(),
+            "entry={entry}: {:#?}",
+            reachable.lowered.diagnostics
+        );
+        let ir = reachable
+            .lowered
+            .ir
+            .expect("selected package entry should lower");
+        let program = generate_classfiles_with_entry(&ir, entry);
+        if let Some(output) = run_jvm_program_when_java_is_available(entry, &program, &[]) {
+            assert!(
+                output.status.success(),
+                "entry={entry}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert_eq!(
+                String::from_utf8_lossy(&output.stdout),
+                output_text,
+                "entry={entry}"
+            );
+        }
+    }
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn bytecode_backend_emits_classfiles_without_java_sources() {
     let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
 

@@ -18,7 +18,7 @@ fn visit_subject(
     visitor: &mut impl FnMut(FunctionKey) -> ControlFlow<()>,
 ) -> ControlFlow<()> {
     let functions = function_ast_map(module);
-    let subject = functions.get(&(None, "subject".to_string())).unwrap();
+    let subject = functions.get(&(None, None, "subject".to_string())).unwrap();
     visit_private_function_references(subject, &functions, visitor)
 }
 
@@ -37,7 +37,7 @@ fn private_reference_discovery_preserves_aliases_and_match_arm_scopes() {
     let mut names = Vec::new();
     assert!(
         visit_subject(&module, &mut |key| {
-            names.push(key.1);
+            names.push(key.2);
             ControlFlow::Continue(())
         })
         .is_continue()
@@ -63,7 +63,7 @@ fn private_reference_discovery_preserves_child_order_and_skips_type_applied_call
     ));
     let mut names = Vec::new();
     let _ = visit_subject(&module, &mut |key| {
-        names.push(key.1);
+        names.push(key.2);
         ControlFlow::Continue(())
     });
     assert_eq!(
@@ -81,8 +81,8 @@ fn private_reference_discovery_stops_before_later_children_and_body_lines() {
     let mut names = Vec::new();
     assert!(
         visit_subject(&module, &mut |key| {
-            let stop = key.1 == "second";
-            names.push(key.1);
+            let stop = key.2 == "second";
+            names.push(key.2);
             if stop {
                 ControlFlow::Break(())
             } else {
@@ -117,7 +117,7 @@ fn rejected_callsite_aliases_and_patterns_preserve_the_builtin_binding() {
 
     let mut names = Vec::new();
     let _ = visit_subject(&module, &mut |key| {
-        names.push(key.1);
+        names.push(key.2);
         ControlFlow::Continue(())
     });
     assert_eq!(names, ["first"]);

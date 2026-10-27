@@ -25,7 +25,10 @@ pub(super) fn format_neutral_schema_decode_function_signature_for_schema(
     )?);
     Some(FunctionSignature {
         name: schema_decode_function_name(schema_name),
-        target_name: format!("{SCHEMA_NEUTRAL_DECODE_TARGET_PREFIX}{schema_name}"),
+        target_name: format!(
+            "{SCHEMA_NEUTRAL_DECODE_TARGET_PREFIX}{}",
+            crate::schema::schema_link_name(module, schema)
+        ),
         module_name: schema.module_name.clone(),
         package_name: schema.package_name.clone(),
         visibility: schema.visibility,
@@ -101,7 +104,7 @@ fn format_neutral_schema_resolved_field_type(
     adts: &AdtRegistry,
     text: &str,
     traversal: FormatNeutralSchemaTraversal,
-    composition_stack: &mut Vec<(Option<String>, String)>,
+    composition_stack: &mut Vec<(Option<String>, Option<String>, String)>,
 ) -> Option<Type> {
     let parsed = parse_type_annotation(text).ok()?;
     if !format_neutral_schema_written_constructors_are_visible(
@@ -292,9 +295,13 @@ fn format_neutral_schema_composition_value_type(
     module: &SurfaceModule,
     schema: &SchemaDecl,
     traversal: FormatNeutralSchemaTraversal,
-    stack: &mut Vec<(Option<String>, String)>,
+    stack: &mut Vec<(Option<String>, Option<String>, String)>,
 ) -> Option<Type> {
-    let key = (schema.module_name.clone(), schema.name.clone()?);
+    let key = (
+        schema.package_name.clone(),
+        schema.module_name.clone(),
+        schema.name.clone()?,
+    );
     if stack.contains(&key) {
         return None;
     }

@@ -98,6 +98,7 @@ pub(crate) fn function_alias_signatures_with_target_filter(
                 &uses,
                 functions,
                 alias.module_name.as_deref(),
+                alias.package_name.as_deref(),
                 &companion_access_targets,
             )?;
             if !target_is_publishable(target) {
@@ -126,13 +127,22 @@ pub(crate) fn function_signature_path<'a>(
     uses: &[UseDecl],
     functions: &'a [FunctionSignature],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     companion_access_targets: &BTreeMap<String, String>,
 ) -> Option<&'a FunctionSignature> {
     match segments {
-        [name] => functions.iter().find(|function| function.name == *name),
+        [name] => functions.iter().find(|function| {
+            function.name == *name
+                && function.package_name.as_deref() == current_package
+                && function.module_name.as_deref() == current_module
+        }),
         [_, .., name] => {
-            let use_decl =
-                imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)?;
+            let use_decl = imported_use_for_path_in_owner(
+                uses,
+                &segments[..segments.len() - 1],
+                current_module,
+                current_package,
+            )?;
             let module_name = use_decl.name.as_str();
             functions.iter().find(|function| {
                 function.name == *name
@@ -141,6 +151,7 @@ pub(crate) fn function_signature_path<'a>(
                         function,
                         use_decl,
                         current_module,
+                        current_package,
                         companion_access_targets,
                     )
             })
@@ -203,9 +214,12 @@ pub(crate) fn imported_function_is_visible(
     function: &FunctionSignature,
     use_decl: &UseDecl,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     companion_access_targets: &BTreeMap<String, String>,
 ) -> bool {
-    if function.package_name != use_decl.resolved_target().package {
+    if use_decl.importing_package.as_deref() != current_package
+        || function.package_name != use_decl.resolved_target().package
+    {
         return false;
     }
     if function.visibility == Visibility::Public {
