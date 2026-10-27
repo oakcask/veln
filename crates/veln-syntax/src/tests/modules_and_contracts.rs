@@ -171,68 +171,94 @@ fn malformed_import_aliases_recover_at_the_declaration_newline() {
             (1, column),
             "{malformed}"
         );
-        let recovered = &output.tree.uses[0];
-        assert!(recovered.recovered, "{malformed}");
-        assert_eq!(recovered.name, "a", "{malformed}");
-        assert_eq!(recovered.name_spans.len(), 1, "{malformed}");
-        assert_eq!(
-            recovered.alias.as_ref().map(|alias| alias.name.as_str()),
+        assert_recovered_import(&output.tree, malformed, expected_alias, expected_package);
+        assert_recovered_import_formatting(
+            &output.tree,
+            &source_text,
+            malformed,
+            diagnostic_id,
             expected_alias,
-            "{malformed}"
-        );
-        if let Some(alias) = &recovered.alias {
-            assert_eq!(alias.span.start.column, 10, "{malformed}");
-            assert_eq!(alias.span.end.column, 11, "{malformed}");
-        }
-        assert_eq!(
-            recovered
-                .package
-                .as_ref()
-                .map(|package| package.name.as_str()),
             expected_package,
-            "{malformed}"
         );
-        assert_eq!(
-            (recovered.span.start.line, recovered.span.start.column),
-            (1, 1)
-        );
-        assert_eq!((recovered.span.end.line, recovered.span.end.column), (2, 1));
-        assert_eq!(output.tree.uses[1].name, "valid", "{malformed}");
-        assert!(!output.tree.uses[1].recovered, "{malformed}");
-        assert!(matches!(output.tree.items[0], SyntaxItem::Function(_)));
-
-        let formatted = format_tree(&output.tree);
-        assert_eq!(formatted, source_text, "{malformed}");
-
-        let reparsed = parse(&SourceFile::new("main.veln", formatted.clone()));
-        assert_eq!(
-            reparsed.diagnostics.first().map(|diagnostic| diagnostic.id),
-            Some(diagnostic_id),
-            "{malformed}"
-        );
-        let reparsed_use = &reparsed.tree.uses[0];
-        assert!(
-            reparsed_use.recovered,
-            "formatting must not turn {malformed:?} into a binding"
-        );
-        assert_eq!(reparsed_use.name, recovered.name, "{malformed}");
-        assert_eq!(
-            reparsed_use.alias.as_ref().map(|alias| alias.name.as_str()),
-            expected_alias,
-            "{malformed}"
-        );
-        assert_eq!(
-            reparsed_use
-                .package
-                .as_ref()
-                .map(|package| package.name.as_str()),
-            expected_package,
-            "{malformed}"
-        );
-        assert_eq!(reparsed.tree.uses[1].name, "valid", "{malformed}");
-        assert!(!reparsed.tree.uses[1].recovered, "{malformed}");
-        assert_eq!(format_tree(&reparsed.tree), formatted, "{malformed}");
     }
+}
+
+fn assert_recovered_import(
+    tree: &SyntaxTree,
+    malformed: &str,
+    expected_alias: Option<&str>,
+    expected_package: Option<&str>,
+) {
+    let recovered = &tree.uses[0];
+    assert!(recovered.recovered, "{malformed}");
+    assert_eq!(recovered.name, "a", "{malformed}");
+    assert_eq!(recovered.name_spans.len(), 1, "{malformed}");
+    assert_eq!(
+        recovered.alias.as_ref().map(|alias| alias.name.as_str()),
+        expected_alias,
+        "{malformed}"
+    );
+    if let Some(alias) = &recovered.alias {
+        assert_eq!(alias.span.start.column, 10, "{malformed}");
+        assert_eq!(alias.span.end.column, 11, "{malformed}");
+    }
+    assert_eq!(
+        recovered
+            .package
+            .as_ref()
+            .map(|package| package.name.as_str()),
+        expected_package,
+        "{malformed}"
+    );
+    assert_eq!(
+        (recovered.span.start.line, recovered.span.start.column),
+        (1, 1)
+    );
+    assert_eq!((recovered.span.end.line, recovered.span.end.column), (2, 1));
+    assert_eq!(tree.uses[1].name, "valid", "{malformed}");
+    assert!(!tree.uses[1].recovered, "{malformed}");
+    assert!(matches!(tree.items[0], SyntaxItem::Function(_)));
+}
+
+fn assert_recovered_import_formatting(
+    tree: &SyntaxTree,
+    source_text: &str,
+    malformed: &str,
+    diagnostic_id: &str,
+    expected_alias: Option<&str>,
+    expected_package: Option<&str>,
+) {
+    let formatted = format_tree(tree);
+    assert_eq!(formatted, source_text, "{malformed}");
+
+    let reparsed = parse(&SourceFile::new("main.veln", formatted.clone()));
+    assert_eq!(
+        reparsed.diagnostics.first().map(|diagnostic| diagnostic.id),
+        Some(diagnostic_id),
+        "{malformed}"
+    );
+    let reparsed_use = &reparsed.tree.uses[0];
+    assert!(
+        reparsed_use.recovered,
+        "formatting must not turn {malformed:?} into a binding"
+    );
+    assert_eq!(reparsed_use.name, tree.uses[0].name, "{malformed}");
+    assert_eq!(
+        reparsed_use.alias.as_ref().map(|alias| alias.name.as_str()),
+        expected_alias,
+        "{malformed}"
+    );
+    assert_eq!(
+        reparsed_use
+            .package
+            .as_ref()
+            .map(|package| package.name.as_str()),
+        expected_package,
+        "{malformed}"
+    );
+    assert_eq!(reparsed.tree.uses[1].name, "valid", "{malformed}");
+    assert!(!reparsed.tree.uses[1].recovered, "{malformed}");
+    assert_eq!(format_tree(&reparsed.tree), formatted, "{malformed}");
 }
 
 #[test]
