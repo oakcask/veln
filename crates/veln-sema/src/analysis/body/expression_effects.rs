@@ -132,10 +132,11 @@ impl<'a> FunctionChecker<'a> {
         operation_span: &SourceSpan,
         args: &[Expr],
     ) -> Type {
-        let effect = match self
-            .environment
-            .resolve_user_effect_path(effect_path, self.function.module_name.as_deref())
-        {
+        let effect = match self.environment.resolve_user_effect_path_in_owner(
+            effect_path,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
             UserEffectPathResolution::Found(effect) => effect,
             UserEffectPathResolution::PrivateCompanionTargetMismatch { effect, access } => {
                 for arg in args {
@@ -222,10 +223,11 @@ impl<'a> FunctionChecker<'a> {
         args: &[Expr],
         expected: Option<&ExpectedType>,
     ) -> Type {
-        let handler = match self
-            .environment
-            .handler_path(handler_path, self.function.module_name.as_deref())
-        {
+        let handler = match self.environment.handler_path_in_owner(
+            handler_path,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
             HandlerPathResolution::Found(handler) => handler.clone(),
             HandlerPathResolution::PrivateCompanionTargetMismatch { handler, access } => {
                 for arg in args {

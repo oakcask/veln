@@ -1,17 +1,7 @@
 use super::*;
 
 impl TypeEnvironment {
-    pub(crate) fn user_effect_by_label(
-        &self,
-        label: &str,
-        current_module: Option<&str>,
-    ) -> Option<&EffectSignature> {
-        self.effects.iter().find(|effect| {
-            effect.qualified_name == label
-                || (effect.name == label && effect.module_name.as_deref() == current_module)
-        })
-    }
-
+    #[cfg(test)]
     pub(crate) fn user_effect_path(
         &self,
         segments: &[String],
@@ -21,19 +11,51 @@ impl TypeEnvironment {
             .found()
     }
 
+    pub(crate) fn user_effect_path_in_owner(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<&EffectSignature> {
+        self.resolve_user_effect_path_in_owner(segments, current_module, current_package)
+            .found()
+    }
+
+    #[cfg(test)]
     pub(crate) fn resolve_user_effect_path(
         &self,
         segments: &[String],
         current_module: Option<&str>,
     ) -> UserEffectPathResolution<'_> {
+        self.resolve_user_effect_path_in_owner(segments, current_module, None)
+    }
+
+    pub(crate) fn resolve_user_effect_path_in_owner(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> UserEffectPathResolution<'_> {
         match segments {
-            [name] => self.user_effect_by_label(name, current_module).map_or(
-                UserEffectPathResolution::Missing,
-                UserEffectPathResolution::Found,
+            [name] => self
+                .effects
+                .iter()
+                .find(|effect| {
+                    (effect.qualified_name == *name
+                        || (effect.name == *name
+                            && effect.module_name.as_deref() == current_module))
+                        && effect.package_name.as_deref() == current_package
+                })
+                .map_or(
+                    UserEffectPathResolution::Missing,
+                    UserEffectPathResolution::Found,
+                ),
+            [_, .., name] => self.resolve_qualified_user_effect_path(
+                segments,
+                name,
+                current_module,
+                current_package,
             ),
-            [_, .., name] => {
-                self.resolve_qualified_user_effect_path(segments, name, current_module)
-            }
             _ => UserEffectPathResolution::Missing,
         }
     }
@@ -43,15 +65,21 @@ impl TypeEnvironment {
         segments: &[String],
         name: &str,
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> UserEffectPathResolution<'_> {
-        let Some(use_decl) =
-            imported_use_for_path(&self.uses, &segments[..segments.len() - 1], current_module)
-        else {
+        let Some(use_decl) = imported_use_for_path_in_owner(
+            &self.uses,
+            &segments[..segments.len() - 1],
+            current_module,
+            current_package,
+        ) else {
             return self.missing_or_quarantined_effect_path(segments, current_module);
         };
         let module_name = use_decl.name.as_str();
         let Some(effect) = self.effects.iter().find(|effect| {
-            effect.name == name && effect.module_name.as_deref() == Some(module_name)
+            effect.name == name
+                && effect.module_name.as_deref() == Some(module_name)
+                && effect.package_name == use_decl.resolved_target().package
         }) else {
             return UserEffectPathResolution::Missing;
         };
@@ -114,14 +142,26 @@ impl TypeEnvironment {
             .collect()
     }
 
+    #[cfg(test)]
     pub(crate) fn handler_path(
         &self,
         segments: &[String],
         current_module: Option<&str>,
     ) -> HandlerPathResolution<'_> {
+        self.handler_path_in_owner(segments, current_module, None)
+    }
+
+    pub(crate) fn handler_path_in_owner(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> HandlerPathResolution<'_> {
         match segments {
-            [name] => self.unqualified_handler_path(name, current_module),
-            [_, .., name] => self.qualified_handler_path(segments, name, current_module),
+            [name] => self.unqualified_handler_path(name, current_module, current_package),
+            [_, .., name] => {
+                self.qualified_handler_path(segments, name, current_module, current_package)
+            }
             _ => HandlerPathResolution::Missing,
         }
     }
@@ -130,11 +170,14 @@ impl TypeEnvironment {
         &self,
         name: &str,
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> HandlerPathResolution<'_> {
         self.handlers
             .iter()
             .find(|handler| {
-                handler.name == name && handler.module_name.as_deref() == current_module
+                handler.name == name
+                    && handler.module_name.as_deref() == current_module
+                    && handler.package_name.as_deref() == current_package
             })
             .map_or(HandlerPathResolution::Missing, HandlerPathResolution::Found)
     }
@@ -144,14 +187,21 @@ impl TypeEnvironment {
         segments: &[String],
         name: &str,
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> HandlerPathResolution<'_> {
-        let use_decl =
-            imported_use_for_path(&self.uses, &segments[..segments.len() - 1], current_module);
+        let use_decl = imported_use_for_path_in_owner(
+            &self.uses,
+            &segments[..segments.len() - 1],
+            current_module,
+            current_package,
+        );
         let Some(use_decl) = use_decl else {
             return self.missing_or_quarantined_handler_path(segments, current_module);
         };
         let Some(handler) = self.handlers.iter().find(|handler| {
-            handler.name == name && handler.module_name.as_deref() == Some(use_decl.name.as_str())
+            handler.name == name
+                && handler.module_name.as_deref() == Some(use_decl.name.as_str())
+                && handler.package_name == use_decl.resolved_target().package
         }) else {
             return HandlerPathResolution::Missing;
         };

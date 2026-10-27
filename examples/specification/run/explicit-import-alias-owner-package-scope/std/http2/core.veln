@@ -14,6 +14,10 @@ pub fn local_header_code(headers: HeaderList) -> Int
 	end
 end
 
+pub fn empty_header_list() -> Int
+	35
+end
+
 pub fn owner_probe() -> Int
 	let standard_headers = hpack::empty_header_list()
 	7

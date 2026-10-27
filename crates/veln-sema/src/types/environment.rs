@@ -4,10 +4,18 @@ use veln_ast::NameOccurrence;
 
 use crate::adt::registry::AdtRegistry;
 
-type FunctionPublicationKey = (Option<String>, String, SourcePath, usize, usize);
+type FunctionPublicationKey = (
+    Option<String>,
+    Option<String>,
+    String,
+    SourcePath,
+    usize,
+    usize,
+);
 
 fn function_publication_key(function: &FunctionSignature) -> FunctionPublicationKey {
     (
+        function.package_name.clone(),
         function.module_name.clone(),
         function.name.clone(),
         function.span.file.clone(),
@@ -18,6 +26,7 @@ fn function_publication_key(function: &FunctionSignature) -> FunctionPublication
 
 fn source_function_publication_key(function: &Function) -> FunctionPublicationKey {
     (
+        function.package_name.clone(),
         function.module_name.clone(),
         function.name.clone().unwrap_or_default(),
         function.span.file.clone(),
@@ -391,30 +400,45 @@ impl TypeEnvironment {
             .contains(&source_function_publication_key(function))
     }
 
+    #[cfg(test)]
     pub(crate) fn local_function_value_recovery(
         &self,
         name: &str,
         current_module: Option<&str>,
     ) -> Option<&FunctionSignature> {
-        if self.local_value_recovery_candidate_count(name, current_module) != 1 {
+        self.local_function_value_recovery_in_owner(name, current_module, None)
+    }
+
+    pub(crate) fn local_function_value_recovery_in_owner(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<&FunctionSignature> {
+        if self.local_value_recovery_candidate_count_in_owner(name, current_module, current_package)
+            != 1
+        {
             return None;
         }
         let mut matches = self
             .function_recovery_signatures
             .iter()
             .filter(|signature| {
-                signature.module_name.as_deref() == current_module && signature.name == name
+                signature.module_name.as_deref() == current_module
+                    && signature.package_name.as_deref() == current_package
+                    && signature.name == name
             });
         let first = matches.next()?;
         matches.next().is_none().then_some(first)
     }
 
-    pub(crate) fn local_value_recovery_candidate_count(
+    pub(crate) fn local_value_recovery_candidate_count_in_owner(
         &self,
         name: &str,
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> usize {
-        self.local_function_value_recovery_count(name, current_module)
+        self.local_function_value_recovery_count(name, current_module, current_package)
             + self.local_constructor_recovery_count(name, current_module, None)
     }
 
@@ -422,22 +446,36 @@ impl TypeEnvironment {
         &self,
         name: &str,
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> usize {
         self.function_recovery_signatures
             .iter()
             .filter(|signature| {
-                signature.module_name.as_deref() == current_module && signature.name == name
+                signature.module_name.as_deref() == current_module
+                    && signature.package_name.as_deref() == current_package
+                    && signature.name == name
             })
             .count()
     }
 
+    #[cfg(test)]
     pub(crate) fn local_call_recovery_candidate_count(
         &self,
         name: &str,
         current_module: Option<&str>,
         arg_count: usize,
     ) -> usize {
-        self.local_function_call_recovery_count(name, current_module, arg_count)
+        self.local_call_recovery_candidate_count_in_owner(name, current_module, None, arg_count)
+    }
+
+    pub(crate) fn local_call_recovery_candidate_count_in_owner(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+        arg_count: usize,
+    ) -> usize {
+        self.local_function_call_recovery_count(name, current_module, current_package, arg_count)
             + self.local_constructor_recovery_count(name, current_module, Some(arg_count))
     }
 
@@ -445,12 +483,14 @@ impl TypeEnvironment {
         &self,
         name: &str,
         current_module: Option<&str>,
+        current_package: Option<&str>,
         arg_count: usize,
     ) -> usize {
         self.function_recoveries
             .iter()
             .filter(|(key, _)| {
                 key.module_name.as_deref() == current_module
+                    && key.package_name.as_deref() == current_package
                     && key.name.as_str() == name
                     && key.accepts_arg_count(arg_count)
             })
@@ -485,20 +525,32 @@ impl TypeEnvironment {
         })
     }
 
+    #[cfg(test)]
     pub(crate) fn unqualified_function(
         &self,
         name: &str,
         current_module: Option<&str>,
     ) -> FunctionLookup<'_> {
+        self.unqualified_function_in_owner(name, current_module, None)
+    }
+
+    pub(crate) fn unqualified_function_in_owner(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> FunctionLookup<'_> {
         if let Some(function) = self.functions_named(name).find(|function| {
-            function.name == name && function.module_name.as_deref() == current_module
+            function.name == name
+                && function.module_name.as_deref() == current_module
+                && function.package_name.as_deref() == current_package
         }) {
             return FunctionLookup::Found(function);
         }
 
-        let mut matches = self
-            .functions_named(name)
-            .filter(|function| self.function_is_unqualified_import(function, name, current_module));
+        let mut matches = self.functions_named(name).filter(|function| {
+            self.function_is_unqualified_import(function, name, current_module, current_package)
+        });
         let Some(first) = matches.next() else {
             return FunctionLookup::Missing;
         };
@@ -515,7 +567,9 @@ impl TypeEnvironment {
         current_module: Option<&str>,
     ) -> Vec<&FunctionSignature> {
         self.functions_named(name)
-            .filter(|function| self.function_is_unqualified_import(function, name, current_module))
+            .filter(|function| {
+                self.function_is_unqualified_import(function, name, current_module, None)
+            })
             .collect()
     }
 
@@ -524,6 +578,7 @@ impl TypeEnvironment {
         function: &FunctionSignature,
         name: &str,
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> bool {
         function.name == name
             && function.visibility == Visibility::Public
@@ -531,7 +586,11 @@ impl TypeEnvironment {
                 self.uses.iter().any(|use_decl| {
                     crate::name_recovery::use_decl_contributes_bare_exports(use_decl)
                         && use_decl.module_name.as_deref() == current_module
+                        && current_package.is_none_or(|package| {
+                            use_decl.importing_package.as_deref() == Some(package)
+                        })
                         && use_decl.name.as_str() == module_name
+                        && function.package_name == use_decl.resolved_target().package
                 })
             })
     }
@@ -559,6 +618,15 @@ impl TypeEnvironment {
         current_module: Option<&str>,
     ) -> Option<&FunctionSignature> {
         self.function_path_with_inferred_owner(segments, current_module, false)
+    }
+
+    pub(crate) fn function_path_for_value_in_owner(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<&FunctionSignature> {
+        self.function_path_with_companion_access(segments, current_module, current_package, false)
     }
 
     fn function_path_with_inferred_owner(
@@ -812,6 +880,9 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         allow_companion_private_access: bool,
     ) -> bool {
+        if function.package_name != use_decl.resolved_target().package {
+            return false;
+        }
         if function.visibility == Visibility::Public {
             return true;
         }
@@ -841,6 +912,7 @@ impl TypeEnvironment {
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub(crate) struct FunctionRecoveryKey {
+    package_name: Option<String>,
     module_name: Option<String>,
     name: String,
     fixed_arg_count: usize,

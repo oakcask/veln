@@ -23,7 +23,11 @@ fn check_handler_declaration(
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
     let Some(signature) = handler.name.as_ref().and_then(|name| {
-        match environment.handler_path(std::slice::from_ref(name), handler.module_name.as_deref()) {
+        match environment.handler_path_in_owner(
+            std::slice::from_ref(name),
+            handler.module_name.as_deref(),
+            handler.package_name.as_deref(),
+        ) {
             HandlerPathResolution::Found(signature) => Some(signature),
             HandlerPathResolution::PrivateCompanionTargetMismatch { .. }
             | HandlerPathResolution::QuarantinedImportTarget
@@ -32,9 +36,11 @@ fn check_handler_declaration(
     }) else {
         return Vec::new();
     };
-    let effect = match environment
-        .resolve_user_effect_path(&handler.effect, handler.module_name.as_deref())
-    {
+    let effect = match environment.resolve_user_effect_path_in_owner(
+        &handler.effect,
+        handler.module_name.as_deref(),
+        handler.package_name.as_deref(),
+    ) {
         UserEffectPathResolution::Found(effect) => effect,
         UserEffectPathResolution::PrivateCompanionTargetMismatch { effect, access } => {
             return vec![private_companion_effect_target_diagnostic(
@@ -81,9 +87,10 @@ fn declared_effect_diagnostics(
             !effect.starts_with("...")
                 && !KNOWN_EFFECT_LABELS.contains(&effect.as_str())
                 && !matches!(
-                    environment.resolve_user_effect_path(
+                    environment.resolve_user_effect_path_in_owner(
                         &effect.split("::").map(str::to_string).collect::<Vec<_>>(),
-                        handler.module_name.as_deref()
+                        handler.module_name.as_deref(),
+                        handler.package_name.as_deref(),
                     ),
                     UserEffectPathResolution::Found(_)
                         | UserEffectPathResolution::QuarantinedImportTarget
@@ -91,7 +98,11 @@ fn declared_effect_diagnostics(
         })
         .map(|(index, effect)| {
             let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
-            match environment.resolve_user_effect_path(&segments, handler.module_name.as_deref()) {
+            match environment.resolve_user_effect_path_in_owner(
+                &segments,
+                handler.module_name.as_deref(),
+                handler.package_name.as_deref(),
+            ) {
                 UserEffectPathResolution::PrivateCompanionTargetMismatch {
                     effect: signature,
                     access,

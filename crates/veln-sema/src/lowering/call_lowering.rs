@@ -83,10 +83,11 @@ impl<'a> CoreLowerer<'a> {
         operation_name: &str,
         args: &[Expr],
     ) -> CoreExpr {
-        let Some(effect) = self
-            .environment
-            .user_effect_path(effect_path, self.function.module_name.as_deref())
-        else {
+        let Some(effect) = self.environment.user_effect_path_in_owner(
+            effect_path,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) else {
             return self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing);
         };
         let Some(operation) = effect
@@ -122,10 +123,11 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
-        let handler = match self
-            .environment
-            .handler_path(handler_path, self.function.module_name.as_deref())
-        {
+        let handler = match self.environment.handler_path_in_owner(
+            handler_path,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
             HandlerPathResolution::Found(handler) => handler.clone(),
             HandlerPathResolution::PrivateCompanionTargetMismatch { .. }
             | HandlerPathResolution::QuarantinedImportTarget

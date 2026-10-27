@@ -169,7 +169,11 @@ impl<'a> CoreLowerer<'a> {
         let signature = match segments.as_slice() {
             [name] => self
                 .environment
-                .unqualified_function(name, self.function.module_name.as_deref())
+                .unqualified_function_in_owner(
+                    name,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                )
                 .found(),
             _ => self.environment.function_path_in_owner(
                 &segments,

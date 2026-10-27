@@ -30,6 +30,7 @@ impl TypeEnvironment {
         self.functions_named(name)
             .filter(|function| {
                 function.module_name.as_deref() == Some(module_name)
+                    && function.package_name == use_decl.resolved_target().package
                     && arg_count
                         .is_none_or(|count| function_signature_accepts_arg_count(function, count))
                     && function.visibility == Visibility::Public
@@ -86,6 +87,7 @@ impl TypeEnvironment {
             .filter(|effect| {
                 effect.name == name
                     && effect.module_name.as_deref() == Some(module_name)
+                    && effect.package_name == use_decl.resolved_target().package
                     && effect.visibility == Visibility::Public
             })
             .count()
@@ -106,6 +108,7 @@ impl TypeEnvironment {
             .filter(|handler| {
                 handler.name == name
                     && handler.module_name.as_deref() == Some(module_name)
+                    && handler.package_name == use_decl.resolved_target().package
                     && handler.visibility == Visibility::Public
             })
             .count()

@@ -5,6 +5,7 @@ pub(super) struct ReachableFunction {
     pub(super) kind: FunctionKind,
     pub(super) name: String,
     pub(super) module_name: Option<String>,
+    pub(super) package_name: Option<String>,
     pub(super) node_id: Option<veln_ast::NodeId>,
     pub(super) alias: Option<ReachableFunctionAlias>,
 }
@@ -13,14 +14,17 @@ pub(super) struct ReachableFunction {
 pub(super) struct ReachableFunctionAlias {
     pub(super) name: String,
     pub(super) module_name: Option<String>,
+    pub(super) package_name: Option<String>,
     pub(super) node_id: veln_ast::NodeId,
 }
 
 pub(super) struct FunctionTarget {
     pub(super) name: String,
     pub(super) module_name: Option<String>,
+    pub(super) package_name: Option<String>,
     pub(super) target_name: String,
     pub(super) target_module_name: Option<String>,
+    pub(super) target_package_name: Option<String>,
     pub(super) target_node_id: veln_ast::NodeId,
     pub(super) visibility: Visibility,
     pub(super) shape: FunctionShape,
@@ -63,8 +67,10 @@ pub(super) fn function_alias_targets(
             Some(FunctionTarget {
                 name,
                 module_name: alias.module_name.clone(),
+                package_name: alias.package_name.clone(),
                 target_name: target.target_name.clone(),
                 target_module_name: target.target_module_name.clone(),
+                target_package_name: target.target_package_name.clone(),
                 target_node_id: target.target_node_id,
                 visibility: Visibility::Public,
                 shape: target.shape.clone(),
@@ -74,6 +80,7 @@ pub(super) fn function_alias_targets(
                 alias: Some(ReachableFunctionAlias {
                     name: alias.name.clone()?,
                     module_name: alias.module_name.clone(),
+                    package_name: alias.package_name.clone(),
                     node_id: alias.node_id,
                 }),
             })
@@ -100,6 +107,7 @@ pub(super) fn target_for_alias_path<'a>(
     match segments {
         [name] => function_targets.iter().find(|target| {
             target.name == *name
+                && target.package_name.as_deref() == current_package
                 && target
                     .module_name
                     .as_deref()

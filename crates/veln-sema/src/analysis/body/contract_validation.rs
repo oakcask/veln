@@ -210,8 +210,11 @@ impl<'a> FunctionChecker<'a> {
             || calls.iter().any(|call| call.callee == name)
             || bindings.iter().any(|binding| binding.name == name)
             || matches!(
-                self.environment
-                    .unqualified_function(name, self.function.module_name.as_deref()),
+                self.environment.unqualified_function_in_owner(
+                    name,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                ),
                 FunctionLookup::Found(_)
             )
     }
@@ -286,11 +289,17 @@ impl<'a> FunctionChecker<'a> {
         let signature = match segments.as_slice() {
             [name] => self
                 .environment
-                .unqualified_function(name, self.function.module_name.as_deref())
+                .unqualified_function_in_owner(
+                    name,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                )
                 .found(),
-            _ => self
-                .environment
-                .function_path(&segments, self.function.module_name.as_deref()),
+            _ => self.environment.function_path_in_owner(
+                &segments,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            ),
         };
         signature
             .map(|signature| {
@@ -360,18 +369,22 @@ impl<'a> FunctionChecker<'a> {
         let segments = contract_callee_segments(value);
         match segments.as_slice() {
             [name] => {
-                if let FunctionLookup::Found(function) = self
-                    .environment
-                    .unqualified_function(name, self.function.module_name.as_deref())
+                if let FunctionLookup::Found(function) =
+                    self.environment.unqualified_function_in_owner(
+                        name,
+                        self.function.module_name.as_deref(),
+                        self.function.package_name.as_deref(),
+                    )
                 {
                     return Some(function.ty());
                 }
             }
             _ => {
-                if let Some(function) = self
-                    .environment
-                    .function_path_for_value(&segments, self.function.module_name.as_deref())
-                {
+                if let Some(function) = self.environment.function_path_for_value_in_owner(
+                    &segments,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                ) {
                     return Some(function.ty());
                 }
             }

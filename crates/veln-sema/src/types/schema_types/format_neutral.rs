@@ -27,6 +27,7 @@ pub(super) fn format_neutral_schema_decode_function_signature_for_schema(
         name: schema_decode_function_name(schema_name),
         target_name: format!("{SCHEMA_NEUTRAL_DECODE_TARGET_PREFIX}{schema_name}"),
         module_name: schema.module_name.clone(),
+        package_name: schema.package_name.clone(),
         visibility: schema.visibility,
         params: vec![decoded_type.clone()],
         variadic: None,

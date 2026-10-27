@@ -229,6 +229,53 @@ fn same_spelled_owner_modules_do_not_cross_quarantine_reachable_imports() {
 }
 
 #[test]
+fn qualified_calls_keep_same_spelled_target_packages_distinct() {
+    let mut standard = lower(concat!(
+        "mod std::net\n",
+        "pub fn endpoint() -> Int\n",
+        "  1\n",
+        "end\n",
+    ));
+    standard.functions[0].package_name = Some("std".to_string());
+
+    let mut application = lower(concat!(
+        "mod shared\n",
+        "use net as standard_wire from \"std\"\n",
+        "use std::net as local_wire\n",
+        "pub fn main() -> Int\n",
+        "  standard_wire::endpoint() + local_wire::endpoint()\n",
+        "end\n",
+    ));
+    application.uses[0].name = "std::net".to_string();
+    let local_target = lower(concat!(
+        "mod std::net\n",
+        "pub fn endpoint() -> Int\n",
+        "  41\n",
+        "end\n",
+    ));
+    application.functions.extend(local_target.functions);
+
+    let reachable = reachable_entry_module_with_standard_cache(
+        &standard,
+        &application,
+        "main",
+        FunctionKind::Function,
+        &ReachabilityCache::default(),
+    );
+    let endpoint_packages = reachable
+        .functions
+        .iter()
+        .filter(|function| function.name.as_deref() == Some("endpoint"))
+        .map(|function| function.package_name.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+
+    assert_eq!(
+        endpoint_packages,
+        [None, Some("std".to_string())].into_iter().collect()
+    );
+}
+
+#[test]
 fn equivalent_standard_target_spellings_add_no_reachable_code_in_both_orders() {
     let standard = lower(concat!(
         "mod std::net\n",

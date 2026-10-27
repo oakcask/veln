@@ -227,9 +227,11 @@ fn lower_handler_clause_functions(
     handler: &HandlerDecl,
     environment: &TypeEnvironment,
 ) -> Vec<Function> {
-    let effect = match environment
-        .resolve_user_effect_path(&handler.effect, handler.module_name.as_deref())
-    {
+    let effect = match environment.resolve_user_effect_path_in_owner(
+        &handler.effect,
+        handler.module_name.as_deref(),
+        handler.package_name.as_deref(),
+    ) {
         UserEffectPathResolution::Found(effect) => effect,
         UserEffectPathResolution::PrivateCompanionTargetMismatch { .. }
         | UserEffectPathResolution::QuarantinedImportTarget

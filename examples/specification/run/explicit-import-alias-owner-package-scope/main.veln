@@ -9,7 +9,8 @@ end
 fn main() -> () effects [stdio]
 	let local_headers: local_core::HeaderList = local_core::local_header_list(7)
 	let local_code = local_core::local_header_code(local_headers)
+	let local_namesake = local_core::empty_header_list()
 	let standard_headers: wire::HeaderList = wire::empty_header_list()
 	let standard_count = standard_header_count(standard_headers)
-	stdio::println(string::concat("owner scopes remain distinct: ", int_to_string(local_code + standard_count)))
+	stdio::println(string::concat("owner scopes remain distinct: ", int_to_string(local_code + local_namesake + standard_count)))
 end

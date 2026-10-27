@@ -70,6 +70,7 @@ impl RecoveryFacts {
         *self
             .functions
             .entry(FunctionRecoveryKey {
+                package_name: signature.package_name.clone(),
                 module_name: signature.module_name.clone(),
                 name: signature.name.clone(),
                 fixed_arg_count: signature.params.len(),
@@ -290,6 +291,7 @@ fn invalid_function_recovery_signature(
         name: name.clone(),
         target_name: name.clone(),
         module_name: function.module_name.clone(),
+        package_name: function.package_name.clone(),
         visibility: function.visibility,
         params,
         variadic,
@@ -330,6 +332,7 @@ fn invalid_alias_recovery_signature(
         name: name.clone(),
         target_name: target.target_name.clone(),
         module_name: alias.module_name.clone(),
+        package_name: alias.package_name.clone(),
         visibility: Visibility::Public,
         params: target.params.clone(),
         variadic: target.variadic.clone(),

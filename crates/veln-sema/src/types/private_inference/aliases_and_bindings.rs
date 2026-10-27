@@ -107,6 +107,7 @@ pub(crate) fn function_alias_signatures_with_target_filter(
                 name,
                 target_name: target.target_name.clone(),
                 module_name: alias.module_name.clone(),
+                package_name: alias.package_name.clone(),
                 visibility: Visibility::Public,
                 params: target.params.clone(),
                 variadic: target.variadic.clone(),
@@ -204,6 +205,9 @@ pub(crate) fn imported_function_is_visible(
     current_module: Option<&str>,
     companion_access_targets: &BTreeMap<String, String>,
 ) -> bool {
+    if function.package_name != use_decl.resolved_target().package {
+        return false;
+    }
     if function.visibility == Visibility::Public {
         return true;
     }

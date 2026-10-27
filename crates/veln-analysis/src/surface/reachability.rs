@@ -141,8 +141,10 @@ fn function_target(function: &Function) -> Option<FunctionTarget> {
     Some(FunctionTarget {
         name: name.clone(),
         module_name: function.module_name.clone(),
+        package_name: function.package_name.clone(),
         target_name: name,
         target_module_name: function.module_name.clone(),
+        target_package_name: function.package_name.clone(),
         target_node_id: function.node_id,
         visibility: function.visibility,
         shape: function_shape(function),
@@ -183,6 +185,7 @@ fn reachable_functions(
         kind: entry_kind,
         name: entry.to_string(),
         module_name: None,
+        package_name: None,
         node_id: None,
         alias: None,
     }];
@@ -291,6 +294,7 @@ fn alias_is_needed_for_reachable_module(
             reachable_aliases.contains(&ReachableFunctionAlias {
                 name: name.clone(),
                 module_name: alias.module_name.clone(),
+                package_name: alias.package_name.clone(),
                 node_id: alias.node_id,
             })
         })
@@ -365,24 +369,28 @@ fn materialize_reachable_functions(
                     kind: function.kind,
                     name: name.clone(),
                     module_name: None,
+                    package_name: None,
                     node_id: None,
                     alias: None,
                 }) || reachable.contains(&ReachableFunction {
                     kind: function.kind,
                     name: name.clone(),
                     module_name: function.module_name.clone(),
+                    package_name: function.package_name.clone(),
                     node_id: None,
                     alias: None,
                 }) || reachable.contains(&ReachableFunction {
                     kind: function.kind,
                     name: name.clone(),
                     module_name: function.module_name.clone(),
+                    package_name: function.package_name.clone(),
                     node_id: Some(function.node_id),
                     alias: None,
                 }) || reachable.iter().any(|reachable| {
                     reachable.kind == function.kind
                         && reachable.name == *name
                         && reachable.module_name == function.module_name
+                        && reachable.package_name == function.package_name
                         && reachable.node_id == Some(function.node_id)
                 })
             })

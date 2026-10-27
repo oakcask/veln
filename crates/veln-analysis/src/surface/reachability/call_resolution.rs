@@ -3,11 +3,14 @@ use super::*;
 pub(super) fn target_visible_from_current_module(
     target: &FunctionTarget,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[&UseDecl],
     companion_access_targets: &HashMap<String, String>,
 ) -> bool {
     let target_module = target.module_name.as_deref();
-    if current_module.is_none() || target_module == current_module {
+    if current_module.is_none()
+        || (target_module == current_module && target.package_name.as_deref() == current_package)
+    {
         return true;
     }
     target_module.is_some_and(|module_name| {
@@ -170,6 +173,7 @@ pub(super) fn collect_function_name_reference(
     for callee in resolve_function_reference_with_selected_import(
         segments,
         current_module,
+        context.current_package,
         uses,
         selected_import,
         function_targets,
@@ -267,6 +271,7 @@ pub(super) fn resolve_function_reference(
     resolve_function_reference_with_selected_import(
         segments,
         owner.module.as_deref(),
+        owner.package.as_deref(),
         uses,
         selected_import,
         function_targets,
@@ -278,6 +283,7 @@ pub(super) fn resolve_function_reference(
 fn resolve_function_reference_with_selected_import(
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[&UseDecl],
     selected_import: Option<&UseDecl>,
     function_targets: &FunctionTargetIndex,
@@ -291,7 +297,7 @@ fn resolve_function_reference_with_selected_import(
                 #[cfg(test)]
                 reachability_counters::record_target_resolution_scan();
                 target.name == *name
-                    && bare_target_visible(target, current_module, uses)
+                    && bare_target_visible(target, current_module, current_package, uses)
                     && recovery_target_accepts_arg_count(target, arg_count)
             })
             .map(reachable_function_from_target)
@@ -325,6 +331,7 @@ fn reachable_function_from_target(target: &FunctionTarget) -> ReachableFunction 
         kind: FunctionKind::Function,
         name: target.target_name.clone(),
         module_name: target.target_module_name.clone(),
+        package_name: target.target_package_name.clone(),
         node_id: Some(target.target_node_id),
         alias: target.alias.clone(),
     }
@@ -364,6 +371,9 @@ pub(super) fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str)
 }
 
 pub(super) fn imported_target_is_visible(target: &FunctionTarget, use_decl: &UseDecl) -> bool {
+    if target.package_name != use_decl.resolved_target().package {
+        return false;
+    }
     if target.requires_public_import {
         return target.visibility == Visibility::Public;
     }
@@ -416,12 +426,15 @@ pub(super) fn companion_function_access_targets(
 pub(super) fn bare_target_visible(
     target: &FunctionTarget,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[&UseDecl],
 ) -> bool {
     let Some(current_module) = current_module else {
         return true;
     };
-    if target.module_name.as_deref() == Some(current_module) {
+    if target.module_name.as_deref() == Some(current_module)
+        && target.package_name.as_deref() == current_package
+    {
         return true;
     }
     if target.recovery {

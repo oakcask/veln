@@ -622,7 +622,11 @@ impl<'a> FunctionChecker<'a> {
                     .map(|index| self.binding_type(index))
                     .or_else(|| {
                         self.environment
-                            .unqualified_function(name, self.function.module_name.as_deref())
+                            .unqualified_function_in_owner(
+                                name,
+                                self.function.module_name.as_deref(),
+                                self.function.package_name.as_deref(),
+                            )
                             .found()
                             .map(|function| function.ty())
                     }),

@@ -1,4 +1,5 @@
 use super::*;
+use crate::semantic_model::Type;
 
 #[test]
 fn duplicate_use_aliases_are_static_errors() {
@@ -211,6 +212,76 @@ fn same_spelled_declarations_from_distinct_owner_packages_do_not_collide() {
         .map(|descriptor| descriptor.identity())
         .collect::<std::collections::BTreeSet<_>>();
     assert_eq!(identities.len(), 2, "{identities:#?}");
+}
+
+#[test]
+fn same_spelled_effects_and_handlers_select_the_import_target_package() {
+    let app_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app\n",
+            "use http2::core as wire from \"std\"\n",
+            "use std::http2::core as local_core\n",
+        ),
+    );
+    let local_source = SourceFile::new(
+        "local.veln",
+        concat!(
+            "pub effect Observe\n  read() -> Int\nend\n",
+            "pub handler recorder() for Observe\n  read() => 1\nend\n",
+        ),
+    );
+    let standard_source = SourceFile::new(
+        "standard.veln",
+        concat!(
+            "pub effect Observe\n  read() -> String\nend\n",
+            "pub handler recorder() for Observe\n  read() => \"std\"\nend\n",
+        ),
+    );
+    let mut app = lower_surface_ast(&parse(&app_source).tree);
+    app.uses[0].name = "std::http2::core".to_string();
+    let local = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&local_source).tree,
+        "std::http2::core".to_string(),
+        local_source.span(TextRange::new(0, 0)),
+    );
+    let standard = veln_ast::lower_surface_ast_with_package_module_identity(
+        &parse(&standard_source).tree,
+        "std".to_string(),
+        "http2::core".to_string(),
+        standard_source.span(TextRange::new(0, 0)),
+    );
+    app.effects.extend(local.effects);
+    app.effects.extend(standard.effects);
+    app.handlers.extend(local.handlers);
+    app.handlers.extend(standard.handlers);
+    let environment = TypeEnvironment::from_module(&app);
+
+    for (qualifier, package, expected) in [
+        ("local_core", None, Type::int()),
+        ("wire", Some("std"), Type::string()),
+    ] {
+        let effect = environment
+            .resolve_user_effect_path_in_owner(
+                &[qualifier.to_string(), "Observe".to_string()],
+                Some("app"),
+                None,
+            )
+            .found()
+            .unwrap_or_else(|| panic!("{qualifier} effect should resolve"));
+        assert_eq!(effect.package_name.as_deref(), package);
+        assert_eq!(effect.operations[0].return_type, expected);
+
+        let handler = environment.handler_path_in_owner(
+            &[qualifier.to_string(), "recorder".to_string()],
+            Some("app"),
+            None,
+        );
+        let HandlerPathResolution::Found(handler) = handler else {
+            panic!("{qualifier} handler should resolve");
+        };
+        assert_eq!(handler.package_name.as_deref(), package);
+    }
 }
 
 #[test]

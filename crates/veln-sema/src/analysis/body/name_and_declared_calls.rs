@@ -131,10 +131,11 @@ impl<'a> FunctionChecker<'a> {
         if self.bare_prelude_import_is_ambiguous(name) {
             return self.ambiguous_function_value(name, expr);
         }
-        match self
-            .environment
-            .unqualified_function(name, self.function.module_name.as_deref())
-        {
+        match self.environment.unqualified_function_in_owner(
+            name,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
             FunctionLookup::Found(function) => function.ty(),
             FunctionLookup::Ambiguous => self.ambiguous_function_value(name, expr),
             FunctionLookup::Missing => self.infer_recovered_bare_name(name, expr),
@@ -152,15 +153,20 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn infer_recovered_bare_name(&mut self, name: &str, expr: &Expr) -> Type {
-        if let Some(function) = self
-            .environment
-            .local_function_value_recovery(name, self.function.module_name.as_deref())
-        {
+        if let Some(function) = self.environment.local_function_value_recovery_in_owner(
+            name,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
             return function.ty();
         }
         if self
             .environment
-            .local_value_recovery_candidate_count(name, self.function.module_name.as_deref())
+            .local_value_recovery_candidate_count_in_owner(
+                name,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            )
             + self.invalid_local_binding_recovery_count(name)
             == 1
         {
@@ -171,10 +177,11 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn infer_qualified_function_value(&mut self, segments: &[String], expr: &Expr) -> Type {
-        if let Some(function) = self
-            .environment
-            .function_path_for_value(segments, self.function.module_name.as_deref())
-        {
+        if let Some(function) = self.environment.function_path_for_value_in_owner(
+            segments,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
             return function.ty();
         }
         if self
@@ -508,11 +515,17 @@ impl<'a> FunctionChecker<'a> {
         let function = match segments.as_slice() {
             [name] => self
                 .environment
-                .unqualified_function(name, self.function.module_name.as_deref())
+                .unqualified_function_in_owner(
+                    name,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                )
                 .found(),
-            _ => self
-                .environment
-                .function_path(segments, self.function.module_name.as_deref()),
+            _ => self.environment.function_path_in_owner(
+                segments,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            ),
         };
         function.is_some_and(|function| {
             function.module_name.as_deref() == Some("std::prelude")

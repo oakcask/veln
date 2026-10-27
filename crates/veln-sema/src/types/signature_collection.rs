@@ -526,6 +526,7 @@ pub(super) fn effect_signatures(module: &SurfaceModule) -> Vec<EffectSignature> 
                 name,
                 qualified_name,
                 module_name: effect.module_name.clone(),
+                package_name: effect.package_name.clone(),
                 visibility: effect.visibility,
                 span: effect.span.clone(),
                 operations: effect
@@ -625,6 +626,7 @@ impl HandlerSignatureContext<'_> {
             qualified_name: qualified_handler_name(handler.module_name.as_deref(), &name),
             name,
             module_name: handler.module_name.clone(),
+            package_name: handler.package_name.clone(),
             visibility: handler.visibility,
             params: handler
                 .params

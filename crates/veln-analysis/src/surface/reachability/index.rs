@@ -11,7 +11,8 @@ pub(crate) struct ReachabilityCache {
 pub(super) struct ReachabilityIndex {
     pub(super) function_targets: FunctionTargetIndex,
     functions_by_name: HashMap<(FunctionKind, String), Vec<FunctionRef>>,
-    functions_by_qualified_name: HashMap<(FunctionKind, String, String), Vec<FunctionRef>>,
+    functions_by_qualified_name:
+        HashMap<(FunctionKind, Option<String>, String, String), Vec<FunctionRef>>,
 }
 
 impl ReachabilityIndex {
@@ -21,7 +22,7 @@ impl ReachabilityIndex {
     ) -> Self {
         let mut functions_by_name = HashMap::<(FunctionKind, String), Vec<FunctionRef>>::new();
         let mut functions_by_qualified_name =
-            HashMap::<(FunctionKind, String, String), Vec<FunctionRef>>::new();
+            HashMap::<(FunctionKind, Option<String>, String, String), Vec<FunctionRef>>::new();
         for function_ref in inputs.function_refs() {
             let function = inputs.function(function_ref);
             let Some(name) = &function.name else {
@@ -33,7 +34,12 @@ impl ReachabilityIndex {
                 .push(function_ref);
             if let Some(module_name) = &function.module_name {
                 functions_by_qualified_name
-                    .entry((function.kind, module_name.clone(), name.clone()))
+                    .entry((
+                        function.kind,
+                        function.package_name.clone(),
+                        module_name.clone(),
+                        name.clone(),
+                    ))
                     .or_default()
                     .push(function_ref);
             }
@@ -48,7 +54,12 @@ impl ReachabilityIndex {
     pub(super) fn function_refs(&self, key: &ReachableFunction) -> &[FunctionRef] {
         if let Some(module_name) = &key.module_name {
             self.functions_by_qualified_name
-                .get(&(key.kind, module_name.clone(), key.name.clone()))
+                .get(&(
+                    key.kind,
+                    key.package_name.clone(),
+                    module_name.clone(),
+                    key.name.clone(),
+                ))
                 .map(Vec::as_slice)
                 .unwrap_or_default()
         } else {

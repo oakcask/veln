@@ -345,6 +345,7 @@ pub(super) fn collect_opaque_function_value_callees(
         target_visible_from_current_module(
             target,
             current_module,
+            current_package,
             uses,
             &public_or_same_module_access,
         )
@@ -355,6 +356,7 @@ pub(super) fn collect_opaque_function_value_callees(
                 kind: FunctionKind::Function,
                 name: target.target_name.clone(),
                 module_name: target.target_module_name.clone(),
+                package_name: target.target_package_name.clone(),
                 node_id: Some(target.target_node_id),
                 alias: target.alias.clone(),
             },

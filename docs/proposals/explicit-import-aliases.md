@@ -21,7 +21,9 @@ This proposal contains only the remaining source-tool integration.
   the owning module. They do not rename the written target path, member, or a
   same-spelled alias in another module.
 - Rename rejects invalid casing, `prelude`, and import-namespace collisions
-  without partial edits. Target-member rename retains the alias.
+  without partial edits. Target-member references and rename include member
+  occurrences reached through an explicit alias. A target-member rename leaves
+  the alias declaration, alias qualifiers, and written import target unchanged.
 - Hover and qualified completion display the local qualifier while retaining
   package and target-module provenance.
 - Saved LSP and MCP navigation agrees with compiler selection. Invalid and
@@ -34,7 +36,7 @@ navigation features.
 
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |
-| A11 | Definition, references, rename, hover, and completion on an alias and member | Alias and target identity remain distinct; valid edits affect only intended occurrences; rejected rename has no partial edits; saved LSP and MCP results agree. | Shared-language-service, LSP, MCP, and saved-workspace tests. |
+| A11 | Definition, references, rename, hover, and completion on an alias and member | Alias and target identity remain distinct; target-member references and rename include alias-qualified member occurrences without changing the alias declaration, alias qualifiers, or written import target; rejected rename has no partial edits; saved LSP and MCP results agree. | Shared-language-service, LSP, MCP, and saved-workspace tests that observe the alias-qualified target-member edit set. |
 
 ## Related work
 

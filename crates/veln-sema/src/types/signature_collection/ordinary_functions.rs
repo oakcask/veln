@@ -90,6 +90,7 @@ fn ordinary_function_signature(
         ),
         name,
         module_name: function.module_name.clone(),
+        package_name: function.package_name.clone(),
         visibility: function.visibility,
         params: params
             .into_iter()

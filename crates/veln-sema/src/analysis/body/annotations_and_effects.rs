@@ -544,7 +544,11 @@ impl<'a> FunctionChecker<'a> {
                 }
                 let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
                 self.environment
-                    .user_effect_path(&segments, self.function.module_name.as_deref())
+                    .user_effect_path_in_owner(
+                        &segments,
+                        self.function.module_name.as_deref(),
+                        self.function.package_name.as_deref(),
+                    )
                     .map(|effect| effect.qualified_name.clone())
                     .unwrap_or_else(|| effect.clone())
             })
