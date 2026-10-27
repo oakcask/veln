@@ -137,8 +137,10 @@ module owned by another package has an equal, colliding, or quarantined import.
 Declarations also retain that owner-package identity. Same-spelled
 declarations in same-spelled modules owned by different packages do not report
 `name.duplicate` solely because their module paths match. Qualified lookup
-selects the declaration owned by the imported target package, including for
-ADTs and their constructors.
+selects the declaration owned by the imported target package. This applies to
+functions and public function aliases, ADTs and their constructors, schemas and
+their generated operations, nominal effects, and handlers; a same-spelled
+declaration in another package is not a fallback candidate.
 Standard-package imports accept the written path, its canonical
 `std::` path, and the corresponding standard-relative path as exact spellings.
 No other import gains those additional spellings from a `std::` prefix alone.

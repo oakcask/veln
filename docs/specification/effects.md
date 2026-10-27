@@ -143,12 +143,15 @@ effect lists are canonical, unordered, and duplicate-free.
 Handler paths may use the same exact written paths and explicit import
 qualifiers as effect paths. A selected imported handler keeps its declaration
 module as the lookup scope for private functions called by its operation
-clauses; the local qualifier does not become runtime identity. Paths that use
-an import with an invalid module path segment or invalid explicit alias follow
-the same name-resolution quarantine boundary: one visible public handler export
-can suppress the derivative `handler.unknown` diagnostic, but private targets,
-wrong-kind targets, missing targets, and missing modules remain independently
-reported.
+clauses; the local qualifier does not become runtime identity. An import selects
+effects and handlers from both the target module and target package. An effect
+or handler in a same-spelled module owned by another package is not a candidate
+and cannot replace a missing declaration in the selected package. A path that
+uses an import with an invalid module path segment or invalid explicit alias
+follows the same name-resolution quarantine boundary: one visible public
+handler export can suppress the derivative `handler.unknown` diagnostic, but
+private targets, wrong-kind targets, missing targets, and missing modules remain
+independently reported.
 
 The checker evaluates the effect set of a handle expression as the union of
 context argument effects, body effects with the handled nominal effect removed,
