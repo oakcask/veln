@@ -28,6 +28,56 @@ fn surface_wire_preserves_explicit_import_alias_provenance() {
 }
 
 #[test]
+fn surface_wire_preserves_recovered_import_alias_provenance() {
+    for (source, expected_alias, expected_package) in [
+        ("use a as from \"pkg\"\n", None, Some("pkg")),
+        ("use a as b::c\n", Some("b"), None),
+        ("use a as b as c\n", Some("b"), None),
+    ] {
+        let module = lower_source_allowing_diagnostics(source);
+        let use_decl = &module.uses[0];
+        assert_eq!(use_decl.written_name, "a", "{source:?}");
+        assert_eq!(use_decl.name_spans.len(), 1, "{source:?}");
+        assert_eq!(
+            use_decl
+                .alias_span
+                .as_ref()
+                .map(|_| use_decl.alias.as_str()),
+            expected_alias,
+            "{source:?}"
+        );
+        if expected_alias.is_none() {
+            assert!(use_decl.alias.is_empty(), "{source:?}");
+        }
+        assert_eq!(use_decl.package.as_deref(), expected_package, "{source:?}");
+        assert_eq!(
+            use_decl.package_span.is_some(),
+            expected_package.is_some(),
+            "{source:?}"
+        );
+        assert_eq!(
+            (use_decl.span.start.line, use_decl.span.start.column),
+            (1, 1)
+        );
+        assert_eq!((use_decl.span.end.line, use_decl.span.end.column), (2, 1));
+        assert!(use_decl.recovered, "{source:?}");
+
+        let encoded = encode_surface_module(&module);
+        let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+        let decoded_use = &decoded.uses[0];
+        assert_eq!(decoded_use.written_name, use_decl.written_name);
+        assert_eq!(decoded_use.name_spans, use_decl.name_spans);
+        assert_eq!(decoded_use.alias, use_decl.alias);
+        assert_eq!(decoded_use.alias_span, use_decl.alias_span);
+        assert_eq!(decoded_use.package, use_decl.package);
+        assert_eq!(decoded_use.package_span, use_decl.package_span);
+        assert_eq!(decoded_use.span, use_decl.span);
+        assert_eq!(decoded_use.recovered, use_decl.recovered);
+        assert_eq!(encode_surface_module(&decoded), encoded);
+    }
+}
+
+#[test]
 fn surface_wire_preserves_remainder_token_source_coordinates() {
     let source = concat!(
         "fn checked() -> Int\n",

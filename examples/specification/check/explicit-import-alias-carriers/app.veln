@@ -1,5 +1,24 @@
 use api as facade
 
+pub fn radius(shape: facade::PublicShape::Circle) -> Int
+	match shape
+		facade::Circle(value) => value
+	end
+end
+
+pub schema Envelope
+	format binary
+	payload: facade::Packet
+end
+
+pub fn decode_packet(view: ByteView, base: ByteOffset) -> DecodeStep<{value: Int}>
+	decode facade::Packet from view at base
+end
+
+pub fn encode_packet(packet: {value: Int}) -> Result<ByteChunk, EncodeError>
+	encode facade::Packet from packet
+end
+
 pub fn main() -> Int
 	match facade::Circle(facade::twice(facade::handled()))
 		facade::Circle(value) => value

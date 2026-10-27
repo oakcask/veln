@@ -111,19 +111,51 @@ fn retains_invalid_case_alias_tokens_for_semantic_diagnostics() {
 #[test]
 fn malformed_import_aliases_recover_at_the_declaration_newline() {
     let cases = [
-        ("use a as\n", "parse.expected_identifier", 9),
-        ("use a as from \"pkg\"\n", "parse.expected_identifier", 10),
-        ("use a as \"local\"\n", "parse.expected_identifier", 10),
-        ("use a as b::c\n", "parse.expected_newline", 11),
+        ("use a as\n", "parse.expected_identifier", 9, None, None),
+        (
+            "use a as from \"pkg\"\n",
+            "parse.expected_identifier",
+            10,
+            None,
+            Some("pkg"),
+        ),
+        (
+            "use a as \"local\"\n",
+            "parse.expected_identifier",
+            10,
+            None,
+            None,
+        ),
+        (
+            "use a as b::c\n",
+            "parse.expected_newline",
+            11,
+            Some("b"),
+            None,
+        ),
         (
             "use a from \"pkg\" as local\n",
             "parse.expected_newline",
             18,
+            None,
+            Some("pkg"),
         ),
-        ("use a as b as c\n", "parse.expected_newline", 12),
-        ("use a as b from\n", "parse.expected_token", 16),
+        (
+            "use a as b as c\n",
+            "parse.expected_newline",
+            12,
+            Some("b"),
+            None,
+        ),
+        (
+            "use a as b from\n",
+            "parse.expected_token",
+            16,
+            Some("b"),
+            None,
+        ),
     ];
-    for (malformed, diagnostic_id, column) in cases {
+    for (malformed, diagnostic_id, column, expected_alias, expected_package) in cases {
         let source = SourceFile::new(
             "main.veln",
             format!("{malformed}use valid\nfn main() -> ()\n  ()\nend\n"),
@@ -134,13 +166,39 @@ fn malformed_import_aliases_recover_at_the_declaration_newline() {
             .first()
             .expect("malformed import diagnostic");
         assert_eq!(diagnostic.id, diagnostic_id, "{malformed}");
+        assert!(diagnostic.allows_semantic_analysis(), "{malformed}");
         let span = diagnostic.span.as_ref().expect("malformed import span");
         assert_eq!(
             (span.start.line, span.start.column),
             (1, column),
             "{malformed}"
         );
-        assert!(output.tree.uses[0].recovered, "{malformed}");
+        let recovered = &output.tree.uses[0];
+        assert!(recovered.recovered, "{malformed}");
+        assert_eq!(recovered.name, "a", "{malformed}");
+        assert_eq!(recovered.name_spans.len(), 1, "{malformed}");
+        assert_eq!(
+            recovered.alias.as_ref().map(|alias| alias.name.as_str()),
+            expected_alias,
+            "{malformed}"
+        );
+        if let Some(alias) = &recovered.alias {
+            assert_eq!(alias.span.start.column, 10, "{malformed}");
+            assert_eq!(alias.span.end.column, 11, "{malformed}");
+        }
+        assert_eq!(
+            recovered
+                .package
+                .as_ref()
+                .map(|package| package.name.as_str()),
+            expected_package,
+            "{malformed}"
+        );
+        assert_eq!(
+            (recovered.span.start.line, recovered.span.start.column),
+            (1, 1)
+        );
+        assert_eq!((recovered.span.end.line, recovered.span.end.column), (2, 1));
         assert_eq!(output.tree.uses[1].name, "valid", "{malformed}");
         assert!(!output.tree.uses[1].recovered, "{malformed}");
         assert!(matches!(output.tree.items[0], SyntaxItem::Function(_)));

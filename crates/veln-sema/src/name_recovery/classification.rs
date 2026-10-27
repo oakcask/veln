@@ -7,7 +7,7 @@ use super::{
 };
 
 pub(super) fn source_ordered_import_indices(module: &SurfaceModule) -> Vec<usize> {
-    let mut indices = module
+    let indices = module
         .uses
         .iter()
         .enumerate()
@@ -15,6 +15,22 @@ pub(super) fn source_ordered_import_indices(module: &SurfaceModule) -> Vec<usize
             (use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.recovered).then_some(index)
         })
         .collect::<Vec<_>>();
+    sort_import_indices(module, indices)
+}
+
+pub(super) fn source_ordered_use_indices(module: &SurfaceModule) -> Vec<usize> {
+    let indices = module
+        .uses
+        .iter()
+        .enumerate()
+        .filter_map(|(index, use_decl)| {
+            (use_decl.origin == veln_ast::UseOrigin::Source).then_some(index)
+        })
+        .collect();
+    sort_import_indices(module, indices)
+}
+
+fn sort_import_indices(module: &SurfaceModule, mut indices: Vec<usize>) -> Vec<usize> {
     if indices.len() < 2 {
         return indices;
     }
@@ -159,25 +175,36 @@ fn import_file_byte_bucket(use_decl: &UseDecl, byte_index: usize) -> usize {
         .map_or(0, |byte| usize::from(*byte) + 1)
 }
 
-#[derive(Clone, Copy, Default)]
-struct FirstTwo {
-    first: Option<usize>,
-    second: Option<usize>,
+#[derive(Clone, Default)]
+struct FirstTwoDistinctTargets {
+    first: Option<(ImportTargetKey, usize)>,
+    second: Option<(ImportTargetKey, usize)>,
 }
 
-impl FirstTwo {
-    fn push(&mut self, index: usize) {
+impl FirstTwoDistinctTargets {
+    fn push(&mut self, target: &ImportTargetKey, index: usize) {
         if self.first.is_none() {
-            self.first = Some(index);
-        } else if self.second.is_none() {
-            self.second = Some(index);
+            self.first = Some((target.clone(), index));
+        } else if self
+            .first
+            .as_ref()
+            .is_some_and(|(first_target, _)| first_target != target)
+            && self.second.is_none()
+        {
+            self.second = Some((target.clone(), index));
         }
     }
 
-    fn first_except(self, excluded: Option<usize>) -> Option<usize> {
+    fn first_for_different_target(&self, target: &ImportTargetKey) -> Option<usize> {
         self.first
-            .filter(|candidate| Some(*candidate) != excluded)
-            .or_else(|| self.second.filter(|candidate| Some(*candidate) != excluded))
+            .as_ref()
+            .filter(|(candidate, _)| candidate != target)
+            .or_else(|| {
+                self.second
+                    .as_ref()
+                    .filter(|(candidate, _)| candidate != target)
+            })
+            .map(|(_, index)| *index)
     }
 }
 
@@ -185,8 +212,8 @@ struct DiagnosticOrigins {
     target_origins: Vec<Option<usize>>,
     qualifier_origins: Vec<Option<usize>>,
     first_targets: HashMap<ImportTargetKey, usize>,
-    first_qualifiers: HashMap<ImportBindingKey, FirstTwo>,
-    first_explicit_qualifiers: HashMap<ImportBindingKey, FirstTwo>,
+    first_qualifiers: HashMap<ImportBindingKey, FirstTwoDistinctTargets>,
+    first_explicit_qualifiers: HashMap<ImportBindingKey, FirstTwoDistinctTargets>,
 }
 
 impl DiagnosticOrigins {
@@ -207,22 +234,22 @@ impl DiagnosticOrigins {
 
         let qualifier = import_binding_key(use_decl);
         self.qualifier_origins[index] =
-            self.qualifier_origin(&qualifier, use_decl.has_explicit_alias(), duplicate_target);
+            self.qualifier_origin(&qualifier, &target, use_decl.has_explicit_alias());
         self.remember(index, target, qualifier, use_decl.has_explicit_alias());
     }
 
     fn qualifier_origin(
         &self,
         qualifier: &ImportBindingKey,
+        target: &ImportTargetKey,
         explicit: bool,
-        duplicate_target: Option<usize>,
     ) -> Option<usize> {
         let candidates = if explicit {
             self.first_qualifiers.get(qualifier)
         } else {
             self.first_explicit_qualifiers.get(qualifier)
         };
-        candidates.and_then(|candidates| candidates.first_except(duplicate_target))
+        candidates.and_then(|candidates| candidates.first_for_different_target(target))
     }
 
     fn remember(
@@ -232,17 +259,17 @@ impl DiagnosticOrigins {
         qualifier: ImportBindingKey,
         explicit: bool,
     ) {
-        self.first_targets.entry(target).or_insert(index);
         self.first_qualifiers
             .entry(qualifier.clone())
             .or_default()
-            .push(index);
+            .push(&target, index);
         if explicit {
             self.first_explicit_qualifiers
                 .entry(qualifier)
                 .or_default()
-                .push(index);
+                .push(&target, index);
         }
+        self.first_targets.entry(target).or_insert(index);
     }
 
     fn finish(self) -> (Vec<Option<usize>>, Vec<Option<usize>>) {

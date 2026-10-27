@@ -54,6 +54,71 @@ fn explicit_import_alias_collisions_and_repeated_targets_are_static_errors() {
 }
 
 #[test]
+fn repeated_identical_imports_report_only_the_first_target_origin() {
+    for source in [
+        "mod app\nuse alpha as shared\nuse alpha as shared\nuse alpha as shared\n",
+        "mod app\nuse beta as other\nuse alpha as shared\nuse alpha as shared\nuse alpha as shared\n",
+    ] {
+        let module = lower_surface_ast(&parse(&SourceFile::new("main.veln", source)).tree);
+        let diagnostics = analyze_surface_module(&module);
+        let duplicates = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.duplicate")
+            .collect::<Vec<_>>();
+
+        assert_eq!(duplicates.len(), 2, "{diagnostics:#?}");
+        let first_origin_line = if source.starts_with("mod app\nuse alpha") {
+            2
+        } else {
+            3
+        };
+        assert!(duplicates.iter().all(|diagnostic| {
+            diagnostic.message == "duplicate import name `alpha`"
+                && diagnostic.related.len() == 1
+                && diagnostic.related[0]
+                    .to_json()
+                    .contains(&format!("\"start\":{{\"line\":{first_origin_line},"))
+        }));
+    }
+
+    let modules = [false, true].map(|reversed| {
+        let first = SourceFile::new("a.veln", "mod app\nuse alpha as shared\n");
+        let later = SourceFile::new(
+            "z.veln",
+            "mod app\nuse alpha as shared\nuse alpha as shared\n",
+        );
+        let sources = if reversed {
+            vec![("app", later), ("app", first)]
+        } else {
+            vec![("app", first), ("app", later)]
+        };
+        merged_modules_with_identities(sources)
+    });
+    let diagnostics = modules.map(|module| analyze_surface_module(&module));
+    for observed in &diagnostics {
+        assert_eq!(observed.len(), 2, "{observed:#?}");
+        assert!(observed.iter().all(|diagnostic| {
+            diagnostic.message == "duplicate import name `alpha`"
+                && diagnostic.related[0]
+                    .to_json()
+                    .contains("\"file\":\"a.veln\"")
+        }));
+    }
+    assert_eq!(
+        diagnostics[0]
+            .iter()
+            .map(veln_diagnostics::diagnostic_to_json)
+            .map(|json| json.to_json())
+            .collect::<Vec<_>>(),
+        diagnostics[1]
+            .iter()
+            .map(veln_diagnostics::diagnostic_to_json)
+            .map(|json| json.to_json())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn implicit_leaf_collisions_keep_exact_paths_without_duplicate_diagnostics() {
     for source in [
         "mod app\nuse alpha::shared\nuse beta::shared\n",

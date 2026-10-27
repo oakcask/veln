@@ -44,7 +44,10 @@ The alias is one identifier and must start with an ASCII lowercase letter.
 The parser retains uppercase and underscore-led aliases for casing diagnostics.
 A malformed alias clause recovers at its declaration newline, so the next
 import or item remains available, but the recovered import supplies no lookup
-binding. Formatting retains an accepted alias before `from` and is idempotent.
+binding. Semantic analysis continues after that bounded recovery so retained
+target and alias spellings can report casing diagnostics; the recovered import
+still cannot contribute a qualifier, exact path, or bare export. Formatting
+retains an accepted alias before `from` and is idempotent.
 The syntax tree and lowered AST retain the written target, explicit alias and
 its span, optional package source, complete declaration span, and recovery
 state. The AST wire layout serializes that provenance and rejects the preceding

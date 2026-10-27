@@ -61,11 +61,16 @@ impl<'a> Parser<'a> {
 
     fn parse_use_package(&mut self) -> Option<UsePackage> {
         if self.eat(TokenKind::From).is_some() {
-            let token = self.expect(TokenKind::String, "use_declaration", vec!["package"]);
-            Some(UsePackage {
-                name: unquote_string_token(&token.text),
-                span: self.source.span(token.range),
-            })
+            if self.at(TokenKind::String) {
+                let token = self.bump();
+                Some(UsePackage {
+                    name: unquote_string_token(&token.text),
+                    span: self.source.span(token.range),
+                })
+            } else {
+                self.expect(TokenKind::String, "use_declaration", vec!["package"]);
+                None
+            }
         } else {
             None
         }

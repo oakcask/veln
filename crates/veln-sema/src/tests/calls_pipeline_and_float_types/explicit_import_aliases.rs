@@ -48,6 +48,32 @@ fn explicit_import_alias_and_written_path_select_the_same_function_identity() {
 }
 
 #[test]
+fn explicit_import_alias_contributes_no_old_leaf_qualifier() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app::main\n",
+            "use app::math as wire\n",
+            "pub fn main() -> Int\n",
+            "  math::double(2)\n",
+            "end\n",
+        ),
+    );
+    let math_source = SourceFile::new(
+        "math.veln",
+        "mod app::math\npub fn double(value: Int) -> Int\n  value + value\nend\n",
+    );
+    let module = merged_import_module(main_source, vec![math_source]);
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `math::double`"
+    }));
+    assert!(lowered.core.is_none());
+}
+
+#[test]
 fn same_named_imports_keep_distinct_module_link_identities() {
     let main_source = SourceFile::new(
         "main.veln",

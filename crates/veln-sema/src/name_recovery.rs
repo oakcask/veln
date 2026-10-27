@@ -15,7 +15,9 @@ pub(crate) use alias_validity::{
     InvalidAliasTargetIndex, public_alias_has_invalid_target_leaf,
     use_decl_contributes_bare_exports, use_decl_has_reserved_alias, use_decl_is_recovery_candidate,
 };
-use classification::{duplicate_diagnostic_origins, source_ordered_import_indices};
+use classification::{
+    duplicate_diagnostic_origins, source_ordered_import_indices, source_ordered_use_indices,
+};
 #[cfg(test)]
 pub(crate) use instrumentation::NormalImportSelectionWork;
 #[cfg(test)]
@@ -80,7 +82,7 @@ pub(crate) fn with_import_classification<T>(
     if existing.is_some() {
         return operation();
     }
-    let classification = Rc::new(NormalUseGroups::collect(module).finish(module));
+    let classification = Rc::new(NormalUseGroups::collect(module));
     IMPORT_CLASSIFICATION_SCOPES.with(|scopes| {
         scopes.borrow_mut().push((key, classification));
     });
@@ -109,7 +111,7 @@ pub(crate) fn import_classification(module: &SurfaceModule) -> Rc<ImportClassifi
                     (*candidate == key).then(|| Rc::clone(classification))
                 })
         })
-        .unwrap_or_else(|| Rc::new(NormalUseGroups::collect(module).finish(module)))
+        .unwrap_or_else(|| Rc::new(NormalUseGroups::collect(module)))
 }
 
 impl ImportClassification {
@@ -166,8 +168,9 @@ impl ImportClassification {
 }
 
 impl NormalUseGroups {
-    fn collect(module: &SurfaceModule) -> Self {
+    fn collect(module: &SurfaceModule) -> ImportClassification {
         record_import_classification_build();
+        let use_order = source_ordered_use_indices(module);
         let invalid_module_spans = invalid_module_spans_by_file(module);
         let mut groups = Self {
             quarantined: vec![false; module.uses.len()],
@@ -177,37 +180,16 @@ impl NormalUseGroups {
             qualifiers: HashMap::new(),
             exact_paths: HashMap::new(),
         };
+        groups.classify_invalid_module_segments(module, &use_order, &invalid_module_spans);
         for (index, use_decl) in module.uses.iter().enumerate() {
-            groups.record(index, use_decl, &invalid_module_spans);
+            groups.record(index, use_decl);
         }
-        groups
+        groups.finish(module)
     }
 
-    fn record(
-        &mut self,
-        index: usize,
-        use_decl: &UseDecl,
-        invalid_module_spans: &BTreeMap<String, Vec<(usize, usize)>>,
-    ) {
+    fn record(&mut self, index: usize, use_decl: &UseDecl) {
         record_import_classification_work();
         let reserved = use_decl_has_reserved_alias(use_decl);
-        self.invalid_module_segments[index] =
-            use_decl_has_indexed_invalid_module_segment(invalid_module_spans, use_decl);
-        if let Some(spans) = invalid_module_spans.get(use_decl.span.file.as_str()) {
-            let first = spans.partition_point(|(start, _)| *start < use_decl.span.start.offset);
-            for &(start, end) in spans[first..]
-                .iter()
-                .take_while(|(start, _)| *start < use_decl.span.end.offset)
-            {
-                if end <= use_decl.span.end.offset {
-                    self.invalid_import_locations.insert((
-                        use_decl.span.file.as_str().to_owned(),
-                        start,
-                        end,
-                    ));
-                }
-            }
-        }
         self.quarantined[index] =
             use_decl.recovered || reserved || self.invalid_module_segments[index];
         if use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.recovered && !reserved {
@@ -232,6 +214,46 @@ impl NormalUseGroups {
                     .entry((use_decl.module_name.clone(), path))
                     .or_default()
                     .push(index);
+            }
+        }
+    }
+
+    fn classify_invalid_module_segments(
+        &mut self,
+        module: &SurfaceModule,
+        source_order: &[usize],
+        invalid_module_spans: &BTreeMap<String, Vec<(usize, usize)>>,
+    ) {
+        let mut cursors = HashMap::<&str, usize>::new();
+        for &index in source_order {
+            let use_decl = &module.uses[index];
+            let file = use_decl.span.file.as_str();
+            let Some(spans) = invalid_module_spans.get(file) else {
+                continue;
+            };
+            let cursor = cursors.entry(file).or_default();
+            loop {
+                record_import_classification_work();
+                if *cursor >= spans.len() {
+                    break;
+                }
+                let (start, end) = spans[*cursor];
+                record_import_classification_work();
+                if start < use_decl.span.start.offset {
+                    *cursor += 1;
+                    continue;
+                }
+                record_import_classification_work();
+                if start >= use_decl.span.end.offset {
+                    break;
+                }
+                record_import_classification_work();
+                if end <= use_decl.span.end.offset {
+                    self.invalid_module_segments[index] = true;
+                    self.invalid_import_locations
+                        .insert((file.to_owned(), start, end));
+                }
+                *cursor += 1;
             }
         }
     }
@@ -424,26 +446,6 @@ fn radix_sort_offset_pairs(spans: &mut Vec<(usize, usize)>) {
             .into_iter()
             .map(|index| original[index].take().expect("radix index is unique")),
     );
-}
-
-fn use_decl_has_indexed_invalid_module_segment(
-    invalid_module_spans: &BTreeMap<String, Vec<(usize, usize)>>,
-    use_decl: &UseDecl,
-) -> bool {
-    let Some(spans) = invalid_module_spans.get(use_decl.span.file.as_str()) else {
-        return false;
-    };
-    record_import_classification_work();
-    let first = spans.partition_point(|(start, _)| *start < use_decl.span.start.offset);
-    spans[first..]
-        .iter()
-        .take_while(|(start, _)| {
-            record_import_classification_work();
-            *start < use_decl.span.end.offset
-        })
-        .any(|(start, end)| {
-            use_decl.span.start.offset <= *start && *end <= use_decl.span.end.offset
-        })
 }
 
 pub(crate) fn normal_imported_use_for_path<'a>(

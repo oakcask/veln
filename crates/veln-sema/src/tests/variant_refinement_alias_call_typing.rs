@@ -2,6 +2,63 @@ use super::*;
 use crate::types::TypeEnvironment;
 
 #[test]
+fn explicit_import_alias_qualified_refinement_keeps_target_identity() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "api",
+            SourceFile::new(
+                "api.veln",
+                concat!(
+                    "pub type Shape\n",
+                    "  pub Circle(Int)\n",
+                    "  pub Square(Int)\n",
+                    "end\n",
+                ),
+            ),
+        ),
+        (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use api as facade\n",
+                    "fn through_alias(value: facade::Shape::Circle) -> Int\n",
+                    "  match value\n",
+                    "    facade::Shape::Circle(radius) => radius\n",
+                    "  end\n",
+                    "end\n",
+                    "fn through_target(value: api::Shape::Circle) -> Int\n",
+                    "  match value\n",
+                    "    api::Shape::Circle(radius) => radius\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+    let diagnostics = analyze_surface_module(&module);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let environment = TypeEnvironment::from_module(&module);
+    let alias = &environment.function("through_alias").unwrap().params[0];
+    let target = &environment.function("through_target").unwrap().params[0];
+    assert!(crate::type_relations::is_assignable(alias, target));
+    assert!(crate::type_relations::is_assignable(target, alias));
+    assert_eq!(alias.render(), "Shape::Circle");
+    assert_eq!(target.render(), "Shape::Circle");
+    assert_eq!(
+        crate::name_recovery::normal_imported_use_for_path(
+            &module,
+            &["facade".to_string()],
+            Some("app")
+        )
+        .map(|use_decl| use_decl.name.as_str()),
+        Some("api")
+    );
+    assert!(lower_checked_surface_module(&module).core.is_some());
+}
+
+#[test]
 fn alias_qualified_refinements_share_target_identity_and_preserve_annotations() {
     let source = SourceFile::new(
         "main.veln",

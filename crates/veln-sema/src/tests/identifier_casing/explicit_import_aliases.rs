@@ -184,10 +184,195 @@ fn invalid_explicit_alias_recovery_requires_one_public_callable_target() {
 }
 
 #[test]
+fn invalid_explicit_alias_recovery_suppresses_only_proven_carrier_cascades() {
+    let module = merged_modules(vec![
+        SourceFile::new(
+            "app.veln",
+            concat!(
+                "mod app\n",
+                "use transport::http as HTTP\n",
+                "fn typed(value: HTTP::Payload) -> HTTP::Payload\n",
+                "  value\n",
+                "end\n",
+                "fn built() -> HTTP::Payload\n",
+                "  HTTP::Payload::Data(1)\n",
+                "end\n",
+                "fn inspected(value: HTTP::Payload) -> Int\n",
+                "  match value\n",
+                "    HTTP::Payload::Data(inner) => inner\n",
+                "  end\n",
+                "end\n",
+                "schema Packet\n",
+                "  payload: HTTP::Wire\n",
+                "end\n",
+                "fn effected() -> () effects [HTTP::Audit]\n",
+                "  ()\n",
+                "end\n",
+                "fn body() -> Int\n",
+                "  1\n",
+                "end\n",
+                "fn handled() -> Int\n",
+                "  handle body() with HTTP::audit()\n",
+                "end\n",
+            ),
+        ),
+        SourceFile::new(
+            "http.veln",
+            concat!(
+                "mod transport::http\n",
+                "pub type Payload\n",
+                "  pub Data(Int)\n",
+                "end\n",
+                "pub schema Wire\n",
+                "  value: Int\n",
+                "end\n",
+                "pub effect Audit\n",
+                "  record() -> Int\n",
+                "end\n",
+                "pub handler audit() for Audit\n",
+                "  record() => 1\n",
+                "end\n",
+            ),
+        ),
+    ]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case")
+    );
+    for derivative in [
+        "name.unresolved",
+        "type.mismatch",
+        "type.match_non_exhaustive",
+        "core.constructor_arity_mismatch",
+        "schema.composition_reference",
+        "effect.unknown",
+        "handler.unknown",
+    ] {
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != derivative),
+            "unexpected {derivative}: {diagnostics:#?}"
+        );
+    }
+    assert!(
+        TypeEnvironment::from_module(&module)
+            .uses
+            .iter()
+            .all(|use_decl| use_decl.alias != "HTTP")
+    );
+    assert!(lower_checked_surface_module(&module).core.is_none());
+}
+
+#[test]
+fn invalid_explicit_alias_recovery_preserves_independent_carrier_failures() {
+    let module = merged_modules(vec![
+        SourceFile::new(
+            "app.veln",
+            concat!(
+                "mod app\n",
+                "use transport::http as HTTP\n",
+                "pub type MissingAlias = HTTP::Missing\n",
+                "fn missing_type(value: HTTP::Missing) -> Int\n",
+                "  value\n",
+                "end\n",
+                "fn wrong_arity() -> HTTP::Payload\n",
+                "  HTTP::Payload::Data(1, 2)\n",
+                "end\n",
+                "fn incomplete(value: HTTP::Payload) -> Int\n",
+                "  match value\n",
+                "    HTTP::Payload::Data(inner) => inner\n",
+                "  end\n",
+                "end\n",
+                "schema Packet\n",
+                "  payload: HTTP::Wire\n",
+                "end\n",
+                "fn effected() -> () effects [HTTP::Audit]\n",
+                "  ()\n",
+                "end\n",
+                "fn body() -> Int\n",
+                "  1\n",
+                "end\n",
+                "fn handled() -> Int\n",
+                "  handle body() with HTTP::audit()\n",
+                "end\n",
+            ),
+        ),
+        SourceFile::new(
+            "http.veln",
+            concat!(
+                "mod transport::http\n",
+                "pub type Payload\n",
+                "  pub Data(Int)\n",
+                "  pub Empty\n",
+                "end\n",
+                "schema Wire\n",
+                "  value: Int\n",
+                "end\n",
+                "effect Audit\n",
+                "  record() -> Int\n",
+                "end\n",
+                "handler audit() for Audit\n",
+                "  record() => 1\n",
+                "end\n",
+            ),
+        ),
+    ]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case")
+    );
+    for independent in [
+        "name.unresolved",
+        "schema.composition_reference",
+        "effect.unknown",
+        "handler.unknown",
+    ] {
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == independent),
+            "missing {independent}: {diagnostics:#?}"
+        );
+    }
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.message == "unresolved type alias target `HTTP::Missing`"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.message == "unresolved call_target `HTTP::Payload::Data`"
+    }));
+    assert!(lower_checked_surface_module(&module).core.is_none());
+}
+
+#[test]
 fn combined_module_explicit_alias_casing_diagnostics_use_stable_source_order() {
     fn module(reversed: bool) -> SurfaceModule {
-        let first = SourceFile::new("a.veln", "mod app\nuse alpha as HTTP\n");
-        let second = SourceFile::new("z.veln", "mod app\nuse bravo as WIRE\n");
+        let first = SourceFile::new(
+            "a.veln",
+            concat!(
+                "mod app\n",
+                "use Missing as HTTP::nested\n",
+                "use alpha as shared\n",
+                "use absent as missing\n",
+                "fn unresolved() -> Int\n",
+                "  missing::entry()\n",
+                "end\n",
+            ),
+        );
+        let second = SourceFile::new(
+            "z.veln",
+            concat!(
+                "mod app\n",
+                "use beta as shared\n",
+                "use gamma as prelude\n",
+            ),
+        );
         let sources = if reversed {
             vec![("app", second), ("app", first)]
         } else {
@@ -196,20 +381,20 @@ fn combined_module_explicit_alias_casing_diagnostics_use_stable_source_order() {
         merged_modules_with_identities(sources)
     }
 
-    let diagnostics = [module(false), module(true)].map(|module| {
-        analyze_surface_module(&module)
-            .into_iter()
-            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
-            .collect::<Vec<_>>()
-    });
+    let diagnostics = [module(false), module(true)].map(|module| analyze_surface_module(&module));
     for observed in &diagnostics {
         assert_eq!(
             observed
                 .iter()
-                .filter_map(|diagnostic| diagnostic.span.as_ref())
-                .map(|span| span.file.as_str())
+                .map(|diagnostic| diagnostic.id.as_str())
                 .collect::<Vec<_>>(),
-            ["a.veln", "z.veln"],
+            [
+                "name.invalid_case",
+                "name.invalid_case",
+                "name.duplicate",
+                "name.reserved",
+                "name.unresolved",
+            ],
             "{observed:#?}"
         );
     }

@@ -930,7 +930,11 @@ reported; first-binding context appears as a related note. A duplicate
 target import uses its written target path. Parser diagnostics precede casing
 diagnostics for one import; reserved and duplicate facts follow casing, while
 target-resolution facts stay independent. Combined module sources retain
-stable source and token order.
+stable source and token order. The checked
+[`explicit-import-alias-combined-order-human`](../../examples/specification/check/explicit-import-alias-combined-order-human/)
+and
+[`explicit-import-alias-combined-order-json`](../../examples/specification/check/explicit-import-alias-combined-order-json/)
+cases fix the complete observable order in text and JSON output.
 
 Companion diagnostics expose `details.companion_path` and
 `details.target_path` where applicable. Private companion effect and handler

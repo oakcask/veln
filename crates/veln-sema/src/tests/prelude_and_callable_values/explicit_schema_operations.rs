@@ -207,6 +207,71 @@ fn explicit_schema_decode_expression_resolves_qualified_public_schema_path() {
 }
 
 #[test]
+fn explicit_import_alias_schema_operations_keep_selected_target_identity() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use transport::wire as conduit\n",
+            "pub fn decode_packet(view: ByteView, base: ByteOffset) -> DecodeStep<{wire_length: Int}>\n",
+            "  decode conduit::PacketWire from view at base\n",
+            "end\n",
+            "pub fn encode_packet(packet: {wire_length: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode conduit::PacketWire from packet\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod transport::wire\n",
+            "pub schema PacketWire\n",
+            "  format binary\n",
+            "  wire_length: UInt8\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: wire.types,
+        schemas: wire.schemas,
+        module_values: Vec::new(),
+        functions: [app.functions, wire.functions].concat(),
+        invalid_names: Vec::new(),
+    };
+
+    assert_eq!(
+        crate::name_recovery::normal_imported_use_for_path(
+            &module,
+            &["conduit".to_string()],
+            Some("app")
+        )
+        .map(|use_decl| use_decl.name.as_str()),
+        Some("transport::wire")
+    );
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    assert_named_schema_boundary(
+        &lowered,
+        "decode_packet",
+        "PacketWire",
+        ExpectedSchemaBoundary::DecodeStep,
+    );
+    assert_named_schema_boundary(
+        &lowered,
+        "encode_packet",
+        "PacketWire",
+        ExpectedSchemaBoundary::Encode,
+    );
+}
+
+#[test]
 fn explicit_schema_operations_resolve_public_schema_alias_to_target_schema() {
     let app_source = SourceFile::new(
         "app.veln",

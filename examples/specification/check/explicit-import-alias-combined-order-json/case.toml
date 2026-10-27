@@ -1,0 +1,16 @@
+command = ["check", "--json", "main.veln", "alpha.veln", "beta.veln", "gamma.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics"
+equals_json_file = "case-text/diagnostics.json"
