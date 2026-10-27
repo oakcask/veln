@@ -46,6 +46,13 @@ unresolved. The checked
 and
 [`explicit-import-alias-local-std-origin`](../../examples/specification/run/explicit-import-alias-local-std-origin/)
 cases cover the successful JVM linkage and the rejected relative lookup.
+Import selection and quarantine also retain the package that owns the importing
+source. Application and standard-library sources with the same module spelling
+therefore keep independent import bindings through reachable lowering. The
+checked
+[`explicit-import-alias-owner-package-scope`](../../examples/specification/run/explicit-import-alias-owner-package-scope/)
+case executes a standard import while a loaded same-spelled application source
+owns a separate import.
 
 The JVM host boundary associates resources created by `net::system()` with the
 active `net::IO` handler frame. Popping that frame closes its remaining

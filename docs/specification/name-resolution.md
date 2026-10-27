@@ -128,7 +128,13 @@ import qualifier does not become part of the published identity.
 Every import retains both its written target package and the package that owns
 the importing source. An explicit `from` package determines target origin;
 otherwise, the importing package determines origin for package-internal
-imports. Standard-package imports accept the written path, its canonical
+imports. Import qualifier selection, exact-path ambiguity, duplicate-target
+quarantine, and casing quarantine are local to that owning package and source
+module. Sources in different packages do not share import bindings or
+quarantine merely because their module paths have the same spelling. A valid
+import owned by one package therefore remains selectable when a same-spelled
+module owned by another package has an equal, colliding, or quarantined import.
+Standard-package imports accept the written path, its canonical
 `std::` path, and the corresponding standard-relative path as exact spellings.
 No other import gains those additional spellings from a `std::` prefix alone.
 For example, a local `use std::helper` accepts `std::helper::answer()` but does
