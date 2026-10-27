@@ -5,11 +5,12 @@ pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagno
 
     for function in &module.functions {
         let current_module = function.module_name.as_deref();
+        let current_package = function.package_name.as_deref();
         for param in &function.params {
             if let Some(annotation) = &param.ty {
                 push_schema_type_reference_diagnostics(
                     module,
-                    current_module,
+                    (current_module, current_package),
                     annotation,
                     param.node_id.display("param"),
                     param.span.clone(),
@@ -21,7 +22,7 @@ pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagno
         if let Some(return_type) = &function.return_type {
             push_schema_type_reference_diagnostics(
                 module,
-                current_module,
+                (current_module, current_package),
                 return_type,
                 function.node_id.display(function.kind.node_prefix()),
                 function.span.clone(),
@@ -29,15 +30,23 @@ pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagno
                 &mut diagnostics,
             );
         }
-        check_body_schema_type_references(module, current_module, &function.body, &mut diagnostics);
+        check_body_schema_type_references(
+            module,
+            current_module,
+            current_package,
+            &function.body,
+            &mut diagnostics,
+        );
     }
 
     for handler in &module.handlers {
         let current_module = handler.module_name.as_deref();
+        let current_package = handler.package_name.as_deref();
         for clause in &handler.operation_clauses {
             check_expr_schema_type_references(
                 module,
                 current_module,
+                current_package,
                 &clause.body,
                 &mut diagnostics,
             );
@@ -46,11 +55,12 @@ pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagno
 
     for type_decl in &module.types {
         let current_module = type_decl.module_name.as_deref();
+        let current_package = type_decl.package_name.as_deref();
         for variant in &type_decl.variants {
             for field in &variant.fields {
                 push_schema_type_reference_diagnostics(
                     module,
-                    current_module,
+                    (current_module, current_package),
                     &field.ty,
                     field.node_id.display("field"),
                     field.span.clone(),
@@ -67,6 +77,7 @@ pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagno
 fn check_body_schema_type_references(
     module: &SurfaceModule,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     body: &[BodyLine],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
@@ -78,7 +89,7 @@ fn check_body_schema_type_references(
                 if let Some(annotation) = annotation {
                     push_schema_type_reference_diagnostics(
                         module,
-                        current_module,
+                        (current_module, current_package),
                         annotation,
                         line.node_id.display("let"),
                         line.span.clone(),
@@ -86,13 +97,31 @@ fn check_body_schema_type_references(
                         diagnostics,
                     );
                 }
-                check_expr_schema_type_references(module, current_module, expr, diagnostics);
+                check_expr_schema_type_references(
+                    module,
+                    current_module,
+                    current_package,
+                    expr,
+                    diagnostics,
+                );
             }
             BodyLineKind::Expr { expr } => {
-                check_expr_schema_type_references(module, current_module, expr, diagnostics);
+                check_expr_schema_type_references(
+                    module,
+                    current_module,
+                    current_package,
+                    expr,
+                    diagnostics,
+                );
             }
             BodyLineKind::Defer { body, .. } => {
-                check_body_schema_type_references(module, current_module, body, diagnostics);
+                check_body_schema_type_references(
+                    module,
+                    current_module,
+                    current_package,
+                    body,
+                    diagnostics,
+                );
             }
         }
     }
@@ -101,15 +130,28 @@ fn check_body_schema_type_references(
 fn check_expr_schema_type_references(
     module: &SurfaceModule,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     expr: &Expr,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     if let ExprKind::Begin { body, .. } = &expr.kind {
-        check_body_schema_type_references(module, current_module, body, diagnostics);
+        check_body_schema_type_references(
+            module,
+            current_module,
+            current_package,
+            body,
+            diagnostics,
+        );
         return;
     }
     expr.for_each_child(&mut |child| {
-        check_expr_schema_type_references(module, current_module, child, diagnostics);
+        check_expr_schema_type_references(
+            module,
+            current_module,
+            current_package,
+            child,
+            diagnostics,
+        );
     });
 }
 

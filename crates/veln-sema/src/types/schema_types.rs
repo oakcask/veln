@@ -1,8 +1,7 @@
 use super::*;
 use crate::adt::registry::AdtRegistry;
 use crate::name_recovery::{
-    normal_imported_use_for_path, normal_imported_use_for_path_in_owner,
-    schema_composition_imported_use_for_path_in_owner,
+    normal_imported_use_for_path_in_owner, schema_composition_imported_use_for_path_in_owner,
 };
 
 mod binary;

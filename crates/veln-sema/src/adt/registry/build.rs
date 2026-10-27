@@ -292,11 +292,12 @@ impl AdtRegistry {
                     else {
                         continue;
                     };
-                    *ty = crate::types::canonicalize_type_effects(
+                    *ty = crate::types::canonicalize_type_effects_in_owner(
                         ty.clone(),
                         uses,
                         &no_quarantined_uses,
                         descriptor.module_name.as_deref(),
+                        descriptor.package_name.as_deref(),
                         &no_effects,
                         &lookup,
                         &no_effect_access_targets,

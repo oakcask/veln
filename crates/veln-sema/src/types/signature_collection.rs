@@ -31,27 +31,6 @@ mod ordinary_functions;
 mod refinement_resolution;
 pub(super) use ordinary_functions::ordinary_function_signatures;
 
-pub(crate) fn canonicalize_type_effects(
-    ty: Type,
-    uses: &[UseDecl],
-    quarantined_uses: &[UseDecl],
-    current_module: Option<&str>,
-    effects: &[EffectSignature],
-    adts: &AdtRegistry,
-    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
-) -> Type {
-    canonicalize_type_effects_in_owner(
-        ty,
-        uses,
-        quarantined_uses,
-        current_module,
-        None,
-        effects,
-        adts,
-        companion_effect_access_targets,
-    )
-}
-
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn canonicalize_type_effects_in_owner(
     ty: Type,

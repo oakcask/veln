@@ -1,9 +1,8 @@
 use crate::adt::type_operations as adt;
 use crate::diagnostics::{module_details, span_json};
-pub(super) use crate::name_recovery::normal_imported_use_for_path;
 use crate::name_recovery::{
-    import_classification, normal_imported_use_for_path_in_owner, resolved_import_module_name,
-    select_use_decl_for_path, use_decl_is_recovery_candidate,
+    import_classification, normal_imported_use_for_path_in_owner, select_use_decl_for_path,
+    use_decl_is_recovery_candidate,
 };
 use crate::semantic_model::Type;
 use crate::standard_names::PRELUDE_MODULE;
@@ -85,15 +84,6 @@ pub(super) fn valid_function_name(name: &str) -> bool {
 
 pub(super) fn valid_type_name(name: &str) -> bool {
     name.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
-}
-
-pub(super) fn normal_imported_module_for_path(
-    module: &SurfaceModule,
-    segments: &[String],
-    current_module: Option<&str>,
-) -> Option<String> {
-    normal_imported_use_for_path(module, segments, current_module)
-        .map(|use_decl| resolved_import_module_name(use_decl, current_module))
 }
 
 pub(super) fn quarantined_imported_use_for_path_in_owner<'a>(

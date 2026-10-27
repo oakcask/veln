@@ -14,11 +14,8 @@ pub(super) fn check_format_neutral_schema_field(
         format_neutral_schema_encode_field_type_for_schema(module, schema, adts, &field.ty);
     let direct_source_adt_candidate =
         format_neutral_schema_encode_field_is_source_adt_candidate(module, schema, adts, &field.ty);
-    let refinement_candidate = format_neutral_schema_encode_field_contains_refinement(
-        adts,
-        schema.module_name.as_deref(),
-        &field.ty,
-    );
+    let refinement_candidate =
+        format_neutral_schema_encode_field_contains_refinement(module, schema, adts, &field.ty);
     let context = FormatNeutralSchemaFieldCheck {
         module,
         schema,
