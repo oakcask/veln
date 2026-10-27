@@ -134,3 +134,89 @@ missing = true
 id = 10
 path = "/result"
 equals = null
+
+[[lsp_assert]]
+id = 11
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 12
+path = "/result"
+length = 1
+
+[[lsp_assert]]
+id = 12
+path = "/result/0/uri"
+workspace_file_uri = "precedence.veln"
+
+[[lsp_assert]]
+id = 12
+path = "/result/0/range"
+equals = {"start":{"line":0,"character":13},"end":{"line":0,"character":16}}
+
+[[lsp_assert]]
+id = 13
+path = "/result/changes/$workspace_file_uri:precedence.veln"
+equals = [
+  {"range":{"start":{"line":0,"character":13},"end":{"line":0,"character":16}},"newText":"other"}
+]
+
+[[lsp_assert]]
+id = 14
+path = "/result/uri"
+workspace_file_uri = "foo/bar.veln"
+
+[[lsp_assert]]
+id = 14
+path = "/result/range"
+equals = {"start":{"line":0,"character":7},"end":{"line":0,"character":12}}
+
+[[lsp_assert]]
+id = 15
+path = "/result/changes/$workspace_file_uri:recovery_alias.veln"
+equals = [
+  {"range":{"start":{"line":1,"character":13},"end":{"line":1,"character":17}},"newText":"bad"}
+]
+
+[[lsp_assert]]
+id = 15
+path = "/result/changes/$workspace_file_uri:recovery_call.veln"
+equals = [
+  {"range":{"start":{"line":3,"character":2},"end":{"line":3,"character":6}},"newText":"bad"}
+]
+
+[[lsp_assert]]
+id = 16
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 16
+path = "/error/data/details/symbol_class"
+equals = "import_alias"
+
+[[lsp_assert]]
+id = 16
+path = "/error/data/details/requested_name"
+equals = "clash"
+
+[[lsp_assert]]
+id = 16
+path = "/error/data/details/conflicting_declaration/uri"
+workspace_file_uri = "conflict_a.veln"
+
+[[lsp_assert]]
+id = 16
+path = "/error/data/details/conflicting_declaration/range"
+equals = {"start":{"line":1,"character":13},"end":{"line":1,"character":18}}
+
+[[lsp_assert]]
+id = 16
+path = "/error/data/details/affected_scope"
+equals = {"kind":"module","name":"collision"}
+
+[[lsp_assert]]
+id = 16
+path = "/result"
+missing = true

@@ -279,13 +279,7 @@ impl SymbolIndex {
         prepared_scopes: Option<&[FunctionScope]>,
     ) -> Option<SelectedNavigationSymbol> {
         let token = &tokens[token_index];
-        if let Some(alias) = self.import_alias_for_selection(
-            file,
-            tokens,
-            token_index,
-            name,
-            selection,
-        ) {
+        if let Some(alias) = self.import_alias_for_selection(file, token, name, selection) {
             return Some(SelectedNavigationSymbol::bare(Symbol::ImportAlias(alias)));
         }
         if line_tokens_before(tokens, token_index)
@@ -334,8 +328,7 @@ impl SymbolIndex {
     fn import_alias_for_selection(
         &self,
         file: &IndexedFile,
-        tokens: &[Token],
-        token_index: usize,
+        token: &Token,
         name: &str,
         selection: &SourceSpan,
     ) -> Option<ImportAliasSymbol> {
@@ -345,19 +338,12 @@ impl SymbolIndex {
         if let Some(alias) = declaration {
             return Some(alias.clone());
         }
-        if line_tokens_before(tokens, token_index)
-            .iter()
-            .any(|token| token.kind == TokenKind::Use)
-            || previous_non_layout_token(tokens, token_index)
-                .is_some_and(|token| token.kind == TokenKind::DoubleColon)
-            || next_non_layout_token(tokens, token_index)
-                .is_none_or(|token| token.kind != TokenKind::DoubleColon)
-        {
-            return None;
-        }
+        let declaration = file
+            .explicit_import_alias_occurrences
+            .get(&(token.range.start, token.range.end))?;
         self.import_aliases
             .iter()
-            .find(|alias| alias.module == file.module && alias.name == name)
+            .find(|alias| alias.name == name && alias.declaration.span == *declaration)
             .cloned()
     }
 

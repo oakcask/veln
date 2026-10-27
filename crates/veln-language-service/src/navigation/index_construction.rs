@@ -297,54 +297,183 @@ fn index_explicit_import_aliases(
             module: alias.declaring_module,
             name: alias.name,
             declaration: workspace_location(alias.span),
-            target_module: alias.target_module,
-            target_package: alias.target_package,
         })
         .collect::<Vec<_>>();
-    for alias in &aliases {
-        for file in files.iter_mut().filter(|file| file.module == alias.module) {
-            match &alias.target_package {
-                Some(package) => {
-                    file.external_uses
-                        .insert((alias.target_module.clone(), package.clone()));
-                    file.external_import_aliases.insert(
-                        alias.name.clone(),
-                        (alias.target_module.clone(), package.clone()),
-                    );
+    record_explicit_import_alias_construction_work(aliases.len());
+    record_explicit_import_alias_retained_entries(aliases.len());
+    attach_module_imports(files, module);
+    attach_explicit_import_alias_occurrences(files, module);
+    let bindings = veln_sema::import_namespace_participants(module)
+        .into_iter()
+        .map(|binding| ImportNamespaceBinding {
+            module: binding.declaring_module,
+            qualifier: binding.qualifier,
+            declaration: workspace_location(binding.declaration_span),
+            selected_alias_declaration: binding.explicit_alias_span,
+        })
+        .collect::<Vec<_>>();
+    record_explicit_import_alias_construction_work(bindings.len());
+    record_explicit_import_alias_retained_entries(bindings.len());
+    (aliases, bindings)
+}
+
+#[derive(Default)]
+struct ModuleImports {
+    local_modules: BTreeSet<String>,
+    external_modules: BTreeSet<(String, String)>,
+    local_aliases: BTreeMap<String, String>,
+    external_aliases: BTreeMap<String, (String, String)>,
+}
+
+fn attach_module_imports(files: &mut [IndexedFile], module: &veln_ast::SurfaceModule) {
+    let mut file_counts = BTreeMap::<String, usize>::new();
+    for file in files.iter() {
+        *file_counts.entry(file.module.clone()).or_default() += 1;
+    }
+    let resolved_imports = veln_sema::resolved_navigation_imports(module);
+    let mut shared_modules = file_counts
+        .iter()
+        .filter_map(|(module, count)| (*count > 1).then_some(module.clone()))
+        .collect::<BTreeSet<_>>();
+    shared_modules.extend(
+        resolved_imports
+            .iter()
+            .filter(|import| import.explicit_alias)
+            .map(|import| import.declaring_module.clone()),
+    );
+    let mut by_module = BTreeMap::<String, ModuleImports>::new();
+    for file in files
+        .iter()
+        .filter(|file| shared_modules.contains(&file.module))
+    {
+        let imports = by_module.entry(file.module.clone()).or_default();
+        imports.local_modules.extend(file.uses.iter().cloned());
+        imports
+            .external_modules
+            .extend(file.external_uses.iter().cloned());
+        imports
+            .local_aliases
+            .extend(file.import_aliases.iter().map(|(name, target)| {
+                (name.clone(), target.clone())
+            }));
+        imports.external_aliases.extend(
+            file.external_import_aliases
+                .iter()
+                .map(|(name, target)| (name.clone(), target.clone())),
+        );
+        record_explicit_import_alias_construction_work(
+            file.uses.len()
+                + file.external_uses.len()
+                + file.import_aliases.len()
+                + file.external_import_aliases.len(),
+        );
+    }
+    for import in resolved_imports {
+        if !shared_modules.contains(&import.declaring_module) {
+            continue;
+        }
+        record_explicit_import_alias_construction_work(1);
+        let imports = by_module.entry(import.declaring_module).or_default();
+        match import.target_package {
+            Some(package) => {
+                imports
+                    .external_modules
+                    .insert((import.target_module.clone(), package.clone()));
+                if !import.qualifier.is_empty() {
+                    imports
+                        .external_aliases
+                        .insert(import.qualifier, (import.target_module, package));
                 }
-                None => {
-                    file.uses.insert(alias.target_module.clone());
-                    file.import_aliases
-                        .insert(alias.name.clone(), alias.target_module.clone());
+            }
+            None => {
+                imports.local_modules.insert(import.target_module.clone());
+                if !import.qualifier.is_empty() {
+                    imports
+                        .local_aliases
+                        .insert(import.qualifier, import.target_module);
                 }
             }
         }
     }
-    let mut bindings = Vec::new();
-    for use_decl in &module.uses {
-        let Some(owner) = use_decl.module_name.clone() else {
-            continue;
-        };
-        let declaration_span = use_decl
-            .alias_span
-            .clone()
-            .or_else(|| use_decl.name_spans.last().cloned())
-            .unwrap_or_else(|| use_decl.span.clone());
-        let selected_alias_declaration = use_decl.alias_span.clone();
-        for qualifier in use_decl
-            .exact_paths()
-            .into_iter()
-            .chain(std::iter::once(use_decl.alias.clone()))
-        {
-            bindings.push(ImportNamespaceBinding {
-                module: owner.clone(),
-                qualifier,
-                declaration: workspace_location(declaration_span.clone()),
-                selected_alias_declaration: selected_alias_declaration.clone(),
-            });
+    let shared = by_module
+        .into_iter()
+        .map(|(module, imports)| {
+            record_explicit_import_alias_retained_entries(
+                imports.local_modules.len()
+                    + imports.external_modules.len()
+                    + imports.local_aliases.len()
+                    + imports.external_aliases.len(),
+            );
+            (
+                module,
+                (
+                    Arc::new(imports.local_modules),
+                    Arc::new(imports.external_modules),
+                    Arc::new(imports.local_aliases),
+                    Arc::new(imports.external_aliases),
+                ),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    for file in files {
+        record_explicit_import_alias_construction_work(1);
+        if let Some((uses, external_uses, aliases, external_aliases)) = shared.get(&file.module) {
+            file.uses = Arc::clone(uses);
+            file.external_uses = Arc::clone(external_uses);
+            file.import_aliases = Arc::clone(aliases);
+            file.external_import_aliases = Arc::clone(external_aliases);
         }
     }
-    (aliases, bindings)
+}
+
+fn attach_explicit_import_alias_occurrences(
+    files: &mut [IndexedFile],
+    module: &veln_ast::SurfaceModule,
+) {
+    let imports = veln_sema::ResolvedImportPathIndex::new(module);
+    for file in files {
+        let tokens = &file.tokens;
+        for token_index in 0..tokens.len() {
+            record_explicit_import_alias_construction_work(1);
+            if tokens[token_index].kind != TokenKind::Ident
+                || previous_non_layout_token(tokens, token_index)
+                    .is_some_and(|token| token.kind == TokenKind::DoubleColon)
+                || next_non_layout_token(tokens, token_index)
+                    .is_none_or(|token| token.kind != TokenKind::DoubleColon)
+                || line_tokens_before(tokens, token_index)
+                    .iter()
+                    .any(|token| token.kind == TokenKind::Use)
+            {
+                continue;
+            }
+            let mut segment_indices = vec![token_index];
+            let mut cursor = token_index;
+            while let Some(next) = next_path_segment_index(tokens, cursor) {
+                segment_indices.push(next);
+                cursor = next;
+            }
+            for prefix_len in (1..segment_indices.len()).rev() {
+                let segments = segment_indices[..prefix_len]
+                    .iter()
+                    .map(|index| tokens[*index].text.clone())
+                    .collect::<Vec<_>>();
+                record_explicit_import_alias_construction_work(1);
+                match imports.resolve(&segments, Some(&file.module)) {
+                    Some(veln_sema::ResolvedImportPath::Exact) => break,
+                    Some(veln_sema::ResolvedImportPath::ExplicitAlias(alias)) => {
+                        let range = tokens[token_index].range;
+                        file.explicit_import_alias_occurrences.insert(
+                            (range.start, range.end),
+                            alias.span,
+                        );
+                        record_explicit_import_alias_retained_entries(1);
+                        break;
+                    }
+                    None => {}
+                }
+            }
+        }
+    }
 }
 
 fn file_indices_by_identity(

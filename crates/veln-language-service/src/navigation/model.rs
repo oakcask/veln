@@ -798,8 +798,6 @@ struct ImportAliasSymbol {
     module: String,
     name: String,
     declaration: NavigationLocation,
-    target_module: String,
-    target_package: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -890,10 +888,11 @@ struct IndexedFile {
     tokens: Vec<Token>,
     module: String,
     companion_target_module: Option<String>,
-    uses: BTreeSet<String>,
-    external_uses: BTreeSet<(String, String)>,
-    import_aliases: BTreeMap<String, String>,
-    external_import_aliases: BTreeMap<String, (String, String)>,
+    uses: Arc<BTreeSet<String>>,
+    external_uses: Arc<BTreeSet<(String, String)>>,
+    import_aliases: Arc<BTreeMap<String, String>>,
+    external_import_aliases: Arc<BTreeMap<String, (String, String)>>,
+    explicit_import_alias_occurrences: BTreeMap<(usize, usize), SourceSpan>,
     schema_alias_external_imports: Vec<ExternalImport>,
     workspace_imports: Vec<WorkspaceImport>,
     invalid_declaration_names: Vec<SourceSpan>,

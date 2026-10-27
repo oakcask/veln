@@ -217,11 +217,139 @@ mod explicit_import_alias_navigation_tests {
     fn explicit_alias_navigation_is_stable_when_combined_sources_are_reordered() {
         let sources = alias_sources();
         let expected = query(sources.clone(), "app_more.veln", 4, 3).unwrap();
+        let expected_alias_affected = affected_spans(&expected);
+        let expected_member = query(sources.clone(), "app_more.veln", 4, 9).unwrap();
+        let expected_member_affected = affected_spans(&expected_member);
         let mut reordered = sources;
         reordered.reverse();
-        let actual = query(reordered, "app_more.veln", 4, 3).unwrap();
+        let actual = query(reordered.clone(), "app_more.veln", 4, 3).unwrap();
         assert_eq!(expected.selection, actual.selection);
         assert_eq!(expected.definition, actual.definition);
         assert_eq!(expected.references, actual.references);
+        assert_eq!(expected_alias_affected, affected_spans(&actual));
+        let actual_member = query(reordered, "app_more.veln", 4, 9).unwrap();
+        assert_eq!(expected_member_affected, affected_spans(&actual_member));
+    }
+
+    #[test]
+    fn exact_written_import_path_takes_precedence_over_same_spelled_alias() {
+        let sources = vec![
+            source("alpha.veln", "pub fn value() -> Int\n  1\nend\n"),
+            source("foo/bar.veln", "pub fn value() -> Int\n  2\nend\n"),
+            source(
+                "app.veln",
+                concat!(
+                    "use alpha as foo\n",
+                    "use foo::bar\n\n",
+                    "fn main() -> Int\n",
+                    "  foo::bar::value()\n",
+                    "end\n",
+                ),
+            ),
+        ];
+        let alias = query(sources.clone(), "app.veln", 1, 14).unwrap();
+        assert_eq!(alias.selected_symbol.kind, SymbolKind::ImportAlias);
+        assert!(alias.references.is_empty());
+        assert_eq!(locations(&affected_spans(&alias)), [("app.veln", 1, 14)]);
+        assert!(query(sources.clone(), "app.veln", 5, 3).is_none());
+
+        let member = query(sources, "app.veln", 5, 13).unwrap();
+        assert_eq!(member.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&member.definition, "foo/bar.veln", 1, 8);
+        assert_eq!(locations(&member.references), [("app.veln", 5, 13)]);
+    }
+
+    #[test]
+    fn recovered_import_spelling_does_not_block_alias_rename() {
+        let sources = vec![
+            source("alpha.veln", "pub fn value() -> Int\n  1\nend\n"),
+            source("extra.veln", "pub fn value() -> Int\n  2\nend\n"),
+            source(
+                "app.veln",
+                "mod app\nuse alpha as calc\n",
+            ),
+            source("recovered.veln", "mod app\nuse extra as bad as nested\n"),
+            source(
+                "app_more.veln",
+                "mod app\n\nfn main() -> Int\n  calc::value()\nend\n",
+            ),
+        ];
+        let snapshot = EffectiveProjectSnapshot::new(sources);
+        let result = query_snapshot(&snapshot, "app_more.veln", 4, 3).unwrap();
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "bad").is_ok());
+        assert_eq!(
+            locations(&affected_spans(&result)),
+            [("app.veln", 2, 14), ("app_more.veln", 4, 3)]
+        );
+    }
+
+    #[test]
+    fn alias_rename_conflict_provenance_is_stable_across_source_order() {
+        let sources = vec![
+            source("alpha.veln", "pub fn value() -> Int\n  1\nend\n"),
+            source("beta.veln", "pub fn value() -> Int\n  2\nend\n"),
+            source("gamma.veln", "pub fn value() -> Int\n  3\nend\n"),
+            source("app.veln", "mod app\nuse alpha as calc\n"),
+            source("a.veln", "mod app\nuse beta as clash\n"),
+            source("b.veln", "mod app\nuse gamma as clash\n"),
+        ];
+        let expected_snapshot = EffectiveProjectSnapshot::new(sources.clone());
+        let expected_result = query_snapshot(&expected_snapshot, "app.veln", 2, 14).unwrap();
+        let expected =
+            validate_rename_in_snapshot(&expected_snapshot, &expected_result, "clash").unwrap_err();
+        let mut reordered = sources;
+        reordered.reverse();
+        let actual_snapshot = EffectiveProjectSnapshot::new(reordered);
+        let actual_result = query_snapshot(&actual_snapshot, "app.veln", 2, 14).unwrap();
+        let actual =
+            validate_rename_in_snapshot(&actual_snapshot, &actual_result, "clash").unwrap_err();
+        assert_eq!(expected, actual);
+        assert_rename_conflict(
+            actual,
+            RenameNameClass::ImportAlias,
+            "clash",
+            "a.veln",
+            2,
+            13,
+        );
+    }
+
+    #[test]
+    fn explicit_alias_index_work_and_retention_are_adjacent_linear() {
+        fn measure(size: usize) -> (usize, usize) {
+            let mut sources = Vec::new();
+            for index in 0..size {
+                sources.push(source(
+                    &format!("target_{index}.veln"),
+                    &format!("pub fn value_{index}() -> Int\n  {index}\nend\n"),
+                ));
+                sources.push(source(
+                    &format!("part_{index}.veln"),
+                    &format!(
+                        "mod shared\nuse target_{index} as alias_{index}\n\nfn call_{index}() -> Int\n  alias_{index}::value_{index}()\nend\n"
+                    ),
+                ));
+            }
+            reset_explicit_import_alias_index_work();
+            assert!(query(sources, "part_0.veln", 2, 17).is_some());
+            explicit_import_alias_index_work()
+        }
+
+        let small = measure(24);
+        let large = measure(48);
+        eprintln!("explicit alias index adjacent sizes: 24={small:?}, 48={large:?}");
+        assert!(large.0 <= small.0 * 2 + 64, "construction work: {small:?} -> {large:?}");
+        assert!(large.1 <= small.1 * 2 + 8, "retained entries: {small:?} -> {large:?}");
+    }
+
+    fn affected_spans(result: &NavigationResult) -> Vec<SourceSpan> {
+        let mut spans = vec![result.definition.span.clone()];
+        spans.extend(result.references.clone());
+        spans.sort_by(|left, right| {
+            left.file
+                .cmp(&right.file)
+                .then_with(|| left.start.offset.cmp(&right.start.offset))
+        });
+        spans
     }
 }

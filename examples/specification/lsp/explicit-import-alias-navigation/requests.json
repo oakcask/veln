@@ -9,6 +9,12 @@
   {"jsonrpc":"2.0","id":8,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":4,"character":2},"newName":"prelude"}},
   {"jsonrpc":"2.0","id":9,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":4,"character":2},"newName":"helper"}},
   {"jsonrpc":"2.0","id":10,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"invalid.veln"}},"position":{"line":4,"character":2}}},
-  {"jsonrpc":"2.0","id":11,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","id":11,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"precedence.veln"}},"position":{"line":4,"character":2}}},
+  {"jsonrpc":"2.0","id":12,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"precedence.veln"}},"position":{"line":0,"character":13},"context":{"includeDeclaration":true}}},
+  {"jsonrpc":"2.0","id":13,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"precedence.veln"}},"position":{"line":0,"character":13},"newName":"other"}},
+  {"jsonrpc":"2.0","id":14,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"precedence.veln"}},"position":{"line":4,"character":12}}},
+  {"jsonrpc":"2.0","id":15,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"recovery_call.veln"}},"position":{"line":3,"character":2},"newName":"bad"}},
+  {"jsonrpc":"2.0","id":16,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"conflict_selected.veln"}},"position":{"line":1,"character":13},"newName":"clash"}},
+  {"jsonrpc":"2.0","id":17,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

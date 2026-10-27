@@ -320,7 +320,8 @@ returns the alias token in the `use` declaration. References contain only
 qualifier occurrences in sources with the same module identity. Rename edits
 the declaration and those qualifiers. It does not edit the written import
 target, qualified member leaves, or a same-spelled alias owned by another
-module.
+module. An exact written import path takes precedence over a same-spelled alias,
+so its segments do not select, reference, or rename that alias.
 
 Selection at an alias-qualified member leaf keeps the member's existing
 function, type, or constructor identity. Member references and rename include
@@ -332,17 +333,27 @@ An invalid-cased, reserved, colliding, duplicate-target, or syntax-recovered
 alias creates no normal alias navigation identity. An alias replacement must
 start with an ASCII lowercase letter. The name `prelude` returns
 `rename.reserved`, and a collision in the owning module's import namespace
-returns `rename.conflict`. Both failures produce no edits.
+returns `rename.conflict`. A syntax-recovered import does not participate in
+that namespace and cannot block a valid rename. Both failures produce no edits.
 
 Sources with one module identity may be supplied in any order. Alias
 selection, definition, reference sets, and rename edit sets stay unchanged.
-Ordered locations use stable source-path and token order. LSP definition,
+Conflict details and ordered locations use stable source-path and token order.
+LSP definition,
 references, prepare-rename, and rename project the shared result with their
 ordinary UTF-16 coordinate conversion. The checked
 [`explicit-import-alias-navigation`](../../examples/specification/lsp/explicit-import-alias-navigation/)
-case covers alias and target-member projection, edit-free rejection, and
-invalid-alias exclusion; shared-language-service tests cover combined-source
-permutations.
+case covers alias and target-member projection, exact-path precedence,
+recovered-import rename, stable conflict details, edit-free rejection, and
+invalid-alias exclusion. Shared-language-service tests cover complete
+combined-source rename permutations.
+
+Alias-index construction retains module-owned import bindings and resolved
+qualifier occurrences. For the generated workload that doubles files,
+distinct aliases, and occurrences in one shared module, measured construction
+operations and retained alias-index entries grow by at most twice the smaller
+case plus a fixed setup allowance. The checked adjacent sizes report both
+counts; elapsed time is not the conformance metric.
 
 ### Shared variant-refinement navigation
 

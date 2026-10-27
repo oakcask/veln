@@ -11,20 +11,12 @@ impl SymbolIndex {
             .iter()
             .filter(|file| workspace_navigation_file(file) && file.module == symbol.module)
             .flat_map(|file| {
-                file.tokens.iter().enumerate().filter_map(|(index, token)| {
-                    if token.text != symbol.name
-                        || previous_non_layout_token(&file.tokens, index)
-                            .is_some_and(|token| token.kind == TokenKind::DoubleColon)
-                        || next_non_layout_token(&file.tokens, index)
-                            .is_none_or(|token| token.kind != TokenKind::DoubleColon)
-                        || line_tokens_before(&file.tokens, index)
-                            .iter()
-                            .any(|token| token.kind == TokenKind::Use)
-                    {
-                        return None;
-                    }
-                    Some(file.source.span(token.range))
-                })
+                file.explicit_import_alias_occurrences
+                    .iter()
+                    .filter(|(_, declaration)| **declaration == symbol.declaration.span)
+                    .map(|((start, end), _)| {
+                        file.source.span(TextRange::new(*start, *end))
+                    })
             })
             .collect::<Vec<_>>();
         sort_locations(&mut references);

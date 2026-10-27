@@ -12,6 +12,44 @@ use veln_syntax::{
     Token, TokenKind, TypeVariantDecl, Visibility, lex, parse,
 };
 
+#[cfg(test)]
+thread_local! {
+    static EXPLICIT_IMPORT_ALIAS_CONSTRUCTION_WORK: Cell<usize> = const { Cell::new(0) };
+    static EXPLICIT_IMPORT_ALIAS_RETAINED_ENTRIES: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_explicit_import_alias_construction_work(amount: usize) {
+    EXPLICIT_IMPORT_ALIAS_CONSTRUCTION_WORK
+        .set(EXPLICIT_IMPORT_ALIAS_CONSTRUCTION_WORK.get() + amount);
+}
+
+#[cfg(not(test))]
+fn record_explicit_import_alias_construction_work(_amount: usize) {}
+
+#[cfg(test)]
+fn record_explicit_import_alias_retained_entries(amount: usize) {
+    EXPLICIT_IMPORT_ALIAS_RETAINED_ENTRIES
+        .set(EXPLICIT_IMPORT_ALIAS_RETAINED_ENTRIES.get() + amount);
+}
+
+#[cfg(not(test))]
+fn record_explicit_import_alias_retained_entries(_amount: usize) {}
+
+#[cfg(test)]
+pub(crate) fn reset_explicit_import_alias_index_work() {
+    EXPLICIT_IMPORT_ALIAS_CONSTRUCTION_WORK.set(0);
+    EXPLICIT_IMPORT_ALIAS_RETAINED_ENTRIES.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn explicit_import_alias_index_work() -> (usize, usize) {
+    (
+        EXPLICIT_IMPORT_ALIAS_CONSTRUCTION_WORK.get(),
+        EXPLICIT_IMPORT_ALIAS_RETAINED_ENTRIES.get(),
+    )
+}
+
 include!("navigation/model.rs");
 include!("navigation/source_indexing.rs");
 include!("navigation/variant_refinement_source_indexing.rs");

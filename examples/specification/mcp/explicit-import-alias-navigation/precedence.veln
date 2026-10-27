@@ -1,0 +1,6 @@
+use alpha as foo
+use foo::bar
+
+fn main() -> Int
+  foo::bar::value()
+end

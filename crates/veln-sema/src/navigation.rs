@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use veln_ast::{PublicAlias, PublicAliasKind, SchemaDecl, SurfaceModule, Visibility};
+use veln_ast::{PublicAlias, PublicAliasKind, SchemaDecl, SurfaceModule, UseOrigin, Visibility};
 use veln_source::SourceSpan;
 
 use crate::analysis::boundary::schema_composition::{
@@ -9,7 +9,7 @@ use crate::analysis::boundary::schema_composition::{
 };
 use crate::analysis::boundary::schema_repeat_resolution::companion_private_schema_access_allowed;
 use crate::name_recovery::{
-    normal_use_decls, public_alias_has_invalid_target_leaf,
+    NormalImportSelectionIndex, normal_use_decls, public_alias_has_invalid_target_leaf,
     schema_composition_imported_use_for_path,
 };
 use crate::schema::primitives::{
@@ -92,6 +92,52 @@ pub struct ResolvedExplicitImportAlias {
     pub target_package: Option<String>,
 }
 
+#[derive(Clone, Debug)]
+pub struct ResolvedNavigationImport {
+    pub declaring_module: String,
+    pub qualifier: String,
+    pub target_module: String,
+    pub target_package: Option<String>,
+    pub explicit_alias: bool,
+}
+
+#[derive(Clone, Debug)]
+pub enum ResolvedImportPath {
+    Exact,
+    ExplicitAlias(ResolvedExplicitImportAlias),
+}
+
+pub struct ResolvedImportPathIndex<'a> {
+    imports: NormalImportSelectionIndex<'a>,
+}
+
+impl<'a> ResolvedImportPathIndex<'a> {
+    pub fn new(module: &'a SurfaceModule) -> Self {
+        Self {
+            imports: NormalImportSelectionIndex::new(module),
+        }
+    }
+
+    pub fn resolve(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> Option<ResolvedImportPath> {
+        let use_decl = self
+            .imports
+            .imported_use_for_path(segments, current_module, None)?;
+        resolved_import_path_from_use(use_decl, segments)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ImportNamespaceParticipant {
+    pub declaring_module: String,
+    pub qualifier: String,
+    pub declaration_span: SourceSpan,
+    pub explicit_alias_span: Option<SourceSpan>,
+}
+
 pub fn resolved_explicit_import_aliases(
     module: &SurfaceModule,
 ) -> Vec<ResolvedExplicitImportAlias> {
@@ -108,6 +154,83 @@ pub fn resolved_explicit_import_aliases(
             })
         })
         .collect()
+}
+
+pub fn resolved_navigation_imports(module: &SurfaceModule) -> Vec<ResolvedNavigationImport> {
+    normal_use_decls(module)
+        .into_iter()
+        .filter_map(|use_decl| {
+            let explicit_alias = use_decl.has_explicit_alias();
+            Some(ResolvedNavigationImport {
+                declaring_module: use_decl.module_name?,
+                qualifier: use_decl.alias,
+                target_module: use_decl.name,
+                target_package: use_decl.package,
+                explicit_alias,
+            })
+        })
+        .collect()
+}
+
+fn resolved_import_path_from_use(
+    use_decl: &veln_ast::UseDecl,
+    segments: &[String],
+) -> Option<ResolvedImportPath> {
+    if use_decl.has_explicit_alias() && segments.join("::") == use_decl.alias {
+        return Some(ResolvedImportPath::ExplicitAlias(
+            ResolvedExplicitImportAlias {
+                declaring_module: use_decl.module_name.clone()?,
+                name: use_decl.alias.clone(),
+                span: use_decl.alias_span.clone()?,
+                target_module: use_decl.name.clone(),
+                target_package: use_decl.package.clone(),
+            },
+        ));
+    }
+    Some(ResolvedImportPath::Exact)
+}
+
+pub fn import_namespace_participants(module: &SurfaceModule) -> Vec<ImportNamespaceParticipant> {
+    let mut participants = Vec::new();
+    for use_decl in module
+        .uses
+        .iter()
+        .filter(|use_decl| use_decl.origin == UseOrigin::Source && !use_decl.recovered)
+    {
+        let Some(declaring_module) = use_decl.module_name.clone() else {
+            continue;
+        };
+        let declaration_span = use_decl
+            .alias_span
+            .clone()
+            .or_else(|| use_decl.name_spans.last().cloned())
+            .unwrap_or_else(|| use_decl.span.clone());
+        for qualifier in use_decl
+            .exact_paths()
+            .into_iter()
+            .chain(std::iter::once(use_decl.alias.clone()))
+        {
+            participants.push(ImportNamespaceParticipant {
+                declaring_module: declaring_module.clone(),
+                qualifier,
+                declaration_span: declaration_span.clone(),
+                explicit_alias_span: use_decl.alias_span.clone(),
+            });
+        }
+    }
+    participants.sort_by(|left, right| {
+        left.declaration_span
+            .file
+            .cmp(&right.declaration_span.file)
+            .then_with(|| {
+                left.declaration_span
+                    .start
+                    .offset
+                    .cmp(&right.declaration_span.start.offset)
+            })
+            .then_with(|| left.qualifier.cmp(&right.qualifier))
+    });
+    participants
 }
 
 pub fn schema_repeat_count_expression_is_valid(text: &str) -> bool {
