@@ -20,7 +20,7 @@ The following work remains planned:
 
 - transitive-dependency navigation;
 - remaining package definition and reference symbol classes outside the
-  explicit-import-alias source-tool scope;
+  implemented explicit-import-alias navigation scope;
 - imported handlers and other workspace symbol reference classes outside the
   implemented same-module and imported-workspace effect boundaries and the
   implemented same-module and imported-workspace effect-operation boundaries
