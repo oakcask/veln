@@ -478,6 +478,12 @@ public aliases, and exact-companion private access follow the decode and encode
 rules above. This expression use of `validate` is distinct from a schema-body
 validation predicate.
 
+The schema path is required. `validate from value at base_offset` reports
+`parse.schema_validate_expression` with `schema path` as the expected input and
+is not accepted source. Parser recovery retains the validation expression and
+its value and offset operands so syntax formatting and later source tooling can
+preserve the surrounding structure.
+
 ## Codecs
 
 Top-level `codec Name for Schema directions...` and

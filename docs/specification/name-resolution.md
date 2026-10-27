@@ -798,6 +798,11 @@ imported module's schemas to bare schema operation paths. Imported schemas are
 selectable through accepted qualified schema paths, including
 import-alias-qualified paths. An ineligible same-module public schema alias
 blocks fallback to a same-spelled schema declaration.
+An equal-spelling type does not compete with a schema operation target because
+the operation does not search the type namespace. If two written imports own
+the same qualifier, a qualified schema operation path through that qualifier is
+ambiguous in the schema namespace and selects neither import, regardless of
+import order.
 
 When `veln.toml` contains manifest export data, `[modules]` is rejected and
 `[lib].exports` is checked as a list of public package-relative source files.
