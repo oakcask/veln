@@ -417,8 +417,9 @@ For an eligible public workspace effect, `definition` and `references` accept
 selection at the declaration, a bare same-module occurrence, or the
 effect-name leaf of a qualified occurrence reached through one parse-clean,
 unambiguous workspace import. The import may spell the full module path or use
-a unique implicit leaf alias. An exact full written import path takes
-precedence over a colliding implicit leaf alias. `definition` returns the
+its local qualifier. An explicit alias is the local qualifier. An unaliased
+import uses its implicit leaf qualifier. An exact full written import path
+takes precedence over a colliding qualifier. `definition` returns the
 public effect declaration. The reference result combines bare references in
 the declaring module with qualified references in the importing module, and
 every occurrence range covers only the effect-name leaf. Private effects,
@@ -709,9 +710,10 @@ handlers, and function types, handler `for` targets, and
 declares the selected effect's module. For a public effect reached through one
 parse-clean, unambiguous workspace import, the same result also contains
 qualified occurrences through that import in the importing module. The
-written import can use the full module path or a unique implicit leaf alias.
-An exact full written import path takes precedence over a colliding implicit
-leaf alias. Each qualified range covers only the effect-name leaf. The
+written import can use the full module path or its local qualifier. An explicit
+alias is the local qualifier. An unaliased import uses its implicit leaf
+qualifier. An exact full written import path takes precedence over a colliding
+qualifier. Each qualified range covers only the effect-name leaf. The
 operation leaf keeps its separate effect-operation identity.
 The qualifier forms include structurally complete occurrences in function
 contracts, hole `satisfy` predicates, schema field `where` predicates, and
@@ -738,8 +740,9 @@ that declare the selected operation's module. If the owning effect is public,
 the result also contains complete
 `perform module::Effect::operation(arguments)` operation-name leaves reached
 through one parse-clean, unambiguous workspace import. The written qualifier
-can use the full module path or its unique implicit leaf alias. An exact full
-path takes precedence over a colliding implicit leaf alias. The result also
+can use the full module path or its local qualifier. An explicit alias is the
+local qualifier. An unaliased import uses its implicit leaf qualifier. An exact
+full path takes precedence over a colliding qualifier. The result also
 contains each structurally complete matching operation-clause heading in a
 parse-clean same-module handler whose bare `for` target resolves to the
 owning effect.
@@ -807,11 +810,24 @@ type alias does not. A syntax-recovered local schema alias with no target also
 blocks bare fallback in every leaf. A local declaration does not block the
 explicit qualifier.
 
-Bare schema names resolve in their declaring module. A full written import path
-takes precedence over a colliding implicit leaf alias; an implicit leaf alias
-resolves only when exactly one workspace or package import provides it.
-Duplicate or syntax-recovered dependency imports resolve no dependency schema.
-Consumer imports do not participate in package-alias target resolution.
+Bare schema names resolve in their declaring module. A schema composition,
+`decode`, or `encode` leaf can use a full written import path or the import's
+local qualifier. An explicit alias is the local qualifier. An unaliased import
+uses its implicit leaf qualifier. The full written path takes precedence over a
+colliding qualifier; otherwise, the qualifier resolves only when exactly one
+workspace or package import provides it. The selected package and target
+module identity are retained across saved sources with the same explicit
+module identity. A same-spelled declaration from another package is not a
+fallback.
+
+If multiple imports bind one local qualifier and at least one binding is
+explicit, saved navigation returns a successful empty result through that
+qualifier and through the colliding imports' full written paths. Reordering the
+saved sources does not change the result or the ordered locations of a valid
+selection. Duplicate or syntax-recovered dependency imports resolve no
+dependency schema. Consumer imports do not participate in package-alias target
+resolution. Selection of a target member through an explicit alias does not
+select the import-alias declaration or add import-alias rename behavior.
 Invalid-cased, unresolved, wrong-kind, transitive, non-exported, and
 ambiguous aliases return successful empty reference results. These rules also
 exclude module qualifiers, alias-target expressions, package implementation
@@ -917,3 +933,8 @@ sources, UTF-16 conversion around non-BMP scalars, token ends, empty and
 invalid selections, package identities, declaration policy, and state after a
 failed request. It also compares the recovery definition and complete recovery
 reference set with declaration exclusion and inclusion.
+The shared package-aware explicit-alias selection and collision boundary are
+checked by the language-service cases in
+`crates/veln-language-service/src/tests/dependencies_function_references.rs`
+and
+`crates/veln-language-service/src/tests/dependencies_schema_references/dependency_module_imports.rs`.

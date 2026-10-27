@@ -112,13 +112,16 @@ quarantined under their written paths and aliases. A
 syntax-recovered import participates in neither check and cannot quarantine a
 later valid import. Independent target, collision, and casing diagnostics
 remain visible. Casing recovery suppresses a derivative member diagnostic only
-when correcting the target path or alias selects one source module and one
-visible export of the required kind. When that proof uniquely identifies a
-public ADT or constructor, analysis retains the identity only for independently
-provable type diagnostics. A constructor call can therefore report its payload
-arity, and a finite match can report a missing case, without also reporting an
-unresolved member. This recovery applies when the member path uses either the
-invalid explicit alias or the quarantined import's full written target path.
+when the importing source's owner package selects one import and correcting the
+target path or alias selects one source module and one visible export of the
+required kind in that import's target package. Equal module and declaration
+spellings in another package cannot satisfy this proof. When the proof uniquely
+identifies a public ADT or constructor, analysis retains the identity only for
+independently provable type diagnostics. A constructor call can therefore
+report its payload arity, and a finite match can report a missing case, without
+also reporting an unresolved member. This recovery applies when the member path
+uses either the invalid explicit alias or the quarantined import's full written
+target path.
 The import remains quarantined and cannot make the module executable. Missing,
 private, wrong-kind, ambiguous, and colliding targets do not gain normal lookup
 or executable readiness through recovery.

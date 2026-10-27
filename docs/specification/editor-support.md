@@ -499,9 +499,10 @@ Effects, handlers, and effect operations remain unsupported for rename.
 
 A public, valid-cased workspace effect can also be selected through one
 parse-clean, unambiguous workspace import. The written import may name the
-effect through its full module path or through a unique implicit leaf alias.
-An exact full written import path takes precedence over a colliding implicit
-leaf alias. Selecting the declaration, a bare same-module occurrence, or an
+effect through its full module path or through its local qualifier. An explicit
+alias is the local qualifier. An unaliased import uses its implicit leaf
+qualifier. An exact full written import path takes precedence over a colliding
+qualifier. Selecting the declaration, a bare same-module occurrence, or an
 eligible qualified effect-name leaf returns the public effect declaration as
 the definition.
 For that imported identity, references combine the bare occurrences in saved
@@ -521,8 +522,9 @@ workspace sources that declare the same module. If the owning effect is public,
 references also include complete
 `perform module::Effect::operation(arguments)` operation-name leaves reached
 through one parse-clean, unambiguous workspace import. The written qualifier
-can use the full module path or its unique implicit leaf alias. An exact full
-path takes precedence over a colliding implicit leaf alias. References also
+can use the full module path or its local qualifier. An explicit alias is the
+local qualifier. An unaliased import uses its implicit leaf qualifier. An exact
+full path takes precedence over a colliding qualifier. References also
 include each
 structurally complete matching operation-clause heading in a parse-clean
 same-module handler whose bare `for` target resolves to the owning effect.
@@ -613,16 +615,28 @@ workspace reference set.
 
 Same-module bare schema and alias paths can resolve to their selected identity.
 Imported-module uses must be named by an accepted qualified path. Schema
-composition and operation paths also accept a unique implicit leaf import
-alias. For those paths, an exact full written import path takes
-precedence over a same-spelled implicit leaf alias. Otherwise, an implicit
-leaf alias selects a schema identity only when it is unique across
-workspace and package imports. Conflicting exact imports select no identity.
-Duplicate and syntax-recovered dependency imports do not grant dependency
-schema visibility. A written import does not make the
-imported schema or alias available as a bare schema path. It does not add
-module-qualifier, recovery, or rename behavior for
-schemas.
+composition and operation paths accept either a full written import path or
+the import's local qualifier. An explicit alias is the local qualifier. An
+unaliased import uses its implicit leaf qualifier. An exact full written import
+path takes precedence over a same-spelled qualifier. Otherwise, the qualifier
+selects a schema identity only when it is unique across workspace and package
+imports.
+
+The selected import retains its workspace or package origin and target module
+across sources with the same explicit module identity. A schema composition,
+`decode`, or `encode` leaf reached through an explicit alias therefore selects
+only the schema or schema-alias declaration from that import's target package.
+A same-spelled module and declaration from another package is not a fallback.
+
+Conflicting exact imports select no identity. If multiple imports bind one
+local qualifier and at least one binding is explicit, shared navigation treats
+every colliding import as ineligible. Neither the qualifier nor those imports'
+full written paths produce a shared navigation selection. This result is
+independent of selected-source order. Duplicate and syntax-recovered dependency
+imports do not grant dependency schema visibility. A written import does not
+make the imported schema or alias available as a bare schema path. Selection
+of a target member through an explicit alias does not select the import-alias
+declaration or add import-alias rename, hover, or completion behavior.
 
 A rename request that would create a same-namespace duplicate or a provable
 ambiguity in an affected module or lexical scope returns JSON-RPC invalid
@@ -939,6 +953,12 @@ The authoritative implementations are `crates/veln-editor`, `crates/veln-lsp`,
 and `crates/veln-language-service`. Their unit and protocol checks verify
 the token legend, LSP encoding, completion, signature help, workspace
 diagnostics, navigation, formatting, rename, and virtual-document boundaries.
+The language-service cases in
+`crates/veln-language-service/src/tests/dependencies_function_references.rs`
+and
+`crates/veln-language-service/src/tests/dependencies_schema_references/dependency_module_imports.rs`
+verify package-aware explicit-alias target selection, collision quarantine,
+combined-module visibility, and source-order-independent locations.
 The checked
 [`callsite-presentation`](../../examples/specification/lsp/callsite-presentation/)
 transcript pins completion items, empty completion results, signature-help

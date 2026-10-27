@@ -941,10 +941,13 @@ the independent `name.invalid_case` record is retained.
 Parser diagnostics precede casing diagnostics for one import; reserved and
 duplicate facts follow casing, while target-resolution facts stay independent.
 When correcting an invalid target
-segment or alias uniquely selects one public export, the casing diagnostic
-remains and the recovered member does not add `name.unresolved`. This applies
-when the member path uses either the invalid explicit alias or the quarantined
-import's full written target path. For a public ADT or constructor,
+segment or alias uniquely selects one public export in the import's target
+package, the casing diagnostic remains and the recovered member does not add
+`name.unresolved`. The importing source's owner package selects the import;
+an equal module and declaration spelling owned by another package cannot
+satisfy the recovery. This applies when the member path uses either the invalid
+explicit alias or the quarantined import's full written target path. For a
+public ADT or constructor,
 independently provable `core.constructor_arity_mismatch` and
 `type.match_non_exhaustive` records remain visible. Combined module sources
 retain stable source and token order. The checked target-casing

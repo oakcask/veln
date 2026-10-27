@@ -320,13 +320,14 @@ package replace that identity during checking or lowering.
 
 An import with an invalid-cased target segment or explicit alias remains
 unavailable for normal type and constructor lookup. If correcting that casing
-selects one source module and one visible public ADT or constructor, the
-checker retains the target identity only for independent failures. It checks
-constructor payload arity and uses the ADT's finite domain for match
-exhaustiveness. These checks apply to constructor paths written through the
-invalid explicit alias and through the quarantined import's full written target
-path. They do not accept the import, publish a type fact, or make the containing
-module executable.
+selects one source module and one visible public ADT or constructor in the
+import's target package, the checker retains the target identity only for
+independent failures. A same-spelled ADT or constructor in another package
+cannot satisfy this recovery. The checker checks constructor payload arity and
+uses the selected ADT's finite domain for match exhaustiveness. These checks
+apply to constructor paths written through the invalid explicit alias and
+through the quarantined import's full written target path. They do not accept
+the import, publish a type fact, or make the containing module executable.
 
 Compiler-known collection and option/result helpers propagate concrete callback context.
 The input container determines callback item types; an explicit `_with` context is the
