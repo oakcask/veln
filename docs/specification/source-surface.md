@@ -56,7 +56,8 @@ explicit target package. Formatting writes the alias before `from`. A second
 formatting pass produces the same source. The syntax tree and lowered AST also
 retain the complete declaration span and recovery state. The AST wire layout
 serializes that provenance and rejects the preceding layout header, whose
-import record lacks the importing-package field.
+declaration records lack their owner-package fields. Importing-package
+provenance was introduced by the earlier wire layout and remains preserved.
 
 Lowered functions, handlers, module values, effects, source types, schemas,
 and public aliases retain both their declaring package and module identity.
