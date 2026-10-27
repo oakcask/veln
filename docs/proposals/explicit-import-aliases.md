@@ -11,7 +11,8 @@ reachability are specified by
 [Source Surface](../specification/source-surface.md#usage-and-declaration-forms),
 [Name Resolution](../specification/name-resolution.md#explicit-import-aliases),
 and [Execution Boundary](../specification/execution.md#runtime-readiness-and-host-boundaries).
-This proposal contains only the remaining source-tool integration.
+This proposal contains only the remaining source-tool integration, including
+source-order permutation evidence for its navigation results.
 
 ## Remaining source-tool scope
 
@@ -28,6 +29,9 @@ This proposal contains only the remaining source-tool integration.
   package and target-module provenance.
 - Saved LSP and MCP navigation agrees with compiler selection. Invalid and
   syntax-recovered aliases create no normal navigation target.
+- Reordering selected sources that share one module identity does not change
+  alias navigation outcomes. Navigation uses the repository's stable source
+  and token order when an observable result contains ordered locations.
 
 This work does not expand the declaration kinds supported by existing
 navigation features.
@@ -37,6 +41,7 @@ navigation features.
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |
 | A11 | Definition, references, rename, hover, and completion on an alias and member | Alias and target identity remain distinct; target-member references and rename include alias-qualified member occurrences without changing the alias declaration, alias qualifiers, or written import target; rejected rename has no partial edits; saved LSP and MCP results agree. | Shared-language-service, LSP, MCP, and saved-workspace tests that observe the alias-qualified target-member edit set. |
+| A12 | Reorder selected sources with a combined module identity | Alias navigation selections and ordered locations remain stable across source permutations. | Shared-language-service navigation permutation cases and saved LSP/MCP projections where applicable. |
 
 ## Related work
 
