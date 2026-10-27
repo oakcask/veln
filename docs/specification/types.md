@@ -311,12 +311,14 @@ constructor selected from one owner is not compatible with the namesake
 selected from another owner.
 
 Type annotations resolve imported identities in the package and module that
-own the annotated declaration. This applies to function parameters and
-results, module values, local bindings, and nested function types. If
-same-spelled modules in two packages bind one qualifier to different nominal
-declarations, each annotation retains the declaration selected by its own
-package's import. Source loading order does not let the namesake from the other
-package replace that identity during checking or lowering.
+own the annotated declaration. This applies to function and handler parameters
+and results, module values, local bindings, nested function types, ADT
+constructor payloads, and schema fields. If same-spelled modules in two
+packages bind one qualifier to different nominal declarations, each annotation
+retains the declaration selected by its own package's import. Type-versus-schema
+classification also uses that selected package. Source loading order does not
+let a namesake type, type alias, or schema from another package replace that
+identity during checking or lowering.
 
 An import with an invalid-cased target segment or explicit alias remains
 unavailable for normal type and constructor lookup. If correcting that casing

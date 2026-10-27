@@ -368,9 +368,13 @@ Decode and encode expose a schema-local visible record only when every
 recursively visited field and constructor payload is an eligible visible shape.
 The scalar leaves are `Int`, `Bool`, `Float`, and `String`. Containers are
 anonymous records, `Option<T>`, `List<T>`,
-`Vec<T>`, `Dict<String, T>`, and `Result<Ok, Err>`. Same-module source ADTs
-and public imported source ADTs are eligible when every constructor payload also
-has an eligible shape. Both directions also accept singleton and finite-set
+`Vec<T>`, `Dict<String, T>`, and `Result<Ok, Err>`. Same-package, same-module
+source ADTs and public imported source ADTs are eligible when every constructor
+payload also has an eligible shape. A qualified imported ADT is selected from
+the import target package. A same-spelled ADT in another package cannot supply
+its visibility or payload shape. Each selected package identity is checked
+independently, so source loading order and the eligibility of a namesake ADT do
+not change the result. Both directions also accept singleton and finite-set
 refinements of those ADTs recursively through the same containers and through
 composed format-neutral schemas. Decode retains each refinement in the helper
 parameter and successful result instead of strengthening a base ADT after the
@@ -384,19 +388,20 @@ from publishing a format-neutral encode helper. An ordinary container such as
 arguments satisfy the field rules.
 
 A private constructor can appear only in a private schema declared by its own
-module. The exact test companion may explicitly import that target and decode
-or encode through the target's private schema with the private constructor. A
-public schema boundary and an ordinary imported schema user cannot expose a
-private constructor through a generated helper. Direction-specific eligibility
-checks apply to the constructors written in nested singleton and finite-set
-refinements before a singleton or complete set is normalized to another type
-form. Provider-backed opaque ADTs do not become eligible refinements. Private
-imports other than exact-companion access, missing or wrong-kind targets, and
-unsupported ADT payloads are declaration errors. Decode and encode otherwise
-share this vocabulary but differ in recursive generic stopping: decode may
-accept a repeated source ADT descriptor with changed instantiated arguments;
-encode checks newly introduced arguments and rejects unsupported leaves. There
-is no separate container-depth limit.
+package and module. The exact test companion may explicitly import that target
+and decode or encode through the target's private schema with the private
+constructor. A same-spelled module in another package does not gain private
+access. A public schema boundary and an ordinary imported schema user cannot
+expose a private constructor through a generated helper. Direction-specific
+eligibility checks apply to the constructors written in nested singleton and
+finite-set refinements before a singleton or complete set is normalized to
+another type form. Provider-backed opaque ADTs do not become eligible
+refinements. Private imports other than exact-companion access, missing or
+wrong-kind targets, and unsupported ADT payloads are declaration errors. Decode
+and encode otherwise share this vocabulary but differ in recursive generic
+stopping: decode may accept a repeated source ADT descriptor with changed
+instantiated arguments; encode checks newly introduced arguments and rejects
+unsupported leaves. There is no separate container-depth limit.
 
 ### Binary fields
 
