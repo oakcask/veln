@@ -23,6 +23,7 @@ impl Writer {
             ExprKind::Perform { .. } | ExprKind::Handle { .. } => self.effect_expr_kind(value),
             ExprKind::SchemaDecode { .. }
             | ExprKind::SchemaEncode { .. }
+            | ExprKind::SchemaValidate { .. }
             | ExprKind::FieldAccess { .. }
             | ExprKind::Try { .. } => self.schema_and_access_expr_kind(value),
             ExprKind::Record(_)
@@ -151,6 +152,16 @@ impl Writer {
                 self.u8(13);
                 self.vec(schema, |writer, value| writer.string(value));
                 self.expr(value);
+            }
+            ExprKind::SchemaValidate {
+                schema,
+                value,
+                base,
+            } => {
+                self.u8(24);
+                self.vec(schema, |writer, value| writer.string(value));
+                self.expr(value);
+                self.expr(base);
             }
             ExprKind::FieldAccess {
                 base,

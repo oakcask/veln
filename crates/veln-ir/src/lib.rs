@@ -9,6 +9,6 @@ pub use model::{
     IrDeferredCapture, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm,
     IrParam, IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrSchemaDecodeDispatch,
     IrSchemaDecodeDispatchCase, IrSchemaDecodeField, IrSchemaDecodeSpec, IrSchemaRepeat,
-    IrSchemaReservedBits, IrStmt, IrStmtKind, TypedProgram,
+    IrSchemaReservedBits, IrSchemaVariantRefinement, IrStmt, IrStmtKind, TypedProgram,
 };
 pub use veln_core::{ContractObligationStatus, CoreContractCall, CoreType};

@@ -1,0 +1,17 @@
+# Runtime refinement failures retain their structured byte diagnostic.
+
+pub type State
+	pub Connected
+	pub Closed
+end
+
+schema ConnectedPacket
+	state: State::Connected
+end
+
+pub fn main() -> Result<{state: State::Connected}, DecodeError>
+	match byte_offset(19)
+		Ok(offset) => validate ConnectedPacket from {state: Closed} at offset
+		Err(_) => main()
+	end
+end

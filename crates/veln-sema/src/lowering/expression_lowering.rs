@@ -35,6 +35,11 @@ impl<'a> CoreLowerer<'a> {
             ExprKind::SchemaEncode { schema, value } => {
                 self.lower_schema_encode(expr, schema, value)
             }
+            ExprKind::SchemaValidate {
+                schema,
+                value,
+                base,
+            } => self.lower_schema_validate(expr, schema, value, base),
             ExprKind::FieldAccess { base, field, .. } => self.lower_field_access(expr, base, field),
             ExprKind::Try { expr: inner, .. } => self.lower_try(expr, inner, expected),
             ExprKind::Record(fields) => self.lower_record(expr, fields, expected),

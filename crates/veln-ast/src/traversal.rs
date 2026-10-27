@@ -42,6 +42,11 @@ impl Expr {
                 base: right,
                 ..
             }
+            | ExprKind::SchemaValidate {
+                value: left,
+                base: right,
+                ..
+            }
             | ExprKind::Binary { left, right, .. } => {
                 visitor(left)?;
                 visitor(right)?;

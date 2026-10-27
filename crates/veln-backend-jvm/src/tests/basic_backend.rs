@@ -204,6 +204,80 @@ fn bytecode_backend_classfiles_run_when_java_is_available() {
 }
 
 #[test]
+fn schema_refinement_validation_preserves_values_and_reports_first_mismatch() {
+    let ir = lower_to_ir(concat!(
+        "type State\n",
+        "  Connected(value: Int)\n",
+        "  Closing(value: Int)\n",
+        "  Closed(value: Int)\n",
+        "end\n",
+        "schema ConnectedPacket\n",
+        "  first: State::Connected | State::Closing\n",
+        "  second: State::Connected\n",
+        "end\n",
+        "fn check(packet: {first: State, second: State}, base: ByteOffset) -> Result<{first: State::Connected | State::Closing, second: State::Connected}, DecodeError>\n",
+        "  validate ConnectedPacket from packet at base\n",
+        "end\n",
+        "fn observe_value(packet: {first: State, second: State}) -> {first: State, second: State} effects [stdio]\n",
+        "  stdio::println(\"value\")\n",
+        "  packet\n",
+        "end\n",
+        "fn observe_offset(base: ByteOffset) -> ByteOffset effects [stdio]\n",
+        "  stdio::println(\"offset\")\n",
+        "  base\n",
+        "end\n",
+        "fn print_result(result: Result<{first: State::Connected | State::Closing, second: State::Connected}, DecodeError>) -> () effects [stdio]\n",
+        "  match result\n",
+        "    Ok(packet) => match packet.first\n",
+        "      Connected(value) => stdio::println(string::concat(\"ok:\", int_to_string(value)))\n",
+        "      Closing(value) => stdio::println(string::concat(\"ok:\", int_to_string(value)))\n",
+        "    end\n",
+        "    Err(DecodeErrorWithReason(id, carried, path, reason)) => begin\n",
+        "      stdio::println(id)\n",
+        "      stdio::println(int_to_string(byte_offset_to_int(carried)))\n",
+        "      stdio::println(path)\n",
+        "      stdio::println(reason)\n",
+        "    end\n",
+        "    Err(DecodeError(id, carried, path)) => begin\n",
+        "      stdio::println(id)\n",
+        "      stdio::println(int_to_string(byte_offset_to_int(carried)))\n",
+        "      stdio::println(path)\n",
+        "    end\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> Result<(), String> effects [stdio]\n",
+        "  let first_offset = byte_offset(7)?\n",
+        "  let second_offset = byte_offset(19)?\n",
+        "  let ordered = validate ConnectedPacket from observe_value({first: Connected(3), second: Connected(5)}) at observe_offset(first_offset)\n",
+        "  print_result(ordered)\n",
+        "  print_result(check({first: Closed(11), second: Closed(13)}, second_offset))\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("schema-refinement-validation", &program, &[])
+    else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        concat!(
+            "value\noffset\nok:3\n",
+            "schema.variant_refinement_mismatch\n",
+            "19\n",
+            "/ConnectedPacket/first\n",
+            "actual variant `Closed`; expected one of `Connected, Closing`\n",
+        )
+    );
+}
+
+#[test]
 fn bytecode_backend_executes_signed_integer_remainder_endpoints() {
     let ir = lower_to_ir(concat!(
         "pub fn main() -> () effects [stdio]\n",

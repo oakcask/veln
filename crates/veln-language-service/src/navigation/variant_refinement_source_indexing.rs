@@ -236,6 +236,10 @@ fn collect_expr_refinement_ranges(
             collect_expr_refinement_ranges(input, type_parameters, index);
             collect_expr_refinement_ranges(base, type_parameters, index);
         }
+        ExprKind::SchemaValidate { value, base, .. } => {
+            collect_expr_refinement_ranges(value, type_parameters, index);
+            collect_expr_refinement_ranges(base, type_parameters, index);
+        }
         ExprKind::SchemaEncode { value, .. }
         | ExprKind::Prefix { expr: value, .. }
         | ExprKind::Try { expr: value, .. }

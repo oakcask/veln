@@ -1,0 +1,45 @@
+# Explicit schema validation narrows a complete base record without rebuilding it.
+use stdio
+
+type State
+	Connected(value: Int)
+	Closing(value: Int)
+	Closed(value: Int)
+end
+
+schema ConnectedPacket
+	primary: State::Connected | State::Closing
+	secondary: State::Connected
+end
+
+fn validate_packet(packet: {primary: State, secondary: State}, offset: ByteOffset) -> Result<{primary: State::Connected | State::Closing, secondary: State::Connected}, DecodeError>
+	validate ConnectedPacket from packet at offset
+end
+
+fn report(result: Result<{primary: State::Connected | State::Closing, secondary: State::Connected}, DecodeError>) -> () effects [stdio]
+	match result
+		Ok(packet) => match packet.primary
+			Connected(value) => stdio::println(string::concat("ok:", int_to_string(value)))
+			Closing(value) => stdio::println(string::concat("ok:", int_to_string(value)))
+		end
+		Err(DecodeErrorWithReason(id, offset, path, reason)) => begin
+			stdio::println(id)
+			stdio::println(int_to_string(byte_offset_to_int(offset)))
+			stdio::println(path)
+			stdio::println(reason)
+		end
+		Err(DecodeError(id, offset, path)) => begin
+			stdio::println(id)
+			stdio::println(int_to_string(byte_offset_to_int(offset)))
+			stdio::println(path)
+		end
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let first_offset = byte_offset(7)?
+	let second_offset = byte_offset(19)?
+	report(validate_packet({primary: Connected(3), secondary: Connected(5)}, first_offset))
+	report(validate_packet({primary: Closed(11), secondary: Closed(13)}, second_offset))
+	Ok(())
+end

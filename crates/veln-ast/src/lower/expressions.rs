@@ -126,6 +126,16 @@ impl AstBuilder {
                 schema: schema.clone(),
                 value: Box::new(self.lower_expr(value)),
             }),
+            SyntaxExprKind::SchemaValidate {
+                schema,
+                value,
+                base,
+                ..
+            } => Some(ExprKind::SchemaValidate {
+                schema: schema.clone(),
+                value: Box::new(self.lower_expr(value)),
+                base: Box::new(self.lower_expr(base)),
+            }),
             _ => None,
         }
     }

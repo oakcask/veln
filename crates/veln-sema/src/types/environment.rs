@@ -735,6 +735,26 @@ impl TypeEnvironment {
         )
     }
 
+    pub(crate) fn schema_runtime_validation_signature_in_owner(
+        &self,
+        schema_path: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<&FunctionSignature> {
+        if self
+            .wrong_schema_reference_kind(schema_path, current_module, current_package)
+            .is_some()
+        {
+            return None;
+        }
+        self.schema_helper_signature(
+            schema_path,
+            current_module,
+            current_package,
+            schema_runtime_validation_function_name,
+        )
+    }
+
     fn schema_helper_signature(
         &self,
         schema_path: &[String],
@@ -801,6 +821,26 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         current_package: Option<&str>,
     ) -> SchemaReferenceError {
+        let wrong_kind =
+            self.wrong_schema_reference_kind(schema_path, current_module, current_package);
+        let visible_schema = self
+            .schema_symbols
+            .schema_target_path(
+                schema_path,
+                current_module,
+                current_package,
+                &self.uses,
+                true,
+                &self.companion_schema_access_targets,
+                &mut Vec::new(),
+            )
+            .is_some();
+        if visible_schema && let Some(kind) = wrong_kind {
+            return SchemaReferenceError {
+                kind: SchemaReferenceErrorKind::Ambiguous,
+                resolved_kind: Some(kind),
+            };
+        }
         if self.schema_symbols.private_schema(
             schema_path,
             current_module,
@@ -828,9 +868,7 @@ impl TypeEnvironment {
                 resolved_kind: Some(kind),
             };
         }
-        if let Some(kind) =
-            self.wrong_schema_reference_kind(schema_path, current_module, current_package)
-        {
+        if let Some(kind) = wrong_kind {
             return SchemaReferenceError {
                 kind: SchemaReferenceErrorKind::WrongKind,
                 resolved_kind: Some(kind),

@@ -183,6 +183,7 @@ fn format_expr_inner(
         kind @ (ExprKind::Perform { .. }
         | ExprKind::Handle { .. }
         | ExprKind::SchemaDecode { .. }
+        | ExprKind::SchemaValidate { .. }
         | ExprKind::SchemaEncode { .. }) => format_keyword_expr(kind, indent, comments),
         kind @ (ExprKind::Record(_) | ExprKind::Dict(_) | ExprKind::List(_)) => {
             format_collection_expr(kind, indent, comments)
@@ -292,6 +293,17 @@ fn format_keyword_expr(kind: &ExprKind, indent: usize, comments: Option<&LineCom
             "encode {} from {}",
             schema.join("::"),
             format_expr_at_indent_ctx(value, indent, comments)
+        ),
+        ExprKind::SchemaValidate {
+            schema,
+            value,
+            base,
+            ..
+        } => format!(
+            "validate {} from {} at {}",
+            schema.join("::"),
+            format_expr_at_indent_ctx(value, indent, comments),
+            format_expr_at_indent_ctx(base, indent, comments)
         ),
         _ => unreachable!("keyword formatter received a non-keyword expression"),
     }
@@ -569,6 +581,7 @@ fn expr_prec(expr: &Expr) -> u8 {
         ExprKind::Call { .. }
         | ExprKind::Handle { .. }
         | ExprKind::SchemaDecode { .. }
+        | ExprKind::SchemaValidate { .. }
         | ExprKind::SchemaEncode { .. }
         | ExprKind::FieldAccess { .. }
         | ExprKind::Try { .. } => 27,

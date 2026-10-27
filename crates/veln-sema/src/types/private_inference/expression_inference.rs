@@ -188,6 +188,11 @@ fn infer_private_schema_type(
             context.infer(value, None);
             Some(Type::Unknown)
         }
+        ExprKind::SchemaValidate { value, base, .. } => {
+            context.infer(value, None);
+            context.infer(base, Some(&Type::named("ByteOffset", Vec::new())));
+            Some(Type::Unknown)
+        }
         ExprKind::FieldAccess { base, field, .. } => Some(
             context
                 .infer(base, None)

@@ -162,6 +162,14 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             ExprKind::SchemaEncode { schema: _, value } => {
                 self.collect_expr(value, current_module, local_bindings, spans);
             }
+            ExprKind::SchemaValidate {
+                schema: _,
+                value,
+                base,
+            } => {
+                self.collect_expr(value, current_module, local_bindings, spans);
+                self.collect_expr(base, current_module, local_bindings, spans);
+            }
             ExprKind::FieldAccess { base, .. }
             | ExprKind::Try { expr: base, .. }
             | ExprKind::Prefix { expr: base, .. } => {

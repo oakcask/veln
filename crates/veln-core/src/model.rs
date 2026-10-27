@@ -233,6 +233,7 @@ pub enum CoreCallTarget {
     SchemaEncode(String),
     SchemaEncodeStep(String),
     SchemaValidate(String),
+    SchemaRefinementValidate(String),
     StdioBuiltin(String),
     ConcurrencyBuiltin(String),
     StandardLibraryBuiltin(String),

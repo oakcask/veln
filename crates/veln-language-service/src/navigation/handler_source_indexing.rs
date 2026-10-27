@@ -248,6 +248,11 @@ fn collect_handler_reference_ranges(
             }
         }
         ExprKind::SchemaDecode { input, base, .. }
+        | ExprKind::SchemaValidate {
+            value: input,
+            base,
+            ..
+        }
         | ExprKind::Binary {
             left: input,
             right: base,

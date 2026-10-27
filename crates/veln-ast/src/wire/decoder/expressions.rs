@@ -15,7 +15,7 @@ impl<'a> Reader<'a> {
             0..=7 => self.scalar_expr_kind(tag),
             8..=9 => self.invocation_expr_kind(tag),
             10..=11 => self.effect_expr_kind(tag),
-            12..=15 => self.schema_and_access_expr_kind(tag),
+            12..=15 | 24 => self.schema_and_access_expr_kind(tag),
             16..=20 => self.aggregate_expr_kind(tag),
             21..=22 => self.operator_expr_kind(tag),
             23 => Ok(ExprKind::Begin {
@@ -100,6 +100,11 @@ impl<'a> Reader<'a> {
             15 => Ok(ExprKind::Try {
                 expr: Box::new(self.expr()?),
                 question_span: self.span()?,
+            }),
+            24 => Ok(ExprKind::SchemaValidate {
+                schema: self.vec(Self::string)?,
+                value: Box::new(self.expr()?),
+                base: Box::new(self.expr()?),
             }),
             _ => unreachable!("non-schema or access tag passed to schema wire decoder"),
         }

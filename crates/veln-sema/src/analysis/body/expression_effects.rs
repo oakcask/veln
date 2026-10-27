@@ -32,6 +32,11 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::SchemaEncode { schema, value } => {
                 self.infer_schema_encode(expr, schema, value)
             }
+            ExprKind::SchemaValidate {
+                schema,
+                value,
+                base,
+            } => self.infer_schema_validate(expr, schema, value, base),
             ExprKind::FieldAccess {
                 base,
                 field,
@@ -422,6 +427,69 @@ impl<'a> FunctionChecker<'a> {
         self.push_schema_operation_expression_diagnostic(expr, schema, "encode", "encode");
     }
 
+    pub(super) fn infer_schema_validate(
+        &mut self,
+        expr: &Expr,
+        schema: &[String],
+        value: &Expr,
+        base: &Expr,
+    ) -> Type {
+        let signature = self
+            .environment
+            .schema_runtime_validation_signature_in_owner(
+                schema,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            )
+            .cloned();
+        let value_expected = signature
+            .as_ref()
+            .and_then(|signature| signature.params.first())
+            .cloned()
+            .map(|ty| ExpectedType {
+                ty,
+                source: ExpectedTypeSource::DeclaredParameter,
+                origin_node_id: expr.node_id,
+                origin_span: Some(expr.span.clone()),
+                origin_message: "Schema validation value must match the erased schema record.",
+            });
+        let value_actual = self.infer_expr(value, value_expected.as_ref());
+        if let Some(expected) = &value_expected {
+            self.check_assignable(
+                value,
+                &expected.ty,
+                &value_actual,
+                expected,
+                "schema_validation_value",
+            );
+        }
+        let offset_expected = ExpectedType {
+            ty: Type::named("ByteOffset", Vec::new()),
+            source: ExpectedTypeSource::DeclaredParameter,
+            origin_node_id: expr.node_id,
+            origin_span: Some(expr.span.clone()),
+            origin_message: "Schema validation offset must be a ByteOffset.",
+        };
+        let offset_actual = self.infer_expr(base, Some(&offset_expected));
+        self.check_assignable(
+            base,
+            &offset_expected.ty,
+            &offset_actual,
+            &offset_expected,
+            "schema_validation_offset",
+        );
+        let Some(signature) = signature else {
+            self.push_schema_operation_expression_diagnostic(
+                expr,
+                schema,
+                "validate",
+                "runtime_validate",
+            );
+            return Type::Unknown;
+        };
+        signature.return_type
+    }
+
     pub(super) fn push_schema_operation_expression_diagnostic(
         &mut self,
         expr: &Expr,
@@ -444,6 +512,7 @@ impl<'a> FunctionChecker<'a> {
             SchemaReferenceErrorKind::Unresolved => "unresolved_schema",
             SchemaReferenceErrorKind::Private => "private_schema",
             SchemaReferenceErrorKind::WrongKind => "wrong_kind",
+            SchemaReferenceErrorKind::Ambiguous => "ambiguous_target",
         };
         let message = match (error.kind, error.resolved_kind) {
             (SchemaReferenceErrorKind::Private, _) => {
@@ -452,11 +521,14 @@ impl<'a> FunctionChecker<'a> {
             (SchemaReferenceErrorKind::WrongKind, Some(kind)) => {
                 format!("schema {operation} expression target `{symbol}` is a {kind}, not a schema")
             }
+            (SchemaReferenceErrorKind::Ambiguous, Some(kind)) => format!(
+                "schema {operation} expression target `{symbol}` is ambiguous between a schema and a {kind}"
+            ),
             _ => {
-                let eligibility = if operation == "encode" {
-                    "eligible schema encode helper"
-                } else {
-                    "eligible binary schema"
+                let eligibility = match operation {
+                    "encode" => "eligible schema encode helper",
+                    "validate" => "eligible format-neutral schema",
+                    _ => "eligible binary schema",
                 };
                 format!(
                     "schema {operation} expression cannot resolve `{symbol}` as an {eligibility}"

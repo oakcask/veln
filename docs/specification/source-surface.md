@@ -461,6 +461,20 @@ or encode operation whose schema-local record contains a private refinement
 admitted by the format-neutral field rules. A written import does not create a
 bare schema operation path. Generated helper names are implementation details.
 
+`validate SchemaName from value at base_offset` accepts a format-neutral schema
+whose refinement-bearing positions are direct record fields containing
+singleton or finite-set source-ADT refinements. The value is checked against
+the schema-local record after replacing each supported direct refinement with
+its base ADT, and `base_offset` must be `ByteOffset`. The result is
+`Result<SchemaRecord, DecodeError>` with the refinements retained. A supported
+validation schema has at least one such field and has no field-local or
+schema-level predicate. Nested refinements, containers, composed schemas,
+recursive payload traversal, and binary schemas are not eligible. The value
+and offset expressions are evaluated once, in that order. Schema-path lookup,
+public aliases, and exact-companion private access follow the decode and encode
+rules above. This expression use of `validate` is distinct from a schema-body
+validation predicate.
+
 ## Codecs
 
 Top-level `codec Name for Schema directions...` and
@@ -633,13 +647,14 @@ BinaryOp      ::= "|>" | "or" | "and" | "|" | "^" | "&" | "==" | "!="
                   | "+" | "-" | "*" | "/" | "%"
 PrefixExpr    ::= ("not" | "-" | "~") PrefixExpr | PostfixExpr
 PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | "?")*
-PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | BeginExpr | "(" Expr ")" | "()"
+PrimaryExpr   ::= Hole | Literal | NamePath | Perform | Handle | SchemaDecode | SchemaEncode | SchemaValidate | BeginExpr | "(" Expr ")" | "()"
                   | Record | Dict | List | Match | If
 Hole          ::= ("_" | HoleName) SatisfyClause?
 SatisfyClause ::= "satisfy" Name "=>" SatisfyPredicate
 BeginExpr     ::= "begin" NL Body "end"
 SchemaDecode  ::= "decode" MemberPath "from" Expr "at" Expr
 SchemaEncode  ::= "encode" MemberPath "from" Expr
+SchemaValidate ::= "validate" MemberPath "from" Expr "at" Expr
 Perform       ::= "perform" MemberPath "::" Name "(" ArgList? ")"
 Handle        ::= "handle" Expr "with" MemberPath "(" ArgList? ")"
 Call          ::= "(" ArgList? ")"

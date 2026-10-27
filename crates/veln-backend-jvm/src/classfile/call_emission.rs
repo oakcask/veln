@@ -43,6 +43,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 self.emit_schema_encode_step_call(code, name, args);
             }
             IrCallTarget::SchemaValidate(name) => self.emit_schema_validate_call(code, name, args),
+            IrCallTarget::SchemaRefinementValidate(name) => {
+                self.emit_schema_refinement_validate_call(code, name, args)
+            }
             IrCallTarget::ConcurrencyBuiltin(name) => {
                 self.emit_runtime_call(code, concurrency_method(name), args);
             }

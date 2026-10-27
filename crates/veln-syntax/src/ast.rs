@@ -433,6 +433,13 @@ pub enum ExprKind {
         recovered: bool,
         value: Box<Expr>,
     },
+    SchemaValidate {
+        schema: Vec<String>,
+        schema_spans: Vec<SourceSpan>,
+        recovered: bool,
+        value: Box<Expr>,
+        base: Box<Expr>,
+    },
     FieldAccess {
         base: Box<Expr>,
         field: String,
@@ -513,6 +520,11 @@ impl Expr {
             }
             ExprKind::SchemaDecode {
                 input: first,
+                base: second,
+                ..
+            }
+            | ExprKind::SchemaValidate {
+                value: first,
                 base: second,
                 ..
             }

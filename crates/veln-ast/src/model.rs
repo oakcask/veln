@@ -609,6 +609,11 @@ pub enum ExprKind {
         schema: Vec<String>,
         value: Box<Expr>,
     },
+    SchemaValidate {
+        schema: Vec<String>,
+        value: Box<Expr>,
+        base: Box<Expr>,
+    },
     FieldAccess {
         base: Box<Expr>,
         field: String,

@@ -52,6 +52,49 @@ fn run_java_runtime_harness_with_env(
 }
 
 #[test]
+fn jvm_runtime_schema_refinement_validation_rejects_negative_offsets() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-schema-refinement-negative-offset",
+        "SchemaRefinementNegativeOffsetHarness.java",
+        r#"
+public final class SchemaRefinementNegativeOffsetHarness {
+    public static void main(String[] args) {
+        Object value = VelnRuntime.record(
+            "state",
+            VelnRuntime.adt("State::Connected", new Object[] {})
+        );
+        Object result = VelnRuntime.validateSchemaRefinements(
+            value,
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(-1) }),
+            "ConnectedPacket",
+            VelnRuntime.list("state"),
+            VelnRuntime.list(VelnRuntime.list("Connected"))
+        );
+        System.out.println(result);
+    }
+}
+"#,
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "Err(DecodeErrorWithReason(schema.validation_offset_invalid, ByteOffset(-1), /ConnectedPacket, offset=-1; expected a non-negative ByteOffset))\n"
+    );
+}
+
+#[test]
 fn jvm_runtime_preserves_cancellation_entering_host_connect_when_java_is_available() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

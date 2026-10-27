@@ -1,0 +1,5 @@
+ok:3
+schema.variant_refinement_mismatch
+19
+/ConnectedPacket/primary
+actual variant `Closed`; expected one of `Connected, Closing`

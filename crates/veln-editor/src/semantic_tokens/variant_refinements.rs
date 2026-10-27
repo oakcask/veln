@@ -113,6 +113,10 @@ fn collect_expr(expr: &Expr, classifications: &mut BTreeMap<usize, SemanticToken
             collect_expr(input, classifications);
             collect_expr(base, classifications);
         }
+        ExprKind::SchemaValidate { value, base, .. } => {
+            collect_expr(value, classifications);
+            collect_expr(base, classifications);
+        }
         ExprKind::SchemaEncode { value, .. }
         | ExprKind::Prefix { expr: value, .. }
         | ExprKind::Try { expr: value, .. }

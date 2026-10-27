@@ -93,6 +93,7 @@ pub(crate) enum SchemaReferenceErrorKind {
     Unresolved,
     Private,
     WrongKind,
+    Ambiguous,
 }
 
 pub(crate) struct SchemaReferenceError {
@@ -129,6 +130,7 @@ pub(crate) const SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX: &str = "schema-neutral-enc
 pub(crate) const SCHEMA_ENCODE_TARGET_PREFIX: &str = "schema-encode:";
 pub(crate) const SCHEMA_ENCODE_STEP_TARGET_PREFIX: &str = "schema-encode-step:";
 pub(crate) const SCHEMA_VALIDATE_TARGET_PREFIX: &str = "schema-validate:";
+pub(crate) const SCHEMA_REFINEMENT_VALIDATE_TARGET_PREFIX: &str = "schema-refinement-validate:";
 
 pub(crate) enum FunctionLookup<'a> {
     Found(&'a FunctionSignature),

@@ -1,0 +1,10 @@
+pub type State
+	pub Connected
+	pub Closed
+end
+
+pub schema Packet
+	state: State::Connected
+end
+
+pub schema Alias = Packet

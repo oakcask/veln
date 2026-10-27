@@ -1,6 +1,155 @@
 use super::*;
 
 #[test]
+fn explicit_schema_validate_expression_erases_direct_refinement_inputs() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n",
+            "  Connected\n",
+            "  Closing\n",
+            "  Closed\n",
+            "end\n",
+            "schema ConnectedPacket\n",
+            "  state: State::Connected | State::Closing\n",
+            "end\n",
+            "fn check(packet: {state: State}, base: ByteOffset) -> Result<{state: State::Connected | State::Closing}, DecodeError>\n",
+            "  validate ConnectedPacket from packet at base\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let function = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "check")
+        .expect("validation function should lower");
+    let IrStmtKind::Return { value } = &function.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaRefinementValidate(name),
+            args,
+        } if name == "ConnectedPacket" && args.len() == 2
+    ));
+    assert_eq!(
+        ir.schema_decoders[0].fields[0]
+            .variant_refinement
+            .as_ref()
+            .map(|refinement| refinement.expected_variants.as_slice()),
+        Some(["Connected".to_string(), "Closing".to_string()].as_slice())
+    );
+}
+
+#[test]
+fn explicit_schema_validate_expression_resolves_alias_and_rejects_invalid_targets() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type State\n  pub Connected\n  pub Closed\nend\n",
+            "pub schema Packet\n  state: State::Connected\nend\n",
+            "pub schema AliasPacket = Packet\n",
+            "schema BinaryPacket\n  format binary\n  value: UInt8\nend\n",
+            "type Collision\n  Collision\nend\n",
+            "schema Collision\n  state: State::Connected\nend\n",
+            "fn good(value: {state: State}, base: ByteOffset) -> Result<{state: State::Connected}, DecodeError>\n",
+            "  validate AliasPacket from value at base\nend\n",
+            "fn bad(value: {state: State}, base: ByteOffset) -> ()\n",
+            "  validate Missing from value at base\n",
+            "  validate State from value at base\n",
+            "  validate BinaryPacket from value at base\n",
+            "  validate Collision from value at base\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+    let validate_diagnostics = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.validate_expression")
+        .collect::<Vec<_>>();
+    assert_eq!(validate_diagnostics.len(), 4, "{:#?}", lowered.diagnostics);
+    for reason in ["unresolved_schema", "wrong_kind", "ambiguous_target"] {
+        assert!(
+            validate_diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    &diagnostic.details,
+                    veln_diagnostics::JsonValue::Object(entries)
+                        if entries.iter().any(|(key, value)| {
+                            key == "reason"
+                                && value == &veln_diagnostics::JsonValue::string(reason)
+                        })
+                )
+            }),
+            "missing reason {reason}: {validate_diagnostics:#?}"
+        );
+    }
+    assert!(validate_diagnostics.iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("eligible format-neutral schema")
+            && diagnostic.message.contains("BinaryPacket")
+    }));
+}
+
+#[test]
+fn explicit_schema_validate_expression_rejects_inaccessible_private_target() {
+    let caller_source = SourceFile::new(
+        "other.test.veln",
+        concat!(
+            "mod other__test_companion\n",
+            "use math\n",
+            "fn check(value: {state: math::State}, base: ByteOffset) -> ()\n",
+            "  let checked: Result<{state: math::State::Connected}, DecodeError> = validate math::Packet from value at base\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "pub type State\n  pub Connected\n  pub Closed\nend\n",
+            "schema Packet\n  state: State::Connected\nend\n",
+        ),
+    );
+    let caller = lower_surface_ast(&parse(&caller_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let module = SurfaceModule {
+        module: caller.module,
+        uses: caller.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: target.types,
+        schemas: target.schemas,
+        module_values: Vec::new(),
+        functions: caller.functions,
+        invalid_names: Vec::new(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+    assert!(
+        lowered.diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.validate_expression"
+                && diagnostic.message
+                    == "schema validate expression schema `math::Packet` is private"
+        }),
+        "{:#?}",
+        lowered.diagnostics
+    );
+}
+
+#[test]
 fn generated_format_neutral_schema_decode_helpers_reject_functions_inside_record_fields() {
     let source = SourceFile::new(
         "main.veln",
@@ -574,6 +723,7 @@ fn matching_companion_resolves_private_target_schema_operations_and_composition(
             "  let encoded: Result<ByteChunk, EncodeError> = encode math::Packet from value\n",
             "  let state: math::State::Hidden = math::State::Hidden\n",
             "  let refined: Result<{state: math::State::Hidden}, String> = encode math::RefinedPacket from {state: state}\n",
+            "  let validated: Result<{state: math::State::Hidden}, DecodeError> = validate math::RefinedPacket from {state: state} at offset\n",
             "  ()\n",
             "end\n",
         ),

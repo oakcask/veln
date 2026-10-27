@@ -991,6 +991,19 @@ schema operation path resolution, and generated helper availability. Mapping
 clauses are rejected by the parser and therefore have no current schema
 mapping diagnostic.
 
+Static failures for `validate Schema from value at offset` use
+`schema.validate_expression`. The details include `phase: "body_analysis"`,
+`node_id`, `schema_path`, `operation: "runtime_validate"`, and a stable
+`reason` such as `unresolved_schema`, `wrong_kind`, `ambiguous_target`, or
+`private_schema`; a resolved wrong-kind diagnostic also supplies
+`resolved_kind`. Runtime constructor rejection uses
+`schema.variant_refinement_mismatch`, and a negative offset uses
+`schema.validation_offset_invalid`. Their byte-diagnostic projection preserves
+the exact `ByteOffset`, `reason`, and decoded JSON Pointer `field_path`. The
+root segment has kind `schema` and the terminal declaration name; following
+segments have kind `field`. Human rendering identifies the failed fact at the
+offset and places the path and mismatch or offset reason in notes.
+
 Type inference diagnostics include:
 
 - `type.local_inference_incomplete`: `slot_kind: "local_binding"`,

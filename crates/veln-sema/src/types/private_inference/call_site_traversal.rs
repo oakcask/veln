@@ -161,6 +161,7 @@ pub(crate) fn collect_private_call_site_expr_constraints(
         ExprKind::Perform { .. }
         | ExprKind::Handle { .. }
         | ExprKind::SchemaDecode { .. }
+        | ExprKind::SchemaValidate { .. }
         | ExprKind::SchemaEncode { .. }
         | ExprKind::FieldAccess { .. }
         | ExprKind::Try { .. }
@@ -262,6 +263,14 @@ pub(crate) fn collect_private_call_site_wrapped_expr_constraints(
         }
         ExprKind::SchemaEncode { value, .. } => {
             collect_private_call_site_expr_constraints(value, None, context);
+        }
+        ExprKind::SchemaValidate { value, base, .. } => {
+            collect_private_call_site_expr_constraints(value, None, context);
+            collect_private_call_site_expr_constraints(
+                base,
+                Some(&Type::named("ByteOffset", Vec::new())),
+                context,
+            );
         }
         ExprKind::FieldAccess { base, .. }
         | ExprKind::Try { expr: base, .. }
