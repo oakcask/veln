@@ -180,6 +180,13 @@ pub struct UseDecl {
     pub origin: UseOrigin,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ResolvedImportTarget {
+    pub owning_module: Option<String>,
+    pub package: Option<String>,
+    pub module: String,
+}
+
 impl UseDecl {
     pub fn has_explicit_alias(&self) -> bool {
         self.alias_span.is_some()
@@ -205,6 +212,17 @@ impl UseDecl {
         paths.sort();
         paths.dedup();
         paths
+    }
+
+    pub fn resolved_target(&self) -> ResolvedImportTarget {
+        ResolvedImportTarget {
+            owning_module: self.module_name.clone(),
+            package: self
+                .package
+                .clone()
+                .or_else(|| self.importing_package.clone()),
+            module: self.name.clone(),
+        }
     }
 }
 

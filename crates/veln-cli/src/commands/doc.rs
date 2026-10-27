@@ -6,7 +6,7 @@ use veln_analysis::{
     DoctestMode, analyze_project, derive_source_module_path, load_surface_module,
     parse_diagnostic_to_envelope, validate_manifest_dependencies, validate_manifest_exports,
 };
-use veln_ast::{PublicAliasKind as AstPublicAliasKind, SurfaceModule, UseDecl};
+use veln_ast::{PublicAliasKind as AstPublicAliasKind, SurfaceModule};
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity};
 use veln_project::{
     ManifestField, Project, ProjectManifest, classify_companion_source, production_analysis_inputs,

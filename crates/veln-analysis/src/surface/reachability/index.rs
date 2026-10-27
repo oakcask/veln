@@ -195,7 +195,7 @@ struct InvalidUse<'a> {
     module_path_segments: Vec<&'a veln_ast::InvalidName>,
 }
 
-type UseTarget = (Option<String>, String, Option<String>);
+type UseTarget = veln_ast::ResolvedImportTarget;
 type InvalidNameSpans = HashSet<(veln_source::SourcePath, usize, usize)>;
 
 impl<'a> UseIndex<'a> {
@@ -596,11 +596,7 @@ fn has_reserved_alias(declaration: &UseDecl) -> bool {
 }
 
 fn use_target(declaration: &UseDecl) -> UseTarget {
-    (
-        declaration.module_name.clone(),
-        declaration.written_name.clone(),
-        declaration.package.clone(),
-    )
+    declaration.resolved_target()
 }
 
 fn span_key(span: &SourceSpan) -> (veln_source::SourcePath, usize, usize) {

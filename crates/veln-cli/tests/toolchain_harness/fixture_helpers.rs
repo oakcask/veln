@@ -85,6 +85,32 @@ pub schema AliasPacket = wire::PublicPacket
     .expect("facade source should be written");
 }
 
+pub(super) fn write_dependency_fixture_schema_sources(root: &Path, imports: &str) {
+    fs::create_dir_all(root.join("vendor/dep")).expect("dependency directory should be created");
+    fs::write(
+        root.join("veln.toml"),
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    )
+    .expect("root manifest should be written");
+    fs::write(root.join("main.veln"), format!("{imports}\n"))
+        .expect("main source should be written");
+    fs::write(
+        root.join("api.veln"),
+        "pub schema Packet\n\tvalue: UInt8\nend\n",
+    )
+    .expect("local source should be written");
+    fs::write(
+        root.join("vendor/dep/veln.toml"),
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"api.veln\"]\n",
+    )
+    .expect("dependency manifest should be written");
+    fs::write(
+        root.join("vendor/dep/api.veln"),
+        "pub schema Packet\n\tvalue: UInt8\nend\n",
+    )
+    .expect("dependency source should be written");
+}
+
 pub(super) fn panic_message(panic: Box<dyn std::any::Any + Send>) -> String {
     if let Some(message) = panic.downcast_ref::<String>() {
         return message.clone();

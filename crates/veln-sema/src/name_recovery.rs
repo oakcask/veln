@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 
-use veln_ast::{NameClass, NameOccurrence, SurfaceModule, UseDecl};
+use veln_ast::{NameClass, NameOccurrence, ResolvedImportTarget, SurfaceModule, UseDecl};
 
 mod alias_validity;
 mod classification;
@@ -36,7 +36,7 @@ pub(crate) use target_recovery::{quarantined_use_decls, recovered_import_target_
 use target_recovery::{recovered_target_names, recovery_names_by_file};
 
 type ImportBindingKey = (Option<String>, String);
-type ImportTargetKey = (Option<String>, String, Option<String>);
+type ImportTargetKey = ResolvedImportTarget;
 
 struct NormalUseGroups {
     quarantined: Vec<bool>,
@@ -212,11 +212,7 @@ impl NormalUseGroups {
         }
         if use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.recovered {
             self.duplicate_targets
-                .entry((
-                    use_decl.module_name.clone(),
-                    use_decl.written_name.clone(),
-                    use_decl.package.clone(),
-                ))
+                .entry(use_decl.resolved_target())
                 .or_default()
                 .push(index);
             for path in use_decl_exact_paths(use_decl) {
@@ -450,6 +446,15 @@ pub(crate) fn normal_imported_use_for_path<'a>(
         current_module,
         &classification,
     )
+}
+
+pub fn normal_imported_module_for_path(
+    module: &SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<String> {
+    normal_imported_use_for_path(module, segments, current_module)
+        .map(|use_decl| resolved_import_module_name(use_decl, current_module))
 }
 
 #[derive(Clone, Copy)]

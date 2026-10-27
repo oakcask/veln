@@ -65,6 +65,99 @@ fn invalid_explicit_aliases_are_atomically_quarantined() {
 }
 
 #[test]
+fn public_normal_import_selection_returns_loaded_identity() {
+    let source =
+        veln_source::SourceFile::new("app.veln", "mod app\nuse api as wire from \"dep\"\n");
+    let parsed = veln_syntax::parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let mut module = veln_ast::lower_surface_ast(&parsed.tree);
+    module.uses[0].name = "dep::api".to_string();
+
+    for path in [["wire"].as_slice(), ["api"].as_slice()] {
+        let path = path
+            .iter()
+            .map(|segment| segment.to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            normal_imported_module_for_path(&module, &path, Some("app")).as_deref(),
+            Some("dep::api")
+        );
+        assert_eq!(
+            normal_imported_module_for_path(&module, &path, Some("other")),
+            None
+        );
+    }
+}
+
+#[test]
+fn public_normal_import_selection_preserves_precedence_and_blocking() {
+    fn lower(text: &str) -> SurfaceModule {
+        let source = veln_source::SourceFile::new("app.veln", text);
+        let parsed = veln_syntax::parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        veln_ast::lower_surface_ast(&parsed.tree)
+    }
+
+    let mut exact_precedence =
+        lower("mod app\nuse alpha as api\nuse api as selected from \"dep\"\n");
+    exact_precedence.uses[1].name = "dep::api".to_string();
+    assert_eq!(
+        normal_imported_module_for_path(&exact_precedence, &["api".to_string()], Some("app"),)
+            .as_deref(),
+        Some("dep::api")
+    );
+
+    for (source, blocked_paths) in [
+        (
+            "mod app\nuse alpha as wire\nuse beta as wire\n",
+            &["wire"][..],
+        ),
+        (
+            "mod app\nuse alpha as first\nuse alpha as second\n",
+            &["first", "second", "alpha"][..],
+        ),
+        ("mod app\nuse Api as wire\n", &["wire"][..]),
+        ("mod app\nuse alpha as prelude\n", &["prelude"][..]),
+    ] {
+        let module = lower(source);
+        for path in blocked_paths {
+            assert_eq!(
+                normal_imported_module_for_path(&module, &[path.to_string()], Some("app"),),
+                None,
+                "source={source:?}, path={path:?}"
+            );
+        }
+    }
+
+    let recovered_source =
+        veln_source::SourceFile::new("app.veln", "mod app\nuse alpha as wire as nested\n");
+    let recovered = veln_syntax::parse(&recovered_source);
+    assert!(!recovered.diagnostics.is_empty());
+    let recovered = veln_ast::lower_surface_ast(&recovered.tree);
+    for path in ["alpha", "wire"] {
+        assert_eq!(
+            normal_imported_module_for_path(&recovered, &[path.to_string()], Some("app")),
+            None,
+            "syntax-recovered import path {path:?} must be quarantined"
+        );
+    }
+
+    let mut ambiguous_exact = lower(concat!(
+        "mod app\n",
+        "use api as first from \"one\"\n",
+        "use api as second from \"two\"\n",
+        "use fallback as api\n",
+    ));
+    ambiguous_exact.uses[0].name = "one::api".to_string();
+    ambiguous_exact.uses[1].name = "two::api".to_string();
+    assert_eq!(
+        normal_imported_module_for_path(&ambiguous_exact, &["api".to_string()], Some("app"),),
+        None,
+        "a blocked exact path must not fall back to the qualifier"
+    );
+}
+
+#[test]
 fn recovered_target_identity_preserves_the_rewritten_package_boundary() {
     let app_source = veln_source::SourceFile::new(
         "app.veln",

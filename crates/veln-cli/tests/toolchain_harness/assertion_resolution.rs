@@ -344,8 +344,8 @@ pub(super) fn resolve_fixture_schema_segments(
             visited_aliases,
         ),
         [_, .., name] => {
-            let Some(use_decl) = imported_use_for_path(
-                &module.uses,
+            let Some(imported_module) = veln_sema::normal_imported_module_for_path(
+                module,
                 &segments[..segments.len() - 1],
                 current_module,
             ) else {
@@ -353,7 +353,7 @@ pub(super) fn resolve_fixture_schema_segments(
             };
             resolve_fixture_schema_in_module(
                 module,
-                Some(&use_decl.name),
+                Some(&imported_module),
                 name,
                 false,
                 visited_aliases,
@@ -416,18 +416,6 @@ pub(super) fn resolve_fixture_schema_alias_target(
     );
     visited_aliases.pop();
     resolution
-}
-
-pub(super) fn imported_use_for_path<'a>(
-    uses: &'a [UseDecl],
-    segments: &[String],
-    current_module: Option<&str>,
-) -> Option<&'a UseDecl> {
-    let module_path = segments.join("::");
-    uses.iter().find(|use_decl| {
-        use_decl.module_name.as_deref() == current_module
-            && (use_decl.name == module_path || use_decl.alias == module_path)
-    })
 }
 
 pub(super) fn is_accumulating_manifest_key(section: Section, key: &str) -> bool {

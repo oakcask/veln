@@ -36,6 +36,7 @@ mod types;
 pub(crate) use analysis::{
     reset_module_value_annotation_dedup_work, take_module_value_annotation_dedup_work,
 };
+pub use name_recovery::normal_imported_module_for_path;
 pub use navigation::{
     ResolvedSchemaAlias, ResolvedSchemaCompositionReference, resolved_schema_alias_chains,
     resolved_schema_aliases, resolved_schema_composition_references,

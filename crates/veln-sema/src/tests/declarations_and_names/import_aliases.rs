@@ -54,6 +54,100 @@ fn explicit_import_alias_collisions_and_repeated_targets_are_static_errors() {
 }
 
 #[test]
+fn equivalent_standard_target_spellings_are_quarantined_in_both_orders() {
+    for (source, later_spelling) in [
+        (
+            "mod app\nuse net as first from \"std\"\nuse std::net as second from \"std\"\n",
+            "std::net",
+        ),
+        (
+            "mod app\nuse std::net as second from \"std\"\nuse net as first from \"std\"\n",
+            "net",
+        ),
+    ] {
+        let mut module = lower_surface_ast(&parse(&SourceFile::new("main.veln", source)).tree);
+        for use_decl in &mut module.uses {
+            use_decl.name = "std::net".to_string();
+        }
+
+        let diagnostics = analyze_surface_module(&module);
+        let duplicates = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.duplicate")
+            .collect::<Vec<_>>();
+        assert_eq!(
+            duplicates.len(),
+            1,
+            "source={source:?}, diagnostics={diagnostics:#?}"
+        );
+        assert_eq!(
+            duplicates[0].message,
+            format!("duplicate import name `{later_spelling}`")
+        );
+        assert_eq!(duplicates[0].related.len(), 1);
+        assert!(
+            duplicates[0].related[0]
+                .to_json()
+                .contains("\"start\":{\"line\":2,"),
+            "source={source:?}, diagnostics={diagnostics:#?}"
+        );
+
+        for path in ["first", "second", "net", "std::net"] {
+            let segments = path.split("::").map(str::to_string).collect::<Vec<_>>();
+            assert!(
+                crate::name_recovery::normal_imported_use_for_path(
+                    &module,
+                    &segments,
+                    Some("app"),
+                )
+                .is_none(),
+                "source={source:?}, path={path:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn equal_written_import_paths_from_distinct_origins_remain_distinct_targets() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app\n",
+            "use net as workspace\n",
+            "use net as dependency from \"dep\"\n",
+            "use net as standard from \"std\"\n",
+        ),
+    );
+    let mut module = lower_surface_ast(&parse(&source).tree);
+    module.uses[0].name = "net".to_string();
+    module.uses[1].name = "dep::net".to_string();
+    module.uses[2].name = "std::net".to_string();
+
+    let diagnostics = analyze_surface_module(&module);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.duplicate"),
+        "{diagnostics:#?}"
+    );
+    for (qualifier, package) in [
+        ("workspace", None),
+        ("dependency", Some("dep")),
+        ("standard", Some("std")),
+    ] {
+        assert_eq!(
+            crate::name_recovery::normal_imported_use_for_path(
+                &module,
+                &[qualifier.to_string()],
+                Some("app"),
+            )
+            .and_then(|use_decl| use_decl.package.as_deref()),
+            package
+        );
+    }
+}
+
+#[test]
 fn repeated_identical_imports_report_only_the_first_target_origin() {
     for source in [
         "mod app\nuse alpha as shared\nuse alpha as shared\nuse alpha as shared\n",

@@ -286,11 +286,7 @@ pub(super) fn duplicate_diagnostic_origins(
 }
 
 fn import_target_key(use_decl: &UseDecl) -> ImportTargetKey {
-    (
-        use_decl.module_name.clone(),
-        use_decl.written_name.clone(),
-        use_decl.package.clone(),
-    )
+    use_decl.resolved_target()
 }
 
 fn import_binding_key(use_decl: &UseDecl) -> ImportBindingKey {

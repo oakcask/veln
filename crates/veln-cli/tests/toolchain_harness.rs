@@ -16,7 +16,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use veln_analysis::{
     DoctestMode, checked_project_diagnostics, derive_source_module_path, load_surface_module,
 };
-use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, UseDecl, Visibility};
+use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, Visibility};
 use veln_diagnostics::{Diagnostic, Severity};
 use veln_project::Project;
 use veln_repo_toolchain_case::{inventory as toolchain_case_inventory, manifest_syntax};

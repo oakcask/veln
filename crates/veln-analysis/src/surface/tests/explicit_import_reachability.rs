@@ -180,6 +180,41 @@ fn canonical_standard_path_keeps_aliased_import_target_reachable() {
 }
 
 #[test]
+fn equivalent_standard_target_spellings_add_no_reachable_code_in_both_orders() {
+    let standard = lower(concat!(
+        "mod std::net\n",
+        "pub fn endpoint() -> Int\n",
+        "  1\n",
+        "end\n",
+    ));
+    for imports in [
+        "use net as first from \"std\"\nuse std::net as second from \"std\"\n",
+        "use std::net as second from \"std\"\nuse net as first from \"std\"\n",
+    ] {
+        let mut application = lower(&format!(
+            "mod app\n{imports}pub fn main() -> Int\n  first::endpoint() + second::endpoint() + net::endpoint() + std::net::endpoint()\nend\n"
+        ));
+        for use_decl in &mut application.uses {
+            use_decl.name = "std::net".to_string();
+        }
+
+        let reachable = reachable_entry_module_with_standard_cache(
+            &standard,
+            &application,
+            "main",
+            FunctionKind::Function,
+            &ReachabilityCache::default(),
+        );
+
+        assert_eq!(
+            reachable_function_names(&reachable),
+            vec![("app", "main")],
+            "imports={imports:?}"
+        );
+    }
+}
+
+#[test]
 fn quarantined_standard_import_blocks_its_canonical_exact_path() {
     let standard = lower(concat!(
         "mod std::net\n",
