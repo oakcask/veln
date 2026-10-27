@@ -237,12 +237,12 @@ pub(super) fn schema_encode_function_signatures(
 
 pub(super) fn schema_validate_function_signatures(
     module: &SurfaceModule,
+    adts: &AdtRegistry,
 ) -> Vec<FunctionSignature> {
-    let adts = AdtRegistry::from_module(module);
     module
         .schemas
         .iter()
-        .filter_map(|schema| schema_validate_function_signature_for_schema(module, schema, &adts))
+        .filter_map(|schema| schema_validate_function_signature_for_schema(module, schema, adts))
         .collect()
 }
 

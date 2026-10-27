@@ -544,7 +544,7 @@ fn append_schema_helpers(
 ) {
     functions.extend(schema_decode_function_signatures(module, adts));
     functions.extend(schema_encode_function_signatures(module, adts));
-    functions.extend(schema_validate_function_signatures(module));
+    functions.extend(schema_validate_function_signatures(module, adts));
 }
 
 fn symbol_facts(
