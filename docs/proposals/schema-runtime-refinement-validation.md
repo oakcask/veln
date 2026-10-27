@@ -98,8 +98,12 @@ library helper added for decoder composition requires companion coverage under
 
 ## Related Boundary
 
-The current binary shape classifier supports integer and byte layouts, schema
-composition, and dispatch, but supplies no generic source-ADT wire mapping.
+[Veln PR #1866](https://github.com/oakcask/veln/pull/1866) introduced generated
+decoder capability rejection and kept runtime validation after base decoding as
+separate work. The current binary shape classifier in
+[`binary.rs`](../../crates/veln-sema/src/types/schema_types/binary.rs) supports
+integer and byte layouts, schema composition, and dispatch, but supplies no
+generic source-ADT wire mapping.
 This proposal therefore keeps decoding and runtime narrowing separate. It does
 not introduce automatic ADT serialization, a new `codec` declaration, a
 `map to` clause, or an implicit cast.

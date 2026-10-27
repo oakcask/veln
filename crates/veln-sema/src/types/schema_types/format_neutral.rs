@@ -80,7 +80,7 @@ pub(crate) fn format_neutral_schema_runtime_validation_types(
         };
         erased_fields.push((name.clone(), erased));
     }
-    has_refinement.then(|| (Type::Record(erased_fields), Type::Record(refined_fields)))
+    has_refinement.then_some((Type::Record(erased_fields), Type::Record(refined_fields)))
 }
 
 fn format_neutral_type_contains_refinement(ty: &Type) -> bool {

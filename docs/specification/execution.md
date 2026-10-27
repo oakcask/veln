@@ -652,10 +652,10 @@ than degrading it to a generic rendered result value.
 ## References
 
 - Cross-package function and handler selection through reachability, lowering,
-  and JVM linkage is checked in
-  `crates/veln-backend-jvm/src/tests/basic_backend.rs`.
-- Direct-field runtime refinement success, declaration-order failure, and
-  operand evaluation order are checked by
+  and JVM linkage, together with validation operand evaluation order, are
+  checked in `crates/veln-backend-jvm/src/tests/basic_backend.rs`.
+- Direct-field runtime refinement success and declaration-order failure are
+  checked by
   [`schema-runtime-refinement-validation`](../../examples/specification/run/schema-runtime-refinement-validation/).
   Focused command projections are checked in
   [`human`](../../examples/specification/run/schema-runtime-refinement-validation-human/)

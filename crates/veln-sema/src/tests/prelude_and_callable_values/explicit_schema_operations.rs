@@ -49,6 +49,107 @@ fn explicit_schema_validate_expression_erases_direct_refinement_inputs() {
 }
 
 #[test]
+fn explicit_schema_validate_expression_checks_erased_inputs_and_offset() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "type OtherState\n  Connected\nend\n",
+            "type Box<A>\n  Wrapped(value: A)\nend\n",
+            "schema Packet\n",
+            "  state: State::Connected\n",
+            "  boxed: Box<Int>::Wrapped\n",
+            "end\n",
+            "fn wrong_identity(packet: {state: OtherState, boxed: Box<Int>}, base: ByteOffset) -> ()\n",
+            "  validate Packet from packet at base\n  ()\nend\n",
+            "fn wrong_generic(packet: {state: State, boxed: Box<String>}, base: ByteOffset) -> ()\n",
+            "  validate Packet from packet at base\n  ()\nend\n",
+            "fn wrong_shape(packet: {state: State}, base: ByteOffset) -> ()\n",
+            "  validate Packet from packet at base\n  ()\nend\n",
+            "fn wrong_offset(packet: {state: State, boxed: Box<Int>}, base: Int) -> ()\n",
+            "  validate Packet from packet at base\n  ()\nend\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+    let mismatches = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
+        .collect::<Vec<_>>();
+
+    assert_eq!(mismatches.len(), 4, "{:#?}", lowered.diagnostics);
+    for constraint in ["schema_validation_value", "schema_validation_offset"] {
+        assert!(
+            mismatches.iter().any(|diagnostic| {
+                matches!(
+                    &diagnostic.details,
+                    veln_diagnostics::JsonValue::Object(entries)
+                        if entries.iter().any(|(key, value)| {
+                            key == "constraint"
+                                && value
+                                    == &veln_diagnostics::JsonValue::string(constraint)
+                        })
+                )
+            }),
+            "missing {constraint}: {mismatches:#?}"
+        );
+    }
+    for expected in ["OtherState", "Box<String>", "boxed", "ByteOffset"] {
+        assert!(
+            mismatches
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(expected)),
+            "missing mismatch for {expected}: {mismatches:#?}"
+        );
+    }
+}
+
+#[test]
+fn explicit_schema_validate_expression_rejects_unsupported_refinement_shapes() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "schema NestedPacket\n  nested: {state: State::Connected}\nend\n",
+            "schema ContainerPacket\n  states: List<State::Connected>\nend\n",
+            "schema PredicatePacket\n  state: State::Connected where true\nend\n",
+            "fn check(value: {state: State}, base: ByteOffset) -> ()\n",
+            "  validate NestedPacket from value at base\n",
+            "  validate ContainerPacket from value at base\n",
+            "  validate PredicatePacket from value at base\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+    let validation_diagnostics = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.validate_expression")
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        validation_diagnostics.len(),
+        3,
+        "{:#?}",
+        lowered.diagnostics
+    );
+    for schema in ["NestedPacket", "ContainerPacket", "PredicatePacket"] {
+        assert!(
+            validation_diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(schema)),
+            "missing unsupported target {schema}: {validation_diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
 fn explicit_schema_validate_expression_resolves_alias_and_rejects_invalid_targets() {
     let source = SourceFile::new(
         "main.veln",
