@@ -1205,41 +1205,69 @@ fn quarantine_explicit_import_collisions(
     workspace: &mut [WorkspaceImport],
     external: &mut [ExternalImport],
 ) {
-    let mut alias_counts = BTreeMap::<String, usize>::new();
-    let mut explicit_aliases = BTreeSet::<String>::new();
-    let mut target_counts = BTreeMap::<(Option<String>, String), usize>::new();
-    let mut explicit_targets = BTreeSet::<(Option<String>, String)>::new();
-    for import in workspace.iter() {
-        *alias_counts.entry(import.alias.clone()).or_default() += 1;
-        let target = (None, import.module.clone());
-        *target_counts.entry(target.clone()).or_default() += 1;
-        if import.explicit_alias {
-            explicit_aliases.insert(import.alias.clone());
-            explicit_targets.insert(target);
-        }
-    }
-    for import in external.iter() {
-        *alias_counts.entry(import.alias.clone()).or_default() += 1;
-        let target = (Some(import.package.clone()), import.module.clone());
-        *target_counts.entry(target.clone()).or_default() += 1;
-        if import.explicit_alias {
-            explicit_aliases.insert(import.alias.clone());
-            explicit_targets.insert(target);
-        }
-    }
+    let collisions = ExplicitImportCollisions::from_imports(workspace, external);
     for import in workspace {
-        let target = (None, import.module.clone());
-        import.syntax_valid &= !(explicit_aliases.contains(&import.alias)
-            && alias_counts.get(&import.alias).copied().unwrap_or_default() > 1
-            || explicit_targets.contains(&target)
-                && target_counts.get(&target).copied().unwrap_or_default() > 1);
+        import.syntax_valid &= !collisions.blocks(&import.alias, (None, import.module.as_str()));
     }
     for import in external {
-        let target = (Some(import.package.clone()), import.module.clone());
-        import.syntax_valid &= !(explicit_aliases.contains(&import.alias)
-            && alias_counts.get(&import.alias).copied().unwrap_or_default() > 1
-            || explicit_targets.contains(&target)
-                && target_counts.get(&target).copied().unwrap_or_default() > 1);
+        import.syntax_valid &= !collisions.blocks(
+            &import.alias,
+            (Some(import.package.as_str()), import.module.as_str()),
+        );
+    }
+}
+
+#[derive(Default)]
+struct ExplicitImportCollisions {
+    alias_counts: BTreeMap<String, usize>,
+    explicit_aliases: BTreeSet<String>,
+    target_counts: BTreeMap<(Option<String>, String), usize>,
+    explicit_targets: BTreeSet<(Option<String>, String)>,
+}
+
+impl ExplicitImportCollisions {
+    fn from_imports(workspace: &[WorkspaceImport], external: &[ExternalImport]) -> Self {
+        let mut collisions = Self::default();
+        for import in workspace {
+            collisions.record(
+                &import.alias,
+                import.explicit_alias,
+                (None, import.module.clone()),
+            );
+        }
+        for import in external {
+            collisions.record(
+                &import.alias,
+                import.explicit_alias,
+                (Some(import.package.clone()), import.module.clone()),
+            );
+        }
+        collisions
+    }
+
+    fn record(&mut self, alias: &str, explicit_alias: bool, target: (Option<String>, String)) {
+        *self.alias_counts.entry(alias.to_string()).or_default() += 1;
+        *self.target_counts.entry(target.clone()).or_default() += 1;
+        if explicit_alias {
+            self.explicit_aliases.insert(alias.to_string());
+            self.explicit_targets.insert(target);
+        }
+    }
+
+    fn blocks(&self, alias: &str, target: (Option<&str>, &str)) -> bool {
+        let target = (
+            target.0.map(str::to_string),
+            target.1.to_string(),
+        );
+        self.explicit_aliases.contains(alias)
+            && self.alias_counts.get(alias).copied().unwrap_or_default() > 1
+            || self.explicit_targets.contains(&target)
+                && self
+                    .target_counts
+                    .get(&target)
+                    .copied()
+                    .unwrap_or_default()
+                    > 1
     }
 }
 
