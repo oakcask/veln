@@ -42,6 +42,10 @@ use transport::net as wire from "std"
 `as` is contextual in an import and remains an ordinary identifier elsewhere.
 The alias is one identifier and must start with an ASCII lowercase letter.
 The parser retains uppercase and underscore-led aliases for casing diagnostics.
+The contextual spellings `callsite`, `handler`, and `handle` are valid explicit
+aliases. When one of those spellings is followed by `::`, the parser retains a
+qualified name path. In particular, `handle::member()` is a call path rather
+than the start of a `handle ... with ...` expression.
 
 ### Import alias preservation and formatting
 

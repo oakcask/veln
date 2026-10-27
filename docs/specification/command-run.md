@@ -40,7 +40,10 @@ blocks the run; unreachable declarations in an imported dependency and
 diagnostics in an unimported manifest dependency do not. An unreachable local
 function does not block the selected entry. Alias-qualified, full-written-path,
 and bare calls retain the selected module identity through JVM execution when
-distinct imported modules export the same function name.
+distinct imported modules export the same function name. The selected entry
+also retains its declaring-module identity when a reachable imported module
+exports a function with the same name; the imported function cannot replace
+the JVM launch target.
 
 A module immutable value declaration in the selected analysis is semantically
 checked before backend launch. Invalid finite-data initializers, annotation
@@ -153,4 +156,7 @@ reachable acceptance under
 `examples/specification/run/adt-variant-refinement-command-reachability/`
 and recovered annotations under the adjacent
 `adt-variant-refinement-command-recovery-human/` and
-`adt-variant-refinement-command-recovery/` cases.
+`adt-variant-refinement-command-recovery/` cases. The
+[`explicit-import-alias-entry-target`](../../examples/specification/run/explicit-import-alias-entry-target/)
+case checks selected-entry identity when an imported function has the same
+name.

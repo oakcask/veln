@@ -30,6 +30,11 @@ and
 cases exercise call and handler behavior through the JVM backend. The
 [`explicit-import-alias-handler-identity`](../../examples/specification/run/explicit-import-alias-handler-identity/)
 case checks that same-named handlers keep distinct declaration identities.
+A run entry also retains its declaring-module identity when its reachable set
+contains an imported function with the same name. The selected entry, rather
+than the same-named imported declaration, is the JVM launch target. The checked
+[`explicit-import-alias-entry-target`](../../examples/specification/run/explicit-import-alias-entry-target/)
+case exercises that boundary.
 A local application module whose written path starts with `std::` keeps
 application runtime identity. Its full written path and an explicit alias can
 execute the local declaration, while the standard-relative leaf alone remains
