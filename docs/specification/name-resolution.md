@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The Veln source name resolution contract or source identifier casing diagnostics change.
+update-when: The Veln source name resolution contract, source identifier casing diagnostics, or checked name-resolution evidence changes.
 specification-coverage: usage=#representative-usage; behavior=#resolution-rules; limits=#limits
 ---
 
@@ -62,9 +62,10 @@ unrelated namespaces may share a spelling.
 module identity. The declaration contributes neither the implicit `b`
 qualifier nor bare exported members. This remains true when the explicit alias
 equals `b`. Imports without `as` retain their implicit qualifier and bare
-exports. An unaliased standard-package import also retains its canonical
-`std::`-qualified path in addition to its written relative path. Import aliases
-are not values and do not leak through another module.
+exports. A standard-package import also retains its canonical `std::`-qualified
+path in addition to its written relative path, including when it has an
+explicit alias. Import aliases are not values and do not leak through another
+module.
 
 An exact full written path is selected before a local qualifier. An ambiguous
 exact path is unresolved and does not fall through. A qualifier must select
@@ -103,6 +104,14 @@ an alias does not expose a private package declaration, extend exact companion
 access, or make an import transitive. Public function, type, and schema aliases
 may select an explicit import in their own declaring module, but the local
 import qualifier does not become part of the published identity.
+
+For `N` source imports, the semantic diagnostic pipeline builds one shared
+import classification for duplicate detection, casing recovery, and lookup.
+Deterministic scaling checks compare 128 and 256 imports for both distinct
+explicit aliases and invalid-cased targets with qualified calls. In each case,
+doubling the input adds at most twice the instrumented classification work plus
+a fixed allowance of 16 operations. The checks count semantic work instead of
+elapsed time, so runner timing noise does not affect the bound.
 
 A typed module `let` enters the declaring module's value namespace with the
 identity of its module and declared name. Its written annotation supplies the
@@ -740,6 +749,7 @@ not become fallback targets.
   | Runtime, lowering, and reachability identity | `examples/specification/run/explicit-import-alias-runtime/`, `examples/specification/run/explicit-import-alias-handler/`, `examples/specification/run/explicit-import-alias-handler-identity/`, and explicit-import-alias reachability tests under `crates/veln-analysis/src/surface/tests/` |
   | Package, publication, and visibility boundaries | `examples/specification/check/explicit-import-alias-package/`, `examples/specification/check/explicit-import-alias-package-boundaries/`, and publication and visibility tests in `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs` and `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs` |
   | Stable source and token diagnostic ordering | `combined_module_import_diagnostics_use_stable_source_order` and `combined_module_explicit_alias_casing_diagnostics_use_stable_source_order` under `crates/veln-sema/src/tests/` |
+  | Shared classification and linear import scaling | `duplicate_import_diagnostic_pipeline_classifies_once_and_scales_linearly` and `invalid_alias_recovery_pipeline_classifies_once_and_scales_linearly` in `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs` |
 - Deferred binding visibility:
   `examples/specification/check/defer-binding-visibility/`.
 - Module-value function-alias diagnostics:

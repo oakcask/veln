@@ -926,7 +926,7 @@ declaration`, `name_class: module`, and `required_initial: ascii_lowercase`.
 Its primary span is the alias token. A reserved `prelude` alias also uses that
 token. A duplicate qualifier involving an explicit alias uses the later
 explicit-alias token or later implicit-leaf token, according to which import is
-reported; repair and first-binding context appear as related notes. A duplicate
+reported; first-binding context appears as a related note. A duplicate
 target import uses its written target path. Parser diagnostics precede casing
 diagnostics for one import; reserved and duplicate facts follow casing, while
 target-resolution facts stay independent. Combined module sources retain

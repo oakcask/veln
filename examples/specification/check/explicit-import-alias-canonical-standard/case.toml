@@ -1,3 +1,6 @@
+# Compiler integration: a canonical standard-module path remains selectable
+# through an explicitly aliased import; this case does not assert transport API
+# behavior.
 command = ["check", "--json", "main.veln"]
 exit = 0
 

@@ -1,4 +1,4 @@
-use transport from "std"
+use transport as wire from "std"
 use net from "std"
 
 fn canonical_read() -> Result<Option<ByteChunk>, net::NetError> effects [std::transport::DuplexStream]

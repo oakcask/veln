@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Source-tool navigation for implemented explicit import aliases changes.
+update-when: Source-tool navigation or its planned verification for implemented explicit import aliases changes.
 ---
 
 # Explicit Import Alias Source Tooling
