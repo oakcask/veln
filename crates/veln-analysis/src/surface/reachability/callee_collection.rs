@@ -321,7 +321,6 @@ pub(super) fn collect_opaque_function_value_callees(
     current_package: Option<&str>,
     uses: &[&UseDecl],
     function_targets: &FunctionTargetIndex,
-    _companion_access_targets: &HashMap<String, String>,
     callees: &mut Vec<ReachableFunction>,
 ) {
     if current_package == Some(veln_stdlib::PACKAGE_NAME) {

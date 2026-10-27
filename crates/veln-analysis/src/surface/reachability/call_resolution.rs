@@ -151,7 +151,6 @@ pub(super) fn collect_function_name_reference(
                 context.current_package,
                 uses,
                 function_targets,
-                companion_access_targets,
                 callees,
             );
         }
