@@ -25,6 +25,7 @@ pub(crate) enum VariantRefinementAvailability {
 pub(crate) struct AdtDescriptor {
     pub(crate) type_name: String,
     pub(crate) name_class: SourceLessNameClass,
+    pub(crate) package_name: Option<String>,
     pub(crate) module_name: Option<String>,
     pub(crate) nominal_identity: Option<String>,
     pub(crate) type_parameters: Vec<String>,
@@ -40,9 +41,19 @@ impl AdtDescriptor {
         if let Some(identity) = &self.nominal_identity {
             return identity.clone();
         }
-        match self.module_name.as_deref() {
-            None | Some("std::prelude") => self.type_name.clone(),
-            Some(module) => format!("{module}::{}", self.type_name),
+        match (self.package_name.as_deref(), self.module_name.as_deref()) {
+            (None, None) | (_, Some("std::prelude")) => self.type_name.clone(),
+            (Some(package), Some(module))
+                if module == package || module.starts_with(&format!("{package}::")) =>
+            {
+                format!("{module}::{}", self.type_name)
+            }
+            (Some(package), Some(module)) => format!("{package}::{module}::{}", self.type_name),
+            (None, Some(module)) if module.starts_with("std::") => {
+                format!("workspace::{module}::{}", self.type_name)
+            }
+            (None, Some(module)) => format!("{module}::{}", self.type_name),
+            (Some(package), None) => format!("{package}::{}", self.type_name),
         }
     }
 }

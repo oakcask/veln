@@ -216,6 +216,20 @@ impl TypeEnvironment {
                 .unique_descriptor_for_type_path_any_arity(base, current_module, &self.uses)
                 .is_some();
         }
+        if self
+            .adts
+            .descriptor_for_type_path_any_arity(base, current_module, &self.quarantined_uses)
+            .is_some()
+        {
+            return self
+                .adts
+                .unique_descriptor_for_type_path_any_arity(
+                    base,
+                    current_module,
+                    &self.quarantined_uses,
+                )
+                .is_some();
+        }
         if !base.contains("::")
             && self
                 .type_symbols

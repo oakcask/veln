@@ -36,6 +36,7 @@ mod types;
 pub(crate) use analysis::{
     reset_module_value_annotation_dedup_work, take_module_value_annotation_dedup_work,
 };
+pub use name_recovery::normal_imported_module_for_path;
 pub use navigation::{
     ResolvedSchemaAlias, ResolvedSchemaCompositionReference, resolved_schema_alias_chains,
     resolved_schema_aliases, resolved_schema_composition_references,
@@ -60,6 +61,7 @@ pub use pipeline::{
     lower_project_reachable_surface_module,
     lower_project_reachable_surface_module_with_standard_environment,
     lower_project_reachable_surface_modules_with_standard_environment,
+    lower_project_reachable_surface_modules_with_standard_environment_and_target,
     prepare_current_reusable_standard_surface_module_environment,
     prepare_reusable_standard_surface_module_environment,
     try_prepare_current_reusable_standard_surface_module_environment,

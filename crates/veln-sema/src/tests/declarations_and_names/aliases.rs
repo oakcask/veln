@@ -1,165 +1,6 @@
 use super::*;
 
 #[test]
-fn schema_alias_target_import_resolution_is_indexed_once() {
-    for count in [100usize, 200, 400] {
-        let mut facade_text = String::from("mod facade\n");
-        for index in 0..count.saturating_sub(1) {
-            facade_text.push_str(&format!("use unused{index}\n"));
-        }
-        facade_text.push_str("use core\n\n");
-        let mut core_text = String::from("mod core\n\n");
-        for index in 0..count {
-            facade_text.push_str(&format!("pub schema Alias{index} = core::Packet{index}\n"));
-            core_text.push_str(&format!("pub schema Packet{index}\n  value: Int\nend\n\n"));
-        }
-        let facade_source = SourceFile::new("facade.veln", &facade_text);
-        let facade = parse(&facade_source);
-        assert!(facade.diagnostics.is_empty(), "{:#?}", facade.diagnostics);
-        let core_source = SourceFile::new("core.veln", &core_text);
-        let core = parse(&core_source);
-        assert!(core.diagnostics.is_empty(), "{:#?}", core.diagnostics);
-        let mut module = lower_surface_ast(&facade.tree);
-        module.schemas.extend(lower_surface_ast(&core.tree).schemas);
-
-        reset_schema_alias_target_import_work();
-        assert_eq!(resolved_schema_aliases(&module).len(), count);
-        assert_eq!(
-            schema_alias_target_import_work(),
-            (count, count),
-            "imports must be indexed once and each qualified alias must use one route lookup"
-        );
-    }
-}
-
-#[test]
-fn schema_alias_chain_resolution_work_is_linear() {
-    for count in [64usize, 128, 256] {
-        let mut source = String::from("mod facade\n\npub schema Packet\n  value: Int\nend\n\n");
-        source.push_str("pub schema Alias0 = Packet\n");
-        for index in 1..count {
-            source.push_str(&format!("pub schema Alias{index} = Alias{}\n", index - 1));
-        }
-        let parsed = parse(&SourceFile::new("facade.veln", &source));
-        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-        let module = lower_surface_ast(&parsed.tree);
-
-        reset_schema_alias_chain_resolution_work();
-        assert_eq!(resolved_schema_alias_chains(&module).len(), count);
-        assert!(
-            schema_alias_chain_resolution_work() <= count * 2,
-            "chain resolution must visit each alias a bounded number of times"
-        );
-    }
-}
-
-#[test]
-fn schema_alias_chain_shared_suffix_and_disconnected_cycle_stay_bounded() {
-    for count in [64usize, 128, 256] {
-        let mut source = String::from("mod facade\n\npub schema Packet\n  value: Int\nend\n\n");
-        source.push_str("pub schema Shared0 = Packet\n");
-        for index in 1..count {
-            source.push_str(&format!("pub schema Shared{index} = Shared{}\n", index - 1));
-        }
-        for index in 0..count {
-            source.push_str(&format!("pub schema Left{index} = Shared{}\n", count - 1));
-            source.push_str(&format!("pub schema Right{index} = Shared{}\n", count - 1));
-        }
-        source.push_str("pub schema CycleA = CycleB\npub schema CycleB = CycleA\n");
-
-        let parsed = parse(&SourceFile::new("facade.veln", &source));
-        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-        let module = lower_surface_ast(&parsed.tree);
-
-        reset_schema_alias_chain_resolution_work();
-        let resolved = resolved_schema_alias_chains(&module);
-        assert_eq!(resolved.len(), count * 3);
-        let work = schema_alias_chain_resolution_work();
-        assert!(
-            work <= count * 8 + 8,
-            "shared suffixes and disconnected cycles must not cause repeated walks: work={work} count={count}"
-        );
-    }
-}
-
-#[test]
-fn duplicate_use_aliases_are_static_errors() {
-    let source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "mod app\n",
-            "use platform.io\n",
-            "use platform.io\n",
-            "fn main() -> ()\n",
-            "  ()\n",
-            "end\n",
-        ),
-    );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
-    let diagnostics = analyze_surface_module(&module);
-
-    assert_eq!(diagnostics.len(), 1);
-    assert_eq!(diagnostics[0].id, "name.duplicate");
-    assert_eq!(diagnostics[0].message, "duplicate import alias name `io`");
-    assert_eq!(diagnostics[0].related.len(), 1);
-    assert!(
-        diagnostics[0]
-            .details
-            .to_json()
-            .contains("\"namespace\":\"module\"")
-    );
-}
-
-#[test]
-fn duplicate_use_aliases_are_scoped_to_declaring_module() {
-    let first_source = SourceFile::new(
-        "first.veln",
-        concat!(
-            "mod first\n",
-            "use shared\n",
-            "fn first_value() -> ()\n",
-            "  ()\n",
-            "end\n",
-        ),
-    );
-    let second_source = SourceFile::new(
-        "second.veln",
-        concat!(
-            "mod second\n",
-            "use shared\n",
-            "fn second_value() -> ()\n",
-            "  ()\n",
-            "end\n",
-        ),
-    );
-    let first = lower_surface_ast(&parse(&first_source).tree);
-    let second = lower_surface_ast(&parse(&second_source).tree);
-    let module = SurfaceModule {
-        module: first.module,
-        uses: [first.uses, second.uses].concat(),
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        types: Vec::new(),
-        schemas: Vec::new(),
-        module_values: Vec::new(),
-        functions: [first.functions, second.functions].concat(),
-        invalid_names: Vec::new(),
-    };
-
-    let diagnostics = analyze_surface_module(&module);
-
-    assert!(
-        diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id != "name.duplicate"),
-        "{diagnostics:#?}"
-    );
-}
-
-#[test]
 fn public_function_alias_rejects_type_targets() {
     let source = SourceFile::new(
         "api.veln",
@@ -506,14 +347,17 @@ fn public_type_alias_resolves_nested_import_path_target() {
         "detail.veln",
         concat!("pub type Document\n", "  pub Text(String)\n", "end\n",),
     );
-    let api = lower_surface_ast_with_module_identity(
+    let mut api = veln_ast::lower_surface_ast_with_package_module_identity(
         &parse(&api_source).tree,
-        "std::http2::core".to_string(),
+        veln_stdlib::PACKAGE_NAME.to_string(),
+        "http2::core".to_string(),
         api_source.span(TextRange::new(0, 0)),
     );
-    let detail = lower_surface_ast_with_module_identity(
+    api.uses[0].name = "std::http2::core::detail".to_string();
+    let detail = veln_ast::lower_surface_ast_with_package_module_identity(
         &parse(&detail_source).tree,
-        "std::http2::core::detail".to_string(),
+        veln_stdlib::PACKAGE_NAME.to_string(),
+        "http2::core::detail".to_string(),
         detail_source.span(TextRange::new(0, 0)),
     );
     let module = SurfaceModule {
@@ -574,14 +418,17 @@ fn public_type_alias_preserves_target_nominal_identity_across_module_calls() {
             "end\n",
         ),
     );
-    let api = lower_surface_ast_with_module_identity(
+    let mut api = veln_ast::lower_surface_ast_with_package_module_identity(
         &parse(&api_source).tree,
-        "std::http2::core".to_string(),
+        veln_stdlib::PACKAGE_NAME.to_string(),
+        "http2::core".to_string(),
         api_source.span(TextRange::new(0, 0)),
     );
-    let detail = lower_surface_ast_with_module_identity(
+    api.uses[0].name = "std::http2::core::detail".to_string();
+    let detail = veln_ast::lower_surface_ast_with_package_module_identity(
         &parse(&detail_source).tree,
-        "std::http2::core::detail".to_string(),
+        veln_stdlib::PACKAGE_NAME.to_string(),
+        "http2::core::detail".to_string(),
         detail_source.span(TextRange::new(0, 0)),
     );
     let module = SurfaceModule {
@@ -833,29 +680,5 @@ fn public_alias_names_share_member_namespaces() {
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "name.duplicate"
             && diagnostic.message == "duplicate type alias name `Document`"
-    }));
-}
-
-#[test]
-fn public_schema_alias_names_share_schema_namespace() {
-    let source = SourceFile::new(
-        "api.veln",
-        concat!(
-            "mod spec.api\n",
-            "pub schema Packet\n",
-            "  format binary\n",
-            "  length: UInt8\n",
-            "end\n",
-            "pub schema Packet = Packet\n",
-        ),
-    );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
-    let diagnostics = analyze_surface_module(&module);
-
-    assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.id == "name.duplicate"
-            && diagnostic.message == "duplicate schema alias name `Packet`"
     }));
 }

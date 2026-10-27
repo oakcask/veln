@@ -1,0 +1,9 @@
+command = ["doc", "main.veln", "fallback.veln"]
+exit = 0
+
+[stdout]
+format = "text"
+contains = ["Exact-path reference `api::Packet`."]
+
+[stderr]
+format = "empty"

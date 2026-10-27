@@ -3,10 +3,12 @@ use super::*;
 use crate::name_recovery::normal_use_decls;
 use crate::type_syntax::parse_type_or_unknown;
 
+pub(super) type EffectFunctionKey = crate::semantic_model::FunctionKey;
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum EffectDependencyNode {
-    Function(FunctionKey),
-    PrivateHandler(String),
+    Function(EffectFunctionKey),
+    PrivateHandler(EffectFunctionKey),
 }
 
 struct FunctionEffectContext<'a> {
@@ -14,8 +16,8 @@ struct FunctionEffectContext<'a> {
     functions: &'a [FunctionSignature],
     user_effects: &'a [EffectSignature],
     handlers: &'a [HandlerSignature],
-    effects_by_function: &'a BTreeMap<(Option<String>, String), Vec<String>>,
-    effects_by_module_path: &'a BTreeMap<(String, String), (Vec<String>, Visibility)>,
+    effects_by_function: &'a EffectsByFunction,
+    effects_by_module_path: &'a EffectsByModulePath,
     companion_access_targets: &'a BTreeMap<String, String>,
     companion_effect_access_targets: &'a BTreeMap<String, CompanionAccessTarget>,
 }
@@ -24,11 +26,13 @@ impl FunctionEffectContext<'_> {
     fn expression_context<'a>(
         &'a self,
         current_module: Option<&'a str>,
+        current_package: Option<&'a str>,
         bindings: &'a [Binding],
     ) -> ExprEffectContext<'a> {
         ExprEffectContext {
             uses: self.uses,
             current_module,
+            current_package,
             bindings,
             functions: self.functions,
             effects_by_function: self.effects_by_function,
@@ -62,8 +66,8 @@ pub(super) fn infer_function_and_private_handler_effects(
     EffectInference::new(module, functions, user_effects, handlers).run();
 }
 
-pub(super) type EffectsByFunction = BTreeMap<(Option<String>, String), Vec<String>>;
-pub(super) type EffectsByModulePath = BTreeMap<(String, String), (Vec<String>, Visibility)>;
+pub(super) type EffectsByFunction = BTreeMap<EffectFunctionKey, Vec<String>>;
+pub(super) type EffectsByModulePath = BTreeMap<EffectFunctionKey, (Vec<String>, Visibility)>;
 
 struct EffectInference<'a> {
     module: &'a SurfaceModule,
@@ -77,9 +81,9 @@ struct EffectInference<'a> {
     clause_companion_access_targets: BTreeMap<String, String>,
     effects_by_function: EffectsByFunction,
     effects_by_module_path: EffectsByModulePath,
-    handler_index: BTreeMap<String, usize>,
-    function_index: BTreeMap<FunctionKey, usize>,
-    function_ast_by_key: BTreeMap<FunctionKey, &'a Function>,
+    handler_index: BTreeMap<EffectFunctionKey, usize>,
+    function_index: BTreeMap<EffectFunctionKey, usize>,
+    function_ast_by_key: BTreeMap<EffectFunctionKey, &'a Function>,
     queue: VecDeque<EffectDependencyNode>,
     queued: BTreeSet<EffectDependencyNode>,
     evaluated: BTreeSet<EffectDependencyNode>,
@@ -148,7 +152,7 @@ impl<'a> EffectInference<'a> {
         }
     }
 
-    fn evaluate_function(&mut self, function_key: &FunctionKey) -> Option<bool> {
+    fn evaluate_function(&mut self, function_key: &EffectFunctionKey) -> Option<bool> {
         let function = self.function_ast_by_key.get(function_key).copied()?;
         let inferred = collect_function_body_effects(function, &self.function_context());
         let changed = self.effects_by_function.get(function_key) != Some(&inferred);
@@ -158,7 +162,7 @@ impl<'a> EffectInference<'a> {
         Some(changed)
     }
 
-    fn evaluate_handler(&mut self, qualified_name: &str) -> Option<bool> {
+    fn evaluate_handler(&mut self, qualified_name: &EffectFunctionKey) -> Option<bool> {
         let index = self.handler_index.get(qualified_name).copied()?;
         let inferred = collect_private_handler_effects(
             &self.handlers[index],
@@ -194,17 +198,21 @@ impl<'a> EffectInference<'a> {
         }
     }
 
-    fn update_function_effects(&mut self, function_key: &FunctionKey, inferred: Vec<String>) {
+    fn update_function_effects(&mut self, function_key: &EffectFunctionKey, inferred: Vec<String>) {
         self.effects_by_function
             .insert(function_key.clone(), inferred.clone());
-        if let Some(module_name) = &function_key.0 {
+        if let Some(module_name) = &function_key.1 {
             let visibility = self
                 .function_index
                 .get(function_key)
                 .map(|index| self.functions[*index].visibility)
                 .unwrap_or(Visibility::Private);
             self.effects_by_module_path.insert(
-                (module_name.clone(), function_key.1.clone()),
+                (
+                    function_key.0.clone(),
+                    Some(module_name.clone()),
+                    function_key.2.clone(),
+                ),
                 (inferred.clone(), visibility),
             );
         }
@@ -230,7 +238,11 @@ fn effect_lookup_maps(functions: &[FunctionSignature]) -> (EffectsByFunction, Ef
         .iter()
         .map(|function| {
             (
-                (function.module_name.clone(), function.name.clone()),
+                (
+                    function.package_name.clone(),
+                    function.module_name.clone(),
+                    function.name.clone(),
+                ),
                 function.effects.clone(),
             )
         })
@@ -239,7 +251,11 @@ fn effect_lookup_maps(functions: &[FunctionSignature]) -> (EffectsByFunction, Ef
         .iter()
         .filter_map(|function| {
             Some((
-                (function.module_name.clone()?, function.name.clone()),
+                (
+                    function.package_name.clone(),
+                    Some(function.module_name.clone()?),
+                    function.name.clone(),
+                ),
                 (function.effects.clone(), function.visibility),
             ))
         })
@@ -247,30 +263,52 @@ fn effect_lookup_maps(functions: &[FunctionSignature]) -> (EffectsByFunction, Ef
     (effects_by_function, effects_by_module_path)
 }
 
-fn handler_signature_index(handlers: &[HandlerSignature]) -> BTreeMap<String, usize> {
+fn handler_signature_index(handlers: &[HandlerSignature]) -> BTreeMap<EffectFunctionKey, usize> {
     handlers
         .iter()
         .enumerate()
-        .map(|(index, handler)| (handler.qualified_name.clone(), index))
+        .map(|(index, handler)| {
+            (
+                (
+                    handler.package_name.clone(),
+                    handler.module_name.clone(),
+                    handler.name.clone(),
+                ),
+                index,
+            )
+        })
         .collect()
 }
 
-fn function_signature_index(functions: &[FunctionSignature]) -> BTreeMap<FunctionKey, usize> {
+fn function_signature_index(functions: &[FunctionSignature]) -> BTreeMap<EffectFunctionKey, usize> {
     functions
         .iter()
         .enumerate()
-        .map(|(index, function)| ((function.module_name.clone(), function.name.clone()), index))
+        .map(|(index, function)| {
+            (
+                (
+                    function.package_name.clone(),
+                    function.module_name.clone(),
+                    function.name.clone(),
+                ),
+                index,
+            )
+        })
         .collect()
 }
 
-fn function_ast_index(module: &SurfaceModule) -> BTreeMap<FunctionKey, &Function> {
+fn function_ast_index(module: &SurfaceModule) -> BTreeMap<EffectFunctionKey, &Function> {
     module
         .functions
         .iter()
         .filter(|function| function.kind == FunctionKind::Function)
         .filter_map(|function| {
             Some((
-                (function.module_name.clone(), function.name.clone()?),
+                (
+                    function.package_name.clone(),
+                    function.module_name.clone(),
+                    function.name.clone()?,
+                ),
                 function,
             ))
         })
@@ -326,7 +364,11 @@ fn effect_dependency_graph(
         .filter(|handler| handler.visibility != Visibility::Public)
         .filter_map(|handler| {
             let name = handler.name.as_deref()?;
-            Some(qualified_name(handler.module_name.as_deref(), name))
+            Some((
+                handler.package_name.clone(),
+                handler.module_name.clone(),
+                name.to_string(),
+            ))
         })
         .collect::<BTreeSet<_>>();
     let context = FunctionEffectContext {
@@ -350,18 +392,17 @@ fn effect_dependency_graph(
     for handler in handlers
         .iter()
         .filter(|handler| handler.visibility != Visibility::Public)
-        .filter(|handler| module_private_handlers.contains(&handler.qualified_name))
+        .filter(|handler| {
+            module_private_handlers.contains(&(
+                handler.package_name.clone(),
+                handler.module_name.clone(),
+                handler.name.clone(),
+            ))
+        })
     {
         insert_handler_effect_dependencies(&mut graph, handler, module, &context);
     }
     graph
-}
-
-fn qualified_name(module_name: Option<&str>, name: &str) -> String {
-    module_name.map_or_else(
-        || name.to_string(),
-        |module_name| format!("{module_name}::{name}"),
-    )
 }
 
 fn insert_function_effect_dependencies(
@@ -374,7 +415,11 @@ fn insert_function_effect_dependencies(
     };
     #[cfg(test)]
     effect_inference_counters::record_dependency_discovery_scan();
-    let node = EffectDependencyNode::Function((function.module_name.clone(), name.clone()));
+    let node = EffectDependencyNode::Function((
+        function.package_name.clone(),
+        function.module_name.clone(),
+        name.clone(),
+    ));
     graph.insert_node(node.clone());
     for dependency in function_effect_dependencies(function, context) {
         graph.insert_dependency(dependency, node.clone());
@@ -389,11 +434,16 @@ fn insert_handler_effect_dependencies(
 ) {
     #[cfg(test)]
     effect_inference_counters::record_dependency_discovery_scan();
-    let node = EffectDependencyNode::PrivateHandler(handler.qualified_name.clone());
+    let node = EffectDependencyNode::PrivateHandler((
+        handler.package_name.clone(),
+        handler.module_name.clone(),
+        handler.name.clone(),
+    ));
     graph.insert_node(node.clone());
     let Some(decl) = module.handlers.iter().find(|decl| {
         decl.name.as_deref() == Some(handler.name.as_str())
             && decl.module_name == handler.module_name
+            && decl.package_name == handler.package_name
     }) else {
         return;
     };
@@ -412,6 +462,7 @@ fn insert_handler_effect_dependencies(
         visit_effect_expr(
             &clause.body,
             handler.module_name.as_deref(),
+            handler.package_name.as_deref(),
             context,
             &mut bindings,
             &mut handled_effects,
@@ -436,6 +487,7 @@ fn collect_private_handler_effects(
     let Some(decl) = context.module.handlers.iter().find(|decl| {
         decl.name.as_deref() == Some(handler.name.as_str())
             && decl.module_name == handler.module_name
+            && decl.package_name == handler.package_name
     }) else {
         return Vec::new();
     };
@@ -493,6 +545,7 @@ fn collect_private_handler_effects(
         visit_effect_expr(
             &clause.body,
             handler.module_name.as_deref(),
+            handler.package_name.as_deref(),
             &function_context,
             &mut bindings,
             &mut handled_effects,
@@ -544,6 +597,7 @@ fn collect_function_body_effects(
     #[cfg(test)]
     effect_inference_counters::record_function_body_collection();
     let function_key = (
+        function.package_name.clone(),
         function.module_name.clone(),
         function.name.clone().unwrap_or_default(),
     );
@@ -589,10 +643,19 @@ fn visit_function_body_expressions(
     mut visit: impl FnMut(&Expr, &ExprEffectContext<'_>, &ActiveHandledEffects),
 ) {
     let mut bindings = function_parameter_bindings(function);
+    for binding in bindings.iter_mut() {
+        canonicalize_binding_effects(
+            &mut binding.ty,
+            function.module_name.as_deref(),
+            function.package_name.as_deref(),
+            context,
+        );
+    }
     let mut handled_effects = ActiveHandledEffects::default();
     visit_effect_body_expressions(
         &function.body,
         function.module_name.as_deref(),
+        function.package_name.as_deref(),
         context,
         &mut bindings,
         &mut handled_effects,
@@ -601,9 +664,11 @@ fn visit_function_body_expressions(
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn visit_effect_body_expressions(
     body: &[veln_ast::BodyLine],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     context: &FunctionEffectContext<'_>,
     bindings: &mut PrivateBindings,
     handled_effects: &mut ActiveHandledEffects,
@@ -621,19 +686,22 @@ fn visit_effect_body_expressions(
                 visit_effect_expr(
                     expr,
                     current_module,
+                    current_package,
                     context,
                     bindings,
                     handled_effects,
                     track_handled_effects,
                     visit,
                 );
-                let ty = parse_type_or_unknown(annotation.as_deref());
+                let mut ty = parse_type_or_unknown(annotation.as_deref());
+                canonicalize_binding_effects(&mut ty, current_module, current_package, context);
                 collect_pattern_bindings(pattern, &ty, bindings);
             }
             BodyLineKind::Expr { expr } => {
                 visit_effect_expr(
                     expr,
                     current_module,
+                    current_package,
                     context,
                     bindings,
                     handled_effects,
@@ -647,6 +715,7 @@ fn visit_effect_body_expressions(
                 visit_effect_body_expressions(
                     body,
                     current_module,
+                    current_package,
                     context,
                     bindings,
                     handled_effects,
@@ -659,20 +728,23 @@ fn visit_effect_body_expressions(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn visit_effect_expr(
     expr: &Expr,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     context: &FunctionEffectContext<'_>,
     bindings: &mut PrivateBindings,
     handled_effects: &mut ActiveHandledEffects,
     track_handled_effects: bool,
     visit: &mut impl FnMut(&Expr, &ExprEffectContext<'_>, &ActiveHandledEffects),
 ) {
-    let expr_context = context.expression_context(current_module, bindings);
+    let expr_context = context.expression_context(current_module, current_package, bindings);
     visit(expr, &expr_context, handled_effects);
     visit_nested_effect_regions(
         expr,
         current_module,
+        current_package,
         context,
         bindings,
         handled_effects,
@@ -681,9 +753,11 @@ fn visit_effect_expr(
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn visit_nested_effect_regions(
     expr: &Expr,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     context: &FunctionEffectContext<'_>,
     bindings: &mut PrivateBindings,
     handled_effects: &mut ActiveHandledEffects,
@@ -697,6 +771,7 @@ fn visit_nested_effect_regions(
             visit_effect_body_expressions(
                 body,
                 current_module,
+                current_package,
                 context,
                 bindings,
                 handled_effects,
@@ -715,6 +790,7 @@ fn visit_nested_effect_regions(
                 visit_nested_effect_regions(
                     arg,
                     current_module,
+                    current_package,
                     context,
                     bindings,
                     handled_effects,
@@ -724,7 +800,8 @@ fn visit_nested_effect_regions(
             }
             let handled_effect_count = handled_effects.len();
             if track_handled_effects {
-                let expr_context = context.expression_context(current_module, bindings);
+                let expr_context =
+                    context.expression_context(current_module, current_package, bindings);
                 if let Some(handler) = handler_for_path(handler, &expr_context) {
                     #[cfg(test)]
                     effect_inference_counters::record_handled_effect_stack_work(1);
@@ -734,6 +811,7 @@ fn visit_nested_effect_regions(
             visit_nested_effect_regions(
                 body,
                 current_module,
+                current_package,
                 context,
                 bindings,
                 handled_effects,
@@ -746,6 +824,7 @@ fn visit_nested_effect_regions(
             visit_nested_effect_regions(
                 child,
                 current_module,
+                current_package,
                 context,
                 bindings,
                 handled_effects,
@@ -801,22 +880,32 @@ pub(crate) fn canonical_user_effect_label(
     segments: &[String],
     uses: &[UseDecl],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     effects: &[EffectSignature],
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Option<String> {
     match segments {
         [name] => effects
             .iter()
-            .find(|effect| effect.name == *name && effect.module_name.as_deref() == current_module)
+            .find(|effect| {
+                effect.name == *name
+                    && effect.module_name.as_deref() == current_module
+                    && effect.package_name.as_deref() == current_package
+            })
             .map(|effect| effect.qualified_name.clone()),
         [_, .., name] => {
-            let use_decl =
-                imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)?;
+            let use_decl = imported_use_for_path_in_owner(
+                uses,
+                &segments[..segments.len() - 1],
+                current_module,
+                current_package,
+            )?;
             effects
                 .iter()
                 .find(|effect| {
                     effect.name == *name
                         && effect.module_name.as_deref() == Some(use_decl.name.as_str())
+                        && effect.package_name == use_decl.resolved_target().package
                         && imported_effect_is_visible(
                             use_decl,
                             current_module,
@@ -835,19 +924,22 @@ pub(super) fn quarantined_public_user_effect_label(
     segments: &[String],
     quarantined_uses: &[UseDecl],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     effects: &[EffectSignature],
 ) -> Option<String> {
     let [_, .., name] = segments else {
         return None;
     };
-    let use_decl = imported_use_for_path(
+    let use_decl = imported_use_for_path_in_owner(
         quarantined_uses,
         &segments[..segments.len() - 1],
         current_module,
+        current_package,
     )?;
     let mut matches = effects.iter().filter(|effect| {
         effect.name == *name
             && effect.module_name.as_deref() == Some(use_decl.name.as_str())
+            && effect.package_name == use_decl.resolved_target().package
             && effect.visibility == Visibility::Public
     });
     let first = matches.next()?;
@@ -867,9 +959,58 @@ pub(crate) fn imported_effect_is_visible(
     visibility == Visibility::Public
         || (use_decl.package.is_none()
             && current_module.is_some_and(|current_module| {
-                (current_module.starts_with("std::") && target_module.starts_with("std::"))
+                (use_decl.importing_package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+                    && target_module.starts_with("std::"))
                     || companion_effect_access_targets
                         .get(current_module)
                         .is_some_and(|access| access.target_module == target_module)
             }))
+}
+
+fn canonicalize_binding_effects(
+    ty: &mut Type,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    context: &FunctionEffectContext<'_>,
+) {
+    match ty {
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
+            for arg in args {
+                canonicalize_binding_effects(arg, current_module, current_package, context);
+            }
+        }
+        Type::Record(fields) => {
+            for (_, field) in fields {
+                canonicalize_binding_effects(field, current_module, current_package, context);
+            }
+        }
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            effects,
+        } => {
+            for param in params {
+                canonicalize_binding_effects(param, current_module, current_package, context);
+            }
+            if let Some(variadic) = variadic {
+                canonicalize_binding_effects(variadic, current_module, current_package, context);
+            }
+            canonicalize_binding_effects(return_type, current_module, current_package, context);
+            for effect in effects {
+                let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
+                if let Some(canonical) = canonical_user_effect_label(
+                    &segments,
+                    context.uses,
+                    current_module,
+                    current_package,
+                    context.user_effects,
+                    context.companion_effect_access_targets,
+                ) {
+                    *effect = canonical;
+                }
+            }
+        }
+        Type::Unknown => {}
+    }
 }

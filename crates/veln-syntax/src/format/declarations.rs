@@ -1,6 +1,10 @@
 use super::*;
 
 pub fn format_tree(tree: &SyntaxTree) -> String {
+    if tree.uses.iter().any(|use_decl| use_decl.recovered) {
+        return lossless_text(tree);
+    }
+
     let comments = LineComments::from_tree(tree);
     if comments.requires_lossless_preservation {
         return lossless_text(tree);
@@ -39,10 +43,13 @@ fn format_module_header_and_uses(out: &mut String, comments: &LineComments, tree
         );
     }
     for use_decl in &tree.uses {
-        let source = match &use_decl.package {
-            Some(package) => format!("use {} from \"{}\"", use_decl.name, package.name),
-            None => format!("use {}", use_decl.name),
-        };
+        let mut source = format!("use {}", use_decl.name);
+        if let Some(alias) = &use_decl.alias {
+            source.push_str(&format!(" as {}", alias.name));
+        }
+        if let Some(package) = &use_decl.package {
+            source.push_str(&format!(" from \"{}\"", package.name));
+        }
         push_source_line(out, comments, use_decl.span.start.line, 0, source);
     }
     if (tree.module.is_some() || !tree.uses.is_empty()) && !tree.items.is_empty() {

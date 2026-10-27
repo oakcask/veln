@@ -1,0 +1,7 @@
+use fallback as api
+use api as selected from "example/dep"
+
+## Exact-path reference {@schema api::Packet}.
+pub fn documented() -> Int
+	1
+end

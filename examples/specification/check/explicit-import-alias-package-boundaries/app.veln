@@ -1,0 +1,6 @@
+use foo as dependency from "github.com/oakcask/foo"
+use private as hidden from "github.com/oakcask/foo"
+
+fn main() -> Int
+  dependency::private_value()
+end

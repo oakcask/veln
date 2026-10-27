@@ -1,0 +1,24 @@
+use http2::hpack from "std"
+
+pub type HeaderList
+	LocalHeaderList(code: Int)
+end
+
+pub fn local_header_list(code: Int) -> HeaderList
+	LocalHeaderList(code)
+end
+
+pub fn local_header_code(headers: HeaderList) -> Int
+	match headers
+		LocalHeaderList(code) => code
+	end
+end
+
+pub fn empty_header_list() -> Int
+	35
+end
+
+pub fn owner_probe() -> Int
+	let standard_headers = hpack::empty_header_list()
+	7
+end

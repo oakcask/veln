@@ -369,6 +369,7 @@ fn match_pattern_coverage(
     scrutinee_type: &Type,
     environment: &TypeEnvironment,
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> PatternCoverage {
     match &pattern.kind {
         PatternKind::Wildcard | PatternKind::Binding(_) => PatternCoverage {
@@ -399,6 +400,15 @@ fn match_pattern_coverage(
                                 current_module,
                                 &environment.uses,
                             )
+                            .or_else(|| {
+                                environment
+                                    .quarantined_explicit_import_constructor_for_descriptor_in_owner(
+                                        name,
+                                        descriptor,
+                                        current_module,
+                                        current_package,
+                                    )
+                            })
                             .map(|constructor| constructor.variant.coverage_case.clone())
                     }),
                 MatchDomain::Bool => None,
@@ -413,6 +423,47 @@ fn match_pattern_coverage(
             cases: Vec::new(),
         },
     }
+}
+
+fn quarantined_constructor_arity_diagnostic(
+    expr: &Expr,
+    constructor: AdtConstructor<'_>,
+    actual_count: usize,
+) -> Diagnostic {
+    let expected_count = constructor.variant.payload_fields.len();
+    let reason = match constructor.descriptor.type_name.as_str() {
+        "Option" => "option_constructor_arity_mismatch",
+        "Result" => "result_constructor_arity_mismatch",
+        _ => "constructor_arity_mismatch",
+    };
+    Diagnostic::new(
+        format!("core.{reason}"),
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "{} constructor expects {expected_count} argument, but got {actual_count}",
+            constructor.descriptor.diagnostic_name
+        ),
+        Some(expr.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("core_lowering")),
+            ("node_id", JsonValue::string(expr.node_id.display("expr"))),
+            ("reason", JsonValue::string(reason)),
+            (
+                "facts",
+                JsonValue::object([
+                    (
+                        "expected_argument_count",
+                        JsonValue::Number(expected_count as i64),
+                    ),
+                    (
+                        "actual_argument_count",
+                        JsonValue::Number(actual_count as i64),
+                    ),
+                ]),
+            ),
+        ]),
+    )
 }
 
 impl<'a> FunctionChecker<'a> {

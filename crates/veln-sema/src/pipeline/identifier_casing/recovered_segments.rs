@@ -12,6 +12,7 @@ pub(super) fn recovered_qualified_type_segments(
             collect_recovered_qualified_type_segments_from_body_line(
                 line,
                 function.module_name.as_deref(),
+                function.package_name.as_deref(),
                 &function.span,
                 environment,
                 &mut invalid,
@@ -23,6 +24,7 @@ pub(super) fn recovered_qualified_type_segments(
             collect_recovered_qualified_type_segments_from_expr(
                 &clause.body,
                 handler.module_name.as_deref(),
+                handler.package_name.as_deref(),
                 &handler.span,
                 environment,
                 &mut invalid,
@@ -100,6 +102,7 @@ fn recovered_qualified_segments(
             collect_recovered_qualified_segments_from_body_line(
                 line,
                 function.module_name.as_deref(),
+                function.package_name.as_deref(),
                 &function.span,
                 environment,
                 push,
@@ -112,6 +115,7 @@ fn recovered_qualified_segments(
             collect_recovered_qualified_segments_from_expr(
                 &clause.body,
                 handler.module_name.as_deref(),
+                handler.package_name.as_deref(),
                 &handler.span,
                 environment,
                 push,
@@ -150,11 +154,12 @@ pub(super) fn push_recovered_qualified_type_segment(
     segments: &[String],
     segment_spans: &[veln_source::SourceSpan],
     arg_count: Option<usize>,
-    current_module: Option<&str>,
+    current_owner: (Option<&str>, Option<&str>),
     enclosing_function_span: &veln_source::SourceSpan,
     environment: &TypeEnvironment,
     invalid: &mut Vec<InvalidName>,
 ) {
+    let (current_module, current_package) = current_owner;
     if segments.len() < 2 {
         return;
     }
@@ -179,9 +184,10 @@ pub(super) fn push_recovered_qualified_type_segment(
                     .adts
                     .constructor(&corrected, current_module, &environment.uses),
                 crate::adt::registry::ConstructorLookup::Found(_)
-            ) || environment.quarantined_import_constructor_recovery_candidate_count(
+            ) || environment.quarantined_import_constructor_recovery_candidate_count_in_owner(
                 &corrected,
                 current_module,
+                current_package,
                 Some(arg_count),
             ) == 1
         }
@@ -209,6 +215,7 @@ pub(super) fn push_recovered_module_segment(
     segments: &[String],
     segment_spans: &[veln_source::SourceSpan],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     enclosing_function_span: &veln_source::SourceSpan,
     environment: &TypeEnvironment,
     invalid: &mut Vec<InvalidName>,
@@ -239,7 +246,13 @@ pub(super) fn push_recovered_module_segment(
         {
             continue;
         }
-        if module_segment_role_is_fixed(&probe, &corrected, current_module, environment) {
+        if module_segment_role_is_fixed(
+            &probe,
+            &corrected,
+            current_module,
+            current_package,
+            environment,
+        ) {
             invalid.push(probe);
         }
     }

@@ -1,0 +1,27 @@
+# Compiler and reachable-lowering integration: standard and local owners with
+# the same module spelling may import the same canonical standard target
+# without cross-quarantine. The local source is loaded while the standard
+# owner's alias-qualified call remains executable.
+command = ["run", "--json", "main", "main.veln", "std/http2/core.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals_file = "case-text/json-assert-equals-1.txt"
+
+[[json_assert]]
+path = "error"
+equals = null

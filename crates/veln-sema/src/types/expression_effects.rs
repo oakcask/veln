@@ -1,3 +1,4 @@
+use super::effect_inference::{EffectsByFunction, EffectsByModulePath};
 use super::*;
 
 use crate::effects::{is_stdio_call, prelude_effects, standard_library_effects};
@@ -5,10 +6,11 @@ use crate::effects::{is_stdio_call, prelude_effects, standard_library_effects};
 pub(super) struct ExprEffectContext<'a> {
     pub(super) uses: &'a [UseDecl],
     pub(super) current_module: Option<&'a str>,
+    pub(super) current_package: Option<&'a str>,
     pub(super) bindings: &'a [Binding],
     pub(super) functions: &'a [FunctionSignature],
-    pub(super) effects_by_function: &'a BTreeMap<(Option<String>, String), Vec<String>>,
-    pub(super) effects_by_module_path: &'a BTreeMap<(String, String), (Vec<String>, Visibility)>,
+    pub(super) effects_by_function: &'a EffectsByFunction,
+    pub(super) effects_by_module_path: &'a EffectsByModulePath,
     pub(super) companion_access_targets: &'a BTreeMap<String, String>,
     pub(super) companion_effect_access_targets: &'a BTreeMap<String, CompanionAccessTarget>,
     pub(super) user_effects: &'a [EffectSignature],
@@ -21,17 +23,21 @@ pub(super) fn handler_for_path<'a>(
 ) -> Option<&'a HandlerSignature> {
     match segments {
         [name] => context.handlers.iter().find(|handler| {
-            handler.name == *name && handler.module_name.as_deref() == context.current_module
+            handler.name == *name
+                && handler.module_name.as_deref() == context.current_module
+                && handler.package_name.as_deref() == context.current_package
         }),
         [_, .., name] => {
-            let use_decl = imported_use_for_path(
+            let use_decl = imported_use_for_path_in_owner(
                 context.uses,
                 &segments[..segments.len() - 1],
                 context.current_module,
+                context.current_package,
             )?;
             context.handlers.iter().find(|handler| {
                 handler.name == *name
                     && handler.module_name.as_deref() == Some(use_decl.name.as_str())
+                    && handler.package_name == use_decl.resolved_target().package
                     && imported_handler_is_visible(
                         handler,
                         use_decl,
@@ -98,9 +104,11 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
             && handler.visibility != Visibility::Public
         {
             self.dependencies
-                .insert(EffectDependencyNode::PrivateHandler(
-                    handler.qualified_name.clone(),
-                ));
+                .insert(EffectDependencyNode::PrivateHandler((
+                    handler.package_name.clone(),
+                    handler.module_name.clone(),
+                    handler.name.clone(),
+                )));
         }
         self.collect(body);
     }
@@ -119,14 +127,16 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
                 .insert(EffectDependencyNode::Function(target));
             return;
         }
-        if let Some(signature) = function_signature_path(
+        if let Some(signature) = effect_function_signature_path(
             segments,
             self.context.uses,
             self.context.functions,
             self.context.current_module,
+            self.context.current_package,
             self.context.companion_access_targets,
         ) {
             self.dependencies.insert(EffectDependencyNode::Function((
+                signature.package_name.clone(),
                 signature.module_name.clone(),
                 signature.name.clone(),
             )));
@@ -176,11 +186,12 @@ impl ExprEffectCollector<'_, '_, '_> {
             return;
         };
         if segments.len() > 1
-            && let Some(signature) = function_signature_path(
+            && let Some(signature) = effect_function_signature_path(
                 segments,
                 self.context.uses,
                 self.context.functions,
                 self.context.current_module,
+                self.context.current_package,
                 self.context.companion_access_targets,
             )
         {
@@ -198,6 +209,7 @@ impl ExprEffectCollector<'_, '_, '_> {
                 name,
                 self.context.bindings,
                 self.context.effects_by_function,
+                self.context.current_package,
             )
         {
             self.push_all(effects);
@@ -205,11 +217,12 @@ impl ExprEffectCollector<'_, '_, '_> {
             for effect in effects {
                 push_unique_effect(self.inferred, effect);
             }
-        } else if let Some(signature) = function_signature_path(
+        } else if let Some(signature) = effect_function_signature_path(
             segments,
             self.context.uses,
             self.context.functions,
             self.context.current_module,
+            self.context.current_package,
             self.context.companion_access_targets,
         ) {
             self.push_all(&instantiate_call_effect_rows(signature, args, self.context));
@@ -218,6 +231,7 @@ impl ExprEffectCollector<'_, '_, '_> {
                 segments,
                 self.context.uses,
                 self.context.current_module,
+                self.context.current_package,
                 self.context.bindings,
                 self.context.effects_by_function,
                 self.context.effects_by_module_path,
@@ -234,6 +248,7 @@ impl ExprEffectCollector<'_, '_, '_> {
             effect,
             self.context.uses,
             self.context.current_module,
+            self.context.current_package,
             self.context.user_effects,
             self.context.companion_effect_access_targets,
         ) {

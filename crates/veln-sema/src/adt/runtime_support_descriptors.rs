@@ -12,6 +12,7 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
         AdtDescriptor {
             type_name: "RuntimeDiagnosticFieldPathSegment".to_string(),
             name_class: SourceLessNameClass::Type,
+            package_name: None,
             module_name: None,
             nominal_identity: None,
             type_parameters: Vec::new(),
@@ -40,6 +41,7 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
         AdtDescriptor {
             type_name: "RuntimeByteDiagnosticFacts".to_string(),
             name_class: SourceLessNameClass::Type,
+            package_name: None,
             module_name: None,
             nominal_identity: None,
             type_parameters: Vec::new(),
@@ -119,6 +121,7 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
         AdtDescriptor {
             type_name: "RuntimeBytePreview".to_string(),
             name_class: SourceLessNameClass::Type,
+            package_name: None,
             module_name: None,
             nominal_identity: None,
             type_parameters: Vec::new(),
@@ -165,6 +168,7 @@ pub(super) fn runtime_support_descriptors() -> Vec<AdtDescriptor> {
         AdtDescriptor {
             type_name: "EncodeStep".to_string(),
             name_class: SourceLessNameClass::Type,
+            package_name: None,
             module_name: None,
             nominal_identity: None,
             type_parameters: vec!["TState".to_string()],

@@ -1,0 +1,12 @@
+# Compiler/CLI integration: human output keeps the target-token casing error
+# while the uniquely recovered public member does not add a derivative error.
+command = ["check", "app.veln", "http.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["app.veln:1:5: error[name.invalid_case]: module name `Http` must start with an ASCII lowercase letter"]
+not_contains = ["unresolved call_target `wire::entry`"]
+
+[stderr]
+format = "empty"

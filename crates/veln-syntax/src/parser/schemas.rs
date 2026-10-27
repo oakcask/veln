@@ -516,7 +516,9 @@ impl<'a> Parser<'a> {
             UseDecl {
                 name,
                 name_spans,
+                alias: None,
                 package: None,
+                recovered: false,
                 span,
             },
         )

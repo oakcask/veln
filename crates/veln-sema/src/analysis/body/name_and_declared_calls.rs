@@ -131,10 +131,11 @@ impl<'a> FunctionChecker<'a> {
         if self.bare_prelude_import_is_ambiguous(name) {
             return self.ambiguous_function_value(name, expr);
         }
-        match self
-            .environment
-            .unqualified_function(name, self.function.module_name.as_deref())
-        {
+        match self.environment.unqualified_function_in_owner(
+            name,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
             FunctionLookup::Found(function) => function.ty(),
             FunctionLookup::Ambiguous => self.ambiguous_function_value(name, expr),
             FunctionLookup::Missing => self.infer_recovered_bare_name(name, expr),
@@ -152,15 +153,20 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn infer_recovered_bare_name(&mut self, name: &str, expr: &Expr) -> Type {
-        if let Some(function) = self
-            .environment
-            .local_function_value_recovery(name, self.function.module_name.as_deref())
-        {
+        if let Some(function) = self.environment.local_function_value_recovery_in_owner(
+            name,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
             return function.ty();
         }
         if self
             .environment
-            .local_value_recovery_candidate_count(name, self.function.module_name.as_deref())
+            .local_value_recovery_candidate_count_in_owner(
+                name,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            )
             + self.invalid_local_binding_recovery_count(name)
             == 1
         {
@@ -171,10 +177,11 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn infer_qualified_function_value(&mut self, segments: &[String], expr: &Expr) -> Type {
-        if let Some(function) = self
-            .environment
-            .function_path_for_value(segments, self.function.module_name.as_deref())
-        {
+        if let Some(function) = self.environment.function_path_for_value_in_owner(
+            segments,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
             return function.ty();
         }
         if self
@@ -182,6 +189,7 @@ impl<'a> FunctionChecker<'a> {
             .quarantined_import_value_recovery_candidate_count(
                 segments,
                 self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
             )
             == 1
         {
@@ -353,24 +361,10 @@ impl<'a> FunctionChecker<'a> {
     ) -> Option<Type> {
         if let ExprKind::NamePath { segments, .. } = &callee.kind {
             if segments.len() == 1
-                && let Some(constructor) = expected
-                    .and_then(|expected| {
-                        self.environment.adts.descriptor_for_type_prefer_module(
-                            &expected.ty,
-                            self.function.module_name.as_deref(),
-                        )
-                    })
-                    .and_then(|descriptor| {
-                        self.environment.adts.constructor_for_descriptor(
-                            segments,
-                            descriptor,
-                            self.function.module_name.as_deref(),
-                            &self.environment.uses,
-                        )
-                    })
-                    .filter(|constructor| !constructor.variant.payload_fields.is_empty())
+                && let Some(ty) =
+                    self.infer_expected_payload_constructor_call(expr, args, expected, segments)
             {
-                return Some(self.infer_adt_constructor(expr, args, expected, constructor));
+                return Some(ty);
             }
             match self.environment.adts.constructor(
                 segments,
@@ -384,24 +378,10 @@ impl<'a> FunctionChecker<'a> {
                 }
                 ConstructorLookup::Found(_) => {}
                 ConstructorLookup::Ambiguous => {
-                    if let Some(constructor) = expected
-                        .and_then(|expected| {
-                            self.environment.adts.descriptor_for_type_prefer_module(
-                                &expected.ty,
-                                self.function.module_name.as_deref(),
-                            )
-                        })
-                        .and_then(|descriptor| {
-                            self.environment.adts.constructor_for_descriptor(
-                                segments,
-                                descriptor,
-                                self.function.module_name.as_deref(),
-                                &self.environment.uses,
-                            )
-                        })
-                        .filter(|constructor| !constructor.variant.payload_fields.is_empty())
+                    if let Some(ty) =
+                        self.infer_expected_payload_constructor_call(expr, args, expected, segments)
                     {
-                        return Some(self.infer_adt_constructor(expr, args, expected, constructor));
+                        return Some(ty);
                     }
                     self.push_ambiguous_name(
                         callee.node_id,
@@ -412,24 +392,62 @@ impl<'a> FunctionChecker<'a> {
                     return Some(Type::Unknown);
                 }
                 ConstructorLookup::Missing => {
-                    if self
-                        .environment
-                        .quarantined_import_constructor_recovery_candidate_count(
-                            segments,
-                            self.function.module_name.as_deref(),
-                            Some(args.len()),
-                        )
-                        == 1
-                    {
-                        for arg in args {
-                            self.infer_expr(arg, None);
-                        }
-                        return Some(Type::Unknown);
-                    }
+                    return self.infer_quarantined_constructor_call(expr, args, expected, segments);
                 }
             }
         }
         None
+    }
+
+    fn infer_expected_payload_constructor_call(
+        &mut self,
+        expr: &Expr,
+        args: &[Expr],
+        expected: Option<&ExpectedType>,
+        segments: &[String],
+    ) -> Option<Type> {
+        let constructor = expected
+            .and_then(|expected| {
+                self.environment.adts.descriptor_for_type_prefer_module(
+                    &expected.ty,
+                    self.function.module_name.as_deref(),
+                )
+            })
+            .and_then(|descriptor| {
+                self.environment.adts.constructor_for_descriptor(
+                    segments,
+                    descriptor,
+                    self.function.module_name.as_deref(),
+                    &self.environment.uses,
+                )
+            })
+            .filter(|constructor| !constructor.variant.payload_fields.is_empty())?;
+        Some(self.infer_adt_constructor(expr, args, expected, constructor))
+    }
+
+    fn infer_quarantined_constructor_call(
+        &mut self,
+        expr: &Expr,
+        args: &[Expr],
+        expected: Option<&ExpectedType>,
+        segments: &[String],
+    ) -> Option<Type> {
+        let constructor = self
+            .environment
+            .quarantined_explicit_import_constructor_in_owner(
+                segments,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            )?;
+        if args.len() != constructor.variant.payload_fields.len() {
+            self.diagnostics
+                .push(quarantined_constructor_arity_diagnostic(
+                    expr,
+                    constructor,
+                    args.len(),
+                ));
+        }
+        Some(self.infer_adt_constructor(expr, args, expected, constructor))
     }
 
     pub(super) fn infer_declared_call(
@@ -501,11 +519,17 @@ impl<'a> FunctionChecker<'a> {
         let function = match segments.as_slice() {
             [name] => self
                 .environment
-                .unqualified_function(name, self.function.module_name.as_deref())
+                .unqualified_function_in_owner(
+                    name,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                )
                 .found(),
-            _ => self
-                .environment
-                .function_path(segments, self.function.module_name.as_deref()),
+            _ => self.environment.function_path_in_owner(
+                segments,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            ),
         };
         function.is_some_and(|function| {
             function.module_name.as_deref() == Some("std::prelude")

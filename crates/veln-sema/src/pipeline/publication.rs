@@ -243,6 +243,11 @@ fn function_publication_diagnostic_causes(
     diagnostics: &[Diagnostic],
     type_causes: &HashMap<String, Vec<PublicationDiagnosticCause>>,
 ) -> HashMap<FunctionPublicationIdentity, Vec<PublicationDiagnosticCause>> {
+    let import_index = module
+        .aliases
+        .iter()
+        .any(|alias| alias.kind == PublicAliasKind::Function && alias.target.len() > 1)
+        .then(|| crate::name_recovery::NormalImportSelectionIndex::new(module));
     let mut causes = HashMap::new();
     let mut declaration_order = Vec::new();
     for (key, declaration_causes) in module.functions.iter().filter_map(|function| {
@@ -258,7 +263,7 @@ fn function_publication_diagnostic_causes(
     for (key, target) in module
         .aliases
         .iter()
-        .filter_map(|alias| function_alias_publication_dependency(module, alias))
+        .filter_map(|alias| function_alias_publication_dependency(import_index.as_ref(), alias))
     {
         declaration_order.push(key.clone());
         causes.entry(key.clone()).or_default();
@@ -304,7 +309,7 @@ fn public_function_diagnostic_causes(
 }
 
 fn function_alias_publication_dependency(
-    module: &SurfaceModule,
+    import_index: Option<&crate::name_recovery::NormalImportSelectionIndex<'_>>,
     alias: &PublicAlias,
 ) -> Option<(
     FunctionPublicationIdentity,
@@ -316,7 +321,7 @@ fn function_alias_publication_dependency(
     let name = alias.name.as_ref()?;
     Some((
         (alias.module_name.clone(), name.clone()),
-        function_alias_target_key(module, alias),
+        function_alias_target_key(import_index, alias),
     ))
 }
 
@@ -399,21 +404,18 @@ fn propagate_publication_cause<Key>(
 }
 
 fn function_alias_target_key(
-    module: &SurfaceModule,
+    import_index: Option<&crate::name_recovery::NormalImportSelectionIndex<'_>>,
     alias: &veln_ast::PublicAlias,
 ) -> Option<(Option<String>, String)> {
     let name = alias.target.last()?.clone();
     if alias.target.len() == 1 {
         return Some((alias.module_name.clone(), name));
     }
-    let module_path = alias.target[..alias.target.len() - 1].join("::");
-    let use_decl = module.uses.iter().find(|use_decl| {
-        crate::name_recovery::use_decl_matches_import_path(
-            use_decl,
-            &module_path,
-            alias.module_name.as_deref(),
-        )
-    })?;
+    let use_decl = import_index?.imported_use_for_path(
+        &alias.target[..alias.target.len() - 1],
+        alias.module_name.as_deref(),
+        alias.package_name.as_deref(),
+    )?;
     Some((
         Some(crate::name_recovery::resolved_import_module_name(
             use_decl,

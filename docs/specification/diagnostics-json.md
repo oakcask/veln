@@ -921,6 +921,51 @@ original source span, and details containing
 `segment`.
 Recovery diagnostics do not create cascaded unresolved-name records.
 
+An invalid explicit import alias uses `origin: source`, `occurrence:
+declaration`, `name_class: module`, and `required_initial: ascii_lowercase`.
+Its primary span is the alias token. An invalid import-target segment instead
+uses `occurrence: path_segment`, includes its zero-based `segment_index`, and
+spans that target token. A reserved `prelude` alias also uses the alias token.
+A duplicate qualifier involving an explicit alias uses the later
+explicit-alias token or later implicit-leaf token, according to which import is
+reported; first-binding context appears as a related note. A duplicate target
+import reports the later import's written target path even when package loading
+has normalized different source spellings to the same package and module
+identity. The first import's target path appears as related context. Equal
+written paths in distinct package origins do not produce this duplicate-target
+diagnostic. If initial-only casing correction gives an invalid target the same
+module identity as another import target, the later import reports that same
+duplicate-target shape and the earlier target remains its related context.
+This ordering follows source order even when the invalid spelling is later;
+the independent `name.invalid_case` record is retained.
+Parser diagnostics precede casing diagnostics for one import; reserved and
+duplicate facts follow casing, while target-resolution facts stay independent.
+When correcting an invalid target
+segment or alias uniquely selects one public export in the import's target
+package, the casing diagnostic remains and the recovered member does not add
+`name.unresolved`. The importing source's owner package selects the import;
+an equal module and declaration spelling owned by another package cannot
+satisfy the recovery. This applies when the member path uses either the invalid
+explicit alias or the quarantined import's full written target path. For a
+public ADT or constructor,
+independently provable `core.constructor_arity_mismatch` and
+`type.match_non_exhaustive` records remain visible. Combined module sources
+retain stable source and token order. The checked target-casing
+[`human`](../../examples/specification/check/explicit-import-alias-target-casing-human/)
+and
+[`JSON`](../../examples/specification/check/explicit-import-alias-target-casing-json/)
+cases fix the target token span, casing fields, and unresolved-member
+suppression. The checked
+[`explicit-import-alias-combined-order-human`](../../examples/specification/check/explicit-import-alias-combined-order-human/)
+and
+[`explicit-import-alias-combined-order-json`](../../examples/specification/check/explicit-import-alias-combined-order-json/)
+cases fix the complete observable order in text and JSON output.
+The checked
+[`explicit-import-alias-independent-carrier-failures-human`](../../examples/specification/check/explicit-import-alias-independent-carrier-failures-human/)
+and
+[`explicit-import-alias-independent-carrier-failures-json`](../../examples/specification/check/explicit-import-alias-independent-carrier-failures-json/)
+cases fix the independent constructor and match records.
+
 Companion diagnostics expose `details.companion_path` and
 `details.target_path` where applicable. Private companion effect and handler
 wrong-target failures use `effect.private_companion_target` or

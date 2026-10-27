@@ -12,13 +12,13 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         let types_by_name = index_types_by_name(&types);
         let constructors_by_name = index_constructors_by_name(&types);
         Self {
-            uses: inputs.uses(),
-            invalid_uses: inputs.invalid_uses().collect(),
+            import_selections: inputs.import_selections(),
+            current_package: None,
             invalid_use_segments: inputs
                 .invalid_uses_with_segments()
                 .map(|(use_decl, invalid_segments)| {
                     (
-                        use_decl,
+                        use_decl_key(use_decl),
                         invalid_segments
                             .iter()
                             .map(|invalid| ReachableInvalidNameSpan::Name(invalid.span.clone()))
@@ -41,6 +41,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         function: &Function,
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
+        self.current_package.clone_from(&function.package_name);
         let mut local_bindings = function
             .params
             .iter()
@@ -412,10 +413,18 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         if let Some(handler) = self.visible_handler(segments, current_module) {
-            if spans.iter().any(|span| span.is_declaration(&handler.span)) {
+            if spans
+                .iter()
+                .any(|span| span.is_handler_declaration(handler))
+            {
                 return;
             }
-            spans.push(ReachableInvalidNameSpan::Declaration(handler.span.clone()));
+            spans.push(ReachableInvalidNameSpan::HandlerDeclaration {
+                span: handler.span.clone(),
+                package_name: handler.package_name.clone(),
+                module_name: handler.module_name.clone(),
+                name: handler.name.clone(),
+            });
             self.collect_handler(handler, spans);
         } else {
             self.select_invalid_import_path(segments, current_module, spans);
@@ -428,19 +437,19 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         current_module: Option<&str>,
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) -> bool {
-        let Some(use_decl) = imported_use_for_path(
-            &self.invalid_uses,
+        let Some(use_decl) = recovery_imported_use_for_path(
+            self.import_selections,
             &segments[..segments.len().saturating_sub(1)],
             current_module,
+            self.current_package.as_deref(),
         ) else {
             return false;
         };
         spans.extend(
             self.invalid_use_segments
-                .iter()
-                .find(|(invalid_use, _)| std::ptr::eq(*invalid_use, use_decl))
+                .get(&use_decl_key(use_decl))
                 .into_iter()
-                .flat_map(|(_, invalid_spans)| invalid_spans.iter().cloned()),
+                .flat_map(|invalid_spans| invalid_spans.iter().cloned()),
         );
         true
     }
@@ -450,6 +459,8 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         handler: &veln_ast::HandlerDecl,
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
+        let outer_package =
+            std::mem::replace(&mut self.current_package, handler.package_name.clone());
         let current_module = handler.module_name.as_deref();
         let mut local_bindings = handler
             .params
@@ -470,6 +481,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             self.collect_expr(&clause.body, current_module, &mut local_bindings, spans);
             local_bindings.truncate(binding_count);
         }
+        self.current_package = outer_package;
     }
 }
 

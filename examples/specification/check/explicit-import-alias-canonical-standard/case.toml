@@ -1,0 +1,19 @@
+# Compiler integration: a canonical standard-module path remains selectable
+# through an explicitly aliased import; this case does not assert transport API
+# behavior.
+command = ["check", "--json", "main.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "ok"
+
+[[json_assert]]
+path = "diagnostics"
+length = 0

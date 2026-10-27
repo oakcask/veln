@@ -70,6 +70,7 @@ impl RecoveryFacts {
         *self
             .functions
             .entry(FunctionRecoveryKey {
+                package_name: signature.package_name.clone(),
                 module_name: signature.module_name.clone(),
                 name: signature.name.clone(),
                 fixed_arg_count: signature.params.len(),
@@ -81,6 +82,15 @@ impl RecoveryFacts {
 }
 
 pub(super) fn from_module_with_base(
+    module: &SurfaceModule,
+    base: Option<&TypeEnvironment>,
+) -> TypeEnvironment {
+    crate::name_recovery::with_import_classification(module, || {
+        from_module_with_base_classified(module, base)
+    })
+}
+
+fn from_module_with_base_classified(
     module: &SurfaceModule,
     base: Option<&TypeEnvironment>,
 ) -> TypeEnvironment {
@@ -101,6 +111,15 @@ pub(super) fn from_module_for_path_classification(module: &SurfaceModule) -> Typ
 }
 
 pub(super) fn from_module_for_path_classification_with_base(
+    module: &SurfaceModule,
+    base: Option<&TypeEnvironment>,
+) -> TypeEnvironment {
+    crate::name_recovery::with_import_classification(module, || {
+        from_module_for_path_classification_with_base_classified(module, base)
+    })
+}
+
+fn from_module_for_path_classification_with_base_classified(
     module: &SurfaceModule,
     base: Option<&TypeEnvironment>,
 ) -> TypeEnvironment {
@@ -194,9 +213,10 @@ fn finish_module_value_facts(module: &SurfaceModule, environment: &mut TypeEnvir
         .module_values
         .iter()
         .map(|value| {
-            environment.canonicalize_type_annotation(
+            environment.canonicalize_type_annotation_in_owner(
                 value.ty.clone(),
                 value.declaration.module_name.as_deref(),
+                value.declaration.package_name.as_deref(),
             )
         })
         .collect::<Vec<_>>();
@@ -272,6 +292,7 @@ fn invalid_function_recovery_signature(
         name: name.clone(),
         target_name: name.clone(),
         module_name: function.module_name.clone(),
+        package_name: function.package_name.clone(),
         visibility: function.visibility,
         params,
         variadic,
@@ -306,12 +327,14 @@ fn invalid_alias_recovery_signature(
         &module.uses,
         functions,
         alias.module_name.as_deref(),
+        alias.package_name.as_deref(),
         access_targets,
     )?;
     Some(FunctionSignature {
         name: name.clone(),
         target_name: target.target_name.clone(),
         module_name: alias.module_name.clone(),
+        package_name: alias.package_name.clone(),
         visibility: Visibility::Public,
         params: target.params.clone(),
         variadic: target.variadic.clone(),
@@ -342,6 +365,7 @@ fn constructor_recovery_facts(module: &SurfaceModule) -> BTreeMap<ConstructorRec
             if type_is_invalid || constructor_is_invalid {
                 *candidates
                     .entry(ConstructorRecoveryKey {
+                        package_name: type_decl.package_name.clone(),
                         module_name: type_decl.module_name.clone(),
                         name: name.clone(),
                         field_count: variant.fields.len(),
@@ -357,11 +381,11 @@ fn import_constructor_recovery_facts(
     module: &SurfaceModule,
 ) -> BTreeMap<ImportConstructorRecoveryKey, usize> {
     let mut candidates = BTreeMap::new();
-    for use_decl in module.uses.iter().filter(|use_decl| {
-        crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
-    }) {
+    for use_decl in crate::name_recovery::quarantined_use_decls(module) {
+        let target = use_decl.resolved_target();
         for type_decl in module.types.iter().filter(|type_decl| {
-            type_decl.module_name.as_deref() == Some(use_decl.name.as_str())
+            type_decl.package_name == target.package
+                && type_decl.module_name.as_deref() == Some(target.module.as_str())
                 && type_decl.visibility == Visibility::Public
         }) {
             let Some(type_name) = &type_decl.name else {
@@ -381,7 +405,10 @@ fn import_constructor_recovery_facts(
                 ] {
                     *candidates
                         .entry(ImportConstructorRecoveryKey {
+                            current_package: use_decl.importing_package.clone(),
                             current_module: use_decl.module_name.clone(),
+                            target_package: target.package.clone(),
+                            target_module: target.module.clone(),
                             alias: use_decl.alias.clone(),
                             constructor_segments,
                             field_count: variant.fields.len(),
@@ -531,14 +558,7 @@ fn symbol_facts(
     extend_with_base_facts(&mut type_symbols, base.map(|base| &base.type_symbols));
     let mut uses = crate::name_recovery::normal_use_decls(module);
     extend_with_base_facts(&mut uses, base.map(|base| &base.uses));
-    let mut quarantined_uses = module
-        .uses
-        .iter()
-        .filter(|use_decl| {
-            crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
-        })
-        .cloned()
-        .collect();
+    let mut quarantined_uses = crate::name_recovery::quarantined_use_decls(module);
     extend_with_base_facts(
         &mut quarantined_uses,
         base.map(|base| &base.quarantined_uses),

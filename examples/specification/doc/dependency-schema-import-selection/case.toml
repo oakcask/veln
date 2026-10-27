@@ -1,0 +1,9 @@
+command = ["doc", "main.veln"]
+exit = 0
+
+[stdout]
+format = "text"
+contains = ["Alias reference `wire::Packet`.", "Written-path reference `api::Packet`."]
+
+[stderr]
+format = "empty"

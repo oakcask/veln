@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The standard-library test placement policy, CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, structured JSON-RPC input directives, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, scoped Veln effect fixture support, fixture command timeout or process-tree termination behavior, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
+update-when: The standard-library test placement policy, CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, binary-fixture schema-reference resolution, structured JSON-RPC input directives, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, scoped Veln effect fixture support, fixture command timeout or process-tree termination behavior, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -615,9 +615,20 @@ Use `[[binary_fixture]]` and `[[output_chunk_list]]` only for test-owned binary
 fixture evidence. Binary fixture records compare named program-output lines
 against complete lowercase hex, decoded counts, optional consumed counts,
 stable fixture errors, and byte diagnostic metadata for truncation or invalid
-field checks. Output chunk lists compare a named, ordered sequence of complete
-lowercase hex chunks against consecutive program-output lines, including empty
-lists and zero-length chunks.
+field checks. A binary fixture `schema` may be a same-module schema name or a
+qualified schema selected through a valid import in the command's primary
+source module. Qualified selection accepts an explicit import alias or the full
+written import path, including a dependency import. An exact written path takes
+precedence over a qualifier. After that exact module is selected, a missing
+schema does not fall through to another module selected by the qualifier. An
+ambiguous exact path also does not fall through. Selection rejects invalid,
+reserved, syntax-recovered, and duplicate-target imports instead of choosing
+the first declaration. The selected schema must be public when it is outside
+the primary module. The
+[name-resolution contract](../specification/name-resolution.md#explicit-import-aliases)
+defines the shared import-selection and quarantine rules. Output chunk lists
+compare a named, ordered sequence of complete lowercase hex chunks against
+consecutive program-output lines, including empty lists and zero-length chunks.
 
 ## Manifest Policy
 

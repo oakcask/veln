@@ -169,11 +169,17 @@ impl<'a> CoreLowerer<'a> {
         let signature = match segments.as_slice() {
             [name] => self
                 .environment
-                .unqualified_function(name, self.function.module_name.as_deref())
+                .unqualified_function_in_owner(
+                    name,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                )
                 .found(),
-            _ => self
-                .environment
-                .function_path(&segments, self.function.module_name.as_deref()),
+            _ => self.environment.function_path_in_owner(
+                &segments,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            ),
         };
         let signature = signature.filter(|signature| signature.callsite)?;
         Some(CoreContractCall {
@@ -185,6 +191,27 @@ impl<'a> CoreLowerer<'a> {
     }
 
     pub(super) fn lowered_function_name(&self) -> String {
+        if let Some(name) = self
+            .function
+            .name
+            .as_deref()
+            .filter(|name| name.starts_with("__handler_"))
+        {
+            return synthetic_handler_clause_function_target_from_name(
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+                name,
+            );
+        }
+        if self
+            .function
+            .name
+            .as_deref()
+            .is_some_and(|name| name.as_bytes().first().is_some_and(u8::is_ascii_lowercase))
+            && let Some(signature) = self.environment.function_for(self.function)
+        {
+            return signature.target_name.clone();
+        }
         self.function.name.as_deref().map_or_else(
             || "<missing>".to_string(),
             |name| {
@@ -193,6 +220,7 @@ impl<'a> CoreLowerer<'a> {
                 } else {
                     crate::standard_symbols::standard_function_link_name(
                         self.function.module_name.as_deref(),
+                        self.function.package_name.as_deref(),
                         name,
                     )
                 }

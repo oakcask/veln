@@ -76,10 +76,11 @@ pub(super) fn resolve_schema_payload<'a>(
     match segments.as_slice() {
         [name] => resolve_local_schema_payload(module, schema, field, kind, name, diagnostics),
         [_, .., name] => {
-            let Some(use_decl) = schema_composition_imported_use_for_path(
+            let Some(use_decl) = schema_composition_imported_use_for_path_in_owner(
                 module,
                 &segments[..segments.len() - 1],
                 schema.module_name.as_deref(),
+                schema.package_name.as_deref(),
             ) else {
                 diagnostics.push(kind.diagnostic(
                     schema,
@@ -124,6 +125,7 @@ fn resolve_local_schema_payload<'a>(
     if let Some((candidate_index, candidate)) =
         module.schemas.iter().enumerate().find(|(_, candidate)| {
             candidate.name.as_deref() == Some(name)
+                && candidate.package_name == schema.package_name
                 && candidate.module_name.as_deref() == schema.module_name.as_deref()
         })
     {
@@ -143,6 +145,7 @@ fn resolve_local_schema_payload<'a>(
         schema,
         field,
         kind,
+        schema.package_name.as_deref(),
         schema.module_name.as_deref(),
         name,
         name,
@@ -208,9 +211,12 @@ fn resolve_imported_schema_payload<'a>(
     name: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<&'a SchemaDecl> {
-    let target_module = Some(use_decl.name.as_str());
+    let target = use_decl.resolved_target();
+    let target_module = Some(target.module.as_str());
     if let Some(candidate) = module.schemas.iter().find(|candidate| {
-        candidate.name.as_deref() == Some(name) && candidate.module_name.as_deref() == target_module
+        candidate.name.as_deref() == Some(name)
+            && candidate.package_name == target.package
+            && candidate.module_name.as_deref() == target_module
     }) {
         let failure = if candidate.visibility != Visibility::Public
             && !companion_private_schema_access_allowed(module, schema, use_decl)
@@ -244,6 +250,7 @@ fn resolve_imported_schema_payload<'a>(
         schema,
         field,
         kind,
+        target.package.as_deref(),
         target_module,
         payload_name,
         name,
@@ -258,12 +265,15 @@ fn report_missing_schema_payload(
     schema: &SchemaDecl,
     field: &SchemaField,
     kind: SchemaPayloadKind,
+    target_package: Option<&str>,
     target_module: Option<&str>,
     payload_name: &str,
     name: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    if let Some(resolved_kind) = codec_schema_wrong_kind(module, target_module, name) {
+    if let Some(resolved_kind) =
+        codec_schema_wrong_kind(module, target_package, target_module, name)
+    {
         diagnostics.push(kind.diagnostic(
             schema,
             field,

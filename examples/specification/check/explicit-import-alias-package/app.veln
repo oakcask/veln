@@ -1,0 +1,5 @@
+use foo as dependency from "github.com/oakcask/foo"
+
+pub fn main() -> Int
+	dependency::public_value()
+end

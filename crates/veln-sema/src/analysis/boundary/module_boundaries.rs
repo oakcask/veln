@@ -1,7 +1,9 @@
 use crate::adt::type_operations as adt;
 use crate::diagnostics::{module_details, span_json};
-pub(super) use crate::name_recovery::normal_imported_use_for_path;
-use crate::name_recovery::{resolved_import_module_name, use_decl_has_invalid_module_segment};
+use crate::name_recovery::{
+    import_classification, normal_imported_use_for_path_in_owner, select_use_decl_for_path,
+    use_decl_is_recovery_candidate,
+};
 use crate::semantic_model::Type;
 use crate::standard_names::PRELUDE_MODULE;
 use crate::type_syntax::parse_type_annotation;
@@ -14,24 +16,30 @@ pub(super) fn function_target<'a>(
     module: &'a SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<&'a veln_ast::Function> {
     match segments {
         [name] => module.functions.iter().find(|function| {
             function.kind == FunctionKind::Function
                 && function.name.as_deref() == Some(name)
                 && function.name.as_deref().is_some_and(valid_function_name)
+                && function.module_name.as_deref() == current_module
+                && function.package_name.as_deref() == current_package
         }),
         [_, .., name] => {
-            let module_name = normal_imported_module_for_path(
+            let use_decl = normal_imported_use_for_path_in_owner(
                 module,
                 &segments[..segments.len() - 1],
                 current_module,
+                current_package,
             )?;
+            let target = use_decl.resolved_target();
             module.functions.iter().find(|function| {
                 function.kind == FunctionKind::Function
                     && function.name.as_deref() == Some(name)
                     && function.name.as_deref().is_some_and(valid_function_name)
-                    && function.module_name.as_deref() == Some(module_name.as_str())
+                    && function.module_name.as_deref() == Some(target.module.as_str())
+                    && function.package_name == target.package
             })
         }
         _ => None,
@@ -42,22 +50,28 @@ pub(super) fn type_target<'a>(
     module: &'a SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<&'a veln_ast::TypeDecl> {
     match segments {
         [name] => module.types.iter().find(|type_decl| {
             type_decl.name.as_deref() == Some(name)
                 && type_decl.name.as_deref().is_some_and(valid_type_name)
+                && type_decl.module_name.as_deref() == current_module
+                && type_decl.package_name.as_deref() == current_package
         }),
         [_, .., name] => {
-            let module_name = normal_imported_module_for_path(
+            let use_decl = normal_imported_use_for_path_in_owner(
                 module,
                 &segments[..segments.len() - 1],
                 current_module,
+                current_package,
             )?;
+            let target = use_decl.resolved_target();
             module.types.iter().find(|type_decl| {
                 type_decl.name.as_deref() == Some(name)
                     && type_decl.name.as_deref().is_some_and(valid_type_name)
-                    && type_decl.module_name.as_deref() == Some(module_name.as_str())
+                    && type_decl.module_name.as_deref() == Some(target.module.as_str())
+                    && type_decl.package_name == target.package
             })
         }
         _ => None,
@@ -72,26 +86,106 @@ pub(super) fn valid_type_name(name: &str) -> bool {
     name.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
 }
 
-pub(super) fn normal_imported_module_for_path(
-    module: &SurfaceModule,
-    segments: &[String],
-    current_module: Option<&str>,
-) -> Option<String> {
-    normal_imported_use_for_path(module, segments, current_module)
-        .map(|use_decl| resolved_import_module_name(use_decl, current_module))
-}
-
-pub(super) fn quarantined_imported_use_for_path<'a>(
+pub(super) fn quarantined_imported_use_for_path_in_owner<'a>(
     module: &'a SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
-    module.uses.iter().find(|use_decl| {
-        use_decl_has_invalid_module_segment(module, use_decl)
-            && use_decl.module_name.as_deref() == current_module
-            && (use_decl.name == module_path || use_decl.alias == module_path)
-    })
+    select_use_decl_for_path(
+        module.uses.iter().filter(|use_decl| {
+            use_decl.importing_package.as_deref() == current_package
+                && use_decl_is_recovery_candidate(module, use_decl)
+        }),
+        &module_path,
+        current_module,
+    )
+}
+
+pub(super) fn quarantined_function_target<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+) -> Option<&'a veln_ast::Function> {
+    let [_, .., name] = segments else {
+        return None;
+    };
+    let use_decl = quarantined_imported_use_for_path_in_owner(
+        module,
+        &segments[..segments.len() - 1],
+        current_module,
+        current_package,
+    )?;
+    let target = use_decl.resolved_target();
+    let target_module = crate::name_recovery::recovered_import_target_name(module, use_decl)
+        .unwrap_or_else(|| target.module.clone());
+    let mut candidates = module.functions.iter().filter(|function| {
+        function.kind == FunctionKind::Function
+            && function.name.as_deref() == Some(name)
+            && function.module_name.as_deref() == Some(target_module.as_str())
+            && function.package_name == target.package
+            && function.visibility == veln_ast::Visibility::Public
+    });
+    let first = candidates.next()?;
+    candidates.next().is_none().then_some(first)
+}
+
+pub(super) fn quarantined_type_target<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+) -> Option<&'a veln_ast::TypeDecl> {
+    let [_, .., name] = segments else {
+        return None;
+    };
+    let use_decl = quarantined_imported_use_for_path_in_owner(
+        module,
+        &segments[..segments.len() - 1],
+        current_module,
+        current_package,
+    )?;
+    let target = use_decl.resolved_target();
+    let target_module = crate::name_recovery::recovered_import_target_name(module, use_decl)
+        .unwrap_or_else(|| target.module.clone());
+    let mut candidates = module.types.iter().filter(|type_decl| {
+        type_decl.name.as_deref() == Some(name)
+            && type_decl.module_name.as_deref() == Some(target_module.as_str())
+            && type_decl.package_name == target.package
+            && type_decl.visibility == veln_ast::Visibility::Public
+    });
+    let first = candidates.next()?;
+    candidates.next().is_none().then_some(first)
+}
+
+pub(super) fn quarantined_schema_target<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+) -> Option<&'a veln_ast::SchemaDecl> {
+    let [_, .., name] = segments else {
+        return None;
+    };
+    let use_decl = quarantined_imported_use_for_path_in_owner(
+        module,
+        &segments[..segments.len() - 1],
+        current_module,
+        current_package,
+    )?;
+    let target = use_decl.resolved_target();
+    let module_name = crate::name_recovery::recovered_import_target_name(module, use_decl)
+        .unwrap_or_else(|| target.module.clone());
+    let mut candidates = module.schemas.iter().filter(|schema| {
+        schema.name.as_deref() == Some(name)
+            && schema.module_name.as_deref() == Some(module_name.as_str())
+            && schema.package_name == target.package
+            && schema.visibility == veln_ast::Visibility::Public
+    });
+    let first = candidates.next()?;
+    candidates.next().is_none().then_some(first)
 }
 
 pub(super) fn unresolved_alias_diagnostic(
@@ -166,37 +260,59 @@ pub(super) fn alias_kind_mismatch_diagnostic(
 
 pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut seen =
-        BTreeMap::<(Option<String>, String, String, Option<String>), (String, SourceSpan)>::new();
-
-    for use_decl in module
-        .uses
-        .iter()
-        .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
-    {
-        let node_id = use_decl.node_id.display("use");
-        let key = (
-            use_decl.module_name.clone(),
-            use_decl.alias.clone(),
-            use_decl.name.clone(),
-            use_decl.package.clone(),
-        );
-        if let Some((first_node_id, first_span)) = seen.get(&key) {
+    let classification = import_classification(module);
+    for &index in classification.source_order() {
+        let use_decl = &module.uses[index];
+        if let Some(first) = classification
+            .duplicate_target_origin(index)
+            .and_then(|origin| module.uses.get(origin))
+        {
+            diagnostics.push(duplicate_name_diagnostic(
+                &use_decl.written_name,
+                "module",
+                "import",
+                use_decl.node_id.display("use"),
+                import_target_span(use_decl),
+                first.node_id.display("use"),
+                &import_target_span(first),
+            ));
+        }
+        if let Some(first) = classification
+            .duplicate_qualifier_origin(index)
+            .and_then(|origin| module.uses.get(origin))
+        {
             diagnostics.push(duplicate_name_diagnostic(
                 &use_decl.alias,
                 "module",
                 "import alias",
-                node_id,
-                use_decl.span.clone(),
-                first_node_id.clone(),
-                first_span,
+                use_decl.node_id.display("use"),
+                import_qualifier_span(use_decl),
+                first.node_id.display("use"),
+                &import_qualifier_span(first),
             ));
-        } else {
-            seen.insert(key, (node_id, use_decl.span.clone()));
         }
     }
 
     diagnostics
+}
+
+fn import_target_span(use_decl: &UseDecl) -> SourceSpan {
+    let Some(first) = use_decl.name_spans.first() else {
+        return use_decl.span.clone();
+    };
+    let mut span = first.clone();
+    if let Some(last) = use_decl.name_spans.last() {
+        span.end = last.end;
+    }
+    span
+}
+
+fn import_qualifier_span(use_decl: &UseDecl) -> SourceSpan {
+    use_decl
+        .alias_span
+        .clone()
+        .or_else(|| use_decl.name_spans.last().cloned())
+        .unwrap_or_else(|| use_decl.span.clone())
 }
 
 pub(crate) fn check_reserved_prelude_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
@@ -221,17 +337,15 @@ pub(crate) fn check_reserved_prelude_aliases(module: &SurfaceModule) -> Vec<Diag
         .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
     {
         if use_decl.alias == PRELUDE_MODULE
-            && !use_decl
-                .module_name
-                .as_deref()
-                .is_some_and(|module_name| module_name.starts_with("std::"))
+            && (use_decl.has_explicit_alias()
+                || use_decl.importing_package.as_deref() != Some(veln_stdlib::PACKAGE_NAME))
         {
             diagnostics.push(reserved_prelude_diagnostic(
                 use_decl.node_id.display("use"),
-                use_decl.span.clone(),
+                import_qualifier_span(use_decl),
                 "module",
                 "import alias",
-                "Choose a non-conflicting import path.",
+                "Choose a non-conflicting import alias.",
             ));
         }
     }
@@ -273,8 +387,10 @@ pub(super) fn reserved_prelude_diagnostic(
 
 pub(crate) fn check_duplicate_constructor_names(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut seen =
-        BTreeMap::<(Option<String>, Option<String>, String), (String, SourceSpan)>::new();
+    let mut seen = BTreeMap::<
+        (Option<String>, Option<String>, Option<String>, String),
+        (String, SourceSpan),
+    >::new();
 
     for type_decl in &module.types {
         for variant in &type_decl.variants {
@@ -282,6 +398,7 @@ pub(crate) fn check_duplicate_constructor_names(module: &SurfaceModule) -> Vec<D
                 continue;
             };
             let key = (
+                type_decl.package_name.clone(),
                 type_decl.module_name.clone(),
                 type_decl.name.clone(),
                 name.clone(),

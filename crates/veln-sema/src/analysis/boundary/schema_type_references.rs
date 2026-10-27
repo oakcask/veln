@@ -2,7 +2,7 @@ use super::*;
 
 pub(super) fn push_schema_type_reference_diagnostics(
     module: &SurfaceModule,
-    current_module: Option<&str>,
+    owner: (Option<&str>, Option<&str>),
     annotation: &str,
     node_id: String,
     span: SourceSpan,
@@ -13,7 +13,7 @@ pub(super) fn push_schema_type_reference_diagnostics(
         return;
     };
     let mut schemas = Vec::new();
-    collect_schema_type_references(module, current_module, &ty, &mut schemas);
+    collect_schema_type_references(module, owner.0, owner.1, &ty, &mut schemas);
     for schema in schemas {
         diagnostics.push(schema_type_reference_diagnostic(
             schema,
@@ -51,21 +51,36 @@ pub(super) fn push_schema_type_reference_diagnostics(
 pub(super) fn collect_schema_type_references<'a>(
     module: &'a SurfaceModule,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     ty: &Type,
     schemas: &mut Vec<&'a SchemaDecl>,
 ) {
     match ty {
         Type::Named { name, args, .. } | Type::VariantRefinement { name, args, .. } => {
-            if let Some(schema) = schema_for_type_name(module, current_module, name) {
+            if let Some(schema) =
+                schema_for_type_name(module, current_module, current_package, name)
+            {
                 schemas.push(schema);
             }
             for arg in args {
-                collect_schema_type_references(module, current_module, arg, schemas);
+                collect_schema_type_references(
+                    module,
+                    current_module,
+                    current_package,
+                    arg,
+                    schemas,
+                );
             }
         }
         Type::Record(fields) => {
             for (_, field_ty) in fields {
-                collect_schema_type_references(module, current_module, field_ty, schemas);
+                collect_schema_type_references(
+                    module,
+                    current_module,
+                    current_package,
+                    field_ty,
+                    schemas,
+                );
             }
         }
         Type::Function {
@@ -74,9 +89,21 @@ pub(super) fn collect_schema_type_references<'a>(
             ..
         } => {
             for param in params {
-                collect_schema_type_references(module, current_module, param, schemas);
+                collect_schema_type_references(
+                    module,
+                    current_module,
+                    current_package,
+                    param,
+                    schemas,
+                );
             }
-            collect_schema_type_references(module, current_module, return_type, schemas);
+            collect_schema_type_references(
+                module,
+                current_module,
+                current_package,
+                return_type,
+                schemas,
+            );
         }
         Type::Unknown => {}
     }
@@ -244,25 +271,31 @@ pub(super) fn lowercase_schema_primitive_diagnostic_with_message(
 pub(super) fn schema_for_type_name<'a>(
     module: &'a SurfaceModule,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     name: &str,
 ) -> Option<&'a SchemaDecl> {
     let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
-    if type_or_alias_for_type_name(module, current_module, &segments) {
+    if type_or_alias_for_type_name(module, current_module, current_package, &segments) {
         return None;
     }
     match segments.as_slice() {
         [name] => module.schemas.iter().find(|schema| {
-            schema.name.as_deref() == Some(name) && schema.module_name.as_deref() == current_module
+            schema.name.as_deref() == Some(name)
+                && schema.module_name.as_deref() == current_module
+                && schema.package_name.as_deref() == current_package
         }),
         [_, .., name] => {
-            let module_name = normal_imported_module_for_path(
+            let use_decl = normal_imported_use_for_path_in_owner(
                 module,
                 &segments[..segments.len() - 1],
                 current_module,
+                current_package,
             )?;
+            let target = use_decl.resolved_target();
             module.schemas.iter().find(|schema| {
                 schema.name.as_deref() == Some(name)
-                    && schema.module_name.as_deref() == Some(module_name.as_str())
+                    && schema.module_name.as_deref() == Some(target.module.as_str())
+                    && schema.package_name == target.package
             })
         }
         _ => None,
@@ -272,16 +305,27 @@ pub(super) fn schema_for_type_name<'a>(
 fn type_or_alias_for_type_name(
     module: &SurfaceModule,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     segments: &[String],
 ) -> bool {
     match segments {
-        [name] => type_or_alias_in_module(module, current_module, name, true),
-        [_, .., name] => {
-            normal_imported_module_for_path(module, &segments[..segments.len() - 1], current_module)
-                .is_some_and(|module_name| {
-                    type_or_alias_in_module(module, Some(&module_name), name, false)
-                })
-        }
+        [name] => type_or_alias_in_module(module, current_module, current_package, name, true),
+        [_, .., name] => normal_imported_use_for_path_in_owner(
+            module,
+            &segments[..segments.len() - 1],
+            current_module,
+            current_package,
+        )
+        .is_some_and(|use_decl| {
+            let target = use_decl.resolved_target();
+            type_or_alias_in_module(
+                module,
+                Some(&target.module),
+                target.package.as_deref(),
+                name,
+                false,
+            )
+        }),
         _ => false,
     }
 }
@@ -289,17 +333,20 @@ fn type_or_alias_for_type_name(
 fn type_or_alias_in_module(
     module: &SurfaceModule,
     module_name: Option<&str>,
+    package_name: Option<&str>,
     name: &str,
     local: bool,
 ) -> bool {
     module.types.iter().any(|ty| {
         ty.name.as_deref() == Some(name)
             && ty.module_name.as_deref() == module_name
+            && ty.package_name.as_deref() == package_name
             && (local || ty.visibility == Visibility::Public)
     }) || module.aliases.iter().any(|alias| {
         alias.kind == PublicAliasKind::Type
             && alias.name.as_deref() == Some(name)
             && alias.module_name.as_deref() == module_name
+            && alias.package_name.as_deref() == package_name
             && !public_alias_has_invalid_target_leaf(module, alias, Some(NameClass::Type))
     })
 }

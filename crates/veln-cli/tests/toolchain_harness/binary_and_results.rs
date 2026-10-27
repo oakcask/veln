@@ -41,6 +41,151 @@ field_path = [{"kind":"schema","name":"PublicPacket"}]
 }
 
 #[test]
+pub(super) fn binary_fixture_schema_references_use_normal_dependency_import_selection() {
+    let root = test_temp_root("fixture-dependency-schema-selection");
+    write_dependency_fixture_schema_sources(&root, "use api as wire from \"example/dep\"");
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[binary_fixture]]
+name = "alias"
+schema = "wire::Packet"
+hex = "00"
+
+[[binary_fixture]]
+name = "written-path"
+schema = "api::Packet"
+hex = "00"
+"#,
+    );
+
+    manifest.validate_fixture_schema_references(&root);
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+pub(super) fn binary_fixture_schema_references_prefer_an_exact_path_over_a_qualifier() {
+    let root = test_temp_root("fixture-schema-exact-precedence");
+    write_precedence_fixture_schema_sources(&root, true);
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln", "fallback.veln"]
+exit = 0
+
+[[binary_fixture]]
+name = "exact-path"
+schema = "api::Packet"
+hex = "00"
+diagnostic_id = "schema.invalid_field_value"
+byte_offset = 0
+field_path = [{"kind":"schema","name":"SelectedPacket"}]
+"#,
+    );
+
+    manifest.validate_fixture_schema_references(&root);
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+pub(super) fn binary_fixture_schema_references_do_not_fall_back_from_a_missing_exact_schema() {
+    let root = test_temp_root("fixture-schema-exact-missing");
+    write_precedence_fixture_schema_sources(&root, false);
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln", "fallback.veln"]
+exit = 0
+
+[[binary_fixture]]
+name = "exact-path"
+schema = "api::Packet"
+hex = "00"
+"#,
+    );
+
+    let panic = std::panic::catch_unwind(|| manifest.validate_fixture_schema_references(&root))
+        .expect_err("a selected exact module must not fall back to a same-spelled qualifier");
+    let message = panic_message(panic);
+    assert!(
+        message.contains("unresolved binary_fixture 0 schema reference `api::Packet`"),
+        "{message}"
+    );
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+pub(super) fn binary_fixture_schema_references_reject_quarantined_dependency_imports() {
+    for (name, imports, schema) in [
+        (
+            "colliding-qualifier",
+            "use api as wire from \"example/dep\"\nuse other as wire",
+            "wire::Packet",
+        ),
+        (
+            "duplicate-target",
+            "use api as first from \"example/dep\"\nuse api as second from \"example/dep\"",
+            "api::Packet",
+        ),
+        (
+            "ambiguous-exact",
+            "use api as first\nuse api as second from \"example/dep\"\nuse fallback as api",
+            "api::Packet",
+        ),
+        (
+            "invalid-case",
+            "use Api as wire from \"example/dep\"",
+            "wire::Packet",
+        ),
+        (
+            "invalid-alias",
+            "use api as Wire from \"example/dep\"",
+            "Wire::Packet",
+        ),
+        (
+            "reserved-alias",
+            "use api as prelude from \"example/dep\"",
+            "prelude::Packet",
+        ),
+        (
+            "syntax-recovered",
+            "use api as wire as nested from \"example/dep\"",
+            "wire::Packet",
+        ),
+    ] {
+        let root = test_temp_root(name);
+        write_dependency_fixture_schema_sources(&root, imports);
+        let manifest = parse_manifest(
+            Path::new("case.toml"),
+            &format!(
+                r#"
+command = ["run", "--json", "main", "main.veln", "api.veln", "other.veln", "fallback.veln"]
+exit = 0
+
+[[binary_fixture]]
+name = "blocked"
+schema = "{schema}"
+hex = "00"
+"#
+            ),
+        );
+        let panic = std::panic::catch_unwind(|| manifest.validate_fixture_schema_references(&root))
+            .expect_err("quarantined import must not select a fixture schema");
+        let message = panic_message(panic);
+        assert!(
+            message.contains(&format!(
+                "unresolved binary_fixture 0 schema reference `{schema}`"
+            )),
+            "name={name}, message={message}"
+        );
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+}
+
+#[test]
 pub(super) fn binary_fixture_schema_references_reject_wrong_targets() {
     assert_fixture_schema_error(
         "MissingPacket",

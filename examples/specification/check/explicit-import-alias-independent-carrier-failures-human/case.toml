@@ -1,0 +1,16 @@
+# This case fixes human CLI rendering for independent constructor failures recovered
+# through an invalid explicit import alias.
+command = ["check", "app.veln", "http.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "app.veln:1:13: error[name.invalid_case]: module name `HTTP` must start with an ASCII lowercase letter",
+  "app.veln:4:3: error[core.constructor_arity_mismatch]: payload constructor expects 1 argument, but got 2",
+  "app.veln:8:3: error[type.match_non_exhaustive]: match is missing case Empty",
+]
+not_contains = ["unresolved call_target `HTTP::Payload::Data`"]
+
+[stderr]
+format = "empty"

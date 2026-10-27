@@ -1,0 +1,10 @@
+command = ["doc", "collision.veln", "duplicate.veln", "target_case.veln", "alias_case.veln", "reserved.veln", "other.veln"]
+exit = 1
+source_errors = "expected"
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["duplicate import alias name `wire`", "duplicate import name `api`", "module name `Api` must start with an ASCII lowercase letter", "module name `Wire` must start with an ASCII lowercase letter", "import alias `prelude` conflicts with the standard prelude"]

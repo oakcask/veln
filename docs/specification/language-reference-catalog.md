@@ -41,6 +41,11 @@ Its topic identifiers are `lexical-structure`, `modules-imports-packages`,
 Each topic has validated descriptor text, normalized set-valued fields,
 validated related-topic identifiers, selected executable grammar productions,
 and selected displayed source files from specification case command inputs.
+The `modules-imports-packages` topic selects the explicit import-alias
+productions as well as module paths and optional package sources. Its descriptor
+distinguishes the local qualifier from the imported target identity and routes
+the detailed collision and visibility rules to the current source and
+name-resolution specifications.
 The `declarations-aliases` topic projects `TypeDecl` with zero or more
 `TypeVariant` entries, so the published grammar admits a named type declaration
 with no constructors. It also projects typed module `let` declarations and

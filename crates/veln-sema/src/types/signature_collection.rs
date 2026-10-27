@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, HashSet};
 
 use veln_ast::{HandlerDecl, SurfaceModule, UseDecl, Visibility};
 
+use crate::adt::descriptors::AdtDescriptor;
 use crate::adt::registry::AdtRegistry;
 use crate::name_recovery::normal_use_decls;
 use crate::semantic_model::Type;
@@ -13,9 +14,9 @@ use super::effect_call_resolution::push_unique_effect;
 use super::effect_inference::{canonical_user_effect_label, quarantined_public_user_effect_label};
 use super::signatures::{
     CompanionAccessTarget, EffectOperationSignature, EffectSignature,
-    HandlerOperationClauseSignature, HandlerSignature, synthetic_handler_clause_function_name,
+    HandlerOperationClauseSignature, HandlerSignature, synthetic_handler_clause_function_target,
 };
-use super::symbols::imported_use_for_path;
+use super::symbols::imported_use_for_path_in_owner;
 
 use instrumentation::{record_type_canonicalization_visit, record_variant_canonicalization_lookup};
 #[cfg(test)]
@@ -30,11 +31,13 @@ mod ordinary_functions;
 mod refinement_resolution;
 pub(super) use ordinary_functions::ordinary_function_signatures;
 
-pub(crate) fn canonicalize_type_effects(
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn canonicalize_type_effects_in_owner(
     ty: Type,
     uses: &[UseDecl],
     quarantined_uses: &[UseDecl],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     effects: &[EffectSignature],
     adts: &AdtRegistry,
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
@@ -44,6 +47,7 @@ pub(crate) fn canonicalize_type_effects(
         uses,
         quarantined_uses,
         current_module,
+        current_package,
         effects,
         adts,
         companion_effect_access_targets,
@@ -57,6 +61,7 @@ pub(crate) fn canonicalize_type_effects_with_context(
     uses: &[UseDecl],
     quarantined_uses: &[UseDecl],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     effects: &[EffectSignature],
     adts: &AdtRegistry,
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
@@ -66,6 +71,7 @@ pub(crate) fn canonicalize_type_effects_with_context(
         uses,
         quarantined_uses,
         current_module,
+        current_package,
         effects,
         adts,
         companion_effect_access_targets,
@@ -78,6 +84,7 @@ struct TypeCanonicalizer<'a> {
     uses: &'a [UseDecl],
     quarantined_uses: &'a [UseDecl],
     current_module: Option<&'a str>,
+    current_package: Option<&'a str>,
     effects: &'a [EffectSignature],
     adts: &'a AdtRegistry,
     companion_effect_access_targets: &'a BTreeMap<String, CompanionAccessTarget>,
@@ -129,13 +136,21 @@ impl TypeCanonicalizer<'_> {
         let descriptor =
             self.adts
                 .descriptor_for_type_path(&name, args.len(), self.current_module, self.uses);
+        let Some(descriptor) = descriptor else {
+            return self.canonicalize_named_without_descriptor(name, args);
+        };
         if args.is_empty()
-            && let Some(annotation_type) = descriptor
-                .and_then(|descriptor| self.adts.annotation_type_for_descriptor(descriptor))
+            && let Some(annotation_type) = self.adts.annotation_type_for_descriptor(descriptor)
         {
             return annotation_type.clone();
         }
-        if args.is_empty() && descriptor.is_none() {
+        let canonical_name = descriptor.type_name.clone();
+        let args = self.canonicalize_args(args);
+        Type::resolved_named(canonical_name, descriptor.identity(), args)
+    }
+
+    fn canonicalize_named_without_descriptor(&self, name: String, args: Vec<Type>) -> Type {
+        if args.is_empty() {
             if name == "WallTime" {
                 return Type::wall_time();
             }
@@ -143,12 +158,14 @@ impl TypeCanonicalizer<'_> {
                 return Type::source_location();
             }
         }
+        let descriptor = self.quarantined_explicit_descriptor(&name, args.len());
         let Some(canonical_name) = descriptor
             .map(|descriptor| descriptor.type_name.clone())
             .or_else(|| {
                 canonical_type_name_without_descriptor(
                     &name,
                     self.current_module,
+                    self.current_package,
                     self.uses,
                     self.quarantined_uses,
                     args.len(),
@@ -164,6 +181,30 @@ impl TypeCanonicalizer<'_> {
         } else {
             Type::named(canonical_name, args)
         }
+    }
+
+    fn quarantined_explicit_descriptor(
+        &self,
+        name: &str,
+        args_len: usize,
+    ) -> Option<&AdtDescriptor> {
+        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+        let (type_name, module_segments) = segments.split_last()?;
+        let use_decl = imported_use_for_path_in_owner(
+            self.quarantined_uses,
+            module_segments,
+            self.current_module,
+            self.current_package,
+        )?;
+        if !use_decl.has_explicit_alias() {
+            return None;
+        }
+        self.adts.unique_public_descriptor_for_type_in_module(
+            type_name,
+            args_len,
+            use_decl.resolved_target().package.as_deref(),
+            &use_decl.resolved_target().module,
+        )
     }
 
     fn canonicalize_named_variant(&self, name: &str, args: &[Type]) -> Option<Type> {
@@ -340,6 +381,7 @@ impl TypeCanonicalizer<'_> {
                 self.uses,
                 self.quarantined_uses,
                 self.current_module,
+                self.current_package,
                 self.effects,
                 self.companion_effect_access_targets,
             ),
@@ -408,6 +450,7 @@ fn canonical_variant_refinement(
 fn canonical_type_name_without_descriptor(
     name: &str,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[UseDecl],
     quarantined_uses: &[UseDecl],
     args_len: usize,
@@ -419,19 +462,26 @@ fn canonical_type_name_without_descriptor(
     let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
     match segments.as_slice() {
         [_, .., _] => {
-            if imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
-                .is_some()
+            if imported_use_for_path_in_owner(
+                uses,
+                &segments[..segments.len() - 1],
+                current_module,
+                current_package,
+            )
+            .is_some()
             {
                 return Some(name.to_string());
             }
-            let use_decl = imported_use_for_path(
+            let use_decl = imported_use_for_path_in_owner(
                 quarantined_uses,
                 &segments[..segments.len() - 1],
                 current_module,
+                current_package,
             )?;
             adts.descriptor_for_type_path(name, args_len, current_module, quarantined_uses)
                 .filter(|descriptor| {
                     descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
+                        && descriptor.package_name == use_decl.resolved_target().package
                         && descriptor.visibility == Visibility::Public
                 })
                 .map_or_else(
@@ -448,6 +498,7 @@ fn canonical_declared_effects(
     uses: &[UseDecl],
     quarantined_uses: &[UseDecl],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     effects: &[EffectSignature],
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Vec<String> {
@@ -462,6 +513,7 @@ fn canonical_declared_effects(
             &segments,
             uses,
             current_module,
+            current_package,
             effects,
             companion_effect_access_targets,
         )
@@ -470,6 +522,7 @@ fn canonical_declared_effects(
             &segments,
             quarantined_uses,
             current_module,
+            current_package,
             effects,
         )
         .is_some()
@@ -487,15 +540,29 @@ pub(super) fn effect_signatures(module: &SurfaceModule) -> Vec<EffectSignature> 
         .iter()
         .filter_map(|effect| {
             let name = effect.name.clone()?;
-            let qualified_name = if let Some(module_name) = &effect.module_name {
-                format!("{module_name}::{name}")
-            } else {
-                name.clone()
-            };
+            let mut qualified_name = nominal_effect_identity(
+                effect.package_name.as_deref(),
+                effect.module_name.as_deref(),
+                &name,
+            );
+            if effect.package_name.is_none()
+                && effect
+                    .module_name
+                    .as_deref()
+                    .is_some_and(|owner| !owner.starts_with("std::"))
+                && module.effects.iter().any(|other| {
+                    other.name.as_deref() == Some(name.as_str())
+                        && other.module_name == effect.module_name
+                        && other.package_name.is_some()
+                })
+            {
+                qualified_name = format!("workspace::{qualified_name}");
+            }
             Some(EffectSignature {
                 name,
                 qualified_name,
                 module_name: effect.module_name.clone(),
+                package_name: effect.package_name.clone(),
                 visibility: effect.visibility,
                 span: effect.span.clone(),
                 operations: effect
@@ -527,36 +594,31 @@ pub(super) fn canonicalize_effect_signature_types(
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) {
     let uses = normal_use_decls(module);
-    let quarantined_uses = module
-        .uses
-        .iter()
-        .filter(|use_decl| {
-            crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
-        })
-        .cloned()
-        .collect::<Vec<_>>();
+    let quarantined_uses = crate::name_recovery::quarantined_use_decls(module);
     let effect_catalog = effects.to_vec();
     for effect in effects {
         for operation in &mut effect.operations {
             operation.params = std::mem::take(&mut operation.params)
                 .into_iter()
                 .map(|ty| {
-                    canonicalize_type_effects(
+                    canonicalize_type_effects_in_owner(
                         ty,
                         &uses,
                         &quarantined_uses,
                         effect.module_name.as_deref(),
+                        effect.package_name.as_deref(),
                         &effect_catalog,
                         adts,
                         companion_effect_access_targets,
                     )
                 })
                 .collect();
-            operation.return_type = canonicalize_type_effects(
+            operation.return_type = canonicalize_type_effects_in_owner(
                 std::mem::replace(&mut operation.return_type, Type::Unknown),
                 &uses,
                 &quarantined_uses,
                 effect.module_name.as_deref(),
+                effect.package_name.as_deref(),
                 &effect_catalog,
                 adts,
                 companion_effect_access_targets,
@@ -572,14 +634,7 @@ pub(super) fn handler_signatures(
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Vec<HandlerSignature> {
     let uses = normal_use_decls(module);
-    let quarantined_uses = module
-        .uses
-        .iter()
-        .filter(|use_decl| {
-            crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
-        })
-        .cloned()
-        .collect::<Vec<_>>();
+    let quarantined_uses = crate::name_recovery::quarantined_use_decls(module);
     let context = HandlerSignatureContext {
         uses: &uses,
         quarantined_uses: &quarantined_uses,
@@ -609,6 +664,7 @@ impl HandlerSignatureContext<'_> {
             qualified_name: qualified_handler_name(handler.module_name.as_deref(), &name),
             name,
             module_name: handler.module_name.clone(),
+            package_name: handler.package_name.clone(),
             visibility: handler.visibility,
             params: handler
                 .params
@@ -622,11 +678,12 @@ impl HandlerSignatureContext<'_> {
     }
 
     fn canonical_type(&self, ty: Option<&str>, handler: &HandlerDecl) -> Type {
-        canonicalize_type_effects(
+        canonicalize_type_effects_in_owner(
             parse_type_or_unknown(ty),
             self.uses,
             self.quarantined_uses,
             handler.module_name.as_deref(),
+            handler.package_name.as_deref(),
             self.effects,
             self.adts,
             self.companion_effect_access_targets,
@@ -638,6 +695,7 @@ impl HandlerSignatureContext<'_> {
             &handler.effect,
             self.uses,
             handler.module_name.as_deref(),
+            handler.package_name.as_deref(),
             self.effects,
             self.companion_effect_access_targets,
         )
@@ -650,6 +708,7 @@ impl HandlerSignatureContext<'_> {
             self.uses,
             self.quarantined_uses,
             handler.module_name.as_deref(),
+            handler.package_name.as_deref(),
             self.effects,
             self.companion_effect_access_targets,
         )
@@ -667,12 +726,30 @@ fn operation_clause_signatures(handler: &HandlerDecl) -> Vec<HandlerOperationCla
         .filter_map(|clause| {
             Some(HandlerOperationClauseSignature {
                 operation: clause.operation.clone()?,
-                function: synthetic_handler_clause_function_name(
+                target_name: synthetic_handler_clause_function_target(
+                    handler.module_name.as_deref(),
+                    handler.package_name.as_deref(),
                     handler.name.as_deref().unwrap_or("missing"),
                     clause.operation.as_deref().unwrap_or("missing"),
                 ),
-                module_name: handler.module_name.clone(),
             })
         })
         .collect()
+}
+
+fn nominal_effect_identity(package: Option<&str>, module: Option<&str>, name: &str) -> String {
+    match (package, module) {
+        (Some(package), Some(module))
+            if module == package || module.starts_with(&format!("{package}::")) =>
+        {
+            format!("{module}::{name}")
+        }
+        (Some(package), Some(module)) => format!("{package}::{module}::{name}"),
+        (None, Some(module)) if module.starts_with("std::") => {
+            format!("workspace::{module}::{name}")
+        }
+        (None, Some(module)) => format!("{module}::{name}"),
+        (Some(package), None) => format!("{package}::{name}"),
+        (None, None) => name.to_string(),
+    }
 }

@@ -13,7 +13,7 @@ use crate::{
     PublicAliasKind, RecordField, RecordFieldPath, SatisfyClause, SchemaDecl, SchemaField,
     SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SyntaxItem, SyntaxTree,
     Token, TokenKind, TypeDecl, TypePathSegments, TypeVariantDecl, TypeVariantField,
-    TypeVariantFieldDelimiter, UseDecl, UsePackage, VariantRefinementAlternative,
+    TypeVariantFieldDelimiter, UseAlias, UseDecl, UsePackage, VariantRefinementAlternative,
     VariantRefinementType, VariantRefinementTypeArgument, Visibility, lex,
 };
 
@@ -218,14 +218,15 @@ pub struct ParseDiagnostic {
 
 impl ParseDiagnostic {
     pub fn allows_semantic_analysis(&self) -> bool {
-        self.id == "parse.variant_refinement_type"
-            && self.message == LOWERCASE_VARIANT_REFINEMENT_MESSAGE
-            && self
-                .unexpected
-                .text
-                .as_bytes()
-                .first()
-                .is_some_and(u8::is_ascii_lowercase)
+        (self.parser_context == "use_declaration")
+            || (self.id == "parse.variant_refinement_type"
+                && self.message == LOWERCASE_VARIANT_REFINEMENT_MESSAGE
+                && self
+                    .unexpected
+                    .text
+                    .as_bytes()
+                    .first()
+                    .is_some_and(u8::is_ascii_lowercase))
     }
 }
 

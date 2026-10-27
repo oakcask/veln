@@ -19,7 +19,7 @@ use super::{
     load_embedded_standard_package_from, load_project_sources, load_surface_module,
     load_surface_modules_with_captured_dependencies, reachability_counters, reachable_entry_module,
     reachable_entry_module_with_cache, reachable_entry_module_with_standard_cache,
-    validate_manifest_exports, validate_reserved_standard_package,
+    reachable_function_count, validate_manifest_exports, validate_reserved_standard_package,
 };
 
 fn lower(text: &str) -> SurfaceModule {
@@ -135,6 +135,7 @@ fn detail_number(diagnostic: &veln_diagnostics::Diagnostic, key: &str) -> Option
 mod callable_reachability;
 mod companion_visibility;
 mod contracts_and_imports;
+mod explicit_import_reachability;
 mod external_dependencies;
 mod handler_recovery;
 mod manifest_exports;

@@ -1,0 +1,8 @@
+main.veln:1:20: error[parse.expected_newline]: expected a newline after import declaration
+main.veln:1:5: error[name.invalid_case]: module name `Missing` must start with an ASCII lowercase letter
+main.veln:1:16: error[name.invalid_case]: module name `HTTP` must start with an ASCII lowercase letter
+main.veln:3:13: error[name.duplicate]: duplicate import alias name `shared`
+  note: main.veln:2:14: First import alias with this name is here.
+main.veln:4:14: error[name.reserved]: import alias `prelude` conflicts with the standard prelude
+  note: Choose a non-conflicting import alias.
+main.veln:8:2: error[name.unresolved]: unresolved call_target `missing::entry`

@@ -13,6 +13,7 @@ pub(crate) struct PrivateCallSiteConstraintContext<'a> {
 
 pub(crate) struct PrivateCallSiteExprContext<'a, 'b> {
     pub(crate) current_module: Option<&'b str>,
+    pub(crate) current_package: Option<&'b str>,
     pub(crate) caller_key: Option<&'b FunctionKey>,
     pub(crate) bindings: &'b mut PrivateBindings,
     pub(crate) constraints: &'b mut PrivateCallSiteConstraintContext<'a>,
@@ -26,10 +27,14 @@ pub(crate) fn collect_private_call_site_constraints(
     private_inference_counters::record_call_site_scan();
 
     let current_module = function.module_name.as_deref();
-    let caller_key = function
-        .name
-        .as_ref()
-        .map(|name| (function.module_name.clone(), name.clone()));
+    let current_package = function.package_name.as_deref();
+    let caller_key = function.name.as_ref().map(|name| {
+        (
+            function.package_name.clone(),
+            function.module_name.clone(),
+            name.clone(),
+        )
+    });
     let mut bindings = private_function_body_bindings(function, context.signatures_by_path);
     let declared_return = function.return_type.as_deref().map_or_else(
         || {
@@ -46,6 +51,7 @@ pub(crate) fn collect_private_call_site_constraints(
         &function.body,
         declared_return.as_ref(),
         current_module,
+        current_package,
         caller_key.as_ref(),
         &mut bindings,
         context,
@@ -56,6 +62,7 @@ fn collect_private_call_site_body_constraints(
     body: &[BodyLine],
     tail_expected: Option<&Type>,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     caller_key: Option<&FunctionKey>,
     bindings: &mut PrivateBindings,
     context: &mut PrivateCallSiteConstraintContext<'_>,
@@ -76,6 +83,7 @@ fn collect_private_call_site_body_constraints(
                     annotation_type.as_ref(),
                     &mut PrivateCallSiteExprContext {
                         current_module,
+                        current_package,
                         caller_key,
                         bindings,
                         constraints: context,
@@ -87,6 +95,7 @@ fn collect_private_call_site_body_constraints(
                         private_same_module_call_target(
                             expr,
                             current_module,
+                            current_package,
                             context.function_by_path,
                         )
                     })
@@ -96,6 +105,7 @@ fn collect_private_call_site_body_constraints(
                         expr,
                         None,
                         current_module,
+                        current_package,
                         context.uses,
                         bindings,
                         context.returns_by_path,
@@ -111,6 +121,7 @@ fn collect_private_call_site_body_constraints(
                     expected,
                     &mut PrivateCallSiteExprContext {
                         current_module,
+                        current_package,
                         caller_key,
                         bindings,
                         constraints: context,
@@ -124,6 +135,7 @@ fn collect_private_call_site_body_constraints(
                     body,
                     Some(&Type::unit()),
                     current_module,
+                    current_package,
                     caller_key,
                     bindings,
                     context,
@@ -165,6 +177,7 @@ pub(crate) fn collect_private_call_site_expr_constraints(
                 body,
                 expected,
                 context.current_module,
+                context.current_package,
                 context.caller_key,
                 context.bindings,
                 context.constraints,
@@ -372,6 +385,7 @@ pub(crate) fn collect_private_call_site_call_constraints(
     let Some(target_key) = private_same_module_call_target(
         callee,
         context.current_module,
+        context.current_package,
         context.constraints.function_by_path,
     ) else {
         collect_private_call_site_non_target_call_args(callee, args, expected, context);
@@ -395,6 +409,7 @@ pub(crate) fn collect_private_call_site_call_constraints(
                         arg,
                         None,
                         context.current_module,
+                        context.current_package,
                         context.constraints.uses,
                         context.bindings,
                         context.constraints.returns_by_path,

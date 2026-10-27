@@ -1,0 +1,53 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics"
+length = 1
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 18
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 22
+
+[[json_assert]]
+path = "diagnostics.0.details.occurrence"
+equals = "declaration"
+
+[[json_assert]]
+path = "diagnostics.0.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.0.details.required_initial"
+equals = "ascii_lowercase"
+
+[[json_assert]]
+path = "diagnostics.0.details.observed_initial"
+equals = "ascii_uppercase"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "module name `HTTP` must start with an ASCII lowercase letter"

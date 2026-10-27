@@ -1,0 +1,6 @@
+use api as first from "example/dep"
+use api as second from "example/dep"
+
+pub fn duplicate_case() -> Int
+	1
+end

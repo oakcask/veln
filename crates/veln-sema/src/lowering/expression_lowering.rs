@@ -313,13 +313,21 @@ impl<'a> CoreLowerer<'a> {
                     .map(|binding| binding.ty.clone())
                     .or_else(|| {
                         self.environment
-                            .unqualified_function(name, self.function.module_name.as_deref())
+                            .unqualified_function_in_owner(
+                                name,
+                                self.function.module_name.as_deref(),
+                                self.function.package_name.as_deref(),
+                            )
                             .found()
                             .map(|function| core_type(&function.ty()))
                     }),
                 _ => self
                     .environment
-                    .function_path(segments, self.function.module_name.as_deref())
+                    .function_path_in_owner(
+                        segments,
+                        self.function.module_name.as_deref(),
+                        self.function.package_name.as_deref(),
+                    )
                     .map(|function| core_type(&function.ty())),
             },
             ExprKind::Call { callee, .. } => self
@@ -392,10 +400,11 @@ impl<'a> CoreLowerer<'a> {
             return local;
         }
 
-        match self
-            .environment
-            .unqualified_function(name, self.function.module_name.as_deref())
-        {
+        match self.environment.unqualified_function_in_owner(
+            name,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
             FunctionLookup::Found(function) => self.core_expr(
                 expr,
                 core_type(&function.ty()),
@@ -433,10 +442,11 @@ impl<'a> CoreLowerer<'a> {
     }
 
     pub(super) fn lower_qualified_name(&mut self, expr: &Expr, segments: &[String]) -> CoreExpr {
-        if let Some(function) = self
-            .environment
-            .function_path_for_value(segments, self.function.module_name.as_deref())
-        {
+        if let Some(function) = self.environment.function_path_for_value_in_owner(
+            segments,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
             self.core_expr(
                 expr,
                 core_type(&function.ty()),

@@ -23,6 +23,12 @@ The following behavior is fixed for the implemented slice:
   input. `veln test` can compare adjacent expected stdout and stderr fences.
 - Source paths in diagnostics and JSON are project-relative paths using `/`
   separators.
+- An explicit import alias is a qualified-only local binding. The alias path
+  and the import's full written target path preserve one target package and
+  module identity through semantic analysis, lowering, reachability, and
+  execution. See [source-surface.md](source-surface.md#usage-and-declaration-forms),
+  [name-resolution.md](name-resolution.md#explicit-import-aliases), and
+  [execution.md](execution.md#runtime-readiness-and-host-boundaries).
 - A call-site location from a dependency source exposes the dependency's
   public package identity, its package-local logical module path, and its
   package-relative source path. Equivalent dependency trees expose identical

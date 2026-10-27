@@ -15,7 +15,7 @@ use crate::semantic_model::{Binding, FunctionKey, Type};
 use crate::type_syntax::parse_type_or_unknown;
 use crate::types::record_scoped_binding_count;
 use crate::types::signatures::{FunctionSignature, MatchScrutineePatternInference};
-use crate::types::symbols::imported_use_for_path;
+use crate::types::symbols::imported_use_for_path_in_owner;
 
 mod aliases_and_bindings;
 mod call_inference;
@@ -60,7 +60,11 @@ fn function_ast_map(module: &SurfaceModule) -> FunctionAstMap<'_> {
         .iter()
         .filter_map(|function| {
             Some((
-                (function.module_name.clone(), function.name.clone()?),
+                (
+                    function.package_name.clone(),
+                    function.module_name.clone(),
+                    function.name.clone()?,
+                ),
                 function,
             ))
         })

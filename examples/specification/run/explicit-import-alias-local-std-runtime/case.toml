@@ -1,0 +1,26 @@
+# Compiler/backend integration: a local module whose written path starts with
+# `std` keeps application linkage and remains reachable through both its full
+# written path and explicit alias. The printed sum distinguishes both calls.
+command = ["run", "--json", "main", "main.veln", "std/helper.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals_file = "case-text/json-assert-equals-1.txt"
+
+[[json_assert]]
+path = "error"
+equals = null

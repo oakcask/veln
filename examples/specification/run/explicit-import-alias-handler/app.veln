@@ -1,0 +1,11 @@
+# Imported handler clauses retain private helpers from their defining module.
+use impl as backend
+
+fn computed() -> Int effects [backend::Ask]
+	perform backend::Ask::value()
+end
+
+pub fn main() -> () effects [stdio]
+	let value = handle computed() with backend::answer(41)
+	stdio::println(int_to_string(value))
+end

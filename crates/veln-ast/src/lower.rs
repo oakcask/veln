@@ -92,7 +92,9 @@ impl AstBuilder {
         let uses = tree
             .uses
             .iter()
-            .map(|use_decl| self.lower_use_decl(use_decl, module_name.clone()))
+            .map(|use_decl| {
+                self.lower_use_decl(use_decl, module_name.clone(), package_name.clone())
+            })
             .collect();
         let items = self.lower_items(&tree.items, &module_name, &package_name);
 
@@ -177,12 +179,29 @@ impl AstBuilder {
         }
     }
 
-    fn lower_use_decl(&mut self, use_decl: &SyntaxUse, module_name: Option<String>) -> UseDecl {
+    fn lower_use_decl(
+        &mut self,
+        use_decl: &SyntaxUse,
+        module_name: Option<String>,
+        importing_package: Option<String>,
+    ) -> UseDecl {
         UseDecl {
             node_id: self.alloc(),
             module_name,
+            importing_package,
             name: use_decl.name.clone(),
-            alias: import_alias(&use_decl.name),
+            written_name: use_decl.name.clone(),
+            alias: use_decl.alias.as_ref().map_or_else(
+                || {
+                    if use_decl.recovered {
+                        String::new()
+                    } else {
+                        import_alias(&use_decl.name)
+                    }
+                },
+                |alias| alias.name.clone(),
+            ),
+            alias_span: use_decl.alias.as_ref().map(|alias| alias.span.clone()),
             name_spans: use_decl.name_spans.clone(),
             package: use_decl
                 .package
@@ -193,6 +212,7 @@ impl AstBuilder {
                 .as_ref()
                 .map(|package| package.span.clone()),
             span: use_decl.span.clone(),
+            recovered: use_decl.recovered,
             origin: UseOrigin::Source,
         }
     }
@@ -201,10 +221,12 @@ impl AstBuilder {
         &mut self,
         alias: &SyntaxPublicAlias,
         module_name: Option<String>,
+        package_name: Option<String>,
     ) -> PublicAlias {
         PublicAlias {
             node_id: self.alloc(),
             module_name,
+            package_name,
             kind: match alias.kind {
                 SyntaxPublicAliasKind::Function => PublicAliasKind::Function,
                 SyntaxPublicAliasKind::Type => PublicAliasKind::Type,
@@ -221,10 +243,12 @@ impl AstBuilder {
         &mut self,
         value: &SyntaxModuleValue,
         module_name: Option<String>,
+        package_name: Option<String>,
     ) -> ModuleValueDecl {
         ModuleValueDecl {
             node_id: self.alloc(),
             module_name,
+            package_name,
             visibility: match value.visibility {
                 SyntaxVisibility::Public => Visibility::Public,
                 SyntaxVisibility::Private => Visibility::Private,
@@ -244,10 +268,12 @@ impl AstBuilder {
         &mut self,
         type_decl: &SyntaxTypeDecl,
         module_name: Option<String>,
+        package_name: Option<String>,
     ) -> TypeDecl {
         TypeDecl {
             node_id: self.alloc(),
             module_name,
+            package_name,
             visibility: match type_decl.visibility {
                 SyntaxVisibility::Public => Visibility::Public,
                 SyntaxVisibility::Private => Visibility::Private,
@@ -288,10 +314,12 @@ impl AstBuilder {
         &mut self,
         effect: &SyntaxEffectDecl,
         module_name: Option<String>,
+        package_name: Option<String>,
     ) -> EffectDecl {
         EffectDecl {
             node_id: self.alloc(),
             module_name,
+            package_name,
             visibility: match effect.visibility {
                 SyntaxVisibility::Public => Visibility::Public,
                 SyntaxVisibility::Private => Visibility::Private,
@@ -383,10 +411,12 @@ impl AstBuilder {
         &mut self,
         schema: &SyntaxSchemaDecl,
         module_name: Option<String>,
+        package_name: Option<String>,
     ) -> SchemaDecl {
         SchemaDecl {
             node_id: self.alloc(),
             module_name,
+            package_name,
             visibility: match schema.visibility {
                 SyntaxVisibility::Public => Visibility::Public,
                 SyntaxVisibility::Private => Visibility::Private,

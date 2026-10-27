@@ -1,60 +1,60 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
-use veln_ast::{PublicAlias, UseDecl, Visibility};
+use veln_ast::{PublicAlias, ResolvedImportOwner, UseDecl, Visibility};
 use veln_core::CoreType;
 use veln_source::{SourcePath, SourceSpan};
 
 use crate::semantic_model::Type;
 
 use super::descriptors::{AdtConstructor, AdtDescriptor, AdtVariantDescriptor};
-use super::lookup_validation::{
-    constructor_matches_visible_path, imported_module_path_matches, same_descriptor,
-};
+use super::lookup_validation::{constructor_matches_visible_path, same_descriptor};
 
 mod aliases;
 mod build;
 mod constructors;
 mod lookup_helpers;
+mod visibility;
 
 #[derive(Clone, Debug)]
 pub(crate) struct AdtRegistry {
     descriptors: Vec<AdtDescriptor>,
     variant_declaration_orders: Vec<Arc<VariantDeclarationOrder>>,
     descriptors_by_type_name: HashMap<String, Vec<usize>>,
-    descriptors_by_source_identity: HashMap<(Option<String>, String), Vec<usize>>,
+    descriptors_by_source_identity: HashMap<(Option<String>, Option<String>, String), Vec<usize>>,
     descriptors_by_identity: HashMap<String, Vec<usize>>,
     variants_by_name: HashMap<String, Vec<(usize, usize)>>,
     variants_by_descriptor: HashMap<DescriptorKey, HashMap<String, Option<usize>>>,
     companion_access_targets: BTreeMap<String, String>,
-    annotation_types: BTreeMap<(Option<String>, String), Type>,
+    annotation_types: BTreeMap<(Option<String>, Option<String>, String), Type>,
     type_alias_identities: BTreeSet<DescriptorKey>,
     type_alias_exposure_segments: Vec<Arc<[TypeAliasExposureNode]>>,
     type_alias_exposure_paths: BTreeMap<DescriptorKey, TypeAliasExposurePathRecord>,
     resolved_type_alias_declarations: BTreeSet<TypeAliasDeclarationIdentity>,
     declaration_spans: HashMap<DescriptorKey, SourceSpan>,
     variant_declaration_spans: HashMap<VariantDescriptorKey, SourceSpan>,
-    qualified_import_modules: HashMap<(Option<String>, String), QualifiedImportModules>,
+    qualified_import_modules: HashMap<(ResolvedImportOwner, String), QualifiedImportModules>,
     qualified_import_recovery_modules:
-        HashMap<(Option<String>, String), Vec<QualifiedRecoveryModules>>,
+        HashMap<(ResolvedImportOwner, String), Vec<QualifiedRecoveryModules>>,
     imported_descriptors_by_type: HashMap<(Option<String>, String), Option<usize>>,
     imported_descriptors_by_type_arity: HashMap<(Option<String>, String, usize), Option<usize>>,
     quarantined_type_identities: HashSet<String>,
     source_import_indexes_ready: bool,
+    source_import_count: usize,
     local_descriptor_start: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum QualifiedSourceIdentity {
-    Source((Option<String>, String)),
+    Source((Option<String>, Option<String>, String)),
     Ambiguous,
     CompilerKnown(String),
 }
 
 #[derive(Clone, Debug, Default)]
 struct QualifiedImportModules {
-    exact: BTreeSet<String>,
-    implicit: BTreeSet<String>,
+    exact: BTreeSet<(Option<String>, String)>,
+    implicit: BTreeSet<(Option<String>, String)>,
 }
 
 #[derive(Clone, Debug)]
@@ -69,8 +69,31 @@ struct ImportedDescriptorCandidates {
     exact_arity: HashMap<(Option<String>, String, usize), Option<usize>>,
 }
 
+fn import_owner_for_module(
+    uses: &[UseDecl],
+    current_module: Option<&str>,
+) -> Option<ResolvedImportOwner> {
+    let mut packages = uses
+        .iter()
+        .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
+        .map(|use_decl| use_decl.importing_package.as_deref())
+        .collect::<HashSet<_>>();
+    let package = if packages.remove(&None) {
+        None
+    } else if packages.len() == 1 {
+        packages.into_iter().next().flatten().map(str::to_string)
+    } else {
+        return None;
+    };
+    Some(ResolvedImportOwner {
+        package,
+        module: current_module.map(str::to_string),
+    })
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct TypeAliasDeclarationIdentity {
+    package_name: Option<String>,
     module_name: Option<String>,
     file: SourcePath,
     start: usize,
@@ -142,6 +165,7 @@ impl<'a> Iterator for TypeAliasExposureDeclarations<'a> {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct DescriptorKey {
+    package_name: Option<String>,
     module_name: Option<String>,
     type_name: String,
     nominal_identity: Option<String>,
@@ -157,6 +181,7 @@ struct VariantDescriptorKey {
 impl DescriptorKey {
     fn new(descriptor: &AdtDescriptor) -> Self {
         Self {
+            package_name: descriptor.package_name.clone(),
             module_name: descriptor.module_name.clone(),
             type_name: descriptor.type_name.clone(),
             nominal_identity: descriptor.nominal_identity.clone(),
@@ -178,6 +203,7 @@ impl TypeAliasDeclarationIdentity {
     fn new(alias: &PublicAlias) -> Self {
         let span = alias.span.resolved_or_generated();
         Self {
+            package_name: alias.package_name.clone(),
             module_name: alias.module_name.clone(),
             file: span.file,
             start: span.start.offset,
@@ -243,13 +269,17 @@ impl ConstructorShape {
 impl AdtRegistry {
     pub(crate) fn quarantine_public_source_types(
         &mut self,
-        invalid: &HashSet<(Option<String>, String)>,
+        invalid: &HashSet<(Option<String>, Option<String>, String)>,
     ) {
         let invalid_identities = self
             .descriptors
             .iter()
             .filter(|descriptor| {
-                invalid.contains(&(descriptor.module_name.clone(), descriptor.type_name.clone()))
+                invalid.contains(&(
+                    descriptor.package_name.clone(),
+                    descriptor.module_name.clone(),
+                    descriptor.type_name.clone(),
+                ))
             })
             .map(AdtDescriptor::identity)
             .collect::<HashSet<_>>();
@@ -283,7 +313,7 @@ impl AdtRegistry {
 
     pub(crate) fn quarantine_source_variant_payload_types(
         &mut self,
-        invalid: &HashSet<(Option<String>, String, String)>,
+        invalid: &HashSet<(Option<String>, Option<String>, String, String)>,
     ) -> usize {
         let mut work = 0;
         let mut invalid_identities = HashMap::<String, HashSet<String>>::new();
@@ -292,6 +322,7 @@ impl AdtRegistry {
             for variant in &descriptor.variants {
                 work += 1;
                 if invalid.contains(&(
+                    descriptor.package_name.clone(),
                     descriptor.module_name.clone(),
                     descriptor.type_name.clone(),
                     variant.name.clone(),
@@ -452,22 +483,75 @@ impl AdtRegistry {
         ty: &Type,
         module_name: Option<&str>,
     ) -> Option<&AdtDescriptor> {
-        let (name, args) = match ty {
-            Type::Named { name, args, .. } | Type::VariantRefinement { name, args, .. } => {
-                (name, args)
+        let (name, identity, args) = match ty {
+            Type::Named {
+                name,
+                identity,
+                args,
             }
+            | Type::VariantRefinement {
+                name,
+                identity,
+                args,
+                ..
+            } => (name, identity, args),
             _ => return None,
         };
+        if identity != name
+            && let Some(descriptor) = self
+                .descriptors_by_identity
+                .get(identity)
+                .into_iter()
+                .flatten()
+                .rev()
+                .map(|index| self.descriptor_lookup_candidate(*index))
+                .find(|descriptor| descriptor.type_parameters.len() == args.len())
+        {
+            return Some(descriptor);
+        }
         if name.contains("::") {
             return None;
         }
-        self.descriptors_by_source_identity
-            .get(&(module_name.map(str::to_string), name.clone()))
+        let indices = self
+            .descriptors_by_source_identity
+            .iter()
+            .filter(|((_, candidate_module, candidate_name), _)| {
+                candidate_module.as_deref() == module_name && candidate_name == name
+            })
+            .flat_map(|(_, indices)| indices)
+            .copied()
+            .collect::<Vec<_>>();
+        indices
+            .into_iter()
+            .rev()
+            .map(|index| self.descriptor_lookup_candidate(index))
+            .find(|descriptor| descriptor.type_parameters.len() == args.len())
+    }
+
+    pub(crate) fn unique_public_descriptor_for_type_in_module(
+        &self,
+        name: &str,
+        args_len: usize,
+        package_name: Option<&str>,
+        module_name: &str,
+    ) -> Option<&AdtDescriptor> {
+        let mut descriptors = self
+            .descriptors_by_source_identity
+            .get(&(
+                package_name.map(str::to_string),
+                Some(module_name.to_string()),
+                name.to_string(),
+            ))
             .into_iter()
             .flatten()
             .rev()
             .map(|index| self.descriptor_lookup_candidate(*index))
-            .find(|descriptor| descriptor.type_parameters.len() == args.len())
+            .filter(|descriptor| {
+                descriptor.type_parameters.len() == args_len
+                    && descriptor.visibility == Visibility::Public
+            });
+        let descriptor = descriptors.next()?;
+        descriptors.next().is_none().then_some(descriptor)
     }
 
     pub(crate) fn descriptor_for_type_prefer_module(
@@ -520,9 +604,11 @@ impl AdtRegistry {
         uses: &[UseDecl],
     ) -> Option<&AdtDescriptor> {
         let descriptor = self.descriptor_for_type_path(name, args_len, current_module, uses)?;
-        let indices = self
-            .descriptors_by_source_identity
-            .get(&(descriptor.module_name.clone(), descriptor.type_name.clone()))?;
+        let indices = self.descriptors_by_source_identity.get(&(
+            descriptor.package_name.clone(),
+            descriptor.module_name.clone(),
+            descriptor.type_name.clone(),
+        ))?;
         let selected_index = indices
             .iter()
             .copied()
@@ -579,27 +665,6 @@ impl AdtRegistry {
 
 mod qualified_lookup;
 
-fn imported_descriptor_path_matches(
-    descriptor: &AdtDescriptor,
-    segments: &[String],
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-) -> bool {
-    let Some(type_index) = descriptor_type_segment_index(descriptor, segments) else {
-        return false;
-    };
-    imported_module_path_matches(descriptor, &segments[..type_index], uses, current_module)
-}
-
-fn descriptor_type_segment_index(descriptor: &AdtDescriptor, segments: &[String]) -> Option<usize> {
-    segments
-        .iter()
-        .enumerate()
-        .rev()
-        .find_map(|(index, segment)| (segment == &descriptor.type_name).then_some(index))
-        .filter(|index| *index > 0)
-}
-
 #[cfg(test)]
 pub(in crate::adt) mod type_alias_resolution_counters {
     use std::cell::Cell;
@@ -631,8 +696,12 @@ pub(in crate::adt) mod type_alias_resolution_counters {
     }
 }
 
-fn descriptor_identity(descriptor: &AdtDescriptor) -> (Option<String>, String) {
-    (descriptor.module_name.clone(), descriptor.type_name.clone())
+fn descriptor_identity(descriptor: &AdtDescriptor) -> (Option<String>, Option<String>, String) {
+    (
+        descriptor.package_name.clone(),
+        descriptor.module_name.clone(),
+        descriptor.type_name.clone(),
+    )
 }
 
 #[cfg(test)]

@@ -207,6 +207,145 @@ fn explicit_schema_decode_expression_resolves_qualified_public_schema_path() {
 }
 
 #[test]
+fn explicit_import_alias_schema_operations_keep_selected_target_identity() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use transport::wire as conduit\n",
+            "pub fn decode_packet(view: ByteView, base: ByteOffset) -> DecodeStep<{wire_length: Int}>\n",
+            "  decode conduit::PacketWire from view at base\n",
+            "end\n",
+            "pub fn encode_packet(packet: {wire_length: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  encode conduit::PacketWire from packet\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod transport::wire\n",
+            "pub schema PacketWire\n",
+            "  format binary\n",
+            "  wire_length: UInt8\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: wire.types,
+        schemas: wire.schemas,
+        module_values: Vec::new(),
+        functions: [app.functions, wire.functions].concat(),
+        invalid_names: Vec::new(),
+    };
+
+    assert_eq!(
+        crate::name_recovery::normal_imported_use_for_path(
+            &module,
+            &["conduit".to_string()],
+            Some("app")
+        )
+        .map(|use_decl| use_decl.name.as_str()),
+        Some("transport::wire")
+    );
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    assert_named_schema_boundary(
+        &lowered,
+        "decode_packet",
+        "PacketWire",
+        ExpectedSchemaBoundary::DecodeStep,
+    );
+    assert_named_schema_boundary(
+        &lowered,
+        "encode_packet",
+        "PacketWire",
+        ExpectedSchemaBoundary::Encode,
+    );
+}
+
+#[test]
+fn schema_import_selection_uses_the_containing_schema_owner_package() {
+    fn lower(source: SourceFile, package: Option<&str>, module: &str) -> SurfaceModule {
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module_span = source.span(veln_source::TextRange::new(0, 0));
+        match package {
+            Some(package) => veln_ast::lower_surface_ast_with_package_module_identity(
+                &parsed.tree,
+                package.to_string(),
+                module.to_string(),
+                module_span,
+            ),
+            None => veln_ast::lower_surface_ast_with_module_identity(
+                &parsed.tree,
+                module.to_string(),
+                module_span,
+            ),
+        }
+    }
+
+    let app_owner = lower(
+        SourceFile::new(
+            "app/shared.veln",
+            "use std::payload as item\nschema Holder\n  body: item::Payload\nend\n",
+        ),
+        None,
+        "std::shared",
+    );
+    let std_owner = lower(
+        SourceFile::new(
+            "std/shared.veln",
+            "use payload as item\nschema Holder\n  body: item::Payload\nend\n",
+        ),
+        Some("std"),
+        "shared",
+    );
+    let app_target = lower(
+        SourceFile::new(
+            "app/payload.veln",
+            "pub schema Payload\n  app_value: Int\nend\n",
+        ),
+        None,
+        "std::payload",
+    );
+    let std_target = lower(
+        SourceFile::new(
+            "std/payload.veln",
+            "pub schema Payload\n  std_value: Int\nend\n",
+        ),
+        Some("std"),
+        "payload",
+    );
+
+    let mut module = app_owner;
+    for source in [std_owner, app_target, std_target] {
+        module.uses.extend(source.uses);
+        module.schemas.extend(source.schemas);
+    }
+    let standard_holder = module
+        .schemas
+        .iter()
+        .find(|schema| {
+            schema.name.as_deref() == Some("Holder")
+                && schema.package_name.as_deref() == Some("std")
+        })
+        .expect("standard holder schema");
+    let selected = schema_field_target(&module, standard_holder, "item::Payload")
+        .expect("standard owner import should select a schema");
+
+    assert_eq!(selected.package_name.as_deref(), Some("std"));
+    assert_eq!(selected.fields[0].name, "std_value");
+}
+
+#[test]
 fn explicit_schema_operations_resolve_public_schema_alias_to_target_schema() {
     let app_source = SourceFile::new(
         "app.veln",

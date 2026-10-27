@@ -1,0 +1,7 @@
+use api as wire from "example/dep"
+
+## Alias reference {@schema wire::Packet}.
+## Written-path reference {@schema api::Packet}.
+pub fn documented() -> Int
+	1
+end

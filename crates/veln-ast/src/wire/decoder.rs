@@ -233,6 +233,7 @@ impl<'a> Reader<'a> {
         Ok(ModuleValueDecl {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
+            package_name: self.option(Self::string)?,
             visibility: self.visibility()?,
             name: self.option(Self::string)?,
             name_span: self.option(Self::span)?,
@@ -285,12 +286,16 @@ impl<'a> Reader<'a> {
         Ok(UseDecl {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
+            importing_package: self.option(Self::string)?,
             name: self.string()?,
+            written_name: self.string()?,
             alias: self.string()?,
+            alias_span: self.option(Self::span)?,
             name_spans: self.vec(Self::span)?,
             package: self.option(Self::string)?,
             package_span: self.option(Self::span)?,
             span: self.span()?,
+            recovered: self.bool()?,
             origin: self.use_origin()?,
         })
     }
@@ -307,6 +312,7 @@ impl<'a> Reader<'a> {
         Ok(PublicAlias {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
+            package_name: self.option(Self::string)?,
             kind: self.public_alias_kind()?,
             name: self.option(Self::string)?,
             target: self.vec(Self::string)?,
@@ -336,6 +342,7 @@ impl<'a> Reader<'a> {
         Ok(EffectDecl {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
+            package_name: self.option(Self::string)?,
             visibility: self.visibility()?,
             name: self.option(Self::string)?,
             operations: self.vec(Self::effect_operation)?,
@@ -388,6 +395,7 @@ impl<'a> Reader<'a> {
         Ok(TypeDecl {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
+            package_name: self.option(Self::string)?,
             visibility: self.visibility()?,
             name: self.option(Self::string)?,
             params: self.vec(Self::string)?,
@@ -422,6 +430,7 @@ impl<'a> Reader<'a> {
         Ok(SchemaDecl {
             node_id: self.node_id()?,
             module_name: self.option(Self::string)?,
+            package_name: self.option(Self::string)?,
             visibility: self.visibility()?,
             name: self.option(Self::string)?,
             format: self.option(Self::schema_format)?,

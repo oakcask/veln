@@ -83,21 +83,32 @@ sibling annotation, as specified by [Types](types.md#compatibility-and-limits)
 and the
 [diagnostic contract](diagnostics-json.md#diagnostic-families). The effect name
 is owned by its module. Same-module declarations may use the short name in
-`effects [...]` lists and `perform` expressions.
-Imported declarations use the written module path, such as
-`effects [transport::DuplexStream]` and
-`perform transport::DuplexStream::read_chunk()`. Function type annotations use
-the same effect-list spelling. Unknown nominal effects in function type
-annotations are rejected at the effect path inside the annotation.
+`effects [...]` lists and `perform` expressions. Imported declarations may use
+an exact written module path or an eligible local import qualifier. For
+example, both `transport::DuplexStream` after `use transport` and
+`wire::DuplexStream` after `use transport as wire` retain the
+`std::transport::DuplexStream` identity. An explicitly aliased import supplies
+no bare effect candidate or implicit `transport` qualifier. The
+[name-resolution contract](name-resolution.md#explicit-import-aliases) owns
+exact-path precedence, qualifier collisions, and import quarantine. Function
+type annotations use the same effect-list spelling. Unknown nominal effects in
+function type annotations are rejected at the effect path inside the
+annotation.
 A function type nested in a module `let` annotation receives the same label
 validation. A module value has no effect row binder, so a row tail in that
 annotation reports `effect.row_unbound`; an unknown label reports
 `effect.unknown`.
-Nominal effect paths that use an import with an invalid module path segment
-follow the quarantine boundary specified by [name-resolution.md](name-resolution.md):
-one visible public effect export can suppress the derivative
-`effect.unknown` diagnostic, but private targets, wrong-kind targets, missing
-targets, and missing modules remain independently reported.
+Nominal labels in declaration effect lists and function type annotations
+resolve through the imports owned by that declaration's package and module.
+Same-spelled modules in different packages may therefore bind the same local
+qualifier to distinct nominal effects. Parameter, result, and local-binding
+annotations retain the selected package identity through checking and
+lowering, independent of source loading order.
+Nominal effect paths that use an import with an invalid module path segment or
+invalid explicit alias follow that name-resolution quarantine boundary. One
+visible public effect export can suppress the derivative `effect.unknown`
+diagnostic, but private targets, wrong-kind targets, missing targets, and
+missing modules remain independently reported.
 
 `perform E::operation(arguments)` resolves `E` as a nominal effect and resolves
 `operation` in that effect declaration. The checker validates the argument
@@ -135,11 +146,21 @@ must return the operation result type and must not retain the handled effect.
 A public handler must declare every other effect retained by its clauses. A
 private handler infers retained effects from its clauses. Declared handler
 effect lists are canonical, unordered, and duplicate-free.
-Handler paths that use an import with an invalid module path segment follow
-the same name-resolution quarantine boundary: one visible public handler export
-can suppress the derivative `handler.unknown` diagnostic, but private targets,
-wrong-kind targets, missing targets, and missing modules remain independently
-reported.
+Handler paths may use the same exact written paths and explicit import
+qualifiers as effect paths. A selected imported handler keeps its declaration
+module as the lookup scope for private functions called by its operation
+clauses; the local qualifier does not become runtime identity. An import selects
+effects and handlers from both the target module and target package. An effect
+or handler in a same-spelled module owned by another package is not a candidate
+and cannot replace a missing declaration in the selected package. Effect
+inference, handler discharge, and private handler dependency inference retain
+that selected package identity; a namesake effect or private dependency from
+another package does not enter the inferred effect set. A path that
+uses an import with an invalid module path segment or invalid explicit alias
+follows the same name-resolution quarantine boundary: one visible public
+handler export can suppress the derivative `handler.unknown` diagnostic, but
+private targets, wrong-kind targets, missing targets, and missing modules remain
+independently reported.
 
 The checker evaluates the effect set of a handle expression as the union of
 context argument effects, body effects with the handled nominal effect removed,
@@ -667,3 +688,7 @@ sections.
   `examples/specification/check/transport-wall-clock-name-shadowing/`.
 - Qualified, aliased, and user-effect wall-clock type positions:
   `examples/specification/check/transport-wall-clock-type-resolution/`.
+- Explicit-import effect and handler identity:
+  `examples/specification/check/explicit-import-alias-carriers/`,
+  `examples/specification/run/explicit-import-alias-handler/`, and
+  `examples/specification/run/explicit-import-alias-handler-identity/`.

@@ -509,6 +509,81 @@ fn run_entry_does_not_reach_qualified_call_without_import_alias() {
 }
 
 #[test]
+fn duplicate_exact_import_path_does_not_reach_explicit_alias_fallback() {
+    for imports in [
+        [
+            "use foo as first\n",
+            "use foo as second\n",
+            "use bar as foo\n",
+        ],
+        [
+            "use bar as foo\n",
+            "use foo as second\n",
+            "use foo as first\n",
+        ],
+    ] {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    format!(
+                        "{}{}{}pub fn main() -> Int\n  foo::hit()\nend\n",
+                        imports[0], imports[1], imports[2]
+                    ),
+                ),
+                SourceFile::new("foo.veln", "pub fn hit() -> Int\n  1\nend\n"),
+                SourceFile::new("bar.veln", "pub fn hit() -> Int\n  missing()\nend\n"),
+            ],
+            manifest: None,
+        };
+        let (module, _) = load_surface_module(&project);
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert_eq!(
+            reachable_function_names(&reachable),
+            vec![("main", "main")],
+            "imports={imports:?}"
+        );
+    }
+}
+
+#[test]
+fn mixed_invalid_and_valid_aliases_do_not_reach_the_repeated_target_in_either_order() {
+    for imports in [
+        "use net::target as HTTP\nuse net::target as wire\n",
+        "use net::target as wire\nuse net::target as HTTP\n",
+    ] {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    format!(
+                        "{imports}use net::other as control\n\
+                         pub fn main() -> Int\n\
+                           HTTP::hit() + wire::hit() + net::target::hit() + hit() + net::other::hit()\n\
+                         end\n"
+                    ),
+                ),
+                SourceFile::new("net/target.veln", "pub fn hit() -> Int\n  1\nend\n"),
+                SourceFile::new("net/other.veln", "pub fn hit() -> Int\n  2\nend\n"),
+            ],
+            manifest: None,
+        };
+        let (module, _) = load_surface_module(&project);
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert_eq!(
+            reachable_function_names(&reachable),
+            vec![("main", "main"), ("net::other", "hit")],
+            "imports={imports:?}"
+        );
+    }
+}
+
+#[test]
 fn contract_reachability_ignores_function_names_inside_strings() {
     let module = lower(concat!(
         "fn positive(value: Int) -> Bool\n",

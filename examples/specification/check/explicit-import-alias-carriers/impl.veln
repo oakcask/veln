@@ -1,0 +1,24 @@
+pub fn double(value: Int) -> Int
+	value + value
+end
+
+pub type Shape
+	pub Circle(Int)
+end
+
+pub schema Wire
+	format binary
+	value: UInt8
+end
+
+pub effect Ask
+	value() -> Int
+end
+
+fn provide(value: Int) -> Int
+	value
+end
+
+pub handler answer(offset: Int) for Ask
+	value() => provide(offset)
+end

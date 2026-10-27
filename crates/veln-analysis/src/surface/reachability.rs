@@ -20,12 +20,29 @@ mod targets;
 use call_resolution::*;
 use callee_collection::*;
 pub(crate) use index::ReachabilityCache;
-use index::{FunctionTargetIndex, ReachabilityIndex, ReachabilityInputs};
+use index::{FunctionTargetIndex, ImportSelectionIndex, ReachabilityIndex, ReachabilityInputs};
 use recovery_index::*;
 use recovery_resolution::*;
 use targets::*;
 
 struct LocalNameBinding(String);
+
+type ImportOwner = veln_ast::ResolvedImportOwner;
+type BlockedImportAliases = HashSet<(ImportOwner, String)>;
+type BlockedExactImportPaths = HashSet<(ImportOwner, String)>;
+
+struct BlockedImports {
+    aliases: BlockedImportAliases,
+    exact_paths: BlockedExactImportPaths,
+}
+
+fn use_decl_key(use_decl: &UseDecl) -> usize {
+    std::ptr::from_ref(use_decl) as usize
+}
+
+fn use_decl_exact_paths(use_decl: &UseDecl) -> Vec<String> {
+    use_decl.exact_paths()
+}
 
 #[cfg(test)]
 pub(crate) fn reachable_entry_module(
@@ -45,6 +62,26 @@ pub(crate) fn reachable_entry_module_with_cache(
 ) -> SurfaceModule {
     let inputs = ReachabilityInputs::combined(module);
     reachable_module_for_inputs(inputs, entry, entry_kind, &cache.function_targets, cache)
+}
+
+#[cfg(test)]
+pub(crate) fn reachable_function_count(
+    module: &SurfaceModule,
+    entry: &str,
+    entry_kind: FunctionKind,
+) -> usize {
+    let inputs = ReachabilityInputs::combined(module);
+    let reachability_index = reachable_function_targets(&inputs);
+    let companion_access_targets = companion_function_access_targets(&inputs);
+    reachable_functions(
+        &inputs,
+        entry,
+        entry_kind,
+        &reachability_index,
+        &companion_access_targets,
+        &ReachabilityCache::default(),
+    )
+    .len()
 }
 
 pub(crate) fn reachable_entry_module_with_standard_cache(
@@ -104,8 +141,10 @@ fn function_target(function: &Function) -> Option<FunctionTarget> {
     Some(FunctionTarget {
         name: name.clone(),
         module_name: function.module_name.clone(),
+        package_name: function.package_name.clone(),
         target_name: name,
         target_module_name: function.module_name.clone(),
+        target_package_name: function.package_name.clone(),
         target_node_id: function.node_id,
         visibility: function.visibility,
         shape: function_shape(function),
@@ -146,11 +185,14 @@ fn reachable_functions(
         kind: entry_kind,
         name: entry.to_string(),
         module_name: None,
+        package_name: None,
         node_id: None,
         alias: None,
     }];
 
     while let Some(key) = stack.pop() {
+        #[cfg(test)]
+        reachability_counters::record_callee_membership();
         if !reachable.insert(key.clone()) {
             continue;
         }
@@ -184,6 +226,8 @@ fn reachable_functions(
             callees
         });
         for callee in callees {
+            #[cfg(test)]
+            reachability_counters::record_callee_membership();
             if !reachable.contains(&callee) {
                 stack.push(callee);
             }
@@ -204,15 +248,19 @@ fn module_with_reachable_functions(
         &functions,
         &reachable_invalid_name_spans,
     ));
+    let uses = inputs.cloned_uses();
     let invalid_names_by_declaration = inputs.cloned_declarations(|module| &module.invalid_names);
     let invalid_names = inputs
         .cloned_declarations(|module| &module.invalid_names)
         .into_iter()
-        .filter(|invalid| invalid_name_is_reachable(invalid, &reachable_invalid_name_spans))
+        .filter(|invalid| {
+            invalid_name_is_reachable(invalid, &reachable_invalid_name_spans)
+                || inputs.corrected_duplicate_import_contains(&invalid.span)
+        })
         .collect();
     SurfaceModule {
         module: inputs.module_header(),
-        uses: inputs.cloned_declarations(|module| &module.uses),
+        uses,
         aliases: inputs
             .cloned_declarations(|module| &module.aliases)
             .into_iter()
@@ -234,7 +282,7 @@ fn module_with_reachable_functions(
             .filter(|handler| {
                 reachable_invalid_name_spans
                     .iter()
-                    .any(|span| span.is_declaration(&handler.span))
+                    .any(|span| span.is_handler_declaration(handler))
             })
             .collect(),
         types: inputs.cloned_declarations(|module| &module.types),
@@ -254,6 +302,7 @@ fn alias_is_needed_for_reachable_module(
             reachable_aliases.contains(&ReachableFunctionAlias {
                 name: name.clone(),
                 module_name: alias.module_name.clone(),
+                package_name: alias.package_name.clone(),
                 node_id: alias.node_id,
             })
         })
@@ -292,7 +341,10 @@ fn invalid_name_is_reachable(
             .any(|reachable| reachable.is_declaration(span));
     }
     reachable_spans.iter().any(|reachable| match reachable {
-        ReachableInvalidNameSpan::Declaration(span) => span_contains(span, &invalid.span),
+        ReachableInvalidNameSpan::Declaration(span)
+        | ReachableInvalidNameSpan::HandlerDeclaration { span, .. } => {
+            span_contains(span, &invalid.span)
+        }
         ReachableInvalidNameSpan::Name(span) => span == &invalid.span,
     })
 }
@@ -328,24 +380,28 @@ fn materialize_reachable_functions(
                     kind: function.kind,
                     name: name.clone(),
                     module_name: None,
+                    package_name: None,
                     node_id: None,
                     alias: None,
                 }) || reachable.contains(&ReachableFunction {
                     kind: function.kind,
                     name: name.clone(),
                     module_name: function.module_name.clone(),
+                    package_name: function.package_name.clone(),
                     node_id: None,
                     alias: None,
                 }) || reachable.contains(&ReachableFunction {
                     kind: function.kind,
                     name: name.clone(),
                     module_name: function.module_name.clone(),
+                    package_name: function.package_name.clone(),
                     node_id: Some(function.node_id),
                     alias: None,
                 }) || reachable.iter().any(|reachable| {
                     reachable.kind == function.kind
                         && reachable.name == *name
                         && reachable.module_name == function.module_name
+                        && reachable.package_name == function.package_name
                         && reachable.node_id == Some(function.node_id)
                 })
             })
@@ -430,6 +486,8 @@ pub(crate) mod reachability_counters {
         static RECOVERY_SELECTOR_CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
         static CALLEE_CONTEXT_PREPARATIONS: Cell<usize> = const { Cell::new(0) };
         static INVALID_IMPORT_CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
+        static IMPORT_SELECTION_WORK: Cell<usize> = const { Cell::new(0) };
+        static CALLEE_MEMBERSHIP_WORK: Cell<usize> = const { Cell::new(0) };
     }
 
     pub(crate) fn reset() {
@@ -439,6 +497,8 @@ pub(crate) mod reachability_counters {
         RECOVERY_SELECTOR_CANDIDATE_SCANS.set(0);
         CALLEE_CONTEXT_PREPARATIONS.set(0);
         INVALID_IMPORT_CANDIDATE_SCANS.set(0);
+        IMPORT_SELECTION_WORK.set(0);
+        CALLEE_MEMBERSHIP_WORK.set(0);
     }
 
     pub(crate) fn record_function_lookup_scan() {
@@ -465,12 +525,48 @@ pub(crate) mod reachability_counters {
         INVALID_IMPORT_CANDIDATE_SCANS.set(INVALID_IMPORT_CANDIDATE_SCANS.get() + 1);
     }
 
+    pub(crate) fn record_import_selection_index_build() {
+        IMPORT_SELECTION_WORK.set(IMPORT_SELECTION_WORK.get() + 1);
+    }
+
+    pub(crate) fn record_import_selection_source_visit() {
+        IMPORT_SELECTION_WORK.set(IMPORT_SELECTION_WORK.get() + 1);
+    }
+
+    pub(crate) fn record_import_selection_exact_entry() {
+        IMPORT_SELECTION_WORK.set(IMPORT_SELECTION_WORK.get() + 1);
+    }
+
+    pub(crate) fn record_import_selection_qualifier_entry() {
+        IMPORT_SELECTION_WORK.set(IMPORT_SELECTION_WORK.get() + 1);
+    }
+
+    pub(crate) fn record_import_selection_lookup(_recovery: bool) {
+        IMPORT_SELECTION_WORK.set(IMPORT_SELECTION_WORK.get() + 1);
+    }
+
+    pub(crate) fn record_import_selection_probe() {
+        IMPORT_SELECTION_WORK.set(IMPORT_SELECTION_WORK.get() + 1);
+    }
+
     pub(crate) fn callee_context_preparations() -> usize {
         CALLEE_CONTEXT_PREPARATIONS.get()
     }
 
     pub(crate) fn invalid_import_candidate_scans() -> usize {
         INVALID_IMPORT_CANDIDATE_SCANS.get()
+    }
+
+    pub(crate) fn import_selection_work() -> usize {
+        IMPORT_SELECTION_WORK.get()
+    }
+
+    pub(crate) fn record_callee_membership() {
+        CALLEE_MEMBERSHIP_WORK.set(CALLEE_MEMBERSHIP_WORK.get() + 1);
+    }
+
+    pub(crate) fn callee_membership_work() -> usize {
+        CALLEE_MEMBERSHIP_WORK.get()
     }
 
     pub(crate) fn snapshot() -> (usize, usize, usize, usize) {

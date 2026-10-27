@@ -83,7 +83,12 @@ fn check_admitted_name(
     {
         return;
     }
-    if known_function(environment, segments, current_module) {
+    if known_function(
+        environment,
+        segments,
+        current_module,
+        declaration.package_name.as_deref(),
+    ) {
         diagnostics.push(unsupported_diagnostic(expr, declaration));
     }
 }
@@ -124,6 +129,7 @@ fn check_admitted_call(
                 scope.environment,
                 segments,
                 scope.declaration.module_name.as_deref(),
+                scope.declaration.package_name.as_deref(),
             );
             if known_module_value || known_function_call {
                 diagnostics.push(unsupported_diagnostic(expr, scope.declaration));
@@ -343,14 +349,15 @@ fn known_function(
     environment: &TypeEnvironment,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> bool {
     match segments {
         [name] => !matches!(
-            environment.unqualified_function(name, current_module),
+            environment.unqualified_function_in_owner(name, current_module, current_package),
             crate::types::FunctionLookup::Missing
         ),
         _ => environment
-            .function_path_for_value(segments, current_module)
+            .function_path_for_value_in_owner(segments, current_module, current_package)
             .is_some(),
     }
 }

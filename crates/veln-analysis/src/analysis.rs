@@ -4,14 +4,13 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use veln_ast::{FunctionKind, SurfaceModule};
+use veln_ast::{Function, FunctionKind, SurfaceModule};
 use veln_diagnostics::Diagnostic;
 use veln_ir::TypedProgram;
 use veln_project::Project;
 use veln_sema::{
     LoweredSurfaceModule, ReusableStandardEnvironment,
     check_project_surface_module_with_standard_modules_environment,
-    lower_project_reachable_surface_modules_with_standard_environment,
     try_prepare_current_reusable_standard_surface_module_environment,
     validate_standard_symbol_registry_diagnostic,
 };
@@ -117,6 +116,7 @@ pub struct ProjectAnalysis {
 pub struct ReachableEntryAnalysis {
     pub module: SurfaceModule,
     pub lowered: LoweredSurfaceModule,
+    pub entry_target: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -360,12 +360,7 @@ impl ProjectAnalysis {
         self.module
             .functions
             .iter()
-            .all(|function| {
-                function
-                    .module_name
-                    .as_deref()
-                    .is_some_and(|module| module.starts_with("std::"))
-            })
+            .all(|function| function.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME))
             .then_some(self.checked.ir.as_ref())
             .flatten()
     }
@@ -403,10 +398,34 @@ impl ProjectAnalysis {
         self.lower_reachable_entry_with_timing(entry, entry_kind).0
     }
 
+    pub fn lower_reachable_function(&self, entry: &Function) -> ReachableEntryAnalysis {
+        self.lower_reachable_function_with_timing(entry).0
+    }
+
+    pub fn lower_reachable_function_with_timing(
+        &self,
+        entry: &Function,
+    ) -> (ReachableEntryAnalysis, AnalysisTiming) {
+        let name = entry.name.as_deref().unwrap_or_default();
+        self.lower_reachable_entry_selected_with_timing(name, entry.kind, Some(entry))
+    }
+
     pub fn lower_reachable_entry_with_timing(
         &self,
         entry: &str,
         entry_kind: FunctionKind,
+    ) -> (ReachableEntryAnalysis, AnalysisTiming) {
+        let selected_function = self.module.functions.iter().find(|function| {
+            function.kind == entry_kind && function.name.as_deref() == Some(entry)
+        });
+        self.lower_reachable_entry_selected_with_timing(entry, entry_kind, selected_function)
+    }
+
+    fn lower_reachable_entry_selected_with_timing(
+        &self,
+        entry: &str,
+        entry_kind: FunctionKind,
+        selected_function: Option<&Function>,
     ) -> (ReachableEntryAnalysis, AnalysisTiming) {
         let start = std::time::Instant::now();
         let module = reachable_entry_module_with_standard_cache(
@@ -416,16 +435,25 @@ impl ProjectAnalysis {
             entry_kind,
             &self.reachability_cache,
         );
-        let lowered = match standard_environment_for_modules(&self.selected_standard_module_names) {
-            Ok(standard) => lower_project_reachable_surface_modules_with_standard_environment(
-                &module,
-                &self.selected_standard,
-                &standard.environment,
-            ),
-            Err(diagnostic) => lowered_internal_failure(*diagnostic),
+        let (lowered, entry_target) = match standard_environment_for_modules(
+            &self.selected_standard_module_names,
+        ) {
+            Ok(standard) => {
+                veln_sema::lower_project_reachable_surface_modules_with_standard_environment_and_target(
+                    &module,
+                    &self.selected_standard,
+                    &standard.environment,
+                    selected_function,
+                )
+            }
+            Err(diagnostic) => (lowered_internal_failure(*diagnostic), None),
         };
         (
-            ReachableEntryAnalysis { module, lowered },
+            ReachableEntryAnalysis {
+                module,
+                lowered,
+                entry_target,
+            },
             AnalysisTiming {
                 stage: "reachable_entry_lowering",
                 duration: start.elapsed(),

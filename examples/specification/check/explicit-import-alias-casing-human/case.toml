@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["main.veln:1:18: error[name.invalid_case]: module name `HTTP` must start with an ASCII lowercase letter"]
+
+[stderr]
+format = "empty"

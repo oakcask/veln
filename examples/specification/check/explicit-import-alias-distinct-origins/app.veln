@@ -1,0 +1,14 @@
+use foo as local
+use foo as dependency from "github.com/oakcask/foo"
+
+fn local_value() -> local::State
+	local::Ready(1)
+end
+
+fn dependency_value() -> dependency::State
+	dependency::Ready(2)
+end
+
+fn ambiguous() -> Int
+	foo::value()
+end

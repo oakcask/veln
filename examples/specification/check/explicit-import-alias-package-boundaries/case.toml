@@ -1,0 +1,39 @@
+# Import aliases preserve package export selection and member privacy at the CLI boundary.
+command = ["check", "--json", "app.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[diagnostics]]
+id = "module.unexported_import"
+severity = "error"
+kind = "module"
+message = "external module `private` is not exported by package `github.com/oakcask/foo`"
+
+[diagnostics.span]
+file = "app.veln"
+line = 2
+column = 1
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `dependency::private_value`"
+
+[diagnostics.span]
+file = "app.veln"
+line = 5
+column = 3

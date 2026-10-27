@@ -78,7 +78,11 @@ fn unknown_declared_effect_diagnostic_for(
         return None;
     }
     let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
-    match environment.resolve_user_effect_path(&segments, function.module_name.as_deref()) {
+    match environment.resolve_user_effect_path_in_owner(
+        &segments,
+        function.module_name.as_deref(),
+        function.package_name.as_deref(),
+    ) {
         UserEffectPathResolution::PrivateCompanionTargetMismatch {
             effect: signature,
             access,
@@ -344,9 +348,11 @@ fn collect_unknown_type_effects(
                     continue;
                 }
                 let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
-                match environment
-                    .resolve_user_effect_path(&segments, function.module_name.as_deref())
-                {
+                match environment.resolve_user_effect_path_in_owner(
+                    &segments,
+                    function.module_name.as_deref(),
+                    function.package_name.as_deref(),
+                ) {
                     UserEffectPathResolution::Found(_) => {}
                     UserEffectPathResolution::QuarantinedImportTarget => {}
                     UserEffectPathResolution::PrivateCompanionTargetMismatch {

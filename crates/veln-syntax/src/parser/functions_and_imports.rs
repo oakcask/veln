@@ -13,25 +13,82 @@ impl<'a> Parser<'a> {
     }
 
     pub(super) fn parse_use_declaration(&mut self) -> UseDecl {
+        let diagnostic_count = self.diagnostics.len();
         let start = self
             .expect(TokenKind::Use, "use_declaration", vec!["use"])
             .range;
         let (name, name_spans) = self.parse_written_module_path("use_declaration", true);
-        let package = if self.eat(TokenKind::From).is_some() {
-            let token = self.expect(TokenKind::String, "use_declaration", vec!["package"]);
-            Some(UsePackage {
-                name: unquote_string_token(&token.text),
-                span: self.source.span(token.range),
-            })
-        } else {
-            None
-        };
+        let alias = self.parse_use_alias();
+        let package = self.parse_use_package();
+        self.recover_use_declaration_end();
         let end = self.expect_newline("use_declaration").range;
         UseDecl {
             name,
             name_spans,
+            alias,
             package,
+            recovered: self.diagnostics.len() != diagnostic_count,
             span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_use_alias(&mut self) -> Option<UseAlias> {
+        if !self.at_ident_text("as") {
+            return None;
+        }
+        self.bump();
+        if is_contextual_identifier(self.current().kind)
+            || self.at(TokenKind::Hole)
+            || self.at(TokenKind::Underscore)
+        {
+            let token = self.bump();
+            Some(UseAlias {
+                name: token.text,
+                span: self.source.span(token.range),
+            })
+        } else {
+            self.error_current(
+                "parse.expected_identifier",
+                "expected import alias",
+                "use_declaration",
+                vec!["alias"],
+                RecoveryStrategy::InsertToken,
+                Some("newline"),
+            );
+            None
+        }
+    }
+
+    fn parse_use_package(&mut self) -> Option<UsePackage> {
+        if self.eat(TokenKind::From).is_some() {
+            if self.at(TokenKind::String) {
+                let token = self.bump();
+                Some(UsePackage {
+                    name: unquote_string_token(&token.text),
+                    span: self.source.span(token.range),
+                })
+            } else {
+                self.expect(TokenKind::String, "use_declaration", vec!["package"]);
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn recover_use_declaration_end(&mut self) {
+        if !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+            self.error_current(
+                "parse.expected_newline",
+                "expected a newline after import declaration",
+                "use_declaration",
+                vec!["newline"],
+                RecoveryStrategy::SynchronizeToAnchor,
+                Some("newline"),
+            );
+            while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+                self.bump();
+            }
         }
     }
 

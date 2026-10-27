@@ -1,0 +1,7 @@
+use transport::net as wire from "std"
+use application::model as domain
+use legacy
+
+fn main() -> ()
+	()
+end

@@ -3,6 +3,7 @@ use super::*;
 pub(super) fn collect_recovered_qualified_segments_from_body_line(
     line: &veln_ast::BodyLine,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     enclosing_function_span: &veln_source::SourceSpan,
     environment: &TypeEnvironment,
     push: RecoveredQualifiedSegmentPush,
@@ -13,6 +14,7 @@ pub(super) fn collect_recovered_qualified_segments_from_body_line(
             collect_recovered_qualified_segments_from_expr(
                 expr,
                 current_module,
+                current_package,
                 enclosing_function_span,
                 environment,
                 push,
@@ -24,6 +26,7 @@ pub(super) fn collect_recovered_qualified_segments_from_body_line(
                 collect_recovered_qualified_segments_from_body_line(
                     line,
                     current_module,
+                    current_package,
                     enclosing_function_span,
                     environment,
                     push,
@@ -37,6 +40,7 @@ pub(super) fn collect_recovered_qualified_segments_from_body_line(
 pub(super) fn collect_recovered_qualified_segments_from_expr(
     expr: &veln_ast::Expr,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     enclosing_function_span: &veln_source::SourceSpan,
     environment: &TypeEnvironment,
     push: RecoveredQualifiedSegmentPush,
@@ -50,6 +54,7 @@ pub(super) fn collect_recovered_qualified_segments_from_expr(
             segments,
             segment_spans,
             current_module,
+            current_package,
             enclosing_function_span,
             environment,
             invalid,
@@ -58,6 +63,7 @@ pub(super) fn collect_recovered_qualified_segments_from_expr(
             collect_recovered_qualified_segments_from_expr(
                 callee,
                 current_module,
+                current_package,
                 enclosing_function_span,
                 environment,
                 push,
@@ -67,6 +73,7 @@ pub(super) fn collect_recovered_qualified_segments_from_expr(
                 collect_recovered_qualified_segments_from_expr(
                     arg,
                     current_module,
+                    current_package,
                     enclosing_function_span,
                     environment,
                     push,
@@ -81,6 +88,7 @@ pub(super) fn collect_recovered_qualified_segments_from_expr(
             collect_recovered_qualified_segments_from_expr(
                 callee,
                 current_module,
+                current_package,
                 enclosing_function_span,
                 environment,
                 push,
@@ -91,6 +99,7 @@ pub(super) fn collect_recovered_qualified_segments_from_expr(
             collect_recovered_qualified_segments_from_expr(
                 left,
                 current_module,
+                current_package,
                 enclosing_function_span,
                 environment,
                 push,
@@ -99,6 +108,7 @@ pub(super) fn collect_recovered_qualified_segments_from_expr(
             collect_recovered_qualified_segments_from_expr(
                 right,
                 current_module,
+                current_package,
                 enclosing_function_span,
                 environment,
                 push,
@@ -110,6 +120,7 @@ pub(super) fn collect_recovered_qualified_segments_from_expr(
                 collect_recovered_qualified_segments_from_body_line(
                     line,
                     current_module,
+                    current_package,
                     enclosing_function_span,
                     environment,
                     push,
@@ -260,6 +271,7 @@ pub(super) fn collect_recovered_qualified_function_segments_from_expr(
 pub(super) fn collect_recovered_qualified_type_segments_from_body_line(
     line: &veln_ast::BodyLine,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     enclosing_function_span: &veln_source::SourceSpan,
     environment: &TypeEnvironment,
     invalid: &mut Vec<InvalidName>,
@@ -269,6 +281,7 @@ pub(super) fn collect_recovered_qualified_type_segments_from_body_line(
             collect_recovered_qualified_type_segments_from_expr(
                 expr,
                 current_module,
+                current_package,
                 enclosing_function_span,
                 environment,
                 invalid,
@@ -279,6 +292,7 @@ pub(super) fn collect_recovered_qualified_type_segments_from_body_line(
                 collect_recovered_qualified_type_segments_from_body_line(
                     line,
                     current_module,
+                    current_package,
                     enclosing_function_span,
                     environment,
                     invalid,
@@ -291,6 +305,7 @@ pub(super) fn collect_recovered_qualified_type_segments_from_body_line(
 pub(super) fn collect_recovered_qualified_type_segments_from_expr(
     expr: &veln_ast::Expr,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     enclosing_function_span: &veln_source::SourceSpan,
     environment: &TypeEnvironment,
     invalid: &mut Vec<InvalidName>,
@@ -306,7 +321,7 @@ pub(super) fn collect_recovered_qualified_type_segments_from_expr(
                     segments,
                     segment_spans,
                     Some(args.len()),
-                    current_module,
+                    (current_module, current_package),
                     enclosing_function_span,
                     environment,
                     invalid,
@@ -321,7 +336,7 @@ pub(super) fn collect_recovered_qualified_type_segments_from_expr(
                 segments,
                 segment_spans,
                 None,
-                current_module,
+                (current_module, current_package),
                 enclosing_function_span,
                 environment,
                 invalid,
@@ -332,6 +347,7 @@ pub(super) fn collect_recovered_qualified_type_segments_from_expr(
                 collect_recovered_qualified_type_segments_from_body_line(
                     line,
                     current_module,
+                    current_package,
                     enclosing_function_span,
                     environment,
                     invalid,
@@ -345,6 +361,7 @@ pub(super) fn collect_recovered_qualified_type_segments_from_expr(
         collect_recovered_qualified_type_segments_from_expr(
             child,
             current_module,
+            current_package,
             enclosing_function_span,
             environment,
             invalid,

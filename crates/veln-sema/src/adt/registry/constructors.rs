@@ -60,6 +60,39 @@ impl AdtRegistry {
         self.lookup_constructor_candidates(segments, current_module, uses, true)
     }
 
+    pub(crate) fn public_constructor_in_module(
+        &self,
+        package_name: Option<&str>,
+        module_name: &str,
+        segments: &[String],
+    ) -> ConstructorLookup<'_> {
+        let (type_name, variant_name) = match segments {
+            [variant_name] => (None, variant_name),
+            [type_name, variant_name] => (Some(type_name), variant_name),
+            _ => return ConstructorLookup::Missing,
+        };
+        let mut matches = self
+            .variants_named(variant_name)
+            .filter(|(descriptor, variant)| {
+                descriptor.module_name.as_deref() == Some(module_name)
+                    && descriptor.package_name.as_deref() == package_name
+                    && descriptor.visibility == Visibility::Public
+                    && variant.visibility == Visibility::Public
+                    && type_name.is_none_or(|type_name| type_name == &descriptor.type_name)
+            })
+            .map(|(descriptor, variant)| AdtConstructor {
+                descriptor,
+                variant,
+            })
+            .collect::<Vec<_>>();
+        deduplicate_nominal_constructors(&mut matches);
+        match matches.as_slice() {
+            [constructor] => ConstructorLookup::Found(*constructor),
+            [] => ConstructorLookup::Missing,
+            _ => ConstructorLookup::Ambiguous,
+        }
+    }
+
     pub(crate) fn nullary_constructor(
         &self,
         segments: &[String],
@@ -125,9 +158,23 @@ impl AdtRegistry {
         uses: &[UseDecl],
         include_imports: bool,
     ) -> ConstructorLookup<'_> {
+        if include_imports
+            && segments.len() >= 3
+            && matches!(
+                self.qualified_source_identity(
+                    &segments[segments.len() - 2],
+                    &segments[..segments.len() - 1],
+                    current_module,
+                    uses,
+                ),
+                QualifiedSourceIdentity::Ambiguous
+            )
+        {
+            return ConstructorLookup::Ambiguous;
+        }
         let mut matches =
             self.lookup_constructor_candidates(segments, current_module, uses, include_imports);
-        prefer_current_module_constructors(&mut matches, segments, current_module);
+        prefer_current_module_constructors(&mut matches, segments, current_module, uses);
         match matches.as_slice() {
             [] => ConstructorLookup::Missing,
             [constructor] => ConstructorLookup::Found(*constructor),
@@ -192,6 +239,7 @@ fn prefer_current_module_constructors<'a>(
     matches: &mut Vec<AdtConstructor<'a>>,
     segments: &[String],
     current_module: Option<&str>,
+    uses: &[UseDecl],
 ) {
     if segments.len() != 1 {
         return;
@@ -199,13 +247,16 @@ fn prefer_current_module_constructors<'a>(
     let Some(current_module) = current_module else {
         return;
     };
-    if !matches
-        .iter()
-        .any(|constructor| constructor.descriptor.module_name.as_deref() == Some(current_module))
-    {
+    let current_package =
+        import_owner_for_module(uses, Some(current_module)).and_then(|owner| owner.package);
+    if !matches.iter().any(|constructor| {
+        constructor.descriptor.module_name.as_deref() == Some(current_module)
+            && constructor.descriptor.package_name == current_package
+    }) {
         return;
     }
     matches.retain(|constructor| {
         constructor.descriptor.module_name.as_deref() == Some(current_module)
+            && constructor.descriptor.package_name == current_package
     });
 }

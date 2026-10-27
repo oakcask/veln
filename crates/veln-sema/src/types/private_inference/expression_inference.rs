@@ -1,12 +1,14 @@
 use super::*;
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn infer_private_signature_expr_type(
     expr: &Expr,
     expected: Option<&Type>,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[UseDecl],
     bindings: &mut PrivateBindings,
-    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
+    returns_by_path: &BTreeMap<FunctionKey, Type>,
     adts: &AdtRegistry,
 ) -> Type {
     let mut failures = 0;
@@ -14,6 +16,7 @@ pub(crate) fn infer_private_signature_expr_type(
         expr,
         expected,
         current_module,
+        current_package,
         uses,
         bindings,
         None,
@@ -35,15 +38,17 @@ pub(super) fn infer_private_signature_expr_type_with_failures(
     expr: &Expr,
     expected: Option<&Type>,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[UseDecl],
     bindings: &mut PrivateBindings,
     signatures_by_path: Option<&FunctionSignatureMap>,
-    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
+    returns_by_path: &BTreeMap<FunctionKey, Type>,
     adts: &AdtRegistry,
     failures: &mut usize,
 ) -> PrivateExprInference {
     let mut context = PrivateSignatureInferContext {
         current_module,
+        current_package,
         uses,
         bindings,
         signatures_by_path,
@@ -135,6 +140,7 @@ fn infer_private_value_type(
                 segments,
                 expected,
                 context.current_module,
+                context.current_package,
                 context.uses,
                 context.bindings,
                 context.returns_by_path,
@@ -394,18 +400,25 @@ pub(crate) fn item_type_unknown_as_none(ty: &Type) -> Option<&Type> {
     (ty != &Type::Unknown).then_some(ty)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn infer_private_signature_name_type(
     segments: &[String],
     expected: Option<&Type>,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[UseDecl],
     bindings: &[Binding],
-    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
+    returns_by_path: &BTreeMap<FunctionKey, Type>,
     adts: &AdtRegistry,
 ) -> Type {
-    if let Some(constructor) =
-        private_nullary_constructor(segments, expected, current_module, uses, adts)
-    {
+    if let Some(constructor) = private_nullary_constructor(
+        segments,
+        expected,
+        current_module,
+        current_package,
+        uses,
+        adts,
+    ) {
         let args = expected
             .and_then(|expected| {
                 unification::adt_args(expected, constructor.descriptor).map(<[Type]>::to_vec)
@@ -413,13 +426,21 @@ pub(crate) fn infer_private_signature_name_type(
             .unwrap_or_else(|| vec![Type::Unknown; constructor.descriptor.type_parameters.len()]);
         return adt::refined_constructed_type_from_args(constructor, &args);
     }
-    private_name_value_type(segments, current_module, uses, bindings, returns_by_path)
+    private_name_value_type(
+        segments,
+        current_module,
+        current_package,
+        uses,
+        bindings,
+        returns_by_path,
+    )
 }
 
 fn private_nullary_constructor<'a>(
     segments: &[String],
     expected: Option<&Type>,
     current_module: Option<&str>,
+    _current_package: Option<&str>,
     uses: &[UseDecl],
     adts: &'a AdtRegistry,
 ) -> Option<AdtConstructor<'a>> {
@@ -450,9 +471,10 @@ fn private_nullary_constructor<'a>(
 fn private_name_value_type(
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[UseDecl],
     bindings: &[Binding],
-    returns_by_path: &BTreeMap<(Option<String>, String), Type>,
+    returns_by_path: &BTreeMap<FunctionKey, Type>,
 ) -> Type {
     match segments {
         [name] => bindings
@@ -462,29 +484,41 @@ fn private_name_value_type(
             .map(|binding| binding.ty.clone())
             .or_else(|| {
                 returns_by_path
-                    .get(&(current_module.map(str::to_string), name.clone()))
+                    .get(&(
+                        current_package.map(str::to_string),
+                        current_module.map(str::to_string),
+                        name.clone(),
+                    ))
                     .cloned()
             })
             .unwrap_or(Type::Unknown),
-        [_, .., name] => {
-            imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
-                .and_then(|use_decl| {
-                    returns_by_path
-                        .get(&(Some(use_decl.name.clone()), name.clone()))
-                        .cloned()
-                })
-                .unwrap_or(Type::Unknown)
-        }
+        [_, .., name] => imported_use_for_path_in_owner(
+            uses,
+            &segments[..segments.len() - 1],
+            current_module,
+            current_package,
+        )
+        .and_then(|use_decl| {
+            returns_by_path
+                .get(&(
+                    use_decl.resolved_target().package,
+                    Some(use_decl.name.clone()),
+                    name.clone(),
+                ))
+                .cloned()
+        })
+        .unwrap_or(Type::Unknown),
         _ => Type::Unknown,
     }
 }
 
 pub(crate) struct PrivateSignatureInferContext<'a, 'f> {
     pub(crate) current_module: Option<&'a str>,
+    pub(crate) current_package: Option<&'a str>,
     pub(crate) uses: &'a [UseDecl],
     pub(crate) bindings: &'a mut PrivateBindings,
     pub(crate) signatures_by_path: Option<&'a FunctionSignatureMap>,
-    pub(crate) returns_by_path: &'a BTreeMap<(Option<String>, String), Type>,
+    pub(crate) returns_by_path: &'a BTreeMap<FunctionKey, Type>,
     pub(crate) adts: &'a AdtRegistry,
     pub(crate) failures: &'f mut usize,
 }
@@ -504,6 +538,7 @@ impl PrivateSignatureInferContext<'_, '_> {
             expr,
             expected,
             self.current_module,
+            self.current_package,
             self.uses,
             self.bindings,
             self.signatures_by_path,
@@ -552,6 +587,7 @@ impl PrivateSignatureInferContext<'_, '_> {
             body,
             expected,
             self.current_module,
+            self.current_package,
             self.uses,
             self.bindings,
             self.signatures_by_path,

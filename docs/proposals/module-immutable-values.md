@@ -36,7 +36,7 @@ this proposal.
 ## Remaining Lookup And Visibility
 
 An imported module value must use the existing written-import rules. Exact
-written paths take precedence over unique implicit leaf qualifiers. Distinct
+written paths take precedence over unique local import qualifiers. Distinct
 imported value identities with the same bare spelling are ambiguous, including
 a function/data collision. A same-module declaration must take precedence even
 when that declaration is invalid; invalid local data must not expose an
@@ -45,9 +45,10 @@ back to an imported function.
 
 Only imports whose contract admits bare member exposure contribute bare
 imported candidates. This includes eligible written imports and implicit
-prelude exposure. The separate
-[explicit import-alias proposal](explicit-import-aliases.md) makes explicitly
-aliased imports qualified-only; this proposal does not depend on that syntax.
+prelude exposure. The current
+[import-alias specification](../specification/name-resolution.md#explicit-import-aliases)
+makes explicitly aliased imports qualified-only; this proposal does not depend
+on that syntax.
 
 Qualification selects the package and module before the member. Two packages
 with the same module and member spellings have distinct declaration identities.
@@ -94,7 +95,7 @@ same-spelled function.
 
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
-| Imported lookup | Bare lookup includes eligible written-import and implicit-prelude exposure but excludes qualified-only imports. Qualified lookup obeys exact-path precedence over implicit leaf qualifiers. Ambiguous and ineligible selections do not fall back. | Multi-module and multi-package semantic and checked command cases that cover qualified and bare exposure boundaries. |
+| Imported lookup | Bare lookup includes eligible written-import and implicit-prelude exposure but excludes qualified-only imports. Qualified lookup obeys exact-path precedence over local import qualifiers. Ambiguous and ineligible selections do not fall back. | Multi-module and multi-package semantic and checked command cases that cover qualified and bare exposure boundaries. |
 | Imported dependencies | Cross-module cycles and their dependents are quarantined while unrelated facts remain available; source and import reordering does not change cycle selection. | Multi-module semantic and checked command cases with reordered sources and imports. |
 | Stable declaration identity | Package and module participate in identity. Same-spelled declarations in different packages remain distinct, alternate valid paths to one declaration retain one identity, and equal data does not merge declarations. | Multi-package semantic and checked command cases for same-spelled declarations and alternate valid paths, plus language-service definition cases. |
 | Visibility | Private data is hidden except from its exact companion; public annotations cannot expose private types or refinements. | Human and JSON visibility cases. |

@@ -17,11 +17,12 @@ pub use model::{
     NameClass, NameOccurrence, NodeId, Param, Pattern, PatternField, PatternKind,
     PredicateRemainder, PredicateRemainderChain, PredicateTokenSpan, PrefixOp, PublicAlias,
     PublicAliasKind, QualifiedPathSegment, QualifiedPathSegmentEvidence, RecordField,
-    RecordFieldPath, ResultBinding, SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause,
-    SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeAnnotationStructure, TypeDecl,
-    TypePathSegments, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin,
-    VariantRefinementAlternative, VariantRefinementType, VariantRefinementTypeArgument, Visibility,
-    index_predicate_remainder_chains, predicate_remainder_chain_ranges,
+    RecordFieldPath, ResolvedImportOwner, ResolvedImportTarget, ResultBinding, SatisfyClause,
+    SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause,
+    SurfaceModule, TypeAnnotationStructure, TypeDecl, TypePathSegments, TypeVariantDecl,
+    TypeVariantField, UseDecl, UseOrigin, VariantRefinementAlternative, VariantRefinementType,
+    VariantRefinementTypeArgument, Visibility, index_predicate_remainder_chains,
+    predicate_remainder_chain_ranges,
 };
 pub use wire::{decode_surface_module, encode_surface_module};
 

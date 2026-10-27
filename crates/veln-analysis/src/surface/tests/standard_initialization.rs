@@ -88,6 +88,103 @@ fn load_synthetic_standard(unrelated_count: usize) -> StandardInitializationWork
     )
 }
 
+#[test]
+fn standard_loader_preserves_relative_and_canonical_paths_for_alias_recovery() {
+    let modules = [
+        (
+            "prelude.veln".to_string(),
+            "pub fn identity(value: Int) -> Int\n  value\nend\n".to_string(),
+        ),
+        (
+            "http.veln".to_string(),
+            concat!(
+                "pub fn entry() -> Int\n",
+                "  1\n",
+                "end\n",
+                "\n",
+                "pub type State\n",
+                "  Ready\n",
+                "end\n",
+                "\n",
+                "pub schema Packet\n",
+                "  value: Int\n",
+                "end\n",
+            )
+            .to_string(),
+        ),
+    ]
+    .into_iter()
+    .map(|(path, text)| {
+        (
+            standard_module_name(&path),
+            embedded_standard_entry(path, text),
+        )
+    })
+    .collect();
+    let standard = EmbeddedStandardPackage { modules };
+    let application = Project {
+        root: ".".into(),
+        files: vec![
+            SourceFile::new("loader.veln", "use http as loaded from \"std\"\n"),
+            SourceFile::new(
+                "main.veln",
+                concat!(
+                    "use Http as wire from \"std\"\n",
+                    "\n",
+                    "pub fn relative_entry = Http::entry\n",
+                    "pub fn qualified_entry = wire::entry\n",
+                    "pub fn canonical_entry = std::Http::entry\n",
+                    "pub type RelativeState = Http::State\n",
+                    "pub type QualifiedState = wire::State\n",
+                    "pub type CanonicalState = std::Http::State\n",
+                    "pub schema RelativePacket = Http::Packet\n",
+                    "pub schema QualifiedPacket = wire::Packet\n",
+                    "pub schema CanonicalPacket = std::Http::Packet\n",
+                    "\n",
+                    "pub fn main() -> Int\n",
+                    "  0\n",
+                    "end\n",
+                ),
+            ),
+        ],
+        manifest: None,
+    };
+    let mut diagnostics = Vec::new();
+    let mut parts = SurfaceParts::new();
+    load_project_sources(&application, &mut diagnostics, &mut parts, None, None, None);
+    load_embedded_standard_package_from(&standard, &mut diagnostics, &mut parts, true);
+    diagnostics.extend(veln_sema::analyze_surface_module(&parts.module));
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "relative, qualifier, and canonical paths must recover equally: {diagnostics:#?}"
+    );
+    assert!(parts.module.functions.iter().any(|function| {
+        function.module_name.as_deref() == Some("std::http")
+            && function.name.as_deref() == Some("entry")
+    }));
+    let lowered = veln_sema::lower_checked_surface_module(&parts.module);
+    assert!(lowered.core.is_none());
+    assert!(
+        lowered
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case"),
+        "recovery must not make the module executable: {:#?}",
+        lowered.diagnostics
+    );
+}
+
 fn single_file_project(text: &str) -> Project {
     Project {
         root: ".".into(),
@@ -152,9 +249,10 @@ fn lowered_standard_module_bytes(path: &str, text: &str) -> Vec<u8> {
     let source = SourceFile::new(path, text);
     let parsed = parse(&source);
     assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
-    let mut lowered = veln_ast::lower_surface_ast_with_module_identity(
+    let mut lowered = veln_ast::lower_surface_ast_with_package_module_identity(
         &parsed.tree,
-        standard_module_name(path),
+        veln_stdlib::PACKAGE_NAME.to_string(),
+        path.trim_end_matches(".veln").replace('/', "::"),
         source.span(veln_source::TextRange::new(0, 0)),
     );
     for use_decl in &mut lowered.uses {

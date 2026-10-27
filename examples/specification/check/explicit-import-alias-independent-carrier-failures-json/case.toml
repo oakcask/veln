@@ -1,0 +1,73 @@
+# This case fixes JSON CLI ordering and details for independent constructor
+# failures recovered through an invalid explicit import alias.
+command = ["check", "--json", "app.veln", "http.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+not_contains = ["unresolved call_target `HTTP::Payload::Data`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics"
+length = 5
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "core.constructor_arity_mismatch"
+
+[[json_assert]]
+path = "diagnostics.3.span.start.line"
+equals = 4
+
+[[json_assert]]
+path = "diagnostics.3.span.start.column"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.3.span.end.column"
+equals = 28
+
+[[json_assert]]
+path = "diagnostics.3.details.facts.expected_argument_count"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.3.details.facts.actual_argument_count"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.4.id"
+equals = "type.match_non_exhaustive"
+
+[[json_assert]]
+path = "diagnostics.4.details.missing_case"
+equals = "Empty"
+
+[[diagnostics]]
+id = "core.constructor_arity_mismatch"
+severity = "error"
+kind = "type"
+message = "payload constructor expects 1 argument, but got 2"
+
+[diagnostics.span]
+file = "app.veln"
+line = 4
+column = 3
+
+[[diagnostics]]
+id = "type.match_non_exhaustive"
+severity = "error"
+kind = "type"
+message = "match is missing case Empty"
+
+[diagnostics.span]
+file = "app.veln"
+line = 8
+column = 3

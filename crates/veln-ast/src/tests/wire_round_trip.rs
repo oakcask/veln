@@ -3,12 +3,78 @@ use super::*;
 #[test]
 fn surface_wire_rejects_the_previous_layout_header() {
     let mut encoded = encode_surface_module(&lower_source("fn main() -> ()\n  ()\nend\n"));
-    assert_eq!(&encoded[..9], b"VLNAST19\n");
-    encoded.splice(..9, b"VLNAST18\n".iter().copied());
+    assert_eq!(&encoded[..9], b"VLNAST22\n");
+    encoded.splice(..9, b"VLNAST21\n".iter().copied());
 
     let error =
         decode_surface_module(&encoded).expect_err("previous wire layout should be rejected");
     assert_eq!(error, "invalid surface module wire header");
+}
+
+#[test]
+fn surface_wire_preserves_explicit_import_alias_provenance() {
+    let module = lower_source("use transport::net as wire from \"std\"\n");
+    let use_decl = &module.uses[0];
+    assert_eq!(use_decl.written_name, "transport::net");
+    assert_eq!(use_decl.alias, "wire");
+    assert!(use_decl.has_explicit_alias());
+
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+    assert_eq!(decoded.uses[0].written_name, "transport::net");
+    assert_eq!(decoded.uses[0].alias, "wire");
+    assert!(decoded.uses[0].has_explicit_alias());
+    assert_eq!(encode_surface_module(&decoded), encoded);
+}
+
+#[test]
+fn surface_wire_preserves_recovered_import_alias_provenance() {
+    for (source, expected_alias, expected_package) in [
+        ("use a as from \"pkg\"\n", None, Some("pkg")),
+        ("use a as b::c\n", Some("b"), None),
+        ("use a as b as c\n", Some("b"), None),
+    ] {
+        let module = lower_source_allowing_diagnostics(source);
+        let use_decl = &module.uses[0];
+        assert_eq!(use_decl.written_name, "a", "{source:?}");
+        assert_eq!(use_decl.name_spans.len(), 1, "{source:?}");
+        assert_eq!(
+            use_decl
+                .alias_span
+                .as_ref()
+                .map(|_| use_decl.alias.as_str()),
+            expected_alias,
+            "{source:?}"
+        );
+        if expected_alias.is_none() {
+            assert!(use_decl.alias.is_empty(), "{source:?}");
+        }
+        assert_eq!(use_decl.package.as_deref(), expected_package, "{source:?}");
+        assert_eq!(
+            use_decl.package_span.is_some(),
+            expected_package.is_some(),
+            "{source:?}"
+        );
+        assert_eq!(
+            (use_decl.span.start.line, use_decl.span.start.column),
+            (1, 1)
+        );
+        assert_eq!((use_decl.span.end.line, use_decl.span.end.column), (2, 1));
+        assert!(use_decl.recovered, "{source:?}");
+
+        let encoded = encode_surface_module(&module);
+        let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+        let decoded_use = &decoded.uses[0];
+        assert_eq!(decoded_use.written_name, use_decl.written_name);
+        assert_eq!(decoded_use.name_spans, use_decl.name_spans);
+        assert_eq!(decoded_use.alias, use_decl.alias);
+        assert_eq!(decoded_use.alias_span, use_decl.alias_span);
+        assert_eq!(decoded_use.package, use_decl.package);
+        assert_eq!(decoded_use.package_span, use_decl.package_span);
+        assert_eq!(decoded_use.span, use_decl.span);
+        assert_eq!(decoded_use.recovered, use_decl.recovered);
+        assert_eq!(encode_surface_module(&decoded), encoded);
+    }
 }
 
 #[test]
@@ -147,12 +213,21 @@ fn surface_wire_round_trip_preserves_dependency_package_identity() {
     let source = SourceFile::new(
         "shared.veln",
         concat!(
+            "use helper\n",
+            "let value: Int = 1\n",
             "effect Ask\n",
             "  value() -> Int\n",
             "end\n",
             "handler ask() for Ask\n",
             "  value() => 1\n",
             "end\n",
+            "pub type Answer\n",
+            "  Answer(Int)\n",
+            "end\n",
+            "pub schema Packet\n",
+            "  value: Int\n",
+            "end\n",
+            "pub fn alias = helper::run\n",
             "fn located() -> SourceLocation callsite\n",
             "  callsite\n",
             "end\n",
@@ -176,6 +251,30 @@ fn surface_wire_round_trip_preserves_dependency_package_identity() {
     );
     assert_eq!(
         decoded.handlers[0].package_name.as_deref(),
+        Some("example/dependency")
+    );
+    assert_eq!(
+        decoded.module_values[0].package_name.as_deref(),
+        Some("example/dependency")
+    );
+    assert_eq!(
+        decoded.effects[0].package_name.as_deref(),
+        Some("example/dependency")
+    );
+    assert_eq!(
+        decoded.types[0].package_name.as_deref(),
+        Some("example/dependency")
+    );
+    assert_eq!(
+        decoded.schemas[0].package_name.as_deref(),
+        Some("example/dependency")
+    );
+    assert_eq!(
+        decoded.uses[0].importing_package.as_deref(),
+        Some("example/dependency")
+    );
+    assert_eq!(
+        decoded.aliases[0].package_name.as_deref(),
         Some("example/dependency")
     );
     assert_eq!(encode_surface_module(&decoded), encoded);

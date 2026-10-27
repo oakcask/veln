@@ -34,6 +34,7 @@ fn runtime_diagnostic_detail_descriptor() -> AdtDescriptor {
     AdtDescriptor {
         type_name: "RuntimeDiagnosticDetail".to_string(),
         name_class: SourceLessNameClass::Type,
+        package_name: None,
         module_name: None,
         nominal_identity: None,
         type_parameters: Vec::new(),
@@ -94,6 +95,7 @@ fn publish_runtime_detail_families(mut descriptors: Vec<AdtDescriptor>) -> Vec<A
     descriptors.push(AdtDescriptor {
         type_name: "Http2DiagnosticDetail".to_string(),
         name_class: SourceLessNameClass::Type,
+        package_name: None,
         module_name: None,
         nominal_identity: None,
         type_parameters: Vec::new(),
@@ -106,6 +108,7 @@ fn publish_runtime_detail_families(mut descriptors: Vec<AdtDescriptor>) -> Vec<A
     descriptors.push(AdtDescriptor {
         type_name: "HpackDiagnosticDetail".to_string(),
         name_class: SourceLessNameClass::Type,
+        package_name: None,
         module_name: None,
         nominal_identity: None,
         type_parameters: Vec::new(),

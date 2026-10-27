@@ -145,6 +145,7 @@ impl Writer {
     fn module_value_decl(&mut self, value: &ModuleValueDecl) {
         self.node_id(value.node_id);
         self.option(&value.module_name, |writer, value| writer.string(value));
+        self.option(&value.package_name, |writer, value| writer.string(value));
         self.visibility(value.visibility);
         self.option(&value.name, |writer, value| writer.string(value));
         self.option(&value.name_span, Self::span);
@@ -186,12 +187,18 @@ impl Writer {
     fn use_decl(&mut self, value: &UseDecl) {
         self.node_id(value.node_id);
         self.option(&value.module_name, |writer, value| writer.string(value));
+        self.option(&value.importing_package, |writer, value| {
+            writer.string(value)
+        });
         self.string(&value.name);
+        self.string(&value.written_name);
         self.string(&value.alias);
+        self.option(&value.alias_span, Self::span);
         self.vec(&value.name_spans, Self::span);
         self.option(&value.package, |writer, value| writer.string(value));
         self.option(&value.package_span, Self::span);
         self.span(&value.span);
+        self.bool(value.recovered);
         self.use_origin(value.origin);
     }
 
@@ -205,6 +212,7 @@ impl Writer {
     fn public_alias(&mut self, value: &PublicAlias) {
         self.node_id(value.node_id);
         self.option(&value.module_name, |writer, value| writer.string(value));
+        self.option(&value.package_name, |writer, value| writer.string(value));
         self.public_alias_kind(value.kind);
         self.option(&value.name, |writer, value| writer.string(value));
         self.vec(&value.target, |writer, value| writer.string(value));
@@ -230,6 +238,7 @@ impl Writer {
     fn effect_decl(&mut self, value: &EffectDecl) {
         self.node_id(value.node_id);
         self.option(&value.module_name, |writer, value| writer.string(value));
+        self.option(&value.package_name, |writer, value| writer.string(value));
         self.visibility(value.visibility);
         self.option(&value.name, |writer, value| writer.string(value));
         self.vec(&value.operations, Self::effect_operation);
@@ -278,6 +287,7 @@ impl Writer {
     fn type_decl(&mut self, value: &TypeDecl) {
         self.node_id(value.node_id);
         self.option(&value.module_name, |writer, value| writer.string(value));
+        self.option(&value.package_name, |writer, value| writer.string(value));
         self.visibility(value.visibility);
         self.option(&value.name, |writer, value| writer.string(value));
         self.vec(&value.params, |writer, value| writer.string(value));
@@ -306,6 +316,7 @@ impl Writer {
     fn schema_decl(&mut self, value: &SchemaDecl) {
         self.node_id(value.node_id);
         self.option(&value.module_name, |writer, value| writer.string(value));
+        self.option(&value.package_name, |writer, value| writer.string(value));
         self.visibility(value.visibility);
         self.option(&value.name, |writer, value| writer.string(value));
         self.option(&value.format, Self::schema_format);

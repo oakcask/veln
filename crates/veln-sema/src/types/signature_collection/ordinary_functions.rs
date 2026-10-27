@@ -9,7 +9,7 @@ use crate::types::private_inference::function_signature_params;
 use crate::types::signatures::{CompanionAccessTarget, EffectSignature, FunctionSignature};
 use veln_ast::{Function, UseDecl};
 
-use super::{canonical_declared_effects, canonicalize_type_effects};
+use super::{canonical_declared_effects, canonicalize_type_effects_in_owner};
 
 pub(in crate::types) fn ordinary_function_signatures(
     module: &SurfaceModule,
@@ -17,21 +17,24 @@ pub(in crate::types) fn ordinary_function_signatures(
     adts: &AdtRegistry,
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Vec<FunctionSignature> {
-    let uses = normal_use_decls(module);
-    let quarantined_uses = module
-        .uses
+    let mut name_counts = BTreeMap::<String, usize>::new();
+    for function in module
+        .functions
         .iter()
-        .filter(|use_decl| {
-            crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
-        })
-        .cloned()
-        .collect::<Vec<_>>();
+        .filter(|function| function.kind == FunctionKind::Function)
+        .filter_map(|function| function.name.as_ref())
+    {
+        *name_counts.entry(function.clone()).or_default() += 1;
+    }
+    let uses = normal_use_decls(module);
+    let quarantined_uses = crate::name_recovery::quarantined_use_decls(module);
     let context = OrdinarySignatureContext {
         uses: &uses,
         quarantined_uses: &quarantined_uses,
         effects,
         adts,
         companion_effect_access_targets,
+        name_counts: &name_counts,
     };
     module
         .functions
@@ -47,6 +50,7 @@ struct OrdinarySignatureContext<'a> {
     effects: &'a [EffectSignature],
     adts: &'a AdtRegistry,
     companion_effect_access_targets: &'a BTreeMap<String, CompanionAccessTarget>,
+    name_counts: &'a BTreeMap<String, usize>,
 }
 
 impl OrdinarySignatureContext<'_> {
@@ -54,12 +58,14 @@ impl OrdinarySignatureContext<'_> {
         &self,
         ty: crate::semantic_model::Type,
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> crate::semantic_model::Type {
-        canonicalize_type_effects(
+        canonicalize_type_effects_in_owner(
             ty,
             self.uses,
             self.quarantined_uses,
             current_module,
+            current_package,
             self.effects,
             self.adts,
             self.companion_effect_access_targets,
@@ -78,24 +84,33 @@ fn ordinary_function_signature(
     let current_module = function.module_name.as_deref();
     let (params, variadic) = function_signature_params(function);
     Some(FunctionSignature {
-        target_name: crate::standard_symbols::standard_function_link_name(current_module, &name),
+        target_name: crate::standard_symbols::function_link_name(
+            current_module,
+            function.package_name.as_deref(),
+            &name,
+            context.name_counts.get(&name).copied().unwrap_or_default() > 1,
+        ),
         name,
         module_name: function.module_name.clone(),
+        package_name: function.package_name.clone(),
         visibility: function.visibility,
         params: params
             .into_iter()
-            .map(|ty| context.canonicalize(ty, current_module))
+            .map(|ty| context.canonicalize(ty, current_module, function.package_name.as_deref()))
             .collect(),
-        variadic: variadic.map(|ty| context.canonicalize(ty, current_module)),
+        variadic: variadic
+            .map(|ty| context.canonicalize(ty, current_module, function.package_name.as_deref())),
         return_type: context.canonicalize(
             parse_type_or_unknown(function.return_type.as_deref()),
             current_module,
+            function.package_name.as_deref(),
         ),
         effects: canonical_declared_effects(
             function.effects.clone().unwrap_or_default(),
             context.uses,
             context.quarantined_uses,
             current_module,
+            function.package_name.as_deref(),
             context.effects,
             context.companion_effect_access_targets,
         ),

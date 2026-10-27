@@ -1,0 +1,5 @@
+use Http as wire
+
+fn main() -> Int
+	wire::entry()
+end

@@ -11,7 +11,11 @@ pub(crate) fn infer_private_prelude_callback_return_types(
         .iter()
         .map(|function| {
             (
-                (function.module_name.clone(), function.name.clone()),
+                (
+                    function.package_name.clone(),
+                    function.module_name.clone(),
+                    function.name.clone(),
+                ),
                 function.return_type.clone(),
             )
         })
@@ -63,7 +67,11 @@ pub(crate) fn infer_private_prelude_callback_return_types(
             );
         }
         for function in functions.iter_mut() {
-            let key = (function.module_name.clone(), function.name.clone());
+            let key = (
+                function.package_name.clone(),
+                function.module_name.clone(),
+                function.name.clone(),
+            );
             if !omitted_private_returns.contains(&key) {
                 continue;
             }
@@ -80,10 +88,10 @@ pub(crate) fn infer_private_prelude_callback_return_types(
 pub(crate) fn collect_private_prelude_callback_return_constraints(
     function: &Function,
     uses: &[UseDecl],
-    function_by_path: &BTreeMap<(Option<String>, String), &Function>,
-    omitted_private_returns: &BTreeSet<(Option<String>, String)>,
-    returns_by_path: &mut BTreeMap<(Option<String>, String), Type>,
-    selected_callback_returns: &mut BTreeSet<(Option<String>, String)>,
+    function_by_path: &BTreeMap<FunctionKey, &Function>,
+    omitted_private_returns: &BTreeSet<FunctionKey>,
+    returns_by_path: &mut BTreeMap<FunctionKey, Type>,
+    selected_callback_returns: &mut BTreeSet<FunctionKey>,
     adts: &AdtRegistry,
     changed: &mut bool,
 ) {
@@ -99,6 +107,7 @@ pub(crate) fn collect_private_prelude_callback_return_constraints(
         &function.body,
         declared_return.as_ref(),
         function.module_name.as_deref(),
+        function.package_name.as_deref(),
         uses,
         function_by_path,
         omitted_private_returns,
@@ -115,11 +124,12 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
     body: &[BodyLine],
     tail_expected: Option<&Type>,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[UseDecl],
-    function_by_path: &BTreeMap<(Option<String>, String), &Function>,
-    omitted_private_returns: &BTreeSet<(Option<String>, String)>,
-    returns_by_path: &mut BTreeMap<(Option<String>, String), Type>,
-    selected_callback_returns: &mut BTreeSet<(Option<String>, String)>,
+    function_by_path: &BTreeMap<FunctionKey, &Function>,
+    omitted_private_returns: &BTreeSet<FunctionKey>,
+    returns_by_path: &mut BTreeMap<FunctionKey, Type>,
+    selected_callback_returns: &mut BTreeSet<FunctionKey>,
     adts: &AdtRegistry,
     changed: &mut bool,
     bindings: &mut PrivateBindings,
@@ -140,6 +150,7 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
                     annotation_type.as_ref(),
                     &mut PrivatePreludeCallbackConstraintContext {
                         current_module,
+                        current_package,
                         uses,
                         bindings,
                         function_by_path,
@@ -156,6 +167,7 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
                     annotation_type,
                     &PrivateCallbackBindingContext {
                         current_module,
+                        current_package,
                         uses,
                         function_by_path,
                         returns_by_path,
@@ -171,6 +183,7 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
                     expected,
                     &mut PrivatePreludeCallbackConstraintContext {
                         current_module,
+                        current_package,
                         uses,
                         bindings,
                         function_by_path,
@@ -189,6 +202,7 @@ pub(crate) fn collect_private_prelude_callback_body_constraints(
                     body,
                     Some(&Type::unit()),
                     current_module,
+                    current_package,
                     uses,
                     function_by_path,
                     omitted_private_returns,
@@ -215,12 +229,15 @@ pub(crate) fn private_prelude_callback_constraint_contributors(
 ) -> BTreeSet<FunctionKey> {
     let modules_with_omitted_returns = omitted_private_returns
         .iter()
-        .map(|key| key.0.clone())
+        .map(|key| (key.0.clone(), key.1.clone()))
         .collect::<BTreeSet<_>>();
     module
         .functions
         .iter()
-        .filter(|function| modules_with_omitted_returns.contains(&function.module_name))
+        .filter(|function| {
+            modules_with_omitted_returns
+                .contains(&(function.package_name.clone(), function.module_name.clone()))
+        })
         .filter_map(|function| {
             let key = function_key(function)?;
             if !omitted_private_returns.contains(&key)
@@ -275,6 +292,7 @@ pub(crate) fn private_prelude_callback_function_can_constrain(
         &function.body,
         declared_return.as_ref(),
         function.module_name.as_deref(),
+        function.package_name.as_deref(),
         uses,
         omitted_private_returns,
         returns_by_path,
@@ -289,6 +307,7 @@ fn private_prelude_callback_body_references_slot(
     body: &[BodyLine],
     tail_expected: Option<&Type>,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[UseDecl],
     omitted_private_returns: &BTreeSet<FunctionKey>,
     returns_by_path: &FunctionReturnMap,
@@ -309,6 +328,7 @@ fn private_prelude_callback_body_references_slot(
                     .map(|annotation| parse_type_or_unknown(Some(annotation)));
                 let mut reference_context = PrivatePreludeCallbackReferenceContext {
                     current_module,
+                    current_package,
                     uses,
                     bindings,
                     omitted_private_returns,
@@ -329,6 +349,7 @@ fn private_prelude_callback_body_references_slot(
                     annotation_type,
                     &PrivateCallbackBindingContext {
                         current_module,
+                        current_package,
                         uses,
                         function_by_path,
                         returns_by_path,
@@ -341,6 +362,7 @@ fn private_prelude_callback_body_references_slot(
                 let expected = (index + 1 == body.len()).then_some(tail_expected).flatten();
                 let mut reference_context = PrivatePreludeCallbackReferenceContext {
                     current_module,
+                    current_package,
                     uses,
                     bindings,
                     omitted_private_returns,
@@ -363,6 +385,7 @@ fn private_prelude_callback_body_references_slot(
                     body,
                     Some(&Type::unit()),
                     current_module,
+                    current_package,
                     uses,
                     omitted_private_returns,
                     returns_by_path,
@@ -382,6 +405,7 @@ fn private_prelude_callback_body_references_slot(
 
 struct PrivateCallbackBindingContext<'a, 'function> {
     current_module: Option<&'a str>,
+    current_package: Option<&'a str>,
     uses: &'a [UseDecl],
     function_by_path: &'a FunctionAstMap<'function>,
     returns_by_path: &'a FunctionReturnMap,
@@ -401,6 +425,7 @@ fn collect_private_callback_let_bindings(
             private_same_module_call_target(
                 expression,
                 context.current_module,
+                context.current_package,
                 context.function_by_path,
             )
         })
@@ -410,6 +435,7 @@ fn collect_private_callback_let_bindings(
             expression,
             None,
             context.current_module,
+            context.current_package,
             context.uses,
             bindings,
             context.returns_by_path,
@@ -464,6 +490,7 @@ pub(crate) fn private_prelude_callback_expr_references_slot(
                 body,
                 expected,
                 context.current_module,
+                context.current_package,
                 context.uses,
                 context.omitted_private_returns,
                 context.returns_by_path,
@@ -605,6 +632,7 @@ pub(crate) fn private_prelude_callback_call_references_slot(
         expected,
         &mut PrivateSignatureInferContext {
             current_module: context.current_module,
+            current_package: context.current_package,
             uses: context.uses,
             bindings: context.bindings,
             signatures_by_path: None,
@@ -623,6 +651,7 @@ pub(crate) fn private_prelude_callback_call_references_slot(
 
 pub(crate) struct PrivatePreludeCallbackReferenceContext<'a> {
     pub(crate) current_module: Option<&'a str>,
+    pub(crate) current_package: Option<&'a str>,
     pub(crate) uses: &'a [UseDecl],
     pub(crate) bindings: &'a mut PrivateBindings,
     pub(crate) omitted_private_returns: &'a BTreeSet<FunctionKey>,

@@ -265,13 +265,9 @@ impl<'a> SchemaAliasTargetImportIndex<'a> {
 
 fn standard_package_relative_import(use_decl: &veln_ast::UseDecl) -> Option<&str> {
     let package_relative = use_decl.name.strip_prefix("std::")?;
-    (use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
-        || (use_decl.package.is_none()
-            && use_decl
-                .module_name
-                .as_deref()
-                .is_some_and(|module| module.starts_with("std::"))))
-    .then_some(package_relative)
+    use_decl
+        .is_standard_package_import()
+        .then_some(package_relative)
 }
 
 fn unique_valid_local_import<'a>(

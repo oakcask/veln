@@ -1,0 +1,10 @@
+command = ["doc", "main.veln"]
+exit = 1
+source_errors = "expected"
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[parse.expected_newline]: expected a newline after import declaration"]

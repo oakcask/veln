@@ -1,0 +1,3 @@
+pub schema OtherPacket
+	value: Int
+end

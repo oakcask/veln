@@ -1,0 +1,56 @@
+# Compiler/CLI integration: JSON output identifies the invalid target token
+# while the uniquely recovered public member remains diagnostic-only.
+command = ["check", "--json", "app.veln", "http.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+not_contains = ["unresolved call_target `wire::entry`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics"
+length = 1
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 5
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 9
+
+[[json_assert]]
+path = "diagnostics.0.details.occurrence"
+equals = "path_segment"
+
+[[json_assert]]
+path = "diagnostics.0.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.0.details.required_initial"
+equals = "ascii_lowercase"
+
+[[json_assert]]
+path = "diagnostics.0.details.observed_initial"
+equals = "ascii_uppercase"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "module name `Http` must start with an ASCII lowercase letter"

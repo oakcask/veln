@@ -346,11 +346,17 @@ impl<'a> FunctionChecker<'a> {
         let function = match segments.as_slice() {
             [name] => self
                 .environment
-                .unqualified_function(name, self.function.module_name.as_deref())
+                .unqualified_function_in_owner(
+                    name,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                )
                 .found(),
-            _ => self
-                .environment
-                .function_path(segments, self.function.module_name.as_deref()),
+            _ => self.environment.function_path_in_owner(
+                segments,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            ),
         };
         function.is_some_and(|function| {
             function

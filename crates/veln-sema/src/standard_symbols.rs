@@ -635,12 +635,48 @@ pub(crate) fn effect_strings(symbol: &StandardSymbolDescriptor) -> Vec<String> {
         .collect()
 }
 
-pub(crate) fn standard_function_link_name(module: Option<&str>, name: &str) -> String {
+pub(crate) fn standard_function_link_name(
+    module: Option<&str>,
+    package: Option<&str>,
+    name: &str,
+) -> String {
+    if package != Some(veln_stdlib::PACKAGE_NAME) {
+        return name.to_string();
+    }
     let Some(module) = module.and_then(|module| module.strip_prefix("std::")) else {
         return name.to_string();
     };
     let module = module.replace("::", "$");
     format!("__veln_std${module}${name}")
+}
+
+pub(crate) fn function_link_name(
+    module: Option<&str>,
+    package: Option<&str>,
+    name: &str,
+    qualify_application: bool,
+) -> String {
+    let standard = standard_function_link_name(module, package, name);
+    if standard != name {
+        return standard;
+    }
+    if let Some(package) = package {
+        return match module {
+            Some(module) if module == package || module.starts_with(&format!("{package}::")) => {
+                format!("{module}::{name}")
+            }
+            Some(module) => format!("{package}::{module}::{name}"),
+            None => format!("{package}::{name}"),
+        };
+    }
+    if !qualify_application {
+        return name.to_string();
+    }
+    match module {
+        Some(module) if module.starts_with("std::") => format!("workspace::{module}::{name}"),
+        Some(module) => format!("{module}::{name}"),
+        None => name.to_string(),
+    }
 }
 
 #[cfg(test)]

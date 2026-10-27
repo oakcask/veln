@@ -103,7 +103,12 @@ fn standard_prelude_byte_length_aliases_lower_through_source_targets() {
             "end\n",
         ),
     );
-    let standard = lower_surface_ast(&parse(&standard_source).tree);
+    let standard = veln_ast::lower_surface_ast_with_package_module_identity(
+        &parse(&standard_source).tree,
+        veln_stdlib::PACKAGE_NAME.to_string(),
+        "prelude".to_string(),
+        standard_source.span(veln_source::TextRange::new(0, 0)),
+    );
     let mut app = lower_surface_ast(&parse(&app_source).tree);
     app.uses.push(veln_ast::UseDecl::implicit_standard_prelude(
         "app".to_string(),

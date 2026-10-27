@@ -1,10 +1,31 @@
 use super::*;
 
+#[derive(Default)]
+pub(super) struct ReachableCallees {
+    ordered: Vec<ReachableFunction>,
+    members: HashSet<ReachableFunction>,
+}
+
+impl ReachableCallees {
+    pub(super) fn insert(&mut self, callee: ReachableFunction) {
+        #[cfg(test)]
+        reachability_counters::record_callee_membership();
+        if self.members.insert(callee.clone()) {
+            self.ordered.push(callee);
+        }
+    }
+
+    pub(super) fn into_ordered(self) -> Vec<ReachableFunction> {
+        self.ordered
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(super) struct ReachableFunction {
     pub(super) kind: FunctionKind,
     pub(super) name: String,
     pub(super) module_name: Option<String>,
+    pub(super) package_name: Option<String>,
     pub(super) node_id: Option<veln_ast::NodeId>,
     pub(super) alias: Option<ReachableFunctionAlias>,
 }
@@ -13,14 +34,17 @@ pub(super) struct ReachableFunction {
 pub(super) struct ReachableFunctionAlias {
     pub(super) name: String,
     pub(super) module_name: Option<String>,
+    pub(super) package_name: Option<String>,
     pub(super) node_id: veln_ast::NodeId,
 }
 
 pub(super) struct FunctionTarget {
     pub(super) name: String,
     pub(super) module_name: Option<String>,
+    pub(super) package_name: Option<String>,
     pub(super) target_name: String,
     pub(super) target_module_name: Option<String>,
+    pub(super) target_package_name: Option<String>,
     pub(super) target_node_id: veln_ast::NodeId,
     pub(super) visibility: Visibility,
     pub(super) shape: FunctionShape,
@@ -40,7 +64,7 @@ pub(super) fn function_alias_targets(
     inputs: &ReachabilityInputs<'_>,
     function_targets: &[FunctionTarget],
 ) -> Vec<FunctionTarget> {
-    let uses = inputs.uses();
+    let import_selections = inputs.import_selections();
     inputs
         .aliases()
         .filter(|alias| alias.kind == PublicAliasKind::Function)
@@ -49,9 +73,10 @@ pub(super) fn function_alias_targets(
             let recovery = !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase);
             let target = target_for_alias_path(
                 &alias.target,
-                &uses,
+                import_selections,
                 function_targets,
                 alias.module_name.as_deref(),
+                alias.package_name.as_deref(),
             )?;
             if companion_alias_targets_imported_private_function(alias, target) {
                 return None;
@@ -62,8 +87,10 @@ pub(super) fn function_alias_targets(
             Some(FunctionTarget {
                 name,
                 module_name: alias.module_name.clone(),
+                package_name: alias.package_name.clone(),
                 target_name: target.target_name.clone(),
                 target_module_name: target.target_module_name.clone(),
+                target_package_name: target.target_package_name.clone(),
                 target_node_id: target.target_node_id,
                 visibility: Visibility::Public,
                 shape: target.shape.clone(),
@@ -73,6 +100,7 @@ pub(super) fn function_alias_targets(
                 alias: Some(ReachableFunctionAlias {
                     name: alias.name.clone()?,
                     module_name: alias.module_name.clone(),
+                    package_name: alias.package_name.clone(),
                     node_id: alias.node_id,
                 }),
             })
@@ -91,21 +119,27 @@ pub(super) fn companion_alias_targets_imported_private_function(
 
 pub(super) fn target_for_alias_path<'a>(
     segments: &[String],
-    uses: &[&UseDecl],
+    import_selections: &ImportSelectionIndex<'_>,
     function_targets: &'a [FunctionTarget],
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<&'a FunctionTarget> {
     match segments {
         [name] => function_targets.iter().find(|target| {
             target.name == *name
+                && target.package_name.as_deref() == current_package
                 && target
                     .module_name
                     .as_deref()
                     .is_none_or(|module| Some(module) == current_module)
         }),
         [_, .., name] => {
-            let use_decl =
-                imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)?;
+            let use_decl = imported_use_for_path(
+                import_selections,
+                &segments[..segments.len() - 1],
+                current_module,
+                current_package,
+            )?;
             let module_name = use_decl.name.as_str();
             function_targets.iter().find(|target| {
                 target.name == *name

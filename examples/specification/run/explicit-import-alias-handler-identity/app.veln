@@ -1,0 +1,18 @@
+# JVM stdout distinguishes same-named handlers and their private module dependencies.
+use alpha as left
+use beta as right
+
+fn left_value() -> Int effects [left::Ask]
+	perform left::Ask::value()
+end
+
+fn right_value() -> Int effects [right::Ask]
+	perform right::Ask::value()
+end
+
+pub fn main() -> () effects [stdio]
+	let left_result = handle left_value() with left::answer(40)
+	let right_result = handle right_value() with right::answer(100)
+	stdio::println(int_to_string(left_result))
+	stdio::println(int_to_string(right_result))
+end

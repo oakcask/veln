@@ -48,7 +48,8 @@ fn schema_decode_spec_inner(
     schema: &SchemaDecl,
     stack: &mut Vec<String>,
 ) -> Option<IrSchemaDecodeSpec> {
-    let schema_name = schema.name.as_ref()?;
+    let schema_name = crate::schema::schema_link_name(module, schema);
+    schema.name.as_ref()?;
     if schema
         .format
         .as_ref()
@@ -56,7 +57,7 @@ fn schema_decode_spec_inner(
     {
         return None;
     }
-    if stack.iter().any(|name| name == schema_name) {
+    if stack.iter().any(|name| name == &schema_name) {
         return None;
     }
     stack.push(schema_name.clone());
@@ -107,7 +108,7 @@ fn format_neutral_schema_decode_spec(
         })
         .collect::<Option<Vec<_>>>()?;
     Some(IrSchemaDecodeSpec {
-        schema_name: schema_name.clone(),
+        schema_name: crate::schema::schema_link_name(module, schema),
         function_name: schema_decode_function_name(schema_name),
         fields,
         validation: ir_schema_validation(schema),
@@ -132,7 +133,7 @@ fn schema_decode_spec_inner_after_push(
         }
     }
     Some(IrSchemaDecodeSpec {
-        schema_name: schema_name.clone(),
+        schema_name: crate::schema::schema_link_name(module, schema),
         function_name: schema_decode_function_name(schema_name),
         fields,
         validation: ir_schema_validation(schema),
@@ -436,7 +437,7 @@ fn ir_schema_dispatch_case(
                     little_endian,
                     reserved_bits,
                     payload_schema: None,
-                    payload_schema_name: Some(schema_name),
+                    payload_schema_name: Some(crate::schema::schema_link_name(module, schema)),
                 });
             }
             let nested_schema = schema_dispatch_payload_schema(module, schema, &schema_name)?;

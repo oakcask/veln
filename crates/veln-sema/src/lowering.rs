@@ -29,7 +29,7 @@ use crate::types::environment::TypeEnvironment;
 use crate::types::signatures::{
     FunctionLookup, HandlerPathResolution, SCHEMA_DECODE_STEP_TARGET_PREFIX,
     SCHEMA_ENCODE_TARGET_PREFIX, SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX, UserEffectPathResolution,
-    synthetic_handler_clause_function_name,
+    synthetic_handler_clause_function_name, synthetic_handler_clause_function_target_from_name,
 };
 
 mod call_lowering;
@@ -63,16 +63,20 @@ struct CoreLowerer<'a> {
 impl CoreLowerer<'_> {
     fn core_type_annotation(&self, annotation: &str) -> CoreType {
         let ty = parse_type_or_unknown(Some(annotation));
-        let ty = self
-            .environment
-            .canonicalize_type_annotation(ty, self.function.module_name.as_deref());
+        let ty = self.environment.canonicalize_type_annotation_in_owner(
+            ty,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        );
         core_type(&ty)
     }
 
     fn parsed_core_type(&self, ty: Type) -> CoreType {
-        let ty = self
-            .environment
-            .canonicalize_type_annotation(ty, self.function.module_name.as_deref());
+        let ty = self.environment.canonicalize_type_annotation_in_owner(
+            ty,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        );
         core_type(&ty)
     }
 }
@@ -122,18 +126,13 @@ pub(crate) fn lower_project_surface_module_to_core(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> CoreLoweringOutput {
-    let has_application_functions = module.functions.iter().any(|function| {
-        !function
-            .module_name
-            .as_deref()
-            .is_some_and(|module| module.starts_with("std::"))
-    });
+    let has_application_functions = module
+        .functions
+        .iter()
+        .any(|function| function.package_name.as_deref() != Some(veln_stdlib::PACKAGE_NAME));
     lower_surface_module_to_core_if(module, environment, false, |function| {
         !has_application_functions
-            || !function
-                .module_name
-                .as_deref()
-                .is_some_and(|module| module.starts_with("std::"))
+            || function.package_name.as_deref() != Some(veln_stdlib::PACKAGE_NAME)
     })
 }
 
@@ -210,9 +209,10 @@ fn lower_effect_operation(
     environment: &TypeEnvironment,
 ) -> Option<CoreEffectOperationDecl> {
     let lower_type = |annotation| {
-        core_type(&environment.canonicalize_type_annotation(
+        core_type(&environment.canonicalize_type_annotation_in_owner(
             parse_type_or_unknown(annotation),
             effect.module_name.as_deref(),
+            effect.package_name.as_deref(),
         ))
     };
     Some(CoreEffectOperationDecl {
@@ -232,9 +232,11 @@ fn lower_handler_clause_functions(
     handler: &HandlerDecl,
     environment: &TypeEnvironment,
 ) -> Vec<Function> {
-    let effect = match environment
-        .resolve_user_effect_path(&handler.effect, handler.module_name.as_deref())
-    {
+    let effect = match environment.resolve_user_effect_path_in_owner(
+        &handler.effect,
+        handler.module_name.as_deref(),
+        handler.package_name.as_deref(),
+    ) {
         UserEffectPathResolution::Found(effect) => effect,
         UserEffectPathResolution::PrivateCompanionTargetMismatch { .. }
         | UserEffectPathResolution::QuarantinedImportTarget

@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
-use veln_ast::{PublicAliasKind, SurfaceModule, UseDecl, Visibility};
+use veln_ast::{PublicAliasKind, ResolvedImportOwner, SurfaceModule, UseDecl, Visibility};
 use veln_source::SourceSpan;
 
 use crate::name_recovery::normal_use_decls;
@@ -22,7 +22,7 @@ use crate::adt::lookup_validation::{
 struct RegistryIndexes {
     variant_declaration_orders: Vec<Arc<VariantDeclarationOrder>>,
     descriptors_by_type_name: HashMap<String, Vec<usize>>,
-    descriptors_by_source_identity: HashMap<(Option<String>, String), Vec<usize>>,
+    descriptors_by_source_identity: HashMap<(Option<String>, Option<String>, String), Vec<usize>>,
     descriptors_by_identity: HashMap<String, Vec<usize>>,
     variants_by_name: HashMap<String, Vec<(usize, usize)>>,
     variants_by_descriptor: HashMap<DescriptorKey, HashMap<String, Option<usize>>>,
@@ -136,7 +136,7 @@ impl AdtRegistry {
     fn from_parts_with_annotation_types(
         descriptors: Vec<AdtDescriptor>,
         companion_access_targets: BTreeMap<String, String>,
-        annotation_types: BTreeMap<(Option<String>, String), Type>,
+        annotation_types: BTreeMap<(Option<String>, Option<String>, String), Type>,
     ) -> Self {
         let RegistryIndexes {
             variant_declaration_orders,
@@ -169,6 +169,7 @@ impl AdtRegistry {
             imported_descriptors_by_type_arity: HashMap::new(),
             quarantined_type_identities: HashSet::new(),
             source_import_indexes_ready: false,
+            source_import_count: 0,
             local_descriptor_start,
         }
     }
@@ -270,17 +271,17 @@ impl AdtRegistry {
         self.imported_descriptors_by_type = imported_descriptors.any_arity;
         self.imported_descriptors_by_type_arity = imported_descriptors.exact_arity;
         self.source_import_indexes_ready = true;
+        self.source_import_count = uses.len();
         self.local_descriptor_start = local_descriptor_start;
-        self.canonicalize_source_payload_types(module, source_descriptor_start);
+        self.canonicalize_source_payload_types(&uses, source_descriptor_start);
     }
 
     fn canonicalize_source_payload_types(
         &mut self,
-        module: &SurfaceModule,
+        uses: &[UseDecl],
         source_descriptor_start: usize,
     ) {
         let lookup = self.clone();
-        let uses = normal_use_decls(module);
         let no_quarantined_uses = Vec::new();
         let no_effects = Vec::new();
         let no_effect_access_targets = BTreeMap::new();
@@ -291,11 +292,12 @@ impl AdtRegistry {
                     else {
                         continue;
                     };
-                    *ty = crate::types::canonicalize_type_effects(
+                    *ty = crate::types::canonicalize_type_effects_in_owner(
                         ty.clone(),
-                        &uses,
+                        uses,
                         &no_quarantined_uses,
                         descriptor.module_name.as_deref(),
+                        descriptor.package_name.as_deref(),
                         &no_effects,
                         &lookup,
                         &no_effect_access_targets,
@@ -327,7 +329,9 @@ impl AdtRegistry {
         let annotation_types = self
             .annotation_types
             .iter()
-            .filter(|((module_name, _), _)| selected_module(module_name.as_deref(), module_names))
+            .filter(|((_, module_name, _), _)| {
+                selected_module(module_name.as_deref(), module_names)
+            })
             .map(|(identity, ty)| (identity.clone(), ty.clone()))
             .collect();
         let mut registry = Self::from_parts_with_annotation_types(
@@ -375,6 +379,7 @@ fn source_declaration_spans(module: &SurfaceModule) -> HashMap<DescriptorKey, So
                 .is_some_and(u8::is_ascii_uppercase)
                 .then(|| {
                     let identity = DescriptorKey {
+                        package_name: decl.package_name.clone(),
                         module_name: decl.module_name.clone(),
                         type_name: name.clone(),
                         nominal_identity: None,
@@ -398,6 +403,7 @@ fn source_variant_declaration_spans(
             continue;
         }
         let descriptor = DescriptorKey {
+            package_name: declaration.package_name.clone(),
             module_name: declaration.module_name.clone(),
             type_name: name.clone(),
             nominal_identity: None,
@@ -508,7 +514,7 @@ fn remove_replaced_standard_descriptors(
 
 fn extend_source_annotation_types(
     source_descriptors: &[AdtDescriptor],
-    annotation_types: &mut BTreeMap<(Option<String>, String), Type>,
+    annotation_types: &mut BTreeMap<(Option<String>, Option<String>, String), Type>,
 ) {
     for descriptor in source_descriptors {
         if descriptor.module_name.as_deref() == Some("std::prelude") {
@@ -525,7 +531,7 @@ fn extend_source_annotation_types(
 fn extend_alias_annotation_types(
     module: &SurfaceModule,
     alias_targets: &[AdtDescriptor],
-    annotation_types: &mut BTreeMap<(Option<String>, String), Type>,
+    annotation_types: &mut BTreeMap<(Option<String>, Option<String>, String), Type>,
 ) {
     let uses = normal_use_decls(module);
     for alias in &module.aliases {
@@ -545,7 +551,11 @@ fn extend_alias_annotation_types(
             continue;
         };
         annotation_types.insert(
-            (alias.module_name.clone(), alias_name.clone()),
+            (
+                alias.package_name.clone(),
+                alias.module_name.clone(),
+                alias_name.clone(),
+            ),
             annotation_type,
         );
     }
@@ -553,22 +563,19 @@ fn extend_alias_annotation_types(
 
 fn qualified_import_modules(
     uses: &[UseDecl],
-) -> HashMap<(Option<String>, String), QualifiedImportModules> {
-    let mut modules = HashMap::<(Option<String>, String), QualifiedImportModules>::new();
+) -> HashMap<(ResolvedImportOwner, String), QualifiedImportModules> {
+    let mut modules = HashMap::<(ResolvedImportOwner, String), QualifiedImportModules>::new();
     for use_decl in uses {
-        let mut exact_paths = vec![use_decl.name.clone()];
-        if let Some(relative) = use_decl.name.strip_prefix("std::") {
-            exact_paths.push(relative.to_string());
-        }
-        exact_paths.sort();
-        exact_paths.dedup();
-        for path in exact_paths {
+        for path in crate::name_recovery::use_decl_exact_paths(use_decl) {
             crate::adt::lookup_validation::record_import_path_comparison();
             modules
-                .entry((use_decl.module_name.clone(), path))
+                .entry((use_decl.resolved_owner(), path))
                 .or_default()
                 .exact
-                .insert(use_decl.name.clone());
+                .insert({
+                    let target = use_decl.resolved_target();
+                    (target.package, target.module)
+                });
         }
         if crate::name_recovery::use_decl_matches_implicit_import_alias(
             use_decl,
@@ -577,18 +584,21 @@ fn qualified_import_modules(
         ) {
             crate::adt::lookup_validation::record_import_path_comparison();
             modules
-                .entry((use_decl.module_name.clone(), use_decl.alias.clone()))
+                .entry((use_decl.resolved_owner(), use_decl.alias.clone()))
                 .or_default()
                 .implicit
-                .insert(use_decl.name.clone());
+                .insert({
+                    let target = use_decl.resolved_target();
+                    (target.package, target.module)
+                });
         }
     }
     modules
 }
 
 fn qualified_import_recovery_modules(
-    exact: &HashMap<(Option<String>, String), QualifiedImportModules>,
-) -> HashMap<(Option<String>, String), Vec<QualifiedRecoveryModules>> {
+    exact: &HashMap<(ResolvedImportOwner, String), QualifiedImportModules>,
+) -> HashMap<(ResolvedImportOwner, String), Vec<QualifiedRecoveryModules>> {
     let mut recovered = HashMap::<_, Vec<_>>::new();
     for ((owner, module_path), modules) in exact {
         recovered
@@ -624,11 +634,18 @@ fn imported_descriptor_candidates(
     descriptors: &[AdtDescriptor],
     uses: &[UseDecl],
 ) -> ImportedDescriptorCandidates {
-    let mut owners_by_imported_module = HashMap::<String, BTreeSet<Option<String>>>::new();
+    let mut owners_by_imported_module =
+        HashMap::<(Option<String>, String), BTreeSet<Option<String>>>::new();
     for use_decl in uses {
+        if !crate::name_recovery::use_decl_contributes_bare_exports(use_decl) {
+            continue;
+        }
         crate::adt::lookup_validation::record_import_path_comparison();
         owners_by_imported_module
-            .entry(use_decl.name.clone())
+            .entry({
+                let target = use_decl.resolved_target();
+                (target.package, target.module)
+            })
             .or_default()
             .insert(use_decl.module_name.clone());
     }
@@ -643,7 +660,8 @@ fn imported_descriptor_candidates(
             continue;
         }
         crate::adt::lookup_validation::record_import_path_comparison();
-        let Some(owners) = owners_by_imported_module.get(module_name) else {
+        let target = (descriptor.package_name.clone(), module_name.clone());
+        let Some(owners) = owners_by_imported_module.get(&target) else {
             continue;
         };
         for owner in owners {

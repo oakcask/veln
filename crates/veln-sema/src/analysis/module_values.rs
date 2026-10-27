@@ -203,9 +203,13 @@ fn check_module_value(
     );
     let diagnostic_start = diagnostics.len();
     let parsed_annotation = parse_type_annotation(&value.annotation).ok();
-    let expected = parsed_annotation
-        .clone()
-        .map(|ty| environment.canonicalize_type_annotation(ty, value.module_name.as_deref()));
+    let expected = parsed_annotation.clone().map(|ty| {
+        environment.canonicalize_type_annotation_in_owner(
+            ty,
+            value.module_name.as_deref(),
+            value.package_name.as_deref(),
+        )
+    });
     check_admitted_expr(
         &value.initializer,
         value,
@@ -245,7 +249,7 @@ fn synthetic_module_value_function(value: &veln_ast::ModuleValueDecl, index: usi
     Function {
         node_id: value.node_id,
         module_name: value.module_name.clone(),
-        package_name: None,
+        package_name: value.package_name.clone(),
         kind: FunctionKind::Function,
         visibility: Visibility::Private,
         name: Some(format!("__module_value_{index}")),

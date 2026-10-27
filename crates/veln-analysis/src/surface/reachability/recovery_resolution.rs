@@ -324,17 +324,24 @@ impl<'a> ReachableInvalidNameSelector<'a> {
 
     fn visible_named_candidates<T: Copy>(
         &self,
-        index: &HashMap<(Option<String>, String), Vec<T>>,
+        index: &HashMap<RecoveryNameKey, Vec<T>>,
         segments: &[String],
         current_module: Option<&str>,
         mut visible: impl FnMut(T, Option<&str>) -> bool,
     ) -> Vec<T> {
-        let target = visible_path_target(&self.uses, segments, current_module);
+        let Some(target) = visible_path_target(
+            self.import_selections,
+            segments,
+            current_module,
+            self.current_package.as_deref(),
+        ) else {
+            return Vec::new();
+        };
         let Some(leaf) = path_leaf(segments).map(str::to_string) else {
             return Vec::new();
         };
         index
-            .get(&(target.clone(), leaf))
+            .get(&(target.package.clone(), target.module.clone(), leaf))
             .into_iter()
             .flatten()
             .copied()
@@ -342,7 +349,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                 #[cfg(test)]
                 reachability_counters::record_recovery_selector_candidate_scan();
             })
-            .filter(|candidate| visible(*candidate, target.as_deref()))
+            .filter(|candidate| visible(*candidate, target.module.as_deref()))
             .collect()
     }
 
@@ -351,17 +358,23 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         segments: &[String],
         current_module: Option<&str>,
     ) -> Option<&'a veln_ast::HandlerDecl> {
-        let target = visible_path_target(&self.uses, segments, current_module);
+        let target = visible_path_target(
+            self.import_selections,
+            segments,
+            current_module,
+            self.current_package.as_deref(),
+        )?;
         self.handlers.iter().copied().find(|handler| {
             handler.name.as_deref() == path_leaf(segments)
+                && handler.package_name == target.package
                 && (declaration_visible(
                     handler.module_name.as_deref(),
                     handler.visibility,
-                    target.as_deref(),
+                    target.module.as_deref(),
                     current_module,
                 ) || companion_target_handler_visible(
                     handler,
-                    target.as_deref(),
+                    target.module.as_deref(),
                     current_module,
                     &self.companion_access_targets,
                 ))
@@ -394,15 +407,35 @@ impl FunctionShape {
     }
 }
 
+pub(super) struct VisiblePathTarget {
+    package: Option<String>,
+    module: Option<String>,
+}
+
 pub(super) fn visible_path_target(
-    uses: &[&UseDecl],
+    import_selections: &ImportSelectionIndex<'_>,
     segments: &[String],
     current_module: Option<&str>,
-) -> Option<String> {
+    current_package: Option<&str>,
+) -> Option<VisiblePathTarget> {
     match segments {
-        [_] => current_module.map(str::to_string),
-        [_, .., _] => imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
-            .map(|use_decl| use_decl.name.clone()),
+        [_] => Some(VisiblePathTarget {
+            package: current_package.map(str::to_string),
+            module: current_module.map(str::to_string),
+        }),
+        [_, .., _] => imported_use_for_path(
+            import_selections,
+            &segments[..segments.len() - 1],
+            current_module,
+            current_package,
+        )
+        .map(|use_decl| {
+            let target = use_decl.resolved_target();
+            VisiblePathTarget {
+                package: target.package,
+                module: Some(target.module),
+            }
+        }),
         _ => None,
     }
 }

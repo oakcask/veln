@@ -294,6 +294,43 @@ and payload-carrying constructors. Without that expectation the ordinary
 ambiguity rule applies. Nullary generic constructors still require surrounding
 type context.
 
+An explicit import alias is one of these import qualifiers; it does not create
+a second type, schema, or constructor identity. After the import is selected,
+type annotations, variant refinements, constructors, patterns, schema
+composition, and schema operations use the target declaration's package and
+module identity. The explicit alias contributes no bare type or constructor
+candidate. The [name-resolution contract](name-resolution.md#explicit-import-aliases)
+defines qualifier selection and quarantine; this page's compatibility,
+inference, visibility, and payload rules apply to the selected identity without
+regard to the local qualifier spelling.
+
+The owner package is part of a source ADT's nominal identity. ADTs with equal
+type and module spellings but different owner packages remain distinct, even
+when their variant names and payload shapes match. A value, refinement, or
+constructor selected from one owner is not compatible with the namesake
+selected from another owner.
+
+Type annotations resolve imported identities in the package and module that
+own the annotated declaration. This applies to function and handler parameters
+and results, module values, local bindings, nested function types, ADT
+constructor payloads, and schema fields. If same-spelled modules in two
+packages bind one qualifier to different nominal declarations, each annotation
+retains the declaration selected by its own package's import. Type-versus-schema
+classification also uses that selected package. Source loading order does not
+let a namesake type, type alias, or schema from another package replace that
+identity during checking or lowering.
+
+An import with an invalid-cased target segment or explicit alias remains
+unavailable for normal type and constructor lookup. If correcting that casing
+selects one source module and one visible public ADT or constructor in the
+import's target package, the checker retains the target identity only for
+independent failures. A same-spelled ADT or constructor in another package
+cannot satisfy this recovery. The checker checks constructor payload arity and
+uses the selected ADT's finite domain for match exhaustiveness. These checks
+apply to constructor paths written through the invalid explicit alias and
+through the quarantined import's full written target path. They do not accept
+the import, publish a type fact, or make the containing module executable.
+
 Compiler-known collection and option/result helpers propagate concrete callback context.
 The input container determines callback item types; an explicit `_with` context is the
 first callback argument; a concrete helper result determines the callback return
@@ -1070,6 +1107,16 @@ declarations. Publication quarantine over a chain of dependent public ADTs also
 grows linearly with the declarations and payload-refinement dependencies it
 examines.
 
+For `N` valid imports and `N` qualified public function aliases, checked
+lowering performs import selection work that grows linearly with `N`. The
+deterministic scaling check compares `N = 64` and `N = 128`. Its work metric
+aggregates imports and candidate bindings processed or retained, alias target
+requests, and candidate-selection steps. For workload size `N`, call this
+total `W(N)`. The check requires `W(128) <= 2 * W(64) + 16`. The fixed
+allowance covers size-independent setup. The check counts semantic work
+instead of elapsed time, so runner timing noise does not affect the bound or
+prescribe a selection data structure.
+
 For one direct refinement whose qualified base requires initial-only casing
 recovery, increasing the qualifier depth adds linear path-normalization and
 comparison work. The deterministic scaling check compares depths 64, 128, and
@@ -1198,9 +1245,9 @@ defined as follows:
 | `A<T>` | a singleton or variant set | Rejected. |
 | `A<T>::W` | a different singleton `A<T>::V` | Rejected. |
 
-The base ADT identity is nominal and includes the resolved owning module. A
-refinement of one ADT cannot widen to a same-spelled base ADT from another
-module.
+The base ADT identity is nominal and includes the resolved owning package and
+module. A refinement of one ADT cannot widen to a same-spelled base ADT from
+another package or module.
 
 The type checker applies the same rules to refined call parameters and declared
 function results. A final `if` or `match` checks every successfully typed branch
@@ -1409,5 +1456,10 @@ inventing an arithmetic rewrite.
 - Direct variant-refinement visibility, union-base comparison and diagnostic
   rendering, and qualified-path recovery scaling:
   `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/scaling.rs`.
+- Qualified public-alias import-selection scaling:
+  `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/public_visibility/publication_worklist.rs`.
+- Import-selected package identity and namesake ADT compatibility:
+  `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs` and
+  `crates/veln-sema/src/tests/import_package_identity.rs`.
 - Parser coverage: `crates/veln-syntax/src/tests/calls_and_generics.rs`,
   `literals_and_numbers.rs`, and `patterns_and_control_flow.rs`.

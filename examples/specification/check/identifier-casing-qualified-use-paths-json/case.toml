@@ -26,7 +26,7 @@ equals = "path_segment"
 
 [[json_assert]]
 path = "diagnostics.0.details.name"
-equals = "ModOnly"
+equals = "Foo"
 
 [[json_assert]]
 path = "diagnostics.0.details.name_class"
@@ -38,11 +38,11 @@ equals = 0
 
 [[json_assert]]
 path = "diagnostics.1.details.name"
-equals = "Value"
+equals = "Bar"
 
 [[json_assert]]
 path = "diagnostics.1.details.name_class"
-equals = "function"
+equals = "module"
 
 [[json_assert]]
 path = "diagnostics.1.details.segment_index"
@@ -50,31 +50,31 @@ equals = 1
 
 [[json_assert]]
 path = "diagnostics.2.details.name"
-equals = "Foo"
+equals = "Double"
 
 [[json_assert]]
 path = "diagnostics.2.details.name_class"
-equals = "module"
+equals = "function"
 
 [[json_assert]]
 path = "diagnostics.2.details.segment_index"
-equals = 0
+equals = 2
 
 [[json_assert]]
 path = "diagnostics.3.details.name"
-equals = "ModType"
+equals = "Double"
 
 [[json_assert]]
 path = "diagnostics.3.details.name_class"
-equals = "module"
+equals = "value_binding"
 
 [[json_assert]]
 path = "diagnostics.3.details.segment_index"
-equals = 0
+equals = 2
 
 [[json_assert]]
 path = "diagnostics.4.details.name"
-equals = "Bar"
+equals = "ModOnly"
 
 [[json_assert]]
 path = "diagnostics.4.details.name_class"
@@ -82,15 +82,15 @@ equals = "module"
 
 [[json_assert]]
 path = "diagnostics.4.details.segment_index"
-equals = 1
+equals = 0
 
 [[json_assert]]
 path = "diagnostics.5.details.name"
-equals = "sample"
+equals = "Value"
 
 [[json_assert]]
 path = "diagnostics.5.details.name_class"
-equals = "type"
+equals = "function"
 
 [[json_assert]]
 path = "diagnostics.5.details.segment_index"
@@ -98,27 +98,27 @@ equals = 1
 
 [[json_assert]]
 path = "diagnostics.6.details.name"
-equals = "Double"
+equals = "ModType"
 
 [[json_assert]]
 path = "diagnostics.6.details.name_class"
-equals = "function"
+equals = "module"
 
 [[json_assert]]
 path = "diagnostics.6.details.segment_index"
-equals = 2
+equals = 0
 
 [[json_assert]]
 path = "diagnostics.7.details.name"
-equals = "Double"
+equals = "sample"
 
 [[json_assert]]
 path = "diagnostics.7.details.name_class"
-equals = "value_binding"
+equals = "type"
 
 [[json_assert]]
 path = "diagnostics.7.details.segment_index"
-equals = 2
+equals = 1
 
 [[json_assert]]
 path = "diagnostics.8.details.name"

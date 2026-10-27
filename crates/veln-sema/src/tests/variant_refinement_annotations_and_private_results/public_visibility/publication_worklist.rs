@@ -103,6 +103,29 @@ fn function_alias_chain_source(length: usize, dependent_first: bool) -> String {
     source
 }
 
+fn qualified_function_alias_source(count: usize) -> String {
+    let mut source = String::from("mod api\n");
+    for index in 0..count {
+        source.push_str(&format!("use dependency{index} as alias{index}\n"));
+    }
+    for index in 0..count {
+        source.push_str(&format!("pub fn exported{index} = alias{index}::target\n"));
+    }
+    source
+}
+
+fn qualified_function_alias_import_work(
+    count: usize,
+) -> crate::name_recovery::NormalImportSelectionWork {
+    let source = SourceFile::new("api.veln", qualified_function_alias_source(count));
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    crate::name_recovery::reset_normal_import_selection_work();
+    let _lowered = lower_checked_surface_module(&module);
+    crate::name_recovery::normal_import_selection_work()
+}
+
 fn cause_columns(declaration: &UnpublishedDeclaration) -> Vec<(usize, usize)> {
     declaration
         .causal_diagnostics
@@ -188,4 +211,14 @@ fn checked_lowering_publication_work_is_affine_for_both_chain_orders() {
             );
         }
     }
+}
+
+#[test]
+fn checked_lowering_qualified_function_alias_import_work_scales_linearly() {
+    let small = qualified_function_alias_import_work(64);
+    let large = qualified_function_alias_import_work(128);
+    assert!(
+        large.operations <= small.operations * 2 + 16,
+        "doubling imports and qualified public aliases must keep aggregate selection work linear: small={small:?} large={large:?}"
+    );
 }

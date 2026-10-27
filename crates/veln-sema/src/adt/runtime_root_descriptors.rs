@@ -11,6 +11,7 @@ pub(super) fn runtime_root_descriptors() -> Vec<AdtDescriptor> {
     vec![AdtDescriptor {
         type_name: "RuntimeDiagnostic".to_string(),
         name_class: SourceLessNameClass::Type,
+        package_name: None,
         module_name: None,
         nominal_identity: None,
         type_parameters: Vec::new(),

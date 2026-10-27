@@ -459,6 +459,7 @@ impl<'a> CoreLowerer<'a> {
             &bindings,
             self.environment,
             self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
         )
     }
 

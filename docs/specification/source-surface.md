@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#usage-and-declaration-forms; behavior=#schemas; limits=#diagnostics
-update-when: Veln declarations, expressions, literals, schema syntax, companion sources, executable source grammar, syntax-tree or lowered-AST structural preservation, or the AST wire layout changes.
+update-when: Veln declarations, expressions, literals, schema syntax, companion sources, executable source grammar, source formatting, syntax-tree or lowered-AST structural preservation, or the AST wire layout changes.
 ---
 
 # Source Surface
@@ -31,6 +31,69 @@ end
 
 The sections below explain declarations and source boundaries. The grammar
 provides the production notation for these forms.
+
+An import can bind an explicit module qualifier with `as` before an optional
+package source:
+
+```veln
+use transport::net as wire from "std"
+```
+
+`as` is contextual in an import and remains an ordinary identifier elsewhere.
+The alias is one identifier and must start with an ASCII lowercase letter.
+The parser retains uppercase and underscore-led aliases for casing diagnostics.
+The contextual spellings `callsite`, `handler`, and `handle` are valid explicit
+aliases. When one of those spellings is followed by `::`, the parser retains a
+qualified name path. In particular, `handle::member()` is a call path rather
+than the start of a `handle ... with ...` expression.
+
+### Import alias preservation and formatting
+
+A valid explicit import retains the written target, the explicit alias and its
+span, and the optional target package source. The lowered AST also retains the
+package that owns the importing source; that origin remains distinct from an
+explicit target package. Formatting writes the alias before `from`. A second
+formatting pass produces the same source. The syntax tree and lowered AST also
+retain the complete declaration span and recovery state. The AST wire layout
+serializes that provenance and rejects the preceding layout header, whose
+declaration records lack their owner-package fields. Importing-package
+provenance was introduced by the earlier wire layout and remains preserved.
+
+Lowered functions, handlers, module values, effects, source types, schemas,
+and public aliases retain both their declaring package and module identity.
+The AST wire form preserves both identities so declarations from different
+packages do not become one declaration merely because their module and name
+spellings match.
+
+### Import alias recovery limits
+
+A malformed alias clause recovers at its declaration newline, so the next
+import or item remains available, but the recovered import supplies no lookup
+binding. Semantic analysis continues after that bounded recovery so retained
+target and alias spellings can report casing diagnostics; the recovered import
+still cannot contribute a qualifier, exact path, or bare export. Formatting
+preserves the malformed declaration text. It does not turn a recovered import
+into a valid binding. Reparsing formatted output retains the recovered state,
+and another formatting pass is unchanged.
+
+Recovery retains only the provenance parsed before the malformed remainder:
+
+| Malformed declaration shape | Retained explicit alias | Retained package source |
+| --- | --- | --- |
+| `use a as` | Absent | Absent |
+| `use a as from "pkg"` | Absent | `pkg` |
+| `use a as "local"` | Absent | Absent |
+| `use a as b::c` | `b` | Absent |
+| `use a from "pkg" as local` | Absent | `pkg` |
+| `use a as b as c` | `b` | Absent |
+| `use a as b from` | `b` | Absent |
+
+Missing aliases, non-identifier aliases, trailing alias paths, misplaced or
+repeated `as`, and missing package strings all follow this newline-bounded,
+non-binding rule. A retained alias or package is diagnostic provenance only.
+If a syntax tree contains any recovered import, formatting returns the complete
+source text unchanged. This whole-source preservation prevents formatting of
+other declarations from turning retained recovery provenance into a binding.
 
 A source `type` declaration may contain zero variants:
 
@@ -66,9 +129,10 @@ indentation and applies the ordinary canonical type and expression layout.
 The syntax tree and lowered AST preserve the declaration's visibility, name,
 written annotation, exact annotation span, structured type paths and
 refinements, initializer, and source spans. The lowered AST also records the
-declaring module identity. The AST wire layout serializes the annotation span
-and rejects the preceding layout header, whose module-value record lacks that
-field.
+declaring package and module identity. The AST wire layout serializes the
+annotation span and both identities.
+Incompatible older layout headers are rejected rather than decoded with an
+older module-value record shape.
 
 This source surface does not make module values executable. Semantic analysis
 checks the written annotation and finite-data initializer, resolves
@@ -304,9 +368,13 @@ Decode and encode expose a schema-local visible record only when every
 recursively visited field and constructor payload is an eligible visible shape.
 The scalar leaves are `Int`, `Bool`, `Float`, and `String`. Containers are
 anonymous records, `Option<T>`, `List<T>`,
-`Vec<T>`, `Dict<String, T>`, and `Result<Ok, Err>`. Same-module source ADTs
-and public imported source ADTs are eligible when every constructor payload also
-has an eligible shape. Both directions also accept singleton and finite-set
+`Vec<T>`, `Dict<String, T>`, and `Result<Ok, Err>`. Same-package, same-module
+source ADTs and public imported source ADTs are eligible when every constructor
+payload also has an eligible shape. A qualified imported ADT is selected from
+the import target package. A same-spelled ADT in another package cannot supply
+its visibility or payload shape. Each selected package identity is checked
+independently, so source loading order and the eligibility of a namesake ADT do
+not change the result. Both directions also accept singleton and finite-set
 refinements of those ADTs recursively through the same containers and through
 composed format-neutral schemas. Decode retains each refinement in the helper
 parameter and successful result instead of strengthening a base ADT after the
@@ -320,19 +388,20 @@ from publishing a format-neutral encode helper. An ordinary container such as
 arguments satisfy the field rules.
 
 A private constructor can appear only in a private schema declared by its own
-module. The exact test companion may explicitly import that target and decode
-or encode through the target's private schema with the private constructor. A
-public schema boundary and an ordinary imported schema user cannot expose a
-private constructor through a generated helper. Direction-specific eligibility
-checks apply to the constructors written in nested singleton and finite-set
-refinements before a singleton or complete set is normalized to another type
-form. Provider-backed opaque ADTs do not become eligible refinements. Private
-imports other than exact-companion access, missing or wrong-kind targets, and
-unsupported ADT payloads are declaration errors. Decode and encode otherwise
-share this vocabulary but differ in recursive generic stopping: decode may
-accept a repeated source ADT descriptor with changed instantiated arguments;
-encode checks newly introduced arguments and rejects unsupported leaves. There
-is no separate container-depth limit.
+package and module. The exact test companion may explicitly import that target
+and decode or encode through the target's private schema with the private
+constructor. A same-spelled module in another package does not gain private
+access. A public schema boundary and an ordinary imported schema user cannot
+expose a private constructor through a generated helper. Direction-specific
+eligibility checks apply to the constructors written in nested singleton and
+finite-set refinements before a singleton or complete set is normalized to
+another type form. Provider-backed opaque ADTs do not become eligible
+refinements. Private imports other than exact-companion access, missing or
+wrong-kind targets, and unsupported ADT payloads are declaration errors. Decode
+and encode otherwise share this vocabulary but differ in recursive generic
+stopping: decode may accept a repeated source ADT descriptor with changed
+instantiated arguments; encode checks newly introduced arguments and rejects
+unsupported leaves. There is no separate container-depth limit.
 
 ### Binary fields
 
@@ -360,14 +429,16 @@ Type text resolves ordinary type and schema namespaces independently. A unique
 schema or schema alias composes its schema-local record under the written field
 binding; target fields are not injected as unqualified names. Same-module
 private/public targets and public imported targets or aliases are supported.
-Full imported paths take precedence over an implicit leaf alias. Colliding
-workspace leaf aliases remain unresolved regardless of import order. Format-
-neutral schemas may compose only format-neutral targets; binary schemas only
-binary targets. Missing, private, wrong-kind, ambiguous, incompatible, cyclic,
-duplicate-binding, forward-reference, and direction-specific helper failures
-are declaration errors. The private-target case has one exception: an exact
-test companion with an explicit import may compose a private schema from its
-target module. This access does not extend to another module or package.
+Full imported paths take precedence over local import qualifiers. An explicit
+alias supplies its own qualifier, while an unaliased import supplies its
+implicit leaf qualifier. Colliding workspace qualifiers remain unresolved
+regardless of import order. Format-neutral schemas may compose only
+format-neutral targets; binary schemas only binary targets. Missing, private,
+wrong-kind, ambiguous, incompatible, cyclic, duplicate-binding,
+forward-reference, and direction-specific helper failures are declaration
+errors. The private-target case has one exception: an exact test companion with
+an explicit import may compose a private schema from its target module. This
+access does not extend to another module or package.
 
 Anonymous binary records expose nested schema-local records when every leaf is an
 exact-width unsigned primitive. Sibling nested records at one level are allowed.
@@ -452,7 +523,9 @@ the optional retained-effect list and the boundary of the next declaration.
 ```text
 Module        ::= ModuleHeader? UseDecl* Item*
 ModuleHeader  ::= "mod" ModuleHeaderPath NL
-UseDecl       ::= "use" ModulePath ImportSource? NL
+UseDecl       ::= "use" ModulePath UseAlias? ImportSource? NL
+UseAlias      ::= "as" AliasName
+AliasName     ::= Identifier
 ImportSource  ::= "from" PackageString
 ModuleHeaderPath ::= ModuleHeaderSegment ("::" ModuleHeaderSegment)*
 ModuleHeaderSegment ::= Name | HoleName
@@ -595,6 +668,9 @@ MemberPath    ::= Name ("::" Name)*
 
 - Grammar artifact: [source-surface-executable.pl](source-surface-executable.pl).
 - Parser: `crates/veln-syntax/src/parser/` and `crates/veln-syntax/src/lexer.rs`.
+- Formatter and recovered-import preservation:
+  `crates/veln-syntax/src/format/declarations.rs` and
+  `crates/veln-syntax/src/tests/import_aliases.rs`.
 - Source identity and companion visibility: `crates/veln-analysis/src/surface/`.
 ## Read by task
 

@@ -3,7 +3,7 @@ use super::*;
 use crate::adt::descriptors::{AdtConstructor, AdtDescriptor};
 use crate::adt::registry::AdtRegistry;
 use crate::adt::type_operations as adt;
-use crate::name_recovery::{normal_use_decls, use_decl_has_invalid_module_segment};
+use crate::name_recovery::{normal_use_decls, use_decl_is_recovery_candidate};
 use crate::type_syntax::parse_type_annotation;
 
 mod refinement;
@@ -25,8 +25,12 @@ pub(super) fn format_neutral_schema_decode_function_signature_for_schema(
     )?);
     Some(FunctionSignature {
         name: schema_decode_function_name(schema_name),
-        target_name: format!("{SCHEMA_NEUTRAL_DECODE_TARGET_PREFIX}{schema_name}"),
+        target_name: format!(
+            "{SCHEMA_NEUTRAL_DECODE_TARGET_PREFIX}{}",
+            crate::schema::schema_link_name(module, schema)
+        ),
         module_name: schema.module_name.clone(),
+        package_name: schema.package_name.clone(),
         visibility: schema.visibility,
         params: vec![decoded_type.clone()],
         variadic: None,
@@ -100,28 +104,30 @@ fn format_neutral_schema_resolved_field_type(
     adts: &AdtRegistry,
     text: &str,
     traversal: FormatNeutralSchemaTraversal,
-    composition_stack: &mut Vec<(Option<String>, String)>,
+    composition_stack: &mut Vec<(Option<String>, Option<String>, String)>,
 ) -> Option<Type> {
     let parsed = parse_type_annotation(text).ok()?;
     if !format_neutral_schema_written_constructors_are_visible(
         module,
         schema.module_name.as_deref(),
+        schema.package_name.as_deref(),
         adts,
         &parsed,
         traversal,
     ) {
         return None;
     }
-    let ty = crate::types::canonicalize_type_effects(
+    let ty = crate::types::canonicalize_type_effects_in_owner(
         parsed,
         &normal_use_decls(module),
         &module
             .uses
             .iter()
-            .filter(|use_decl| use_decl_has_invalid_module_segment(module, use_decl))
+            .filter(|use_decl| use_decl_is_recovery_candidate(module, use_decl))
             .cloned()
             .collect::<Vec<_>>(),
         schema.module_name.as_deref(),
+        schema.package_name.as_deref(),
         &[],
         adts,
         &BTreeMap::new(),
@@ -129,6 +135,7 @@ fn format_neutral_schema_resolved_field_type(
     if let Some(ty) = format_neutral_schema_visible_shape_type_for_schema(
         module,
         schema.module_name.as_deref(),
+        schema.package_name.as_deref(),
         adts,
         &ty,
         &mut FormatNeutralSchemaTraversalState::default(),
@@ -257,6 +264,7 @@ pub(crate) fn format_neutral_schema_first_unsupported_encode_field(
 
 #[derive(Clone, PartialEq, Eq)]
 struct FormatNeutralSchemaAdtFrame {
+    package_name: Option<String>,
     module_name: Option<String>,
     type_name: String,
     type_arguments: Vec<Type>,
@@ -291,9 +299,13 @@ fn format_neutral_schema_composition_value_type(
     module: &SurfaceModule,
     schema: &SchemaDecl,
     traversal: FormatNeutralSchemaTraversal,
-    stack: &mut Vec<(Option<String>, String)>,
+    stack: &mut Vec<(Option<String>, Option<String>, String)>,
 ) -> Option<Type> {
-    let key = (schema.module_name.clone(), schema.name.clone()?);
+    let key = (
+        schema.package_name.clone(),
+        schema.module_name.clone(),
+        schema.name.clone()?,
+    );
     if stack.contains(&key) {
         return None;
     }
@@ -313,6 +325,7 @@ fn format_neutral_schema_composition_value_type(
 fn format_neutral_schema_visible_shape_type_for_schema(
     module: &SurfaceModule,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     adts: &AdtRegistry,
     ty: &Type,
     state: &mut FormatNeutralSchemaTraversalState,
@@ -320,7 +333,7 @@ fn format_neutral_schema_visible_shape_type_for_schema(
 ) -> Option<Type> {
     match ty {
         Type::Named { name, args, .. } => format_neutral_schema_named_visible_shape_type(
-            (module, current_module, adts, traversal),
+            (module, current_module, current_package, adts, traversal),
             ty,
             name,
             args,
@@ -329,6 +342,7 @@ fn format_neutral_schema_visible_shape_type_for_schema(
         Type::VariantRefinement { .. } => format_neutral_schema_source_adt_type(
             module,
             current_module,
+            current_package,
             adts,
             ty,
             state,
@@ -343,6 +357,7 @@ fn format_neutral_schema_visible_shape_type_for_schema(
                         format_neutral_schema_visible_shape_type_for_schema(
                             module,
                             current_module,
+                            current_package,
                             adts,
                             field_ty,
                             state,
@@ -359,6 +374,7 @@ fn format_neutral_schema_visible_shape_type_for_schema(
 type FormatNeutralSchemaContext<'a> = (
     &'a SurfaceModule,
     Option<&'a str>,
+    Option<&'a str>,
     &'a AdtRegistry,
     FormatNeutralSchemaTraversal,
 );
@@ -370,13 +386,14 @@ fn format_neutral_schema_named_visible_shape_type(
     args: &[Type],
     state: &mut FormatNeutralSchemaTraversalState,
 ) -> Option<Type> {
-    let (module, current_module, adts, traversal) = context;
+    let (module, current_module, current_package, adts, traversal) = context;
     match (name, args) {
         ("List" | "Vec", [item]) | ("Option", [item]) => Some(Type::named(
             name,
             vec![format_neutral_schema_visible_shape_type_for_schema(
                 module,
                 current_module,
+                current_package,
                 adts,
                 item,
                 state,
@@ -388,6 +405,7 @@ fn format_neutral_schema_named_visible_shape_type(
             format_neutral_schema_visible_shape_type_for_schema(
                 module,
                 current_module,
+                current_package,
                 adts,
                 value,
                 state,
@@ -400,6 +418,7 @@ fn format_neutral_schema_named_visible_shape_type(
                 format_neutral_schema_visible_shape_type_for_schema(
                     module,
                     current_module,
+                    current_package,
                     adts,
                     ok,
                     state,
@@ -408,6 +427,7 @@ fn format_neutral_schema_named_visible_shape_type(
                 format_neutral_schema_visible_shape_type_for_schema(
                     module,
                     current_module,
+                    current_package,
                     adts,
                     error,
                     state,
@@ -419,6 +439,7 @@ fn format_neutral_schema_named_visible_shape_type(
         _ => format_neutral_schema_source_adt_type(
             module,
             current_module,
+            current_package,
             adts,
             ty,
             state,
@@ -430,16 +451,24 @@ fn format_neutral_schema_named_visible_shape_type(
 fn format_neutral_schema_source_adt_type(
     module: &SurfaceModule,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     adts: &AdtRegistry,
     ty: &Type,
     state: &mut FormatNeutralSchemaTraversalState,
     traversal: FormatNeutralSchemaTraversal,
 ) -> Option<Type> {
-    let descriptor = format_neutral_schema_source_adt_descriptor(module, current_module, adts, ty)?;
+    let descriptor = format_neutral_schema_source_adt_descriptor(
+        module,
+        current_module,
+        current_package,
+        adts,
+        ty,
+    )?;
     if !format_neutral_schema_refinement_variants_are_visible(
         ty,
         descriptor,
         current_module,
+        current_package,
         traversal,
     ) {
         return None;
@@ -450,12 +479,13 @@ fn format_neutral_schema_source_adt_type(
         _ => return None,
     };
     let frame = FormatNeutralSchemaAdtFrame {
+        package_name: descriptor.package_name.clone(),
         module_name: descriptor.module_name.clone(),
         type_name: descriptor.type_name.clone(),
         type_arguments: type_arguments.clone(),
     };
     if let Some(result) = format_neutral_schema_prior_adt_traversal_result(
-        (module, current_module, adts, traversal),
+        (module, current_module, current_package, adts, traversal),
         descriptor,
         &descriptor_ty,
         type_arguments,
@@ -489,6 +519,7 @@ fn format_neutral_schema_refinement_variants_are_visible(
     ty: &Type,
     descriptor: &AdtDescriptor,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     traversal: FormatNeutralSchemaTraversal,
 ) -> bool {
     let Type::VariantRefinement { variants, .. } = ty else {
@@ -499,7 +530,8 @@ fn format_neutral_schema_refinement_variants_are_visible(
             variant.name == *selected
                 && (variant.visibility == Visibility::Public
                     || traversal.permits_private_variants()
-                        && descriptor.module_name.as_deref() == current_module)
+                        && descriptor.module_name.as_deref() == current_module
+                        && descriptor.package_name.as_deref() == current_package)
         })
     })
 }
@@ -512,7 +544,7 @@ fn format_neutral_schema_prior_adt_traversal_result(
     frame: &FormatNeutralSchemaAdtFrame,
     state: &mut FormatNeutralSchemaTraversalState,
 ) -> Option<Option<Type>> {
-    let (module, _, adts, traversal) = context;
+    let (module, _, _, adts, traversal) = context;
     if let Some((_, supported)) = state.completed.iter().find(|(key, _)| key == frame) {
         return Some((*supported).then(|| descriptor_ty.clone()));
     }
@@ -521,7 +553,9 @@ fn format_neutral_schema_prior_adt_traversal_result(
         return Some(Some(descriptor_ty.clone()));
     }
     let recursive_index = state.stack.iter().position(|active| {
-        active.module_name == frame.module_name && active.type_name == frame.type_name
+        active.module_name == frame.module_name
+            && active.type_name == frame.type_name
+            && active.package_name == frame.package_name
     })?;
     state.stack_cacheable[recursive_index + 1..].fill(false);
     if traversal.is_decode() {
@@ -534,6 +568,7 @@ fn format_neutral_schema_prior_adt_traversal_result(
                 format_neutral_schema_visible_shape_type_for_schema(
                     module,
                     descriptor.module_name.as_deref(),
+                    descriptor.package_name.as_deref(),
                     adts,
                     arg,
                     state,
@@ -572,6 +607,7 @@ fn format_neutral_schema_adt_payloads_are_supported(
                 format_neutral_schema_visible_shape_type_for_schema(
                     module,
                     descriptor.module_name.as_deref(),
+                    descriptor.package_name.as_deref(),
                     adts,
                     &payload_ty,
                     state,
@@ -607,12 +643,20 @@ fn format_neutral_schema_descriptor_type(ty: &Type, descriptor: &AdtDescriptor) 
 fn format_neutral_schema_source_adt_descriptor<'a>(
     module: &SurfaceModule,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     adts: &'a AdtRegistry,
     ty: &Type,
 ) -> Option<&'a AdtDescriptor> {
+    let has_resolved_identity = matches!(
+        ty,
+        Type::Named { name, identity, .. } | Type::VariantRefinement { name, identity, .. }
+            if identity != name
+    );
     if let Some(descriptor) = adts.descriptor_for_type(ty)
-        && (descriptor.module_name.as_deref() == current_module
-            || descriptor.visibility == Visibility::Public)
+        && ((descriptor.module_name.is_none() && descriptor.package_name.is_none())
+            || (descriptor.module_name.as_deref() == current_module
+                && descriptor.package_name.as_deref() == current_package)
+            || (has_resolved_identity && descriptor.visibility == Visibility::Public))
         && format_neutral_schema_descriptor_supports_type(adts, descriptor, ty)
     {
         return Some(descriptor);
@@ -623,12 +667,17 @@ fn format_neutral_schema_source_adt_descriptor<'a>(
     };
     let segments = name.split("::").collect::<Vec<_>>();
     match segments.as_slice() {
-        [local_name] => {
-            format_neutral_schema_local_adt_descriptor(current_module, adts, ty, local_name, args)
-        }
+        [local_name] => format_neutral_schema_local_adt_descriptor(
+            current_module,
+            current_package,
+            adts,
+            ty,
+            local_name,
+            args,
+        ),
         [_, .., type_name] => format_neutral_schema_imported_adt_descriptor(
             module,
-            current_module,
+            (current_module, current_package),
             adts,
             ty,
             &segments[..segments.len() - 1],
@@ -650,18 +699,24 @@ fn format_neutral_schema_descriptor_supports_type(
 
 fn format_neutral_schema_local_adt_descriptor<'a>(
     current_module: Option<&str>,
+    current_package: Option<&str>,
     adts: &'a AdtRegistry,
     ty: &Type,
     local_name: &str,
     args: &[Type],
 ) -> Option<&'a AdtDescriptor> {
-    adts.descriptor_for_type_in_module(&Type::named(local_name, args.to_vec()), current_module)
-        .filter(|descriptor| format_neutral_schema_descriptor_supports_type(adts, descriptor, ty))
+    adts.descriptors().iter().rev().find(|descriptor| {
+        descriptor.type_name == local_name
+            && descriptor.module_name.as_deref() == current_module
+            && descriptor.package_name.as_deref() == current_package
+            && descriptor.type_parameters.len() == args.len()
+            && format_neutral_schema_descriptor_supports_type(adts, descriptor, ty)
+    })
 }
 
 fn format_neutral_schema_imported_adt_descriptor<'a>(
     module: &SurfaceModule,
-    current_module: Option<&str>,
+    owner: (Option<&str>, Option<&str>),
     adts: &'a AdtRegistry,
     ty: &Type,
     import_segments: &[&str],
@@ -672,10 +727,12 @@ fn format_neutral_schema_imported_adt_descriptor<'a>(
         .iter()
         .map(|segment| (*segment).to_string())
         .collect::<Vec<_>>();
-    let use_decl = normal_imported_use_for_path(module, &import_path, current_module)?;
+    let use_decl = normal_imported_use_for_path_in_owner(module, &import_path, owner.0, owner.1)?;
+    let target = use_decl.resolved_target();
     adts.descriptors().iter().rev().find(|descriptor| {
         descriptor.type_name == type_name
-            && descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
+            && descriptor.module_name.as_deref() == Some(target.module.as_str())
+            && descriptor.package_name == target.package
             && descriptor.type_parameters.len() == argument_count
             && descriptor.visibility == Visibility::Public
             && format_neutral_schema_descriptor_supports_type(adts, descriptor, ty)

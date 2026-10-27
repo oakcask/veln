@@ -43,6 +43,7 @@ pub struct SurfaceModule {
 pub struct ModuleValueDecl {
     pub node_id: NodeId,
     pub module_name: Option<String>,
+    pub package_name: Option<String>,
     pub visibility: Visibility,
     pub name: Option<String>,
     pub name_span: Option<SourceSpan>,
@@ -167,13 +168,119 @@ pub struct ModuleHeader {
 pub struct UseDecl {
     pub node_id: NodeId,
     pub module_name: Option<String>,
+    pub importing_package: Option<String>,
     pub name: String,
+    pub written_name: String,
     pub alias: String,
+    pub alias_span: Option<SourceSpan>,
     pub name_spans: Vec<SourceSpan>,
     pub package: Option<String>,
     pub package_span: Option<SourceSpan>,
     pub span: SourceSpan,
+    pub recovered: bool,
     pub origin: UseOrigin,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ResolvedImportOwner {
+    pub package: Option<String>,
+    pub module: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ResolvedImportTarget {
+    pub owner: ResolvedImportOwner,
+    pub package: Option<String>,
+    pub module: String,
+}
+
+impl UseDecl {
+    /// Correct one uppercase source target segment while retaining any loaded package prefix.
+    pub fn corrected_target_case(&self) -> Option<String> {
+        let written_segments = self.written_name.split("::");
+        let mut invalid_indices =
+            written_segments
+                .clone()
+                .enumerate()
+                .filter_map(|(index, segment)| {
+                    segment
+                        .as_bytes()
+                        .first()
+                        .is_some_and(u8::is_ascii_uppercase)
+                        .then_some(index)
+                });
+        let invalid_index = invalid_indices.next()?;
+        if invalid_indices.next().is_some() {
+            return None;
+        }
+        let internal_segments = self.name.split("::").collect::<Vec<_>>();
+        let prefix_count = internal_segments
+            .len()
+            .checked_sub(written_segments.count())?;
+        let internal_index = prefix_count + invalid_index;
+        let first = internal_segments
+            .get(internal_index)?
+            .as_bytes()
+            .first()
+            .copied()?;
+        if !first.is_ascii_uppercase() {
+            return None;
+        }
+        let byte_offset = internal_segments[..internal_index]
+            .iter()
+            .map(|segment| segment.len() + 2)
+            .sum::<usize>();
+        let mut corrected = self.name.clone();
+        corrected.replace_range(
+            byte_offset..byte_offset + 1,
+            &(first as char).to_ascii_lowercase().to_string(),
+        );
+        Some(corrected)
+    }
+
+    pub fn has_explicit_alias(&self) -> bool {
+        self.alias_span.is_some()
+    }
+
+    pub fn is_standard_package_import(&self) -> bool {
+        self.package
+            .as_deref()
+            .or(self.importing_package.as_deref())
+            == Some("std")
+    }
+
+    pub fn exact_paths(&self) -> Vec<String> {
+        let mut paths = vec![self.written_name.clone()];
+        if self.is_standard_package_import() {
+            paths.push(self.name.clone());
+            for path in [self.written_name.as_str(), self.name.as_str()] {
+                if let Some(relative) = path.strip_prefix("std::") {
+                    paths.push(relative.to_string());
+                }
+            }
+        }
+        paths.sort();
+        paths.dedup();
+        paths
+    }
+
+    pub fn resolved_target(&self) -> ResolvedImportTarget {
+        ResolvedImportTarget {
+            owner: self.resolved_owner(),
+            package: self
+                .package
+                .clone()
+                .or_else(|| self.importing_package.clone()),
+            module: self.name.clone(),
+        }
+    }
+
+    pub fn resolved_owner(&self) -> ResolvedImportOwner {
+        ResolvedImportOwner {
+            package: self.importing_package.clone(),
+            module: self.module_name.clone(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -187,12 +294,16 @@ impl UseDecl {
         Self {
             node_id: NodeId::new(u32::MAX),
             module_name: Some(module_name),
+            importing_package: None,
             name: "std::prelude".to_string(),
+            written_name: "std::prelude".to_string(),
             alias: "prelude".to_string(),
+            alias_span: None,
             name_spans: Vec::new(),
             package: Some("std".to_string()),
             package_span: None,
             span,
+            recovered: false,
             origin: UseOrigin::ImplicitStandardPrelude,
         }
     }
@@ -202,6 +313,7 @@ impl UseDecl {
 pub struct PublicAlias {
     pub node_id: NodeId,
     pub module_name: Option<String>,
+    pub package_name: Option<String>,
     pub kind: PublicAliasKind,
     pub name: Option<String>,
     pub target: Vec<String>,
@@ -220,6 +332,7 @@ pub enum PublicAliasKind {
 pub struct EffectDecl {
     pub node_id: NodeId,
     pub module_name: Option<String>,
+    pub package_name: Option<String>,
     pub visibility: Visibility,
     pub name: Option<String>,
     pub operations: Vec<EffectOperationDecl>,
@@ -242,6 +355,7 @@ pub struct EffectOperationDecl {
 pub struct TypeDecl {
     pub node_id: NodeId,
     pub module_name: Option<String>,
+    pub package_name: Option<String>,
     pub visibility: Visibility,
     pub name: Option<String>,
     pub params: Vec<String>,
@@ -273,6 +387,7 @@ pub struct TypeVariantField {
 pub struct SchemaDecl {
     pub node_id: NodeId,
     pub module_name: Option<String>,
+    pub package_name: Option<String>,
     pub visibility: Visibility,
     pub name: Option<String>,
     pub format: Option<SchemaFormatClause>,

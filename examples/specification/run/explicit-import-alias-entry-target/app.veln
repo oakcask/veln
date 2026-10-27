@@ -1,0 +1,7 @@
+use helper as other
+
+pub fn main() -> Int effects [stdio]
+	let result = other::main() + 1
+	stdio::println(int_to_string(result))
+	result
+end

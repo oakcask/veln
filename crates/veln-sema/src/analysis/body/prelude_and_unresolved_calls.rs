@@ -162,9 +162,10 @@ impl<'a> FunctionChecker<'a> {
         {
             let recovered = matches!(segments, [name] if self
             .environment
-                .local_call_recovery_candidate_count(
+                .local_call_recovery_candidate_count_in_owner(
                     name,
                     self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
                     args.len(),
                 )
                 + self.invalid_local_callable_recovery_count(name)
@@ -175,15 +176,17 @@ impl<'a> FunctionChecker<'a> {
                     .quarantined_import_call_recovery_candidate_count(
                         segments,
                         self.function.module_name.as_deref(),
+                        self.function.package_name.as_deref(),
                         args.len(),
                     )
                     == 1;
             let recovered = recovered
                 || self
                     .environment
-                    .quarantined_import_constructor_recovery_candidate_count(
+                    .quarantined_import_constructor_recovery_candidate_count_in_owner(
                         segments,
                         self.function.module_name.as_deref(),
+                        self.function.package_name.as_deref(),
                         Some(args.len()),
                     )
                     == 1;
@@ -259,13 +262,18 @@ impl<'a> FunctionChecker<'a> {
 
     fn corrected_call_target_resolves(&self, corrected: &[String], arg_count: usize) -> bool {
         self.environment
-            .function_path_for_value(corrected, self.function.module_name.as_deref())
+            .function_path_for_value_in_owner(
+                corrected,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            )
             .is_some()
             || self
                 .environment
                 .quarantined_import_call_recovery_candidate_count(
                     corrected,
                     self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
                     arg_count,
                 )
                 == 1
@@ -290,7 +298,11 @@ impl<'a> FunctionChecker<'a> {
         let mut corrected = segments.to_vec();
         corrected[index] = corrected_initial_for_class(&invalid.name, invalid.class);
         self.environment
-            .function_path_for_value(&corrected, self.function.module_name.as_deref())
+            .function_path_for_value_in_owner(
+                &corrected,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            )
             .is_some()
             || matches!(
                 self.environment.adts.constructor(
@@ -305,14 +317,16 @@ impl<'a> FunctionChecker<'a> {
                 .quarantined_import_call_recovery_candidate_count(
                     &corrected,
                     self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
                     arg_count,
                 )
                 == 1
             || self
                 .environment
-                .quarantined_import_constructor_recovery_candidate_count(
+                .quarantined_import_constructor_recovery_candidate_count_in_owner(
                     &corrected,
                     self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
                     Some(arg_count),
                 )
                 == 1
@@ -348,9 +362,10 @@ impl<'a> FunctionChecker<'a> {
             ConstructorLookup::Found(_)
         ) || self
             .environment
-            .quarantined_import_constructor_recovery_candidate_count(
+            .quarantined_import_constructor_recovery_candidate_count_in_owner(
                 &corrected,
                 self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
                 Some(arg_count),
             )
             == 1
@@ -447,6 +462,7 @@ impl<'a> FunctionChecker<'a> {
             &bindings,
             self.environment,
             self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
         )?;
         Some((
             signature.params,
@@ -470,8 +486,11 @@ impl<'a> FunctionChecker<'a> {
             return true;
         }
         matches!(
-            self.environment
-                .unqualified_function(name, self.function.module_name.as_deref()),
+            self.environment.unqualified_function_in_owner(
+                name,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            ),
             FunctionLookup::Ambiguous
         )
     }
@@ -483,7 +502,11 @@ impl<'a> FunctionChecker<'a> {
             .any(|binding| binding.name == name)
             || matches!(
                 self.environment
-                    .unqualified_function(name, self.function.module_name.as_deref()),
+                    .unqualified_function_in_owner(
+                        name,
+                        self.function.module_name.as_deref(),
+                        self.function.package_name.as_deref(),
+                    ),
                 FunctionLookup::Found(function)
                     if function.module_name.as_deref() == self.function.module_name.as_deref()
             )

@@ -1,6 +1,9 @@
 use super::*;
 
-fn merged_import_module(primary: SourceFile, dependencies: Vec<SourceFile>) -> SurfaceModule {
+pub(super) fn merged_import_module(
+    primary: SourceFile,
+    dependencies: Vec<SourceFile>,
+) -> SurfaceModule {
     let mut merged = lower_surface_ast(&parse(&primary).tree);
     for dependency in dependencies {
         let module = lower_surface_ast(&parse(&dependency).tree);
@@ -32,7 +35,7 @@ fn checked_main_return(module: &SurfaceModule) -> CoreExpr {
     expr.clone()
 }
 
-fn assert_main_returns_function_call(module: &SurfaceModule, expected: &str) {
+pub(super) fn assert_main_returns_function_call(module: &SurfaceModule, expected: &str) {
     let expr = checked_main_return(module);
     let CoreExprKind::Call { target, .. } = expr.kind else {
         panic!("tail expression should lower as a call");

@@ -98,13 +98,24 @@ fn private_declared_call_signature<'a>(
 ) -> Option<&'a FunctionSignature> {
     let signatures = context.signatures_by_path?;
     match segments {
-        [name] => signatures.get(&(context.current_module.map(str::to_string), name.clone())),
-        [_, .., name] => imported_use_for_path(
+        [name] => signatures.get(&(
+            context.current_package.map(str::to_string),
+            context.current_module.map(str::to_string),
+            name.clone(),
+        )),
+        [_, .., name] => imported_use_for_path_in_owner(
             context.uses,
             &segments[..segments.len() - 1],
             context.current_module,
+            context.current_package,
         )
-        .and_then(|use_decl| signatures.get(&(Some(use_decl.name.clone()), name.clone()))),
+        .and_then(|use_decl| {
+            signatures.get(&(
+                use_decl.resolved_target().package,
+                Some(use_decl.name.clone()),
+                name.clone(),
+            ))
+        }),
         _ => None,
     }
 }
@@ -421,18 +432,23 @@ fn private_declared_call_return<'a>(
     context: &'a PrivateSignatureInferContext<'_, '_>,
 ) -> Option<&'a Type> {
     match segments {
-        [name] => context
-            .returns_by_path
-            .get(&(context.current_module.map(str::to_string), name.clone())),
-        [_, .., name] => imported_use_for_path(
+        [name] => context.returns_by_path.get(&(
+            context.current_package.map(str::to_string),
+            context.current_module.map(str::to_string),
+            name.clone(),
+        )),
+        [_, .., name] => imported_use_for_path_in_owner(
             context.uses,
             &segments[..segments.len() - 1],
             context.current_module,
+            context.current_package,
         )
         .and_then(|use_decl| {
-            context
-                .returns_by_path
-                .get(&(Some(use_decl.name.clone()), name.clone()))
+            context.returns_by_path.get(&(
+                use_decl.resolved_target().package,
+                Some(use_decl.name.clone()),
+                name.clone(),
+            ))
         }),
         _ => None,
     }

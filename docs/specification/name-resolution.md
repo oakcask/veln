@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The Veln source name resolution contract or source identifier casing diagnostics change.
+update-when: The Veln source name resolution contract, source identifier casing diagnostics, or checked name-resolution evidence changes.
 specification-coverage: usage=#representative-usage; behavior=#resolution-rules; limits=#limits
 ---
 
@@ -54,6 +54,144 @@ both a visible ordinary type and a visible schema use the same spelling because
 that position admits both namespaces. Namespace selection is therefore fixed
 by the syntactic role, while same-namespace duplicates remain errors and
 unrelated namespaces may share a spelling.
+
+### Explicit import aliases
+
+`use a::b as local` binds `local` in the importing module's import namespace.
+`local::member` and the full written path `a::b::member` select the same target
+module identity. The declaration contributes neither the implicit `b`
+qualifier nor bare exported members. This remains true when the explicit alias
+equals `b`. Imports without `as` retain their implicit qualifier and bare
+exports. A standard-package import also retains its canonical `std::`-qualified
+path in addition to its written relative path, including when it has an
+explicit alias. Import aliases are not values and do not leak through another
+module.
+
+The contextual spellings `callsite`, `handler`, and `handle` can be explicit
+import aliases. In a qualified call, the following `::` selects the alias path;
+`handle::member()` is not parsed or resolved as a handler expression.
+
+An exact full written path is selected before a local qualifier. An ambiguous
+exact path is unresolved and does not fall through. A qualifier must select
+exactly one eligible import. Two implicit leaf qualifiers can remain
+declaration-valid but are ambiguous at lookup. If either colliding qualifier is
+explicit, the later qualifier reports `name.duplicate` and neither binding is
+eligible through that qualifier. A non-colliding exact written path remains
+eligible when only the qualifier collides. Imports that resolve to the same
+module identity in the same package origin report a duplicate import even when
+their source spellings or aliases differ, and all such imports are quarantined.
+Thus `use net from "std"` and `use std::net from "std"` are duplicate targets
+after package loading identifies both as `std::net`. Equal written paths that
+resolve in distinct package origins remain distinct targets. If a later import
+repeats both a target and a qualifier from the same earlier import, the checker
+emits one `name.duplicate`
+diagnostic for that earlier origin. If the repeated target and colliding
+qualifier refer to different earlier imports, the checker preserves both
+diagnostics and both related origins. The same written path from distinct
+package origins is ambiguous in its exact form but remains available through
+distinct aliases.
+Import selection chooses the module before member lookup. A selected module
+that lacks the requested member does not redirect lookup to a different module
+whose alias or implicit qualifier has the same spelling.
+
+For a multi-segment imported module, a fully written constructor expression or
+constructor pattern selects the complete module path before its type and
+constructor segments. A local qualifier that matches the first module segment
+does not redirect that lookup, and import declaration order does not change the
+selected constructor identity.
+
+An explicit alias named `prelude` reports `name.reserved`. An uppercase or
+underscore-led alias reports `name.invalid_case` at the alias token as a
+module-class declaration. Reserved explicit aliases, invalid target casing,
+invalid alias casing, syntax recovery, and duplicate target imports quarantine
+the complete import. They supply no qualifier, full-path, bare-export, or
+reachable-code candidate.
+Source imports with an invalid-cased target segment or explicit alias still
+participate in explicit qualifier and duplicate-target checks, so removing an
+invalid candidate cannot make a colliding qualifier resolve. A
+uniquely corrected target identity also participates in duplicate-target
+checks. If one import writes `Http` and another writes `http` for the same
+source module, the later import reports one duplicate-target diagnostic with
+the earlier target as related context, regardless of which spelling comes
+first. The invalid-casing diagnostic remains independent, and both imports are
+quarantined under their written paths and aliases. A
+syntax-recovered import participates in neither check and cannot quarantine a
+later valid import. Independent target, collision, and casing diagnostics
+remain visible. Casing recovery suppresses a derivative member diagnostic only
+when the importing source's owner package selects one import and correcting the
+target path or alias selects one source module and one visible export of the
+required kind in that import's target package. Equal module and declaration
+spellings in another package cannot satisfy this proof. When the proof uniquely
+identifies a public ADT or constructor, analysis retains the identity only for
+independently provable type diagnostics. A constructor call can therefore
+report its payload arity, and a finite match can report a missing case, without
+also reporting an unresolved member. This recovery applies when the member path
+uses either the invalid explicit alias or the quarantined import's full written
+target path.
+The import remains quarantined and cannot make the module executable. Missing,
+private, wrong-kind, ambiguous, and colliding targets do not gain normal lookup
+or executable readiness through recovery.
+
+The selected import retains its package and module identity for values and
+calls, types and refinements, constructors and patterns, schemas, effects,
+handlers, lowering, and reachability. Existing visibility rules still apply:
+an alias does not expose a private package declaration, extend exact companion
+access, or make an import transitive. Public function, type, and schema aliases
+may select an explicit import in their own declaring module, but the local
+import qualifier does not become part of the published identity.
+
+Every import retains both its written target package and the package that owns
+the importing source. An explicit `from` package determines target origin;
+otherwise, the importing package determines origin for package-internal
+imports. Import qualifier selection, exact-path ambiguity, duplicate-target
+quarantine, and casing quarantine are local to that owning package and source
+module. Sources in different packages do not share import bindings or
+quarantine merely because their module paths have the same spelling. A valid
+import owned by one package therefore remains selectable when a same-spelled
+module owned by another package has an equal, colliding, or quarantined import.
+Declarations also retain that owner-package identity. Same-spelled
+declarations in same-spelled modules owned by different packages do not report
+`name.duplicate` solely because their module paths match. Qualified lookup
+selects the declaration owned by the imported target package. This applies to
+functions and public function aliases, ADTs and their constructors, schemas and
+their generated operations, nominal effects, and handlers; a same-spelled
+declaration in another package is not a fallback candidate.
+Standard-package imports accept the written path, its canonical
+`std::` path, and the corresponding standard-relative path as exact spellings.
+No other import gains those additional spellings from a `std::` prefix alone.
+For example, a local `use std::helper` accepts `std::helper::answer()` but does
+not introduce `helper::answer()` unless the source writes `as helper`.
+Project loading therefore gives `use net from "std"` and
+`use std::net from "std"` the same canonical `std::net` target while retaining
+each source-written path and token span for diagnostics. Writing both imports
+in one source reports one duplicate-target diagnostic in either declaration
+order, and neither import supplies a lookup or reachability candidate.
+
+For `N` source imports, the semantic diagnostic pipeline builds one shared
+import classification for duplicate detection, casing recovery, and lookup.
+Deterministic scaling checks compare 128 and 256 imports for both distinct
+explicit aliases and invalid-cased targets with qualified calls. In each case,
+doubling the input adds at most twice the instrumented classification work plus
+a fixed allowance of 16 operations. Separate checks vary qualified-identity
+depth and segment width on clean and recovery-candidate imports. Clean imports
+materialize no recovery-target data. For recovery candidates, the checks count
+bytes processed for candidates and bytes retained for declared and corrected
+identities; doubling either path depth or total path bytes increases each
+metric by at most twice its smaller-input value plus a fixed delimiter
+allowance. These checks use operation and byte metrics instead of elapsed time,
+so runner timing noise does not affect the bounds.
+
+Reachability selection remains linear in the imports and qualified references
+it processes. A deterministic workload compares 64 and 128 distinct explicit
+imports with the same number of reachable alias-qualified calls. Its work
+metric aggregates import declarations and candidate bindings processed or
+retained, qualified-reference requests, candidate-selection steps, and every
+reachable-callee membership or deduplication operation. For workload size `N`,
+call this total `W(N)`. The check requires
+`W(128) <= 2 * W(64) + 16`. The fixed allowance covers size-independent setup,
+and operation counting avoids runner timing noise. This bound permits any
+selection representation that preserves the observable exact-path,
+ambiguity, blocking, qualifier, and reachability rules.
 
 A typed module `let` enters the declaring module's value namespace with the
 identity of its module and declared name. Its written annotation supplies the
@@ -109,12 +247,12 @@ resolved chain qualifies variant refinements and preserves display provenance.
 
 A qualified target in a public type-alias declaration resolves through imports
 declared in that alias's source module. An exact written import path takes
-precedence over a same-spelled implicit leaf qualifier. Without an exact match,
-the implicit qualifier must identify exactly one imported module before the
-checker looks for the target type in that module. Colliding implicit qualifiers
-therefore remain unresolved even when only one candidate module declares the
-requested type leaf. Reordering imports or selected source modules does not
-change these results.
+precedence over a same-spelled local qualifier. Without an exact match, an
+explicit alias or implicit leaf qualifier must identify exactly one eligible
+imported module before the checker looks for the target type in that module.
+Colliding qualifiers therefore remain unresolved even when only one candidate
+module declares the requested type leaf. Reordering imports or selected source
+modules does not change these results.
 
 A qualified variant-refinement base first selects a matching source module
 identity. When that source type has the same leaf spelling as a compiler-known
@@ -127,14 +265,15 @@ Source identity selection precedes generic-arity and descriptor-uniqueness
 checks. A current-module ADT or another imported ADT with the same type leaf
 cannot satisfy a different written module or import qualifier, regardless of
 descriptor registration order. An exact written import path takes precedence
-over a same-spelled implicit leaf qualifier. Without an exact match, colliding
-implicit leaf qualifiers remain unresolved even when only one imported module
-declares the requested type leaf. If the selected identity has the wrong arity
-or has duplicate matching descriptors, lookup fails instead of falling through
-to the namesake. An unqualified type leaf continues to prefer the current-module
-ADT over imported namesakes. A public ADT from another module participates in
-unqualified type lookup only when a `use` declared in the current module names
-its module. Imports declared in other modules neither supply a candidate nor
+over a same-spelled local qualifier. Without an exact match, colliding local
+qualifiers remain unresolved even when only one imported module declares the
+requested type leaf. If the selected identity has the wrong arity or has
+duplicate matching descriptors, lookup fails instead of falling through to the
+namesake. An unqualified type leaf continues to prefer the current-module ADT
+over imported namesakes. A public ADT from another module participates in
+unqualified type lookup only when an unaliased `use` declared in the current
+module names its module. An explicitly aliased import supplies no bare type
+candidate. Imports declared in other modules neither supply a candidate nor
 make the current lookup ambiguous. This module-local import boundary applies
 both when lookup checks an exact generic arity and when recovery accepts any
 arity.
@@ -184,11 +323,12 @@ remain unresolved. Direct, `Repeat`, and array-payload leaves do not select an
 ineligible alias or enter an eligible alias reference set.
 
 A multi-segment schema composition or operation target resolves through either
-the full written import module path or its implicit leaf alias. An exact full
-import path takes precedence over a same-spelled implicit leaf alias. Without
-an exact match, the leaf alias resolves only when exactly one valid workspace
-or package import provides it. Conflicting exact imports and colliding implicit
-leaf aliases remain unresolved in either import order. Duplicate and
+the full written import module path or the import's local qualifier. An
+explicit alias is the local qualifier; an unaliased import uses its implicit
+leaf qualifier. An exact full import path takes precedence over a same-spelled
+qualifier. Without an exact match, the qualifier resolves only when exactly one
+valid workspace or package import provides it. Conflicting exact imports and
+colliding qualifiers remain unresolved in either import order. Duplicate and
 syntax-recovered dependency imports do not provide dependency schema
 visibility. A clean or syntax-recovered package schema alias with
 the selected name prevents a same-spelled package schema from acting as a
@@ -198,7 +338,7 @@ This includes member paths accepted by schema analysis. Comments and strings
 do not participate in schema composition lookup. These rules preserve
 workspace and direct-dependency alias identity across sources. Retained
 standard-library schema
-targets use the same full-path and unique implicit-leaf resolution, exact-path
+targets use the same full-path and unique-qualifier resolution, exact-path
 precedence, import-collision, repeated-count, and lexical-exclusion rules.
 Their package origin keeps them distinct from same-spelled workspace and
 direct-dependency schemas. Eligible standard-library schema aliases are
@@ -414,16 +554,17 @@ invalid module path segment does not enter normal import lookup for value,
 call, type, constructor, schema, effect, handler, inference, lowering, or
 reachability consumers. The original written import still participates in
 duplicate import-alias analysis. If no selected source derives the written
-local module path, `module.unresolved_import` is still reported. A use through
-the invalid implicit alias may suppress a derivative unresolved, type-origin,
-constructor-arity, or exhaustiveness diagnostic only when one matching
-selected source export proves that quarantine is the sole failure. This
-same quarantine proof suppresses derivative unknown-effect and
-unknown-handler diagnostics for public effect and handler exports. Missing
-target modules, missing exports, private targets, and wrong-kind targets
-remain independently reported. This quarantine applies consistently to value,
-type, constructor, schema, effect, handler, and reachability consumers; an
-invalid import is never promoted merely because another use mentions it.
+local module path, `module.unresolved_import` is still reported. A qualified
+use through the import's explicit alias or implicit leaf may suppress a
+derivative unresolved, type-origin, constructor-arity, or exhaustiveness
+diagnostic only when correcting the target casing selects one module and one
+matching selected-source export. The same quarantine proof suppresses
+derivative unknown-effect and unknown-handler diagnostics for public effect
+and handler exports. Missing target modules, missing exports, private targets,
+wrong-kind targets, ambiguous repairs, and colliding imports remain
+independently reported. This quarantine applies consistently to value, type,
+constructor, schema, effect, handler, and reachability consumers; an invalid
+import is never promoted merely because another use mentions it.
 Valid implicit standard prelude symbols remain normal lookup candidates. A
 same-spelled application recovery record does not shadow the valid prelude
 symbol for a function call or constructor path, and does not enter
@@ -508,8 +649,9 @@ Each invalid role-fixed segment reports `name.invalid_case` at the exact
 segment token span with occurrence `path_segment` and the zero-based
 `segment_index`. A call-target diagnostic whose only cause is the resolved or
 uniquely recovered invalid segment that owns that use is suppressed. Missing
-targets, private imported targets, and recovery links that would cross an
-import boundary still report `name.unresolved`. These role records apply to
+targets, private imported targets, and ordinary declaration or binding
+recovery links that would cross an import boundary still report
+`name.unresolved`. These role records apply to
 expression, pattern, handler, declaration, ADT, effect, and schema carriers;
 an unresolved intermediate segment receives no guessed casing role.
 Qualified constructor patterns keep constructor syntax. A qualified
@@ -536,14 +678,18 @@ remain source-written and continue to use ordinary source casing diagnostics.
 
 Current duplicate checks reject:
 
-- duplicate import paths within the same source module
-- duplicate schema declaration names in the same source module
-- duplicate effect declaration names in the same source module
-- duplicate handler declaration names in the same source module
+- duplicate resolved import targets in one source module and package origin,
+  including distinct written paths that load the same module identity
+- duplicate schema declaration names in the same owner package and source module
+- duplicate effect declaration names in the same owner package and source module
+- duplicate handler declaration names in the same owner package and source module
 - duplicate operation names inside one effect declaration
-- duplicate top-level function, test, or public function alias names
-- duplicate top-level source type or public type alias names
-- duplicate constructor names inside one source type declaration
+- duplicate top-level function, test, or public function alias names in the same
+  owner package and source module
+- duplicate top-level source type or public type alias names in the same owner
+  package and source module
+- duplicate constructor names inside one source type declaration identified by
+  owner package, source module, and type name
 - duplicate parameter names in one function
 - a result binding that duplicates a parameter name
 - duplicate `let` names in the same function value scope, including names that
@@ -663,10 +809,13 @@ does not affect name resolution.
 
 ## Limits
 
-Resolution is case-sensitive after the role-specific casing check. Recovery is
-limited to one same-source declaration or binding, never crosses an import
-boundary, and cannot override a valid candidate. Invalid module identities are
-quarantined from lookup and reachability; valid sibling sources remain usable.
+Resolution is case-sensitive after the role-specific casing check. Ordinary
+declaration or binding recovery is limited to one same-source identity, never
+crosses an import boundary, and cannot override a valid candidate. The
+quarantine-only import recovery described above can retain one corrected target
+identity for independent diagnostics, but it supplies no normal lookup or
+reachability candidate. Invalid module identities are quarantined from lookup
+and reachability; valid sibling sources remain usable.
 Schema alias navigation is finite and acyclic: cyclic chains are rejected,
 while finite direct-dependency chains may be eligible when every hop and its
 exported terminal satisfy the rules above. Ambiguous or recovered imports do
@@ -678,6 +827,19 @@ not become fallback targets.
   `crates/veln-sema/src/name_recovery.rs`.
 - Unqualified ADT import lookup:
   `crates/veln-sema/src/adt/tests/variant_lookup.rs`.
+- Explicit-import-alias behavior evidence:
+
+  | Behavior | Evidence |
+  | --- | --- |
+  | Syntax, parser recovery, AST preservation, and formatting | `docs/specification/source-surface-executable.pl`, `docs/specification/source-surface-fixtures/`, `crates/veln-syntax/src/tests/import_aliases.rs`, and `crates/veln-ast/src/tests/wire_round_trip.rs` |
+  | Qualifier, exact-path, implicit-leaf, and bare selection | `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs`, `crates/veln-sema/src/adt/tests/variant_lookup.rs`, `crates/veln-sema/src/name_recovery/tests.rs`, `examples/specification/check/explicit-import-alias-canonical-standard/`, [`explicit-import-alias-exact-path-constructor-pattern`](../../examples/specification/check/explicit-import-alias-exact-path-constructor-pattern/), and [`explicit-import-alias-local-std-origin`](../../examples/specification/check/explicit-import-alias-local-std-origin/) |
+  | Collision, origin ambiguity, corrected-target overlap, and duplicate-target quarantine | `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs`, `examples/specification/check/explicit-import-alias-distinct-origins/`, `examples/specification/check/explicit-import-alias-duplicate-human/`, and `examples/specification/check/explicit-import-alias-duplicate-json/` |
+  | Reserved-name and casing quarantine and recovery | `crates/veln-sema/src/tests/identifier_casing/explicit_import_aliases.rs`, `crates/veln-sema/src/tests/identifier_casing/explicit_import_targets.rs`, `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs`, `crates/veln-analysis/src/surface/tests/explicit_import_reachability.rs`, `examples/specification/check/explicit-import-alias-casing-human/`, `examples/specification/check/explicit-import-alias-casing-json/`, `examples/specification/check/explicit-import-alias-target-casing-human/`, `examples/specification/check/explicit-import-alias-target-casing-json/`, `examples/specification/check/explicit-import-alias-independent-carrier-failures-human/`, and `examples/specification/check/explicit-import-alias-independent-carrier-failures-json/` |
+  | Cross-carrier semantic identity | `examples/specification/check/explicit-import-alias-carriers/` and the explicit-import-alias semantic tests under `crates/veln-sema/src/tests/` |
+  | Runtime, lowering, and reachability identity | `examples/specification/run/explicit-import-alias-runtime/`, `examples/specification/run/explicit-import-alias-entry-target/`, `examples/specification/run/explicit-import-alias-handler/`, `examples/specification/run/explicit-import-alias-handler-identity/`, [`explicit-import-alias-local-std-origin`](../../examples/specification/run/explicit-import-alias-local-std-origin/), [`explicit-import-alias-local-std-runtime`](../../examples/specification/run/explicit-import-alias-local-std-runtime/), [`explicit-import-alias-owner-package-scope`](../../examples/specification/run/explicit-import-alias-owner-package-scope/), and explicit-import-alias reachability tests under `crates/veln-analysis/src/surface/tests/` |
+  | Package, standard-origin, publication, and visibility boundaries | `examples/specification/check/explicit-import-alias-package/`, `examples/specification/check/explicit-import-alias-package-boundaries/`, project-loading tests in `crates/veln-analysis/src/surface/tests/explicit_import_reachability.rs` and `crates/veln-analysis/src/surface/tests/external_dependencies.rs`, loader recovery tests in `crates/veln-analysis/src/surface/tests/standard_initialization.rs`, and publication and visibility tests in `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs` and `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs` |
+  | Stable source and token diagnostic ordering | [`explicit-import-alias-combined-order-human`](../../examples/specification/check/explicit-import-alias-combined-order-human/), [`explicit-import-alias-combined-order-json`](../../examples/specification/check/explicit-import-alias-combined-order-json/), `combined_module_import_diagnostics_use_stable_source_order`, and `combined_module_explicit_alias_casing_diagnostics_use_stable_source_order` under `crates/veln-sema/src/tests/` |
+  | Shared classification and bounded import/path scaling | `duplicate_import_diagnostic_pipeline_classifies_once_and_scales_linearly` and `invalid_target_recovery_pipeline_classifies_once_and_scales_linearly` in `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs`, `recovery_target_materialization_scales_with_qualified_identity_bytes` in `crates/veln-sema/src/name_recovery/tests.rs`, `qualified_import_selection_scales_linearly` in `crates/veln-analysis/src/surface/tests/reachable_inputs.rs`, and `checked_lowering_qualified_function_alias_import_work_scales_linearly` in `crates/veln-sema/src/tests/variant_refinement_annotations_and_private_results/public_visibility/publication_worklist.rs` |
 - Deferred binding visibility:
   `examples/specification/check/defer-binding-visibility/`.
 - Module-value function-alias diagnostics:

@@ -1,7 +1,9 @@
 use std::sync::{Mutex, MutexGuard};
 
 use super::*;
-use veln_ast::{UseDecl, lower_surface_ast_with_module_identity};
+use veln_ast::{
+    UseDecl, lower_surface_ast_with_module_identity, lower_surface_ast_with_package_module_identity,
+};
 use veln_diagnostics::diagnostic_to_json;
 use veln_source::TextRange;
 
@@ -153,11 +155,18 @@ pub(super) fn unrelated_annotated_standard_module(function_count: usize) -> Surf
 
 pub(super) fn module_with_identity(path: &str, text: &str, module_name: &str) -> SurfaceModule {
     let source = SourceFile::new(path, text);
-    lower_surface_ast_with_module_identity(
-        &parse(&source).tree,
-        module_name.to_string(),
-        source.span(TextRange::new(0, 0)),
-    )
+    let tree = parse(&source).tree;
+    let span = source.span(TextRange::new(0, 0));
+    if let Some(relative_name) = module_name.strip_prefix("std::") {
+        lower_surface_ast_with_package_module_identity(
+            &tree,
+            veln_stdlib::PACKAGE_NAME.to_string(),
+            relative_name.to_string(),
+            span,
+        )
+    } else {
+        lower_surface_ast_with_module_identity(&tree, module_name.to_string(), span)
+    }
 }
 
 pub(super) fn merge_modules(modules: Vec<SurfaceModule>) -> SurfaceModule {

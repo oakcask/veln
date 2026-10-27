@@ -9,13 +9,18 @@ This umbrella records only the unimplemented follow-up work for language
 services. The implemented workspace, direct-dependency, and standard-library
 navigation behavior is specified by [Editor Support](../specification/editor-support.md)
 and [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md).
+The remaining definition, references, rename, hover, completion, ordering, and
+saved-tool work for explicit import aliases is owned by the focused
+[Explicit Import Alias Source Tooling](explicit-import-aliases.md) proposal,
+not this umbrella.
 
 ## Remaining scope
 
 The following work remains planned:
 
 - transitive-dependency navigation;
-- remaining package definition and reference symbol classes;
+- remaining package definition and reference symbol classes outside the
+  explicit-import-alias source-tool scope;
 - imported handlers and other workspace symbol reference classes outside the
   implemented same-module and imported-workspace effect boundaries and the
   implemented same-module and imported-workspace effect-operation boundaries

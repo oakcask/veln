@@ -104,7 +104,9 @@ print_grammar :-
 
 grammar_line(10, "Module        ::= ModuleHeader? UseDecl* Item*").
 grammar_line(20, "ModuleHeader  ::= \"mod\" ModuleHeaderPath NL").
-grammar_line(30, "UseDecl       ::= \"use\" ModulePath ImportSource? NL").
+grammar_line(30, "UseDecl       ::= \"use\" ModulePath UseAlias? ImportSource? NL").
+grammar_line(32, "UseAlias      ::= \"as\" AliasName").
+grammar_line(33, "AliasName     ::= Identifier").
 grammar_line(35, "ImportSource  ::= \"from\" PackageString").
 grammar_line(37, "ModuleHeaderPath ::= ModuleHeaderSegment (\"::\" ModuleHeaderSegment)*").
 grammar_line(38, "ModuleHeaderSegment ::= Name | HoleName").
@@ -421,7 +423,13 @@ module_header --> [].
 
 use_decls --> use_decl, !, nls, use_decls.
 use_decls --> [].
-use_decl --> tok(use), module_path, import_source, nl.
+use_decl --> tok(use), module_path, use_alias, import_source, nl.
+
+use_alias --> ident_text("as"), alias_name, !.
+use_alias --> [].
+alias_name --> ident.
+alias_name --> tok(hole).
+alias_name --> tok(underscore).
 
 import_source --> tok(from), tok(string), !.
 import_source --> [].

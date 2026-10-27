@@ -192,6 +192,7 @@ pub(super) fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
     Some(AdtDescriptor {
         type_name: name.clone(),
         name_class: SourceLessNameClass::Type,
+        package_name: decl.package_name.clone(),
         module_name: decl.module_name.clone(),
         nominal_identity: None,
         type_parameters: decl.params.clone(),
@@ -426,8 +427,10 @@ pub(super) fn imported_module_path_matches(
     let module_path = module_segments.join("::");
     uses.iter().any(|use_decl| {
         record_import_path_comparison();
+        let target = use_decl.resolved_target();
         use_decl_matches_import_path(use_decl, &module_path, current_module)
-            && use_decl.name == module_name
+            && target.module == module_name
+            && descriptor.package_name == target.package
     })
 }
 
@@ -474,11 +477,12 @@ pub(super) fn import_alias_matches(
     let Some(module_name) = descriptor.module_name.as_deref() else {
         return false;
     };
-    uses.iter().any(|use_decl| {
-        use_decl.module_name.as_deref() == current_module
-            && use_decl.alias == alias
-            && use_decl.name == module_name
-    })
+    crate::name_recovery::select_use_decl_for_path(uses.iter(), alias, current_module).is_some_and(
+        |use_decl| {
+            let target = use_decl.resolved_target();
+            target.module == module_name && descriptor.package_name == target.package
+        },
+    )
 }
 
 pub(super) fn same_descriptor(left: &AdtDescriptor, right: &AdtDescriptor) -> bool {

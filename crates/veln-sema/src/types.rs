@@ -6,7 +6,7 @@ pub(crate) mod private_inference;
 pub(crate) mod schema_types;
 mod signature_collection;
 mod type_case_recovery;
-pub(crate) use signature_collection::canonicalize_type_effects;
+pub(crate) use signature_collection::canonicalize_type_effects_in_owner;
 #[cfg(test)]
 pub(crate) use signature_collection::{
     reset_type_canonicalization_visits, reset_variant_canonicalization_lookups,
@@ -56,7 +56,7 @@ use veln_ast::{
 use veln_project::{classify_companion_source, companion_access_target};
 use veln_source::{SourcePath, SourceSpan};
 
-use crate::semantic_model::{Binding, FunctionKey, Type};
+use crate::semantic_model::{Binding, Type};
 
 fn record_scoped_binding_count(bindings: &[Binding]) {
     #[cfg(test)]

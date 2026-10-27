@@ -83,10 +83,11 @@ impl<'a> CoreLowerer<'a> {
         operation_name: &str,
         args: &[Expr],
     ) -> CoreExpr {
-        let Some(effect) = self
-            .environment
-            .user_effect_path(effect_path, self.function.module_name.as_deref())
-        else {
+        let Some(effect) = self.environment.user_effect_path_in_owner(
+            effect_path,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) else {
             return self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing);
         };
         let Some(operation) = effect
@@ -122,10 +123,11 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
-        let handler = match self
-            .environment
-            .handler_path(handler_path, self.function.module_name.as_deref())
-        {
+        let handler = match self.environment.handler_path_in_owner(
+            handler_path,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
             HandlerPathResolution::Found(handler) => handler.clone(),
             HandlerPathResolution::PrivateCompanionTargetMismatch { .. }
             | HandlerPathResolution::QuarantinedImportTarget
@@ -148,10 +150,7 @@ impl<'a> CoreLowerer<'a> {
             .iter()
             .map(|clause| CoreHandlerProvider {
                 operation: clause.operation.clone(),
-                function: crate::standard_symbols::standard_function_link_name(
-                    clause.module_name.as_deref(),
-                    &clause.function,
-                ),
+                function: clause.target_name.clone(),
             })
             .collect::<Vec<_>>();
         let lowered = self.lower_expr(body, expected);
@@ -484,7 +483,11 @@ impl<'a> CoreLowerer<'a> {
     ) -> CoreExpr {
         let signature = self
             .environment
-            .schema_decode_step_signature(schema, self.function.module_name.as_deref())
+            .schema_decode_step_signature_in_owner(
+                schema,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            )
             .cloned();
         let params = signature
             .as_ref()
@@ -533,7 +536,11 @@ impl<'a> CoreLowerer<'a> {
     ) -> CoreExpr {
         let signature = self
             .environment
-            .schema_encode_signature(schema, self.function.module_name.as_deref())
+            .schema_encode_signature_in_owner(
+                schema,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            )
             .cloned();
         let value = self.lower_expr(
             value,

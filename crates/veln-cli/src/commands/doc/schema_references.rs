@@ -126,14 +126,20 @@ fn resolve_doc_schema_segments(
             visited_aliases,
         ),
         [_, .., name] => {
-            let Some(use_decl) = imported_use_for_path(
-                &module.uses,
+            let Some(imported_module) = veln_sema::normal_imported_module_for_path(
+                module,
                 &segments[..segments.len() - 1],
                 current_module,
             ) else {
                 return DocSchemaResolution::Unresolved;
             };
-            resolve_doc_schema_in_module(module, Some(&use_decl.name), name, false, visited_aliases)
+            resolve_doc_schema_in_module(
+                module,
+                Some(&imported_module),
+                name,
+                false,
+                visited_aliases,
+            )
         }
         _ => DocSchemaResolution::Unresolved,
     }
@@ -190,18 +196,6 @@ fn resolve_doc_schema_alias_target(
     );
     visited_aliases.pop();
     resolution
-}
-
-fn imported_use_for_path<'a>(
-    uses: &'a [UseDecl],
-    segments: &[String],
-    current_module: Option<&str>,
-) -> Option<&'a UseDecl> {
-    let module_path = segments.join("::");
-    uses.iter().find(|use_decl| {
-        use_decl.module_name.as_deref() == current_module
-            && (use_decl.name == module_path || use_decl.alias == module_path)
-    })
 }
 
 fn doc_schema_wrong_kind(
@@ -285,4 +279,73 @@ fn doc_schema_kind_mismatch_diagnostic(
             ("target", JsonValue::string(target.to_string())),
         ]),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn lowered_module(source: &str) -> SurfaceModule {
+        let source = SourceFile::new("app.veln", source);
+        let parsed = parse(&source);
+        let mut module = veln_ast::lower_surface_ast(&parsed.tree);
+        for target in [
+            "alpha", "beta", "api", "Api", "fallback", "one::api", "two::api",
+        ] {
+            let target_source = SourceFile::new(
+                format!("{target}.veln"),
+                "pub schema Packet\n\tvalue: Int\nend\n",
+            );
+            let target_parsed = parse(&target_source);
+            let target_module = veln_ast::lower_surface_ast_with_module_identity(
+                &target_parsed.tree,
+                target.to_string(),
+                target_source.span(veln_source::TextRange::new(0, 0)),
+            );
+            module.schemas.extend(target_module.schemas);
+        }
+        module
+    }
+
+    fn assert_unresolved(module: &SurfaceModule, target: &str) {
+        assert!(matches!(
+            resolve_doc_schema_reference(module, target, Some("app"), &mut Vec::new()),
+            DocSchemaResolution::Unresolved
+        ));
+    }
+
+    #[test]
+    fn documentation_schema_selection_rejects_blocked_and_quarantined_imports() {
+        for (source, targets) in [
+            (
+                "mod app\nuse alpha as wire\nuse beta as wire\n",
+                &["wire::Packet"][..],
+            ),
+            (
+                "mod app\nuse api as first from \"dep\"\nuse api as second from \"dep\"\n",
+                &["api::Packet", "first::Packet", "second::Packet"][..],
+            ),
+            ("mod app\nuse Api as wire\n", &["wire::Packet"][..]),
+            ("mod app\nuse api as prelude\n", &["prelude::Packet"][..]),
+            (
+                "mod app\nuse api as wire as nested\n",
+                &["wire::Packet", "api::Packet"][..],
+            ),
+        ] {
+            let module = lowered_module(source);
+            for target in targets {
+                assert_unresolved(&module, target);
+            }
+        }
+
+        let mut ambiguous_exact = lowered_module(concat!(
+            "mod app\n",
+            "use api as first from \"one\"\n",
+            "use api as second from \"two\"\n",
+            "use fallback as api\n",
+        ));
+        ambiguous_exact.uses[0].name = "one::api".to_string();
+        ambiguous_exact.uses[1].name = "two::api".to_string();
+        assert_unresolved(&ambiguous_exact, "api::Packet");
+    }
 }

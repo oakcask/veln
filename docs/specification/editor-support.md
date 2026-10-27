@@ -929,7 +929,9 @@ strings, field labels, and out-of-scope bindings return no selected symbol,
 range, or edits. Rename rejects identifier-class changes and predictable
 namespace or lexical conflicts with a structured failure and no workspace edit.
 Formatting returns one whole-document `TextEdit` in the response; it does not
-return a multi-file workspace edit.
+return a multi-file workspace edit. It uses the same accepted-source formatter
+as [`veln fmt`](command-fmt.md#formatting-rules), including preservation of an
+explicit import's `as alias` clause before its optional package source.
 
 ## References
 

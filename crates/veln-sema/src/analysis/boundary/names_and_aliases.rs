@@ -1,6 +1,6 @@
 use crate::adt::registry::AdtRegistry;
 use crate::name_recovery::{
-    public_alias_has_invalid_target_leaf, schema_composition_imported_use_for_path,
+    public_alias_has_invalid_target_leaf, schema_composition_imported_use_for_path_in_owner,
 };
 use std::collections::BTreeMap;
 use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, Visibility};
@@ -11,23 +11,28 @@ use crate::types::TypeEnvironment;
 
 use super::module_boundaries::{
     alias_kind_mismatch_diagnostic, duplicate_name_diagnostic, function_target,
-    normal_imported_module_for_path, private_alias_diagnostic, type_target,
-    unresolved_alias_diagnostic,
+    private_alias_diagnostic, quarantined_function_target, quarantined_schema_target,
+    quarantined_type_target, type_target, unresolved_alias_diagnostic,
 };
 
-type SeenNames = BTreeMap<(Option<String>, String), (String, SourceSpan)>;
+type SeenNames = BTreeMap<(Option<String>, Option<String>, String), (String, SourceSpan)>;
 
 fn record_name(
     seen: &mut SeenNames,
     diagnostics: &mut Vec<Diagnostic>,
-    module_name: Option<&str>,
+    owner: (Option<&str>, Option<&str>),
     name: &str,
     kind: (&'static str, &'static str),
     node_id: String,
     span: &SourceSpan,
 ) {
     let (namespace, subject) = kind;
-    let key = (module_name.map(str::to_owned), name.to_string());
+    let (package_name, module_name) = owner;
+    let key = (
+        package_name.map(str::to_owned),
+        module_name.map(str::to_owned),
+        name.to_string(),
+    );
     if let Some((first_node_id, first_span)) = seen.get(&key) {
         diagnostics.push(duplicate_name_diagnostic(
             name,
@@ -54,7 +59,10 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
         record_name(
             &mut seen,
             &mut diagnostics,
-            function.module_name.as_deref(),
+            (
+                function.package_name.as_deref(),
+                function.module_name.as_deref(),
+            ),
             name,
             ("function", "function declaration"),
             function.node_id.display(function.kind.node_prefix()),
@@ -72,7 +80,7 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
         record_name(
             &mut seen,
             &mut diagnostics,
-            alias.module_name.as_deref(),
+            (alias.package_name.as_deref(), alias.module_name.as_deref()),
             name,
             ("function", "function alias"),
             alias.node_id.display("alias"),
@@ -86,7 +94,7 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
         record_name(
             &mut seen,
             &mut diagnostics,
-            value.module_name.as_deref(),
+            (value.package_name.as_deref(), value.module_name.as_deref()),
             name,
             ("function", "module value declaration"),
             value.node_id.display("module-value"),
@@ -108,7 +116,10 @@ pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnost
         record_name(
             &mut seen,
             &mut diagnostics,
-            type_decl.module_name.as_deref(),
+            (
+                type_decl.package_name.as_deref(),
+                type_decl.module_name.as_deref(),
+            ),
             name,
             ("type", "type declaration"),
             type_decl.node_id.display("type"),
@@ -126,7 +137,7 @@ pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnost
         record_name(
             &mut seen,
             &mut diagnostics,
-            alias.module_name.as_deref(),
+            (alias.package_name.as_deref(), alias.module_name.as_deref()),
             name,
             ("type", "type alias"),
             alias.node_id.display("alias"),
@@ -148,7 +159,10 @@ pub(crate) fn check_duplicate_effect_names(module: &SurfaceModule) -> Vec<Diagno
         record_name(
             &mut seen,
             &mut diagnostics,
-            effect.module_name.as_deref(),
+            (
+                effect.package_name.as_deref(),
+                effect.module_name.as_deref(),
+            ),
             name,
             ("effect", "effect declaration"),
             effect.node_id.display("effect"),
@@ -163,7 +177,7 @@ pub(crate) fn check_duplicate_effect_names(module: &SurfaceModule) -> Vec<Diagno
             record_name(
                 &mut operations,
                 &mut diagnostics,
-                None,
+                (None, None),
                 operation_name,
                 ("operation", "effect operation declaration"),
                 operation.node_id.display("operation"),
@@ -186,7 +200,10 @@ pub(crate) fn check_duplicate_schema_names(module: &SurfaceModule) -> Vec<Diagno
         record_name(
             &mut seen,
             &mut diagnostics,
-            schema.module_name.as_deref(),
+            (
+                schema.package_name.as_deref(),
+                schema.module_name.as_deref(),
+            ),
             name,
             ("schema", "schema declaration"),
             schema.node_id.display("schema"),
@@ -204,7 +221,7 @@ pub(crate) fn check_duplicate_schema_names(module: &SurfaceModule) -> Vec<Diagno
         record_name(
             &mut seen,
             &mut diagnostics,
-            alias.module_name.as_deref(),
+            (alias.package_name.as_deref(), alias.module_name.as_deref()),
             name,
             ("schema", "schema alias"),
             alias.node_id.display("alias"),
@@ -226,23 +243,28 @@ pub(super) enum SchemaAliasCheckResolution {
 
 pub(super) fn codec_schema_wrong_kind(
     module: &SurfaceModule,
+    package_name: Option<&str>,
     module_name: Option<&str>,
     name: &str,
 ) -> Option<&'static str> {
     if module.functions.iter().any(|function| {
         function.kind == FunctionKind::Function
             && function.name.as_deref() == Some(name)
+            && function.package_name.as_deref() == package_name
             && function.module_name.as_deref() == module_name
     }) {
         return Some("function");
     }
     if module.types.iter().any(|type_decl| {
-        type_decl.name.as_deref() == Some(name) && type_decl.module_name.as_deref() == module_name
+        type_decl.name.as_deref() == Some(name)
+            && type_decl.package_name.as_deref() == package_name
+            && type_decl.module_name.as_deref() == module_name
     }) {
         return Some("type");
     }
     if let Some(alias) = module.aliases.iter().find(|alias| {
         alias.name.as_deref() == Some(name)
+            && alias.package_name.as_deref() == package_name
             && alias.module_name.as_deref() == module_name
             && !public_alias_has_invalid_target_leaf(module, alias, None)
     }) {
@@ -283,6 +305,7 @@ pub(crate) fn check_public_aliases(
                     module,
                     &alias.target,
                     alias.module_name.as_deref(),
+                    alias.package_name.as_deref(),
                     false,
                     &mut Vec::new(),
                     &mut schema_alias_cache,
@@ -302,7 +325,16 @@ pub(crate) fn check_public_aliases(
                         diagnostics.push(unresolved_alias_diagnostic(alias, "schema"));
                     }
                     SchemaAliasCheckResolution::Unresolved => {
-                        diagnostics.push(unresolved_alias_diagnostic(alias, "schema"));
+                        if quarantined_schema_target(
+                            module,
+                            &alias.target,
+                            alias.module_name.as_deref(),
+                            alias.package_name.as_deref(),
+                        )
+                        .is_none()
+                        {
+                            diagnostics.push(unresolved_alias_diagnostic(alias, "schema"));
+                        }
                     }
                 }
             }
@@ -323,9 +355,30 @@ pub(super) fn check_function_alias_target(
             "function",
             "module_value",
         ))
-    } else if function_target(module, &alias.target, module_name).is_some() {
+    } else if function_target(
+        module,
+        &alias.target,
+        module_name,
+        alias.package_name.as_deref(),
+    )
+    .is_some()
+        || quarantined_function_target(
+            module,
+            &alias.target,
+            module_name,
+            alias.package_name.as_deref(),
+        )
+        .is_some()
+    {
         None
-    } else if type_target(module, &alias.target, module_name).is_some() {
+    } else if type_target(
+        module,
+        &alias.target,
+        module_name,
+        alias.package_name.as_deref(),
+    )
+    .is_some()
+    {
         Some(alias_kind_mismatch_diagnostic(alias, "function", "type"))
     } else {
         Some(unresolved_alias_diagnostic(alias, "function"))
@@ -339,11 +392,36 @@ pub(super) fn check_type_alias_target(
     adts: &AdtRegistry,
 ) -> Option<Diagnostic> {
     if adts.resolves_type_alias(alias)
-        || type_target(module, &alias.target, module_name).is_some()
-        || is_standard_type_alias_target(module, &alias.target, module_name)
+        || type_target(
+            module,
+            &alias.target,
+            module_name,
+            alias.package_name.as_deref(),
+        )
+        .is_some()
+        || quarantined_type_target(
+            module,
+            &alias.target,
+            module_name,
+            alias.package_name.as_deref(),
+        )
+        .is_some()
+        || is_standard_type_alias_target(
+            module,
+            &alias.target,
+            module_name,
+            alias.package_name.as_deref(),
+        )
     {
         None
-    } else if function_target(module, &alias.target, module_name).is_some() {
+    } else if function_target(
+        module,
+        &alias.target,
+        module_name,
+        alias.package_name.as_deref(),
+    )
+    .is_some()
+    {
         Some(alias_kind_mismatch_diagnostic(alias, "type", "function"))
     } else {
         Some(unresolved_alias_diagnostic(alias, "type"))
@@ -354,6 +432,7 @@ fn is_standard_type_alias_target(
     module: &SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> bool {
     match segments {
         [name] => matches!(
@@ -361,8 +440,16 @@ fn is_standard_type_alias_target(
             "WallTime" | "SourceLocation" | "NetListener" | "NetStream"
         ),
         [_, .., name] if matches!(name.as_str(), "WallTime" | "SourceLocation" | "ByteCount") => {
-            normal_imported_module_for_path(module, &segments[..segments.len() - 1], current_module)
-                .is_some_and(|module_name| module_name == "std::prelude")
+            crate::name_recovery::normal_imported_use_for_path_in_owner(
+                module,
+                &segments[..segments.len() - 1],
+                current_module,
+                current_package,
+            )
+            .is_some_and(|use_decl| {
+                let target = use_decl.resolved_target();
+                target.package.as_deref() == Some("std") && target.module == "std::prelude"
+            })
         }
         _ => false,
     }
@@ -372,13 +459,15 @@ pub(super) fn resolve_schema_alias_check_reference(
     module: &SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     allow_private_local_schema: bool,
-    visited_aliases: &mut Vec<(Option<String>, String)>,
-    cache: &mut BTreeMap<(Option<String>, String), SchemaAliasCheckResolution>,
+    visited_aliases: &mut Vec<(Option<String>, Option<String>, String)>,
+    cache: &mut BTreeMap<(Option<String>, Option<String>, String), SchemaAliasCheckResolution>,
 ) -> SchemaAliasCheckResolution {
     match segments {
         [name] => resolve_schema_alias_check_in_module(
             module,
+            current_package,
             current_module,
             name,
             allow_private_local_schema,
@@ -386,16 +475,19 @@ pub(super) fn resolve_schema_alias_check_reference(
             cache,
         ),
         [_, .., name] => {
-            let Some(use_decl) = schema_composition_imported_use_for_path(
+            let Some(use_decl) = schema_composition_imported_use_for_path_in_owner(
                 module,
                 &segments[..segments.len() - 1],
                 current_module,
+                current_package,
             ) else {
                 return SchemaAliasCheckResolution::Unresolved;
             };
+            let target = use_decl.resolved_target();
             resolve_schema_alias_check_in_module(
                 module,
-                Some(&use_decl.name),
+                target.package.as_deref(),
+                Some(&target.module),
                 name,
                 false,
                 visited_aliases,
@@ -408,14 +500,17 @@ pub(super) fn resolve_schema_alias_check_reference(
 
 pub(super) fn resolve_schema_alias_check_in_module(
     module: &SurfaceModule,
+    package_name: Option<&str>,
     module_name: Option<&str>,
     name: &str,
     allow_private_schema: bool,
-    visited_aliases: &mut Vec<(Option<String>, String)>,
-    cache: &mut BTreeMap<(Option<String>, String), SchemaAliasCheckResolution>,
+    visited_aliases: &mut Vec<(Option<String>, Option<String>, String)>,
+    cache: &mut BTreeMap<(Option<String>, Option<String>, String), SchemaAliasCheckResolution>,
 ) -> SchemaAliasCheckResolution {
     if let Some(schema) = module.schemas.iter().find(|schema| {
-        schema.name.as_deref() == Some(name) && schema.module_name.as_deref() == module_name
+        schema.name.as_deref() == Some(name)
+            && schema.package_name.as_deref() == package_name
+            && schema.module_name.as_deref() == module_name
     }) {
         return if allow_private_schema || schema.visibility == Visibility::Public {
             SchemaAliasCheckResolution::Resolved
@@ -427,12 +522,13 @@ pub(super) fn resolve_schema_alias_check_in_module(
     if let Some(alias) = module.aliases.iter().find(|alias| {
         alias.kind == PublicAliasKind::Schema
             && alias.name.as_deref() == Some(name)
+            && alias.package_name.as_deref() == package_name
             && alias.module_name.as_deref() == module_name
     }) {
         return resolve_schema_alias_check_target(module, alias, visited_aliases, cache);
     }
 
-    codec_schema_wrong_kind(module, module_name, name).map_or(
+    codec_schema_wrong_kind(module, package_name, module_name, name).map_or(
         SchemaAliasCheckResolution::Unresolved,
         SchemaAliasCheckResolution::WrongKind,
     )
@@ -441,13 +537,17 @@ pub(super) fn resolve_schema_alias_check_in_module(
 pub(super) fn resolve_schema_alias_check_target(
     module: &SurfaceModule,
     alias: &veln_ast::PublicAlias,
-    visited_aliases: &mut Vec<(Option<String>, String)>,
-    cache: &mut BTreeMap<(Option<String>, String), SchemaAliasCheckResolution>,
+    visited_aliases: &mut Vec<(Option<String>, Option<String>, String)>,
+    cache: &mut BTreeMap<(Option<String>, Option<String>, String), SchemaAliasCheckResolution>,
 ) -> SchemaAliasCheckResolution {
     let Some(name) = &alias.name else {
         return SchemaAliasCheckResolution::Unresolved;
     };
-    let key = (alias.module_name.clone(), name.clone());
+    let key = (
+        alias.package_name.clone(),
+        alias.module_name.clone(),
+        name.clone(),
+    );
     if let Some(resolution) = cache.get(&key) {
         return *resolution;
     }
@@ -460,6 +560,7 @@ pub(super) fn resolve_schema_alias_check_target(
         module,
         &alias.target,
         alias.module_name.as_deref(),
+        alias.package_name.as_deref(),
         false,
         visited_aliases,
         cache,

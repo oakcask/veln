@@ -27,6 +27,7 @@ pub(crate) struct EffectSignature {
     pub(crate) name: String,
     pub(crate) qualified_name: String,
     pub(crate) module_name: Option<String>,
+    pub(crate) package_name: Option<String>,
     pub(crate) visibility: Visibility,
     pub(crate) span: SourceSpan,
     pub(crate) operations: Vec<EffectOperationSignature>,
@@ -73,6 +74,7 @@ pub(crate) struct HandlerSignature {
     pub(crate) name: String,
     pub(crate) qualified_name: String,
     pub(crate) module_name: Option<String>,
+    pub(crate) package_name: Option<String>,
     pub(crate) visibility: Visibility,
     pub(crate) params: Vec<Type>,
     pub(crate) effect: String,
@@ -83,8 +85,7 @@ pub(crate) struct HandlerSignature {
 #[derive(Clone)]
 pub(crate) struct HandlerOperationClauseSignature {
     pub(crate) operation: String,
-    pub(crate) function: String,
-    pub(crate) module_name: Option<String>,
+    pub(crate) target_name: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -110,6 +111,7 @@ pub(crate) struct FunctionSignature {
     pub(crate) name: String,
     pub(crate) target_name: String,
     pub(crate) module_name: Option<String>,
+    pub(crate) package_name: Option<String>,
     pub(crate) visibility: Visibility,
     pub(crate) params: Vec<Type>,
     pub(crate) variadic: Option<Type>,
@@ -183,4 +185,25 @@ pub(crate) fn synthetic_handler_clause_function_name(handler: &str, operation: &
         handler.len(),
         operation.len()
     )
+}
+
+pub(crate) fn synthetic_handler_clause_function_target(
+    module: Option<&str>,
+    package: Option<&str>,
+    handler: &str,
+    operation: &str,
+) -> String {
+    synthetic_handler_clause_function_target_from_name(
+        module,
+        package,
+        &synthetic_handler_clause_function_name(handler, operation),
+    )
+}
+
+pub(crate) fn synthetic_handler_clause_function_target_from_name(
+    module: Option<&str>,
+    package: Option<&str>,
+    function: &str,
+) -> String {
+    crate::standard_symbols::function_link_name(module, package, function, true)
 }

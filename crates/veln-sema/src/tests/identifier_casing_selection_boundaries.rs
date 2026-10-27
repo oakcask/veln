@@ -253,7 +253,7 @@ fn implicit_prelude_recovery_does_not_cross_into_application_environment() {
 
 #[test]
 fn valid_implicit_prelude_function_precedes_application_recovery_record() {
-    let standard = module_with_identity(
+    let mut standard = module_with_identity(
         "prelude.veln",
         concat!(
             "mod std::prelude\n",
@@ -263,6 +263,9 @@ fn valid_implicit_prelude_function_precedes_application_recovery_record() {
         ),
         "std::prelude",
     );
+    for function in &mut standard.functions {
+        function.package_name = Some(veln_stdlib::PACKAGE_NAME.to_string());
+    }
     let reusable = prepare_reusable_standard_surface_module_environment(&standard)
         .with_current_identity_for_test();
     let application = application_module_with_implicit_prelude(
@@ -321,7 +324,7 @@ fn valid_implicit_prelude_function_precedes_application_recovery_record() {
 
 #[test]
 fn valid_implicit_prelude_constructor_precedes_application_recovery_record() {
-    let standard = module_with_identity(
+    let mut standard = module_with_identity(
         "prelude.veln",
         concat!(
             "mod std::prelude\n",
@@ -331,6 +334,9 @@ fn valid_implicit_prelude_constructor_precedes_application_recovery_record() {
         ),
         "std::prelude",
     );
+    for declaration in &mut standard.types {
+        declaration.package_name = Some(veln_stdlib::PACKAGE_NAME.to_string());
+    }
     let reusable = prepare_reusable_standard_surface_module_environment(&standard)
         .with_current_identity_for_test();
     let application = application_module_with_implicit_prelude(

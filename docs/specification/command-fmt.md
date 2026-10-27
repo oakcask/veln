@@ -20,6 +20,12 @@ prefix and binary operators, postfix `?`, and supported binary-schema primitive
 compatibility spellings. Indentation is one tab per level: top-level items and
 closing `end` lines use level zero, and function body lines use level one.
 
+For an explicit import alias, the formatter writes `as alias` after the target
+module path and before an optional `from "package"` source. Reformatting the
+accepted declaration preserves that order and is idempotent. The
+[source-surface specification](source-surface.md#usage-and-declaration-forms)
+defines the accepted import syntax and malformed-clause boundary.
+
 A module `let` declaration remains at indentation zero. The formatter writes
 the declaration as `[pub] let name: Type = initializer`, applies the ordinary
 type layout to its required annotation, and formats its initializer with the
@@ -74,6 +80,8 @@ earlier successful writes.
 
 ## References
 
-Implementation: `crates/veln-cli/src/commands/fmt.rs`. Formatter golden tests
-cover precedence, comments, schema spellings, multi-file atomicity, and
-idempotence.
+Implementation: `crates/veln-cli/src/commands/fmt.rs`. The checked
+[`explicit-import-alias`](../../examples/specification/fmt/explicit-import-alias/)
+case covers alias placement and idempotence. Formatter golden tests cover
+precedence, comments, schema spellings, multi-file atomicity, and other
+idempotence boundaries.

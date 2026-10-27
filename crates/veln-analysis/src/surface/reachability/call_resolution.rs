@@ -3,16 +3,20 @@ use super::*;
 pub(super) fn target_visible_from_current_module(
     target: &FunctionTarget,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[&UseDecl],
     companion_access_targets: &HashMap<String, String>,
 ) -> bool {
     let target_module = target.module_name.as_deref();
-    if current_module.is_none() || target_module == current_module {
+    if current_module.is_none()
+        || (target_module == current_module && target.package_name.as_deref() == current_package)
+    {
         return true;
     }
     target_module.is_some_and(|module_name| {
         uses.iter().any(|use_decl| {
             use_decl.module_name.as_deref() == current_module
+                && use_decl.importing_package.as_deref() == current_package
                 && use_decl.origin == veln_ast::UseOrigin::Source
                 && use_decl.name == module_name
                 && imported_target_visible_from_module(
@@ -87,25 +91,44 @@ pub(super) fn path_has_valid_constructor(
     segments: &[String],
     arg_count: Option<usize>,
     current_module: Option<&str>,
-    uses: &[&UseDecl],
+    current_package: Option<&str>,
+    selected_import: Option<&UseDecl>,
     types: &[&veln_ast::TypeDecl],
 ) -> bool {
-    let target = visible_path_target(uses, segments, current_module);
+    if types.is_empty() {
+        return false;
+    }
+    let target = match segments {
+        [_] => current_module.map(str::to_string),
+        [_, .., _] => selected_import.map(|use_decl| use_decl.name.clone()),
+        _ => None,
+    };
+    let package = match segments {
+        [_] => current_package,
+        [_, .., _] => selected_import.and_then(|use_decl| {
+            use_decl
+                .package
+                .as_deref()
+                .or(use_decl.importing_package.as_deref())
+        }),
+        _ => None,
+    };
     let leaf = path_leaf(segments);
     types.iter().copied().any(|type_decl| {
-        declaration_visible(
-            type_decl.module_name.as_deref(),
-            type_decl.visibility,
-            target.as_deref(),
-            current_module,
-        ) && type_decl.variants.iter().any(|variant| {
-            variant.name.as_deref() == leaf
-                && variant
-                    .name
-                    .as_ref()
-                    .is_some_and(|name| name.as_bytes().first().is_some_and(u8::is_ascii_uppercase))
-                && arg_count.is_none_or(|count| variant.fields.len() == count)
-        })
+        type_decl.package_name.as_deref() == package
+            && declaration_visible(
+                type_decl.module_name.as_deref(),
+                type_decl.visibility,
+                target.as_deref(),
+                current_module,
+            )
+            && type_decl.variants.iter().any(|variant| {
+                variant.name.as_deref() == leaf
+                    && variant.name.as_ref().is_some_and(|name| {
+                        name.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
+                    })
+                    && arg_count.is_none_or(|count| variant.fields.len() == count)
+            })
     })
 }
 
@@ -114,13 +137,22 @@ pub(super) fn collect_function_name_reference(
     context: &FunctionCalleeContext<'_>,
     local_bindings: &[LocalBinding],
     arg_count: Option<usize>,
-    callees: &mut Vec<ReachableFunction>,
+    callees: &mut ReachableCallees,
 ) {
     let current_module = context.current_module;
     let uses = context.uses;
     let function_targets = context.function_targets;
     let companion_access_targets = context.companion_access_targets;
     let types = context.types;
+    let selected_import = match segments {
+        [_, .., _] => imported_use_for_path(
+            context.import_selections,
+            &segments[..segments.len() - 1],
+            current_module,
+            context.current_package,
+        ),
+        _ => None,
+    };
 
     if let [name] = segments
         && let Some(binding) = local_bindings
@@ -133,15 +165,22 @@ pub(super) fn collect_function_name_reference(
                 shape,
                 arg_count,
                 current_module,
+                context.current_package,
                 uses,
                 function_targets,
-                companion_access_targets,
                 callees,
             );
         }
         return;
     }
-    if path_has_valid_constructor(segments, None, current_module, uses, types) {
+    if path_has_valid_constructor(
+        segments,
+        None,
+        current_module,
+        context.current_package,
+        selected_import,
+        types,
+    ) {
         return;
     }
     let public_or_same_module_access;
@@ -151,10 +190,15 @@ pub(super) fn collect_function_name_reference(
         public_or_same_module_access = HashMap::new();
         &public_or_same_module_access
     };
-    for callee in resolve_function_reference(
+    let owner = FunctionReferenceOwner {
+        module: current_module,
+        package: context.current_package,
+    };
+    for callee in resolve_function_reference_with_selected_import(
         segments,
-        current_module,
+        owner,
         uses,
+        selected_import,
         function_targets,
         access_targets,
         arg_count,
@@ -165,40 +209,52 @@ pub(super) fn collect_function_name_reference(
 
 pub(super) fn collect_handler_operation_clause_callees(
     expr: &Expr,
-    current_module: Option<&str>,
-    uses: &[&UseDecl],
-    function_targets: &FunctionTargetIndex,
-    companion_access_targets: &HashMap<String, String>,
-    handlers: &[&veln_ast::HandlerDecl],
-    callees: &mut Vec<ReachableFunction>,
+    outer_context: &FunctionCalleeContext<'_>,
+    callees: &mut ReachableCallees,
 ) {
     let ExprKind::Handle { handler, .. } = &expr.kind else {
         return;
     };
-    let matching_handlers = handlers.iter().filter(|candidate| {
+    let selected_target = match handler.as_slice() {
+        [_, .., _] => imported_use_for_path(
+            outer_context.import_selections,
+            &handler[..handler.len() - 1],
+            outer_context.current_module,
+            outer_context.current_package,
+        )
+        .map(UseDecl::resolved_target),
+        _ => None,
+    };
+    let matching_handlers = outer_context.handlers.iter().filter(|candidate| {
         let Some(name) = &candidate.name else {
             return false;
         };
         match handler.as_slice() {
-            [segment] => name == segment && candidate.module_name.as_deref() == current_module,
+            [segment] => {
+                name == segment
+                    && candidate.module_name.as_deref() == outer_context.current_module
+                    && candidate.package_name.as_deref() == outer_context.current_package
+            }
             [_, .., segment] => {
-                let Some(use_decl) =
-                    imported_use_for_path(uses, &handler[..handler.len() - 1], current_module)
-                else {
+                let Some(target) = &selected_target else {
                     return false;
                 };
-                name == segment && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
+                name == segment
+                    && candidate.module_name.as_deref() == Some(target.module.as_str())
+                    && candidate.package_name == target.package
             }
             _ => false,
         }
     });
     for handler in matching_handlers {
         let context = FunctionCalleeContext {
-            current_module,
-            uses,
-            function_targets,
-            companion_access_targets,
-            handlers,
+            current_module: handler.module_name.as_deref(),
+            current_package: handler.package_name.as_deref(),
+            uses: outer_context.uses,
+            import_selections: outer_context.import_selections,
+            function_targets: outer_context.function_targets,
+            companion_access_targets: outer_context.companion_access_targets,
+            handlers: outer_context.handlers,
             types: &[],
         };
         let mut local_bindings = handler
@@ -223,8 +279,48 @@ pub(super) fn collect_handler_operation_clause_callees(
 
 pub(super) fn resolve_function_reference(
     segments: &[String],
-    current_module: Option<&str>,
+    owner: &veln_ast::ResolvedImportOwner,
     uses: &[&UseDecl],
+    import_selections: &ImportSelectionIndex<'_>,
+    function_targets: &FunctionTargetIndex,
+    companion_access_targets: &HashMap<String, String>,
+    arg_count: Option<usize>,
+) -> Vec<ReachableFunction> {
+    let selected_import = match segments {
+        [_, .., _] => imported_use_for_path(
+            import_selections,
+            &segments[..segments.len() - 1],
+            owner.module.as_deref(),
+            owner.package.as_deref(),
+        ),
+        _ => None,
+    };
+    let owner = FunctionReferenceOwner {
+        module: owner.module.as_deref(),
+        package: owner.package.as_deref(),
+    };
+    resolve_function_reference_with_selected_import(
+        segments,
+        owner,
+        uses,
+        selected_import,
+        function_targets,
+        companion_access_targets,
+        arg_count,
+    )
+}
+
+#[derive(Clone, Copy)]
+struct FunctionReferenceOwner<'a> {
+    module: Option<&'a str>,
+    package: Option<&'a str>,
+}
+
+fn resolve_function_reference_with_selected_import(
+    segments: &[String],
+    owner: FunctionReferenceOwner<'_>,
+    uses: &[&UseDecl],
+    selected_import: Option<&UseDecl>,
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
     arg_count: Option<usize>,
@@ -236,27 +332,25 @@ pub(super) fn resolve_function_reference(
                 #[cfg(test)]
                 reachability_counters::record_target_resolution_scan();
                 target.name == *name
-                    && bare_target_visible(target, current_module, uses)
+                    && bare_target_visible(target, owner.module, owner.package, uses)
                     && recovery_target_accepts_arg_count(target, arg_count)
             })
             .map(reachable_function_from_target)
             .collect(),
         [_, .., name] => {
-            let Some(use_decl) =
-                imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
-            else {
+            let Some(use_decl) = selected_import else {
                 return Vec::new();
             };
-            let module_name = use_decl.name.as_str();
+            let target = use_decl.resolved_target();
             function_targets
-                .qualified(module_name, name)
+                .qualified(target.package.as_deref(), &target.module, name)
                 .filter(|target| {
                     #[cfg(test)]
                     reachability_counters::record_target_resolution_scan();
                     imported_target_visible_from_module(
                         target,
                         use_decl,
-                        current_module,
+                        owner.module,
                         companion_access_targets,
                     ) && recovery_target_accepts_arg_count(target, arg_count)
                 })
@@ -272,6 +366,7 @@ fn reachable_function_from_target(target: &FunctionTarget) -> ReachableFunction 
         kind: FunctionKind::Function,
         name: target.target_name.clone(),
         module_name: target.target_module_name.clone(),
+        package_name: target.target_package_name.clone(),
         node_id: Some(target.target_node_id),
         alias: target.alias.clone(),
     }
@@ -285,41 +380,35 @@ pub(super) fn recovery_target_accepts_arg_count(
 }
 
 pub(super) fn imported_use_for_path<'a>(
-    uses: &'a [&'a UseDecl],
+    import_selections: &'a ImportSelectionIndex<'a>,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<&'a UseDecl> {
-    let module_path = segments.join("::");
-    uses.iter().copied().find(|use_decl| {
-        use_decl.module_name.as_deref() == current_module
-            && (use_decl.name == module_path
-                || simple_import_alias_matches(use_decl, &module_path)
-                || standard_package_relative_import_matches(use_decl, &module_path, current_module))
-    })
+    import_selections.select(segments, current_module, current_package, false)
 }
 
-fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str) -> bool {
+pub(super) fn recovery_imported_use_for_path<'a>(
+    import_selections: &'a ImportSelectionIndex<'a>,
+    segments: &[String],
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+) -> Option<&'a UseDecl> {
+    import_selections.select(segments, current_module, current_package, true)
+}
+
+pub(super) fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str) -> bool {
     use_decl.alias == module_path
-        && (use_decl.package.is_some()
+        && (use_decl.has_explicit_alias()
+            || use_decl.package.is_some()
             || !use_decl.name.contains("::")
             || use_decl.origin == veln_ast::UseOrigin::ImplicitStandardPrelude)
 }
 
-fn standard_package_relative_import_matches(
-    use_decl: &UseDecl,
-    module_path: &str,
-    current_module: Option<&str>,
-) -> bool {
-    (use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
-        || (use_decl.package.is_none()
-            && current_module.is_some_and(|module| module.starts_with("std::"))))
-        && use_decl
-            .name
-            .strip_prefix("std::")
-            .is_some_and(|package_relative| package_relative == module_path)
-}
-
 pub(super) fn imported_target_is_visible(target: &FunctionTarget, use_decl: &UseDecl) -> bool {
+    if target.package_name != use_decl.resolved_target().package {
+        return false;
+    }
     if target.requires_public_import {
         return target.visibility == Visibility::Public;
     }
@@ -332,6 +421,12 @@ pub(super) fn imported_target_visible_from_module(
     current_module: Option<&str>,
     companion_access_targets: &HashMap<String, String>,
 ) -> bool {
+    let selected_target = use_decl.resolved_target();
+    if target.package_name != selected_target.package
+        || target.module_name.as_deref() != Some(selected_target.module.as_str())
+    {
+        return false;
+    }
     if target.recovery {
         return false;
     }
@@ -341,7 +436,7 @@ pub(super) fn imported_target_visible_from_module(
     if target.requires_public_import || use_decl.package.is_some() {
         return false;
     }
-    if current_module.is_some_and(|module| module.starts_with("std::"))
+    if use_decl.importing_package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
         && target
             .module_name
             .as_deref()
@@ -372,12 +467,15 @@ pub(super) fn companion_function_access_targets(
 pub(super) fn bare_target_visible(
     target: &FunctionTarget,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[&UseDecl],
 ) -> bool {
     let Some(current_module) = current_module else {
         return true;
     };
-    if target.module_name.as_deref() == Some(current_module) {
+    if target.module_name.as_deref() == Some(current_module)
+        && target.package_name.as_deref() == current_package
+    {
         return true;
     }
     if target.recovery {
@@ -386,15 +484,15 @@ pub(super) fn bare_target_visible(
     target.bare_importable
         && target.module_name.as_deref().is_some_and(|module_name| {
             uses.iter().any(|use_decl| {
-                use_decl.module_name.as_deref() == Some(current_module)
+                !use_decl.has_explicit_alias()
+                    && use_decl.module_name.as_deref() == Some(current_module)
+                    && use_decl.importing_package.as_deref() == current_package
                     && use_decl.name == module_name
                     && imported_target_is_visible(target, use_decl)
             })
         })
 }
 
-pub(super) fn push_reachable(callees: &mut Vec<ReachableFunction>, callee: ReachableFunction) {
-    if !callees.iter().any(|known| known == &callee) {
-        callees.push(callee);
-    }
+pub(super) fn push_reachable(callees: &mut ReachableCallees, callee: ReachableFunction) {
+    callees.insert(callee);
 }

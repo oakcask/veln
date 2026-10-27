@@ -179,7 +179,7 @@ fn dependency_locations(project: &TempProject) -> Vec<Vec<(&'static str, String)
             let function = core
                 .functions
                 .iter()
-                .find(|function| function.name == name)
+                .find(|function| function.name.rsplit("::").next() == Some(name))
                 .expect("dependency location function should be reachable");
             source_location_fields(function)
         })

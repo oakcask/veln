@@ -13,6 +13,52 @@ host boundaries, and observable output. HTTP/2 protocol details belong to
 
 ## Runtime readiness and host boundaries
 
+Explicit import aliases affect source lookup only. Lowering and reachability
+use the selected target module and declaration identity for calls,
+constructors, schemas, effects, and handlers. An invalid, recovered, reserved,
+or colliding alias cannot itself make a module executable or add declarations
+to the reachable set. Within one importing owner package and source module,
+imports that resolve to one target module in one package origin are duplicate
+targets and add no reachable declarations, even when a standard module is
+written once as a relative path and once with its canonical `std::` path.
+Equal target spellings in different importing owner packages remain
+independent. A valid exact written path remains usable when only its local
+qualifier collides. An alias-qualified call and a call through the full written
+import path execute the same declaration. Same-named declarations with
+distinct package or module identities retain separate runtime identities, and
+an explicitly aliased import does not add a bare runtime call candidate. An
+import-selected function or handler keeps its selected package identity
+through reachability, lowering, and JVM linkage; a loaded namesake from another
+package cannot replace the selected declaration. An imported handler retains
+the declaration module as the lookup scope for private functions called by its
+operation clauses. The checked
+[`explicit-import-alias-runtime`](../../examples/specification/run/explicit-import-alias-runtime/)
+and
+[`explicit-import-alias-handler`](../../examples/specification/run/explicit-import-alias-handler/)
+cases exercise call and handler behavior through the JVM backend. The
+[`explicit-import-alias-handler-identity`](../../examples/specification/run/explicit-import-alias-handler-identity/)
+case checks that same-named handlers keep distinct declaration identities.
+A run entry also retains its declaring-module identity when its reachable set
+contains an imported function with the same name. The selected entry, rather
+than the same-named imported declaration, is the JVM launch target. The checked
+[`explicit-import-alias-entry-target`](../../examples/specification/run/explicit-import-alias-entry-target/)
+case exercises that boundary.
+A local application module whose written path starts with `std::` keeps
+application runtime identity. Its full written path and an explicit alias can
+execute the local declaration, while the standard-relative leaf alone remains
+unresolved. The checked
+[`explicit-import-alias-local-std-runtime`](../../examples/specification/run/explicit-import-alias-local-std-runtime/)
+and
+[`explicit-import-alias-local-std-origin`](../../examples/specification/run/explicit-import-alias-local-std-origin/)
+cases cover the successful JVM linkage and the rejected relative lookup.
+Import selection and quarantine also retain the package that owns the importing
+source. Application and standard-library sources with the same module spelling
+therefore keep independent import bindings through reachable lowering. The
+checked
+[`explicit-import-alias-owner-package-scope`](../../examples/specification/run/explicit-import-alias-owner-package-scope/)
+case executes a standard import while a loaded same-spelled application source
+owns a separate import.
+
 The JVM host boundary associates resources created by `net::system()` with the
 active `net::IO` handler frame. Popping that frame closes its remaining
 listeners and streams before restoring the outer handler. The cleanup runs for
@@ -593,6 +639,9 @@ than degrading it to a generic rendered result value.
 
 ## References
 
+- Cross-package function and handler selection through reachability, lowering,
+  and JVM linkage is checked in
+  `crates/veln-backend-jvm/src/tests/basic_backend.rs`.
 - Format-neutral refinement encode behavior is checked by
   [`adt-variant-refinement-format-neutral-schema-encode`](../../examples/specification/run/adt-variant-refinement-format-neutral-schema-encode/)
   and

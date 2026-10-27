@@ -1,0 +1,3 @@
+schema Packet
+	value: String
+end

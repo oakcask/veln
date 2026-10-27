@@ -1,0 +1,9 @@
+command = ["doc", "main.veln", "api.veln", "fallback.veln"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["unresolved documentation schema reference `api::Packet`"]

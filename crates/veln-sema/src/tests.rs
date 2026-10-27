@@ -14,6 +14,7 @@ mod deferred_cleanup;
 mod effect_rows;
 mod identifier_casing;
 mod identifier_casing_selection_boundaries;
+mod import_package_identity;
 mod local_inference_callback_expected_types;
 mod lowering_and_pattern_semantics;
 mod module_values;

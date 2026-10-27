@@ -1,0 +1,15 @@
+# JVM stdout distinguishes alias-qualified, exact-path, and remaining bare-call
+# targets, plus a canonical standard target selected through an aliased import.
+use math as calc
+use other
+use net as wire from "std"
+
+pub fn main() -> () effects [stdio]
+	stdio::println(int_to_string(calc::double(4)))
+	stdio::println(int_to_string(math::double(5)))
+	stdio::println(int_to_string(double(5)))
+	match std::net::join_host_port("example.test", 443)
+		Ok(address) => stdio::println(address)
+		Err(_) => stdio::println("unexpected error")
+	end
+end

@@ -15,9 +15,10 @@ fn lower_with_host_effects(text: String) -> TypedProgram {
     );
     let parsed = parse(&host);
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-    let host_module = lower_surface_ast_with_module_identity(
+    let host_module = veln_ast::lower_surface_ast_with_package_module_identity(
         &parsed.tree,
-        "std::host_effects".to_string(),
+        "std".to_string(),
+        "host_effects".to_string(),
         host.span(TextRange::at(0)),
     );
     module.effects.extend(host_module.effects);

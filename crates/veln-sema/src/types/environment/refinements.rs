@@ -7,11 +7,21 @@ impl TypeEnvironment {
         ty: Type,
         current_module: Option<&str>,
     ) -> Type {
-        canonicalize_type_effects(
+        self.canonicalize_type_annotation_in_owner(ty, current_module, None)
+    }
+
+    pub(crate) fn canonicalize_type_annotation_in_owner(
+        &self,
+        ty: Type,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Type {
+        crate::types::signature_collection::canonicalize_type_effects_in_owner(
             ty,
             &self.uses,
             &self.quarantined_uses,
             current_module,
+            current_package,
             &self.effects,
             &self.adts,
             &self.companion_effect_access_targets,
@@ -29,6 +39,7 @@ impl TypeEnvironment {
             &self.uses,
             &self.quarantined_uses,
             current_module,
+            None,
             &self.effects,
             &self.adts,
             &self.companion_effect_access_targets,
@@ -110,6 +121,32 @@ impl TypeEnvironment {
                 base,
                 current_module,
                 &self.uses,
+            );
+        }
+        if let Some(descriptor) = self.adts.unique_descriptor_for_type_path(
+            base,
+            args_len,
+            current_module,
+            &self.quarantined_uses,
+        ) {
+            return Some(descriptor);
+        }
+        if self
+            .adts
+            .descriptor_for_type_path(base, args_len, current_module, &self.quarantined_uses)
+            .is_some()
+        {
+            return None;
+        }
+        if self
+            .adts
+            .descriptor_for_type_path_any_arity(base, current_module, &self.quarantined_uses)
+            .is_some()
+        {
+            return self.adts.unique_descriptor_for_type_path_any_arity(
+                base,
+                current_module,
+                &self.quarantined_uses,
             );
         }
 

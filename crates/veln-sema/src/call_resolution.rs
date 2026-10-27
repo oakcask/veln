@@ -53,6 +53,7 @@ struct TypeNamePathCallContext<'a> {
     bindings: &'a [TypeBinding<'a>],
     environment: &'a TypeEnvironment,
     current_module: Option<&'a str>,
+    current_package: Option<&'a str>,
 }
 
 pub(crate) fn type_call_signature(
@@ -62,6 +63,7 @@ pub(crate) fn type_call_signature(
     bindings: &[TypeBinding<'_>],
     environment: &TypeEnvironment,
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<TypeCallSignature> {
     match &callee.kind {
         ExprKind::NamePath { segments, .. } => type_name_path_call_signature(
@@ -73,6 +75,7 @@ pub(crate) fn type_call_signature(
                 bindings,
                 environment,
                 current_module,
+                current_package,
             },
         ),
         ExprKind::TypeApply { .. } => type_applied_call_signature(callee, expected, handle_type),
@@ -86,6 +89,7 @@ pub(crate) fn core_call_signature(
     bindings: &[CoreBinding<'_>],
     environment: &TypeEnvironment,
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<CoreCallSignature> {
     let ExprKind::NamePath { segments, .. } = &callee.kind else {
         return None;
@@ -97,6 +101,7 @@ pub(crate) fn core_call_signature(
         bindings,
         environment,
         current_module,
+        current_package,
     )
 }
 
@@ -111,6 +116,7 @@ fn type_name_path_call_signature(
             context.expected,
             context.environment,
             context.current_module,
+            context.current_package,
         )
     {
         return Some(signature);
@@ -128,6 +134,7 @@ fn type_name_path_call_signature(
             context.expected,
             context.environment,
             context.current_module,
+            context.current_package,
         ),
     }
 }
@@ -250,10 +257,16 @@ fn core_name_path_call_signature(
     bindings: &[CoreBinding<'_>],
     environment: &TypeEnvironment,
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<CoreCallSignature> {
     if segments.len() > 1
-        && let Some(signature) =
-            core_function_call_signature(segments, expected, environment, current_module)
+        && let Some(signature) = core_function_call_signature(
+            segments,
+            expected,
+            environment,
+            current_module,
+            current_package,
+        )
     {
         return Some(signature);
     }
@@ -295,7 +308,13 @@ fn core_name_path_call_signature(
         BindingCallSignature::ShadowedNonCallable => return None,
         BindingCallSignature::Missing => {}
     }
-    core_function_call_signature(segments, expected, environment, current_module)
+    core_function_call_signature(
+        segments,
+        expected,
+        environment,
+        current_module,
+        current_package,
+    )
 }
 
 fn qualified_core_prelude_builtin_call_signature(
@@ -339,8 +358,10 @@ fn core_function_call_signature(
     expected: Option<&CoreType>,
     environment: &TypeEnvironment,
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<CoreCallSignature> {
-    if let Some(function) = resolve_function(segments, environment, current_module) {
+    if let Some(function) = resolve_function(segments, environment, current_module, current_package)
+    {
         let (params, return_type) = if function.module_name.as_deref() == Some("std::prelude") {
             core_prelude_signature(&function.name, expected)
                 .map(|(_, params, return_type)| (params, return_type))
@@ -404,16 +425,17 @@ fn function_type_call_signature(
     expected: Option<&Type>,
     environment: &TypeEnvironment,
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<TypeCallSignature> {
     let (function, symbol) = match segments {
         [name] => (
             environment
-                .unqualified_function(name, current_module)
+                .unqualified_function_in_owner(name, current_module, current_package)
                 .found(),
             name.clone(),
         ),
         _ => (
-            environment.function_path(segments, current_module),
+            environment.function_path_in_owner(segments, current_module, current_package),
             segments.join("::"),
         ),
     };
@@ -444,12 +466,13 @@ fn resolve_function<'a>(
     segments: &[String],
     environment: &'a TypeEnvironment,
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<&'a FunctionSignature> {
     match segments {
         [name] => environment
-            .unqualified_function(name, current_module)
+            .unqualified_function_in_owner(name, current_module, current_package)
             .found(),
-        _ => environment.function_path(segments, current_module),
+        _ => environment.function_path_in_owner(segments, current_module, current_package),
     }
 }
 

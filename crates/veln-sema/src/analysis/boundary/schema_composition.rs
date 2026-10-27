@@ -14,11 +14,8 @@ pub(super) fn check_format_neutral_schema_field(
         format_neutral_schema_encode_field_type_for_schema(module, schema, adts, &field.ty);
     let direct_source_adt_candidate =
         format_neutral_schema_encode_field_is_source_adt_candidate(module, schema, adts, &field.ty);
-    let refinement_candidate = format_neutral_schema_encode_field_contains_refinement(
-        adts,
-        schema.module_name.as_deref(),
-        &field.ty,
-    );
+    let refinement_candidate =
+        format_neutral_schema_encode_field_contains_refinement(module, schema, adts, &field.ty);
     let context = FormatNeutralSchemaFieldCheck {
         module,
         schema,
@@ -164,6 +161,7 @@ pub(super) fn unresolved_schema_composition_reason(
     if let Some(reason) = quarantined_schema_composition_reference_reason(
         module,
         schema.module_name.as_deref(),
+        schema.package_name.as_deref(),
         &path,
     ) {
         return reason;
@@ -172,6 +170,7 @@ pub(super) fn unresolved_schema_composition_reason(
         module,
         &path,
         schema.module_name.as_deref(),
+        schema.package_name.as_deref(),
         true,
         &mut Vec::new(),
         &mut BTreeMap::new(),
@@ -188,16 +187,25 @@ pub(super) fn unresolved_schema_composition_reason(
 pub(super) fn quarantined_schema_composition_reference_reason(
     module: &SurfaceModule,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     path: &[String],
 ) -> Option<&'static str> {
     let [_, .., name] = path else {
         return None;
     };
-    let use_decl =
-        quarantined_imported_use_for_path(module, &path[..path.len() - 1], current_module)?;
+    let use_decl = quarantined_imported_use_for_path_in_owner(
+        module,
+        &path[..path.len() - 1],
+        current_module,
+        current_package,
+    )?;
+    let target = use_decl.resolved_target();
+    let target_module = crate::name_recovery::recovered_import_target_name(module, use_decl)
+        .unwrap_or_else(|| target.module.clone());
     if module.schemas.iter().any(|candidate| {
         candidate.name.as_deref() == Some(name.as_str())
-            && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
+            && candidate.module_name.as_deref() == Some(target_module.as_str())
+            && candidate.package_name == target.package
             && candidate.visibility != Visibility::Public
     }) {
         return Some("private_schema");
@@ -237,21 +245,27 @@ pub(super) fn schema_composition_quarantine_is_sole_failure(
     let [_, .., name] = path.as_slice() else {
         return false;
     };
-    let Some(use_decl) = quarantined_imported_use_for_path(
+    let Some(use_decl) = quarantined_imported_use_for_path_in_owner(
         module,
         &path[..path.len() - 1],
         schema.module_name.as_deref(),
+        schema.package_name.as_deref(),
     ) else {
         return false;
     };
+    let target = use_decl.resolved_target();
+    let target_module = crate::name_recovery::recovered_import_target_name(module, use_decl)
+        .unwrap_or_else(|| target.module.clone());
     module.schemas.iter().any(|candidate| {
         candidate.name.as_deref() == Some(name.as_str())
-            && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
+            && candidate.module_name.as_deref() == Some(target_module.as_str())
+            && candidate.package_name == target.package
             && candidate.visibility == Visibility::Public
     }) || module.aliases.iter().any(|alias| {
         alias.kind == PublicAliasKind::Schema
             && alias.name.as_deref() == Some(name.as_str())
-            && alias.module_name.as_deref() == Some(use_decl.name.as_str())
+            && alias.module_name.as_deref() == Some(target_module.as_str())
+            && alias.package_name == target.package
             && !public_alias_has_invalid_target_leaf(module, alias, None)
     })
 }
@@ -274,28 +288,37 @@ pub(crate) fn schema_field_has_ordinary_type_target(
     let Some(path) = schema_payload_name_path(text) else {
         return false;
     };
-    let (module_name, name, imported) = match path.as_slice() {
-        [name] => (schema.module_name.as_deref(), name.as_str(), false),
+    let (package_name, module_name, name, imported) = match path.as_slice() {
+        [name] => (
+            schema.package_name.clone(),
+            schema.module_name.clone(),
+            name.as_str(),
+            false,
+        ),
         [_, .., name] => {
-            let Some(use_decl) = schema_composition_imported_use_for_path(
+            let Some(use_decl) = schema_composition_imported_use_for_path_in_owner(
                 module,
                 &path[..path.len() - 1],
                 schema.module_name.as_deref(),
+                schema.package_name.as_deref(),
             ) else {
                 return false;
             };
-            (Some(use_decl.name.as_str()), name.as_str(), true)
+            let target = use_decl.resolved_target();
+            (target.package, Some(target.module), name.as_str(), true)
         }
         _ => return false,
     };
     module.types.iter().any(|ty| {
         ty.name.as_deref() == Some(name)
-            && ty.module_name.as_deref() == module_name
+            && ty.package_name.as_deref() == package_name.as_deref()
+            && ty.module_name.as_deref() == module_name.as_deref()
             && (!imported || ty.visibility == Visibility::Public)
     }) || module.aliases.iter().any(|alias| {
         alias.kind == PublicAliasKind::Type
             && alias.name.as_deref() == Some(name)
-            && alias.module_name.as_deref() == module_name
+            && alias.package_name.as_deref() == package_name.as_deref()
+            && alias.module_name.as_deref() == module_name.as_deref()
             && !public_alias_has_invalid_target_leaf(module, alias, Some(NameClass::Type))
     })
 }
