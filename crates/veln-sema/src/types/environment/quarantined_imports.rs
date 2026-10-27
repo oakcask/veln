@@ -1,4 +1,6 @@
 use super::*;
+use crate::adt::descriptors::{AdtConstructor, AdtDescriptor};
+use crate::adt::registry::ConstructorLookup;
 
 impl TypeEnvironment {
     pub(crate) fn quarantined_import_call_recovery_candidate_count(
@@ -131,6 +133,45 @@ impl TypeEnvironment {
             })
             .map(|(_, count)| *count)
             .sum()
+    }
+
+    pub(crate) fn quarantined_explicit_import_constructor(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> Option<AdtConstructor<'_>> {
+        let alias = segments.first()?;
+        let mut uses = self.quarantined_uses.iter().filter(|use_decl| {
+            use_decl.module_name.as_deref() == current_module && use_decl.alias == *alias
+        });
+        let use_decl = uses.next()?;
+        if uses.next().is_some()
+            || !use_decl.has_explicit_alias()
+            || self.quarantined_import_constructor_recovery_candidate_count(
+                segments,
+                current_module,
+                None,
+            ) != 1
+        {
+            return None;
+        }
+        match self
+            .adts
+            .public_constructor_in_module(&use_decl.name, &segments[1..])
+        {
+            ConstructorLookup::Found(constructor) => Some(constructor),
+            ConstructorLookup::Ambiguous | ConstructorLookup::Missing => None,
+        }
+    }
+
+    pub(crate) fn quarantined_explicit_import_constructor_for_descriptor(
+        &self,
+        segments: &[String],
+        descriptor: &AdtDescriptor,
+        current_module: Option<&str>,
+    ) -> Option<AdtConstructor<'_>> {
+        self.quarantined_explicit_import_constructor(segments, current_module)
+            .filter(|constructor| constructor.descriptor.identity() == descriptor.identity())
     }
 
     #[cfg(test)]

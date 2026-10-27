@@ -129,6 +129,31 @@ impl TypeCanonicalizer<'_> {
         let descriptor =
             self.adts
                 .descriptor_for_type_path(&name, args.len(), self.current_module, self.uses);
+        let quarantined_explicit_descriptor = descriptor
+            .is_none()
+            .then(|| {
+                let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+                let [_, .., _] = segments.as_slice() else {
+                    return None;
+                };
+                let alias = segments.first()?;
+                let mut uses = self.quarantined_uses.iter().filter(|use_decl| {
+                    use_decl.module_name.as_deref() == self.current_module
+                        && use_decl.alias == *alias
+                });
+                let use_decl = uses.next()?;
+                if uses.next().is_some() || !use_decl.has_explicit_alias() {
+                    return None;
+                }
+                let type_name = segments.last()?;
+                self.adts.unique_public_descriptor_for_type_in_module(
+                    type_name,
+                    args.len(),
+                    &use_decl.name,
+                )
+            })
+            .flatten();
+        let identity_descriptor = descriptor.or(quarantined_explicit_descriptor);
         if args.is_empty()
             && let Some(annotation_type) = descriptor
                 .and_then(|descriptor| self.adts.annotation_type_for_descriptor(descriptor))
@@ -143,7 +168,7 @@ impl TypeCanonicalizer<'_> {
                 return Type::source_location();
             }
         }
-        let Some(canonical_name) = descriptor
+        let Some(canonical_name) = identity_descriptor
             .map(|descriptor| descriptor.type_name.clone())
             .or_else(|| {
                 canonical_type_name_without_descriptor(
@@ -159,7 +184,7 @@ impl TypeCanonicalizer<'_> {
             return Type::Unknown;
         };
         let args = self.canonicalize_args(args);
-        if let Some(descriptor) = descriptor {
+        if let Some(descriptor) = identity_descriptor {
             Type::resolved_named(canonical_name, descriptor.identity(), args)
         } else {
             Type::named(canonical_name, args)

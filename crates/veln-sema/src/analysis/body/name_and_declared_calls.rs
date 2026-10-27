@@ -412,19 +412,21 @@ impl<'a> FunctionChecker<'a> {
                     return Some(Type::Unknown);
                 }
                 ConstructorLookup::Missing => {
-                    if self
-                        .environment
-                        .quarantined_import_constructor_recovery_candidate_count(
+                    if let Some(constructor) =
+                        self.environment.quarantined_explicit_import_constructor(
                             segments,
                             self.function.module_name.as_deref(),
-                            Some(args.len()),
                         )
-                        == 1
                     {
-                        for arg in args {
-                            self.infer_expr(arg, None);
+                        if args.len() != constructor.variant.payload_fields.len() {
+                            self.diagnostics
+                                .push(quarantined_constructor_arity_diagnostic(
+                                    expr,
+                                    constructor,
+                                    args.len(),
+                                ));
                         }
-                        return Some(Type::Unknown);
+                        return Some(self.infer_adt_constructor(expr, args, expected, constructor));
                     }
                 }
             }

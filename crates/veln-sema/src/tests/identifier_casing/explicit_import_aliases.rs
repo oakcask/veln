@@ -235,6 +235,33 @@ fn invalid_explicit_alias_recovery_suppresses_only_proven_carrier_cascades() {
             ),
         ),
     ]);
+    let environment = TypeEnvironment::from_module(&module);
+    let constructor_path = [
+        "HTTP".to_string(),
+        "Payload".to_string(),
+        "Data".to_string(),
+    ];
+    assert_eq!(
+        environment.quarantined_import_constructor_recovery_candidate_count(
+            &constructor_path,
+            Some("app"),
+            None,
+        ),
+        1
+    );
+    assert!(
+        environment
+            .quarantined_explicit_import_constructor(&constructor_path, Some("app"))
+            .is_some()
+    );
+    assert_eq!(
+        environment.quarantined_import_constructor_recovery_candidate_count(
+            &constructor_path,
+            Some("app"),
+            Some(2),
+        ),
+        0
+    );
     let diagnostics = analyze_surface_module(&module);
 
     assert!(
@@ -329,7 +356,9 @@ fn invalid_explicit_alias_recovery_preserves_independent_carrier_failures() {
             .any(|diagnostic| diagnostic.id == "name.invalid_case")
     );
     for independent in [
+        "core.constructor_arity_mismatch",
         "name.unresolved",
+        "type.match_non_exhaustive",
         "schema.composition_reference",
         "effect.unknown",
         "handler.unknown",
@@ -344,8 +373,32 @@ fn invalid_explicit_alias_recovery_preserves_independent_carrier_failures() {
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.message == "unresolved type alias target `HTTP::Missing`"
     }));
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "core.constructor_arity_mismatch"
+                && diagnostic.span.as_ref().is_some_and(|span| {
+                    span.start.line == 8
+                        && span.start.column == 3
+                        && span.end.line == 8
+                        && span.end.column == 28
+                })
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains("\"expected_argument_count\":1")
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains("\"actual_argument_count\":2")
+        }),
+        "{diagnostics:#?}"
+    );
     assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.message == "unresolved call_target `HTTP::Payload::Data`"
+        diagnostic.id == "type.match_non_exhaustive"
+            && diagnostic.message == "match is missing case Empty"
+    }));
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.message != "unresolved call_target `HTTP::Payload::Data`"
     }));
     assert!(lower_checked_surface_module(&module).core.is_none());
 }

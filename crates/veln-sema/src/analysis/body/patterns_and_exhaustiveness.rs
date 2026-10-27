@@ -331,12 +331,24 @@ impl<'a> FunctionChecker<'a> {
             }
             return self.unknown_pattern_bindings(args, direct_refined_match_validation);
         };
-        if let Some(constructor) = self.environment.adts.constructor_for_descriptor(
-            name,
-            descriptor,
-            self.function.module_name.as_deref(),
-            &self.environment.uses,
-        ) {
+        if let Some(constructor) = self
+            .environment
+            .adts
+            .constructor_for_descriptor(
+                name,
+                descriptor,
+                self.function.module_name.as_deref(),
+                &self.environment.uses,
+            )
+            .or_else(|| {
+                self.environment
+                    .quarantined_explicit_import_constructor_for_descriptor(
+                        name,
+                        descriptor,
+                        self.function.module_name.as_deref(),
+                    )
+            })
+        {
             let expected_payload_count = constructor.variant.payload_fields.len();
             if direct_refined_match_validation && args.len() != expected_payload_count {
                 self.report_constructor_pattern_arity(pattern, constructor, args.len());

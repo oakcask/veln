@@ -1,0 +1,11 @@
+use http as HTTP
+
+fn wrong_arity() -> HTTP::Payload
+  HTTP::Payload::Data(1, 2)
+end
+
+fn incomplete(value: HTTP::Payload) -> Int
+  match value
+    HTTP::Payload::Data(inner) => inner
+  end
+end

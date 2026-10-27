@@ -470,6 +470,27 @@ impl AdtRegistry {
             .find(|descriptor| descriptor.type_parameters.len() == args.len())
     }
 
+    pub(crate) fn unique_public_descriptor_for_type_in_module(
+        &self,
+        name: &str,
+        args_len: usize,
+        module_name: &str,
+    ) -> Option<&AdtDescriptor> {
+        let mut descriptors = self
+            .descriptors_by_source_identity
+            .get(&(Some(module_name.to_string()), name.to_string()))
+            .into_iter()
+            .flatten()
+            .rev()
+            .map(|index| self.descriptor_lookup_candidate(*index))
+            .filter(|descriptor| {
+                descriptor.type_parameters.len() == args_len
+                    && descriptor.visibility == Visibility::Public
+            });
+        let descriptor = descriptors.next()?;
+        descriptors.next().is_none().then_some(descriptor)
+    }
+
     pub(crate) fn descriptor_for_type_prefer_module(
         &self,
         ty: &Type,

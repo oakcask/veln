@@ -60,6 +60,37 @@ impl AdtRegistry {
         self.lookup_constructor_candidates(segments, current_module, uses, true)
     }
 
+    pub(crate) fn public_constructor_in_module(
+        &self,
+        module_name: &str,
+        segments: &[String],
+    ) -> ConstructorLookup<'_> {
+        let (type_name, variant_name) = match segments {
+            [variant_name] => (None, variant_name),
+            [type_name, variant_name] => (Some(type_name), variant_name),
+            _ => return ConstructorLookup::Missing,
+        };
+        let mut matches = self
+            .variants_named(variant_name)
+            .filter(|(descriptor, variant)| {
+                descriptor.module_name.as_deref() == Some(module_name)
+                    && descriptor.visibility == Visibility::Public
+                    && variant.visibility == Visibility::Public
+                    && type_name.is_none_or(|type_name| type_name == &descriptor.type_name)
+            })
+            .map(|(descriptor, variant)| AdtConstructor {
+                descriptor,
+                variant,
+            })
+            .collect::<Vec<_>>();
+        deduplicate_nominal_constructors(&mut matches);
+        match matches.as_slice() {
+            [constructor] => ConstructorLookup::Found(*constructor),
+            [] => ConstructorLookup::Missing,
+            _ => ConstructorLookup::Ambiguous,
+        }
+    }
+
     pub(crate) fn nullary_constructor(
         &self,
         segments: &[String],
