@@ -1,0 +1,6 @@
+use api as wire as nested from "example/dep"
+
+## A recovered import creates no normal schema target: {@schema wire::Packet}.
+pub fn documented() -> Int
+	1
+end

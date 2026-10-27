@@ -1,0 +1,5 @@
+use Api as wire from "example/dep"
+
+pub fn target_case() -> Int
+	1
+end

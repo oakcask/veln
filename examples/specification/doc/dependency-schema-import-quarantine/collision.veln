@@ -1,0 +1,6 @@
+use api as wire from "example/dep"
+use other as wire
+
+pub fn collision_case() -> Int
+	1
+end

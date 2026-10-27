@@ -210,7 +210,9 @@ pub(super) fn lower_source_tree(
 fn rewrite_import_targets(uses: &mut [UseDecl], package: Option<&str>) {
     for use_decl in uses {
         if let Some(package) = &use_decl.package {
-            use_decl.name = external_module_key(package, &use_decl.name);
+            if package != veln_stdlib::PACKAGE_NAME || !use_decl.name.starts_with("std::") {
+                use_decl.name = external_module_key(package, &use_decl.name);
+            }
         } else if let Some(package) = package {
             use_decl.name = external_module_key(package, &use_decl.name);
         }

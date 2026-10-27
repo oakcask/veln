@@ -373,6 +373,63 @@ fn external_git_dependency_loads_materialized_subdir_package_root() {
 }
 
 #[test]
+fn equal_written_paths_from_local_dependency_and_standard_origins_stay_distinct() {
+    let temp = TempProject::new("distinct-import-origins");
+    temp.write("veln.toml", "[dependencies.dep]\npath = \"vendor/dep\"\n");
+    temp.write(
+        "main.veln",
+        concat!(
+            "use net as workspace\n",
+            "use net as dependency from \"dep\"\n",
+            "use net as standard from \"std\"\n",
+        ),
+    );
+    temp.write("net.veln", "pub fn workspace_value() -> Int\n  1\nend\n");
+    temp.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"dep\"\n\n[lib]\nexports = [\"net.veln\"]\n",
+    );
+    temp.write(
+        "vendor/dep/net.veln",
+        "pub fn dependency_value() -> Int\n  2\nend\n",
+    );
+
+    let project =
+        Project::discover(temp.root().to_path_buf(), &[PathBuf::from("main.veln")]).unwrap();
+    let analysis = analyze_project(project, DoctestMode::Exclude);
+
+    let imports = analysis
+        .module
+        .uses
+        .iter()
+        .filter(|use_decl| use_decl.origin == UseOrigin::Source)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        imports
+            .iter()
+            .map(|use_decl| (
+                use_decl.alias.as_str(),
+                use_decl.name.as_str(),
+                use_decl.package.as_deref(),
+            ))
+            .collect::<Vec<_>>(),
+        [
+            ("workspace", "net", None),
+            ("dependency", "dep::net", Some("dep")),
+            ("standard", "std::net", Some("std")),
+        ]
+    );
+    assert!(
+        analysis
+            .semantic_diagnostics()
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.duplicate"),
+        "{:#?}",
+        analysis.semantic_diagnostics()
+    );
+}
+
+#[test]
 fn captured_dependencies_do_not_fall_back_to_direct_sources() {
     let temp = TempProject::new("captured-dependencies-no-direct-fallback");
     temp.write(

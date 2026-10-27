@@ -67,6 +67,57 @@ hex = "00"
 }
 
 #[test]
+pub(super) fn binary_fixture_schema_references_prefer_an_exact_path_over_a_qualifier() {
+    let root = test_temp_root("fixture-schema-exact-precedence");
+    write_precedence_fixture_schema_sources(&root, true);
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln", "fallback.veln"]
+exit = 0
+
+[[binary_fixture]]
+name = "exact-path"
+schema = "api::Packet"
+hex = "00"
+diagnostic_id = "schema.invalid_field_value"
+byte_offset = 0
+field_path = [{"kind":"schema","name":"SelectedPacket"}]
+"#,
+    );
+
+    manifest.validate_fixture_schema_references(&root);
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+pub(super) fn binary_fixture_schema_references_do_not_fall_back_from_a_missing_exact_schema() {
+    let root = test_temp_root("fixture-schema-exact-missing");
+    write_precedence_fixture_schema_sources(&root, false);
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln", "fallback.veln"]
+exit = 0
+
+[[binary_fixture]]
+name = "exact-path"
+schema = "api::Packet"
+hex = "00"
+"#,
+    );
+
+    let panic = std::panic::catch_unwind(|| manifest.validate_fixture_schema_references(&root))
+        .expect_err("a selected exact module must not fall back to a same-spelled qualifier");
+    let message = panic_message(panic);
+    assert!(
+        message.contains("unresolved binary_fixture 0 schema reference `api::Packet`"),
+        "{message}"
+    );
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
 pub(super) fn binary_fixture_schema_references_reject_quarantined_dependency_imports() {
     for (name, imports, schema) in [
         (
@@ -90,6 +141,11 @@ pub(super) fn binary_fixture_schema_references_reject_quarantined_dependency_imp
             "wire::Packet",
         ),
         (
+            "invalid-alias",
+            "use api as Wire from \"example/dep\"",
+            "Wire::Packet",
+        ),
+        (
             "reserved-alias",
             "use api as prelude from \"example/dep\"",
             "prelude::Packet",
@@ -106,7 +162,7 @@ pub(super) fn binary_fixture_schema_references_reject_quarantined_dependency_imp
             Path::new("case.toml"),
             &format!(
                 r#"
-command = ["run", "--json", "main", "main.veln"]
+command = ["run", "--json", "main", "main.veln", "api.veln", "other.veln", "fallback.veln"]
 exit = 0
 
 [[binary_fixture]]

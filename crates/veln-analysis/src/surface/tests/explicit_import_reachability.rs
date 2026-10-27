@@ -215,6 +215,107 @@ fn equivalent_standard_target_spellings_add_no_reachable_code_in_both_orders() {
 }
 
 #[test]
+fn project_loading_canonicalizes_and_quarantines_equivalent_standard_targets() {
+    for (imports, written_names) in [
+        (
+            "use net as first from \"std\"\nuse std::net as second from \"std\"\n",
+            ["net", "std::net"],
+        ),
+        (
+            "use std::net as second from \"std\"\nuse net as first from \"std\"\n",
+            ["std::net", "net"],
+        ),
+    ] {
+        let source_text = format!(
+            "{imports}pub fn main() -> Int\n  first::connect(\"localhost\", 1) + second::connect(\"localhost\", 1) + net::connect(\"localhost\", 1) + std::net::connect(\"localhost\", 1)\nend\n"
+        );
+        let analysis = analyze_project(
+            Project {
+                root: ".".into(),
+                files: vec![SourceFile::new("main.veln", source_text.clone())],
+                manifest: None,
+            },
+            DoctestMode::Exclude,
+        );
+
+        let imports = analysis
+            .module
+            .uses
+            .iter()
+            .filter(|use_decl| use_decl.origin == UseOrigin::Source)
+            .collect::<Vec<_>>();
+        assert_eq!(imports.len(), 2, "{:#?}", analysis.module.uses);
+        assert_eq!(
+            imports
+                .iter()
+                .map(|use_decl| use_decl.name.as_str())
+                .collect::<Vec<_>>(),
+            ["std::net", "std::net"]
+        );
+        assert_eq!(
+            imports
+                .iter()
+                .map(|use_decl| use_decl.written_name.as_str())
+                .collect::<Vec<_>>(),
+            written_names
+        );
+        for use_decl in &imports {
+            assert_eq!(use_decl.package.as_deref(), Some("std"));
+            assert_eq!(
+                use_decl.name_spans.len(),
+                use_decl.written_name.split("::").count()
+            );
+            for (span, segment) in use_decl
+                .name_spans
+                .iter()
+                .zip(use_decl.written_name.split("::"))
+            {
+                assert_eq!(
+                    &source_text[span.start.offset..span.end.offset],
+                    segment,
+                    "{use_decl:#?}"
+                );
+            }
+        }
+
+        let diagnostics = analysis.semantic_diagnostics();
+        let duplicates = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.duplicate")
+            .collect::<Vec<_>>();
+        assert_eq!(duplicates.len(), 1, "{diagnostics:#?}");
+        assert_eq!(duplicates[0].related.len(), 1, "{diagnostics:#?}");
+        assert!(
+            duplicates[0].related[0]
+                .to_json()
+                .contains("\"start\":{\"line\":1,"),
+            "{diagnostics:#?}"
+        );
+
+        for path in ["first", "second", "net", "std::net"] {
+            let segments = path.split("::").map(str::to_string).collect::<Vec<_>>();
+            assert_eq!(
+                veln_sema::normal_imported_module_for_path(
+                    &analysis.module,
+                    &segments,
+                    Some("main"),
+                ),
+                None,
+                "imports={imports:?}, path={path:?}"
+            );
+        }
+
+        let reachable = analysis.lower_reachable_entry("main", FunctionKind::Function);
+        assert_eq!(
+            reachable_function_names(&reachable.module),
+            vec![("main", "main")],
+            "{:#?}",
+            reachable.module.functions
+        );
+    }
+}
+
+#[test]
 fn quarantined_standard_import_blocks_its_canonical_exact_path() {
     let standard = lower(concat!(
         "mod std::net\n",

@@ -1,0 +1,8 @@
+use api as local_api
+use api as dependency_api from "example/dep"
+use fallback as api
+
+## Ambiguous exact paths do not fall back to the qualifier: {@schema api::Packet}.
+pub fn documented() -> Int
+	1
+end

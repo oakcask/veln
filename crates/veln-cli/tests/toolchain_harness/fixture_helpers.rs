@@ -99,6 +99,13 @@ pub(super) fn write_dependency_fixture_schema_sources(root: &Path, imports: &str
         "pub schema Packet\n\tvalue: UInt8\nend\n",
     )
     .expect("local source should be written");
+    for module in ["fallback", "other"] {
+        fs::write(
+            root.join(format!("{module}.veln")),
+            "pub schema Packet\n\tvalue: UInt8\nend\n",
+        )
+        .expect("local support source should be written");
+    }
     fs::write(
         root.join("vendor/dep/veln.toml"),
         "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"api.veln\"]\n",
@@ -107,6 +114,45 @@ pub(super) fn write_dependency_fixture_schema_sources(root: &Path, imports: &str
     fs::write(
         root.join("vendor/dep/api.veln"),
         "pub schema Packet\n\tvalue: UInt8\nend\n",
+    )
+    .expect("dependency source should be written");
+}
+
+pub(super) fn write_precedence_fixture_schema_sources(root: &Path, exact_has_alias: bool) {
+    fs::create_dir_all(root.join("vendor/dep")).expect("dependency directory should be created");
+    fs::write(
+        root.join("veln.toml"),
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    )
+    .expect("root manifest should be written");
+    fs::write(
+        root.join("main.veln"),
+        "use fallback as api\nuse api as selected from \"example/dep\"\n",
+    )
+    .expect("main source should be written");
+    fs::write(
+        root.join("fallback.veln"),
+        concat!(
+            "pub schema QualifierPacket\n",
+            "\tvalue: UInt8\n",
+            "end\n",
+            "pub schema Packet = QualifierPacket\n",
+        ),
+    )
+    .expect("qualifier source should be written");
+    fs::write(
+        root.join("vendor/dep/veln.toml"),
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"api.veln\"]\n",
+    )
+    .expect("dependency manifest should be written");
+    let exact_alias = if exact_has_alias {
+        "pub schema Packet = SelectedPacket\n"
+    } else {
+        ""
+    };
+    fs::write(
+        root.join("vendor/dep/api.veln"),
+        format!("pub schema SelectedPacket\n\tvalue: UInt8\nend\n{exact_alias}"),
     )
     .expect("dependency source should be written");
 }
