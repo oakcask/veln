@@ -929,9 +929,14 @@ spans that target token. A reserved `prelude` alias also uses the alias token.
 A duplicate qualifier involving an explicit alias uses the later
 explicit-alias token or later implicit-leaf token, according to which import is
 reported; first-binding context appears as a related note. A duplicate target
-import uses its written target path. Parser diagnostics precede casing
-diagnostics for one import; reserved and duplicate facts follow casing, while
-target-resolution facts stay independent. When correcting an invalid target
+import reports the later import's written target path even when package loading
+has normalized different source spellings to the same package and module
+identity. The first import's target path appears as related context. Equal
+written paths in distinct package origins do not produce this duplicate-target
+diagnostic.
+Parser diagnostics precede casing diagnostics for one import; reserved and
+duplicate facts follow casing, while target-resolution facts stay independent.
+When correcting an invalid target
 segment or alias uniquely selects one public export, the casing diagnostic
 remains and the recovered member does not add `name.unresolved`. This applies
 when the member path uses either the invalid explicit alias or the quarantined

@@ -17,11 +17,14 @@ Explicit import aliases affect source lookup only. Lowering and reachability
 use the selected target module and declaration identity for calls,
 constructors, schemas, effects, and handlers. An invalid, recovered, reserved,
 or colliding alias cannot itself make a module executable or add declarations
-to the reachable set. A valid exact written path remains usable when only its
-local qualifier collides. An alias-qualified call and a call through the full
-written import path execute the same declaration. Same-named declarations in
-distinct modules retain separate runtime identities, and an explicitly aliased
-import does not add a bare runtime call candidate. An imported handler retains
+to the reachable set. Imports that resolve to one target module in one package
+origin are duplicate targets and add no reachable declarations, even when a
+standard module is written once as a relative path and once with its canonical
+`std::` path. A valid exact written path remains usable when only its local
+qualifier collides. An alias-qualified call and a call through the full written
+import path execute the same declaration. Same-named declarations in distinct
+modules retain separate runtime identities, and an explicitly aliased import
+does not add a bare runtime call candidate. An imported handler retains
 the declaration module as the lookup scope for private functions called by its
 operation clauses. The checked
 [`explicit-import-alias-runtime`](../../examples/specification/run/explicit-import-alias-runtime/)

@@ -40,7 +40,12 @@ omitted from the rendered example.
 
 Schema references use `{@schema Name}` or a qualified path. Bare references
 may resolve private or public schemas in the same module. Qualified references
-require a matching written `use` path and a public schema or public alias.
+select a module through the normal import rules in
+[Name Resolution](name-resolution.md#explicit-import-aliases). Both an explicit
+alias and the import's full written path can select a public schema or public
+schema alias, including for a declared package dependency. An ambiguous exact
+path does not fall through to a same-spelled qualifier. Invalid, reserved,
+syntax-recovered, or duplicate-target imports cannot supply that module.
 Resolved references render as code; missing, private, and wrong-kind references
 are name diagnostics at the referenced span, including in comments attached to
 private declarations.
@@ -81,7 +86,8 @@ The command has no JSON output mode.
 ## References
 
 Implementation: `crates/veln-cli/src/commands/doc.rs`. Documentation selection
-and metadata behavior is covered under `examples/specification/doc/`.
+and metadata behavior is covered under `examples/specification/doc/`, including
+the dependency schema import-selection case.
 The refinement-specific examples under
 `examples/specification/doc/adt-variant-refinement-command-*/` cover accepted
 canonical signatures, rejection, recovery, nested structural visibility, and

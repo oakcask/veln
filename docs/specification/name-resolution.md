@@ -77,10 +77,14 @@ exactly one eligible import. Two implicit leaf qualifiers can remain
 declaration-valid but are ambiguous at lookup. If either colliding qualifier is
 explicit, the later qualifier reports `name.duplicate` and neither binding is
 eligible through that qualifier. A non-colliding exact written path remains
-eligible when only the qualifier collides. Repeating one origin and written
-target path reports a duplicate import even when the aliases differ, and both
-imports are quarantined. If a later import repeats both a target and a
-qualifier from the same earlier import, the checker emits one `name.duplicate`
+eligible when only the qualifier collides. Imports that resolve to the same
+module identity in the same package origin report a duplicate import even when
+their source spellings or aliases differ, and all such imports are quarantined.
+Thus `use net from "std"` and `use std::net from "std"` are duplicate targets
+after package loading identifies both as `std::net`. Equal written paths that
+resolve in distinct package origins remain distinct targets. If a later import
+repeats both a target and a qualifier from the same earlier import, the checker
+emits one `name.duplicate`
 diagnostic for that earlier origin. If the repeated target and colliding
 qualifier refer to different earlier imports, the checker preserves both
 diagnostics and both related origins. The same written path from distinct
@@ -639,7 +643,8 @@ remain source-written and continue to use ordinary source casing diagnostics.
 
 Current duplicate checks reject:
 
-- duplicate import paths within the same source module
+- duplicate resolved import targets in one source module and package origin,
+  including distinct written paths that load the same module identity
 - duplicate schema declaration names in the same source module
 - duplicate effect declaration names in the same source module
 - duplicate handler declaration names in the same source module
