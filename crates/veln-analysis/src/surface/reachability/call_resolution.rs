@@ -170,10 +170,13 @@ pub(super) fn collect_function_name_reference(
         public_or_same_module_access = HashMap::new();
         &public_or_same_module_access
     };
+    let owner = FunctionReferenceOwner {
+        module: current_module,
+        package: context.current_package,
+    };
     for callee in resolve_function_reference_with_selected_import(
         segments,
-        current_module,
-        context.current_package,
+        owner,
         uses,
         selected_import,
         function_targets,
@@ -268,10 +271,13 @@ pub(super) fn resolve_function_reference(
         ),
         _ => None,
     };
+    let owner = FunctionReferenceOwner {
+        module: owner.module.as_deref(),
+        package: owner.package.as_deref(),
+    };
     resolve_function_reference_with_selected_import(
         segments,
-        owner.module.as_deref(),
-        owner.package.as_deref(),
+        owner,
         uses,
         selected_import,
         function_targets,
@@ -280,10 +286,15 @@ pub(super) fn resolve_function_reference(
     )
 }
 
+#[derive(Clone, Copy)]
+struct FunctionReferenceOwner<'a> {
+    module: Option<&'a str>,
+    package: Option<&'a str>,
+}
+
 fn resolve_function_reference_with_selected_import(
     segments: &[String],
-    current_module: Option<&str>,
-    current_package: Option<&str>,
+    owner: FunctionReferenceOwner<'_>,
     uses: &[&UseDecl],
     selected_import: Option<&UseDecl>,
     function_targets: &FunctionTargetIndex,
@@ -297,7 +308,7 @@ fn resolve_function_reference_with_selected_import(
                 #[cfg(test)]
                 reachability_counters::record_target_resolution_scan();
                 target.name == *name
-                    && bare_target_visible(target, current_module, current_package, uses)
+                    && bare_target_visible(target, owner.module, owner.package, uses)
                     && recovery_target_accepts_arg_count(target, arg_count)
             })
             .map(reachable_function_from_target)
@@ -315,7 +326,7 @@ fn resolve_function_reference_with_selected_import(
                     imported_target_visible_from_module(
                         target,
                         use_decl,
-                        current_module,
+                        owner.module,
                         companion_access_targets,
                     ) && recovery_target_accepts_arg_count(target, arg_count)
                 })
