@@ -22,6 +22,7 @@ mod declarations_and_aliases;
 mod deferred_cleanup;
 mod effects_and_handlers;
 mod expressions;
+mod import_aliases;
 mod lexer_and_fixtures;
 mod literals_and_numbers;
 mod match_formatting;

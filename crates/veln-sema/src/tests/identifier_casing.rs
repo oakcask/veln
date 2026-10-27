@@ -4,6 +4,7 @@ use crate::types::environment::TypeEnvironment;
 mod binding_recovery;
 mod constructor_patterns;
 mod explicit_import_aliases;
+mod explicit_import_targets;
 mod expression_traversal;
 mod handler_boundaries;
 mod import_aliases;

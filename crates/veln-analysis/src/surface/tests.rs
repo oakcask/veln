@@ -135,6 +135,7 @@ fn detail_number(diagnostic: &veln_diagnostics::Diagnostic, key: &str) -> Option
 mod callable_reachability;
 mod companion_visibility;
 mod contracts_and_imports;
+mod explicit_import_reachability;
 mod external_dependencies;
 mod handler_recovery;
 mod manifest_exports;

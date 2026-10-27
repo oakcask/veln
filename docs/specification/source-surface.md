@@ -651,7 +651,7 @@ MemberPath    ::= Name ("::" Name)*
 - Parser: `crates/veln-syntax/src/parser/` and `crates/veln-syntax/src/lexer.rs`.
 - Formatter and recovered-import preservation:
   `crates/veln-syntax/src/format/declarations.rs` and
-  `crates/veln-syntax/src/tests/modules_and_contracts.rs`.
+  `crates/veln-syntax/src/tests/import_aliases.rs`.
 - Source identity and companion visibility: `crates/veln-analysis/src/surface/`.
 ## Read by task
 

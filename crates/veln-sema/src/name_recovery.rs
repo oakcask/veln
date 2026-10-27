@@ -8,6 +8,7 @@ mod alias_validity;
 mod classification;
 mod instrumentation;
 mod selection_helpers;
+mod target_recovery;
 
 #[cfg(test)]
 use alias_validity::use_decl_is_quarantined;
@@ -30,6 +31,8 @@ use instrumentation::{
     record_normal_import_selection_work,
 };
 pub(crate) use selection_helpers::{normal_use_decls, use_decl_exact_paths};
+pub(crate) use target_recovery::{quarantined_use_decls, recovered_import_target_name};
+use target_recovery::{recovered_target_names, recovery_names_by_file};
 
 type ImportBindingKey = (Option<String>, String);
 type ImportTargetKey = (Option<String>, String, Option<String>);
@@ -331,115 +334,6 @@ impl NormalUseGroups {
     }
 }
 
-fn recovered_target_names(
-    module: &SurfaceModule,
-    recovery_candidates: &[bool],
-) -> Vec<Option<String>> {
-    let targets = recovery_target_index(module);
-    module
-        .uses
-        .iter()
-        .enumerate()
-        .map(|(index, use_decl)| {
-            if !recovery_candidates[index] {
-                return None;
-            }
-            record_import_classification_work();
-            targets.get(&use_decl.name).cloned().flatten()
-        })
-        .collect()
-}
-
-fn recovery_target_index(module: &SurfaceModule) -> HashMap<String, Option<String>> {
-    let mut identities = std::collections::BTreeSet::new();
-    let mut record = |name: &Option<String>| {
-        if let Some(name) = name {
-            identities.insert(name.clone());
-        }
-    };
-    for use_decl in &module.uses {
-        record(&use_decl.module_name);
-    }
-    for alias in &module.aliases {
-        record(&alias.module_name);
-    }
-    for effect in &module.effects {
-        record(&effect.module_name);
-    }
-    for handler in &module.handlers {
-        record(&handler.module_name);
-    }
-    for type_decl in &module.types {
-        record(&type_decl.module_name);
-    }
-    for schema in &module.schemas {
-        record(&schema.module_name);
-    }
-    for value in &module.module_values {
-        record(&value.module_name);
-    }
-    for function in &module.functions {
-        record(&function.module_name);
-    }
-    let mut targets = HashMap::<String, Option<String>>::new();
-    for identity in identities {
-        let segments = identity.split("::").collect::<Vec<_>>();
-        for index in 0..segments.len() {
-            record_import_classification_work();
-            let segment = segments[index];
-            let Some(first) = segment.as_bytes().first().copied() else {
-                continue;
-            };
-            if !first.is_ascii_lowercase() {
-                continue;
-            }
-            let mut written = segments.clone();
-            let mut repaired = String::with_capacity(segment.len());
-            repaired.push((first as char).to_ascii_uppercase());
-            repaired.push_str(&segment[1..]);
-            written[index] = &repaired;
-            let written = written.join("::");
-            targets
-                .entry(written)
-                .and_modify(|selected| {
-                    if selected.as_deref() != Some(identity.as_str()) {
-                        *selected = None;
-                    }
-                })
-                .or_insert_with(|| Some(identity.clone()));
-        }
-    }
-    targets
-}
-
-pub(crate) fn quarantined_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
-    let classification = import_classification(module);
-    module
-        .uses
-        .iter()
-        .filter(|use_decl| classification.is_recovery_candidate(use_decl))
-        .map(|use_decl| {
-            let recovered_target = classification
-                .recovered_target_name(use_decl)
-                .map(str::to_string);
-            let mut recovered = use_decl.clone();
-            if let Some(target) = recovered_target {
-                recovered.name = target;
-            }
-            recovered
-        })
-        .collect()
-}
-
-pub(crate) fn recovered_import_target_name(
-    module: &SurfaceModule,
-    use_decl: &UseDecl,
-) -> Option<String> {
-    import_classification(module)
-        .recovered_target_name(use_decl)
-        .map(str::to_string)
-}
-
 fn import_indices(module: &SurfaceModule) -> HashMap<usize, usize> {
     module
         .uses
@@ -447,28 +341,6 @@ fn import_indices(module: &SurfaceModule) -> HashMap<usize, usize> {
         .enumerate()
         .map(|(index, use_decl)| (use_decl as *const UseDecl as usize, index))
         .collect()
-}
-
-fn recovery_names_by_file(
-    module: &SurfaceModule,
-    recovery_candidates: &[bool],
-) -> HashSet<(String, String)> {
-    let mut names = HashSet::new();
-    for (index, use_decl) in module.uses.iter().enumerate() {
-        if !recovery_candidates[index] {
-            continue;
-        }
-        let file = use_decl.span.file.as_str().to_owned();
-        names.insert((file.clone(), use_decl.alias.clone()));
-        let leaf = use_decl
-            .name
-            .rsplit("::")
-            .next()
-            .unwrap_or(use_decl.name.as_str())
-            .to_owned();
-        names.insert((file, leaf));
-    }
-    names
 }
 
 fn prefix_bucket_offsets(counts: &mut [usize]) {
