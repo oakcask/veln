@@ -483,23 +483,7 @@ pub(super) fn invalid_name_repeats_quarantined_import_alias(
     {
         return false;
     }
-    if module.uses.iter().any(|use_decl| {
-        use_decl.span.file == invalid.span.file
-            && use_decl.span.start.offset <= invalid.span.start.offset
-            && invalid.span.end.offset <= use_decl.span.end.offset
-    }) {
-        return false;
-    }
-    module.uses.iter().any(|use_decl| {
-        let alias = use_decl
-            .name
-            .rsplit("::")
-            .next()
-            .unwrap_or(use_decl.name.as_str());
-        crate::name_recovery::use_decl_is_recovery_candidate(module, use_decl)
-            && use_decl.span.file == invalid.span.file
-            && (use_decl.alias == invalid.name || alias == invalid.name)
-    })
+    crate::name_recovery::import_classification(module).invalid_path_repeats_recovery_alias(invalid)
 }
 
 pub(super) fn invalid_name_is_valid_constructor_pattern(

@@ -182,3 +182,47 @@ fn invalid_explicit_alias_recovery_requires_one_public_callable_target() {
         }
     }
 }
+
+#[test]
+fn combined_module_explicit_alias_casing_diagnostics_use_stable_source_order() {
+    fn module(reversed: bool) -> SurfaceModule {
+        let first = SourceFile::new("a.veln", "mod app\nuse alpha as HTTP\n");
+        let second = SourceFile::new("z.veln", "mod app\nuse bravo as WIRE\n");
+        let sources = if reversed {
+            vec![("app", second), ("app", first)]
+        } else {
+            vec![("app", first), ("app", second)]
+        };
+        merged_modules_with_identities(sources)
+    }
+
+    let diagnostics = [module(false), module(true)].map(|module| {
+        analyze_surface_module(&module)
+            .into_iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .collect::<Vec<_>>()
+    });
+    for observed in &diagnostics {
+        assert_eq!(
+            observed
+                .iter()
+                .filter_map(|diagnostic| diagnostic.span.as_ref())
+                .map(|span| span.file.as_str())
+                .collect::<Vec<_>>(),
+            ["a.veln", "z.veln"],
+            "{observed:#?}"
+        );
+    }
+    assert_eq!(
+        diagnostics[0]
+            .iter()
+            .map(veln_diagnostics::diagnostic_to_json)
+            .map(|json| json.to_json())
+            .collect::<Vec<_>>(),
+        diagnostics[1]
+            .iter()
+            .map(veln_diagnostics::diagnostic_to_json)
+            .map(|json| json.to_json())
+            .collect::<Vec<_>>()
+    );
+}

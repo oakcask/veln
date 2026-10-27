@@ -1,7 +1,9 @@
 use crate::adt::type_operations as adt;
 use crate::diagnostics::{module_details, span_json};
 pub(super) use crate::name_recovery::normal_imported_use_for_path;
-use crate::name_recovery::{resolved_import_module_name, use_decl_is_recovery_candidate};
+use crate::name_recovery::{
+    import_classification, resolved_import_module_name, use_decl_is_recovery_candidate,
+};
 use crate::semantic_model::Type;
 use crate::standard_names::PRELUDE_MODULE;
 use crate::type_syntax::parse_type_annotation;
@@ -166,27 +168,13 @@ pub(super) fn alias_kind_mismatch_diagnostic(
 
 pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut previous = Vec::<&UseDecl>::new();
-    let mut uses = module
-        .uses
-        .iter()
-        .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source && !use_decl.recovered)
-        .collect::<Vec<_>>();
-    uses.sort_by(|left, right| {
-        left.span
-            .file
-            .cmp(&right.span.file)
-            .then_with(|| left.span.start.offset.cmp(&right.span.start.offset))
-            .then_with(|| left.span.end.offset.cmp(&right.span.end.offset))
-    });
-
-    for use_decl in uses {
-        let duplicate_target = previous.iter().copied().find(|first| {
-            first.module_name == use_decl.module_name
-                && first.written_name == use_decl.written_name
-                && first.package == use_decl.package
-        });
-        if let Some(first) = duplicate_target {
+    let classification = import_classification(module);
+    for &index in classification.source_order() {
+        let use_decl = &module.uses[index];
+        if let Some(first) = classification
+            .duplicate_target_origin(index)
+            .and_then(|origin| module.uses.get(origin))
+        {
             diagnostics.push(duplicate_name_diagnostic(
                 &use_decl.written_name,
                 "module",
@@ -197,12 +185,10 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
                 &import_target_span(first),
             ));
         }
-        if let Some(first) = previous.iter().copied().find(|first| {
-            first.module_name == use_decl.module_name
-                && first.alias == use_decl.alias
-                && (first.has_explicit_alias() || use_decl.has_explicit_alias())
-                && duplicate_target.is_none_or(|target| !std::ptr::eq(*first, target))
-        }) {
+        if let Some(first) = classification
+            .duplicate_qualifier_origin(index)
+            .and_then(|origin| module.uses.get(origin))
+        {
             diagnostics.push(duplicate_name_diagnostic(
                 &use_decl.alias,
                 "module",
@@ -213,7 +199,6 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
                 &import_qualifier_span(first),
             ));
         }
-        previous.push(use_decl);
     }
 
     diagnostics

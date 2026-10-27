@@ -264,6 +264,69 @@ fn combined_module_import_diagnostics_use_stable_source_order() {
 }
 
 #[test]
+fn duplicate_import_diagnostic_pipeline_classifies_once_and_scales_linearly() {
+    fn work(count: usize) -> usize {
+        let mut text = String::from("mod app\n");
+        for index in 0..count {
+            text.push_str(&format!("use dependency{index} as alias{index}\n"));
+        }
+        let module = lower_surface_ast(&parse(&SourceFile::new("main.veln", text)).tree);
+        crate::name_recovery::reset_import_classification_work();
+        let diagnostics = analyze_surface_module(&module);
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "name.duplicate"),
+            "{diagnostics:#?}"
+        );
+        assert_eq!(crate::name_recovery::import_classification_builds(), 1);
+        crate::name_recovery::import_classification_work()
+    }
+
+    let small = work(128);
+    let large = work(256);
+    assert!(
+        large <= small * 2 + 16,
+        "duplicate diagnostic import classification must remain linear: small={small} large={large}"
+    );
+}
+
+#[test]
+fn invalid_alias_recovery_pipeline_classifies_once_and_scales_linearly() {
+    fn work(count: usize) -> usize {
+        let mut text = String::from("mod app\n");
+        for index in 0..count {
+            text.push_str(&format!("use Dependency{index} as alias{index}\n"));
+        }
+        for index in 0..count {
+            text.push_str(&format!(
+                "fn call{index}() -> Int\n  Dependency{index}::entry()\nend\n"
+            ));
+        }
+        let module = lower_surface_ast(&parse(&SourceFile::new("main.veln", text)).tree);
+        crate::name_recovery::reset_import_classification_work();
+        let diagnostics = analyze_surface_module(&module);
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+                .count(),
+            count,
+            "{diagnostics:#?}"
+        );
+        assert_eq!(crate::name_recovery::import_classification_builds(), 1);
+        crate::name_recovery::import_classification_work()
+    }
+
+    let small = work(128);
+    let large = work(256);
+    assert!(
+        large <= small * 2 + 16,
+        "invalid-alias recovery import classification must remain linear: small={small} large={large}"
+    );
+}
+
+#[test]
 fn explicit_prelude_alias_is_reserved_at_the_alias_token() {
     let source = SourceFile::new("main.veln", "mod app\nuse alpha as prelude\n");
     let module = lower_surface_ast(&parse(&source).tree);

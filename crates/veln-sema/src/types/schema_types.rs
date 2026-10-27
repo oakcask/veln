@@ -300,9 +300,11 @@ pub(crate) fn schema_encode_value_type(
     module: &SurfaceModule,
     schema: &SchemaDecl,
 ) -> Option<Type> {
-    let adts = AdtRegistry::from_module(module);
-    schema_encode_function_signature_for_schema(module, schema, &adts)
-        .and_then(|signature| signature.params.into_iter().next())
+    crate::name_recovery::with_import_classification(module, || {
+        let adts = AdtRegistry::from_module(module);
+        schema_encode_function_signature_for_schema(module, schema, &adts)
+            .and_then(|signature| signature.params.into_iter().next())
+    })
 }
 
 fn schema_encode_value_fields(

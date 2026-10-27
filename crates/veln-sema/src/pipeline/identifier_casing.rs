@@ -45,6 +45,15 @@ pub(super) fn check_invalid_name_casing(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
+    crate::name_recovery::with_import_classification(module, || {
+        check_invalid_name_casing_classified(module, environment)
+    })
+}
+
+fn check_invalid_name_casing_classified(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
     let mut invalid_names = classified_invalid_names(module, environment);
     radix_sort_by_span(&mut invalid_names, |invalid| &invalid.span);
     invalid_names.dedup_by(|left, right| {
@@ -234,6 +243,7 @@ fn radix_sort_by_span<T>(items: &mut Vec<T>, span: fn(&T) -> &veln_source::Sourc
             std::mem::swap(&mut indices, &mut scratch);
         }
     }
+    radix_sort_file_bytes(items, &mut indices, &mut scratch, span);
     let mut original = std::mem::take(items)
         .into_iter()
         .map(Some)
@@ -244,6 +254,66 @@ fn radix_sort_by_span<T>(items: &mut Vec<T>, span: fn(&T) -> &veln_source::Sourc
             .into_iter()
             .map(|index| original[index].take().expect("radix index is unique")),
     );
+}
+
+fn radix_sort_file_bytes<T>(
+    items: &[T],
+    indices: &mut [usize],
+    scratch: &mut [usize],
+    span: fn(&T) -> &veln_source::SourceSpan,
+) {
+    let Some(&first) = indices.first() else {
+        return;
+    };
+    let first_file = &span(&items[first]).file;
+    if indices
+        .iter()
+        .all(|index| span(&items[*index]).file == *first_file)
+    {
+        return;
+    }
+    let mut pending = vec![(0usize, indices.len(), 0usize)];
+    while let Some((start, end, byte_index)) = pending.pop() {
+        if end - start < 2 {
+            continue;
+        }
+        let mut sizes = [0usize; 257];
+        crate::pipeline::record_variant_refinement_casing_work(sizes.len());
+        for &index in &indices[start..end] {
+            crate::pipeline::record_variant_refinement_casing_work(1);
+            sizes[file_byte_bucket(span(&items[index]), byte_index)] += 1;
+        }
+        let mut positions = sizes;
+        let mut next = start;
+        for position in &mut positions {
+            let bucket_start = next;
+            next += *position;
+            *position = bucket_start;
+        }
+        for &index in &indices[start..end] {
+            crate::pipeline::record_variant_refinement_casing_work(1);
+            let bucket = file_byte_bucket(span(&items[index]), byte_index);
+            scratch[positions[bucket]] = index;
+            positions[bucket] += 1;
+        }
+        indices[start..end].copy_from_slice(&scratch[start..end]);
+        let mut bucket_end = end;
+        for bucket in (1..sizes.len()).rev() {
+            let bucket_start = bucket_end - sizes[bucket];
+            if bucket_end - bucket_start > 1 {
+                pending.push((bucket_start, bucket_end, byte_index + 1));
+            }
+            bucket_end = bucket_start;
+        }
+    }
+}
+
+fn file_byte_bucket(span: &veln_source::SourceSpan, byte_index: usize) -> usize {
+    span.file
+        .as_str()
+        .as_bytes()
+        .get(byte_index)
+        .map_or(0, |byte| usize::from(*byte) + 1)
 }
 
 fn radix_sort_offset_byte<T>(

@@ -133,11 +133,13 @@ fn record_publication_propagation_work(update: impl FnOnce(&mut PublicationPropa
 }
 
 pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
-    if let Err(failure) = validate_source_less_lookup_registries() {
-        return vec![failure.diagnostic()];
-    }
-    let environment = TypeEnvironment::from_module(module);
-    analyze_surface_module_with_environment(module, &environment, true)
+    crate::name_recovery::with_import_classification(module, || {
+        if let Err(failure) = validate_source_less_lookup_registries() {
+            return vec![failure.diagnostic()];
+        }
+        let environment = TypeEnvironment::from_module(module);
+        analyze_surface_module_with_environment(module, &environment, true)
+    })
 }
 
 #[cfg(test)]
@@ -145,8 +147,10 @@ pub(crate) fn analyze_surface_module_with_base_for_test(
     module: &SurfaceModule,
     base: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
-    let environment = TypeEnvironment::from_module_with_base_for_test(module, base);
-    analyze_surface_module_with_environment(module, &environment, true)
+    crate::name_recovery::with_import_classification(module, || {
+        let environment = TypeEnvironment::from_module_with_base_for_test(module, base);
+        analyze_surface_module_with_environment(module, &environment, true)
+    })
 }
 
 #[cfg(test)]
@@ -154,31 +158,37 @@ pub(crate) fn check_project_surface_module_with_base_for_test(
     module: &SurfaceModule,
     base: &TypeEnvironment,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
-    let environment = TypeEnvironment::from_module_with_base_for_test(module, base);
-    check_project_surface_module_with_environment(module, environment)
+    crate::name_recovery::with_import_classification(module, || {
+        let environment = TypeEnvironment::from_module_with_base_for_test(module, base);
+        check_project_surface_module_with_environment(module, environment)
+    })
 }
 
 pub fn check_project_surface_module(
     module: &SurfaceModule,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
-    if let Err(failure) = validate_source_less_lookup_registries() {
-        let diagnostics = vec![failure.diagnostic()];
-        return (diagnostics.clone(), lowered_internal_failure(diagnostics));
-    }
-    let environment = TypeEnvironment::from_module(module);
-    check_project_surface_module_with_environment(module, environment)
+    crate::name_recovery::with_import_classification(module, || {
+        if let Err(failure) = validate_source_less_lookup_registries() {
+            let diagnostics = vec![failure.diagnostic()];
+            return (diagnostics.clone(), lowered_internal_failure(diagnostics));
+        }
+        let environment = TypeEnvironment::from_module(module);
+        check_project_surface_module_with_environment(module, environment)
+    })
 }
 
 pub fn check_project_surface_module_with_standard_environment(
     module: &SurfaceModule,
     standard: &ReusableStandardEnvironment,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
-    if let Err(failure) = validate_source_less_lookup_registries() {
-        let diagnostics = vec![failure.diagnostic()];
-        return (diagnostics.clone(), lowered_internal_failure(diagnostics));
-    }
-    let environment = TypeEnvironment::from_module_with_standard(module, standard);
-    check_project_surface_module_with_environment(module, environment)
+    crate::name_recovery::with_import_classification(module, || {
+        if let Err(failure) = validate_source_less_lookup_registries() {
+            let diagnostics = vec![failure.diagnostic()];
+            return (diagnostics.clone(), lowered_internal_failure(diagnostics));
+        }
+        let environment = TypeEnvironment::from_module_with_standard(module, standard);
+        check_project_surface_module_with_environment(module, environment)
+    })
 }
 
 pub fn check_project_surface_module_with_standard_modules_environment(
@@ -186,16 +196,18 @@ pub fn check_project_surface_module_with_standard_modules_environment(
     selected_standard_module_names: &BTreeSet<String>,
     standard: &ReusableStandardEnvironment,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
-    if let Err(failure) = validate_source_less_lookup_registries() {
-        let diagnostics = vec![failure.diagnostic()];
-        return (diagnostics.clone(), lowered_internal_failure(diagnostics));
-    }
-    let environment = TypeEnvironment::from_application_module_with_standard_module_names(
-        application_module,
-        selected_standard_module_names,
-        standard,
-    );
-    check_project_surface_module_with_environment(application_module, environment)
+    crate::name_recovery::with_import_classification(application_module, || {
+        if let Err(failure) = validate_source_less_lookup_registries() {
+            let diagnostics = vec![failure.diagnostic()];
+            return (diagnostics.clone(), lowered_internal_failure(diagnostics));
+        }
+        let environment = TypeEnvironment::from_application_module_with_standard_module_names(
+            application_module,
+            selected_standard_module_names,
+            standard,
+        );
+        check_project_surface_module_with_environment(application_module, environment)
+    })
 }
 
 pub fn prepare_reusable_standard_surface_module_environment(
@@ -635,29 +647,35 @@ fn check_function_declaration_and_body(
 }
 
 pub fn lower_checked_surface_module(module: &SurfaceModule) -> LoweredSurfaceModule {
-    if let Err(failure) = validate_source_less_lookup_registries() {
-        return lowered_internal_failure(vec![failure.diagnostic()]);
-    }
-    lower_analyzed_surface_module(module, analyze_surface_module(module))
+    crate::name_recovery::with_import_classification(module, || {
+        if let Err(failure) = validate_source_less_lookup_registries() {
+            return lowered_internal_failure(vec![failure.diagnostic()]);
+        }
+        lower_analyzed_surface_module(module, analyze_surface_module(module))
+    })
 }
 
 pub fn lower_project_reachable_surface_module(module: &SurfaceModule) -> LoweredSurfaceModule {
-    if let Err(failure) = validate_source_less_lookup_registries() {
-        return lowered_internal_failure(vec![failure.diagnostic()]);
-    }
-    let environment = TypeEnvironment::from_module(module);
-    lower_project_reachable_surface_module_with_environment(module, environment)
+    crate::name_recovery::with_import_classification(module, || {
+        if let Err(failure) = validate_source_less_lookup_registries() {
+            return lowered_internal_failure(vec![failure.diagnostic()]);
+        }
+        let environment = TypeEnvironment::from_module(module);
+        lower_project_reachable_surface_module_with_environment(module, environment)
+    })
 }
 
 pub fn lower_project_reachable_surface_module_with_standard_environment(
     module: &SurfaceModule,
     standard: &ReusableStandardEnvironment,
 ) -> LoweredSurfaceModule {
-    if let Err(failure) = validate_source_less_lookup_registries() {
-        return lowered_internal_failure(vec![failure.diagnostic()]);
-    }
-    let environment = TypeEnvironment::from_module_with_standard(module, standard);
-    lower_project_reachable_surface_module_with_environment(module, environment)
+    crate::name_recovery::with_import_classification(module, || {
+        if let Err(failure) = validate_source_less_lookup_registries() {
+            return lowered_internal_failure(vec![failure.diagnostic()]);
+        }
+        let environment = TypeEnvironment::from_module_with_standard(module, standard);
+        lower_project_reachable_surface_module_with_environment(module, environment)
+    })
 }
 
 pub fn lower_project_reachable_surface_modules_with_standard_environment(
@@ -665,15 +683,17 @@ pub fn lower_project_reachable_surface_modules_with_standard_environment(
     selected_standard_module: &SurfaceModule,
     standard: &ReusableStandardEnvironment,
 ) -> LoweredSurfaceModule {
-    if let Err(failure) = validate_source_less_lookup_registries() {
-        return lowered_internal_failure(vec![failure.diagnostic()]);
-    }
-    let environment = TypeEnvironment::from_application_module_with_standard(
-        reachable_module,
-        selected_standard_module,
-        standard,
-    );
-    lower_project_reachable_surface_module_with_environment(reachable_module, environment)
+    crate::name_recovery::with_import_classification(reachable_module, || {
+        if let Err(failure) = validate_source_less_lookup_registries() {
+            return lowered_internal_failure(vec![failure.diagnostic()]);
+        }
+        let environment = TypeEnvironment::from_application_module_with_standard(
+            reachable_module,
+            selected_standard_module,
+            standard,
+        );
+        lower_project_reachable_surface_module_with_environment(reachable_module, environment)
+    })
 }
 
 fn lower_project_reachable_surface_module_with_environment(
@@ -703,16 +723,18 @@ pub fn lower_analyzed_surface_module(
     module: &SurfaceModule,
     diagnostics: Vec<Diagnostic>,
 ) -> LoweredSurfaceModule {
-    if let Err(failure) = validate_source_less_lookup_registries() {
-        return lowered_internal_failure(vec![failure.diagnostic()]);
-    }
-    let environment = TypeEnvironment::from_module(module);
-    lower_analyzed_surface_module_with_environment(
-        module,
-        diagnostics,
-        &environment,
-        SurfaceLoweringMode::Module,
-    )
+    crate::name_recovery::with_import_classification(module, || {
+        if let Err(failure) = validate_source_less_lookup_registries() {
+            return lowered_internal_failure(vec![failure.diagnostic()]);
+        }
+        let environment = TypeEnvironment::from_module(module);
+        lower_analyzed_surface_module_with_environment(
+            module,
+            diagnostics,
+            &environment,
+            SurfaceLoweringMode::Module,
+        )
+    })
 }
 
 #[derive(Clone, Copy)]

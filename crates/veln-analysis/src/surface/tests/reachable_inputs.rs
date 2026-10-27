@@ -127,8 +127,14 @@ fn reserved_explicit_prelude_alias_adds_no_reachable_target() {
     let mut module = lower(concat!(
         "mod app::main\n",
         "use app::math as prelude\n",
-        "pub fn main() -> Int\n",
+        "pub fn qualifier() -> Int\n",
         "  prelude::double(2)\n",
+        "end\n",
+        "pub fn exact() -> Int\n",
+        "  app::math::double(2)\n",
+        "end\n",
+        "pub fn bare() -> Int\n",
+        "  double(2)\n",
         "end\n",
     ));
     let dependency = lower(concat!(
@@ -139,11 +145,13 @@ fn reserved_explicit_prelude_alias_adds_no_reachable_target() {
     ));
     module.functions.extend(dependency.functions);
 
-    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
-    assert_eq!(
-        reachable_function_names(&reachable),
-        vec![("app::main", "main")]
-    );
+    for entry in ["qualifier", "exact", "bare"] {
+        let reachable = reachable_entry_module(&module, entry, FunctionKind::Function);
+        assert_eq!(
+            reachable_function_names(&reachable),
+            vec![("app::main", entry)]
+        );
+    }
 }
 
 #[test]

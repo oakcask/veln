@@ -84,6 +84,15 @@ pub(super) fn from_module_with_base(
     module: &SurfaceModule,
     base: Option<&TypeEnvironment>,
 ) -> TypeEnvironment {
+    crate::name_recovery::with_import_classification(module, || {
+        from_module_with_base_classified(module, base)
+    })
+}
+
+fn from_module_with_base_classified(
+    module: &SurfaceModule,
+    base: Option<&TypeEnvironment>,
+) -> TypeEnvironment {
     let mut declarations = declaration_facts(module, base);
     let validation_environment = TypeEnvironment::for_path_classification_with_base(module, base);
     quarantine_invalid_variant_refinement_declaration_types(
@@ -101,6 +110,15 @@ pub(super) fn from_module_for_path_classification(module: &SurfaceModule) -> Typ
 }
 
 pub(super) fn from_module_for_path_classification_with_base(
+    module: &SurfaceModule,
+    base: Option<&TypeEnvironment>,
+) -> TypeEnvironment {
+    crate::name_recovery::with_import_classification(module, || {
+        from_module_for_path_classification_with_base_classified(module, base)
+    })
+}
+
+fn from_module_for_path_classification_with_base_classified(
     module: &SurfaceModule,
     base: Option<&TypeEnvironment>,
 ) -> TypeEnvironment {

@@ -82,9 +82,10 @@ whose alias or implicit qualifier has the same spelling.
 
 An explicit alias named `prelude` reports `name.reserved`. An uppercase or
 underscore-led alias reports `name.invalid_case` at the alias token as a
-module-class declaration. Invalid target casing, invalid alias casing, syntax
-recovery, and duplicate target imports quarantine the complete import. They
-supply no qualifier, full-path, bare-export, or reachable-code candidate.
+module-class declaration. Reserved explicit aliases, invalid target casing,
+invalid alias casing, syntax recovery, and duplicate target imports quarantine
+the complete import. They supply no qualifier, full-path, bare-export, or
+reachable-code candidate.
 Invalid-cased source imports still participate in explicit qualifier and
 duplicate-target checks, so removing an invalid candidate cannot make a
 colliding qualifier resolve. A syntax-recovered import participates in neither
@@ -727,18 +728,18 @@ not become fallback targets.
   `crates/veln-sema/src/name_recovery.rs`.
 - Unqualified ADT import lookup:
   `crates/veln-sema/src/adt/tests/variant_lookup.rs`.
-- Explicit-import-alias acceptance evidence:
+- Explicit-import-alias behavior evidence:
 
-  | Cases | Evidence |
+  | Behavior | Evidence |
   | --- | --- |
-  | A1 | `docs/specification/source-surface-executable.pl`, `examples/specification/check/explicit-import-alias-canonical-standard/` |
-  | A2-A3 | `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs`, `examples/specification/run/explicit-import-alias-runtime/` |
-  | A4 | `crates/veln-sema/src/adt/tests/variant_lookup.rs`, `examples/specification/check/explicit-import-alias-distinct-origins/`, `examples/specification/check/explicit-import-alias-duplicate-human/`, and `examples/specification/check/explicit-import-alias-duplicate-json/` |
-  | A5-A7 | `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs`, `crates/veln-sema/src/tests/identifier_casing/explicit_import_aliases.rs`, `crates/veln-sema/src/name_recovery.rs`, `crates/veln-analysis/src/surface/tests/contracts_and_imports.rs`, `examples/specification/check/explicit-import-alias-casing-human/`, and `examples/specification/check/explicit-import-alias-casing-json/` |
-  | A8 | `crates/veln-syntax/src/tests/modules_and_contracts.rs` and the accepted and rejected fixtures under `docs/specification/source-surface-fixtures/` |
-  | A9 | `examples/specification/check/explicit-import-alias-carriers/`, `examples/specification/run/explicit-import-alias-runtime/`, `examples/specification/run/explicit-import-alias-handler/`, and `examples/specification/run/explicit-import-alias-handler-identity/` |
-  | A10 | `examples/specification/check/explicit-import-alias-package/`, `examples/specification/check/explicit-import-alias-package-boundaries/`, and publication and visibility tests in `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs` and `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs` |
-  | A12 | `combined_module_import_diagnostics_use_stable_source_order` in `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs` |
+  | Syntax, parser recovery, AST preservation, and formatting | `docs/specification/source-surface-executable.pl`, `docs/specification/source-surface-fixtures/`, `crates/veln-syntax/src/tests/modules_and_contracts.rs`, and `crates/veln-ast/src/tests/wire_round_trip.rs` |
+  | Qualifier, exact-path, implicit-leaf, and bare selection | `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs`, `crates/veln-sema/src/adt/tests/variant_lookup.rs`, and `examples/specification/check/explicit-import-alias-canonical-standard/` |
+  | Collision, origin ambiguity, and duplicate-target quarantine | `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs`, `examples/specification/check/explicit-import-alias-distinct-origins/`, `examples/specification/check/explicit-import-alias-duplicate-human/`, and `examples/specification/check/explicit-import-alias-duplicate-json/` |
+  | Reserved-name and casing quarantine and recovery | `crates/veln-sema/src/tests/identifier_casing/explicit_import_aliases.rs`, `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs`, `crates/veln-analysis/src/surface/tests/reachable_inputs.rs`, `examples/specification/check/explicit-import-alias-casing-human/`, and `examples/specification/check/explicit-import-alias-casing-json/` |
+  | Cross-carrier semantic identity | `examples/specification/check/explicit-import-alias-carriers/` and the explicit-import-alias semantic tests under `crates/veln-sema/src/tests/` |
+  | Runtime, lowering, and reachability identity | `examples/specification/run/explicit-import-alias-runtime/`, `examples/specification/run/explicit-import-alias-handler/`, `examples/specification/run/explicit-import-alias-handler-identity/`, and explicit-import-alias reachability tests under `crates/veln-analysis/src/surface/tests/` |
+  | Package, publication, and visibility boundaries | `examples/specification/check/explicit-import-alias-package/`, `examples/specification/check/explicit-import-alias-package-boundaries/`, and publication and visibility tests in `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs` and `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs` |
+  | Stable source and token diagnostic ordering | `combined_module_import_diagnostics_use_stable_source_order` and `combined_module_explicit_alias_casing_diagnostics_use_stable_source_order` under `crates/veln-sema/src/tests/` |
 - Deferred binding visibility:
   `examples/specification/check/defer-binding-visibility/`.
 - Module-value function-alias diagnostics:

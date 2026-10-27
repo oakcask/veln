@@ -275,8 +275,14 @@ fn reserved_explicit_prelude_alias_contributes_no_lookup_candidate() {
         concat!(
             "mod app::main\n",
             "use app::math as prelude\n",
-            "pub fn main() -> Int\n",
+            "pub fn qualifier() -> Int\n",
             "  prelude::double(2)\n",
+            "end\n",
+            "pub fn exact() -> Int\n",
+            "  app::math::double(2)\n",
+            "end\n",
+            "pub fn bare() -> Int\n",
+            "  double(2)\n",
             "end\n",
         ),
     );
@@ -293,18 +299,22 @@ fn reserved_explicit_prelude_alias_contributes_no_lookup_candidate() {
             .any(|diagnostic| diagnostic.id == "name.reserved"),
         "{diagnostics:#?}"
     );
-    assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.id == "name.unresolved"
-            && diagnostic.message == "unresolved call_target `prelude::double`"
-    }));
-    assert!(
-        crate::name_recovery::normal_imported_use_for_path(
-            &module,
-            &["prelude".to_string()],
-            Some("app::main"),
-        )
-        .is_none()
-    );
+    for target in ["prelude::double", "app::math::double", "double"] {
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic.message == format!("unresolved call_target `{target}`")
+        }));
+    }
+    for path in [vec!["prelude"], vec!["app", "math"]] {
+        assert!(
+            crate::name_recovery::normal_imported_use_for_path(
+                &module,
+                &path.into_iter().map(str::to_string).collect::<Vec<_>>(),
+                Some("app::main"),
+            )
+            .is_none()
+        );
+    }
 }
 
 #[test]
