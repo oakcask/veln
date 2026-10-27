@@ -933,9 +933,11 @@ import uses its written target path. Parser diagnostics precede casing
 diagnostics for one import; reserved and duplicate facts follow casing, while
 target-resolution facts stay independent. When correcting an invalid target
 segment or alias uniquely selects one public export, the casing diagnostic
-remains and the recovered member does not add `name.unresolved`. For a public
-ADT or constructor, independently provable `core.constructor_arity_mismatch`
-and `type.match_non_exhaustive` records remain visible. Combined module sources
+remains and the recovered member does not add `name.unresolved`. This applies
+when the member path uses either the invalid explicit alias or the quarantined
+import's full written target path. For a public ADT or constructor,
+independently provable `core.constructor_arity_mismatch` and
+`type.match_non_exhaustive` records remain visible. Combined module sources
 retain stable source and token order. The checked target-casing
 [`human`](../../examples/specification/check/explicit-import-alias-target-casing-human/)
 and

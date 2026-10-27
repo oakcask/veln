@@ -309,8 +309,10 @@ unavailable for normal type and constructor lookup. If correcting that casing
 selects one source module and one visible public ADT or constructor, the
 checker retains the target identity only for independent failures. It checks
 constructor payload arity and uses the ADT's finite domain for match
-exhaustiveness. It does not accept the import, publish a type fact, or make the
-containing module executable.
+exhaustiveness. These checks apply to constructor paths written through the
+invalid explicit alias and through the quarantined import's full written target
+path. They do not accept the import, publish a type fact, or make the containing
+module executable.
 
 Compiler-known collection and option/result helpers propagate concrete callback context.
 The input container determines callback item types; an explicit `_with` context is the
