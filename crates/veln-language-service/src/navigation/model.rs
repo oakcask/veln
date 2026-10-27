@@ -850,7 +850,6 @@ struct IndexedFile {
     uses: BTreeSet<String>,
     external_uses: BTreeSet<(String, String)>,
     import_aliases: BTreeMap<String, String>,
-    external_import_aliases: BTreeMap<String, (String, String)>,
     schema_alias_external_imports: Vec<ExternalImport>,
     workspace_imports: Vec<WorkspaceImport>,
     invalid_declaration_names: Vec<SourceSpan>,
@@ -974,6 +973,7 @@ struct ExternalImport {
     module: String,
     package: String,
     alias: String,
+    explicit_alias: bool,
     syntax_valid: bool,
 }
 
@@ -981,6 +981,7 @@ struct ExternalImport {
 struct WorkspaceImport {
     module: String,
     alias: String,
+    explicit_alias: bool,
     syntax_valid: bool,
 }
 

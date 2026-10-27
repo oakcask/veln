@@ -25,8 +25,141 @@ fn extend(module: &mut SurfaceModule, other: SurfaceModule) {
     module.functions.extend(other.functions);
     module.effects.extend(other.effects);
     module.handlers.extend(other.handlers);
+    module.types.extend(other.types);
     module.schemas.extend(other.schemas);
     module.aliases.extend(other.aliases);
+}
+
+#[test]
+fn quarantined_type_and_constructor_recovery_match_only_the_selected_package() {
+    for (include_selected, include_namesake, expected) in
+        [(true, false, 1), (false, true, 0), (true, true, 1)]
+    {
+        let mut module = source_module(
+            "app.veln",
+            "use math as HTTP from \"selected/pkg\"\n",
+            None,
+            "app",
+        );
+        module.uses[0].name = "selected/pkg::math".to_string();
+        let declaration = concat!("pub type Payload\n", "  pub Data(Int)\n", "end\n",);
+        if include_selected {
+            extend(
+                &mut module,
+                source_module(
+                    "selected/math.veln",
+                    declaration,
+                    Some("selected/pkg"),
+                    "math",
+                ),
+            );
+        }
+        if include_namesake {
+            extend(
+                &mut module,
+                source_module("other/math.veln", declaration, Some("other/pkg"), "math"),
+            );
+        }
+        let environment = TypeEnvironment::from_module(&module);
+        let type_path = "HTTP::Payload";
+        let constructor_path = [
+            "HTTP".to_string(),
+            "Payload".to_string(),
+            "Data".to_string(),
+        ];
+        assert_eq!(
+            environment.quarantined_import_type_recovery_candidate_count_in_owner(
+                type_path,
+                Some("app"),
+                None,
+                0,
+            ),
+            expected,
+            "selected={include_selected}, namesake={include_namesake}",
+        );
+        assert_eq!(
+            environment.quarantined_import_constructor_recovery_candidate_count_in_owner(
+                &constructor_path,
+                Some("app"),
+                None,
+                Some(1),
+            ),
+            expected,
+            "selected={include_selected}, namesake={include_namesake}",
+        );
+        assert_eq!(
+            environment
+                .quarantined_explicit_import_constructor_in_owner(
+                    &constructor_path,
+                    Some("app"),
+                    None,
+                )
+                .is_some(),
+            include_selected,
+        );
+        assert!(
+            environment
+                .uses
+                .iter()
+                .all(|use_decl| use_decl.alias != "HTTP"),
+            "the invalid alias must remain quarantined",
+        );
+    }
+}
+
+#[test]
+fn public_alias_diagnostics_match_only_the_selected_package() {
+    let alias_source = concat!(
+        "use math as wire from \"selected/pkg\"\n",
+        "pub fn renamed = wire::target\n",
+        "pub type Renamed = wire::Payload\n",
+    );
+    let declarations = concat!(
+        "pub fn target() -> Int\n  1\nend\n",
+        "pub type Payload\n  pub Data\nend\n",
+    );
+    for (include_selected, expected_unresolved) in [(false, 2), (true, 0)] {
+        let mut module = source_module("app.veln", alias_source, None, "app");
+        module.uses[0].name = "selected/pkg::math".to_string();
+        extend(
+            &mut module,
+            source_module("other/math.veln", declarations, Some("other/pkg"), "math"),
+        );
+        if include_selected {
+            extend(
+                &mut module,
+                source_module(
+                    "selected/math.veln",
+                    declarations,
+                    Some("selected/pkg"),
+                    "math",
+                ),
+            );
+        }
+        let diagnostics = analyze_surface_module(&module);
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "name.unresolved")
+                .count(),
+            expected_unresolved,
+            "selected={include_selected}: {diagnostics:#?}",
+        );
+        let environment = TypeEnvironment::from_module(&module);
+        assert_eq!(
+            environment
+                .function_path_in_owner(&["renamed".to_string()], Some("app"), None)
+                .is_some(),
+            include_selected,
+        );
+        assert_eq!(
+            environment
+                .adts
+                .descriptor_for_type_path("Renamed", 0, Some("app"), &environment.uses,)
+                .is_some(),
+            include_selected,
+        );
+    }
 }
 
 #[test]

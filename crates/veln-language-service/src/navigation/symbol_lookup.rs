@@ -139,47 +139,58 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<TypeAliasSymbol> {
         let qualified_modules = self.qualified_module_candidates(file, qualifier);
-        let unique_qualified_modules = qualified_modules.iter().collect::<BTreeSet<_>>();
-        if unique_qualified_modules.iter().any(|module| {
-            self.workspace_types_in_module(module, name)
-                .any(|symbol| {
-                    visible_type_for_qualified_reference(
-                        file,
-                        symbol,
-                        &qualified_modules,
-                        name,
-                    )
-                })
-        }) || self.types_named(name).any(|symbol| {
-            symbol.package.is_some()
-                && visible_type_for_qualified_reference(file, symbol, &qualified_modules, name)
+        if self.types_named(name).any(|symbol| {
+            visible_type_for_qualified_reference(file, symbol, &qualified_modules, name)
         }) {
             return None;
         }
-        let candidates = unique_qualified_modules.into_iter().flat_map(|module| {
-            let workspace_aliases = self.workspace_type_aliases_in_module(module, name).filter(
-                |symbol| {
-                    visible_type_alias_for_qualified_reference(
-                        file,
-                        symbol,
-                        &qualified_modules,
-                        name,
-                    )
-                },
-            );
-            let package_aliases = self.package_type_aliases_in_module(module, name).filter(
-                |symbol| {
-                    visible_type_alias_for_qualified_reference(
-                        file,
-                        symbol,
-                        &qualified_modules,
-                        name,
-                    )
-                },
-            );
-            workspace_aliases.chain(package_aliases)
+        let mut candidates = Vec::new();
+        for identity in &qualified_modules {
+            match identity {
+                QualifiedModuleIdentity::Workspace(module) => candidates.extend(
+                    self.workspace_type_aliases_in_module(module, name)
+                        .filter(|symbol| {
+                            visible_type_alias_for_qualified_reference(
+                                file,
+                                symbol,
+                                &qualified_modules,
+                                name,
+                            )
+                        }),
+                ),
+                QualifiedModuleIdentity::External { module, .. } => candidates.extend(
+                    self.package_type_aliases_in_module(module, name)
+                        .filter(|symbol| {
+                            visible_type_alias_for_qualified_reference(
+                                file,
+                                symbol,
+                                &qualified_modules,
+                                name,
+                            )
+                        }),
+                ),
+            }
+        }
+        candidates.sort_by_key(|symbol| {
+            (
+                symbol.package.as_deref(),
+                symbol.module.as_str(),
+                symbol.declaration.span.file.as_str(),
+                symbol.declaration.span.start.offset,
+            )
         });
-        unique_workspace_type_alias(candidates)
+        candidates.dedup_by_key(|symbol| {
+            (
+                symbol.package.as_deref(),
+                symbol.module.as_str(),
+                symbol.declaration.span.file.as_str(),
+                symbol.declaration.span.start.offset,
+            )
+        });
+        let [candidate] = candidates.as_slice() else {
+            return None;
+        };
+        (candidate.package.is_none()).then(|| (*candidate).clone())
     }
 
     fn schema_alias_selection_blocks_schema_fallback(
@@ -692,27 +703,23 @@ impl SymbolIndex {
         let qualified_modules = self.qualified_module_candidates(file, qualifier);
         self.functions
             .iter()
-            .find(|symbol| match &symbol.package {
-                Some(package) => {
-                    valid_function_navigation_symbol(symbol)
-                        && symbol.name == name
-                        && qualified_modules.iter().any(|module| module == &symbol.module)
-                        && (symbol.standard_prelude
-                            || file
-                                .external_uses
-                                .contains(&(symbol.module.clone(), package.clone())))
-                }
-                None => {
-                    valid_function_navigation_symbol(symbol)
-                        && symbol.name == name
-                        && qualified_modules.iter().any(|module| module == &symbol.module)
-                        && file.uses.contains(&symbol.module)
-                        && (symbol.public
-                            || file
+            .find(|symbol| {
+                valid_function_navigation_symbol(symbol)
+                    && symbol.name == name
+                    && qualified_modules.iter().any(|identity| match identity {
+                        QualifiedModuleIdentity::Workspace(module) => {
+                            symbol.package.is_none() && module == &symbol.module
+                        }
+                        QualifiedModuleIdentity::External { package, module } => {
+                            symbol.package.as_ref() == Some(package) && module == &symbol.module
+                        }
+                    })
+                    && (symbol.public
+                        || (symbol.package.is_none()
+                            && file
                                 .companion_target_module
                                 .as_ref()
-                                .is_some_and(|target| target == &symbol.module))
-                }
+                                .is_some_and(|target| target == &symbol.module)))
             })
             .cloned()
     }
@@ -846,14 +853,19 @@ impl SymbolIndex {
                 && symbol.name == name
                 && (qualified_modules
                     .iter()
-                    .any(|module| constructor_qualifier_matches(symbol, module))
+                    .any(|identity| match identity {
+                        QualifiedModuleIdentity::Workspace(module) => {
+                            constructor_qualifier_matches(symbol, module)
+                        }
+                        QualifiedModuleIdentity::External { .. } => false,
+                    })
                     || (qualifier == symbol.type_name && symbol.module == file.module)
                     || self.workspace_constructor_reexport_qualifier_matches(
                         file, symbol, qualifier,
                     ))
                 && (symbol.module == file.module
-                    || ((file.uses.contains(&symbol.module)
-                        || self.constructor_reexport_visible_from(file, symbol, None))
+                    || visible_workspace_constructor_from(file, symbol)
+                    || (self.constructor_reexport_visible_from(file, symbol, None)
                         && visible_workspace_constructor_from(file, symbol)))
         })
         .or_else(|| {
@@ -861,19 +873,27 @@ impl SymbolIndex {
                 symbol.name == name
                     && (qualified_modules
                         .iter()
-                        .any(|module| constructor_qualifier_matches(symbol, module))
+                        .any(|identity| match identity {
+                            QualifiedModuleIdentity::External { package, module } => {
+                                symbol.package.as_ref() == Some(package)
+                                    && constructor_qualifier_matches(symbol, module)
+                            }
+                            QualifiedModuleIdentity::Workspace(_) => false,
+                        })
                         || qualified_modules
                             .iter()
-                            .any(|module| module == &format!("{}::{}", symbol.module, symbol.type_name)))
-                    && match &symbol.package {
-                        Some(package) => {
-                            symbol.standard_prelude
-                                || file
-                                    .external_uses
-                                    .contains(&(symbol.module.clone(), package.clone()))
-                        }
-                        None => false,
-                    }
+                            .any(|identity| match identity {
+                                QualifiedModuleIdentity::External { package, module } => {
+                                    symbol.package.as_ref() == Some(package)
+                                        && module
+                                            == &format!(
+                                                "{}::{}",
+                                                symbol.module, symbol.type_name
+                                            )
+                                }
+                                QualifiedModuleIdentity::Workspace(_) => false,
+                            }))
+                    && symbol.package.is_some()
             })
         })
         .or_else(|| {
@@ -1075,24 +1095,33 @@ fn schema_qualified_workspace_module(
 impl SchemaAliasModuleImports {
     fn new(
         workspace_imports: BTreeSet<String>,
-        validated_workspace_imports: Vec<WorkspaceImport>,
-        external_imports: Vec<ExternalImport>,
+        mut validated_workspace_imports: Vec<WorkspaceImport>,
+        mut external_imports: Vec<ExternalImport>,
     ) -> Self {
-        let raw_workspace_imports_by_alias = workspace_imports_by_alias(&workspace_imports);
+        quarantine_explicit_import_collisions(
+            &mut validated_workspace_imports,
+            &mut external_imports,
+        );
+        let raw_workspace_imports_by_alias =
+            workspace_import_records_by_alias(&validated_workspace_imports);
         let duplicate_workspace_imports =
             workspace_import_duplicate_counts(&validated_workspace_imports);
-        let valid_workspace_imports = validated_workspace_imports
-            .into_iter()
+        let valid_workspace_import_records = validated_workspace_imports
+            .iter()
             .filter(|import| {
                 import.syntax_valid
                     && duplicate_workspace_imports
                         .get(&(import.module.clone(), import.alias.clone()))
                         == Some(&1)
             })
-            .map(|import| import.module)
+            .cloned()
+            .collect::<Vec<_>>();
+        let valid_workspace_imports = valid_workspace_import_records
+            .iter()
+            .map(|import| import.module.clone())
             .collect::<BTreeSet<_>>();
         let valid_workspace_imports_by_alias =
-            workspace_imports_by_alias(&valid_workspace_imports);
+            workspace_import_records_by_alias(&valid_workspace_import_records);
         let duplicate_counts = schema_alias_import_duplicate_counts(&external_imports);
         let mut indexed = Self {
             workspace_imports,
@@ -1172,6 +1201,48 @@ impl SchemaAliasModuleImports {
     }
 }
 
+fn quarantine_explicit_import_collisions(
+    workspace: &mut [WorkspaceImport],
+    external: &mut [ExternalImport],
+) {
+    let mut alias_counts = BTreeMap::<String, usize>::new();
+    let mut explicit_aliases = BTreeSet::<String>::new();
+    let mut target_counts = BTreeMap::<(Option<String>, String), usize>::new();
+    let mut explicit_targets = BTreeSet::<(Option<String>, String)>::new();
+    for import in workspace.iter() {
+        *alias_counts.entry(import.alias.clone()).or_default() += 1;
+        let target = (None, import.module.clone());
+        *target_counts.entry(target.clone()).or_default() += 1;
+        if import.explicit_alias {
+            explicit_aliases.insert(import.alias.clone());
+            explicit_targets.insert(target);
+        }
+    }
+    for import in external.iter() {
+        *alias_counts.entry(import.alias.clone()).or_default() += 1;
+        let target = (Some(import.package.clone()), import.module.clone());
+        *target_counts.entry(target.clone()).or_default() += 1;
+        if import.explicit_alias {
+            explicit_aliases.insert(import.alias.clone());
+            explicit_targets.insert(target);
+        }
+    }
+    for import in workspace {
+        let target = (None, import.module.clone());
+        import.syntax_valid &= !(explicit_aliases.contains(&import.alias)
+            && alias_counts.get(&import.alias).copied().unwrap_or_default() > 1
+            || explicit_targets.contains(&target)
+                && target_counts.get(&target).copied().unwrap_or_default() > 1);
+    }
+    for import in external {
+        let target = (Some(import.package.clone()), import.module.clone());
+        import.syntax_valid &= !(explicit_aliases.contains(&import.alias)
+            && alias_counts.get(&import.alias).copied().unwrap_or_default() > 1
+            || explicit_targets.contains(&target)
+                && target_counts.get(&target).copied().unwrap_or_default() > 1);
+    }
+}
+
 fn workspace_import_duplicate_counts(
     imports: &[WorkspaceImport],
 ) -> BTreeMap<(String, String), usize> {
@@ -1183,14 +1254,16 @@ fn workspace_import_duplicate_counts(
     })
 }
 
-fn workspace_imports_by_alias(
-    workspace_imports: &BTreeSet<String>,
+fn workspace_import_records_by_alias(
+    workspace_imports: &[WorkspaceImport],
 ) -> BTreeMap<String, BTreeSet<String>> {
     workspace_imports.iter().fold(
         BTreeMap::<String, BTreeSet<String>>::new(),
-        |mut by_alias, module| {
-            let alias = module.rsplit("::").next().unwrap_or(module).to_string();
-            by_alias.entry(alias).or_default().insert(module.clone());
+        |mut by_alias, import| {
+            by_alias
+                .entry(import.alias.clone())
+                .or_default()
+                .insert(import.module.clone());
             by_alias
         },
     )
@@ -1249,6 +1322,12 @@ enum QualifiedWorkspaceModule {
     External,
     Ambiguous,
     Unresolved,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum QualifiedModuleIdentity {
+    Workspace(String),
+    External { package: String, module: String },
 }
 
 fn constructor_selected_through_public_alias(mut symbol: ConstructorSymbol) -> ConstructorSymbol {

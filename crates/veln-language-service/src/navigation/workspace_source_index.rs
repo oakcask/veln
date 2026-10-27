@@ -158,7 +158,6 @@ fn indexed_workspace_file(
         uses: imports.modules.local_modules,
         external_uses: imports.modules.external_modules,
         import_aliases: imports.modules.local_aliases,
-        external_import_aliases: imports.modules.external_aliases,
         schema_alias_external_imports: imports.schema_alias_external_imports,
         workspace_imports: imports.workspace_imports,
         invalid_declaration_names: syntax.invalid_declaration_names,

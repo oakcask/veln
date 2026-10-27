@@ -11,8 +11,8 @@ use crate::types::TypeEnvironment;
 
 use super::module_boundaries::{
     alias_kind_mismatch_diagnostic, duplicate_name_diagnostic, function_target,
-    normal_imported_module_for_path, private_alias_diagnostic, quarantined_function_target,
-    quarantined_schema_target, quarantined_type_target, type_target, unresolved_alias_diagnostic,
+    private_alias_diagnostic, quarantined_function_target, quarantined_schema_target,
+    quarantined_type_target, type_target, unresolved_alias_diagnostic,
 };
 
 type SeenNames = BTreeMap<(Option<String>, Option<String>, String), (String, SourceSpan)>;
@@ -348,11 +348,30 @@ pub(super) fn check_function_alias_target(
             "function",
             "module_value",
         ))
-    } else if function_target(module, &alias.target, module_name).is_some()
-        || quarantined_function_target(module, &alias.target, module_name).is_some()
+    } else if function_target(
+        module,
+        &alias.target,
+        module_name,
+        alias.package_name.as_deref(),
+    )
+    .is_some()
+        || quarantined_function_target(
+            module,
+            &alias.target,
+            module_name,
+            alias.package_name.as_deref(),
+        )
+        .is_some()
     {
         None
-    } else if type_target(module, &alias.target, module_name).is_some() {
+    } else if type_target(
+        module,
+        &alias.target,
+        module_name,
+        alias.package_name.as_deref(),
+    )
+    .is_some()
+    {
         Some(alias_kind_mismatch_diagnostic(alias, "function", "type"))
     } else {
         Some(unresolved_alias_diagnostic(alias, "function"))
@@ -366,12 +385,36 @@ pub(super) fn check_type_alias_target(
     adts: &AdtRegistry,
 ) -> Option<Diagnostic> {
     if adts.resolves_type_alias(alias)
-        || type_target(module, &alias.target, module_name).is_some()
-        || quarantined_type_target(module, &alias.target, module_name).is_some()
-        || is_standard_type_alias_target(module, &alias.target, module_name)
+        || type_target(
+            module,
+            &alias.target,
+            module_name,
+            alias.package_name.as_deref(),
+        )
+        .is_some()
+        || quarantined_type_target(
+            module,
+            &alias.target,
+            module_name,
+            alias.package_name.as_deref(),
+        )
+        .is_some()
+        || is_standard_type_alias_target(
+            module,
+            &alias.target,
+            module_name,
+            alias.package_name.as_deref(),
+        )
     {
         None
-    } else if function_target(module, &alias.target, module_name).is_some() {
+    } else if function_target(
+        module,
+        &alias.target,
+        module_name,
+        alias.package_name.as_deref(),
+    )
+    .is_some()
+    {
         Some(alias_kind_mismatch_diagnostic(alias, "type", "function"))
     } else {
         Some(unresolved_alias_diagnostic(alias, "type"))
@@ -382,6 +425,7 @@ fn is_standard_type_alias_target(
     module: &SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> bool {
     match segments {
         [name] => matches!(
@@ -389,8 +433,16 @@ fn is_standard_type_alias_target(
             "WallTime" | "SourceLocation" | "NetListener" | "NetStream"
         ),
         [_, .., name] if matches!(name.as_str(), "WallTime" | "SourceLocation" | "ByteCount") => {
-            normal_imported_module_for_path(module, &segments[..segments.len() - 1], current_module)
-                .is_some_and(|module_name| module_name == "std::prelude")
+            crate::name_recovery::normal_imported_use_for_path_in_owner(
+                module,
+                &segments[..segments.len() - 1],
+                current_module,
+                current_package,
+            )
+            .is_some_and(|use_decl| {
+                let target = use_decl.resolved_target();
+                target.package.as_deref() == Some("std") && target.module == "std::prelude"
+            })
         }
         _ => false,
     }

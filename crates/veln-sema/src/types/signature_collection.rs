@@ -16,7 +16,7 @@ use super::signatures::{
     CompanionAccessTarget, EffectOperationSignature, EffectSignature,
     HandlerOperationClauseSignature, HandlerSignature, synthetic_handler_clause_function_target,
 };
-use super::symbols::imported_use_for_path;
+use super::symbols::imported_use_for_path_in_owner;
 
 use instrumentation::{record_type_canonicalization_visit, record_variant_canonicalization_lookup};
 #[cfg(test)]
@@ -186,6 +186,7 @@ impl TypeCanonicalizer<'_> {
                 canonical_type_name_without_descriptor(
                     &name,
                     self.current_module,
+                    self.current_package,
                     self.uses,
                     self.quarantined_uses,
                     args.len(),
@@ -210,8 +211,12 @@ impl TypeCanonicalizer<'_> {
     ) -> Option<&AdtDescriptor> {
         let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
         let (type_name, module_segments) = segments.split_last()?;
-        let use_decl =
-            imported_use_for_path(self.quarantined_uses, module_segments, self.current_module)?;
+        let use_decl = imported_use_for_path_in_owner(
+            self.quarantined_uses,
+            module_segments,
+            self.current_module,
+            self.current_package,
+        )?;
         if !use_decl.has_explicit_alias() {
             return None;
         }
@@ -466,6 +471,7 @@ fn canonical_variant_refinement(
 fn canonical_type_name_without_descriptor(
     name: &str,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     uses: &[UseDecl],
     quarantined_uses: &[UseDecl],
     args_len: usize,
@@ -477,19 +483,26 @@ fn canonical_type_name_without_descriptor(
     let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
     match segments.as_slice() {
         [_, .., _] => {
-            if imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
-                .is_some()
+            if imported_use_for_path_in_owner(
+                uses,
+                &segments[..segments.len() - 1],
+                current_module,
+                current_package,
+            )
+            .is_some()
             {
                 return Some(name.to_string());
             }
-            let use_decl = imported_use_for_path(
+            let use_decl = imported_use_for_path_in_owner(
                 quarantined_uses,
                 &segments[..segments.len() - 1],
                 current_module,
+                current_package,
             )?;
             adts.descriptor_for_type_path(name, args_len, current_module, quarantined_uses)
                 .filter(|descriptor| {
                     descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
+                        && descriptor.package_name == use_decl.resolved_target().package
                         && descriptor.visibility == Visibility::Public
                 })
                 .map_or_else(

@@ -2,8 +2,8 @@ use crate::adt::type_operations as adt;
 use crate::diagnostics::{module_details, span_json};
 pub(super) use crate::name_recovery::normal_imported_use_for_path;
 use crate::name_recovery::{
-    import_classification, resolved_import_module_name, select_use_decl_for_path,
-    use_decl_is_recovery_candidate,
+    import_classification, normal_imported_use_for_path_in_owner, resolved_import_module_name,
+    select_use_decl_for_path, use_decl_is_recovery_candidate,
 };
 use crate::semantic_model::Type;
 use crate::standard_names::PRELUDE_MODULE;
@@ -17,24 +17,30 @@ pub(super) fn function_target<'a>(
     module: &'a SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<&'a veln_ast::Function> {
     match segments {
         [name] => module.functions.iter().find(|function| {
             function.kind == FunctionKind::Function
                 && function.name.as_deref() == Some(name)
                 && function.name.as_deref().is_some_and(valid_function_name)
+                && function.module_name.as_deref() == current_module
+                && function.package_name.as_deref() == current_package
         }),
         [_, .., name] => {
-            let module_name = normal_imported_module_for_path(
+            let use_decl = normal_imported_use_for_path_in_owner(
                 module,
                 &segments[..segments.len() - 1],
                 current_module,
+                current_package,
             )?;
+            let target = use_decl.resolved_target();
             module.functions.iter().find(|function| {
                 function.kind == FunctionKind::Function
                     && function.name.as_deref() == Some(name)
                     && function.name.as_deref().is_some_and(valid_function_name)
-                    && function.module_name.as_deref() == Some(module_name.as_str())
+                    && function.module_name.as_deref() == Some(target.module.as_str())
+                    && function.package_name == target.package
             })
         }
         _ => None,
@@ -45,22 +51,28 @@ pub(super) fn type_target<'a>(
     module: &'a SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<&'a veln_ast::TypeDecl> {
     match segments {
         [name] => module.types.iter().find(|type_decl| {
             type_decl.name.as_deref() == Some(name)
                 && type_decl.name.as_deref().is_some_and(valid_type_name)
+                && type_decl.module_name.as_deref() == current_module
+                && type_decl.package_name.as_deref() == current_package
         }),
         [_, .., name] => {
-            let module_name = normal_imported_module_for_path(
+            let use_decl = normal_imported_use_for_path_in_owner(
                 module,
                 &segments[..segments.len() - 1],
                 current_module,
+                current_package,
             )?;
+            let target = use_decl.resolved_target();
             module.types.iter().find(|type_decl| {
                 type_decl.name.as_deref() == Some(name)
                     && type_decl.name.as_deref().is_some_and(valid_type_name)
-                    && type_decl.module_name.as_deref() == Some(module_name.as_str())
+                    && type_decl.module_name.as_deref() == Some(target.module.as_str())
+                    && type_decl.package_name == target.package
             })
         }
         _ => None,
@@ -89,12 +101,21 @@ pub(super) fn quarantined_imported_use_for_path<'a>(
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
+    quarantined_imported_use_for_path_in_owner(module, segments, current_module, None)
+}
+
+pub(super) fn quarantined_imported_use_for_path_in_owner<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
     select_use_decl_for_path(
-        module
-            .uses
-            .iter()
-            .filter(|use_decl| use_decl_is_recovery_candidate(module, use_decl)),
+        module.uses.iter().filter(|use_decl| {
+            use_decl.importing_package.as_deref() == current_package
+                && use_decl_is_recovery_candidate(module, use_decl)
+        }),
         &module_path,
         current_module,
     )
@@ -116,19 +137,25 @@ pub(super) fn quarantined_function_target<'a>(
     module: &'a SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<&'a veln_ast::Function> {
     let [_, .., name] = segments else {
         return None;
     };
-    let module_name = quarantined_imported_module_for_path(
+    let use_decl = quarantined_imported_use_for_path_in_owner(
         module,
         &segments[..segments.len() - 1],
         current_module,
+        current_package,
     )?;
+    let target = use_decl.resolved_target();
+    let target_module = crate::name_recovery::recovered_import_target_name(module, use_decl)
+        .unwrap_or_else(|| target.module.clone());
     let mut candidates = module.functions.iter().filter(|function| {
         function.kind == FunctionKind::Function
             && function.name.as_deref() == Some(name)
-            && function.module_name.as_deref() == Some(module_name.as_str())
+            && function.module_name.as_deref() == Some(target_module.as_str())
+            && function.package_name == target.package
             && function.visibility == veln_ast::Visibility::Public
     });
     let first = candidates.next()?;
@@ -139,18 +166,24 @@ pub(super) fn quarantined_type_target<'a>(
     module: &'a SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> Option<&'a veln_ast::TypeDecl> {
     let [_, .., name] = segments else {
         return None;
     };
-    let module_name = quarantined_imported_module_for_path(
+    let use_decl = quarantined_imported_use_for_path_in_owner(
         module,
         &segments[..segments.len() - 1],
         current_module,
+        current_package,
     )?;
+    let target = use_decl.resolved_target();
+    let target_module = crate::name_recovery::recovered_import_target_name(module, use_decl)
+        .unwrap_or_else(|| target.module.clone());
     let mut candidates = module.types.iter().filter(|type_decl| {
         type_decl.name.as_deref() == Some(name)
-            && type_decl.module_name.as_deref() == Some(module_name.as_str())
+            && type_decl.module_name.as_deref() == Some(target_module.as_str())
+            && type_decl.package_name == target.package
             && type_decl.visibility == veln_ast::Visibility::Public
     });
     let first = candidates.next()?;

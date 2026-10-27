@@ -176,6 +176,109 @@
     }
 
     #[test]
+    fn explicit_alias_navigation_is_package_aware_and_stable_for_combined_modules() {
+        let selected = dependency_snapshot(
+            "selected/pkg",
+            &[(
+                "math.veln",
+                "pub fn increment(value: Int) -> Int\n  value + 1\nend\n",
+            )],
+            ["math.veln"],
+        );
+        let namesake = dependency_snapshot(
+            "other/pkg",
+            &[(
+                "math.veln",
+                "pub fn increment(value: Int) -> Int\n  value + 2\nend\n",
+            )],
+            ["math.veln"],
+        );
+        let import = source(
+            "a.veln",
+            "mod app\nuse math as calc from \"selected/pkg\"\n",
+        );
+        let first = source(
+            "b.veln",
+            "mod app\nfn first(value: Int) -> Int\n  calc::increment(value)\nend\n",
+        );
+        let second = source(
+            "c.veln",
+            "mod app\nfn second(value: Int) -> Int\n  calc::increment(value)\nend\n",
+        );
+
+        let mut observed = Vec::new();
+        for sources in [
+            vec![import.clone(), first.clone(), second.clone()],
+            vec![second.clone(), first.clone(), import.clone()],
+        ] {
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                sources,
+                vec![namesake.clone(), selected.clone()],
+            );
+            let result = query_snapshot(&snapshot, "b.veln", 3, 9).unwrap();
+            let NavigationSource::Package { uri } = &result.definition.source else {
+                panic!("explicit alias did not select a package declaration");
+            };
+            assert!(uri.starts_with("veln-pkg:///selected%2Fpkg/snapshot/"));
+            assert_eq!(
+                locations(&result.references),
+                [("b.veln", 3, 9), ("c.veln", 3, 9)]
+            );
+            observed.push(result);
+        }
+        assert_eq!(observed[0].definition, observed[1].definition);
+        assert_eq!(observed[0].references, observed[1].references);
+    }
+
+    #[test]
+    fn explicit_alias_collisions_quarantine_all_paths_in_both_source_orders() {
+        let selected = dependency_snapshot(
+            "selected/pkg",
+            &[(
+                "selected_math.veln",
+                "pub fn increment(value: Int) -> Int\n  value + 1\nend\n",
+            )],
+            ["selected_math.veln"],
+        );
+        let other = dependency_snapshot(
+            "other/pkg",
+            &[(
+                "other_math.veln",
+                "pub fn increment(value: Int) -> Int\n  value + 2\nend\n",
+            )],
+            ["other_math.veln"],
+        );
+        let selected_import = source(
+            "a.veln",
+            "mod app\nuse selected_math as calc from \"selected/pkg\"\n",
+        );
+        let other_import = source(
+            "b.veln",
+            "mod app\nuse other_math as calc from \"other/pkg\"\n",
+        );
+        let calls = source(
+            "c.veln",
+            concat!(
+                "mod app\n",
+                "fn ambiguous(value: Int) -> Int\n  calc::increment(value)\nend\n",
+                "fn exact(value: Int) -> Int\n  selected_math::increment(value)\nend\n",
+            ),
+        );
+
+        for sources in [
+            vec![selected_import.clone(), other_import.clone(), calls.clone()],
+            vec![calls.clone(), other_import.clone(), selected_import.clone()],
+        ] {
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                sources,
+                vec![other.clone(), selected.clone()],
+            );
+            assert!(query_snapshot(&snapshot, "c.veln", 3, 9).is_none());
+            assert!(query_snapshot(&snapshot, "c.veln", 6, 18).is_none());
+        }
+    }
+
+    #[test]
     fn direct_dependency_public_function_alias_definition_returns_workspace_reference() {
         let dependency = dependency_snapshot(
             "example/pkg",

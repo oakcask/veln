@@ -365,6 +365,7 @@ fn constructor_recovery_facts(module: &SurfaceModule) -> BTreeMap<ConstructorRec
             if type_is_invalid || constructor_is_invalid {
                 *candidates
                     .entry(ConstructorRecoveryKey {
+                        package_name: type_decl.package_name.clone(),
                         module_name: type_decl.module_name.clone(),
                         name: name.clone(),
                         field_count: variant.fields.len(),
@@ -381,8 +382,10 @@ fn import_constructor_recovery_facts(
 ) -> BTreeMap<ImportConstructorRecoveryKey, usize> {
     let mut candidates = BTreeMap::new();
     for use_decl in crate::name_recovery::quarantined_use_decls(module) {
+        let target = use_decl.resolved_target();
         for type_decl in module.types.iter().filter(|type_decl| {
-            type_decl.module_name.as_deref() == Some(use_decl.name.as_str())
+            type_decl.package_name == target.package
+                && type_decl.module_name.as_deref() == Some(target.module.as_str())
                 && type_decl.visibility == Visibility::Public
         }) {
             let Some(type_name) = &type_decl.name else {
@@ -402,7 +405,10 @@ fn import_constructor_recovery_facts(
                 ] {
                     *candidates
                         .entry(ImportConstructorRecoveryKey {
+                            current_package: use_decl.importing_package.clone(),
                             current_module: use_decl.module_name.clone(),
+                            target_package: target.package.clone(),
+                            target_module: target.module.clone(),
                             alias: use_decl.alias.clone(),
                             constructor_segments,
                             field_count: variant.fields.len(),

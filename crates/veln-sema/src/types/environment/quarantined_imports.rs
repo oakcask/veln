@@ -22,7 +22,8 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         arg_count: Option<usize>,
     ) -> usize {
-        let Some((use_decl, name)) = self.quarantined_import_for_segments(segments, current_module)
+        let Some((use_decl, name)) =
+            self.quarantined_import_for_segments(segments, current_module, None)
         else {
             return 0;
         };
@@ -51,15 +52,31 @@ impl TypeEnvironment {
         segments: &[String],
         current_module: Option<&str>,
     ) -> bool {
-        let Some((use_decl, name)) = self.quarantined_import_for_segments(segments, current_module)
+        self.quarantined_import_type_path_lacks_visible_leaf_in_owner(
+            segments,
+            current_module,
+            None,
+        )
+    }
+
+    pub(crate) fn quarantined_import_type_path_lacks_visible_leaf_in_owner(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        let Some((use_decl, name)) =
+            self.quarantined_import_for_segments(segments, current_module, current_package)
         else {
             return false;
         };
         let module_name = Some(use_decl.name.as_str());
+        let target_package = use_decl.resolved_target().package;
         !self.type_symbols.iter().any(|symbol| {
             symbol.name == name
                 && symbol.module_name.as_deref() == module_name
-                && self.symbol_is_visible(symbol, module_name, current_module)
+                && symbol.package_name == target_package
+                && symbol.visibility() == Visibility::Public
         })
     }
 
@@ -68,7 +85,7 @@ impl TypeEnvironment {
         segments: &[String],
         current_module: Option<&str>,
     ) -> bool {
-        self.quarantined_import_for_segments(segments, current_module)
+        self.quarantined_import_for_segments(segments, current_module, None)
             .is_some_and(|(use_decl, _)| use_decl.name.contains("::"))
     }
 
@@ -77,7 +94,8 @@ impl TypeEnvironment {
         segments: &[String],
         current_module: Option<&str>,
     ) -> usize {
-        let Some((use_decl, name)) = self.quarantined_import_for_segments(segments, current_module)
+        let Some((use_decl, name)) =
+            self.quarantined_import_for_segments(segments, current_module, None)
         else {
             return 0;
         };
@@ -98,7 +116,8 @@ impl TypeEnvironment {
         segments: &[String],
         current_module: Option<&str>,
     ) -> usize {
-        let Some((use_decl, name)) = self.quarantined_import_for_segments(segments, current_module)
+        let Some((use_decl, name)) =
+            self.quarantined_import_for_segments(segments, current_module, None)
         else {
             return 0;
         };
@@ -120,8 +139,23 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         arg_count: Option<usize>,
     ) -> usize {
-        let Some((use_decl, constructor_segments)) =
-            self.quarantined_import_for_constructor_segments(segments, current_module)
+        self.quarantined_import_constructor_recovery_candidate_count_in_owner(
+            segments,
+            current_module,
+            None,
+            arg_count,
+        )
+    }
+
+    pub(crate) fn quarantined_import_constructor_recovery_candidate_count_in_owner(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+        arg_count: Option<usize>,
+    ) -> usize {
+        let Some((use_decl, constructor_segments)) = self
+            .quarantined_import_for_constructor_segments(segments, current_module, current_package)
         else {
             return 0;
         };
@@ -129,6 +163,9 @@ impl TypeEnvironment {
             .iter()
             .filter(|(key, _)| {
                 key.current_module.as_deref() == current_module
+                    && key.current_package == use_decl.resolved_owner().package
+                    && key.target_package == use_decl.resolved_target().package
+                    && key.target_module == use_decl.resolved_target().module
                     && key.alias == use_decl.alias
                     && key.constructor_segments == constructor_segments
                     && arg_count.is_none_or(|count| key.field_count == count)
@@ -137,17 +174,31 @@ impl TypeEnvironment {
             .sum()
     }
 
+    #[cfg(test)]
     pub(crate) fn quarantined_explicit_import_constructor(
         &self,
         segments: &[String],
         current_module: Option<&str>,
     ) -> Option<AdtConstructor<'_>> {
-        let (use_decl, constructor_segments) =
-            self.quarantined_import_for_constructor_segments(segments, current_module)?;
+        self.quarantined_explicit_import_constructor_in_owner(segments, current_module, None)
+    }
+
+    pub(crate) fn quarantined_explicit_import_constructor_in_owner(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<AdtConstructor<'_>> {
+        let (use_decl, constructor_segments) = self.quarantined_import_for_constructor_segments(
+            segments,
+            current_module,
+            current_package,
+        )?;
         if !use_decl.has_explicit_alias()
-            || self.quarantined_import_constructor_recovery_candidate_count(
+            || self.quarantined_import_constructor_recovery_candidate_count_in_owner(
                 segments,
                 current_module,
+                current_package,
                 None,
             ) != 1
         {
@@ -163,14 +214,19 @@ impl TypeEnvironment {
         }
     }
 
-    pub(crate) fn quarantined_explicit_import_constructor_for_descriptor(
+    pub(crate) fn quarantined_explicit_import_constructor_for_descriptor_in_owner(
         &self,
         segments: &[String],
         descriptor: &AdtDescriptor,
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> Option<AdtConstructor<'_>> {
-        self.quarantined_explicit_import_constructor(segments, current_module)
-            .filter(|constructor| constructor.descriptor.identity() == descriptor.identity())
+        self.quarantined_explicit_import_constructor_in_owner(
+            segments,
+            current_module,
+            current_package,
+        )
+        .filter(|constructor| constructor.descriptor.identity() == descriptor.identity())
     }
 
     #[cfg(test)]
@@ -180,29 +236,46 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         args_len: usize,
     ) -> usize {
+        self.quarantined_import_type_recovery_candidate_count_in_owner(
+            type_name,
+            current_module,
+            None,
+            args_len,
+        )
+    }
+
+    #[cfg(test)]
+    pub(crate) fn quarantined_import_type_recovery_candidate_count_in_owner(
+        &self,
+        type_name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+        args_len: usize,
+    ) -> usize {
         let segments = type_name
             .split("::")
             .map(str::to_string)
             .collect::<Vec<_>>();
         let Some((use_decl, name)) =
-            self.quarantined_import_for_segments(&segments, current_module)
+            self.quarantined_import_for_segments(&segments, current_module, current_package)
         else {
             return 0;
         };
         let module_name = Some(use_decl.name.as_str());
+        let target_package = use_decl.resolved_target().package;
         self.type_symbols
             .iter()
             .filter(|symbol| {
                 symbol.name == name
                     && symbol.module_name.as_deref() == module_name
-                    && self.symbol_is_visible(*symbol, module_name, current_module)
+                    && symbol.package_name == target_package
                     && self
                         .adts
-                        .descriptor_for_type_path(
-                            type_name,
+                        .unique_public_descriptor_for_type_in_module(
+                            name,
                             args_len,
-                            current_module,
-                            &self.quarantined_uses,
+                            target_package.as_deref(),
+                            use_decl.name.as_str(),
                         )
                         .is_some()
             })
@@ -213,12 +286,14 @@ impl TypeEnvironment {
         &'a self,
         segments: &'a [String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> Option<(&'a UseDecl, &'a str)> {
         match segments {
-            [_, .., name] => imported_use_for_path(
+            [_, .., name] => imported_use_for_path_in_owner(
                 &self.quarantined_uses,
                 &segments[..segments.len() - 1],
                 current_module,
+                current_package,
             )
             .map(|use_decl| (use_decl, name.as_str())),
             _ => None,
@@ -229,6 +304,7 @@ impl TypeEnvironment {
         &'a self,
         segments: &'a [String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> Option<(&'a UseDecl, &'a [String])> {
         if segments.len() < 2 {
             return None;
@@ -242,10 +318,11 @@ impl TypeEnvironment {
             if module_len == 0 {
                 continue;
             }
-            if let Some(use_decl) = imported_use_for_path(
+            if let Some(use_decl) = imported_use_for_path_in_owner(
                 &self.quarantined_uses,
                 &segments[..module_len],
                 current_module,
+                current_package,
             ) {
                 return Some((use_decl, &segments[module_len..]));
             }

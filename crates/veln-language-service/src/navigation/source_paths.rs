@@ -160,7 +160,6 @@ struct UseModuleIndex {
     local_modules: BTreeSet<String>,
     external_modules: BTreeSet<(String, String)>,
     local_aliases: BTreeMap<String, String>,
-    external_aliases: BTreeMap<String, (String, String)>,
 }
 
 impl UseModuleIndex {
@@ -169,7 +168,6 @@ impl UseModuleIndex {
             local_modules: BTreeSet::new(),
             external_modules: BTreeSet::new(),
             local_aliases: BTreeMap::new(),
-            external_aliases: BTreeMap::new(),
         };
         for import in text.lines().filter_map(parse_use_module) {
             index.insert(import);
@@ -181,8 +179,7 @@ impl UseModuleIndex {
         if let Some(package) = import.package {
             self.external_modules
                 .insert((import.module.clone(), package.clone()));
-            self.external_aliases
-                .insert(import.alias, (import.module, package));
+            let _ = import.alias;
         } else {
             self.local_modules.insert(import.module.clone());
             self.local_aliases.insert(import.alias, import.module);
@@ -199,9 +196,18 @@ struct UseModule {
 fn parse_use_module(line: &str) -> Option<UseModule> {
     let rest = line.trim_start().strip_prefix("use ")?;
     let module = leading_module_path(rest)?;
-    let alias = module.rsplit("::").next().unwrap_or(module).to_string();
-    let package = rest[module.len()..]
-        .trim()
+    let mut suffix = rest[module.len()..].trim();
+    let alias = if let Some(alias_source) = suffix.strip_prefix("as ") {
+        let alias = leading_module_path(alias_source)?;
+        if alias.contains("::") {
+            return None;
+        }
+        suffix = alias_source[alias.len()..].trim();
+        alias.to_string()
+    } else {
+        module.rsplit("::").next().unwrap_or(module).to_string()
+    };
+    let package = suffix
         .strip_prefix("from ")
         .and_then(|value| value.strip_prefix('"'))
         .and_then(|value| {
@@ -299,17 +305,28 @@ fn schema_alias_external_imports(
         .filter_map(|use_decl| {
             let package = use_decl.package.as_ref()?;
             let alias = use_decl
-                .name
-                .rsplit("::")
-                .next()
-                .unwrap_or(use_decl.name.as_str())
-                .to_string();
+                .alias
+                .as_ref()
+                .map(|alias| alias.name.clone())
+                .unwrap_or_else(|| {
+                    use_decl
+                        .name
+                        .rsplit("::")
+                        .next()
+                        .unwrap_or(use_decl.name.as_str())
+                        .to_string()
+                });
             let syntax_valid = !module_identity_has_invalid_casing(&use_decl.name)
+                && use_decl.alias.as_ref().is_none_or(|alias| {
+                    !module_identity_has_invalid_casing(&alias.name)
+                })
+                && !use_decl.recovered
                 && !diagnostics.overlaps(&use_decl.span);
             Some(ExternalImport {
                 module: use_decl.name.clone(),
                 package: package.name.clone(),
                 alias,
+                explicit_alias: use_decl.alias.is_some(),
                 syntax_valid,
             })
         })
@@ -327,16 +344,27 @@ fn workspace_imports(
         .filter(|use_decl| use_decl.package.is_none())
         .map(|use_decl| {
             let alias = use_decl
-                .name
-                .rsplit("::")
-                .next()
-                .unwrap_or(use_decl.name.as_str())
-                .to_string();
+                .alias
+                .as_ref()
+                .map(|alias| alias.name.clone())
+                .unwrap_or_else(|| {
+                    use_decl
+                        .name
+                        .rsplit("::")
+                        .next()
+                        .unwrap_or(use_decl.name.as_str())
+                        .to_string()
+                });
             let syntax_valid = !module_identity_has_invalid_casing(&use_decl.name)
+                && use_decl.alias.as_ref().is_none_or(|alias| {
+                    !module_identity_has_invalid_casing(&alias.name)
+                })
+                && !use_decl.recovered
                 && !diagnostics.overlaps(&use_decl.span);
             WorkspaceImport {
                 module: use_decl.name.clone(),
                 alias,
+                explicit_alias: use_decl.alias.is_some(),
                 syntax_valid,
             }
         })

@@ -369,6 +369,7 @@ fn match_pattern_coverage(
     scrutinee_type: &Type,
     environment: &TypeEnvironment,
     current_module: Option<&str>,
+    current_package: Option<&str>,
 ) -> PatternCoverage {
     match &pattern.kind {
         PatternKind::Wildcard | PatternKind::Binding(_) => PatternCoverage {
@@ -400,11 +401,13 @@ fn match_pattern_coverage(
                                 &environment.uses,
                             )
                             .or_else(|| {
-                                environment.quarantined_explicit_import_constructor_for_descriptor(
-                                    name,
-                                    descriptor,
-                                    current_module,
-                                )
+                                environment
+                                    .quarantined_explicit_import_constructor_for_descriptor_in_owner(
+                                        name,
+                                        descriptor,
+                                        current_module,
+                                        current_package,
+                                    )
                             })
                             .map(|constructor| constructor.variant.coverage_case.clone())
                     }),

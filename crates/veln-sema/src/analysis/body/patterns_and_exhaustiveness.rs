@@ -59,6 +59,7 @@ impl<'a> FunctionChecker<'a> {
                 scrutinee_type,
                 self.environment,
                 self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
             );
             if coverage.catches_all {
                 return MatchCoverageProgress {
@@ -342,10 +343,11 @@ impl<'a> FunctionChecker<'a> {
             )
             .or_else(|| {
                 self.environment
-                    .quarantined_explicit_import_constructor_for_descriptor(
+                    .quarantined_explicit_import_constructor_for_descriptor_in_owner(
                         name,
                         descriptor,
                         self.function.module_name.as_deref(),
+                        self.function.package_name.as_deref(),
                     )
             })
         {

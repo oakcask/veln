@@ -431,10 +431,13 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
         segments: &[String],
     ) -> Option<Type> {
-        let constructor = self.environment.quarantined_explicit_import_constructor(
-            segments,
-            self.function.module_name.as_deref(),
-        )?;
+        let constructor = self
+            .environment
+            .quarantined_explicit_import_constructor_in_owner(
+                segments,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            )?;
         if args.len() != constructor.variant.payload_fields.len() {
             self.diagnostics
                 .push(quarantined_constructor_arity_diagnostic(

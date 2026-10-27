@@ -210,7 +210,6 @@ fn indexed_dependency_source(
         uses: imports.local_modules,
         external_uses: imports.external_modules,
         import_aliases: imports.local_aliases,
-        external_import_aliases: imports.external_aliases,
         schema_alias_external_imports: Vec::new(),
         workspace_imports: Vec::new(),
         invalid_declaration_names,

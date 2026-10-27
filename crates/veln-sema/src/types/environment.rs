@@ -438,7 +438,7 @@ impl TypeEnvironment {
         current_package: Option<&str>,
     ) -> usize {
         self.local_function_value_recovery_count(name, current_module, current_package)
-            + self.local_constructor_recovery_count(name, current_module, None)
+            + self.local_constructor_recovery_count(name, current_module, current_package, None)
     }
 
     fn local_function_value_recovery_count(
@@ -475,7 +475,12 @@ impl TypeEnvironment {
         arg_count: usize,
     ) -> usize {
         self.local_function_call_recovery_count(name, current_module, current_package, arg_count)
-            + self.local_constructor_recovery_count(name, current_module, Some(arg_count))
+            + self.local_constructor_recovery_count(
+                name,
+                current_module,
+                current_package,
+                Some(arg_count),
+            )
     }
 
     fn local_function_call_recovery_count(
@@ -501,12 +506,14 @@ impl TypeEnvironment {
         &self,
         name: &str,
         current_module: Option<&str>,
+        current_package: Option<&str>,
         arg_count: Option<usize>,
     ) -> usize {
         self.constructor_recoveries
             .iter()
             .filter(|(key, _)| {
                 key.module_name.as_deref() == current_module
+                    && key.package_name.as_deref() == current_package
                     && key.name.as_str() == name
                     && arg_count.is_none_or(|count| key.field_count == count)
             })
@@ -984,6 +991,7 @@ impl FunctionRecoveryKey {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct ConstructorRecoveryKey {
+    package_name: Option<String>,
     module_name: Option<String>,
     name: String,
     field_count: usize,
@@ -991,7 +999,10 @@ pub(crate) struct ConstructorRecoveryKey {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct ImportConstructorRecoveryKey {
+    current_package: Option<String>,
     current_module: Option<String>,
+    target_package: Option<String>,
+    target_module: String,
     alias: String,
     constructor_segments: Vec<String>,
     field_count: usize,

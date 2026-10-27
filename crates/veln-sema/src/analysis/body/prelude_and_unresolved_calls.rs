@@ -182,9 +182,10 @@ impl<'a> FunctionChecker<'a> {
             let recovered = recovered
                 || self
                     .environment
-                    .quarantined_import_constructor_recovery_candidate_count(
+                    .quarantined_import_constructor_recovery_candidate_count_in_owner(
                         segments,
                         self.function.module_name.as_deref(),
+                        self.function.package_name.as_deref(),
                         Some(args.len()),
                     )
                     == 1;
@@ -319,9 +320,10 @@ impl<'a> FunctionChecker<'a> {
                 == 1
             || self
                 .environment
-                .quarantined_import_constructor_recovery_candidate_count(
+                .quarantined_import_constructor_recovery_candidate_count_in_owner(
                     &corrected,
                     self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
                     Some(arg_count),
                 )
                 == 1
@@ -357,9 +359,10 @@ impl<'a> FunctionChecker<'a> {
             ConstructorLookup::Found(_)
         ) || self
             .environment
-            .quarantined_import_constructor_recovery_candidate_count(
+            .quarantined_import_constructor_recovery_candidate_count_in_owner(
                 &corrected,
                 self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
                 Some(arg_count),
             )
             == 1
