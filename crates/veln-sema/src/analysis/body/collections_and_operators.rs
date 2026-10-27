@@ -310,8 +310,11 @@ impl<'a> FunctionChecker<'a> {
             .as_deref()
             .and_then(|return_type| parse_type_annotation(return_type).ok())
             .map(|ty| {
-                self.environment
-                    .canonicalize_type_annotation(ty, self.function.module_name.as_deref())
+                self.environment.canonicalize_type_annotation_in_owner(
+                    ty,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                )
             })
             .and_then(|return_type| {
                 adt::result_parts(&return_type).map(|(value, error)| (value.clone(), error.clone()))

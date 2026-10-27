@@ -247,3 +247,87 @@ fn each_private_handler_alias_infers_only_its_package_clause_dependencies() {
         assert!(!handler.effects.iter().any(|effect| effect == excluded));
     }
 }
+
+#[test]
+fn body_function_type_annotations_keep_the_importing_declaration_package() {
+    for reverse in [false, true] {
+        let text = "use std::signals as chosen\n\
+                    pub fn bind(callback: fn() -> Int effects [chosen::Ask]) -> Int effects [chosen::Ask]\n\
+                      let typed: fn() -> Int effects [chosen::Ask] = callback\n\
+                      typed()\nend\n";
+        let local = source_module("workspace/owner.veln", text, None, "std::owner");
+        let remote = source_module("standard/owner.veln", text, Some("std"), "owner");
+        let effect = "pub effect Ask\n  value() -> Int\nend\n";
+        let mut module = source_module("app.veln", "", None, "app");
+        for owner in if reverse {
+            [remote, local]
+        } else {
+            [local, remote]
+        } {
+            extend(&mut module, owner);
+        }
+        extend(
+            &mut module,
+            source_module("workspace/signals.veln", effect, None, "std::signals"),
+        );
+        extend(
+            &mut module,
+            source_module("standard/signals.veln", effect, Some("std"), "signals"),
+        );
+        let environment = TypeEnvironment::from_module(&module);
+        let annotation =
+            crate::type_syntax::parse_type_or_unknown(Some("fn() -> Int effects [chosen::Ask]"));
+        for (package, selected, excluded, source) in [
+            (
+                None,
+                "workspace::std::signals::Ask",
+                "std::signals::Ask",
+                "workspace/owner.veln",
+            ),
+            (
+                Some("std"),
+                "std::signals::Ask",
+                "workspace::std::signals::Ask",
+                "standard/owner.veln",
+            ),
+        ] {
+            let canonical = environment.canonicalize_type_annotation_in_owner(
+                annotation.clone(),
+                Some("std::owner"),
+                package,
+            );
+            assert_eq!(
+                canonical.function_effects(),
+                Some(&[selected.to_string()][..])
+            );
+            let signature = environment
+                .function_path_in_owner(&["bind".to_string()], Some("std::owner"), package)
+                .unwrap();
+            assert_eq!(signature.effects, vec![selected.to_string()]);
+            assert!(!signature.effects.iter().any(|label| label == excluded));
+            let lowered = lower_checked_surface_module(&module);
+            assert!(
+                lowered.diagnostics.is_empty(),
+                "reverse={reverse}, {:#?}",
+                lowered.diagnostics
+            );
+            let function = lowered
+                .core
+                .as_ref()
+                .unwrap()
+                .functions
+                .iter()
+                .find(|function| function.span.file.as_str() == source)
+                .unwrap();
+            let CoreStmtKind::Let {
+                ty: CoreType::Function { effects, .. },
+                ..
+            } = &function.body[0].kind
+            else {
+                panic!("expected function-typed binding")
+            };
+            assert_eq!(effects, &[selected.to_string()]);
+            assert!(!effects.iter().any(|label| label == excluded));
+        }
+    }
+}

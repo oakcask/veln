@@ -213,9 +213,10 @@ fn finish_module_value_facts(module: &SurfaceModule, environment: &mut TypeEnvir
         .module_values
         .iter()
         .map(|value| {
-            environment.canonicalize_type_annotation(
+            environment.canonicalize_type_annotation_in_owner(
                 value.ty.clone(),
                 value.declaration.module_name.as_deref(),
+                value.declaration.package_name.as_deref(),
             )
         })
         .collect::<Vec<_>>();

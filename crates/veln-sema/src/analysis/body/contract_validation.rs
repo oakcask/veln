@@ -442,8 +442,11 @@ impl<'a> FunctionChecker<'a> {
                     .filter(|_| !self.declaration_types_are_quarantined)
                     .and_then(|return_type| parse_type_annotation(return_type).ok())
                     .map(|ty| {
-                        self.environment
-                            .canonicalize_type_annotation(ty, self.function.module_name.as_deref())
+                        self.environment.canonicalize_type_annotation_in_owner(
+                            ty,
+                            self.function.module_name.as_deref(),
+                            self.function.package_name.as_deref(),
+                        )
                     })
                     .unwrap_or(Type::Unknown),
             ));
@@ -527,9 +530,11 @@ impl<'a> FunctionChecker<'a> {
                     return None;
                 }
                 Some(ExpectedType {
-                    ty: self
-                        .environment
-                        .canonicalize_type_annotation(ty, self.function.module_name.as_deref()),
+                    ty: self.environment.canonicalize_type_annotation_in_owner(
+                        ty,
+                        self.function.module_name.as_deref(),
+                        self.function.package_name.as_deref(),
+                    ),
                     source,
                     origin_node_id,
                     origin_span: Some(origin_span.clone()),
@@ -557,8 +562,11 @@ impl<'a> FunctionChecker<'a> {
             .as_deref()
             .and_then(|return_type| parse_type_annotation(return_type).ok())
             .map(|ty| {
-                self.environment
-                    .canonicalize_type_annotation(ty, self.function.module_name.as_deref())
+                self.environment.canonicalize_type_annotation_in_owner(
+                    ty,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                )
             })
             .map(|ty| ExpectedType {
                 ty,

@@ -643,6 +643,14 @@ fn visit_function_body_expressions(
     mut visit: impl FnMut(&Expr, &ExprEffectContext<'_>, &ActiveHandledEffects),
 ) {
     let mut bindings = function_parameter_bindings(function);
+    for binding in bindings.iter_mut() {
+        canonicalize_binding_effects(
+            &mut binding.ty,
+            function.module_name.as_deref(),
+            function.package_name.as_deref(),
+            context,
+        );
+    }
     let mut handled_effects = ActiveHandledEffects::default();
     visit_effect_body_expressions(
         &function.body,
@@ -685,7 +693,8 @@ fn visit_effect_body_expressions(
                     track_handled_effects,
                     visit,
                 );
-                let ty = parse_type_or_unknown(annotation.as_deref());
+                let mut ty = parse_type_or_unknown(annotation.as_deref());
+                canonicalize_binding_effects(&mut ty, current_module, current_package, context);
                 collect_pattern_bindings(pattern, &ty, bindings);
             }
             BodyLineKind::Expr { expr } => {
@@ -956,4 +965,52 @@ pub(crate) fn imported_effect_is_visible(
                         .get(current_module)
                         .is_some_and(|access| access.target_module == target_module)
             }))
+}
+
+fn canonicalize_binding_effects(
+    ty: &mut Type,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    context: &FunctionEffectContext<'_>,
+) {
+    match ty {
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
+            for arg in args {
+                canonicalize_binding_effects(arg, current_module, current_package, context);
+            }
+        }
+        Type::Record(fields) => {
+            for (_, field) in fields {
+                canonicalize_binding_effects(field, current_module, current_package, context);
+            }
+        }
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            effects,
+        } => {
+            for param in params {
+                canonicalize_binding_effects(param, current_module, current_package, context);
+            }
+            if let Some(variadic) = variadic {
+                canonicalize_binding_effects(variadic, current_module, current_package, context);
+            }
+            canonicalize_binding_effects(return_type, current_module, current_package, context);
+            for effect in effects {
+                let segments = effect.split("::").map(str::to_string).collect::<Vec<_>>();
+                if let Some(canonical) = canonical_user_effect_label(
+                    &segments,
+                    context.uses,
+                    current_module,
+                    current_package,
+                    context.user_effects,
+                    context.companion_effect_access_targets,
+                ) {
+                    *effect = canonical;
+                }
+            }
+        }
+        Type::Unknown => {}
+    }
 }

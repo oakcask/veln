@@ -63,16 +63,20 @@ struct CoreLowerer<'a> {
 impl CoreLowerer<'_> {
     fn core_type_annotation(&self, annotation: &str) -> CoreType {
         let ty = parse_type_or_unknown(Some(annotation));
-        let ty = self
-            .environment
-            .canonicalize_type_annotation(ty, self.function.module_name.as_deref());
+        let ty = self.environment.canonicalize_type_annotation_in_owner(
+            ty,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        );
         core_type(&ty)
     }
 
     fn parsed_core_type(&self, ty: Type) -> CoreType {
-        let ty = self
-            .environment
-            .canonicalize_type_annotation(ty, self.function.module_name.as_deref());
+        let ty = self.environment.canonicalize_type_annotation_in_owner(
+            ty,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        );
         core_type(&ty)
     }
 }
@@ -205,9 +209,10 @@ fn lower_effect_operation(
     environment: &TypeEnvironment,
 ) -> Option<CoreEffectOperationDecl> {
     let lower_type = |annotation| {
-        core_type(&environment.canonicalize_type_annotation(
+        core_type(&environment.canonicalize_type_annotation_in_owner(
             parse_type_or_unknown(annotation),
             effect.module_name.as_deref(),
+            effect.package_name.as_deref(),
         ))
     };
     Some(CoreEffectOperationDecl {

@@ -1,4 +1,3 @@
-use super::signature_collection::canonicalize_type_effects;
 use super::*;
 use veln_ast::NameOccurrence;
 
@@ -667,7 +666,9 @@ impl TypeEnvironment {
         allow_companion_private_access: bool,
     ) -> Option<&FunctionSignature> {
         match segments {
-            [name] => self.function(name),
+            [name] => self
+                .unqualified_function_in_owner(name, current_module, current_package)
+                .found(),
             [_, .., name] => {
                 let use_decl = imported_use_for_path_in_owner(
                     &self.uses,

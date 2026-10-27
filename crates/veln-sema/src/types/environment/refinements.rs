@@ -7,11 +7,21 @@ impl TypeEnvironment {
         ty: Type,
         current_module: Option<&str>,
     ) -> Type {
-        canonicalize_type_effects(
+        self.canonicalize_type_annotation_in_owner(ty, current_module, None)
+    }
+
+    pub(crate) fn canonicalize_type_annotation_in_owner(
+        &self,
+        ty: Type,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Type {
+        crate::types::signature_collection::canonicalize_type_effects_in_owner(
             ty,
             &self.uses,
             &self.quarantined_uses,
             current_module,
+            current_package,
             &self.effects,
             &self.adts,
             &self.companion_effect_access_targets,
