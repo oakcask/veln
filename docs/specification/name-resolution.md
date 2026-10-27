@@ -94,6 +94,12 @@ Import selection chooses the module before member lookup. A selected module
 that lacks the requested member does not redirect lookup to a different module
 whose alias or implicit qualifier has the same spelling.
 
+For a multi-segment imported module, a fully written constructor expression or
+constructor pattern selects the complete module path before its type and
+constructor segments. A local qualifier that matches the first module segment
+does not redirect that lookup, and import declaration order does not change the
+selected constructor identity.
+
 An explicit alias named `prelude` reports `name.reserved`. An uppercase or
 underscore-led alias reports `name.invalid_case` at the alias token as a
 module-class declaration. Reserved explicit aliases, invalid target casing,
@@ -826,7 +832,7 @@ not become fallback targets.
   | Behavior | Evidence |
   | --- | --- |
   | Syntax, parser recovery, AST preservation, and formatting | `docs/specification/source-surface-executable.pl`, `docs/specification/source-surface-fixtures/`, `crates/veln-syntax/src/tests/import_aliases.rs`, and `crates/veln-ast/src/tests/wire_round_trip.rs` |
-  | Qualifier, exact-path, implicit-leaf, and bare selection | `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs`, `crates/veln-sema/src/adt/tests/variant_lookup.rs`, `crates/veln-sema/src/name_recovery/tests.rs`, `examples/specification/check/explicit-import-alias-canonical-standard/`, and [`explicit-import-alias-local-std-origin`](../../examples/specification/check/explicit-import-alias-local-std-origin/) |
+  | Qualifier, exact-path, implicit-leaf, and bare selection | `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs`, `crates/veln-sema/src/adt/tests/variant_lookup.rs`, `crates/veln-sema/src/name_recovery/tests.rs`, `examples/specification/check/explicit-import-alias-canonical-standard/`, [`explicit-import-alias-exact-path-constructor-pattern`](../../examples/specification/check/explicit-import-alias-exact-path-constructor-pattern/), and [`explicit-import-alias-local-std-origin`](../../examples/specification/check/explicit-import-alias-local-std-origin/) |
   | Collision, origin ambiguity, corrected-target overlap, and duplicate-target quarantine | `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs`, `examples/specification/check/explicit-import-alias-distinct-origins/`, `examples/specification/check/explicit-import-alias-duplicate-human/`, and `examples/specification/check/explicit-import-alias-duplicate-json/` |
   | Reserved-name and casing quarantine and recovery | `crates/veln-sema/src/tests/identifier_casing/explicit_import_aliases.rs`, `crates/veln-sema/src/tests/identifier_casing/explicit_import_targets.rs`, `crates/veln-sema/src/tests/calls_pipeline_and_float_types/explicit_import_aliases.rs`, `crates/veln-analysis/src/surface/tests/explicit_import_reachability.rs`, `examples/specification/check/explicit-import-alias-casing-human/`, `examples/specification/check/explicit-import-alias-casing-json/`, `examples/specification/check/explicit-import-alias-target-casing-human/`, `examples/specification/check/explicit-import-alias-target-casing-json/`, `examples/specification/check/explicit-import-alias-independent-carrier-failures-human/`, and `examples/specification/check/explicit-import-alias-independent-carrier-failures-json/` |
   | Cross-carrier semantic identity | `examples/specification/check/explicit-import-alias-carriers/` and the explicit-import-alias semantic tests under `crates/veln-sema/src/tests/` |
