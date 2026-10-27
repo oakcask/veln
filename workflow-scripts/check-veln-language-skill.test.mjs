@@ -136,6 +136,17 @@ test("canonical veln-language skill replays every acceptance scenario", () => {
   assert.equal(validateScenarioDocument(fixture()), 17);
 });
 
+test("stale fixture records distinct listed and replacement snapshots", () => {
+  const events = staleEvents(fixture());
+  const listedDigest = events.transition.before.language_snapshot_digest;
+  const replacementDigest = events.transition.after.language_snapshot_digest;
+
+  assert.notEqual(listedDigest, replacementDigest);
+  for (const topic of structured(events.listResult).topics) {
+    assert.match(topic.uri, new RegExp(`/snapshot/${listedDigest}/`, "u"));
+  }
+});
+
 test("the reviewed semantic topic selections identify published topics", () => {
   const published = loadPublishedLanguageReference(repositoryRoot);
   const ids = new Set(published.catalog.topics.map((topic) => topic.id));
@@ -1054,13 +1065,14 @@ test("rejects a stale-snapshot row that uses the current published digest", () =
   const document = fixture();
   const events = staleEvents(document);
   const staleUri = events.readCall.arguments.uri;
+  const currentDigest = events.transition.after.language_snapshot_digest;
   const currentUri = staleUri.replace(
     /snapshot\/[0-9a-f]{64}\//u,
-    "snapshot/3d7a8e972632d52ad48123bde71cb77f5eae39c097242ad2ef3e0716362aafb7/",
+    `snapshot/${currentDigest}/`,
   );
   for (const topic of structured(events.listResult).topics) {
     topic.uri = topic.uri.replace(/snapshot\/[0-9a-f]{64}\//u,
-      "snapshot/3d7a8e972632d52ad48123bde71cb77f5eae39c097242ad2ef3e0716362aafb7/");
+      `snapshot/${currentDigest}/`);
   }
   syncEnvelope(events.listResult);
   events.transition.before.language_snapshot_digest = events.transition.after.language_snapshot_digest;
@@ -1099,10 +1111,12 @@ test("rejects a fabricated unselected stale listed topic", () => {
 
 test("rejects stale topic listings from mixed snapshots", () => {
   const document = fixture();
-  const event = staleEvents(document).listResult;
+  const events = staleEvents(document);
+  const event = events.listResult;
+  const replacementDigest = events.transition.after.language_snapshot_digest;
   structured(event).topics[1].uri = structured(event).topics[1].uri.replace(
     /snapshot\/[0-9a-f]{64}\//u,
-    "snapshot/38a9e07320bd7d4eba145ae403424fa9a52f676450099936d50524838a2390bd/",
+    `snapshot/${replacementDigest}/`,
   );
   syncEnvelope(event);
   assert.throws(() => validateScenarioDocument(document, options), /topics must be in URI order|must belong to one snapshot/);
