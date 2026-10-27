@@ -40,6 +40,8 @@ struct WorkspaceIndexInput {
     files: Vec<IndexedFile>,
     declarations: FileDeclarations,
     module: veln_ast::SurfaceModule,
+    import_aliases: Vec<ImportAliasSymbol>,
+    import_namespace_bindings: Vec<ImportNamespaceBinding>,
 }
 
 struct SchemaNavigationIndex {
@@ -88,6 +90,8 @@ impl SymbolIndex {
             mut files,
             mut declarations,
             module: workspace_module,
+            import_aliases,
+            import_namespace_bindings,
         } = index_workspace_input(
             sources,
             direct_dependencies,
@@ -126,6 +130,8 @@ impl SymbolIndex {
         files.extend(standard_library.files.clone());
         let file_indices_by_identity = file_indices_by_identity(&files);
         Self {
+            import_aliases,
+            import_namespace_bindings,
             schemas: declarations.schemas,
             schema_aliases,
             package_schemas,
@@ -262,6 +268,8 @@ fn index_workspace_input(
         append_parsed_surface_module(&mut module, &file, &parsed);
         files.push(file);
     }
+    let (import_aliases, import_namespace_bindings) =
+        index_explicit_import_aliases(&mut files, &module);
     declarations.extend(direct_dependencies.declarations.clone());
     declarations.extend(standard_library.declarations.clone());
     if classify_workspace_paths && workspace_needs_path_classification(&files, &module) {
@@ -274,7 +282,69 @@ fn index_workspace_input(
         files,
         declarations,
         module,
+        import_aliases,
+        import_namespace_bindings,
     }
+}
+
+fn index_explicit_import_aliases(
+    files: &mut [IndexedFile],
+    module: &veln_ast::SurfaceModule,
+) -> (Vec<ImportAliasSymbol>, Vec<ImportNamespaceBinding>) {
+    let aliases = veln_sema::resolved_explicit_import_aliases(module)
+        .into_iter()
+        .map(|alias| ImportAliasSymbol {
+            module: alias.declaring_module,
+            name: alias.name,
+            declaration: workspace_location(alias.span),
+            target_module: alias.target_module,
+            target_package: alias.target_package,
+        })
+        .collect::<Vec<_>>();
+    for alias in &aliases {
+        for file in files.iter_mut().filter(|file| file.module == alias.module) {
+            match &alias.target_package {
+                Some(package) => {
+                    file.external_uses
+                        .insert((alias.target_module.clone(), package.clone()));
+                    file.external_import_aliases.insert(
+                        alias.name.clone(),
+                        (alias.target_module.clone(), package.clone()),
+                    );
+                }
+                None => {
+                    file.uses.insert(alias.target_module.clone());
+                    file.import_aliases
+                        .insert(alias.name.clone(), alias.target_module.clone());
+                }
+            }
+        }
+    }
+    let mut bindings = Vec::new();
+    for use_decl in &module.uses {
+        let Some(owner) = use_decl.module_name.clone() else {
+            continue;
+        };
+        let declaration_span = use_decl
+            .alias_span
+            .clone()
+            .or_else(|| use_decl.name_spans.last().cloned())
+            .unwrap_or_else(|| use_decl.span.clone());
+        let selected_alias_declaration = use_decl.alias_span.clone();
+        for qualifier in use_decl
+            .exact_paths()
+            .into_iter()
+            .chain(std::iter::once(use_decl.alias.clone()))
+        {
+            bindings.push(ImportNamespaceBinding {
+                module: owner.clone(),
+                qualifier,
+                declaration: workspace_location(declaration_span.clone()),
+                selected_alias_declaration: selected_alias_declaration.clone(),
+            });
+        }
+    }
+    (aliases, bindings)
 }
 
 fn file_indices_by_identity(

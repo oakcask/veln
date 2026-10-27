@@ -1,0 +1,10 @@
+use math as calc
+use extra as helper
+
+fn first() -> Int
+  calc::double(1)
+end
+
+fn second() -> Int
+  calc::double(2)
+end

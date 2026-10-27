@@ -1,0 +1,62 @@
+command = ["mcp"]
+stdin_file = "requests.jsonl"
+source_errors = "expected"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":1,"column":13},"end":{"line":1,"column":17}}
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references"
+length = 3
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/edits"
+length = 3
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":1,"column":8},"end":{"line":1,"column":14}}
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references"
+length = 3
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/edits"
+length = 3
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/code"
+equals = "rename.reserved"
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/edits"
+missing = true
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/code"
+equals = "rename.conflict"
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/edits"
+missing = true
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/definition"
+equals = null

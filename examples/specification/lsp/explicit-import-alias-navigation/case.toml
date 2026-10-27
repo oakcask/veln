@@ -1,0 +1,67 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+source_errors = "expected"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 2
+path = "/result/range"
+equals = {"start":{"line":0,"character":12},"end":{"line":0,"character":16}}
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 4
+path = "/result/changes/$workspace_file_uri:main.veln"
+length = 3
+
+[[lsp_assert]]
+id = 5
+path = "/result/range"
+equals = {"start":{"line":0,"character":7},"end":{"line":0,"character":13}}
+
+[[lsp_assert]]
+id = 6
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 7
+path = "/result/changes/$workspace_file_uri:main.veln"
+length = 2
+
+[[lsp_assert]]
+id = 7
+path = "/result/changes/$workspace_file_uri:math.veln"
+length = 1
+
+[[lsp_assert]]
+id = 8
+path = "/error/data/code"
+equals = "rename.reserved"
+
+[[lsp_assert]]
+id = 8
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 9
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 9
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 10
+path = "/result"
+equals = null

@@ -1,0 +1,6 @@
+mod invalid
+use math as Calc
+
+fn bad() -> Int
+  Calc::double(1)
+end

@@ -310,6 +310,40 @@ Definition and references use the shared selected symbol and reference set.
 Prepare-rename and rename use the same selected-symbol model only for
 rename-supported symbol classes.
 
+### Explicit import alias navigation
+
+A valid explicit import alias is a module-local import-namespace identity.
+It is distinct from the imported module and from every declaration reached
+through that module. Selection at the alias declaration or at the first
+qualifier segment of an alias-qualified path selects the alias. Definition
+returns the alias token in the `use` declaration. References contain only
+qualifier occurrences in sources with the same module identity. Rename edits
+the declaration and those qualifiers. It does not edit the written import
+target, qualified member leaves, or a same-spelled alias owned by another
+module.
+
+Selection at an alias-qualified member leaf keeps the member's existing
+function, type, or constructor identity. Member references and rename include
+alias-qualified member leaves, but exclude the alias declaration, qualifier
+tokens, and written import target. This behavior does not add navigation for a
+new member declaration class.
+
+An invalid-cased, reserved, colliding, duplicate-target, or syntax-recovered
+alias creates no normal alias navigation identity. An alias replacement must
+start with an ASCII lowercase letter. The name `prelude` returns
+`rename.reserved`, and a collision in the owning module's import namespace
+returns `rename.conflict`. Both failures produce no edits.
+
+Sources with one module identity may be supplied in any order. Alias
+selection, definition, reference sets, and rename edit sets stay unchanged.
+Ordered locations use stable source-path and token order. LSP definition,
+references, prepare-rename, and rename project the shared result with their
+ordinary UTF-16 coordinate conversion. The checked
+[`explicit-import-alias-navigation`](../../examples/specification/lsp/explicit-import-alias-navigation/)
+case covers alias and target-member projection, edit-free rejection, and
+invalid-alias exclusion; shared-language-service tests cover combined-source
+permutations.
+
 ### Shared variant-refinement navigation
 
 For a valid singleton or union variant-refinement annotation, the written base

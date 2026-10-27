@@ -9,7 +9,8 @@ use crate::analysis::boundary::schema_composition::{
 };
 use crate::analysis::boundary::schema_repeat_resolution::companion_private_schema_access_allowed;
 use crate::name_recovery::{
-    public_alias_has_invalid_target_leaf, schema_composition_imported_use_for_path,
+    normal_use_decls, public_alias_has_invalid_target_leaf,
+    schema_composition_imported_use_for_path,
 };
 use crate::schema::primitives::{
     SchemaRepeatPayload, repeat_schema_primitive, schema_length_expression,
@@ -80,6 +81,33 @@ pub struct ResolvedSchemaAlias {
     pub direct_target_module: Option<String>,
     pub direct_target_name: String,
     pub direct_target_is_alias: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct ResolvedExplicitImportAlias {
+    pub declaring_module: String,
+    pub name: String,
+    pub span: SourceSpan,
+    pub target_module: String,
+    pub target_package: Option<String>,
+}
+
+pub fn resolved_explicit_import_aliases(
+    module: &SurfaceModule,
+) -> Vec<ResolvedExplicitImportAlias> {
+    normal_use_decls(module)
+        .into_iter()
+        .filter(|use_decl| use_decl.has_explicit_alias() && !use_decl.alias.is_empty())
+        .filter_map(|use_decl| {
+            Some(ResolvedExplicitImportAlias {
+                declaring_module: use_decl.module_name?,
+                name: use_decl.alias,
+                span: use_decl.alias_span?,
+                target_module: use_decl.name,
+                target_package: use_decl.package,
+            })
+        })
+        .collect()
 }
 
 pub fn schema_repeat_count_expression_is_valid(text: &str) -> bool {

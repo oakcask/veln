@@ -181,37 +181,39 @@ impl UseModuleIndex {
         if let Some(package) = import.package {
             self.external_modules
                 .insert((import.module.clone(), package.clone()));
-            self.external_aliases
-                .insert(import.alias, (import.module, package));
+            if let Some(alias) = import.implicit_alias {
+                self.external_aliases
+                    .insert(alias, (import.module, package));
+            }
         } else {
             self.local_modules.insert(import.module.clone());
-            self.local_aliases.insert(import.alias, import.module);
+            if let Some(alias) = import.implicit_alias {
+                self.local_aliases.insert(alias, import.module);
+            }
         }
     }
 }
 
 struct UseModule {
     module: String,
-    alias: String,
+    implicit_alias: Option<String>,
     package: Option<String>,
 }
 
 fn parse_use_module(line: &str) -> Option<UseModule> {
     let rest = line.trim_start().strip_prefix("use ")?;
     let module = leading_module_path(rest)?;
-    let alias = module.rsplit("::").next().unwrap_or(module).to_string();
-    let package = rest[module.len()..]
-        .trim()
-        .strip_prefix("from ")
-        .and_then(|value| value.strip_prefix('"'))
-        .and_then(|value| {
-            value
-                .split_once('"')
-                .map(|(package, _)| package.to_string())
-        });
+    let after_module = &rest[module.len()..];
+    let explicit_alias = after_module.trim_start().starts_with("as ");
+    let implicit_alias = (!explicit_alias)
+        .then(|| module.rsplit("::").next().unwrap_or(module).to_string());
+    let package = after_module
+        .split_once("from \"")
+        .and_then(|(_, value)| value.split_once('"'))
+        .map(|(package, _)| package.to_string());
     Some(UseModule {
         module: module.to_string(),
-        alias,
+        implicit_alias,
         package,
     })
 }
@@ -298,13 +300,20 @@ fn schema_alias_external_imports(
         .iter()
         .filter_map(|use_decl| {
             let package = use_decl.package.as_ref()?;
-            let alias = use_decl
-                .name
-                .rsplit("::")
-                .next()
-                .unwrap_or(use_decl.name.as_str())
-                .to_string();
+            let explicit_alias = use_decl.alias.as_ref();
+            let alias = explicit_alias
+                .map(|alias| alias.name.clone())
+                .unwrap_or_else(|| {
+                    use_decl
+                        .name
+                        .rsplit("::")
+                        .next()
+                        .unwrap_or(use_decl.name.as_str())
+                        .to_string()
+                });
             let syntax_valid = !module_identity_has_invalid_casing(&use_decl.name)
+                && !module_identity_has_invalid_casing(&alias)
+                && (explicit_alias.is_none() || alias != "prelude")
                 && !diagnostics.overlaps(&use_decl.span);
             Some(ExternalImport {
                 module: use_decl.name.clone(),
@@ -326,13 +335,20 @@ fn workspace_imports(
         .iter()
         .filter(|use_decl| use_decl.package.is_none())
         .map(|use_decl| {
-            let alias = use_decl
-                .name
-                .rsplit("::")
-                .next()
-                .unwrap_or(use_decl.name.as_str())
-                .to_string();
+            let explicit_alias = use_decl.alias.as_ref();
+            let alias = explicit_alias
+                .map(|alias| alias.name.clone())
+                .unwrap_or_else(|| {
+                    use_decl
+                        .name
+                        .rsplit("::")
+                        .next()
+                        .unwrap_or(use_decl.name.as_str())
+                        .to_string()
+                });
             let syntax_valid = !module_identity_has_invalid_casing(&use_decl.name)
+                && !module_identity_has_invalid_casing(&alias)
+                && (explicit_alias.is_none() || alias != "prelude")
                 && !diagnostics.overlaps(&use_decl.span);
             WorkspaceImport {
                 module: use_decl.name.clone(),

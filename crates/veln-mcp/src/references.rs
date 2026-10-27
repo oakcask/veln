@@ -191,7 +191,8 @@ fn supported_reference_symbol(result: &NavigationResult) -> bool {
 fn supports_workspace_references(result: &NavigationResult) -> bool {
     matches!(
         result.selected_symbol.kind,
-        SymbolKind::Schema
+        SymbolKind::ImportAlias
+            | SymbolKind::Schema
             | SymbolKind::Effect
             | SymbolKind::EffectOperation
             | SymbolKind::Handler

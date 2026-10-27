@@ -5,6 +5,32 @@ enum SchemaSymbolReferenceKind {
 }
 
 impl SymbolIndex {
+    fn import_alias_references(&self, symbol: &ImportAliasSymbol) -> Vec<SourceSpan> {
+        let mut references = self
+            .files
+            .iter()
+            .filter(|file| workspace_navigation_file(file) && file.module == symbol.module)
+            .flat_map(|file| {
+                file.tokens.iter().enumerate().filter_map(|(index, token)| {
+                    if token.text != symbol.name
+                        || previous_non_layout_token(&file.tokens, index)
+                            .is_some_and(|token| token.kind == TokenKind::DoubleColon)
+                        || next_non_layout_token(&file.tokens, index)
+                            .is_none_or(|token| token.kind != TokenKind::DoubleColon)
+                        || line_tokens_before(&file.tokens, index)
+                            .iter()
+                            .any(|token| token.kind == TokenKind::Use)
+                    {
+                        return None;
+                    }
+                    Some(file.source.span(token.range))
+                })
+            })
+            .collect::<Vec<_>>();
+        sort_locations(&mut references);
+        references
+    }
+
     fn effect_operation_references(&self, symbol: &EffectOperationSymbol) -> Vec<SourceSpan> {
         let eligible_handlers = self.effect_operation_reference_handlers();
         self.files

@@ -279,6 +279,15 @@ impl SymbolIndex {
         prepared_scopes: Option<&[FunctionScope]>,
     ) -> Option<SelectedNavigationSymbol> {
         let token = &tokens[token_index];
+        if let Some(alias) = self.import_alias_for_selection(
+            file,
+            tokens,
+            token_index,
+            name,
+            selection,
+        ) {
+            return Some(SelectedNavigationSymbol::bare(Symbol::ImportAlias(alias)));
+        }
         if file
             .variant_refinement_final_ranges
             .contains(&(token.range.start, token.range.end))
@@ -314,6 +323,36 @@ impl SymbolIndex {
         } else {
             self.non_call_target_selection(file, tokens, token_index, name, selection)
         }
+    }
+
+    fn import_alias_for_selection(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+        selection: &SourceSpan,
+    ) -> Option<ImportAliasSymbol> {
+        let declaration = self.import_aliases.iter().find(|alias| {
+            alias.name == name && same_span(&alias.declaration.span, selection)
+        });
+        if let Some(alias) = declaration {
+            return Some(alias.clone());
+        }
+        if line_tokens_before(tokens, token_index)
+            .iter()
+            .any(|token| token.kind == TokenKind::Use)
+            || previous_non_layout_token(tokens, token_index)
+                .is_some_and(|token| token.kind == TokenKind::DoubleColon)
+            || next_non_layout_token(tokens, token_index)
+                .is_none_or(|token| token.kind != TokenKind::DoubleColon)
+        {
+            return None;
+        }
+        self.import_aliases
+            .iter()
+            .find(|alias| alias.module == file.module && alias.name == name)
+            .cloned()
     }
 
     fn qualified_segment_selection(

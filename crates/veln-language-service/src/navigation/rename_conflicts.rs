@@ -9,11 +9,40 @@ impl SymbolIndex {
         }
         match result.selected_symbol.kind.rename_name_class() {
             RenameNameClass::CasingNeutral => None,
+            RenameNameClass::ImportAlias => {
+                self.import_alias_rename_conflict(result, requested_name)
+            }
             RenameNameClass::Type => self.type_rename_conflict(result, requested_name),
             RenameNameClass::Constructor => self.constructor_rename_conflict(result, requested_name),
             RenameNameClass::Function => self.function_rename_conflict(result, requested_name),
             RenameNameClass::ValueBinding => self.local_rename_conflict(result, requested_name),
         }
+    }
+
+    fn import_alias_rename_conflict(
+        &self,
+        result: &NavigationResult,
+        requested_name: &str,
+    ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        let selected = self.import_aliases.iter().find(|alias| {
+            alias.declaration == result.selected_symbol.declaration
+        })?;
+        self.import_namespace_bindings
+            .iter()
+            .find(|binding| {
+                binding.module == selected.module
+                    && binding.qualifier == requested_name
+                    && binding.selected_alias_declaration.as_ref()
+                        != Some(&selected.declaration.span)
+            })
+            .map(|binding| {
+                (
+                    binding.declaration.clone(),
+                    RenameAffectedScope::Module {
+                        name: selected.module.clone(),
+                    },
+                )
+            })
     }
 
     fn type_rename_conflict(
