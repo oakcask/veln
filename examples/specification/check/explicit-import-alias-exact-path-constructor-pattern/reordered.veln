@@ -1,0 +1,12 @@
+use c as a
+use a::b as wire
+
+fn value() -> a::b::State
+	a::b::State::Ready(1)
+end
+
+fn main() -> Int
+	match value()
+		a::b::State::Ready(value) => value
+	end
+end

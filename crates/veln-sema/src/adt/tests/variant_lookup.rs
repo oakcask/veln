@@ -130,6 +130,62 @@ fn exact_import_module_is_selected_before_constructor_members() {
 }
 
 #[test]
+fn multi_segment_exact_import_is_selected_before_constructor_qualifier() {
+    let base = AdtRegistry::from_parts(
+        vec![lookup_descriptor("a::b", 0), lookup_descriptor("c", 0)],
+        std::collections::BTreeMap::new(),
+    );
+
+    for source in [
+        "mod consumer\nuse a::b as wire\nuse c as a\n",
+        "mod consumer\nuse c as a\nuse a::b as wire\n",
+        "mod consumer\nuse a::b as wire\nuse c as other\n",
+    ] {
+        let parsed = veln_syntax::parse(&veln_source::SourceFile::new("consumer.veln", source));
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = veln_ast::lower_surface_ast(&parsed.tree);
+        let uses = crate::name_recovery::normal_use_decls(&module);
+        let indexed = AdtRegistry::from_module_with_base(&module, &base);
+        let constructor_path = path(&["a", "b", "State", "Hidden"]);
+
+        for registry in [&indexed, &base] {
+            let constructor = registry.constructor(&constructor_path, Some("consumer"), &uses);
+            assert!(
+                matches!(
+                    constructor,
+                    ConstructorLookup::Found(constructor)
+                        if constructor.descriptor.module_name.as_deref() == Some("a::b")
+                ),
+                "source={source:?}, constructor={constructor:?}"
+            );
+            let candidates =
+                registry.constructor_candidates(&constructor_path, Some("consumer"), &uses);
+            assert_eq!(candidates.len(), 1, "source={source:?}");
+            assert_eq!(
+                candidates[0].descriptor.module_name.as_deref(),
+                Some("a::b"),
+                "source={source:?}"
+            );
+
+            let descriptor = registry
+                .unique_descriptor_for_type_path("a::b::State", 0, Some("consumer"), &uses)
+                .expect("the exact multi-segment import selects its source type");
+            assert!(
+                registry
+                    .constructor_for_descriptor(
+                        &constructor_path,
+                        descriptor,
+                        Some("consumer"),
+                        &uses,
+                    )
+                    .is_some(),
+                "source={source:?}"
+            );
+        }
+    }
+}
+
+#[test]
 fn same_written_path_from_distinct_origins_is_ambiguous_before_alias_lookup() {
     for source in [
         "mod consumer\nuse foo as local\nuse foo as external from \"pkg\"\n",

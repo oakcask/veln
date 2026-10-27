@@ -32,18 +32,21 @@ impl AdtRegistry {
                 uses,
             );
         }
-        let Some(first) = segments.first() else {
+        let Some(import_path) = constructor_import_path(segments) else {
             return false;
         };
-        if let Some(target) = self.indexed_import_module(first, current_module, uses) {
+        if let Some(target) = self.indexed_import_module(&import_path, current_module, uses) {
             return target.is_some_and(|(package_name, module_name)| {
                 descriptor.package_name.as_deref() == package_name
                     && descriptor.module_name.as_deref() == Some(module_name)
             });
         }
         if self.source_import_count != uses.len()
-            && let Some(use_decl) =
-                crate::name_recovery::select_use_decl_for_path(uses.iter(), first, current_module)
+            && let Some(use_decl) = crate::name_recovery::select_use_decl_for_path(
+                uses.iter(),
+                &import_path,
+                current_module,
+            )
         {
             let target = use_decl.resolved_target();
             return descriptor.package_name == target.package
@@ -152,6 +155,14 @@ impl AdtRegistry {
                 && use_decl.alias == *first
                 && use_decl.resolved_target().module == target_module
         })
+    }
+}
+
+fn constructor_import_path(segments: &[String]) -> Option<String> {
+    match segments {
+        [_, .., _, _] => Some(segments[..segments.len() - 2].join("::")),
+        [first, ..] => Some(first.clone()),
+        [] => None,
     }
 }
 
