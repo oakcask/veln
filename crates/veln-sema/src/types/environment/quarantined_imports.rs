@@ -117,17 +117,16 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         arg_count: Option<usize>,
     ) -> usize {
-        let [alias, constructor_segments @ ..] = segments else {
+        let Some((use_decl, constructor_segments)) =
+            self.quarantined_import_for_constructor_segments(segments, current_module)
+        else {
             return 0;
         };
-        if constructor_segments.is_empty() {
-            return 0;
-        }
         self.import_constructor_recoveries
             .iter()
             .filter(|(key, _)| {
                 key.current_module.as_deref() == current_module
-                    && key.alias == *alias
+                    && key.alias == use_decl.alias
                     && key.constructor_segments == constructor_segments
                     && arg_count.is_none_or(|count| key.field_count == count)
             })
@@ -140,13 +139,9 @@ impl TypeEnvironment {
         segments: &[String],
         current_module: Option<&str>,
     ) -> Option<AdtConstructor<'_>> {
-        let alias = segments.first()?;
-        let mut uses = self.quarantined_uses.iter().filter(|use_decl| {
-            use_decl.module_name.as_deref() == current_module && use_decl.alias == *alias
-        });
-        let use_decl = uses.next()?;
-        if uses.next().is_some()
-            || !use_decl.has_explicit_alias()
+        let (use_decl, constructor_segments) =
+            self.quarantined_import_for_constructor_segments(segments, current_module)?;
+        if !use_decl.has_explicit_alias()
             || self.quarantined_import_constructor_recovery_candidate_count(
                 segments,
                 current_module,
@@ -157,7 +152,7 @@ impl TypeEnvironment {
         }
         match self
             .adts
-            .public_constructor_in_module(&use_decl.name, &segments[1..])
+            .public_constructor_in_module(&use_decl.name, constructor_segments)
         {
             ConstructorLookup::Found(constructor) => Some(constructor),
             ConstructorLookup::Ambiguous | ConstructorLookup::Missing => None,
@@ -224,6 +219,34 @@ impl TypeEnvironment {
             .map(|use_decl| (use_decl, name.as_str())),
             _ => None,
         }
+    }
+
+    fn quarantined_import_for_constructor_segments<'a>(
+        &'a self,
+        segments: &'a [String],
+        current_module: Option<&str>,
+    ) -> Option<(&'a UseDecl, &'a [String])> {
+        if segments.len() < 2 {
+            return None;
+        }
+        // Prefer the longest eligible module prefix. Once selected, a missing
+        // member must not redirect lookup to a shorter qualifier.
+        for constructor_len in [1, 2] {
+            let Some(module_len) = segments.len().checked_sub(constructor_len) else {
+                continue;
+            };
+            if module_len == 0 {
+                continue;
+            }
+            if let Some(use_decl) = imported_use_for_path(
+                &self.quarantined_uses,
+                &segments[..module_len],
+                current_module,
+            ) {
+                return Some((use_decl, &segments[module_len..]));
+            }
+        }
+        None
     }
 }
 

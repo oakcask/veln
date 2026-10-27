@@ -295,6 +295,115 @@ fn invalid_explicit_alias_recovery_suppresses_only_proven_carrier_cascades() {
 }
 
 #[test]
+fn invalid_explicit_alias_recovers_constructors_through_alias_and_full_path() {
+    for qualifier in ["HTTP", "transport::http"] {
+        let module = merged_modules_with_identities(vec![
+            (
+                "app",
+                SourceFile::new(
+                    "app.veln",
+                    format!(
+                        concat!(
+                            "use transport::http as HTTP\n",
+                            "fn built() -> {0}::Payload\n",
+                            "  {0}::Payload::Data(1)\n",
+                            "end\n",
+                            "fn wrong_arity() -> {0}::Payload\n",
+                            "  {0}::Payload::Data(1, 2)\n",
+                            "end\n",
+                            "fn incomplete(value: {0}::Payload) -> Int\n",
+                            "  match value\n",
+                            "    {0}::Payload::Data(inner) => inner\n",
+                            "  end\n",
+                            "end\n",
+                        ),
+                        qualifier,
+                    ),
+                ),
+            ),
+            (
+                "transport::http",
+                SourceFile::new(
+                    "http.veln",
+                    concat!(
+                        "pub type Payload\n",
+                        "  pub Data(Int)\n",
+                        "  pub Empty\n",
+                        "end\n",
+                    ),
+                ),
+            ),
+        ]);
+        let environment = TypeEnvironment::from_module(&module);
+        let mut constructor_path = qualifier
+            .split("::")
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        constructor_path.extend(["Payload".to_string(), "Data".to_string()]);
+        assert_eq!(
+            environment.quarantined_import_constructor_recovery_candidate_count(
+                &constructor_path,
+                Some("app"),
+                None,
+            ),
+            1,
+            "qualifier={qualifier}"
+        );
+        assert!(
+            environment
+                .quarantined_explicit_import_constructor(&constructor_path, Some("app"))
+                .is_some(),
+            "qualifier={qualifier}"
+        );
+
+        let diagnostics = analyze_surface_module(&module);
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| {
+                    diagnostic.id == "name.invalid_case"
+                        && diagnostic
+                            .details
+                            .to_json()
+                            .contains("\"occurrence\":\"declaration\"")
+                })
+                .count(),
+            1,
+            "qualifier={qualifier}: {diagnostics:#?}"
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| {
+                    diagnostic.id == "core.constructor_arity_mismatch"
+                        && diagnostic
+                            .details
+                            .to_json()
+                            .contains("\"expected_argument_count\":1")
+                        && diagnostic
+                            .details
+                            .to_json()
+                            .contains("\"actual_argument_count\":2")
+                })
+                .count(),
+            1,
+            "qualifier={qualifier}: {diagnostics:#?}"
+        );
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.match_non_exhaustive"
+                && diagnostic.message == "match is missing case Empty"
+        }));
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "name.unresolved"),
+            "qualifier={qualifier}: {diagnostics:#?}"
+        );
+        assert!(lower_checked_surface_module(&module).core.is_none());
+    }
+}
+
+#[test]
 fn invalid_explicit_alias_recovery_preserves_independent_carrier_failures() {
     let module = merged_modules(vec![
         SourceFile::new(

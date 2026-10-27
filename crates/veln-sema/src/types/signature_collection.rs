@@ -181,15 +181,11 @@ impl TypeCanonicalizer<'_> {
         name: &str,
         args_len: usize,
     ) -> Option<&AdtDescriptor> {
-        let (alias, remainder) = name.split_once("::")?;
-        let type_name = remainder
-            .rsplit_once("::")
-            .map_or(remainder, |(_, type_name)| type_name);
-        let mut uses = self.quarantined_uses.iter().filter(|use_decl| {
-            use_decl.module_name.as_deref() == self.current_module && use_decl.alias == alias
-        });
-        let use_decl = uses.next()?;
-        if uses.next().is_some() || !use_decl.has_explicit_alias() {
+        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+        let (type_name, module_segments) = segments.split_last()?;
+        let use_decl =
+            imported_use_for_path(self.quarantined_uses, module_segments, self.current_module)?;
+        if !use_decl.has_explicit_alias() {
             return None;
         }
         self.adts
