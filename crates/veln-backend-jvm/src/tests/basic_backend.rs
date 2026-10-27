@@ -4,6 +4,25 @@ use super::*;
 fn explicit_aliases_execute_only_the_selected_package_function_and_handler() {
     // Exercise package selection and JVM linkage for same-spelled declarations.
     let root = temp_dir("explicit-alias-package-identity");
+    let analysis = explicit_alias_package_analysis(&root);
+
+    for case in [
+        AliasEntryCase::new("local_call", "endpoint", None, "1\n"),
+        AliasEntryCase::new("dependency_call", "endpoint", Some("dependency"), "2\n"),
+        AliasEntryCase::new("local_handler", "private_value", None, "1\n"),
+        AliasEntryCase::new(
+            "dependency_handler",
+            "private_value",
+            Some("dependency"),
+            "2\n",
+        ),
+    ] {
+        assert_explicit_alias_entry(&analysis, case);
+    }
+    let _ = fs::remove_dir_all(root);
+}
+
+fn explicit_alias_package_analysis(root: &std::path::Path) -> veln_analysis::ProjectAnalysis {
     fs::create_dir_all(root.join("vendor/dependency")).expect("dependency source directory");
     fs::write(
         root.join("veln.toml"),
@@ -45,7 +64,7 @@ fn explicit_aliases_execute_only_the_selected_package_function_and_handler() {
         .expect("same-spelled target source");
     }
     let project = Project::discover(
-        root.clone(),
+        root,
         &[
             std::path::PathBuf::from("main.veln"),
             std::path::PathBuf::from("shared.veln"),
@@ -55,60 +74,82 @@ fn explicit_aliases_execute_only_the_selected_package_function_and_handler() {
     let analysis = analyze_project(project, DoctestMode::Exclude);
     let diagnostics = analysis.checked_diagnostics();
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
-    for (entry, target, package, output_text) in [
-        ("local_call", "endpoint", None, "1\n"),
-        ("dependency_call", "endpoint", Some("dependency"), "2\n"),
-        ("local_handler", "private_value", None, "1\n"),
-        (
-            "dependency_handler",
-            "private_value",
-            Some("dependency"),
-            "2\n",
-        ),
-    ] {
-        let reachable = analysis.lower_reachable_entry(entry, FunctionKind::Function);
-        let packages = reachable
-            .module
-            .functions
-            .iter()
-            .filter(|function| function.name.as_deref() == Some(target))
-            .map(|function| function.package_name.as_deref())
-            .collect::<Vec<_>>();
-        assert_eq!(packages, [package], "entry={entry}");
-        if target == "private_value" {
-            let handler_packages = reachable
-                .module
-                .handlers
-                .iter()
-                .filter(|handler| handler.name.as_deref() == Some("answer"))
-                .map(|handler| handler.package_name.as_deref())
-                .collect::<Vec<_>>();
-            assert_eq!(handler_packages, [package], "entry={entry}");
-        }
-        assert!(
-            reachable.lowered.diagnostics.is_empty(),
-            "entry={entry}: {:#?}",
-            reachable.lowered.diagnostics
-        );
-        let ir = reachable
-            .lowered
-            .ir
-            .expect("selected package entry should lower");
-        let program = generate_classfiles_with_entry(&ir, entry);
-        if let Some(output) = run_jvm_program_when_java_is_available(entry, &program, &[]) {
-            assert!(
-                output.status.success(),
-                "entry={entry}: {}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-            assert_eq!(
-                String::from_utf8_lossy(&output.stdout),
-                output_text,
-                "entry={entry}"
-            );
+    analysis
+}
+
+struct AliasEntryCase<'a> {
+    entry: &'a str,
+    target: &'a str,
+    package: Option<&'a str>,
+    output_text: &'a str,
+}
+
+impl<'a> AliasEntryCase<'a> {
+    const fn new(
+        entry: &'a str,
+        target: &'a str,
+        package: Option<&'a str>,
+        output_text: &'a str,
+    ) -> Self {
+        Self {
+            entry,
+            target,
+            package,
+            output_text,
         }
     }
-    let _ = fs::remove_dir_all(root);
+}
+
+fn assert_explicit_alias_entry(
+    analysis: &veln_analysis::ProjectAnalysis,
+    case: AliasEntryCase<'_>,
+) {
+    let reachable = analysis.lower_reachable_entry(case.entry, FunctionKind::Function);
+    let packages = reachable
+        .module
+        .functions
+        .iter()
+        .filter(|function| function.name.as_deref() == Some(case.target))
+        .map(|function| function.package_name.as_deref())
+        .collect::<Vec<_>>();
+    assert_eq!(packages, [case.package], "entry={}", case.entry);
+    if case.target == "private_value" {
+        assert_selected_handler_package(&reachable.module.handlers, &case);
+    }
+    assert!(
+        reachable.lowered.diagnostics.is_empty(),
+        "entry={}: {:#?}",
+        case.entry,
+        reachable.lowered.diagnostics
+    );
+    let ir = reachable
+        .lowered
+        .ir
+        .expect("selected package entry should lower");
+    let program = generate_classfiles_with_entry(&ir, case.entry);
+    if let Some(output) = run_jvm_program_when_java_is_available(case.entry, &program, &[]) {
+        assert!(
+            output.status.success(),
+            "entry={}: {}",
+            case.entry,
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            case.output_text,
+            "entry={}",
+            case.entry
+        );
+    }
+}
+
+fn assert_selected_handler_package(handlers: &[veln_ast::HandlerDecl], case: &AliasEntryCase<'_>) {
+    let packages = handlers
+        .iter()
+        .filter(|handler| handler.name.as_deref() == Some("answer"))
+        .map(|handler| handler.package_name.as_deref())
+        .collect::<Vec<_>>();
+    assert_eq!(packages, [case.package], "entry={}", case.entry);
 }
 
 #[test]

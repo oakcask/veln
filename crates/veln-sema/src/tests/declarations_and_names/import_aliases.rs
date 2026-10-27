@@ -281,6 +281,13 @@ fn same_spelled_declarations_from_distinct_owner_packages_do_not_collide() {
 
 #[test]
 fn same_spelled_effects_and_handlers_select_the_import_target_package() {
+    let environment = explicit_import_effect_environment();
+
+    assert_qualified_effect_and_handler(&environment, "local_core", None, Type::int());
+    assert_qualified_effect_and_handler(&environment, "wire", Some("std"), Type::string());
+}
+
+fn explicit_import_effect_environment() -> TypeEnvironment {
     let app_source = SourceFile::new(
         "main.veln",
         concat!(
@@ -320,33 +327,35 @@ fn same_spelled_effects_and_handlers_select_the_import_target_package() {
     app.effects.extend(standard.effects);
     app.handlers.extend(local.handlers);
     app.handlers.extend(standard.handlers);
-    let environment = TypeEnvironment::from_module(&app);
+    TypeEnvironment::from_module(&app)
+}
 
-    for (qualifier, package, expected) in [
-        ("local_core", None, Type::int()),
-        ("wire", Some("std"), Type::string()),
-    ] {
-        let effect = environment
-            .resolve_user_effect_path_in_owner(
-                &[qualifier.to_string(), "Observe".to_string()],
-                Some("app"),
-                None,
-            )
-            .found()
-            .unwrap_or_else(|| panic!("{qualifier} effect should resolve"));
-        assert_eq!(effect.package_name.as_deref(), package);
-        assert_eq!(effect.operations[0].return_type, expected);
-
-        let handler = environment.handler_path_in_owner(
-            &[qualifier.to_string(), "recorder".to_string()],
+fn assert_qualified_effect_and_handler(
+    environment: &TypeEnvironment,
+    qualifier: &str,
+    package: Option<&str>,
+    expected: Type,
+) {
+    let effect = environment
+        .resolve_user_effect_path_in_owner(
+            &[qualifier.to_string(), "Observe".to_string()],
             Some("app"),
             None,
-        );
-        let HandlerPathResolution::Found(handler) = handler else {
-            panic!("{qualifier} handler should resolve");
-        };
-        assert_eq!(handler.package_name.as_deref(), package);
-    }
+        )
+        .found()
+        .unwrap_or_else(|| panic!("{qualifier} effect should resolve"));
+    assert_eq!(effect.package_name.as_deref(), package);
+    assert_eq!(effect.operations[0].return_type, expected);
+
+    let handler = environment.handler_path_in_owner(
+        &[qualifier.to_string(), "recorder".to_string()],
+        Some("app"),
+        None,
+    );
+    let HandlerPathResolution::Found(handler) = handler else {
+        panic!("{qualifier} handler should resolve");
+    };
+    assert_eq!(handler.package_name.as_deref(), package);
 }
 
 #[test]

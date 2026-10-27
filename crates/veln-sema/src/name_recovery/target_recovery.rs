@@ -43,59 +43,105 @@ pub(super) fn recovered_target_names(
 }
 
 fn declared_module_identities(module: &SurfaceModule) -> HashSet<(Option<&String>, &String)> {
-    module
-        .uses
-        .iter()
-        .map(|declaration| {
+    let mut identities = HashSet::new();
+    extend_import_and_callable_identities(&mut identities, module);
+    extend_type_and_data_identities(&mut identities, module);
+    identities
+}
+
+fn extend_import_and_callable_identities<'a>(
+    identities: &mut HashSet<(Option<&'a String>, &'a String)>,
+    module: &'a SurfaceModule,
+) {
+    extend_declared_module_identities(
+        identities,
+        module.uses.iter().map(|declaration| {
             (
                 declaration.importing_package.as_ref(),
                 declaration.module_name.as_ref(),
             )
-        })
-        .chain(module.aliases.iter().map(|declaration| {
+        }),
+    );
+    extend_declared_module_identities(
+        identities,
+        module.aliases.iter().map(|declaration| {
             (
                 declaration.package_name.as_ref(),
                 declaration.module_name.as_ref(),
             )
-        }))
-        .chain(module.effects.iter().map(|declaration| {
+        }),
+    );
+    extend_declared_module_identities(
+        identities,
+        module.effects.iter().map(|declaration| {
             (
                 declaration.package_name.as_ref(),
                 declaration.module_name.as_ref(),
             )
-        }))
-        .chain(module.handlers.iter().map(|declaration| {
+        }),
+    );
+    extend_declared_module_identities(
+        identities,
+        module.handlers.iter().map(|declaration| {
             (
                 declaration.package_name.as_ref(),
                 declaration.module_name.as_ref(),
             )
-        }))
-        .chain(module.types.iter().map(|declaration| {
+        }),
+    );
+}
+
+fn extend_type_and_data_identities<'a>(
+    identities: &mut HashSet<(Option<&'a String>, &'a String)>,
+    module: &'a SurfaceModule,
+) {
+    extend_declared_module_identities(
+        identities,
+        module.types.iter().map(|declaration| {
             (
                 declaration.package_name.as_ref(),
                 declaration.module_name.as_ref(),
             )
-        }))
-        .chain(module.schemas.iter().map(|declaration| {
+        }),
+    );
+    extend_declared_module_identities(
+        identities,
+        module.schemas.iter().map(|declaration| {
             (
                 declaration.package_name.as_ref(),
                 declaration.module_name.as_ref(),
             )
-        }))
-        .chain(module.module_values.iter().map(|declaration| {
+        }),
+    );
+    extend_declared_module_identities(
+        identities,
+        module.module_values.iter().map(|declaration| {
             (
                 declaration.package_name.as_ref(),
                 declaration.module_name.as_ref(),
             )
-        }))
-        .chain(module.functions.iter().map(|declaration| {
+        }),
+    );
+    extend_declared_module_identities(
+        identities,
+        module.functions.iter().map(|declaration| {
             (
                 declaration.package_name.as_ref(),
                 declaration.module_name.as_ref(),
             )
-        }))
-        .filter_map(|(package, name)| name.map(|name| (package, name)))
-        .collect()
+        }),
+    );
+}
+
+fn extend_declared_module_identities<'a>(
+    identities: &mut HashSet<(Option<&'a String>, &'a String)>,
+    declarations: impl IntoIterator<Item = (Option<&'a String>, Option<&'a String>)>,
+) {
+    identities.extend(
+        declarations
+            .into_iter()
+            .filter_map(|(package, name)| name.map(|name| (package, name))),
+    );
 }
 
 pub(crate) fn quarantined_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {

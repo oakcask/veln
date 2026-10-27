@@ -1173,13 +1173,17 @@ impl SymbolIndex {
         package: Option<&str>,
     ) -> Vec<String> {
         let Some(imports) = self.schema_alias_module_imports.get(&file.module) else {
-            return (package == Some("std") && module == "prelude")
-                .then(|| vec!["prelude".to_string()])
-                .unwrap_or_default();
+            return if package == Some("std") && module == "prelude" {
+                vec!["prelude".to_string()]
+            } else {
+                Vec::new()
+            };
         };
-        let mut qualifiers = (package == Some("std") && module == "prelude")
-            .then(|| vec!["prelude".to_string()])
-            .unwrap_or_default();
+        let mut qualifiers = if package == Some("std") && module == "prelude" {
+            vec!["prelude".to_string()]
+        } else {
+            Vec::new()
+        };
         match package {
             Some(package) => {
                 if imports

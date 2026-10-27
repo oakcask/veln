@@ -582,63 +582,107 @@ fn duplicate_import_targets(
 fn declared_module_targets<'a>(
     modules: &[&'a SurfaceModule],
 ) -> HashSet<(Option<&'a str>, &'a str)> {
-    modules
-        .iter()
-        .flat_map(|module| {
-            module
-                .uses
-                .iter()
-                .map(|declaration| {
-                    (
-                        declaration.importing_package.as_deref(),
-                        declaration.module_name.as_deref(),
-                    )
-                })
-                .chain(module.aliases.iter().map(|declaration| {
-                    (
-                        declaration.package_name.as_deref(),
-                        declaration.module_name.as_deref(),
-                    )
-                }))
-                .chain(module.effects.iter().map(|declaration| {
-                    (
-                        declaration.package_name.as_deref(),
-                        declaration.module_name.as_deref(),
-                    )
-                }))
-                .chain(module.handlers.iter().map(|declaration| {
-                    (
-                        declaration.package_name.as_deref(),
-                        declaration.module_name.as_deref(),
-                    )
-                }))
-                .chain(module.types.iter().map(|declaration| {
-                    (
-                        declaration.package_name.as_deref(),
-                        declaration.module_name.as_deref(),
-                    )
-                }))
-                .chain(module.schemas.iter().map(|declaration| {
-                    (
-                        declaration.package_name.as_deref(),
-                        declaration.module_name.as_deref(),
-                    )
-                }))
-                .chain(module.module_values.iter().map(|declaration| {
-                    (
-                        declaration.package_name.as_deref(),
-                        declaration.module_name.as_deref(),
-                    )
-                }))
-                .chain(module.functions.iter().map(|declaration| {
-                    (
-                        declaration.package_name.as_deref(),
-                        declaration.module_name.as_deref(),
-                    )
-                }))
-                .filter_map(|(package, name)| name.map(|name| (package, name)))
-        })
-        .collect()
+    let mut targets = HashSet::new();
+    for module in modules {
+        extend_import_and_callable_targets(&mut targets, module);
+        extend_type_and_data_targets(&mut targets, module);
+    }
+    targets
+}
+
+fn extend_import_and_callable_targets<'a>(
+    targets: &mut HashSet<(Option<&'a str>, &'a str)>,
+    module: &'a SurfaceModule,
+) {
+    extend_declared_module_targets(
+        targets,
+        module.uses.iter().map(|declaration| {
+            (
+                declaration.importing_package.as_deref(),
+                declaration.module_name.as_deref(),
+            )
+        }),
+    );
+    extend_declared_module_targets(
+        targets,
+        module.aliases.iter().map(|declaration| {
+            (
+                declaration.package_name.as_deref(),
+                declaration.module_name.as_deref(),
+            )
+        }),
+    );
+    extend_declared_module_targets(
+        targets,
+        module.effects.iter().map(|declaration| {
+            (
+                declaration.package_name.as_deref(),
+                declaration.module_name.as_deref(),
+            )
+        }),
+    );
+    extend_declared_module_targets(
+        targets,
+        module.handlers.iter().map(|declaration| {
+            (
+                declaration.package_name.as_deref(),
+                declaration.module_name.as_deref(),
+            )
+        }),
+    );
+}
+
+fn extend_type_and_data_targets<'a>(
+    targets: &mut HashSet<(Option<&'a str>, &'a str)>,
+    module: &'a SurfaceModule,
+) {
+    extend_declared_module_targets(
+        targets,
+        module.types.iter().map(|declaration| {
+            (
+                declaration.package_name.as_deref(),
+                declaration.module_name.as_deref(),
+            )
+        }),
+    );
+    extend_declared_module_targets(
+        targets,
+        module.schemas.iter().map(|declaration| {
+            (
+                declaration.package_name.as_deref(),
+                declaration.module_name.as_deref(),
+            )
+        }),
+    );
+    extend_declared_module_targets(
+        targets,
+        module.module_values.iter().map(|declaration| {
+            (
+                declaration.package_name.as_deref(),
+                declaration.module_name.as_deref(),
+            )
+        }),
+    );
+    extend_declared_module_targets(
+        targets,
+        module.functions.iter().map(|declaration| {
+            (
+                declaration.package_name.as_deref(),
+                declaration.module_name.as_deref(),
+            )
+        }),
+    );
+}
+
+fn extend_declared_module_targets<'a>(
+    targets: &mut HashSet<(Option<&'a str>, &'a str)>,
+    declarations: impl IntoIterator<Item = (Option<&'a str>, Option<&'a str>)>,
+) {
+    targets.extend(
+        declarations
+            .into_iter()
+            .filter_map(|(package, name)| name.map(|name| (package, name))),
+    );
 }
 
 fn invalid_import_names<'a>(
