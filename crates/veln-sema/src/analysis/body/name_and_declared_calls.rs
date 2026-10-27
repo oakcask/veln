@@ -353,24 +353,10 @@ impl<'a> FunctionChecker<'a> {
     ) -> Option<Type> {
         if let ExprKind::NamePath { segments, .. } = &callee.kind {
             if segments.len() == 1
-                && let Some(constructor) = expected
-                    .and_then(|expected| {
-                        self.environment.adts.descriptor_for_type_prefer_module(
-                            &expected.ty,
-                            self.function.module_name.as_deref(),
-                        )
-                    })
-                    .and_then(|descriptor| {
-                        self.environment.adts.constructor_for_descriptor(
-                            segments,
-                            descriptor,
-                            self.function.module_name.as_deref(),
-                            &self.environment.uses,
-                        )
-                    })
-                    .filter(|constructor| !constructor.variant.payload_fields.is_empty())
+                && let Some(ty) =
+                    self.infer_expected_payload_constructor_call(expr, args, expected, segments)
             {
-                return Some(self.infer_adt_constructor(expr, args, expected, constructor));
+                return Some(ty);
             }
             match self.environment.adts.constructor(
                 segments,
@@ -384,24 +370,10 @@ impl<'a> FunctionChecker<'a> {
                 }
                 ConstructorLookup::Found(_) => {}
                 ConstructorLookup::Ambiguous => {
-                    if let Some(constructor) = expected
-                        .and_then(|expected| {
-                            self.environment.adts.descriptor_for_type_prefer_module(
-                                &expected.ty,
-                                self.function.module_name.as_deref(),
-                            )
-                        })
-                        .and_then(|descriptor| {
-                            self.environment.adts.constructor_for_descriptor(
-                                segments,
-                                descriptor,
-                                self.function.module_name.as_deref(),
-                                &self.environment.uses,
-                            )
-                        })
-                        .filter(|constructor| !constructor.variant.payload_fields.is_empty())
+                    if let Some(ty) =
+                        self.infer_expected_payload_constructor_call(expr, args, expected, segments)
                     {
-                        return Some(self.infer_adt_constructor(expr, args, expected, constructor));
+                        return Some(ty);
                     }
                     self.push_ambiguous_name(
                         callee.node_id,
@@ -412,26 +384,59 @@ impl<'a> FunctionChecker<'a> {
                     return Some(Type::Unknown);
                 }
                 ConstructorLookup::Missing => {
-                    if let Some(constructor) =
-                        self.environment.quarantined_explicit_import_constructor(
-                            segments,
-                            self.function.module_name.as_deref(),
-                        )
-                    {
-                        if args.len() != constructor.variant.payload_fields.len() {
-                            self.diagnostics
-                                .push(quarantined_constructor_arity_diagnostic(
-                                    expr,
-                                    constructor,
-                                    args.len(),
-                                ));
-                        }
-                        return Some(self.infer_adt_constructor(expr, args, expected, constructor));
-                    }
+                    return self.infer_quarantined_constructor_call(expr, args, expected, segments);
                 }
             }
         }
         None
+    }
+
+    fn infer_expected_payload_constructor_call(
+        &mut self,
+        expr: &Expr,
+        args: &[Expr],
+        expected: Option<&ExpectedType>,
+        segments: &[String],
+    ) -> Option<Type> {
+        let constructor = expected
+            .and_then(|expected| {
+                self.environment.adts.descriptor_for_type_prefer_module(
+                    &expected.ty,
+                    self.function.module_name.as_deref(),
+                )
+            })
+            .and_then(|descriptor| {
+                self.environment.adts.constructor_for_descriptor(
+                    segments,
+                    descriptor,
+                    self.function.module_name.as_deref(),
+                    &self.environment.uses,
+                )
+            })
+            .filter(|constructor| !constructor.variant.payload_fields.is_empty())?;
+        Some(self.infer_adt_constructor(expr, args, expected, constructor))
+    }
+
+    fn infer_quarantined_constructor_call(
+        &mut self,
+        expr: &Expr,
+        args: &[Expr],
+        expected: Option<&ExpectedType>,
+        segments: &[String],
+    ) -> Option<Type> {
+        let constructor = self.environment.quarantined_explicit_import_constructor(
+            segments,
+            self.function.module_name.as_deref(),
+        )?;
+        if args.len() != constructor.variant.payload_fields.len() {
+            self.diagnostics
+                .push(quarantined_constructor_arity_diagnostic(
+                    expr,
+                    constructor,
+                    args.len(),
+                ));
+        }
+        Some(self.infer_adt_constructor(expr, args, expected, constructor))
     }
 
     pub(super) fn infer_declared_call(
