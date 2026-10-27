@@ -166,6 +166,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                 schema: _,
                 value,
                 base,
+                ..
             } => {
                 self.collect_expr(value, current_module, local_bindings, spans);
                 self.collect_expr(base, current_module, local_bindings, spans);

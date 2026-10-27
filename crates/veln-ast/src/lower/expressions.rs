@@ -128,11 +128,13 @@ impl AstBuilder {
             }),
             SyntaxExprKind::SchemaValidate {
                 schema,
+                schema_spans,
                 value,
                 base,
                 ..
             } => Some(ExprKind::SchemaValidate {
                 schema: schema.clone(),
+                schema_spans: schema_spans.clone(),
                 value: Box::new(self.lower_expr(value)),
                 base: Box::new(self.lower_expr(base)),
             }),

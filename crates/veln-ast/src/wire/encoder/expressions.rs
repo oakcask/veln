@@ -155,11 +155,13 @@ impl Writer {
             }
             ExprKind::SchemaValidate {
                 schema,
+                schema_spans,
                 value,
                 base,
             } => {
                 self.u8(24);
                 self.vec(schema, |writer, value| writer.string(value));
+                self.vec(schema_spans, |writer, value| writer.span(value));
                 self.expr(value);
                 self.expr(base);
             }

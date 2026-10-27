@@ -34,9 +34,10 @@ impl<'a> FunctionChecker<'a> {
             }
             ExprKind::SchemaValidate {
                 schema,
+                schema_spans,
                 value,
                 base,
-            } => self.infer_schema_validate(expr, schema, value, base),
+            } => self.infer_schema_validate(expr, schema, schema_spans, value, base),
             ExprKind::FieldAccess {
                 base,
                 field,
@@ -362,7 +363,13 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         schema: &[String],
     ) {
-        self.push_schema_operation_expression_diagnostic(expr, schema, "decode", "decode_step");
+        self.push_schema_operation_expression_diagnostic(
+            expr,
+            schema,
+            "decode",
+            "decode_step",
+            None,
+        );
     }
 
     pub(super) fn infer_schema_encode(
@@ -424,13 +431,14 @@ impl<'a> FunctionChecker<'a> {
                     &unsupported.field,
                 ));
         }
-        self.push_schema_operation_expression_diagnostic(expr, schema, "encode", "encode");
+        self.push_schema_operation_expression_diagnostic(expr, schema, "encode", "encode", None);
     }
 
     pub(super) fn infer_schema_validate(
         &mut self,
         expr: &Expr,
         schema: &[String],
+        schema_spans: &[SourceSpan],
         value: &Expr,
         base: &Expr,
     ) -> Type {
@@ -479,11 +487,16 @@ impl<'a> FunctionChecker<'a> {
             "schema_validation_offset",
         );
         let Some(signature) = signature else {
+            let mut schema_span = schema_spans.first().cloned();
+            if let (Some(span), Some(last)) = (&mut schema_span, schema_spans.last()) {
+                span.end = last.end;
+            }
             self.push_schema_operation_expression_diagnostic(
                 expr,
                 schema,
                 "validate",
                 "runtime_validate",
+                schema_span.as_ref(),
             );
             return Type::Unknown;
         };
@@ -496,6 +509,7 @@ impl<'a> FunctionChecker<'a> {
         schema: &[String],
         operation: &str,
         operation_detail: &str,
+        primary_span: Option<&SourceSpan>,
     ) {
         let symbol = if schema.is_empty() {
             "<missing>".to_string()
@@ -523,6 +537,9 @@ impl<'a> FunctionChecker<'a> {
             }
             (SchemaReferenceErrorKind::Ambiguous, Some(kind)) => format!(
                 "schema {operation} expression target `{symbol}` is ambiguous between a schema and a {kind}"
+            ),
+            (SchemaReferenceErrorKind::Ambiguous, None) => format!(
+                "schema {operation} expression target `{symbol}` is ambiguous in the schema namespace"
             ),
             _ => {
                 let eligibility = match operation {
@@ -560,7 +577,7 @@ impl<'a> FunctionChecker<'a> {
             Severity::Error,
             DiagnosticKind::Type,
             message,
-            Some(expr.span.clone()),
+            Some(primary_span.unwrap_or(&expr.span).clone()),
             JsonValue::object(details),
         );
         if error.kind == SchemaReferenceErrorKind::Private

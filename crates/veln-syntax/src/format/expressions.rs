@@ -299,12 +299,15 @@ fn format_keyword_expr(kind: &ExprKind, indent: usize, comments: Option<&LineCom
             value,
             base,
             ..
-        } => format!(
-            "validate {} from {} at {}",
-            schema.join("::"),
-            format_expr_at_indent_ctx(value, indent, comments),
-            format_expr_at_indent_ctx(base, indent, comments)
-        ),
+        } => {
+            let schema = schema.join("::");
+            let from = if schema.is_empty() { "from" } else { " from" };
+            format!(
+                "validate {schema}{from} {} at {}",
+                format_expr_at_indent_ctx(value, indent, comments),
+                format_expr_at_indent_ctx(base, indent, comments)
+            )
+        }
         _ => unreachable!("keyword formatter received a non-keyword expression"),
     }
 }

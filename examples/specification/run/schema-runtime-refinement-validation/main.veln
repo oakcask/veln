@@ -7,6 +7,11 @@ type State
 	Closed(value: Int)
 end
 
+# Schema operations select the schema namespace before an equal-spelling type.
+type ConnectedPacket
+	ConnectedPacket
+end
+
 schema Metadata
 	version: Int
 end
@@ -61,10 +66,15 @@ fn report(result: Result<{primary: State::Connected | State::Closing, secondary:
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
+	let zero_offset = ByteOffset(0)
+	let negative_offset = ByteOffset(-5)
 	let first_offset = byte_offset(7)?
 	let second_offset = byte_offset(19)?
 	let first_states: List<State> = list_cons(Closed(17), list_nil())
 	let second_states: List<State> = list_cons(Connected(31), list_nil())
+	report(validate_packet({primary: Connected(1), secondary: Connected(2), states: first_states, nested: {state: Closed(3)}, metadata: {version: 4}}, zero_offset))
+	report(validate_packet({primary: Closed(5), secondary: Connected(6), states: first_states, nested: {state: Connected(7)}, metadata: {version: 8}}, zero_offset))
+	report(validate_packet({primary: Closed(9), secondary: Connected(10), states: first_states, nested: {state: Connected(11)}, metadata: {version: 12}}, negative_offset))
 	report(validate_packet({primary: Connected(3), secondary: Connected(5), states: first_states, nested: {state: Closed(23)}, metadata: {version: 29}}, first_offset))
 	report(validate_packet({primary: Closed(11), secondary: Closed(13), states: second_states, nested: {state: Connected(37)}, metadata: {version: 41}}, second_offset))
 	Ok(())

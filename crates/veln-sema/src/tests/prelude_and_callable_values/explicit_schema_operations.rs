@@ -188,15 +188,12 @@ fn explicit_schema_validate_expression_resolves_alias_and_rejects_invalid_target
             "pub schema Packet\n  state: State::Connected\nend\n",
             "pub schema AliasPacket = Packet\n",
             "schema BinaryPacket\n  format binary\n  value: UInt8\nend\n",
-            "type Collision\n  Collision\nend\n",
-            "schema Collision\n  state: State::Connected\nend\n",
             "fn good(value: {state: State}, base: ByteOffset) -> Result<{state: State::Connected}, DecodeError>\n",
             "  validate AliasPacket from value at base\nend\n",
             "fn bad(value: {state: State}, base: ByteOffset) -> ()\n",
             "  validate Missing from value at base\n",
             "  validate State from value at base\n",
             "  validate BinaryPacket from value at base\n",
-            "  validate Collision from value at base\n",
             "end\n",
         ),
     );
@@ -208,8 +205,8 @@ fn explicit_schema_validate_expression_resolves_alias_and_rejects_invalid_target
         .iter()
         .filter(|diagnostic| diagnostic.id == "schema.validate_expression")
         .collect::<Vec<_>>();
-    assert_eq!(validate_diagnostics.len(), 4, "{:#?}", lowered.diagnostics);
-    for reason in ["unresolved_schema", "wrong_kind", "ambiguous_target"] {
+    assert_eq!(validate_diagnostics.len(), 3, "{:#?}", lowered.diagnostics);
+    for reason in ["unresolved_schema", "wrong_kind"] {
         assert!(
             validate_diagnostics.iter().any(|diagnostic| {
                 matches!(
@@ -230,6 +227,102 @@ fn explicit_schema_validate_expression_resolves_alias_and_rejects_invalid_target
             .contains("eligible format-neutral schema")
             && diagnostic.message.contains("BinaryPacket")
     }));
+}
+
+#[test]
+fn explicit_schema_validate_expression_selects_schema_before_equal_spelling_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "type Packet\n  Packet\nend\n",
+            "schema Packet\n  state: State::Connected\nend\n",
+            "fn check(value: {state: State}, base: ByteOffset) -> Result<{state: State::Connected}, DecodeError>\n",
+            "  validate Packet from value at base\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let function = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "check")
+        .expect("validation function should lower");
+    let IrStmtKind::Return { value } = &function.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaRefinementValidate(name),
+            args,
+        } if name == "Packet" && args.len() == 2
+    ));
+}
+
+#[test]
+fn explicit_schema_validate_expression_reports_ambiguous_schema_qualifier() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use first as wire\n",
+            "use second as wire\n",
+            "fn check(value: {state: Int}, base: ByteOffset) -> ()\n",
+            "  validate wire::Packet from value at base\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let first_source = SourceFile::new(
+        "first.veln",
+        "mod first\npub schema Packet\n  state: Int\nend\n",
+    );
+    let second_source = SourceFile::new(
+        "second.veln",
+        "mod second\npub schema Packet\n  state: Int\nend\n",
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let first = lower_surface_ast(&parse(&first_source).tree);
+    let second = lower_surface_ast(&parse(&second_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: app.types,
+        schemas: [first.schemas, second.schemas].concat(),
+        module_values: Vec::new(),
+        functions: [app.functions, first.functions, second.functions].concat(),
+        invalid_names: app.invalid_names,
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+    let diagnostic = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "schema.validate_expression")
+        .expect("ambiguous validation target should be diagnosed");
+    assert!(
+        diagnostic
+            .message
+            .contains("ambiguous in the schema namespace"),
+        "{diagnostic:#?}"
+    );
+    assert!(matches!(
+        &diagnostic.details,
+        veln_diagnostics::JsonValue::Object(entries)
+            if entries.iter().any(|(key, value)| {
+                key == "reason"
+                    && value == &veln_diagnostics::JsonValue::string("ambiguous_target")
+            })
+    ));
 }
 
 #[test]

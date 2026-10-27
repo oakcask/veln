@@ -89,6 +89,51 @@ fn rejects_schema_validate_expression_missing_at() {
 }
 
 #[test]
+fn recovers_schema_validate_expression_missing_schema_path() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn check(value: {state: State}, base: ByteOffset) -> ()\n",
+            "  validate from value at base\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.schema_validate_expression")
+        .expect("expected schema validate expression diagnostic");
+    assert_eq!(
+        diagnostic.message,
+        "schema validate expression is missing a schema path"
+    );
+    assert_eq!(diagnostic.expected, vec!["schema path"]);
+
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression body line");
+    };
+    let ExprKind::SchemaValidate {
+        schema, recovered, ..
+    } = &expr.kind
+    else {
+        panic!("expected recovered schema validate expression");
+    };
+    assert!(schema.is_empty());
+    assert!(recovered);
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn check(value: { state : State }, base: ByteOffset) -> ()\n",
+            "\tvalidate from value at base\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn schema_validate_marker_remains_an_ordinary_identifier() {
     let source = SourceFile::new(
         "main.veln",

@@ -611,6 +611,7 @@ pub enum ExprKind {
     },
     SchemaValidate {
         schema: Vec<String>,
+        schema_spans: Vec<SourceSpan>,
         value: Box<Expr>,
         base: Box<Expr>,
     },

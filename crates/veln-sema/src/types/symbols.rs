@@ -12,6 +12,7 @@ use crate::name_recovery::public_alias_has_invalid_target_leaf;
 pub(super) struct SchemaSymbolTable {
     schemas: Vec<SchemaSymbol>,
     aliases: Vec<SchemaAliasSymbol>,
+    uses: Vec<UseDecl>,
 }
 
 #[derive(Clone)]
@@ -47,9 +48,29 @@ pub(super) struct SchemaAliasTarget {
 }
 
 impl SchemaSymbolTable {
+    pub(super) fn schema_path_is_ambiguous(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        let [_, ..] = segments else {
+            return false;
+        };
+        let module_path = segments[..segments.len() - 1].join("::");
+        crate::name_recovery::use_decl_path_is_ambiguous(
+            self.uses
+                .iter()
+                .filter(|use_decl| use_decl.importing_package.as_deref() == current_package),
+            &module_path,
+            current_module,
+        )
+    }
+
     pub(super) fn extend(&mut self, other: Self) {
         self.schemas.extend(other.schemas);
         self.aliases.extend(other.aliases);
+        self.uses.extend(other.uses);
     }
 
     pub(super) fn standard_subset(&self, module_names: &BTreeSet<String>) -> Self {
@@ -59,6 +80,9 @@ impl SchemaSymbolTable {
             }),
             aliases: selected_symbols(&self.aliases, module_names, |symbol| {
                 symbol.module_name.as_deref()
+            }),
+            uses: selected_symbols(&self.uses, module_names, |use_decl| {
+                use_decl.module_name.as_deref()
             }),
         }
     }
@@ -93,7 +117,11 @@ impl SchemaSymbolTable {
                 })
             })
             .collect();
-        Self { schemas, aliases }
+        Self {
+            schemas,
+            aliases,
+            uses: module.uses.clone(),
+        }
     }
 
     pub(super) fn private_schema(

@@ -741,12 +741,6 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         current_package: Option<&str>,
     ) -> Option<&FunctionSignature> {
-        if self
-            .wrong_schema_reference_kind(schema_path, current_module, current_package)
-            .is_some()
-        {
-            return None;
-        }
         self.schema_helper_signature(
             schema_path,
             current_module,
@@ -821,6 +815,16 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         current_package: Option<&str>,
     ) -> SchemaReferenceError {
+        if self.schema_symbols.schema_path_is_ambiguous(
+            schema_path,
+            current_module,
+            current_package,
+        ) {
+            return SchemaReferenceError {
+                kind: SchemaReferenceErrorKind::Ambiguous,
+                resolved_kind: None,
+            };
+        }
         let wrong_kind =
             self.wrong_schema_reference_kind(schema_path, current_module, current_package);
         let visible_schema = self
@@ -835,10 +839,10 @@ impl TypeEnvironment {
                 &mut Vec::new(),
             )
             .is_some();
-        if visible_schema && let Some(kind) = wrong_kind {
+        if visible_schema {
             return SchemaReferenceError {
-                kind: SchemaReferenceErrorKind::Ambiguous,
-                resolved_kind: Some(kind),
+                kind: SchemaReferenceErrorKind::Unresolved,
+                resolved_kind: None,
             };
         }
         if self.schema_symbols.private_schema(

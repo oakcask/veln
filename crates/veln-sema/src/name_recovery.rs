@@ -649,6 +649,31 @@ pub(crate) fn select_use_decl_for_path<'a>(
     qualified.next().is_none().then_some(first)
 }
 
+pub(crate) fn use_decl_path_is_ambiguous<'a>(
+    uses: impl Iterator<Item = &'a UseDecl>,
+    module_path: &str,
+    current_module: Option<&str>,
+) -> bool {
+    let candidates = uses
+        .filter(|use_decl| use_decl.module_name.as_deref() == current_module)
+        .collect::<Vec<_>>();
+    let exact_count = candidates
+        .iter()
+        .filter(|use_decl| {
+            use_decl_matches_exact_import_path(use_decl, module_path, current_module)
+        })
+        .count();
+    if exact_count != 0 {
+        return exact_count > 1;
+    }
+    candidates
+        .iter()
+        .filter(|use_decl| simple_import_alias_matches(use_decl, module_path))
+        .take(2)
+        .count()
+        > 1
+}
+
 pub(crate) fn schema_composition_imported_use_for_path<'a>(
     module: &'a SurfaceModule,
     segments: &[String],

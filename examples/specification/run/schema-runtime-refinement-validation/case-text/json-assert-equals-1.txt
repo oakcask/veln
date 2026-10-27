@@ -1,3 +1,15 @@
+ok:1
+nested:3
+metadata:4
+states:preserved
+schema.variant_refinement_mismatch
+0
+/ConnectedPacket/primary
+actual variant `Closed`; expected one of `Connected, Closing`
+schema.validation_offset_invalid
+-5
+/ConnectedPacket
+offset=-5; expected a non-negative ByteOffset
 ok:3
 nested:23
 metadata:29

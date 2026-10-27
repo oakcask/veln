@@ -39,6 +39,7 @@ impl<'a> CoreLowerer<'a> {
                 schema,
                 value,
                 base,
+                ..
             } => self.lower_schema_validate(expr, schema, value, base),
             ExprKind::FieldAccess { base, field, .. } => self.lower_field_access(expr, base, field),
             ExprKind::Try { expr: inner, .. } => self.lower_try(expr, inner, expected),

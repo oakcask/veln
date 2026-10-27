@@ -103,6 +103,7 @@ impl<'a> Reader<'a> {
             }),
             24 => Ok(ExprKind::SchemaValidate {
                 schema: self.vec(Self::string)?,
+                schema_spans: self.vec(Self::span)?,
                 value: Box::new(self.expr()?),
                 base: Box::new(self.expr()?),
             }),
