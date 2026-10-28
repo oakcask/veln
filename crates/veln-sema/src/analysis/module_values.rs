@@ -253,13 +253,15 @@ fn check_module_value(
         environment,
     ));
 
-    let annotation_is_closed = parsed_annotation.is_some_and(|annotation| {
-        environment.type_annotation_is_fully_resolved(
-            &annotation,
-            value.module_name.as_deref(),
-            &[],
-        )
-    });
+    let annotation_is_closed = parsed_annotation.is_some()
+        && value.annotation_paths.iter().all(|path| {
+            environment.annotation_type_path_is_resolved_in_owner(
+                &path.segments.join("::"),
+                path.type_argument_count,
+                value.module_name.as_deref(),
+                value.package_name.as_deref(),
+            )
+        });
     if !annotation_is_closed {
         push_unresolved_annotation_paths(value, environment, diagnostic_start, diagnostics);
     }
@@ -279,14 +281,12 @@ fn public_module_value_named_type_visibility_diagnostics(
         .iter()
         .filter_map(|path| {
             let written = path.segments.join("::");
-            let descriptor = environment
-                .adts
-                .descriptor_for_type_path_including_quarantined(
-                    &written,
-                    path.type_argument_count,
-                    value.module_name.as_deref(),
-                    &environment.uses,
-                )?;
+            let descriptor = environment.annotation_type_descriptor_in_owner(
+                &written,
+                path.type_argument_count,
+                value.module_name.as_deref(),
+                value.package_name.as_deref(),
+            )?;
             let descriptor = environment
                 .adts
                 .terminal_descriptor_for_alias(descriptor)
@@ -449,8 +449,12 @@ fn push_unresolved_annotation_paths(
         let symbol = path.segments.join("::");
         #[cfg(test)]
         record_module_value_annotation_dedup_work(|work| work.path_lookups += 1);
-        if environment.type_path_is_resolved(&symbol, declaration.module_name.as_deref())
-            || unresolved_spans.contains(&span_identity(&path.application_span))
+        if environment.annotation_type_path_is_resolved_in_owner(
+            &symbol,
+            path.type_argument_count,
+            declaration.module_name.as_deref(),
+            declaration.package_name.as_deref(),
+        ) || unresolved_spans.contains(&span_identity(&path.application_span))
         {
             continue;
         }

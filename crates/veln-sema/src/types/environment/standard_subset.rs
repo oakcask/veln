@@ -25,9 +25,18 @@ impl TypeEnvironment {
                     .or_insert(ModuleValueIndex::Unique(index));
             }
         }
+        let uses = selected_standard_facts(&self.uses, module_names, |use_decl| {
+            use_decl.module_name.as_deref()
+        });
+        let all_uses = selected_standard_facts(&self.all_uses, module_names, |use_decl| {
+            use_decl.module_name.as_deref()
+        });
+        let bare_module_values = facts::bare_module_value_index(&module_values, &functions, &uses);
         Self {
+            resolution_owner: None,
             module_values,
             module_values_by_identity,
+            bare_module_values,
             functions,
             functions_by_name,
             unpublished_functions: self.unpublished_functions.clone(),
@@ -45,9 +54,8 @@ impl TypeEnvironment {
             type_symbols: selected_standard_facts(&self.type_symbols, module_names, |symbol| {
                 symbol.module_name.as_deref()
             }),
-            uses: selected_standard_facts(&self.uses, module_names, |use_decl| {
-                use_decl.module_name.as_deref()
-            }),
+            uses,
+            all_uses,
             quarantined_uses: selected_standard_facts(
                 &self.quarantined_uses,
                 module_names,

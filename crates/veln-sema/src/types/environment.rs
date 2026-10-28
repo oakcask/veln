@@ -12,6 +12,40 @@ type FunctionPublicationKey = (
     usize,
 );
 
+type BareModuleValueKey = (Option<String>, Option<String>, String);
+
+#[derive(Clone, Debug)]
+enum BareModuleValueSelection {
+    Unique(ModuleValueIdentity),
+    Ambiguous,
+}
+
+#[derive(Clone, Debug)]
+struct BareModuleValueExposure {
+    selection: BareModuleValueSelection,
+    function_collision: bool,
+}
+
+#[cfg(test)]
+thread_local! {
+    static BARE_MODULE_VALUE_LOOKUP_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_bare_module_value_lookup_work() {
+    BARE_MODULE_VALUE_LOOKUP_WORK.with(|work| work.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn take_bare_module_value_lookup_work() -> usize {
+    BARE_MODULE_VALUE_LOOKUP_WORK.with(|work| work.replace(0))
+}
+
+fn record_bare_module_value_lookup_work() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_LOOKUP_WORK.with(|work| work.set(work.get() + 1));
+}
+
 fn function_publication_key(function: &FunctionSignature) -> FunctionPublicationKey {
     (
         function.package_name.clone(),
@@ -93,8 +127,10 @@ mod standard_subset;
 
 #[derive(Clone)]
 pub(crate) struct TypeEnvironment {
+    resolution_owner: Option<veln_ast::ResolvedImportOwner>,
     module_values: Vec<ModuleValueSignature>,
     module_values_by_identity: HashMap<ModuleValueIdentity, ModuleValueIndex>,
+    bare_module_values: HashMap<BareModuleValueKey, BareModuleValueExposure>,
     functions: Vec<FunctionSignature>,
     functions_by_name: HashMap<String, Vec<usize>>,
     unpublished_functions: HashSet<FunctionPublicationKey>,
@@ -107,6 +143,7 @@ pub(crate) struct TypeEnvironment {
     schema_symbols: SchemaSymbolTable,
     type_symbols: Vec<NamedSymbol>,
     pub(crate) uses: Vec<UseDecl>,
+    all_uses: Vec<UseDecl>,
     quarantined_uses: Vec<UseDecl>,
     invalid_names: Vec<InvalidName>,
     pub(crate) adts: AdtRegistry,
@@ -125,6 +162,26 @@ pub(crate) struct VariantRefinementBaseFailure {
 }
 
 impl TypeEnvironment {
+    pub(crate) fn with_resolution_owner(
+        &self,
+        module: Option<&str>,
+        package: Option<&str>,
+    ) -> Self {
+        let mut environment = self.clone();
+        environment.resolution_owner = Some(veln_ast::ResolvedImportOwner {
+            package: package.map(str::to_string),
+            module: module.map(str::to_string),
+        });
+        environment
+    }
+
+    fn resolution_package<'a>(&'a self, current_module: Option<&str>) -> Option<&'a str> {
+        self.resolution_owner
+            .as_ref()
+            .filter(|owner| owner.module.as_deref() == current_module)
+            .and_then(|owner| owner.package.as_deref())
+    }
+
     pub(crate) fn quarantine_module_values(&mut self, invalid: &BTreeSet<ModuleValueIdentity>) {
         for value in &mut self.module_values {
             value.available = value.declaration.name.as_ref().is_some_and(|name| {
@@ -157,54 +214,32 @@ impl TypeEnvironment {
         }
 
         if segments.len() == 1 {
-            let candidates = self
-                .module_values
-                .iter()
-                .filter(|value| {
-                    value.declaration.name.as_deref() == Some(name)
-                        && value.declaration.visibility == veln_ast::Visibility::Public
-                        && value
-                            .declaration
-                            .module_name
-                            .as_deref()
-                            .is_some_and(|module_name| {
-                                self.uses.iter().any(|use_decl| {
-                                    crate::name_recovery::use_decl_contributes_bare_exports(
-                                        use_decl,
-                                    ) && use_decl.module_name.as_deref() == current_module
-                                        && use_decl.importing_package.as_deref() == current_package
-                                        && use_decl.name == module_name
-                                        && value.declaration.package_name
-                                            == use_decl.resolved_target().package
-                                })
-                            })
-                })
-                .map(|value| {
-                    (
-                        value.declaration.package_name.clone(),
-                        value.declaration.module_name.clone(),
-                        name.clone(),
-                    )
-                })
-                .collect::<BTreeSet<_>>();
-            let Some(first) = candidates.first() else {
+            record_bare_module_value_lookup_work();
+            if self.functions_named(name).any(|function| {
+                function.module_name.as_deref() == current_module
+                    && function.package_name.as_deref() == current_package
+            }) {
+                return ModuleValueLookup::Missing;
+            }
+            let key = (
+                current_package.map(str::to_owned),
+                current_module.map(str::to_owned),
+                name.clone(),
+            );
+            let Some(exposure) = self.bare_module_values.get(&key) else {
                 return ModuleValueLookup::Missing;
             };
-            if candidates.len() > 1
-                || self.functions_named(name).any(|function| {
-                    self.function_is_unqualified_import(
-                        function,
-                        name,
-                        current_module,
-                        current_package,
-                    )
-                })
+            if matches!(exposure.selection, BareModuleValueSelection::Ambiguous)
+                || exposure.function_collision
             {
                 return ModuleValueLookup::Ambiguous;
             }
+            let BareModuleValueSelection::Unique(identity) = &exposure.selection else {
+                unreachable!();
+            };
             return self
                 .module_values_by_identity
-                .get(first)
+                .get(identity)
                 .map_or(ModuleValueLookup::Missing, |index| {
                     self.module_value_at_index(*index)
                 });
@@ -212,8 +247,16 @@ impl TypeEnvironment {
 
         let qualifier = &segments[..segments.len() - 1];
         let module_path = qualifier.join("::");
+        if self.qualified_imported_module_value_path_is_ambiguous(
+            &module_path,
+            name,
+            current_module,
+            current_package,
+        ) {
+            return ModuleValueLookup::Ambiguous;
+        }
         if crate::name_recovery::use_decl_path_is_ambiguous(
-            self.uses
+            self.all_uses
                 .iter()
                 .filter(|use_decl| use_decl.importing_package.as_deref() == current_package),
             &module_path,
@@ -249,7 +292,7 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         current_package: Option<&str>,
     ) -> bool {
-        let owner_uses = self.uses.iter().filter(|use_decl| {
+        let owner_uses = self.all_uses.iter().filter(|use_decl| {
             use_decl.importing_package.as_deref() == current_package
                 && use_decl.module_name.as_deref() == current_module
         });
@@ -280,6 +323,54 @@ impl TypeEnvironment {
             self.visible_module_value_index_for_use(use_decl, name, current_module)
                 .is_some()
         })
+    }
+
+    fn qualified_imported_module_value_path_is_ambiguous(
+        &self,
+        module_path: &str,
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        let owner_uses = self.all_uses.iter().filter(|use_decl| {
+            use_decl.importing_package.as_deref() == current_package
+                && use_decl.module_name.as_deref() == current_module
+        });
+        let exact = owner_uses
+            .clone()
+            .filter(|use_decl| {
+                crate::name_recovery::use_decl_matches_exact_import_path(
+                    use_decl,
+                    module_path,
+                    current_module,
+                )
+            })
+            .collect::<Vec<_>>();
+        let candidates = if exact.is_empty() {
+            owner_uses
+                .filter(|use_decl| {
+                    crate::name_recovery::use_decl_matches_implicit_import_alias(
+                        use_decl,
+                        module_path,
+                        current_module,
+                    )
+                })
+                .collect::<Vec<_>>()
+        } else {
+            exact
+        };
+        candidates
+            .into_iter()
+            .filter_map(|use_decl| {
+                self.visible_module_value_index_for_use(use_decl, name, current_module)
+                    .map(|_| {
+                        let target = use_decl.resolved_target();
+                        (target.package, target.module, name.to_string())
+                    })
+            })
+            .collect::<BTreeSet<_>>()
+            .len()
+            > 1
     }
 
     fn visible_module_value_index_for_use(

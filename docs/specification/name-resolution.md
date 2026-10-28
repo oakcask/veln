@@ -225,12 +225,15 @@ qualified-only. Exact written paths take precedence over local import
 qualifiers, and an ambiguous qualifier or exact path does not fall back. Two
 distinct imported values with the same bare name are ambiguous. An imported
 function and imported module value with the same bare name are also ambiguous.
-A same-module declaration is selected before imports, including when invalid,
-so invalid local data does not expose an imported fallback. Imported private
-values are unresolved except when an exact test companion imports its target
-module. Companion access is target-specific, package-local, and non-transitive.
-The checked cases cover
-[`package identity`](../../examples/specification/check/module-value-imported-package-identity-json/),
+A same-module function or module-value declaration is selected before imports;
+an invalid local module value still does not expose an imported fallback. A
+selected imported module value used as a call target does not fall through to
+an imported function. Imported private values are unresolved except when an
+exact test companion imports its target module. Companion access is
+target-specific, package-local, and non-transitive. The checked cases cover
+[`local function precedence`](../../examples/specification/check/module-value-local-function-precedence-human/),
+[`package identity human`](../../examples/specification/check/module-value-imported-package-identity-human/),
+[`package identity JSON`](../../examples/specification/check/module-value-imported-package-identity-json/),
 [`companion access`](../../examples/specification/check/module-value-companion-private-human/),
 and
 [`private rejection`](../../examples/specification/check/module-value-private-import-human/).

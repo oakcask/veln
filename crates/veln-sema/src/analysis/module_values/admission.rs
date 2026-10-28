@@ -497,7 +497,7 @@ fn unsupported_diagnostic(expr: &Expr, declaration: &veln_ast::ModuleValueDecl) 
         (
             "message",
             JsonValue::string(
-                "Use literals, records, ADT constructors, or same-module module values.",
+                "Use literals, records, ADT constructors, or eligible same-module or imported module values.",
             ),
         ),
     ]));

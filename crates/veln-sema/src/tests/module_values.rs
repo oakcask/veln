@@ -42,6 +42,71 @@ fn module_with_unresolved_value_annotations(count: usize) -> SurfaceModule {
     lower_surface_ast(&parsed.tree)
 }
 
+fn module_with_bare_imported_values(count: usize) -> SurfaceModule {
+    let mut merged = SurfaceModule {
+        module: None,
+        uses: Vec::new(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        types: Vec::new(),
+        module_values: Vec::new(),
+        functions: Vec::new(),
+        invalid_names: Vec::new(),
+    };
+    for index in 0..count {
+        let module_name = format!("values_{index}");
+        let source = SourceFile::new(
+            format!("values_{index}.veln"),
+            format!("pub let value_{index}: Int = {index}\n"),
+        );
+        let module = veln_ast::lower_surface_ast_with_module_identity(
+            &parse(&source).tree,
+            module_name,
+            source.span(veln_source::TextRange::new(0, 0)),
+        );
+        merged.module_values.extend(module.module_values);
+    }
+    let source = SourceFile::new(
+        "app.veln",
+        (0..count)
+            .map(|index| format!("use values_{index}\n"))
+            .collect::<String>(),
+    );
+    let app = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&source).tree,
+        "app".to_string(),
+        source.span(veln_source::TextRange::new(0, 0)),
+    );
+    merged.uses.extend(app.uses);
+    merged
+}
+
+#[test]
+#[ignore = "supporting wall-clock evidence; deterministic lookup work is asserted separately"]
+fn bare_imported_module_value_lookup_reports_adjacent_size_timings() {
+    for count in [150, 300, 600, 1_200] {
+        let module = module_with_bare_imported_values(count);
+        let started = std::time::Instant::now();
+        let environment = crate::types::TypeEnvironment::from_module(&module);
+        for index in 0..count {
+            assert!(matches!(
+                environment.module_value_path_in_owner(
+                    &[format!("value_{index}")],
+                    Some("app"),
+                    None,
+                ),
+                crate::types::ModuleValueLookup::Available(_)
+            ));
+        }
+        eprintln!(
+            "bare imported module value lookup: {count} imports and references in {:?}",
+            started.elapsed()
+        );
+    }
+}
+
 #[test]
 #[ignore = "supporting wall-clock evidence; deterministic scaling is asserted separately"]
 fn module_value_gate_reports_adjacent_size_timings() {
@@ -609,7 +674,7 @@ fn module_value_initializers_report_smallest_unsupported_expressions() {
                     (
                         "message",
                         veln_diagnostics::JsonValue::string(
-                            "Use literals, records, ADT constructors, or same-module module values.",
+                            "Use literals, records, ADT constructors, or eligible same-module or imported module values.",
                         ),
                     ),
                 ]),
@@ -680,6 +745,80 @@ fn imported_module_values_follow_bare_qualified_and_alias_exposure() {
 }
 
 #[test]
+fn bare_and_qualified_paths_select_the_same_module_value_declaration() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "values",
+            SourceFile::new("values.veln", "pub let answer: Int = 42\n"),
+        ),
+        ("app", SourceFile::new("app.veln", "use values\n")),
+    ]);
+    let environment = crate::types::TypeEnvironment::from_module(&module);
+    let bare =
+        match environment.module_value_path_in_owner(&["answer".to_string()], Some("app"), None) {
+            crate::types::ModuleValueLookup::Available(value) => value,
+            _ => panic!("expected bare declaration"),
+        };
+    let qualified = match environment.module_value_path_in_owner(
+        &["values".to_string(), "answer".to_string()],
+        Some("app"),
+        None,
+    ) {
+        crate::types::ModuleValueLookup::Available(value) => value,
+        _ => panic!("expected qualified declaration"),
+    };
+
+    assert!(std::ptr::eq(bare, qualified));
+}
+
+#[test]
+fn qualified_module_value_exact_path_no_fallback_is_stable() {
+    let analyze = |reverse_sources: bool, reverse_imports: bool| {
+        let alpha_exact = (
+            "alpha::exact",
+            SourceFile::new("alpha/exact.veln", "pub let other: Int = 1\n"),
+        );
+        let beta_exact = (
+            "beta::exact",
+            SourceFile::new("beta/exact.veln", "pub let answer: Int = 1\n"),
+        );
+        let imports = if reverse_imports {
+            "use beta::exact\nuse alpha::exact\n"
+        } else {
+            "use alpha::exact\nuse beta::exact\n"
+        };
+        let app = (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                format!("{imports}fn exact() -> Int\n  alpha::exact::answer\nend\n"),
+            ),
+        );
+        let sources = if reverse_sources {
+            vec![beta_exact, alpha_exact, app]
+        } else {
+            vec![alpha_exact, beta_exact, app]
+        };
+        analyze_surface_module(&merged_modules_with_identities(sources))
+            .into_iter()
+            .filter(|diagnostic| {
+                matches!(diagnostic.id.as_str(), "name.ambiguous" | "name.unresolved")
+            })
+            .map(|diagnostic| (diagnostic.id, diagnostic.message))
+            .collect::<Vec<_>>()
+    };
+
+    let expected = analyze(false, false);
+    assert_eq!(expected.len(), 1, "{expected:#?}");
+    assert!(expected.iter().any(|(id, message)| {
+        id == "name.unresolved" && message.contains("alpha::exact::answer")
+    }));
+    assert_eq!(analyze(true, false), expected);
+    assert_eq!(analyze(false, true), expected);
+    assert_eq!(analyze(true, true), expected);
+}
+
+#[test]
 fn reusable_standard_base_preserves_bare_prelude_module_values() {
     let standard_source = SourceFile::new("prelude.veln", "pub let answer: Int = 42\n");
     let standard = veln_ast::lower_surface_ast_with_package_module_identity(
@@ -739,6 +878,107 @@ fn imported_module_value_ambiguity_includes_function_data_collisions() {
             .any(|diagnostic| diagnostic.id == "name.ambiguous"),
         "{diagnostics:#?}"
     );
+}
+
+#[test]
+fn same_owner_function_shadows_bare_imported_module_value_in_value_and_call_positions() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "values",
+            SourceFile::new("values.veln", "pub let answer: Int = 42\n"),
+        ),
+        (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use values\n",
+                    "fn answer() -> Int\n",
+                    "  7\n",
+                    "end\n",
+                    "fn callback() -> fn() -> Int\n",
+                    "  answer\n",
+                    "end\n",
+                    "fn call() -> Int\n",
+                    "  answer()\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            !matches!(
+                diagnostic.id.as_str(),
+                "name.ambiguous" | "name.unresolved" | "type.not_callable" | "type.mismatch"
+            )
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn imported_module_value_call_target_does_not_fall_through_to_imported_function() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "values",
+            SourceFile::new("values.veln", "pub let answer: Int = 42\n"),
+        ),
+        (
+            "functions",
+            SourceFile::new("functions.veln", "pub fn answer() -> Int\n  7\nend\n"),
+        ),
+        (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                "use values\nuse functions\nfn call() -> Int\n  values::answer()\nend\n",
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.not_callable")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.ambiguous"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn bare_imported_module_value_lookup_work_is_bounded_per_reference() {
+    fn work_for(count: usize) -> usize {
+        let module = module_with_bare_imported_values(count);
+        let environment = crate::types::TypeEnvironment::from_module(&module);
+        crate::types::reset_bare_module_value_lookup_work();
+        for index in 0..count {
+            assert!(matches!(
+                environment.module_value_path_in_owner(
+                    &[format!("value_{index}")],
+                    Some("app"),
+                    None,
+                ),
+                crate::types::ModuleValueLookup::Available(_)
+            ));
+        }
+        crate::types::take_bare_module_value_lookup_work()
+    }
+
+    assert_eq!(work_for(64), 64);
+    assert_eq!(work_for(128), 128);
 }
 
 #[test]
@@ -889,6 +1129,61 @@ fn public_module_value_annotations_reject_private_named_types_and_refinements() 
         1,
         "{diagnostics:#?}"
     );
+}
+
+#[test]
+fn public_module_value_visibility_recurses_through_annotation_shapes() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Secret\n",
+            "  pub Value\n",
+            "end\n",
+            "pub type State\n",
+            "  Hidden\n",
+            "  Other\n",
+            "end\n",
+            "pub type Box<T>\n",
+            "  pub Box(value: T)\n",
+            "end\n",
+            "pub let named_generic: Box<Secret> = 0\n",
+            "pub let named_function: fn(Secret) -> Secret = 0\n",
+            "pub let named_record: {field: Secret} = 0\n",
+            "pub let refined_generic: Box<State::Hidden> = 0\n",
+            "pub let refined_function: fn(State::Hidden) -> State::Hidden = 0\n",
+            "pub let refined_record: {field: State::Hidden} = 0\n",
+            "pub let refined_union: State::Hidden | State::Other = 0\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.public_annotation_private")
+            .count(),
+        3,
+        "{diagnostics:#?}"
+    );
+    let refinements = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+        .collect::<Vec<_>>();
+    assert_eq!(refinements.len(), 6, "{diagnostics:#?}");
+    let rendered = format!("{refinements:#?}");
+    for segment in [
+        "type_argument",
+        "function_parameter",
+        "function_result",
+        "record_field",
+        "union_alternative",
+    ] {
+        assert!(rendered.contains(segment), "missing {segment}: {rendered}");
+    }
 }
 
 #[test]

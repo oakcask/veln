@@ -80,15 +80,13 @@ impl AdtRegistry {
     ) -> Option<&AdtDescriptor> {
         if self.source_import_indexes_ready {
             crate::adt::lookup_validation::record_import_path_comparison();
+            let owner = import_owner_for_module(uses, current_module)?;
             let index = if let Some(args_len) = args_len {
-                self.imported_descriptors_by_type_arity.get(&(
-                    current_module.map(str::to_string),
-                    name.to_string(),
-                    args_len,
-                ))
+                self.imported_descriptors_by_type_arity
+                    .get(&(owner, name.to_string(), args_len))
             } else {
                 self.imported_descriptors_by_type
-                    .get(&(current_module.map(str::to_string), name.to_string()))
+                    .get(&(owner, name.to_string()))
             }
             .copied()
             .flatten()?;

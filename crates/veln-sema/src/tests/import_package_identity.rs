@@ -63,13 +63,15 @@ fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
     let mut app = source_module(
         "app.veln",
         concat!(
-            "use shared from \"selected/pkg\"\n",
-            "fn read() -> Int\n  shared::answer\nend\n",
+            "use shared as first from \"selected/pkg\"\n",
+            "use shared as second from \"namesake/pkg\"\n",
+            "fn read() -> Int\n  first::answer + second::answer\nend\n",
         ),
         Some("owner/pkg"),
         "app",
     );
     app.uses[0].name = "shared".to_string();
+    app.uses[1].name = "shared".to_string();
     let mut selected = source_module(
         "selected/shared.veln",
         "pub let answer: Int = 1\n",
@@ -78,7 +80,7 @@ fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
     );
     let mut namesake = source_module(
         "namesake/shared.veln",
-        "pub let answer: Int = 2\n",
+        "pub let answer: Int = 1\n",
         Some("namesake/pkg"),
         "shared",
     );
@@ -96,6 +98,119 @@ fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
                 "name.unresolved" | "name.ambiguous" | "name.duplicate"
             )
         }),
+        "{diagnostics:#?}"
+    );
+    let environment = TypeEnvironment::from_module(&app);
+    let first = match environment.module_value_path_in_owner(
+        &["first".to_string(), "answer".to_string()],
+        Some("owner/pkg::app"),
+        Some("owner/pkg"),
+    ) {
+        crate::types::ModuleValueLookup::Available(value) => value,
+        _ => panic!("expected first package value"),
+    };
+    let second = match environment.module_value_path_in_owner(
+        &["second".to_string(), "answer".to_string()],
+        Some("owner/pkg::app"),
+        Some("owner/pkg"),
+    ) {
+        crate::types::ModuleValueLookup::Available(value) => value,
+        _ => panic!("expected second package value"),
+    };
+    assert!(!std::ptr::eq(first, second));
+}
+
+#[test]
+fn public_module_value_visibility_uses_complete_package_and_module_owner() {
+    let declarations = concat!(
+        "use helper\n",
+        "type Secret\n",
+        "  pub Value\n",
+        "end\n",
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub let named: Secret = Value\n",
+        "pub let refined: State::Hidden = Hidden\n",
+    );
+
+    for reverse in [false, true] {
+        let one = source_module("one/shared.veln", declarations, Some("one/pkg"), "shared");
+        let two = source_module("two/shared.veln", declarations, Some("two/pkg"), "shared");
+        let mut module = if reverse { two.clone() } else { one.clone() };
+        if reverse {
+            extend(&mut module, one);
+        } else {
+            extend(&mut module, two);
+        }
+
+        let diagnostics = analyze_surface_module(&module);
+
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.public_annotation_private")
+                .count(),
+            2,
+            "reverse={reverse}: {diagnostics:#?}"
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+                .count(),
+            2,
+            "reverse={reverse}: {diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "name.unresolved"),
+            "reverse={reverse}: {diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
+fn same_qualified_module_value_path_from_distinct_packages_is_ambiguous() {
+    let mut app = source_module(
+        "app.veln",
+        concat!(
+            "use shared from \"one/pkg\"\n",
+            "use shared from \"two/pkg\"\n",
+            "fn read() -> Int\n  shared::answer\nend\n",
+        ),
+        Some("owner/pkg"),
+        "app",
+    );
+    app.uses[0].name = "shared".to_string();
+    app.uses[1].name = "shared".to_string();
+    set_declaration_module_name(&mut app, "app");
+    let mut one = source_module(
+        "one/shared.veln",
+        "pub let answer: Int = 1\n",
+        Some("one/pkg"),
+        "shared",
+    );
+    set_declaration_module_name(&mut one, "shared");
+    extend(&mut app, one);
+    let mut two = source_module(
+        "two/shared.veln",
+        "pub let answer: Int = 1\n",
+        Some("two/pkg"),
+        "shared",
+    );
+    set_declaration_module_name(&mut two, "shared");
+    extend(&mut app, two);
+
+    let diagnostics = analyze_surface_module(&app);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.ambiguous")
+            .count(),
+        1,
         "{diagnostics:#?}"
     );
 }

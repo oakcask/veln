@@ -53,7 +53,9 @@ references including forward references, resolves eligible imported references
 with package-aware identity and visibility, and reports unsupported initializer
 forms and same-module cyclic components. Public annotations cannot expose
 private types or variant refinements. Invalid declarations and their dependents
-do not provide later semantic facts. This gate still prevents lowering or
+within the same-module dependency graph do not provide later semantic facts.
+Imported and cross-module dependency propagation remains outside this gate.
+This gate still prevents lowering or
 publication. The
 [source-surface specification](source-surface.md#module-immutable-value-declarations)
 defines the declaration boundary, and the

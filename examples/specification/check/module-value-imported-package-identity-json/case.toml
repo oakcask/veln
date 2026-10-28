@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["module.value_not_executable", "from_first", "from_second"]
+contains = ["module.value_not_executable", "from_first", "from_second", "type.public_annotation_private", "type.variant_refinement_private", "private_type_declaration", "private_variant_declaration", "public_module_value_boundary", "one/pkg::shared::Secret", "two/pkg::shared::Secret"]
 not_contains = ["name.unresolved", "name.ambiguous", "value.module_initializer_unsupported"]
 
 [stderr]

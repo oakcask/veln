@@ -1,6 +1,160 @@
 use super::*;
 
 impl AdtRegistry {
+    fn owner_uses(
+        uses: &[UseDecl],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Vec<UseDecl> {
+        uses.iter()
+            .filter(|use_decl| {
+                use_decl.module_name.as_deref() == current_module
+                    && use_decl.importing_package.as_deref() == current_package
+            })
+            .cloned()
+            .collect()
+    }
+
+    fn owner_local_descriptors<'a>(
+        &'a self,
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> impl Iterator<Item = &'a AdtDescriptor> {
+        self.descriptors_by_source_identity
+            .get(&(
+                current_package.map(str::to_string),
+                current_module.map(str::to_string),
+                name.to_string(),
+            ))
+            .into_iter()
+            .flatten()
+            .rev()
+            .map(|index| self.descriptor_lookup_candidate(*index))
+    }
+
+    pub(crate) fn unique_descriptor_for_type_path_in_owner(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        let (qualifier, type_name) = name
+            .rsplit_once("::")
+            .map_or((None, name), |(qualifier, type_name)| {
+                (Some(qualifier), type_name)
+            });
+        if qualifier.is_none() || qualifier == current_module {
+            let local = Self::unique_candidate(
+                self.owner_local_descriptors(type_name, current_module, current_package)
+                    .filter(|descriptor| {
+                        Self::descriptor_matches_arity(descriptor, Some(args_len))
+                    }),
+            );
+            if qualifier.is_some() || local.is_some() {
+                return local.flatten();
+            }
+        }
+        let owner_uses = Self::owner_uses(uses, current_module, current_package);
+        self.unique_descriptor_for_type_path(name, args_len, current_module, &owner_uses)
+    }
+
+    pub(crate) fn unique_descriptor_for_type_path_any_arity_in_owner(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        let (qualifier, type_name) = name
+            .rsplit_once("::")
+            .map_or((None, name), |(qualifier, type_name)| {
+                (Some(qualifier), type_name)
+            });
+        if qualifier.is_none() || qualifier == current_module {
+            let local = Self::unique_candidate(self.owner_local_descriptors(
+                type_name,
+                current_module,
+                current_package,
+            ));
+            if qualifier.is_some() || local.is_some() {
+                return local.flatten();
+            }
+        }
+        let owner_uses = Self::owner_uses(uses, current_module, current_package);
+        self.unique_descriptor_for_type_path_any_arity(name, current_module, &owner_uses)
+    }
+
+    pub(crate) fn descriptor_for_type_path_including_quarantined_in_owner(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        let segments = name.split("::").collect::<Vec<_>>();
+        let type_name = segments.last()?;
+        let qualifier = segments[..segments.len().saturating_sub(1)].join("::");
+        if !name.contains("::") || current_module == Some(qualifier.as_str()) {
+            if let Some(descriptor) = self
+                .descriptors_by_source_identity
+                .get(&(
+                    current_package.map(str::to_string),
+                    current_module.map(str::to_string),
+                    (*type_name).to_string(),
+                ))
+                .into_iter()
+                .flatten()
+                .rev()
+                .map(|index| self.descriptor_lookup_candidate(*index))
+                .find(|descriptor| Self::descriptor_matches_arity(descriptor, Some(args_len)))
+            {
+                return Some(descriptor);
+            }
+        }
+        let owner_uses = Self::owner_uses(uses, current_module, current_package);
+        self.descriptor_for_type_path_including_quarantined(
+            name,
+            args_len,
+            current_module,
+            &owner_uses,
+        )
+    }
+
+    pub(crate) fn descriptor_for_type_path_in_owner(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+        uses: &[UseDecl],
+    ) -> Option<&AdtDescriptor> {
+        let (qualifier, type_name) = name
+            .rsplit_once("::")
+            .map_or((None, name), |(qualifier, type_name)| {
+                (Some(qualifier), type_name)
+            });
+        if qualifier.is_none() || qualifier == current_module {
+            if let Some(descriptor) = self
+                .owner_local_descriptors(type_name, current_module, current_package)
+                .find(|descriptor| {
+                    Self::descriptor_matches_arity(descriptor, Some(args_len))
+                        && !self.descriptor_is_quarantined(descriptor)
+                })
+            {
+                return Some(descriptor);
+            }
+            if qualifier.is_some() {
+                return None;
+            }
+        }
+        let owner_uses = Self::owner_uses(uses, current_module, current_package);
+        self.descriptor_for_type_path(name, args_len, current_module, &owner_uses)
+    }
+
     pub(crate) fn descriptor_for_type_path_including_quarantined(
         &self,
         name: &str,
@@ -87,9 +241,10 @@ impl AdtRegistry {
     ) -> Option<Option<&AdtDescriptor>> {
         if self.source_import_indexes_ready {
             crate::adt::lookup_validation::record_import_path_comparison();
+            let owner = import_owner_for_module(uses, current_module)?;
             return Some(
                 self.imported_descriptors_by_type
-                    .get(&(current_module.map(str::to_string), name.to_string()))
+                    .get(&(owner, name.to_string()))
                     .copied()
                     .flatten()
                     .map(|index| self.descriptor_lookup_candidate(index)),

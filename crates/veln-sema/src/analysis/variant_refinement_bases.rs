@@ -140,11 +140,20 @@ fn collect_module_value_annotations(
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
     for value in &module.module_values {
+        let owner_environment = environment
+            .adts
+            .module_has_multiple_packages(value.module_name.as_deref())
+            .then(|| {
+                environment.with_resolution_owner(
+                    value.module_name.as_deref(),
+                    value.package_name.as_deref(),
+                )
+            });
         collect_declaration_annotation(
             &value.annotation_refinements,
             &value.annotation_paths,
             value.module_name.as_deref(),
-            environment,
+            owner_environment.as_ref().unwrap_or(environment),
             &[],
             value.node_id.display("module-value"),
             [value.node_id.display("module-value")],

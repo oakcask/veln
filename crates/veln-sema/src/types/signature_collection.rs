@@ -133,9 +133,13 @@ impl TypeCanonicalizer<'_> {
         if let Some(refinement) = self.canonicalize_named_variant(&name, &args) {
             return refinement;
         }
-        let descriptor =
-            self.adts
-                .descriptor_for_type_path(&name, args.len(), self.current_module, self.uses);
+        let descriptor = self.adts.descriptor_for_type_path_in_owner(
+            &name,
+            args.len(),
+            self.current_module,
+            self.current_package,
+            self.uses,
+        );
         let Some(descriptor) = descriptor else {
             return self.canonicalize_named_without_descriptor(name, args);
         };
@@ -211,13 +215,20 @@ impl TypeCanonicalizer<'_> {
         let (base_name, variant) = name.rsplit_once("::")?;
         let descriptor = self
             .adts
-            .descriptor_for_type_path(base_name, args.len(), self.current_module, self.uses)
+            .descriptor_for_type_path_in_owner(
+                base_name,
+                args.len(),
+                self.current_module,
+                self.current_package,
+                self.uses,
+            )
             .or_else(|| {
                 let recovered = recover_type_case(base_name)?;
-                self.adts.unique_descriptor_for_type_path(
+                self.adts.descriptor_for_type_path_in_owner(
                     &recovered,
                     args.len(),
                     self.current_module,
+                    self.current_package,
                     self.uses,
                 )
             })?;
@@ -258,13 +269,20 @@ impl TypeCanonicalizer<'_> {
     ) -> Type {
         let descriptor = self
             .adts
-            .descriptor_for_type_path(&name, args.len(), self.current_module, self.uses)
+            .descriptor_for_type_path_in_owner(
+                &name,
+                args.len(),
+                self.current_module,
+                self.current_package,
+                self.uses,
+            )
             .or_else(|| {
                 let recovered = recover_type_case(&name)?;
-                self.adts.unique_descriptor_for_type_path(
+                self.adts.descriptor_for_type_path_in_owner(
                     &recovered,
                     args.len(),
                     self.current_module,
+                    self.current_package,
                     self.uses,
                 )
             });
@@ -328,13 +346,20 @@ impl TypeCanonicalizer<'_> {
         for (name, args, variant) in unresolved_alternatives {
             let alternative_descriptor = self
                 .adts
-                .descriptor_for_type_path(&name, args.len(), self.current_module, self.uses)
+                .descriptor_for_type_path_in_owner(
+                    &name,
+                    args.len(),
+                    self.current_module,
+                    self.current_package,
+                    self.uses,
+                )
                 .or_else(|| {
                     let recovered = recover_type_case(&name)?;
-                    self.adts.unique_descriptor_for_type_path(
+                    self.adts.descriptor_for_type_path_in_owner(
                         &recovered,
                         args.len(),
                         self.current_module,
+                        self.current_package,
                         self.uses,
                     )
                 })?;

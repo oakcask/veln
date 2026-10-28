@@ -151,13 +151,19 @@ fn initial_environment(
     callables: CallableFacts,
     symbols: SymbolFacts,
 ) -> TypeEnvironment {
+    let mut all_uses = module.uses.clone();
+    if let Some(base) = base {
+        all_uses.extend(base.all_uses.clone());
+    }
     TypeEnvironment {
+        resolution_owner: None,
         module_values: base
             .map(|base| base.module_values.clone())
             .unwrap_or_default(),
         module_values_by_identity: base
             .map(|base| base.module_values_by_identity.clone())
             .unwrap_or_default(),
+        bare_module_values: HashMap::new(),
         functions: callables.functions,
         functions_by_name: HashMap::new(),
         unpublished_functions: base
@@ -172,6 +178,7 @@ fn initial_environment(
         schema_symbols: symbols.schema_symbols,
         type_symbols: symbols.type_symbols,
         uses: symbols.uses,
+        all_uses,
         quarantined_uses: symbols.quarantined_uses,
         invalid_names: module.invalid_names.clone(),
         adts: declarations.adts,
@@ -246,6 +253,92 @@ fn finish_module_value_facts(module: &SurfaceModule, environment: &mut TypeEnvir
                 .or_insert(ModuleValueIndex::Unique(index));
         }
     }
+    environment.bare_module_values = bare_module_value_index(
+        &environment.module_values,
+        &environment.functions,
+        &environment.uses,
+    );
+}
+
+pub(super) fn bare_module_value_index(
+    module_values: &[ModuleValueSignature],
+    functions: &[FunctionSignature],
+    uses: &[UseDecl],
+) -> HashMap<BareModuleValueKey, BareModuleValueExposure> {
+    let mut imported_owners =
+        HashMap::<(Option<String>, String), BTreeSet<(Option<String>, Option<String>)>>::new();
+    for use_decl in uses
+        .iter()
+        .filter(|use_decl| crate::name_recovery::use_decl_contributes_bare_exports(use_decl))
+    {
+        let target = use_decl.resolved_target();
+        imported_owners
+            .entry((target.package, target.module))
+            .or_default()
+            .insert((
+                use_decl.importing_package.clone(),
+                use_decl.module_name.clone(),
+            ));
+    }
+
+    let mut selections = HashMap::new();
+    for value in module_values
+        .iter()
+        .filter(|value| value.declaration.visibility == Visibility::Public)
+    {
+        let (Some(module), Some(name)) = (
+            value.declaration.module_name.as_ref(),
+            value.declaration.name.as_ref(),
+        ) else {
+            continue;
+        };
+        let target = (value.declaration.package_name.clone(), module.clone());
+        let Some(owners) = imported_owners.get(&target) else {
+            continue;
+        };
+        let identity = (
+            value.declaration.package_name.clone(),
+            value.declaration.module_name.clone(),
+            name.clone(),
+        );
+        for (owner_package, owner_module) in owners {
+            let key = (owner_package.clone(), owner_module.clone(), name.clone());
+            selections
+                .entry(key)
+                .and_modify(|exposure: &mut BareModuleValueExposure| {
+                    if !matches!(&exposure.selection, BareModuleValueSelection::Unique(existing) if existing == &identity)
+                    {
+                        exposure.selection = BareModuleValueSelection::Ambiguous;
+                    }
+                })
+                .or_insert_with(|| BareModuleValueExposure {
+                    selection: BareModuleValueSelection::Unique(identity.clone()),
+                    function_collision: false,
+                });
+        }
+    }
+    for function in functions
+        .iter()
+        .filter(|function| function.visibility == Visibility::Public)
+    {
+        let Some(module) = function.module_name.as_ref() else {
+            continue;
+        };
+        let target = (function.package_name.clone(), module.clone());
+        let Some(owners) = imported_owners.get(&target) else {
+            continue;
+        };
+        for (owner_package, owner_module) in owners {
+            if let Some(exposure) = selections.get_mut(&(
+                owner_package.clone(),
+                owner_module.clone(),
+                function.name.clone(),
+            )) {
+                exposure.function_collision = true;
+            }
+        }
+    }
+    selections
 }
 
 fn install_recovery_facts(module: &SurfaceModule, environment: &mut TypeEnvironment) {

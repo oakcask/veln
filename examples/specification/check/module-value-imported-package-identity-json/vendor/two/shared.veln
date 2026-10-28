@@ -1,1 +1,9 @@
-pub let answer: Int = 2
+pub let answer: Int = 1
+type Secret
+	pub Value
+end
+pub type State
+	Hidden
+end
+pub let named: Secret = 0
+pub let refined: State::Hidden = 0
