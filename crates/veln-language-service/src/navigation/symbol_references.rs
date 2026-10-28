@@ -1099,7 +1099,6 @@ impl SymbolIndex {
             file,
             tokens,
             token_index,
-            token,
             symbol,
             refinement,
             qualified_matches,
@@ -1111,11 +1110,11 @@ impl SymbolIndex {
         file: &IndexedFile,
         tokens: &[Token],
         token_index: usize,
-        token: &Token,
         symbol: &ConstructorSymbol,
         refinement: bool,
         qualified_matches: &mut HashMap<String, bool>,
     ) -> bool {
+        let token = &tokens[token_index];
         if refinement {
             return self
                 .constructor_symbol_for_call(file, tokens, token_index, &token.text)
