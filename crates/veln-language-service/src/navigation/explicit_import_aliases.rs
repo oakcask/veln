@@ -242,37 +242,48 @@ fn attach_qualifier_resolution(
         veln_sema::ResolvedImportPathPrefixSelection::Missing => return,
     };
     let final_is_exact = final_alias_span.is_none();
-    let mut targets = BTreeMap::<(&str, Option<&str>), (Arc<str>, Option<Arc<str>>)>::new();
-    let prefix_resolutions = prefix_selections.into_iter().map(|selection| match selection {
-        veln_sema::ResolvedImportPathPrefixSelection::Resolved(selection)
-            if !final_is_exact || selection.alias_span.is_none() =>
-        {
-            let key = (selection.target_module, selection.target_package);
-            let (module, package) = targets.entry(key).or_insert_with(|| {
-                record_explicit_import_alias_path_work(
-                    0,
-                    selection.target_module.len()
-                        + selection.target_package.map_or(0, str::len),
-                );
-                (
-                    Arc::<str>::from(selection.target_module),
-                    selection.target_package.map(Arc::<str>::from),
-                )
-            });
-            Some(QualifiedImportResolution::Resolved(QualifiedImportTarget {
-                module: Arc::clone(module),
-                package: package.as_ref().map(Arc::clone),
-                consumed_segments: selection.consumed_segments,
-            }))
-        }
-        _ if final_is_exact => Some(QualifiedImportResolution::Blocked),
-        _ => None,
-    });
+    let prefix_resolutions = resolved_prefix_resolutions(&prefix_selections, final_is_exact);
     attach_prefix_resolutions(resolutions, qualifier_segments, prefix_resolutions);
     if let Some(alias_span) = final_alias_span {
         alias_occurrences.insert(occurrence_range, alias_span.clone());
         record_explicit_import_alias_retained_entries(1);
     }
+}
+
+fn resolved_prefix_resolutions(
+    prefix_selections: &[veln_sema::ResolvedImportPathPrefixSelection<'_>],
+    final_is_exact: bool,
+) -> Vec<Option<QualifiedImportResolution>> {
+    let mut targets = BTreeMap::<(&str, Option<&str>), (Arc<str>, Option<Arc<str>>)>::new();
+    prefix_selections
+        .iter()
+        .copied()
+        .map(|selection| match selection {
+            veln_sema::ResolvedImportPathPrefixSelection::Resolved(selection)
+                if !final_is_exact || selection.alias_span.is_none() =>
+            {
+                let key = (selection.target_module, selection.target_package);
+                let (module, package) = targets.entry(key).or_insert_with(|| {
+                    record_explicit_import_alias_path_work(
+                        0,
+                        selection.target_module.len()
+                            + selection.target_package.map_or(0, str::len),
+                    );
+                    (
+                        Arc::<str>::from(selection.target_module),
+                        selection.target_package.map(Arc::<str>::from),
+                    )
+                });
+                Some(QualifiedImportResolution::Resolved(QualifiedImportTarget {
+                    module: Arc::clone(module),
+                    package: package.as_ref().map(Arc::clone),
+                    consumed_segments: selection.consumed_segments,
+                }))
+            }
+            _ if final_is_exact => Some(QualifiedImportResolution::Blocked),
+            _ => None,
+        })
+        .collect()
 }
 
 fn attach_prefix_resolutions(

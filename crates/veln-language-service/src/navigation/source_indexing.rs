@@ -151,6 +151,65 @@ struct ParsedDependencySource {
     parsed: ParseOutput,
 }
 
+struct DependencyImportIndexes {
+    uses: Arc<BTreeSet<String>>,
+    external_uses: Arc<BTreeSet<(String, String)>>,
+    import_aliases: Arc<BTreeMap<String, String>>,
+    external_import_aliases: Arc<BTreeMap<String, (String, String)>>,
+    explicit_alias_occurrences: BTreeMap<(usize, usize), SourceSpan>,
+    qualified_import_resolutions: QualifiedImportResolutionIndex,
+}
+
+struct DependencyNavigationData {
+    schema_operation_leaf_ranges: BTreeSet<(usize, usize)>,
+    schema_composition_leaf_spans: Vec<SourceSpan>,
+    handler_operation_clause_body_ranges: Vec<(usize, usize)>,
+    handler_clause_bindings_by_name: BTreeMap<String, Vec<ClauseBinding>>,
+    constructor_reference_declaration_ranges: BTreeSet<(usize, usize)>,
+    variant_refinement_source_index: VariantRefinementSourceIndex,
+    recovered_effect_declarations: Vec<SourceSpan>,
+    recovered_handler_declarations: Vec<SourceSpan>,
+}
+
+fn dependency_import_indexes(imports: UseModuleIndex) -> DependencyImportIndexes {
+    DependencyImportIndexes {
+        uses: Arc::new(imports.local_modules),
+        external_uses: Arc::new(imports.external_modules),
+        import_aliases: Arc::new(imports.local_aliases),
+        external_import_aliases: Arc::new(imports.external_aliases),
+        explicit_alias_occurrences: BTreeMap::new(),
+        qualified_import_resolutions: QualifiedImportResolutionIndex::default(),
+    }
+}
+
+fn dependency_navigation_data(
+    source: &SourceFile,
+    tokens: &[Token],
+    parsed: &ParseOutput,
+) -> DependencyNavigationData {
+    DependencyNavigationData {
+        schema_operation_leaf_ranges: valid_schema_operation_leaf_spans(&parsed.tree)
+            .into_iter()
+            .map(|span| (span.start.offset, span.end.offset))
+            .collect(),
+        schema_composition_leaf_spans: valid_schema_composition_leaf_spans(
+            source, tokens, parsed,
+        ),
+        handler_operation_clause_body_ranges: handler_operation_clause_body_ranges(source, tokens),
+        handler_clause_bindings_by_name: handler_clause_bindings_by_name(&parsed.tree),
+        constructor_reference_declaration_ranges: constructor_reference_declaration_ranges(
+            &parsed.tree,
+            tokens,
+        ),
+        variant_refinement_source_index: variant_refinement_source_index(&parsed.tree),
+        recovered_effect_declarations: recovered_effect_declarations(&parsed.tree),
+        recovered_handler_declarations: recovered_handler_declarations(
+            parsed,
+            &HandlerDiagnosticIndex::new(parsed),
+        ),
+    }
+}
+
 fn parse_dependency_source(
     source: &veln_project::CapturedPackageSource,
 ) -> ParsedDependencySource {
@@ -190,44 +249,32 @@ fn indexed_dependency_source(
         invalid_declaration_names,
         parsed,
     } = parse_dependency_source(source);
-    let schema_operation_leaf_ranges = valid_schema_operation_leaf_spans(&parsed.tree)
-        .into_iter()
-        .map(|span| (span.start.offset, span.end.offset))
-        .collect();
-    let schema_composition_leaf_spans =
-        valid_schema_composition_leaf_spans(&source, &tokens, &parsed);
-    let handler_operation_clause_body_ranges =
-        handler_operation_clause_body_ranges(&source, &tokens);
-    let handler_clause_bindings_by_name = handler_clause_bindings_by_name(&parsed.tree);
-    let constructor_reference_declaration_ranges =
-        constructor_reference_declaration_ranges(&parsed.tree, &tokens);
-    let variant_refinement_source_index = variant_refinement_source_index(&parsed.tree);
+    let import_indexes = dependency_import_indexes(imports);
+    let navigation = dependency_navigation_data(&source, &tokens, &parsed);
+    let variant_refinement_source_index = navigation.variant_refinement_source_index;
     let file = IndexedFile {
         source,
         tokens,
         module: identity.module,
         companion_target_module: None,
-        uses: Arc::new(imports.local_modules),
-        external_uses: Arc::new(imports.external_modules),
-        import_aliases: Arc::new(imports.local_aliases),
-        external_import_aliases: Arc::new(imports.external_aliases),
-        explicit_import_alias_occurrences: BTreeMap::new(),
-        qualified_import_resolutions: QualifiedImportResolutionIndex::default(),
+        uses: import_indexes.uses,
+        external_uses: import_indexes.external_uses,
+        import_aliases: import_indexes.import_aliases,
+        external_import_aliases: import_indexes.external_import_aliases,
+        explicit_import_alias_occurrences: import_indexes.explicit_alias_occurrences,
+        qualified_import_resolutions: import_indexes.qualified_import_resolutions,
         schema_alias_external_imports: Vec::new(),
         workspace_imports: Vec::new(),
         invalid_declaration_names,
         recovery_symbols: Vec::new(),
-        recovered_effect_declarations: recovered_effect_declarations(&parsed.tree),
-        recovered_handler_declarations: recovered_handler_declarations(
-            &parsed,
-            &HandlerDiagnosticIndex::new(&parsed),
-        ),
+        recovered_effect_declarations: navigation.recovered_effect_declarations,
+        recovered_handler_declarations: navigation.recovered_handler_declarations,
         handler_reference_ranges: BTreeSet::new(),
         handler_operation_clause_references: Vec::new(),
-        handler_operation_clause_body_ranges,
-        handler_clause_bindings_by_name,
-        schema_operation_leaf_ranges,
-        schema_composition_leaf_spans,
+        handler_operation_clause_body_ranges: navigation.handler_operation_clause_body_ranges,
+        handler_clause_bindings_by_name: navigation.handler_clause_bindings_by_name,
+        schema_operation_leaf_ranges: navigation.schema_operation_leaf_ranges,
+        schema_composition_leaf_spans: navigation.schema_composition_leaf_spans,
         effect_reference_ranges: BTreeSet::new(),
         effect_operation_ranges: BTreeSet::new(),
         generic_effect_binders: Vec::new(),
@@ -247,7 +294,8 @@ fn indexed_dependency_source(
         variant_refinement_type_parameter_context_index_by_final_range:
             variant_refinement_source_index.type_parameter_context_index_by_final_range,
         canonical_variant_refinement_type_arguments_by_final_range: BTreeMap::new(),
-        constructor_reference_declaration_ranges,
+        constructor_reference_declaration_ranges: navigation
+            .constructor_reference_declaration_ranges,
         classified_paths: ClassifiedPathIndex::default(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated: identity.navigation_isolated,

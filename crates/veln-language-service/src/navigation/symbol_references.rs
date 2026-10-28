@@ -4,6 +4,76 @@ enum SchemaSymbolReferenceKind {
     Alias,
 }
 
+fn indexed_qualified_import_resolution<'a>(
+    file: &'a IndexedFile,
+    qualifier_segments: &[&str],
+) -> Option<&'a QualifiedImportResolution> {
+    let mut node_index = Some(0);
+    for segment in qualifier_segments {
+        node_index = node_index.and_then(|index| {
+            file.qualified_import_resolutions.nodes[index]
+                .children
+                .get(*segment)
+                .copied()
+        });
+    }
+    record_explicit_import_alias_path_work(qualifier_segments.len(), 0);
+    node_index.and_then(|index| {
+        file.qualified_import_resolutions.nodes[index]
+            .resolution
+            .as_ref()
+    })
+}
+
+fn resolved_qualified_module_identity(
+    target: &QualifiedImportTarget,
+    qualifier_segments: &[&str],
+) -> QualifiedModuleIdentity {
+    let mut module = target.module.to_string();
+    for segment in qualifier_segments.iter().skip(target.consumed_segments) {
+        module.push_str("::");
+        module.push_str(segment);
+    }
+    let package = target.package.as_ref().map(|package| package.to_string());
+    record_explicit_import_alias_path_work(
+        0,
+        module.len() + package.as_ref().map_or(0, String::len),
+    );
+    QualifiedModuleIdentity {
+        module,
+        package,
+        package_resolved: true,
+    }
+}
+
+fn fallback_qualified_module_candidates(
+    file: &IndexedFile,
+    qualifier: &str,
+) -> Vec<QualifiedModuleIdentity> {
+    let mut modules = vec![QualifiedModuleIdentity {
+        module: qualifier.to_string(),
+        package: None,
+        package_resolved: false,
+    }];
+    if let Some(module) = resolve_qualified_alias(&file.import_aliases, qualifier) {
+        modules.push(QualifiedModuleIdentity {
+            module,
+            package: None,
+            package_resolved: true,
+        });
+    }
+    if let Some((module, package)) =
+        resolve_external_qualified_alias(&file.external_import_aliases, qualifier)
+    {
+        modules.push(QualifiedModuleIdentity {
+            module,
+            package: Some(package),
+            package_resolved: true,
+        });
+    }
+    modules
+}
+
 impl SymbolIndex {
     fn import_alias_references(&self, symbol: &ImportAliasSymbol) -> Vec<SourceSpan> {
         let mut references = self
@@ -1072,64 +1142,13 @@ impl SymbolIndex {
         qualifier: &str,
     ) -> Vec<QualifiedModuleIdentity> {
         let qualifier_segments = qualifier.split("::").collect::<Vec<_>>();
-        let mut node_index = 0;
-        for segment in &qualifier_segments {
-            let Some(next_index) = file.qualified_import_resolutions.nodes[node_index]
-                .children
-                .get(*segment)
-            else {
-                node_index = usize::MAX;
-                break;
-            };
-            node_index = *next_index;
+        match indexed_qualified_import_resolution(file, &qualifier_segments) {
+            Some(QualifiedImportResolution::Resolved(target)) => vec![
+                resolved_qualified_module_identity(target, &qualifier_segments),
+            ],
+            Some(QualifiedImportResolution::Blocked) => Vec::new(),
+            None => fallback_qualified_module_candidates(file, qualifier),
         }
-        record_explicit_import_alias_path_work(qualifier_segments.len(), 0);
-        let resolution = (node_index != usize::MAX)
-            .then(|| file.qualified_import_resolutions.nodes[node_index].resolution.as_ref())
-            .flatten();
-        match resolution {
-            Some(QualifiedImportResolution::Resolved(target)) => {
-                let mut module = target.module.to_string();
-                for segment in qualifier_segments.iter().skip(target.consumed_segments) {
-                    module.push_str("::");
-                    module.push_str(segment);
-                }
-                let package = target.package.as_ref().map(|package| package.to_string());
-                record_explicit_import_alias_path_work(
-                    0,
-                    module.len() + package.as_ref().map_or(0, String::len),
-                );
-                return vec![QualifiedModuleIdentity {
-                    module,
-                    package,
-                    package_resolved: true,
-                }];
-            }
-            Some(QualifiedImportResolution::Blocked) => return Vec::new(),
-            None => {}
-        }
-        let mut modules = vec![QualifiedModuleIdentity {
-            module: qualifier.to_string(),
-            package: None,
-            package_resolved: false,
-        }];
-        if let Some(module) = resolve_qualified_alias(&file.import_aliases, qualifier) {
-            modules.push(QualifiedModuleIdentity {
-                module,
-                package: None,
-                package_resolved: true,
-            });
-        }
-        if let Some((module, package)) =
-            resolve_external_qualified_alias(&file.external_import_aliases, qualifier)
-        {
-            modules.push(QualifiedModuleIdentity {
-                module,
-                package: Some(package),
-                package_resolved: true,
-            });
-        }
-        modules
     }
 
     fn qualifiers_for_module(
