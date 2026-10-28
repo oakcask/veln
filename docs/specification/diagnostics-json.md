@@ -90,6 +90,15 @@ details contain `boundary: "public_module_value"`, the declaration `name`,
 and
 [`JSON`](../../examples/specification/check/module-value-public-annotation-visibility-json/)
 cases fix the rendered and structured forms.
+If the annotation does not resolve in the package that owns the module value,
+the checker instead reports `name.unresolved` at the written type. An equal
+type spelling in another package does not change that diagnostic into
+`type.public_annotation_private` or supply private-declaration context. The
+checked owner-package fallback
+[`human`](../../examples/specification/check/module-value-owner-package-fallback-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-owner-package-fallback-json/)
+cases cover this diagnostic boundary.
 
 An available module value selected as a call target reports
 `type.not_callable` at that target. Its details identify `call_target` as the
@@ -98,6 +107,15 @@ context identifies the selected declaration. An unavailable same-module
 identity still reserves its name, but a call through it does not emit
 `type.not_callable`, select declaration context, or fall through to another
 callable. Diagnostics from independently checked call arguments remain.
+An unavailable imported module value does not reserve its bare exposure. With
+no other eligible declaration, a bare read reports `name.unresolved`. A valid
+imported value with the same name remains selectable without
+`name.ambiguous`, and a valid imported function remains callable without
+`name.ambiguous` or `type.not_callable`. The checked invalid-import exposure
+[`human`](../../examples/specification/check/module-value-invalid-import-exposure-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-invalid-import-exposure-json/)
+cases cover these alternatives in both import orders.
 Explicit type arguments on the call target preserve both outcomes, and the
 primary span covers the complete type-applied callee. The checked typed-call
 cases cover the selected declaration, details, related context, primary span,
