@@ -37,6 +37,22 @@ pub(super) fn invalid_qualified_constructor_pattern(name: &[String]) -> bool {
             .is_some_and(u8::is_ascii_lowercase)
 }
 
+pub(super) fn invalid_qualified_constructor_base(name: &[String]) -> bool {
+    if name.len() < 3 {
+        return false;
+    }
+    let type_index = name.len() - 2;
+    name[..type_index].iter().any(|segment| {
+        segment
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_uppercase)
+    }) || name[type_index]
+        .as_bytes()
+        .first()
+        .is_some_and(u8::is_ascii_lowercase)
+}
+
 pub(super) fn initial_uppercase_qualified_constructor_name(name: &[String]) -> Option<Vec<String>> {
     let mut recovered = name.to_vec();
     let leaf = recovered.last_mut()?;

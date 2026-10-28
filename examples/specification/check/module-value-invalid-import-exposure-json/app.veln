@@ -1,6 +1,8 @@
 use alpha
 use beta
 
+let selected: Int = shared
+
 fn read() -> Int
-	shared
+	selected
 end

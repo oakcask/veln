@@ -74,12 +74,40 @@ pub(crate) fn check_module_values(
     environment: &mut TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
 ) -> ModuleValueAnalysis {
+    let colliding_identities = colliding_module_value_identities(module);
+    let mut unavailable = colliding_identities.clone();
+    unavailable.extend(invalid_cased_module_value_identities(module));
+    environment.quarantine_module_values(&unavailable);
+
+    let mut seen = BTreeSet::new();
+    loop {
+        let analysis = check_module_values_once(module, environment, variant_diagnostics);
+        if analysis.invalid == unavailable {
+            return analysis;
+        }
+        if !seen.insert(unavailable.clone()) {
+            let mut conservative = unavailable;
+            conservative.extend(analysis.invalid);
+            environment.quarantine_module_values(&conservative);
+            let mut analysis = check_module_values_once(module, environment, variant_diagnostics);
+            analysis.invalid.extend(conservative);
+            return analysis;
+        }
+        unavailable = analysis.invalid;
+        environment.quarantine_module_values(&unavailable);
+    }
+}
+
+fn check_module_values_once(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    variant_diagnostics: &mut VariantDiagnosticInterner,
+) -> ModuleValueAnalysis {
     let mut diagnostics = Vec::new();
     let mut dependencies = vec![Vec::new(); module.module_values.len()];
     let colliding_identities = colliding_module_value_identities(module);
     let mut initially_invalid = colliding_identities.clone();
     initially_invalid.extend(invalid_cased_module_value_identities(module));
-    environment.quarantine_module_values(&initially_invalid);
     let mut invalid = initially_invalid_values(module, &initially_invalid);
     let value_indices = module_value_indices(module, &colliding_identities);
 

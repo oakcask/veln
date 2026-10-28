@@ -25,4 +25,10 @@ main.veln:39:3: error[type.match_non_exhaustive]: match is missing case Made(_)
   note: main.veln:39:9: Scrutinee has type `Sample`.
 main.veln:45:3: error[type.match_non_exhaustive]: match is missing case Made(_)
   note: main.veln:45:9: Scrutinee has type `Sample`.
+main.veln:51:3: error[type.match_non_exhaustive]: match is missing case Some(_)
+  note: main.veln:51:9: Scrutinee has type `Option<Int>`.
+main.veln:58:3: error[type.match_non_exhaustive]: match is missing case Some(_)
+  note: main.veln:58:9: Scrutinee has type `Option<Int>`.
+main.veln:65:3: error[type.match_non_exhaustive]: match is missing case Some(_)
+  note: main.veln:65:9: Scrutinee has type `Option<Int>`.
 main.veln:95:64: error[effect.unknown]: function type effect `logging::audit` is not known

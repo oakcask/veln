@@ -108,18 +108,20 @@ fn module_with_imported_named_annotations(count: usize) -> SurfaceModule {
             source.span(veln_source::TextRange::new(0, 0)),
         );
         merged.types.extend(module.types);
+        let consumer_name = format!("app_{index}");
+        let consumer_source = SourceFile::new(
+            format!("app_{index}.veln"),
+            format!("use types_{index}\nlet value_{index}: types_{index}::Item = 0\n"),
+        );
+        let consumer = veln_ast::lower_surface_ast_with_module_identity(
+            &parse(&consumer_source).tree,
+            consumer_name,
+            consumer_source.span(veln_source::TextRange::new(0, 0)),
+        );
+        merged.module = consumer.module;
+        merged.uses.extend(consumer.uses);
+        merged.module_values.extend(consumer.module_values);
     }
-    let app_source = (0..count)
-        .map(|index| format!("use types_{index}\nlet value_{index}: types_{index}::Item = 0\n"))
-        .collect::<String>();
-    let source = SourceFile::new("app.veln", app_source);
-    let app = veln_ast::lower_surface_ast_with_module_identity(
-        &parse(&source).tree,
-        "app".to_string(),
-        source.span(veln_source::TextRange::new(0, 0)),
-    );
-    merged.uses.extend(app.uses);
-    merged.module_values.extend(app.module_values);
     merged
 }
 
@@ -214,15 +216,20 @@ fn bare_imported_module_value_lookup_reports_adjacent_size_timings() {
 #[test]
 #[ignore = "supporting wall-clock evidence; deterministic import work is asserted separately"]
 fn imported_named_annotation_analysis_reports_adjacent_size_timings() {
-    for count in [100, 200, 400] {
+    for count in [100, 200, 400, 800] {
         let module = module_with_imported_named_annotations(count);
-        let started = std::time::Instant::now();
         let environment = crate::types::TypeEnvironment::from_module(&module);
-        assert!(matches!(
-            environment.module_value_path_in_owner(&["value_0".to_string()], Some("app"), None,),
-            crate::types::ModuleValueLookup::Unavailable
-                | crate::types::ModuleValueLookup::Available(_)
-        ));
+        let started = std::time::Instant::now();
+        let diagnostics = crate::pipeline::analyze_surface_module_with_environment_for_test(
+            &module,
+            &environment,
+        );
+        assert!(
+            diagnostics.iter().all(|diagnostic| {
+                diagnostic.id != "name.unresolved" || !diagnostic.message.contains("Item")
+            }),
+            "{diagnostics:#?}"
+        );
         eprintln!(
             "imported named annotations: {count} imports and annotations in {:?}",
             started.elapsed()
@@ -350,8 +357,8 @@ fn module_value_annotation_dedup_work_grows_linearly_with_failures() {
             count,
             "{diagnostics:#?}"
         );
-        assert_eq!(work.path_lookups, count, "{work:#?}");
-        assert_eq!(work.indexed_diagnostics, count, "{work:#?}");
+        assert_eq!(work.path_lookups, count * 2, "{work:#?}");
+        assert_eq!(work.indexed_diagnostics, count * 2, "{work:#?}");
         (work.path_lookups, work.indexed_diagnostics)
     }
 
@@ -831,7 +838,7 @@ fn imported_module_values_follow_bare_qualified_and_alias_exposure() {
     let module = merged_modules_with_identities(vec![
         (
             "values",
-            SourceFile::new("values.veln", "pub let answer: Int = 42\n"),
+            SourceFile::new("values.veln", "pub let answer: String = \"imported\"\n"),
         ),
         (
             "app",
@@ -1364,29 +1371,45 @@ fn colliding_qualified_module_value_import_work_is_bounded_per_reference() {
 fn imported_named_annotation_lookup_work_is_adjacent_linear() {
     fn work_for(count: usize) -> (usize, usize) {
         let module = module_with_imported_named_annotations(count);
+        let environment = crate::types::TypeEnvironment::from_module(&module);
         crate::adt::reset_import_path_comparisons();
         crate::adt::reset_qualified_path_work();
-        let _environment = crate::types::TypeEnvironment::from_module(&module);
+        let diagnostics = crate::pipeline::analyze_surface_module_with_environment_for_test(
+            &module,
+            &environment,
+        );
+        assert!(
+            diagnostics.iter().all(|diagnostic| {
+                diagnostic.id != "name.unresolved" || !diagnostic.message.contains("Item")
+            }),
+            "{diagnostics:#?}"
+        );
         (
             crate::adt::import_path_comparisons(),
             crate::adt::qualified_path_work(),
         )
     }
 
-    let smaller = work_for(64);
-    let larger = work_for(128);
-    assert!(
-        smaller.0 >= 64 * 2,
-        "construction and lookup must be counted: {smaller:?}"
-    );
-    assert!(
-        larger.0 <= smaller.0 * 2 + 16,
-        "import work must be adjacent-linear: {smaller:?} -> {larger:?}"
-    );
-    assert!(
-        larger.1 <= smaller.1 * 3,
-        "qualified path byte work must remain bounded: {smaller:?} -> {larger:?}"
-    );
+    let work = [64, 128, 256].map(work_for);
+    for (count, pair) in [64, 128, 256].into_iter().zip(work) {
+        assert!(
+            pair.0 >= count,
+            "closedness lookups must be counted: {pair:?}"
+        );
+    }
+    for adjacent in work.windows(2) {
+        let [smaller, larger] = adjacent else {
+            unreachable!();
+        };
+        assert!(
+            larger.0 <= smaller.0 * 2 + 16,
+            "import work must be adjacent-linear: {smaller:?} -> {larger:?}"
+        );
+        assert!(
+            larger.1 <= smaller.1 * 3,
+            "qualified path byte work must remain bounded: {smaller:?} -> {larger:?}"
+        );
+    }
 }
 
 #[test]
@@ -1445,8 +1468,9 @@ fn invalid_local_module_value_shadows_an_imported_value() {
                 concat!(
                     "use values\n",
                     "let answer: Missing = 0\n",
+                    "let selected: Int = answer\n",
                     "fn read() -> Int\n",
-                    "  answer\n",
+                    "  selected\n",
                     "end\n",
                 ),
             ),
@@ -1463,6 +1487,13 @@ fn invalid_local_module_value_shadows_an_imported_value() {
         1,
         "{diagnostics:#?}"
     );
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "type.mismatch"
+            || !diagnostic
+                .span
+                .as_ref()
+                .is_some_and(|span| span.start.line == 3)
+    }));
 }
 
 #[test]
@@ -1542,6 +1573,107 @@ fn valid_imported_value_survives_an_invalid_namesake_in_every_order() {
             );
         }
     }
+}
+
+#[test]
+fn module_value_initializers_observe_final_imported_availability_in_every_order() {
+    for reverse_sources in [false, true] {
+        for reverse_imports in [false, true] {
+            let alpha = (
+                "alpha",
+                SourceFile::new("alpha.veln", "pub let shared: Missing = 0\n"),
+            );
+            let beta = (
+                "beta",
+                SourceFile::new("beta.veln", "pub let shared: Int = 2\n"),
+            );
+            let imports = if reverse_imports {
+                "use beta\nuse alpha\n"
+            } else {
+                "use alpha\nuse beta\n"
+            };
+            let app = (
+                "app",
+                SourceFile::new(
+                    "app.veln",
+                    format!(
+                        "{imports}let selected: Int = shared\nfn read() -> Int\n  selected\nend\n"
+                    ),
+                ),
+            );
+            let sources = if reverse_sources {
+                vec![app, beta, alpha]
+            } else {
+                vec![alpha, beta, app]
+            };
+
+            let diagnostics = analyze_surface_module(&merged_modules_with_identities(sources));
+
+            assert!(
+                diagnostics.iter().all(|diagnostic| {
+                    diagnostic.id != "name.ambiguous"
+                        && !(diagnostic.id == "name.unresolved"
+                            && diagnostic.message.contains("shared"))
+                        && !(diagnostic.id == "name.unresolved"
+                            && diagnostic.message.contains("selected"))
+                }),
+                "reverse_sources={reverse_sources}, reverse_imports={reverse_imports}: {diagnostics:#?}"
+            );
+        }
+    }
+
+    for reference in ["shared", "alpha::shared"] {
+        let module = merged_modules_with_identities(vec![
+            (
+                "alpha",
+                SourceFile::new("alpha.veln", "pub let shared: Missing = 0\n"),
+            ),
+            (
+                "app",
+                SourceFile::new(
+                    "app.veln",
+                    format!(
+                        "use alpha\nlet selected: Int = {reference}\nfn read() -> Int\n  selected\nend\n"
+                    ),
+                ),
+            ),
+        ]);
+        let diagnostics = analyze_surface_module(&module);
+
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "name.unresolved"
+                    && diagnostic.message == format!("unresolved value `{reference}`")
+            }),
+            "reference={reference}: {diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
+fn cross_module_initializer_cycles_remain_outside_dependency_quarantine() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "alpha",
+            SourceFile::new("alpha.veln", "use beta\npub let left: Int = right\n"),
+        ),
+        (
+            "beta",
+            SourceFile::new("beta.veln", "use alpha\npub let right: Int = left\n"),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            !matches!(
+                diagnostic.id.as_str(),
+                "name.unresolved" | "name.ambiguous" | "value.module_initializer_cycle"
+            )
+        }),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

@@ -3,8 +3,8 @@ exit = 1
 
 [stdout]
 format = "text"
-contains = ["unresolved type `Missing`", "unresolved value `shared`"]
-not_contains = ["ambiguous value `shared`", "module value `shared` is not callable"]
+contains = ["unresolved type `Missing`", "unresolved value `shared`", "unresolved value `alpha::shared`"]
+not_contains = ["ambiguous value `shared`", "ambiguous value `alpha::shared`", "module value `shared` is not callable"]
 
 [stderr]
 format = "empty"

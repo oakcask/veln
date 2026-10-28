@@ -392,6 +392,16 @@ fn match_pattern_coverage(
                     .adts
                     .descriptor_for_type_prefer_module(scrutinee_type, current_module)
                     .and_then(|descriptor| {
+                        let quarantined = environment
+                            .quarantined_explicit_import_constructor_for_descriptor_in_owner(
+                                name,
+                                descriptor,
+                                current_module,
+                                current_package,
+                            );
+                        if invalid_qualified_constructor_base(name) && quarantined.is_none() {
+                            return None;
+                        }
                         environment
                             .adts
                             .constructor_for_descriptor(
@@ -400,15 +410,7 @@ fn match_pattern_coverage(
                                 current_module,
                                 &environment.uses,
                             )
-                            .or_else(|| {
-                                environment
-                                    .quarantined_explicit_import_constructor_for_descriptor_in_owner(
-                                        name,
-                                        descriptor,
-                                        current_module,
-                                        current_package,
-                                    )
-                            })
+                            .or(quarantined)
                             .map(|constructor| constructor.variant.coverage_case.clone())
                     }),
                 MatchDomain::Bool => None,

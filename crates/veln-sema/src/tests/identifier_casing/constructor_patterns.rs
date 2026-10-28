@@ -103,6 +103,41 @@ fn qualified_lowercase_nullary_constructor_pattern_suppresses_exhaustiveness_cas
 }
 
 #[test]
+fn invalid_qualified_constructor_base_does_not_suppress_exhaustiveness() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn invalid_module(input: Option<Int>) -> Int\n",
+            "  match input\n",
+            "    Prelude::Option::Some(value) => value\n",
+            "    prelude::Option::None => 0\n",
+            "  end\n",
+            "end\n",
+            "fn invalid_type(input: Option<Int>) -> Int\n",
+            "  match input\n",
+            "    prelude::option::Some(value) => value\n",
+            "    prelude::Option::None => 0\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic.id == "type.match_non_exhaustive"
+                    && diagnostic.message == "match is missing case Some(_)"
+            })
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn qualified_lowercase_constructor_pattern_keeps_direct_nested_and_body_diagnostics() {
     let source = SourceFile::new(
         "main.veln",

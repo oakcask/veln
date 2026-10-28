@@ -76,6 +76,123 @@ impl AdtRegistry {
         self.indexed_qualified_descriptor_in_owner(name, args_len, current_module, &owner, unique)
     }
 
+    fn indexed_imported_descriptor_including_quarantined_in_owner(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<Option<&AdtDescriptor>> {
+        if !self.source_import_indexes_ready {
+            return None;
+        }
+        crate::adt::lookup_validation::record_import_path_comparison();
+        let owner = ResolvedImportOwner {
+            package: current_package.map(str::to_string),
+            module: current_module.map(str::to_string),
+        };
+        if !name.contains("::") {
+            return Some(self.indexed_unqualified_descriptor_in_owner(
+                name,
+                Some(args_len),
+                &owner,
+            ));
+        }
+
+        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+        let type_name = segments.last()?;
+        let module_path = segments[..segments.len() - 1].join("::");
+        crate::adt::lookup_validation::record_qualified_path_work(module_path.len());
+        if let Some(identity) = self
+            .qualified_import_modules
+            .get(&(owner.clone(), module_path.clone()))
+            .and_then(|modules| self.source_identity_from_import_modules(type_name, modules))
+        {
+            return Some(
+                self.qualified_descriptor_candidates(&identity)
+                    .rev()
+                    .find(|descriptor| Self::descriptor_matches_arity(descriptor, Some(args_len))),
+            );
+        }
+        if let Some(builtin) = self.indexed_qualified_builtin_fallback(
+            &module_path,
+            type_name,
+            Some(args_len),
+            current_module,
+            &owner,
+            false,
+        ) {
+            return Some(builtin);
+        }
+        let identity = self
+            .indexed_recovered_qualified_source_identity(
+                type_name,
+                &segments[..segments.len() - 1],
+                current_module,
+                &owner,
+            )
+            .unwrap_or(QualifiedSourceIdentity::Ambiguous);
+        Some(
+            self.qualified_descriptor_candidates(&identity)
+                .rev()
+                .find(|descriptor| Self::descriptor_matches_arity(descriptor, Some(args_len)))
+                .or_else(|| {
+                    (normalized_qualified_path(&module_path) == "prelude")
+                        .then(|| self.root_descriptor(type_name, Some(args_len)))
+                        .flatten()
+                }),
+        )
+    }
+
+    fn indexed_recovered_qualified_source_identity(
+        &self,
+        type_name: &str,
+        qualifiers: &[String],
+        current_module: Option<&str>,
+        owner: &ResolvedImportOwner,
+    ) -> Option<QualifiedSourceIdentity> {
+        let normalized = normalized_qualified_segments(qualifiers);
+        crate::adt::lookup_validation::record_qualified_path_work(normalized.len());
+        let mut selected = current_module
+            .filter(|module_path| {
+                crate::adt::lookup_validation::record_qualified_path_work(module_path.len());
+                normalized_qualified_path(module_path) == normalized
+                    && is_single_initial_recovery(qualifiers, module_path)
+            })
+            .filter(|module_path| {
+                self.source_identity_exists(owner.package.as_deref(), Some(module_path), type_name)
+            })
+            .map(|module_path| {
+                QualifiedSourceIdentity::Source((
+                    owner.package.clone(),
+                    Some(module_path.to_string()),
+                    type_name.to_string(),
+                ))
+            });
+
+        if let Some(candidates) = self
+            .qualified_import_recovery_modules
+            .get(&(owner.clone(), normalized))
+        {
+            for candidate in candidates {
+                crate::adt::lookup_validation::record_qualified_path_work(
+                    candidate.module_path.len(),
+                );
+                if !is_single_initial_recovery(qualifiers, &candidate.module_path)
+                    || current_module == Some(candidate.module_path.as_str())
+                {
+                    continue;
+                }
+                let identity =
+                    self.source_identity_from_import_modules(type_name, &candidate.modules);
+                if merge_recovered_identity(&mut selected, identity) {
+                    return Some(QualifiedSourceIdentity::Ambiguous);
+                }
+            }
+        }
+        selected
+    }
+
     fn indexed_unqualified_descriptor_in_owner<'a>(
         &'a self,
         name: &str,
@@ -333,6 +450,14 @@ impl AdtRegistry {
             if name.contains("::") || local.is_some() {
                 return local;
             }
+        }
+        if let Some(descriptor) = self.indexed_imported_descriptor_including_quarantined_in_owner(
+            name,
+            args_len,
+            current_module,
+            current_package,
+        ) {
+            return descriptor;
         }
         let owner_uses = Self::owner_uses(uses, current_module, current_package);
         if !name.contains("::") {
