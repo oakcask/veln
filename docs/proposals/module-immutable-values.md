@@ -17,9 +17,10 @@ The current [type specification](../specification/types.md#module-immutable-valu
 defines initializer admission, annotation checking, dependency graphs, and
 cycle rejection. The current
 [name-resolution specification](../specification/name-resolution.md#namespaces-and-use-roles)
-defines same-module declaration identity, forward lookup, local shadowing, and
-the shared function/module-value namespace. The current compiler deliberately
-retains `module.value_not_executable` after those checks.
+defines package-aware declaration identity, same-module and imported lookup,
+forward lookup, local shadowing, visibility, and the shared
+function/module-value namespace. The current compiler deliberately retains
+`module.value_not_executable` after those checks.
 
 This proposal now owns only:
 

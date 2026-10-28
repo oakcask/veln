@@ -57,8 +57,10 @@ within the same-module dependency graph do not provide later semantic facts.
 Imported references in another module value initializer use each imported
 declaration's final availability. Bare and qualified initializer reads
 therefore use the same final import exposure in every source and import order.
-Imported and cross-module dependency propagation remains outside this gate.
-This gate still prevents lowering or
+When an imported declaration becomes unavailable, importers are rechecked and
+that unavailability can continue through later imported initializer reads.
+Cross-module references do not yet create dependency-graph edges or
+cross-module cycle diagnostics. This gate still prevents lowering or
 publication. The
 [source-surface specification](source-surface.md#module-immutable-value-declarations)
 defines the declaration boundary, and the

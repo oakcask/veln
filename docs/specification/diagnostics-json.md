@@ -90,11 +90,18 @@ details contain `boundary: "public_module_value"`, the declaration `name`,
 and
 [`JSON`](../../examples/specification/check/module-value-public-annotation-visibility-json/)
 cases fix the rendered and structured forms.
-If the annotation does not resolve in the package that owns the module value,
-the checker instead reports `name.unresolved` at the written type. An equal
-type spelling in another package does not change that diagnostic into
-`type.public_annotation_private` or supply private-declaration context. The
-checked owner-package fallback
+Annotation resolution uses the imports of the module that declares the value.
+It retains the selected type's package and module identity when producing
+private-declaration context. If the annotation does not resolve from that
+owner, the checker instead reports `name.unresolved` at the written type. An
+equal type spelling in the consuming package or another package does not
+change that diagnostic into `type.public_annotation_private` or supply
+private-declaration context. The checked imported-owner
+[`human`](../../examples/specification/check/module-value-imported-annotation-owner-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-imported-annotation-owner-json/)
+cases cover package-distinct imports and their private declaration identities.
+The checked owner-package fallback
 [`human`](../../examples/specification/check/module-value-owner-package-fallback-human/)
 and
 [`JSON`](../../examples/specification/check/module-value-owner-package-fallback-json/)
