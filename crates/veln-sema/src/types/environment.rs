@@ -219,24 +219,84 @@ impl TypeEnvironment {
             &module_path,
             current_module,
         ) {
-            return ModuleValueLookup::Ambiguous;
+            return if self.ambiguous_imported_module_value_path_exists(
+                &module_path,
+                name,
+                current_module,
+                current_package,
+            ) {
+                ModuleValueLookup::Ambiguous
+            } else {
+                ModuleValueLookup::Missing
+            };
         }
         let Some(use_decl) =
             imported_use_for_path_in_owner(&self.uses, qualifier, current_module, current_package)
         else {
             return ModuleValueLookup::Missing;
         };
+        let Some(index) = self.visible_module_value_index_for_use(use_decl, name, current_module)
+        else {
+            return ModuleValueLookup::Missing;
+        };
+        self.module_value_at_index(index)
+    }
+
+    fn ambiguous_imported_module_value_path_exists(
+        &self,
+        module_path: &str,
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        let owner_uses = self.uses.iter().filter(|use_decl| {
+            use_decl.importing_package.as_deref() == current_package
+                && use_decl.module_name.as_deref() == current_module
+        });
+        let exact = owner_uses
+            .clone()
+            .filter(|use_decl| {
+                crate::name_recovery::use_decl_matches_exact_import_path(
+                    use_decl,
+                    module_path,
+                    current_module,
+                )
+            })
+            .collect::<Vec<_>>();
+        let candidates = if exact.is_empty() {
+            owner_uses
+                .filter(|use_decl| {
+                    crate::name_recovery::use_decl_matches_implicit_import_alias(
+                        use_decl,
+                        module_path,
+                        current_module,
+                    )
+                })
+                .collect::<Vec<_>>()
+        } else {
+            exact
+        };
+        candidates.into_iter().any(|use_decl| {
+            self.visible_module_value_index_for_use(use_decl, name, current_module)
+                .is_some()
+        })
+    }
+
+    fn visible_module_value_index_for_use(
+        &self,
+        use_decl: &UseDecl,
+        name: &str,
+        current_module: Option<&str>,
+    ) -> Option<ModuleValueIndex> {
         let identity = (
             use_decl.resolved_target().package,
             Some(use_decl.name.clone()),
-            name.clone(),
+            name.to_owned(),
         );
-        let Some(index) = self.module_values_by_identity.get(&identity) else {
-            return ModuleValueLookup::Missing;
-        };
+        let index = *self.module_values_by_identity.get(&identity)?;
         let private_access =
             self.companion_private_module_value_access_allowed(use_decl, current_module);
-        let visible = match *index {
+        let visible = match index {
             ModuleValueIndex::Unique(index) => {
                 self.module_values[index].declaration.visibility == veln_ast::Visibility::Public
                     || private_access
@@ -249,11 +309,7 @@ impl TypeEnvironment {
                         || private_access)
             }),
         };
-        if visible {
-            self.module_value_at_index(*index)
-        } else {
-            ModuleValueLookup::Missing
-        }
+        visible.then_some(index)
     }
 
     fn module_value_at_index(&self, index: ModuleValueIndex) -> ModuleValueLookup<'_> {
