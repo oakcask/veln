@@ -77,16 +77,16 @@ impl AdtRegistry {
             .map_or((None, name), |(qualifier, type_name)| {
                 (Some(qualifier), type_name)
             });
-        if qualifier.is_some() {
-            if let Some(descriptor) = self.indexed_exact_imported_descriptor_in_owner(
+        if qualifier.is_some()
+            && let Some(descriptor) = self.indexed_exact_imported_descriptor_in_owner(
                 name,
                 Some(args_len),
                 current_module,
                 current_package,
                 true,
-            ) {
-                return descriptor;
-            }
+            )
+        {
+            return descriptor;
         }
         if qualifier.is_none() || qualifier == current_module {
             let local = Self::unique_candidate(
@@ -132,16 +132,16 @@ impl AdtRegistry {
             .map_or((None, name), |(qualifier, type_name)| {
                 (Some(qualifier), type_name)
             });
-        if qualifier.is_some() {
-            if let Some(descriptor) = self.indexed_exact_imported_descriptor_in_owner(
+        if qualifier.is_some()
+            && let Some(descriptor) = self.indexed_exact_imported_descriptor_in_owner(
                 name,
                 None,
                 current_module,
                 current_package,
                 true,
-            ) {
-                return descriptor;
-            }
+            )
+        {
+            return descriptor;
         }
         if qualifier.is_none() || qualifier == current_module {
             let local = Self::unique_candidate(self.owner_local_descriptors(
@@ -187,17 +187,16 @@ impl AdtRegistry {
             .map_or((None, name), |(qualifier, type_name)| {
                 (Some(qualifier), type_name)
             });
-        if qualifier.is_some() {
-            if let Some(descriptor) = self
+        if qualifier.is_some()
+            && let Some(descriptor) = self
                 .indexed_exact_imported_descriptor_including_quarantined_in_owner(
                     name,
                     args_len,
                     current_module,
                     current_package,
                 )
-            {
-                return descriptor;
-            }
+        {
+            return descriptor;
         }
         if qualifier.is_none() || qualifier == current_module {
             let local = self
@@ -245,16 +244,16 @@ impl AdtRegistry {
             .map_or((None, name), |(qualifier, type_name)| {
                 (Some(qualifier), type_name)
             });
-        if qualifier.is_some() {
-            if let Some(descriptor) = self.indexed_exact_imported_descriptor_in_owner(
+        if qualifier.is_some()
+            && let Some(descriptor) = self.indexed_exact_imported_descriptor_in_owner(
                 name,
                 Some(args_len),
                 current_module,
                 current_package,
                 false,
-            ) {
-                return descriptor;
-            }
+            )
+        {
+            return descriptor;
         }
         if qualifier.is_none() || qualifier == current_module {
             if let Some(descriptor) = self
