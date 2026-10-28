@@ -1,0 +1,12 @@
+type Secret
+	pub Value
+end
+
+pub type State
+	pub Visible
+	Hidden
+end
+
+pub let named: Secret = Value
+pub let refined: State::Hidden = Hidden
+pub let hidden_initializer: State = Hidden

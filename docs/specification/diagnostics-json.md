@@ -80,6 +80,17 @@ diagnostics. An unbound row tail reports `effect.row_unbound`, and an unknown
 effect label reports `effect.unknown`. Their details identify the boundary as
 `module_value_type`.
 
+A public module value annotation that recursively names a private type reports
+`type.public_annotation_private` at the written type occurrence. Its closed
+details contain `boundary: "public_module_value"`, the declaration `name`,
+`written_type`, and `resolved_type`. Related entries identify the
+`private_type_declaration` when available and then the
+`public_module_value_boundary`. The checked
+[`human`](../../examples/specification/check/module-value-public-annotation-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-public-annotation-visibility-json/)
+cases fix the rendered and structured forms.
+
 An available module value selected as a call target reports
 `type.not_callable` at that target. Its details identify `call_target` as the
 failed constraint and `module_value` as the selected non-callable kind. Related
@@ -338,8 +349,9 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-unknown-companion-json/)
 cases fix the target-private variant projection and its related spans.
 
-A variant refinement anywhere in a public function parameter or result, or in
-a payload of a public variant of a public source ADT, reports
+A variant refinement anywhere in a public function parameter or result, a
+public module value annotation, or a payload of a public variant of a public
+source ADT reports
 `type.variant_refinement_private` when its uniquely resolved terminal ADT is
 private or a selected variant is private. The written base can name the ADT
 directly or resolve through a finite local or imported type-alias chain. The
@@ -352,9 +364,11 @@ the final variant segment. A record-field failure selects the complete written
 refinement or refinement union at that field. The closed details contain
 exactly `written_type`,
 `base_type`, `variant`, `boundary`, and `exposure_path`. `boundary` is
-`public_parameter`, `public_result`, or `public_adt_payload`.
+`public_parameter`, `public_result`, `public_module_value`, or
+`public_adt_payload`.
 `exposure_path` starts with the boundary object. A parameter path contains
 `kind: "parameter"` and its `name`; a result path contains `kind: "result"`.
+A module-value path contains `kind: "module_value"` and its `name`.
 Each traversed field then contributes `kind: "record_field"` and its `name`.
 Named arguments and function positions contribute `type_argument` with a
 zero-based `index`, `function_parameter` with a zero-based `index`, or
@@ -371,8 +385,9 @@ occurrence. In every position, `written_type` retains the source-written
 refinement. Related entries identify each `type_alias_declaration` from
 outermost to innermost, then the
 `private_type_declaration` or `private_variant_declaration`, and then the
-`public_parameter_boundary`, `public_result_boundary`, or
-`public_adt_payload_boundary`. A private declaration entry uses the declaration
+`public_parameter_boundary`, `public_result_boundary`,
+`public_module_value_boundary`, or `public_adt_payload_boundary`. A private
+declaration entry uses the declaration
 span from the selected ADT descriptor, including its generic arity. Another
 same-module ADT with the same type and variant names but a different arity does
 not supply that span. A union reports distinct inaccessible exposure paths in

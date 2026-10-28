@@ -1,0 +1,19 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["type.public_annotation_private", "type.variant_refinement_private", "public_module_value_boundary"]
+
+[stderr]
+format = "empty"
+
+[[diagnostics]]
+id = "type.public_annotation_private"
+severity = "error"
+kind = "type"
+
+[[diagnostics]]
+id = "type.variant_refinement_private"
+severity = "error"
+kind = "type"

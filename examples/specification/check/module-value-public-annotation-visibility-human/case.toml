@@ -1,0 +1,14 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "error[type.public_annotation_private]: public module value annotation exposes private type `main::Secret`",
+  "Public module value `named` exposes this type.",
+  "error[type.variant_refinement_private]: public refinement exposes private variant `main::State::Hidden`",
+  "Public module value `refined` exposes this refinement.",
+]
+
+[stderr]
+format = "empty"

@@ -8,12 +8,12 @@ use crate::adt::registry::ConstructorLookup;
 use crate::adt::{descriptors::AdtConstructor, type_operations as adt};
 use crate::diagnostics::span_json;
 use crate::semantic_model::Type;
-use crate::types::{ModuleValueIndex, TypeEnvironment};
+use crate::types::{ModuleValueIdentity, ModuleValueIndex, ModuleValueLookup, TypeEnvironment};
 
 pub(super) fn check_admitted_expr(
     expr: &Expr,
     declaration: &veln_ast::ModuleValueDecl,
-    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
+    value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &TypeEnvironment,
     expected: Option<&Type>,
     diagnostics: &mut Vec<Diagnostic>,
@@ -68,19 +68,24 @@ fn check_admitted_name(
     expr: &Expr,
     segments: &[String],
     declaration: &veln_ast::ModuleValueDecl,
-    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
+    _value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &TypeEnvironment,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let current_module = declaration.module_name.as_deref();
-    if module_value_index(value_indices, segments, current_module, environment).is_some()
-        || matches!(
-            environment
-                .adts
-                .nullary_constructor(segments, current_module, &environment.uses),
-            ConstructorLookup::Found(_)
-        )
-    {
+    if !matches!(
+        environment.module_value_path_in_owner(
+            segments,
+            current_module,
+            declaration.package_name.as_deref(),
+        ),
+        ModuleValueLookup::Missing
+    ) || matches!(
+        environment
+            .adts
+            .nullary_constructor(segments, current_module, &environment.uses),
+        ConstructorLookup::Found(_)
+    ) {
         return;
     }
     if known_function(
@@ -117,13 +122,14 @@ fn check_admitted_call(
                 return;
             };
             let known_module_value = {
-                module_value_index(
-                    scope.value_indices,
-                    segments,
-                    scope.declaration.module_name.as_deref(),
-                    scope.environment,
+                !matches!(
+                    scope.environment.module_value_path_in_owner(
+                        segments,
+                        scope.declaration.module_name.as_deref(),
+                        scope.declaration.package_name.as_deref(),
+                    ),
+                    ModuleValueLookup::Missing
                 )
-                .is_some()
             };
             let known_function_call = known_function(
                 scope.environment,
@@ -142,7 +148,7 @@ fn check_admitted_call(
 
 struct AdmissionScope<'a> {
     declaration: &'a veln_ast::ModuleValueDecl,
-    value_indices: &'a HashMap<(Option<String>, String), ModuleValueIndex>,
+    value_indices: &'a HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &'a TypeEnvironment,
 }
 
@@ -209,7 +215,8 @@ fn check_admitted_arguments(
 pub(super) fn collect_dependencies(
     expr: &Expr,
     current_module: Option<&str>,
-    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
+    current_package: Option<&str>,
+    value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &TypeEnvironment,
     bindings: &mut Vec<String>,
     dependencies: &mut Vec<Dependency>,
@@ -217,8 +224,13 @@ pub(super) fn collect_dependencies(
 ) {
     if let ExprKind::NamePath { segments, .. } = &expr.kind
         && !matches!(segments.as_slice(), [name] if bindings.iter().rev().any(|binding| binding == name))
-        && let Some(target) =
-            module_value_index(value_indices, segments, current_module, environment)
+        && let Some(target) = module_value_index(
+            value_indices,
+            segments,
+            current_module,
+            current_package,
+            environment,
+        )
     {
         match target {
             ModuleValueIndex::Unique(target) => dependencies.push(Dependency {
@@ -233,6 +245,7 @@ pub(super) fn collect_dependencies(
             collect_dependencies(
                 scrutinee,
                 current_module,
+                current_package,
                 value_indices,
                 environment,
                 bindings,
@@ -246,6 +259,7 @@ pub(super) fn collect_dependencies(
                 collect_dependencies(
                     &arm.expr,
                     current_module,
+                    current_package,
                     value_indices,
                     environment,
                     bindings,
@@ -260,6 +274,7 @@ pub(super) fn collect_dependencies(
             collect_body_dependencies(
                 body,
                 current_module,
+                current_package,
                 value_indices,
                 environment,
                 bindings,
@@ -272,6 +287,7 @@ pub(super) fn collect_dependencies(
             collect_dependencies(
                 child,
                 current_module,
+                current_package,
                 value_indices,
                 environment,
                 bindings,
@@ -285,7 +301,8 @@ pub(super) fn collect_dependencies(
 fn collect_body_dependencies(
     body: &[BodyLine],
     current_module: Option<&str>,
-    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
+    current_package: Option<&str>,
+    value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &TypeEnvironment,
     bindings: &mut Vec<String>,
     dependencies: &mut Vec<Dependency>,
@@ -297,6 +314,7 @@ fn collect_body_dependencies(
                 collect_dependencies(
                     expr,
                     current_module,
+                    current_package,
                     value_indices,
                     environment,
                     bindings,
@@ -308,6 +326,7 @@ fn collect_body_dependencies(
             BodyLineKind::Expr { expr } => collect_dependencies(
                 expr,
                 current_module,
+                current_package,
                 value_indices,
                 environment,
                 bindings,
@@ -319,6 +338,7 @@ fn collect_body_dependencies(
                 collect_body_dependencies(
                     body,
                     current_module,
+                    current_package,
                     value_indices,
                     environment,
                     bindings,
@@ -332,15 +352,22 @@ fn collect_body_dependencies(
 }
 
 fn module_value_index(
-    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
+    value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     environment: &TypeEnvironment,
 ) -> Option<ModuleValueIndex> {
     let (name, _) = segments.split_last()?;
     environment
-        .same_module_value_path_matches(segments, current_module)
-        .then(|| value_indices.get(&(current_module.map(str::to_owned), name.clone())))
+        .same_module_value_path_matches_in_owner(segments, current_module, current_package)
+        .then(|| {
+            value_indices.get(&(
+                current_package.map(str::to_owned),
+                current_module.map(str::to_owned),
+                name.clone(),
+            ))
+        })
         .flatten()
         .copied()
 }

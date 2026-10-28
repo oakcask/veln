@@ -669,8 +669,10 @@ Every typed module `let` initializer is checked against its written closed
 annotation, even when the declaration is unused. The admitted initializer
 language contains integer, Boolean, string, and unit literals; negative integer
 literals; records whose fields are admitted; visible nullary and payload ADT
-constructors whose payloads are admitted; and same-module module value
-references. Parentheses preserve admission. Float literals, collection
+constructors whose payloads are admitted; and same-module or eligible public
+imported module value references. Imported references use the ordinary import
+exposure, qualifier, package identity, and visibility rules. Parentheses
+preserve admission. Float literals, collection
 literals, functions and ordinary calls, other operators, field access, control
 flow, effects, handlers, and holes are not admitted.
 An ordinary call whose callee is not a name path is rejected at the complete
@@ -700,6 +702,20 @@ checked-core execution gate. The checked
 [`open annotation failure`](../../examples/specification/check/module-value-open-annotation-human/)
 case verifies that an undeclared type parameter cannot escape through a module
 value annotation.
+
+A public module value annotation is a public type boundary. Every recursively
+named type in generic arguments, function positions, records, and unions must
+resolve to a public type. A private named type reports
+`type.public_annotation_private`. Every refinement in the same recursive
+positions must use a public base and public selected variant; violations report
+`type.variant_refinement_private`. The initializer may construct a private
+variant when the written annotation exposes only its public base type. The
+checked
+[`human`](../../examples/specification/check/module-value-public-annotation-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-public-annotation-visibility-json/)
+cases cover rejected named types and refinements plus the allowed base-only
+annotation.
 
 ### Result propagation
 

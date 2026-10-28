@@ -22,6 +22,7 @@ fn source_module(path: &str, text: &str, package: Option<&str>, name: &str) -> S
 
 fn extend(module: &mut SurfaceModule, other: SurfaceModule) {
     module.uses.extend(other.uses);
+    module.module_values.extend(other.module_values);
     module.functions.extend(other.functions);
     module.effects.extend(other.effects);
     module.handlers.extend(other.handlers);
@@ -36,6 +37,9 @@ fn set_declaration_module_name(module: &mut SurfaceModule, name: &str) {
     }
     for function in &mut module.functions {
         function.module_name = Some(name.to_string());
+    }
+    for value in &mut module.module_values {
+        value.module_name = Some(name.to_string());
     }
     for effect in &mut module.effects {
         effect.module_name = Some(name.to_string());
@@ -52,6 +56,48 @@ fn set_declaration_module_name(module: &mut SurfaceModule, name: &str) {
     for alias in &mut module.aliases {
         alias.module_name = Some(name.to_string());
     }
+}
+
+#[test]
+fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
+    let mut app = source_module(
+        "app.veln",
+        concat!(
+            "use shared from \"selected/pkg\"\n",
+            "fn read() -> Int\n  shared::answer\nend\n",
+        ),
+        Some("owner/pkg"),
+        "app",
+    );
+    app.uses[0].name = "shared".to_string();
+    let mut selected = source_module(
+        "selected/shared.veln",
+        "pub let answer: Int = 1\n",
+        Some("selected/pkg"),
+        "shared",
+    );
+    let mut namesake = source_module(
+        "namesake/shared.veln",
+        "pub let answer: Int = 2\n",
+        Some("namesake/pkg"),
+        "shared",
+    );
+    set_declaration_module_name(&mut selected, "shared");
+    set_declaration_module_name(&mut namesake, "shared");
+    extend(&mut app, namesake);
+    extend(&mut app, selected);
+
+    let diagnostics = analyze_surface_module(&app);
+
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            !matches!(
+                diagnostic.id.as_str(),
+                "name.unresolved" | "name.ambiguous" | "name.duplicate"
+            )
+        }),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

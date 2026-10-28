@@ -14,7 +14,11 @@ impl TypeEnvironment {
         let mut module_values_by_identity = HashMap::new();
         for (index, value) in module_values.iter().enumerate() {
             if let Some(name) = &value.declaration.name {
-                let identity = (value.declaration.module_name.clone(), name.clone());
+                let identity = (
+                    value.declaration.package_name.clone(),
+                    value.declaration.module_name.clone(),
+                    name.clone(),
+                );
                 module_values_by_identity
                     .entry(identity)
                     .and_modify(|entry| *entry = ModuleValueIndex::Collision)

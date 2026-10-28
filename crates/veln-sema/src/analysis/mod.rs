@@ -99,7 +99,8 @@ pub(crate) use variant_refinement_bases::{
 };
 pub(crate) use variant_refinement_visibility::{
     adt_has_private_variant_refinement_exposure, adt_publication_dependency_identities,
-    check_public_adt_variant_refinement_visibility, check_public_variant_refinement_visibility,
+    check_public_adt_variant_refinement_visibility,
+    check_public_module_value_refinement_visibility, check_public_variant_refinement_visibility,
     function_depends_on_quarantined_adt, function_has_private_variant_refinement_exposure,
     function_publication_dependency_identities,
 };

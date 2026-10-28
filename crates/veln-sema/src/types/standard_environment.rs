@@ -14,7 +14,7 @@ pub struct ReusableStandardEnvironment {
     environment: Arc<TypeEnvironment>,
 }
 
-const STANDARD_SEMANTIC_MODEL: &str = "standard-semantic-signatures-v1";
+const STANDARD_SEMANTIC_MODEL: &str = "standard-semantic-signatures-v2";
 
 impl ReusableStandardEnvironment {
     pub(super) fn environment_for_modules(
@@ -173,6 +173,7 @@ pub(super) fn application_module_is_empty(module: &SurfaceModule) -> bool {
         && module.handlers.is_empty()
         && module.types.is_empty()
         && module.schemas.is_empty()
+        && module.module_values.is_empty()
         && module.functions.is_empty()
 }
 
@@ -248,6 +249,7 @@ pub(super) fn module_standard_names(module: &SurfaceModule) -> BTreeSet<String> 
     collect_standard_names(&module.handlers, &mut names);
     collect_standard_names(&module.types, &mut names);
     collect_standard_names(&module.schemas, &mut names);
+    collect_standard_names(&module.module_values, &mut names);
     collect_standard_names(&module.functions, &mut names);
     names
 }
@@ -260,6 +262,7 @@ fn standard_declaration_counts(module: &SurfaceModule) -> BTreeMap<StandardDecla
     count_standard_declarations(&module.handlers, &mut counts);
     count_standard_declarations(&module.types, &mut counts);
     count_standard_declarations(&module.schemas, &mut counts);
+    count_standard_declarations(&module.module_values, &mut counts);
     count_standard_declarations(&module.functions, &mut counts);
     counts
 }
@@ -448,6 +451,10 @@ impl_named_standard_declaration!(EffectDecl, StandardDeclarationKind::Effect);
 impl_named_standard_declaration!(HandlerDecl, StandardDeclarationKind::Handler);
 impl_named_standard_declaration!(TypeDecl, StandardDeclarationKind::Type);
 impl_named_standard_declaration!(SchemaDecl, StandardDeclarationKind::Schema);
+impl_named_standard_declaration!(
+    veln_ast::ModuleValueDecl,
+    StandardDeclarationKind::ModuleValue
+);
 
 impl StandardDeclaration for Function {
     fn module_name(&self) -> Option<&str> {
@@ -480,6 +487,7 @@ enum StandardDeclarationKind {
     Handler,
     Type,
     Schema,
+    ModuleValue,
     Function,
     Test,
 }
@@ -548,7 +556,12 @@ fn filter_module_declarations(
             .filter(|decl| keep(*decl))
             .cloned()
             .collect(),
-        module_values: module.module_values.clone(),
+        module_values: module
+            .module_values
+            .iter()
+            .filter(|decl| keep(*decl))
+            .cloned()
+            .collect(),
         functions: module
             .functions
             .iter()

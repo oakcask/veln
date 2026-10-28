@@ -1,7 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use veln_ast::{
-    Function, Param, RecordFieldPath, TypeDecl, TypePathSegments, TypeVariantDecl,
+    Function, ModuleValueDecl, Param, RecordFieldPath, TypeDecl, TypePathSegments, TypeVariantDecl,
     TypeVariantField, VariantRefinementType, Visibility,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
@@ -45,6 +45,29 @@ pub(crate) fn check_public_variant_refinement_visibility(
             span: function.return_type_span.as_ref(),
         },
         function.module_name.as_deref(),
+        environment,
+        &mut diagnostics,
+    );
+    diagnostics
+}
+
+pub(crate) fn check_public_module_value_refinement_visibility(
+    declaration: &ModuleValueDecl,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
+    if declaration.visibility != Visibility::Public {
+        return Vec::new();
+    }
+    let mut diagnostics = Vec::new();
+    collect_root_exposures(
+        RootAnnotation::new(
+            Some(&declaration.annotation_span),
+            Some(&declaration.annotation),
+            &declaration.annotation_refinements,
+            &declaration.annotation_paths,
+        ),
+        PublicBoundary::ModuleValue { declaration },
+        declaration.module_name.as_deref(),
         environment,
         &mut diagnostics,
     );
@@ -1732,6 +1755,9 @@ enum PublicBoundary<'a> {
         function: &'a Function,
         span: Option<&'a SourceSpan>,
     },
+    ModuleValue {
+        declaration: &'a ModuleValueDecl,
+    },
     AdtPayload {
         declaration: &'a TypeDecl,
         variant: &'a TypeVariantDecl,
@@ -1744,6 +1770,7 @@ impl<'a> PublicBoundary<'a> {
         match self {
             Self::Parameter { .. } => "public_parameter",
             Self::Result { .. } => "public_result",
+            Self::ModuleValue { .. } => "public_module_value",
             Self::AdtPayload { .. } => "public_adt_payload",
         }
     }
@@ -1771,6 +1798,13 @@ impl<'a> PublicBoundary<'a> {
                 ("name", JsonValue::string(param.name.clone())),
             ]),
             Self::Result { .. } => JsonValue::object([("kind", JsonValue::string("result"))]),
+            Self::ModuleValue { declaration } => JsonValue::object([
+                ("kind", JsonValue::string("module_value")),
+                (
+                    "name",
+                    JsonValue::string(declaration.name.clone().unwrap_or_default()),
+                ),
+            ]),
             Self::AdtPayload {
                 declaration,
                 variant,
@@ -1794,6 +1828,7 @@ impl<'a> PublicBoundary<'a> {
         match self {
             Self::Parameter { .. } => "public_parameter_boundary",
             Self::Result { .. } => "public_result_boundary",
+            Self::ModuleValue { .. } => "public_module_value_boundary",
             Self::AdtPayload { .. } => "public_adt_payload_boundary",
         }
     }
@@ -1809,6 +1844,10 @@ impl<'a> PublicBoundary<'a> {
                 let function_name = function.name.as_deref().unwrap_or("<invalid>");
                 format!("Public result of function `{function_name}` exposes this refinement.")
             }
+            Self::ModuleValue { declaration } => format!(
+                "Public module value `{}` exposes this refinement.",
+                declaration.name.as_deref().unwrap_or("<invalid>")
+            ),
             Self::AdtPayload {
                 declaration,
                 variant,
@@ -1829,6 +1868,7 @@ impl<'a> PublicBoundary<'a> {
                 span: Some(span), ..
             } => span,
             Self::Result { function, .. } => &function.span,
+            Self::ModuleValue { declaration } => &declaration.annotation_span,
             Self::AdtPayload { field, .. } => &field.span,
         }
     }

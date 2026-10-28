@@ -619,6 +619,279 @@ fn module_value_initializers_report_smallest_unsupported_expressions() {
 }
 
 #[test]
+fn imported_module_values_follow_bare_qualified_and_alias_exposure() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "values",
+            SourceFile::new("values.veln", "pub let answer: Int = 42\n"),
+        ),
+        (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use values\n",
+                    "let bare: Int = answer\n",
+                    "let qualified: Int = values::answer\n",
+                    "fn read() -> Int\n",
+                    "  values::answer\n",
+                    "end\n",
+                ),
+            ),
+        ),
+        (
+            "aliased",
+            SourceFile::new(
+                "aliased.veln",
+                concat!(
+                    "use values as config\n",
+                    "let qualified: Int = config::answer\n",
+                    "fn bare_is_hidden() -> Int\n",
+                    "  answer\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved value `answer`"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.unresolved")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "value.module_initializer_unsupported"
+                && diagnostic.id != "type.annotation_mismatch"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn reusable_standard_base_preserves_bare_prelude_module_values() {
+    let standard_source = SourceFile::new("prelude.veln", "pub let answer: Int = 42\n");
+    let standard = veln_ast::lower_surface_ast_with_package_module_identity(
+        &parse(&standard_source).tree,
+        veln_stdlib::PACKAGE_NAME.to_string(),
+        "prelude".to_string(),
+        standard_source.span(veln_source::TextRange::new(0, 0)),
+    );
+    let base = crate::types::TypeEnvironment::from_module(&standard);
+
+    let app_source = SourceFile::new("app.veln", "use prelude from \"std\"\n");
+    let mut app = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&app_source).tree,
+        "app".to_string(),
+        app_source.span(veln_source::TextRange::new(0, 0)),
+    );
+    app.uses[0].name = "std::prelude".to_string();
+    let environment = crate::types::TypeEnvironment::from_module_with_base_for_test(&app, &base);
+
+    assert!(matches!(
+        environment.module_value_path_in_owner(&["answer".to_string()], Some("app"), None),
+        crate::types::ModuleValueLookup::Available(_)
+    ));
+}
+
+#[test]
+fn imported_module_value_ambiguity_includes_function_data_collisions() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "alpha",
+            SourceFile::new("alpha.veln", "pub let shared: Int = 1\n"),
+        ),
+        (
+            "beta",
+            SourceFile::new("beta.veln", "pub fn shared() -> Int\n  2\nend\n"),
+        ),
+        (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use alpha\n",
+                    "use beta\n",
+                    "fn read() -> Int\n",
+                    "  shared\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.ambiguous"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn imported_module_value_ambiguity_is_independent_of_source_and_import_order() {
+    let analyze = |reverse_sources: bool, reverse_imports: bool| {
+        let alpha = (
+            "alpha",
+            SourceFile::new("alpha.veln", "pub let shared: Int = 1\n"),
+        );
+        let beta = (
+            "beta",
+            SourceFile::new("beta.veln", "pub let shared: Int = 2\n"),
+        );
+        let imports = if reverse_imports {
+            "use beta\nuse alpha\n"
+        } else {
+            "use alpha\nuse beta\n"
+        };
+        let app = (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                format!("{imports}fn read() -> Int\n  shared\nend\n"),
+            ),
+        );
+        let sources = if reverse_sources {
+            vec![beta, alpha, app]
+        } else {
+            vec![alpha, beta, app]
+        };
+        analyze_surface_module(&merged_modules_with_identities(sources))
+            .into_iter()
+            .filter(|diagnostic| diagnostic.id == "name.ambiguous")
+            .map(|diagnostic| (diagnostic.id, diagnostic.message))
+            .collect::<Vec<_>>()
+    };
+
+    let expected = analyze(false, false);
+    assert_eq!(expected.len(), 1, "{expected:#?}");
+    assert_eq!(analyze(true, false), expected);
+    assert_eq!(analyze(false, true), expected);
+    assert_eq!(analyze(true, true), expected);
+}
+
+#[test]
+fn invalid_local_module_value_shadows_an_imported_value() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "values",
+            SourceFile::new("values.veln", "pub let answer: Int = 42\n"),
+        ),
+        (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use values\n",
+                    "let answer: Missing = 0\n",
+                    "fn read() -> Int\n",
+                    "  answer\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.unresolved")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn exact_companion_can_read_private_module_values_but_other_modules_cannot() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "math",
+            SourceFile::new("math.veln", "let secret: Int = 42\n"),
+        ),
+        (
+            "math.test",
+            SourceFile::new(
+                "math.test.veln",
+                "use math\nfn read() -> Int\n  math::secret\nend\n",
+            ),
+        ),
+        (
+            "other",
+            SourceFile::new(
+                "other.veln",
+                "use math\nfn read() -> Int\n  math::secret\nend\n",
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.unresolved")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn public_module_value_annotations_reject_private_named_types_and_refinements() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Secret\n",
+            "  pub Value\n",
+            "end\n",
+            "pub type State\n",
+            "  pub Visible\n",
+            "  Hidden\n",
+            "end\n",
+            "pub let named: Secret = Value\n",
+            "pub let refined: State::Hidden = Hidden\n",
+            "pub let hidden_initializer: State = Hidden\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.public_annotation_private")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn non_name_calls_are_rejected_and_quarantined_at_the_call_expression() {
     let source = SourceFile::new(
         "main.veln",

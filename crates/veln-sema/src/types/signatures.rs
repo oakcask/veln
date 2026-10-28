@@ -10,6 +10,8 @@ pub(crate) struct ModuleValueSignature {
     pub(crate) available: bool,
 }
 
+pub(crate) type ModuleValueIdentity = (Option<String>, Option<String>, String);
+
 #[derive(Clone, Copy)]
 pub(crate) enum ModuleValueIndex {
     Unique(usize),
@@ -19,6 +21,7 @@ pub(crate) enum ModuleValueIndex {
 pub(crate) enum ModuleValueLookup<'a> {
     Available(&'a ModuleValueSignature),
     Unavailable,
+    Ambiguous,
     Missing,
 }
 

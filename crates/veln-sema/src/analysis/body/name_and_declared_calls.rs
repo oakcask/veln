@@ -14,12 +14,16 @@ impl<'a> FunctionChecker<'a> {
         {
             return ty;
         }
-        match self
-            .environment
-            .module_value_path(segments, self.function.module_name.as_deref())
-        {
+        match self.environment.module_value_path_in_owner(
+            segments,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
             ModuleValueLookup::Available(value) => return value.ty.clone(),
             ModuleValueLookup::Unavailable => return Type::Unknown,
+            ModuleValueLookup::Ambiguous => {
+                return self.ambiguous_function_value(&segments.join("::"), expr);
+            }
             ModuleValueLookup::Missing => {}
         }
         if segments.len() == 1
@@ -264,12 +268,20 @@ impl<'a> FunctionChecker<'a> {
         if let Some(segments) = callee.callee_name_path()
             && !matches!(segments, [name] if self.visible_binding_index(name).is_some())
         {
-            let value = match self
-                .environment
-                .module_value_path(segments, self.function.module_name.as_deref())
-            {
+            let value = match self.environment.module_value_path_in_owner(
+                segments,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            ) {
                 ModuleValueLookup::Available(value) => value,
                 ModuleValueLookup::Unavailable => {
+                    for arg in args {
+                        self.infer_expr(arg, None);
+                    }
+                    return Some(Type::Unknown);
+                }
+                ModuleValueLookup::Ambiguous => {
+                    self.ambiguous_function_value(&segments.join("::"), callee);
                     for arg in args {
                         self.infer_expr(arg, None);
                     }

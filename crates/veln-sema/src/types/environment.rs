@@ -94,7 +94,7 @@ mod standard_subset;
 #[derive(Clone)]
 pub(crate) struct TypeEnvironment {
     module_values: Vec<ModuleValueSignature>,
-    module_values_by_identity: HashMap<(Option<String>, String), ModuleValueIndex>,
+    module_values_by_identity: HashMap<ModuleValueIdentity, ModuleValueIndex>,
     functions: Vec<FunctionSignature>,
     functions_by_name: HashMap<String, Vec<usize>>,
     unpublished_functions: HashSet<FunctionPublicationKey>,
@@ -125,105 +125,181 @@ pub(crate) struct VariantRefinementBaseFailure {
 }
 
 impl TypeEnvironment {
-    pub(crate) fn quarantine_module_values(
-        &mut self,
-        invalid: &BTreeSet<(Option<String>, String)>,
-    ) {
+    pub(crate) fn quarantine_module_values(&mut self, invalid: &BTreeSet<ModuleValueIdentity>) {
         for value in &mut self.module_values {
             value.available = value.declaration.name.as_ref().is_some_and(|name| {
-                !invalid.contains(&(value.declaration.module_name.clone(), name.clone()))
+                !invalid.contains(&(
+                    value.declaration.package_name.clone(),
+                    value.declaration.module_name.clone(),
+                    name.clone(),
+                ))
             });
         }
     }
 
-    pub(crate) fn module_value_path(
+    pub(crate) fn module_value_path_in_owner(
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> ModuleValueLookup<'_> {
         let Some((name, _)) = segments.split_last() else {
             return ModuleValueLookup::Missing;
         };
-        if !self.same_module_value_path_matches(segments, current_module) {
-            return ModuleValueLookup::Missing;
+        if self.same_module_value_path_matches_in_owner(segments, current_module, current_package) {
+            if let Some(index) = self.module_values_by_identity.get(&(
+                current_package.map(str::to_owned),
+                current_module.map(str::to_owned),
+                name.clone(),
+            )) {
+                return self.module_value_at_index(*index);
+            }
         }
-        match self
-            .module_values_by_identity
-            .get(&(current_module.map(str::to_owned), name.clone()))
-        {
-            Some(ModuleValueIndex::Unique(index)) => {
-                let value = &self.module_values[*index];
+
+        if segments.len() == 1 {
+            let candidates = self
+                .module_values
+                .iter()
+                .filter(|value| {
+                    value.declaration.name.as_deref() == Some(name)
+                        && value.declaration.visibility == veln_ast::Visibility::Public
+                        && value
+                            .declaration
+                            .module_name
+                            .as_deref()
+                            .is_some_and(|module_name| {
+                                self.uses.iter().any(|use_decl| {
+                                    crate::name_recovery::use_decl_contributes_bare_exports(
+                                        use_decl,
+                                    ) && use_decl.module_name.as_deref() == current_module
+                                        && use_decl.importing_package.as_deref() == current_package
+                                        && use_decl.name == module_name
+                                        && value.declaration.package_name
+                                            == use_decl.resolved_target().package
+                                })
+                            })
+                })
+                .map(|value| {
+                    (
+                        value.declaration.package_name.clone(),
+                        value.declaration.module_name.clone(),
+                        name.clone(),
+                    )
+                })
+                .collect::<BTreeSet<_>>();
+            let Some(first) = candidates.first() else {
+                return ModuleValueLookup::Missing;
+            };
+            if candidates.len() > 1
+                || self.functions_named(name).any(|function| {
+                    self.function_is_unqualified_import(
+                        function,
+                        name,
+                        current_module,
+                        current_package,
+                    )
+                })
+            {
+                return ModuleValueLookup::Ambiguous;
+            }
+            return self
+                .module_values_by_identity
+                .get(first)
+                .map_or(ModuleValueLookup::Missing, |index| {
+                    self.module_value_at_index(*index)
+                });
+        }
+
+        let qualifier = &segments[..segments.len() - 1];
+        let module_path = qualifier.join("::");
+        if crate::name_recovery::use_decl_path_is_ambiguous(
+            self.uses
+                .iter()
+                .filter(|use_decl| use_decl.importing_package.as_deref() == current_package),
+            &module_path,
+            current_module,
+        ) {
+            return ModuleValueLookup::Ambiguous;
+        }
+        let Some(use_decl) =
+            imported_use_for_path_in_owner(&self.uses, qualifier, current_module, current_package)
+        else {
+            return ModuleValueLookup::Missing;
+        };
+        let identity = (
+            use_decl.resolved_target().package,
+            Some(use_decl.name.clone()),
+            name.clone(),
+        );
+        let Some(index) = self.module_values_by_identity.get(&identity) else {
+            return ModuleValueLookup::Missing;
+        };
+        let private_access =
+            self.companion_private_module_value_access_allowed(use_decl, current_module);
+        let visible = match *index {
+            ModuleValueIndex::Unique(index) => {
+                self.module_values[index].declaration.visibility == veln_ast::Visibility::Public
+                    || private_access
+            }
+            ModuleValueIndex::Collision => self.module_values.iter().any(|value| {
+                value.declaration.package_name == identity.0
+                    && value.declaration.module_name == identity.1
+                    && value.declaration.name.as_ref() == Some(&identity.2)
+                    && (value.declaration.visibility == veln_ast::Visibility::Public
+                        || private_access)
+            }),
+        };
+        if visible {
+            self.module_value_at_index(*index)
+        } else {
+            ModuleValueLookup::Missing
+        }
+    }
+
+    fn module_value_at_index(&self, index: ModuleValueIndex) -> ModuleValueLookup<'_> {
+        match index {
+            ModuleValueIndex::Unique(index) => {
+                let value = &self.module_values[index];
                 if value.available {
                     ModuleValueLookup::Available(value)
                 } else {
                     ModuleValueLookup::Unavailable
                 }
             }
-            Some(ModuleValueIndex::Collision) => ModuleValueLookup::Unavailable,
-            None => ModuleValueLookup::Missing,
+            ModuleValueIndex::Collision => ModuleValueLookup::Unavailable,
         }
+    }
+
+    fn companion_private_module_value_access_allowed(
+        &self,
+        use_decl: &UseDecl,
+        current_module: Option<&str>,
+    ) -> bool {
+        use_decl.package.is_none()
+            && current_module.is_some_and(|current_module| {
+                self.companion_function_access_targets
+                    .get(current_module)
+                    .is_some_and(|allowed_target| allowed_target == &use_decl.name)
+            })
     }
 
     pub(crate) fn resolves_available_module_value_alias_target(
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> bool {
-        let Some((name, qualifier)) = segments.split_last() else {
-            return false;
-        };
-        let imported = !qualifier.is_empty();
-        let module_identity = if !imported {
-            Some(current_module.map(str::to_owned))
-        } else {
-            let module_path = qualifier.join("::");
-            let mut candidates = self
-                .uses
-                .iter()
-                .filter(|use_decl| {
-                    crate::name_recovery::use_decl_matches_exact_import_path(
-                        use_decl,
-                        &module_path,
-                        current_module,
-                    )
-                })
-                .map(|use_decl| use_decl.name.clone())
-                .collect::<BTreeSet<_>>();
-            if candidates.is_empty() {
-                candidates = self
-                    .uses
-                    .iter()
-                    .filter(|use_decl| {
-                        crate::name_recovery::use_decl_matches_implicit_import_alias(
-                            use_decl,
-                            &module_path,
-                            current_module,
-                        )
-                    })
-                    .map(|use_decl| use_decl.name.clone())
-                    .collect();
-            }
-            (candidates.len() == 1)
-                .then(|| Some(candidates.into_iter().next().expect("one import target")))
-        };
-        let Some(module_name) = module_identity else {
-            return false;
-        };
-        let Some(ModuleValueIndex::Unique(index)) = self
-            .module_values_by_identity
-            .get(&(module_name, name.clone()))
-        else {
-            return false;
-        };
-        let value = &self.module_values[*index];
-        value.available
-            && (!imported || value.declaration.visibility == veln_ast::Visibility::Public)
+        matches!(
+            self.module_value_path_in_owner(segments, current_module, current_package),
+            ModuleValueLookup::Available(_)
+        )
     }
 
-    pub(crate) fn same_module_value_path_matches(
+    pub(crate) fn same_module_value_path_matches_in_owner(
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> bool {
         let Some((_, qualifier)) = segments.split_last() else {
             return false;
@@ -236,11 +312,12 @@ impl TypeEnvironment {
         };
         let qualifier = qualifier.join("::");
         if self.uses.iter().any(|use_decl| {
-            crate::name_recovery::use_decl_matches_exact_import_path(
-                use_decl,
-                &qualifier,
-                current_module,
-            )
+            use_decl.importing_package.as_deref() == current_package
+                && crate::name_recovery::use_decl_matches_exact_import_path(
+                    use_decl,
+                    &qualifier,
+                    current_module,
+                )
         }) {
             return false;
         }

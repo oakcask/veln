@@ -194,8 +194,10 @@ selection representation that preserves the observable exact-path,
 ambiguity, blocking, qualifier, and reachability rules.
 
 A typed module `let` enters the declaring module's value namespace with the
-identity of its module and declared name. Its written annotation supplies the
-reference type. A same-module reference can use the bare name, the complete
+identity of its package, module, and declared name. Its written annotation
+supplies the reference type. Same-spelled declarations in different packages
+or modules remain distinct even when their initializer data is equal. A
+same-module reference can use the bare name, the complete
 declaring module path, or the declaring module path's final segment as its only
 qualifier. Any longer qualifier must equal the complete declaring module path;
 an added prefix does not resolve. An exact written import that matches a
@@ -215,8 +217,23 @@ that identity has no type fact, and a call does not select a declaration, emit
 Call arguments are still checked independently. A selected available module
 value used as a call target reports `type.not_callable` with that declaration's
 context and does not fall through to callable lookup. Only a missing identity
-continues through ordinary value or call resolution. Imported lookup and
-visibility for module values are not implemented.
+continues through ordinary value or call resolution.
+
+An eligible import exposes public module values through the same bare and
+qualified paths as public functions. An explicit import alias is
+qualified-only. Exact written paths take precedence over local import
+qualifiers, and an ambiguous qualifier or exact path does not fall back. Two
+distinct imported values with the same bare name are ambiguous. An imported
+function and imported module value with the same bare name are also ambiguous.
+A same-module declaration is selected before imports, including when invalid,
+so invalid local data does not expose an imported fallback. Imported private
+values are unresolved except when an exact test companion imports its target
+module. Companion access is target-specific, package-local, and non-transitive.
+The checked cases cover
+[`package identity`](../../examples/specification/check/module-value-imported-package-identity-json/),
+[`companion access`](../../examples/specification/check/module-value-companion-private-human/),
+and
+[`private rejection`](../../examples/specification/check/module-value-private-import-human/).
 
 A public function alias cannot select an available module value. A bare alias
 target selects an available value in the alias's module. A qualified alias
@@ -224,8 +241,7 @@ target selects an available public value only when a valid written import
 identifies one module. Either selection reports `name.kind_mismatch` with
 `expected_kind: "function"` and `actual_kind: "module_value"`. A missing,
 ambiguous, invalid, quarantined, private imported, or otherwise unavailable
-target continues to report `name.unresolved`. This alias-target classification
-does not make imported module values available to expressions or calls.
+target continues to report `name.unresolved`.
 Checked human and JSON command cases cover the same-module and written-import
 forms.
 

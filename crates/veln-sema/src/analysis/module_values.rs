@@ -9,7 +9,7 @@ use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use super::{FunctionChecker, VariantDiagnosticInterner, check_type_effect_labels};
 use crate::diagnostics::span_json;
 use crate::type_syntax::parse_type_annotation;
-use crate::types::{ModuleValueIndex, TypeEnvironment};
+use crate::types::{ModuleValueIdentity, ModuleValueIndex, TypeEnvironment};
 
 mod admission;
 
@@ -23,7 +23,7 @@ pub(super) struct Dependency {
 
 pub(crate) struct ModuleValueAnalysis {
     pub(crate) diagnostics: Vec<Diagnostic>,
-    pub(crate) invalid: BTreeSet<(Option<String>, String)>,
+    pub(crate) invalid: BTreeSet<ModuleValueIdentity>,
 }
 
 #[cfg(test)]
@@ -105,6 +105,7 @@ pub(crate) fn check_module_values(
             .filter(|(index, value)| invalid[*index] && value.name.is_some())
             .map(|(_, value)| {
                 (
+                    value.package_name.clone(),
                     value.module_name.clone(),
                     value.name.clone().expect("filtered module value name"),
                 )
@@ -115,14 +116,18 @@ pub(crate) fn check_module_values(
 
 fn initially_invalid_values(
     module: &SurfaceModule,
-    colliding_identities: &BTreeSet<(Option<String>, String)>,
+    colliding_identities: &BTreeSet<ModuleValueIdentity>,
 ) -> Vec<bool> {
     module
         .module_values
         .iter()
         .map(|value| {
             value.name.as_ref().is_some_and(|name| {
-                colliding_identities.contains(&(value.module_name.clone(), name.clone()))
+                colliding_identities.contains(&(
+                    value.package_name.clone(),
+                    value.module_name.clone(),
+                    name.clone(),
+                ))
             })
         })
         .collect()
@@ -130,12 +135,16 @@ fn initially_invalid_values(
 
 fn module_value_indices(
     module: &SurfaceModule,
-    colliding_identities: &BTreeSet<(Option<String>, String)>,
-) -> HashMap<(Option<String>, String), ModuleValueIndex> {
+    colliding_identities: &BTreeSet<ModuleValueIdentity>,
+) -> HashMap<ModuleValueIdentity, ModuleValueIndex> {
     let mut indices = HashMap::new();
     for (index, value) in module.module_values.iter().enumerate() {
         if let Some(name) = &value.name {
-            let identity = (value.module_name.clone(), name.clone());
+            let identity = (
+                value.package_name.clone(),
+                value.module_name.clone(),
+                name.clone(),
+            );
             let indexed = if colliding_identities.contains(&identity) {
                 ModuleValueIndex::Collision
             } else {
@@ -147,9 +156,7 @@ fn module_value_indices(
     indices
 }
 
-fn invalid_cased_module_value_identities(
-    module: &SurfaceModule,
-) -> BTreeSet<(Option<String>, String)> {
+fn invalid_cased_module_value_identities(module: &SurfaceModule) -> BTreeSet<ModuleValueIdentity> {
     let invalid_declaration_spans = module
         .invalid_names
         .iter()
@@ -177,7 +184,13 @@ fn invalid_cased_module_value_identities(
                     name_span.start.offset,
                     name_span.end.offset,
                 ))
-                .then(|| (value.module_name.clone(), name.clone()))
+                .then(|| {
+                    (
+                        value.package_name.clone(),
+                        value.module_name.clone(),
+                        name.clone(),
+                    )
+                })
         })
         .collect()
 }
@@ -185,7 +198,7 @@ fn invalid_cased_module_value_identities(
 fn check_module_value(
     value: &veln_ast::ModuleValueDecl,
     index: usize,
-    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
+    value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
     dependencies: &mut Vec<Dependency>,
@@ -195,6 +208,7 @@ fn check_module_value(
     collect_dependencies(
         &value.initializer,
         value.module_name.as_deref(),
+        value.package_name.as_deref(),
         value_indices,
         environment,
         &mut Vec::new(),
@@ -231,6 +245,14 @@ fn check_module_value(
         FunctionChecker::for_synthetic_declaration(&synthetic, environment, variant_diagnostics);
     checker.check_body();
     diagnostics.append(&mut checker.diagnostics);
+    diagnostics.extend(super::check_public_module_value_refinement_visibility(
+        value,
+        environment,
+    ));
+    diagnostics.extend(public_module_value_named_type_visibility_diagnostics(
+        value,
+        environment,
+    ));
 
     let annotation_is_closed = parsed_annotation.is_some_and(|annotation| {
         environment.type_annotation_is_fully_resolved(
@@ -243,6 +265,72 @@ fn check_module_value(
         push_unresolved_annotation_paths(value, environment, diagnostic_start, diagnostics);
     }
     diagnostics.len() != diagnostic_start || !annotation_is_closed || has_invalid_dependency
+}
+
+fn public_module_value_named_type_visibility_diagnostics(
+    value: &veln_ast::ModuleValueDecl,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
+    if value.visibility != Visibility::Public {
+        return Vec::new();
+    }
+    let mut seen = BTreeSet::new();
+    value
+        .annotation_paths
+        .iter()
+        .filter_map(|path| {
+            let written = path.segments.join("::");
+            let descriptor = environment
+                .adts
+                .descriptor_for_type_path_including_quarantined(
+                    &written,
+                    path.type_argument_count,
+                    value.module_name.as_deref(),
+                    &environment.uses,
+                )?;
+            let descriptor = environment
+                .adts
+                .terminal_descriptor_for_alias(descriptor)
+                .unwrap_or_else(|| environment.adts.canonical_descriptor_for(descriptor));
+            if descriptor.visibility != Visibility::Private || !seen.insert(descriptor.identity()) {
+                return None;
+            }
+            let identity = descriptor.identity();
+            let name = value.name.as_deref().unwrap_or("<invalid>");
+            let mut diagnostic = Diagnostic::new(
+                "type.public_annotation_private",
+                Severity::Error,
+                DiagnosticKind::Type,
+                format!("public module value annotation exposes private type `{identity}`"),
+                Some(path.application_span.clone()),
+                JsonValue::object([
+                    ("boundary", JsonValue::string("public_module_value")),
+                    ("name", JsonValue::string(name)),
+                    ("written_type", JsonValue::string(written)),
+                    ("resolved_type", JsonValue::string(identity.clone())),
+                ]),
+            );
+            if let Some(span) = environment.adts.declaration_span(descriptor) {
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("private_type_declaration")),
+                    (
+                        "message",
+                        JsonValue::string(format!("Private type `{identity}` is declared here.")),
+                    ),
+                    ("span", span_json(span)),
+                ]));
+            }
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("public_module_value_boundary")),
+                (
+                    "message",
+                    JsonValue::string(format!("Public module value `{name}` exposes this type.")),
+                ),
+                ("span", span_json(&value.annotation_span)),
+            ]));
+            Some(diagnostic)
+        })
+        .collect()
 }
 
 fn synthetic_module_value_function(value: &veln_ast::ModuleValueDecl, index: usize) -> Function {
@@ -297,12 +385,16 @@ fn propagate_invalid_dependencies(dependencies: &[Vec<Dependency>], invalid: &mu
     }
 }
 
-fn colliding_module_value_identities(module: &SurfaceModule) -> BTreeSet<(Option<String>, String)> {
-    let mut counts = HashMap::<(Option<String>, String), usize>::new();
+fn colliding_module_value_identities(module: &SurfaceModule) -> BTreeSet<ModuleValueIdentity> {
+    let mut counts = HashMap::<ModuleValueIdentity, usize>::new();
     for function in &module.functions {
         if let Some(name) = &function.name {
             *counts
-                .entry((function.module_name.clone(), name.clone()))
+                .entry((
+                    function.package_name.clone(),
+                    function.module_name.clone(),
+                    name.clone(),
+                ))
                 .or_default() += 1;
         }
     }
@@ -313,14 +405,22 @@ fn colliding_module_value_identities(module: &SurfaceModule) -> BTreeSet<(Option
     {
         if let Some(name) = &alias.name {
             *counts
-                .entry((alias.module_name.clone(), name.clone()))
+                .entry((
+                    alias.package_name.clone(),
+                    alias.module_name.clone(),
+                    name.clone(),
+                ))
                 .or_default() += 1;
         }
     }
     for value in &module.module_values {
         if let Some(name) = &value.name {
             *counts
-                .entry((value.module_name.clone(), name.clone()))
+                .entry((
+                    value.package_name.clone(),
+                    value.module_name.clone(),
+                    name.clone(),
+                ))
                 .or_default() += 1;
         }
     }
@@ -581,9 +681,10 @@ fn sorted_component_edges(
     edges
 }
 
-fn value_key(module: &SurfaceModule, index: usize) -> (String, String, String, usize) {
+fn value_key(module: &SurfaceModule, index: usize) -> (String, String, String, String, usize) {
     let value = &module.module_values[index];
     (
+        value.package_name.clone().unwrap_or_default(),
         value.module_name.clone().unwrap_or_default(),
         value.name.clone().unwrap_or_default(),
         value.span.file.as_str().to_string(),

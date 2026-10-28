@@ -152,8 +152,12 @@ fn initial_environment(
     symbols: SymbolFacts,
 ) -> TypeEnvironment {
     TypeEnvironment {
-        module_values: Vec::new(),
-        module_values_by_identity: HashMap::new(),
+        module_values: base
+            .map(|base| base.module_values.clone())
+            .unwrap_or_default(),
+        module_values_by_identity: base
+            .map(|base| base.module_values_by_identity.clone())
+            .unwrap_or_default(),
         functions: callables.functions,
         functions_by_name: HashMap::new(),
         unpublished_functions: base
@@ -199,18 +203,20 @@ fn finish_function_facts(module: &SurfaceModule, environment: &mut TypeEnvironme
 }
 
 fn finish_module_value_facts(module: &SurfaceModule, environment: &mut TypeEnvironment) {
-    environment.module_values = module
-        .module_values
-        .iter()
-        .filter(|value| value.name.is_some())
-        .map(|value| ModuleValueSignature {
-            declaration: value.clone(),
-            ty: parse_type_or_unknown(Some(&value.annotation)),
-            available: true,
-        })
-        .collect();
-    let module_value_types = environment
-        .module_values
+    let first_new = environment.module_values.len();
+    environment.module_values.extend(
+        module
+            .module_values
+            .iter()
+            .filter(|value| value.name.is_some())
+            .map(|value| ModuleValueSignature {
+                declaration: value.clone(),
+                ty: parse_type_or_unknown(Some(&value.annotation)),
+                available: true,
+            })
+            .collect::<Vec<_>>(),
+    );
+    let module_value_types = environment.module_values[first_new..]
         .iter()
         .map(|value| {
             environment.canonicalize_type_annotation_in_owner(
@@ -220,12 +226,19 @@ fn finish_module_value_facts(module: &SurfaceModule, environment: &mut TypeEnvir
             )
         })
         .collect::<Vec<_>>();
-    for (value, ty) in environment.module_values.iter_mut().zip(module_value_types) {
+    for (value, ty) in environment.module_values[first_new..]
+        .iter_mut()
+        .zip(module_value_types)
+    {
         value.ty = ty;
     }
-    for (index, value) in environment.module_values.iter().enumerate() {
+    for (index, value) in environment.module_values.iter().enumerate().skip(first_new) {
         if let Some(name) = &value.declaration.name {
-            let identity = (value.declaration.module_name.clone(), name.clone());
+            let identity = (
+                value.declaration.package_name.clone(),
+                value.declaration.module_name.clone(),
+                name.clone(),
+            );
             environment
                 .module_values_by_identity
                 .entry(identity)
