@@ -228,7 +228,7 @@ impl<'a> ResolvedImportPathIndex<'a> {
                         target_module: &use_decl.name,
                         target_package: use_decl.package.as_deref(),
                         alias_span: explicit_alias
-                            .then(|| use_decl.alias_span.as_ref())
+                            .then_some(use_decl.alias_span.as_ref())
                             .flatten(),
                         consumed_segments,
                     })
