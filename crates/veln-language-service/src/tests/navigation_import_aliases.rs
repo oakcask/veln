@@ -774,6 +774,116 @@ mod explicit_import_alias_navigation_tests {
         }
     }
 
+    #[test]
+    fn explicit_alias_member_queries_do_not_copy_the_target_per_occurrence() {
+        fn measure(size: usize) -> ExplicitImportAliasIndexWork {
+            let (target, target_file) = match size {
+                32 => (
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.veln",
+                ),
+                64 => (
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.veln",
+                ),
+                _ => unreachable!(),
+            };
+            let expression = std::iter::repeat_n("calc::value()", size / 2)
+                .collect::<Vec<_>>()
+                .join(" + ");
+            let constructors = std::iter::repeat_n("calc::Item::Ready(1)", size / 2)
+                .collect::<Vec<_>>()
+                .join(" + ");
+            let type_functions = (0..size / 4)
+                .map(|index| {
+                    format!(
+                        "fn type_{index}(value: calc::Item) -> calc::Item\n  value\nend\n"
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            let first = format!(
+                "mod app\nuse {target} as calc from \"external\"\n\nfn first() -> Int\n  {expression}\nend\n\nfn first_items() -> calc::Item\n  {constructors}\nend\n\n{type_functions}\n"
+            );
+            let second = format!(
+                "mod app\n\nfn second() -> Int\n  {expression}\nend\n\nfn second_items() -> calc::Item\n  {constructors}\nend\n\n{type_functions}\n"
+            );
+            let dependency = dependency_snapshot(
+                "external",
+                &[(
+                    target_file,
+                    concat!(
+                        "pub fn value() -> Int\n  1\nend\n\n",
+                        "pub type Item\n  pub Ready(Int)\nend\n",
+                    ),
+                )],
+                [target_file],
+            );
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source("first.veln", &first), source("second.veln", &second)],
+                vec![dependency],
+            );
+
+            reset_explicit_import_alias_index_work();
+            let result = query_snapshot(&snapshot, "second.veln", 4, 9).unwrap();
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+            assert_eq!(result.definition.span.file.as_str(), target_file);
+            assert_eq!(result.definition.span.start.line, 1);
+            assert_eq!(result.definition.span.start.column, 8);
+            assert_eq!(result.references.len(), size);
+            assert_eq!(
+                result
+                    .references
+                    .iter()
+                    .filter(|span| span.file.as_str() == "first.veln")
+                    .count(),
+                size / 2,
+            );
+            assert_eq!(
+                result
+                    .references
+                    .iter()
+                    .filter(|span| span.file.as_str() == "second.veln")
+                    .count(),
+                size / 2,
+            );
+            assert!(validate_rename_in_snapshot(&snapshot, &result, "renamed").is_ok());
+            assert_eq!(affected_spans(&result).len(), size + 1);
+
+            let constructor = query_snapshot(&snapshot, "second.veln", 8, 15).unwrap();
+            assert_eq!(constructor.selected_symbol.kind, SymbolKind::Constructor);
+            assert_eq!(constructor.definition.span.file.as_str(), target_file);
+            assert_eq!(constructor.definition.span.start.line, 6);
+            assert_eq!(constructor.definition.span.start.column, 7);
+            assert_eq!(constructor.references.len(), size);
+            assert!(validate_rename_in_snapshot(&snapshot, &constructor, "Built").is_ok());
+            assert_eq!(affected_spans(&constructor).len(), size + 1);
+
+            let ty = query_snapshot(&snapshot, "second.veln", 11, 24).unwrap();
+            assert_eq!(ty.selected_symbol.kind, SymbolKind::Type);
+            assert_eq!(ty.definition.span.file.as_str(), target_file);
+            assert_eq!(ty.definition.span.start.line, 5);
+            assert_eq!(ty.definition.span.start.column, 10);
+            assert_eq!(ty.references.len(), size * 2 + 2);
+            assert!(validate_rename_in_snapshot(&snapshot, &ty, "Renamed").is_ok());
+            assert_eq!(affected_spans(&ty).len(), size * 2 + 3);
+            explicit_import_alias_index_work()
+        }
+
+        let small = measure(32);
+        let large = measure(64);
+        eprintln!("explicit alias member query adjacent sizes: 32={small:?}, 64={large:?}");
+        assert!(small.member_identity_bytes > 0);
+        assert!(
+            large.path_bytes <= small.path_bytes * 2 + 256,
+            "query-time target identity bytes: {small:?} -> {large:?}"
+        );
+        assert!(
+            large.member_identity_bytes <= small.member_identity_bytes * 2 + 256,
+            "copied or materialized member identity bytes: {small:?} -> {large:?}"
+        );
+    }
+
     fn affected_spans(result: &NavigationResult) -> Vec<SourceSpan> {
         let mut spans = vec![result.definition.span.clone()];
         spans.extend(result.references.clone());

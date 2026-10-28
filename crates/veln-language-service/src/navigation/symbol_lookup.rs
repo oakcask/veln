@@ -362,19 +362,6 @@ impl SymbolIndex {
             .cloned()
     }
 
-    fn visible_type_for_reference(
-        &self,
-        file: &IndexedFile,
-        tokens: &[Token],
-        token_index: usize,
-        name: &str,
-    ) -> Option<TypeSymbol> {
-        if let Some(qualifier) = qualifier_for_token(tokens, token_index) {
-            return self.visible_type_for_qualified_reference(file, &qualifier, name);
-        }
-        self.visible_type_for_bare_reference(file, name)
-    }
-
     fn visible_type_alias_for_reference(
         &self,
         file: &IndexedFile,
@@ -597,7 +584,12 @@ impl SymbolIndex {
             .filter(|symbol| {
                 visible_type_for_qualified_reference(file, symbol, &qualified_modules, name)
             })
-            .cloned()
+            .map(|symbol| {
+                record_explicit_import_alias_member_identity_bytes(
+                    symbol.module.len() + symbol.package.as_ref().map_or(0, String::len),
+                );
+                symbol.clone()
+            })
             .collect()
     }
 
@@ -612,7 +604,12 @@ impl SymbolIndex {
             visible_type_alias_for_qualified_reference(file, symbol, &qualified_modules, name)
         });
         let candidate = candidates.next()?;
-        candidates.next().is_none().then(|| candidate.clone())
+        candidates.next().is_none().then(|| {
+            record_explicit_import_alias_member_identity_bytes(
+                candidate.module.len() + candidate.package.as_ref().map_or(0, String::len),
+            );
+            candidate.clone()
+        })
     }
 
     fn type_for_constructor_qualifier_token(
@@ -635,7 +632,12 @@ impl SymbolIndex {
                     && symbol.name == constructor.type_name
                     && symbol.package == constructor.package
             })
-            .cloned()
+            .map(|symbol| {
+                record_explicit_import_alias_member_identity_bytes(
+                    symbol.module.len() + symbol.package.as_ref().map_or(0, String::len),
+                );
+                symbol.clone()
+            })
     }
 
     fn symbol_for_bare_call(
@@ -692,6 +694,21 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<FunctionSymbol> {
+        self.function_for_qualified_call_ref(file, qualifier, name)
+            .map(|symbol| {
+                record_explicit_import_alias_member_identity_bytes(
+                    symbol.module.len() + symbol.package.as_ref().map_or(0, String::len),
+                );
+                symbol.clone()
+            })
+    }
+
+    fn function_for_qualified_call_ref<'a>(
+        &'a self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<&'a FunctionSymbol> {
         let qualified_modules = self.qualified_module_candidates(file, qualifier);
         self.functions
             .iter()
@@ -707,9 +724,7 @@ impl SymbolIndex {
                             )
                         })
                         && (symbol.standard_prelude
-                            || file
-                                .external_uses
-                                .contains(&(symbol.module.clone(), package.clone())))
+                            || has_external_use(file, &symbol.module, package))
                 }
                 None => {
                     valid_function_navigation_symbol(symbol)
@@ -725,7 +740,6 @@ impl SymbolIndex {
                                 .is_some_and(|target| target == &symbol.module))
                 }
             })
-            .cloned()
     }
 
     fn function_conflict_for_bare_call(
@@ -832,7 +846,14 @@ impl SymbolIndex {
     ) -> Option<ConstructorSymbol> {
         let mut candidates = self.constructors.iter().filter(|symbol| predicate(symbol));
         let candidate = candidates.next()?;
-        candidates.next().is_none().then(|| candidate.clone())
+        candidates.next().is_none().then(|| {
+            record_explicit_import_alias_member_identity_bytes(
+                candidate.module.len()
+                    + candidate.package.as_ref().map_or(0, String::len)
+                    + candidate.type_name.len(),
+            );
+            candidate.clone()
+        })
     }
 
     fn first_constructor_matching(
@@ -842,7 +863,14 @@ impl SymbolIndex {
         self.constructors
             .iter()
             .find(|symbol| predicate(symbol))
-            .cloned()
+            .map(|symbol| {
+                record_explicit_import_alias_member_identity_bytes(
+                    symbol.module.len()
+                        + symbol.package.as_ref().map_or(0, String::len)
+                        + symbol.type_name.len(),
+                );
+                symbol.clone()
+            })
     }
 
     fn constructor_for_qualified_call(
@@ -915,18 +943,17 @@ impl SymbolIndex {
                     qualified_package_matches(module, symbol.package.as_deref())
                         && constructor_qualifier_matches(symbol, &module.module)
                 }) || qualified_modules.iter().any(|module| {
-                    qualified_module_matches(
+                    qualified_constructor_type_matches(
                         module,
-                        &format!("{}::{}", symbol.module, symbol.type_name),
+                        &symbol.module,
+                        &symbol.type_name,
                         symbol.package.as_deref(),
                     )
                 }))
                 && match &symbol.package {
                     Some(package) => {
                         symbol.standard_prelude
-                            || file
-                                .external_uses
-                                .contains(&(symbol.module.clone(), package.clone()))
+                            || has_external_use(file, &symbol.module, package)
                     }
                     None => false,
                 }
@@ -962,10 +989,7 @@ impl SymbolIndex {
             }
             match &symbol.package {
                 Some(package) => {
-                    symbol.public
-                        && file
-                            .external_uses
-                            .contains(&(symbol.module.clone(), package.clone()))
+                    symbol.public && has_external_use(file, &symbol.module, package)
                 }
                 None => {
                     (file.uses.contains(&symbol.module)
@@ -1015,9 +1039,7 @@ impl SymbolIndex {
                 return false;
             }
             match &alias.package {
-                Some(alias_package) => file
-                    .external_uses
-                    .contains(&(alias.module.clone(), alias_package.clone())),
+                Some(alias_package) => has_external_use(file, &alias.module, alias_package),
                 None => file.uses.contains(&alias.module),
             }
         })
@@ -1039,15 +1061,13 @@ impl SymbolIndex {
             if alias.package.as_ref() != Some(symbol_package) {
                 return false;
             }
-            if qualifier != alias.module && qualifier != format!("{}::{}", alias.module, alias.name)
-            {
+            if !module_or_member_qualifier_matches(&alias.module, &alias.name, qualifier) {
                 return false;
             }
             if alias.standard_prelude {
                 return true;
             }
-            file.external_uses
-                .contains(&(alias.module.clone(), symbol_package.clone()))
+            has_external_use(file, &alias.module, symbol_package)
         })
     }
 

@@ -420,7 +420,15 @@ fn visible_workspace_constructor_from(file: &IndexedFile, symbol: &ConstructorSy
 }
 
 fn constructor_qualifier_matches(symbol: &ConstructorSymbol, qualifier: &str) -> bool {
-    qualifier == symbol.module || qualifier == format!("{}::{}", symbol.module, symbol.type_name)
+    module_or_member_qualifier_matches(&symbol.module, &symbol.type_name, qualifier)
+}
+
+fn module_or_member_qualifier_matches(module: &str, member: &str, qualifier: &str) -> bool {
+    qualifier == module
+        || qualifier
+            .strip_prefix(module)
+            .and_then(|suffix| suffix.strip_prefix("::"))
+            .is_some_and(|suffix| suffix == member)
 }
 
 fn type_alias_targets_constructor(alias: &TypeAliasSymbol, symbol: &ConstructorSymbol) -> bool {

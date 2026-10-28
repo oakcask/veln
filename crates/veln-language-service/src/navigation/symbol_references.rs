@@ -43,6 +43,9 @@ fn resolved_qualified_module_identity(
         0,
         module.len() + package.as_ref().map_or(0, String::len),
     );
+    record_explicit_import_alias_member_identity_bytes(
+        module.len() + package.as_ref().map_or(0, String::len),
+    );
     QualifiedModuleIdentity {
         module,
         package,
@@ -704,9 +707,7 @@ impl SymbolIndex {
             Some(package) => {
                 symbol.public
                     && (symbol.standard_prelude
-                        || file
-                            .external_uses
-                            .contains(&(symbol.module.clone(), package.clone())))
+                        || has_external_use(file, &symbol.module, package))
             }
             None => {
                 file.uses.contains(&symbol.module)
@@ -725,6 +726,13 @@ impl SymbolIndex {
         qualifier: &str,
         symbol: &FunctionSymbol,
     ) -> Vec<SourceSpan> {
+        let Some(candidate) = self.function_for_qualified_call_ref(file, qualifier, &symbol.name)
+        else {
+            return Vec::new();
+        };
+        if !same_function(candidate, symbol) {
+            return Vec::new();
+        }
         let tokens = &file.tokens;
         let module_segments = qualifier.split("::").collect::<Vec<_>>();
         tokens
@@ -737,9 +745,6 @@ impl SymbolIndex {
                         || ((symbol.package.is_some() || symbol.public)
                             && (file.token_has_classified_role(token, NameClass::ValueBinding)
                                 || is_qualified_function_value_token(tokens, *index))))
-                    && self
-                        .function_for_qualified_call(file, qualifier, &token.text)
-                        .is_some_and(|candidate| same_function(&candidate, symbol))
             })
             .map(|(_, token)| file.source.span(token.range))
             .collect()
@@ -751,6 +756,7 @@ impl SymbolIndex {
             .filter(|file| workspace_navigation_file(file))
             .flat_map(|file| {
                 let tokens = &file.tokens;
+                let mut qualified_matches = HashMap::<String, bool>::new();
                 let mut spans = file
                     .type_reference_spans(&symbol.name)
                     .into_iter()
@@ -772,9 +778,22 @@ impl SymbolIndex {
                                 })
                                 .then_some(span);
                         }
-                        self.visible_type_for_reference(file, tokens, token_index, &symbol.name)
-                            .is_some_and(|candidate| same_type(&candidate, symbol))
-                            .then_some(span)
+                        let matches = match qualifier_for_token(tokens, token_index) {
+                            Some(qualifier) => *qualified_matches
+                                .entry(qualifier.clone())
+                                .or_insert_with(|| {
+                                    self.visible_type_for_qualified_reference(
+                                        file,
+                                        &qualifier,
+                                        &symbol.name,
+                                    )
+                                    .is_some_and(|candidate| same_type(&candidate, symbol))
+                                }),
+                            None => self
+                                .visible_type_for_bare_reference(file, &symbol.name)
+                                .is_some_and(|candidate| same_type(&candidate, symbol)),
+                        };
+                        matches.then_some(span)
                     })
                     .collect::<Vec<_>>();
                 spans.extend(self.constructor_type_qualifier_references(file, tokens, symbol));
@@ -903,6 +922,7 @@ impl SymbolIndex {
         tokens: &[Token],
         symbol: &TypeSymbol,
     ) -> Vec<SourceSpan> {
+        let mut qualified_matches = HashMap::<(String, String), bool>::new();
         tokens
             .iter()
             .enumerate()
@@ -921,14 +941,27 @@ impl SymbolIndex {
                             )
                         });
                 }
-                if self
-                    .visible_type_alias_for_reference(file, tokens, *index, &token.text)
-                    .is_some()
-                {
-                    return false;
-                }
-                self.type_for_constructor_qualifier_token(file, tokens, *index, &token.text)
-                    .is_some_and(|candidate| same_type(&candidate, symbol))
+                let qualifier = qualifier_for_token(tokens, *index).unwrap_or_default();
+                let constructor_name = next_path_segment_index(tokens, *index)
+                    .map(|constructor_index| tokens[constructor_index].text.clone())
+                    .unwrap_or_default();
+                *qualified_matches
+                    .entry((qualifier, constructor_name))
+                    .or_insert_with(|| {
+                        if self
+                            .visible_type_alias_for_reference(file, tokens, *index, &token.text)
+                            .is_some()
+                        {
+                            return false;
+                        }
+                        self.type_for_constructor_qualifier_token(
+                            file,
+                            tokens,
+                            *index,
+                            &token.text,
+                        )
+                        .is_some_and(|candidate| same_type(&candidate, symbol))
+                    })
             })
             .map(|(_, token)| file.source.span(token.range))
             .collect()
@@ -1005,6 +1038,7 @@ impl SymbolIndex {
             .filter(|file| workspace_navigation_file(file))
             .flat_map(|file| {
                 let tokens = &file.tokens;
+                let mut qualified_matches = HashMap::<String, bool>::new();
                 tokens
                     .iter()
                     .enumerate()
@@ -1020,12 +1054,41 @@ impl SymbolIndex {
                             && (refinement
                                 || file.token_is_constructor_reference(*index)
                                 || file.token_has_classified_role(token, NameClass::Constructor))
-                            && self
-                                .constructor_symbol_for_call(file, tokens, *index, &token.text)
+                            && if refinement {
+                                self.constructor_symbol_for_call(
+                                    file,
+                                    tokens,
+                                    *index,
+                                    &token.text,
+                                )
                                 .is_some_and(|candidate| {
-                                    candidate.declaration_kind == SymbolDeclarationKind::Declaration
+                                    candidate.declaration_kind
+                                        == SymbolDeclarationKind::Declaration
                                         && same_constructor(&candidate, symbol)
                                 })
+                            } else if let Some(qualifier) =
+                                qualifier_for_token(tokens, *index)
+                            {
+                                *qualified_matches.entry(qualifier.clone()).or_insert_with(|| {
+                                    self.constructor_for_qualified_call(
+                                        file,
+                                        &qualifier,
+                                        &symbol.name,
+                                    )
+                                    .is_some_and(|candidate| {
+                                        candidate.declaration_kind
+                                            == SymbolDeclarationKind::Declaration
+                                            && same_constructor(&candidate, symbol)
+                                    })
+                                })
+                            } else {
+                                self.constructor_for_bare_call(file, &token.text)
+                                    .is_some_and(|candidate| {
+                                        candidate.declaration_kind
+                                            == SymbolDeclarationKind::Declaration
+                                            && same_constructor(&candidate, symbol)
+                                    })
+                            }
                     })
                     .map(|(_, token)| file.source.span(token.range))
                     .collect::<Vec<_>>()
@@ -1128,8 +1191,7 @@ impl SymbolIndex {
                         && !symbol.standard_prelude
                         && symbol.public
                         && symbol.package.as_ref().is_some_and(|package| {
-                            file.external_uses
-                                .contains(&(symbol.module.clone(), package.clone()))
+                            has_external_use(file, &symbol.module, package)
                                 || self.constructor_reexport_visible_from(
                                     file,
                                     symbol,
