@@ -70,28 +70,51 @@ impl AdtRegistry {
             module: current_module.map(str::to_string),
         };
         if !name.contains("::") {
-            if let Some(descriptor) = self
-                .descriptors_by_source_identity
-                .get(&(None, None, name.to_string()))
-                .into_iter()
-                .flatten()
-                .map(|index| self.descriptor_lookup_candidate(*index))
-                .find(|descriptor| Self::descriptor_matches_arity(descriptor, args_len))
-            {
-                return Some(Some(descriptor));
-            }
-            let index = if let Some(args_len) = args_len {
-                self.imported_descriptors_by_type_arity
-                    .get(&(owner, name.to_string(), args_len))
-            } else {
-                self.imported_descriptors_by_type
-                    .get(&(owner, name.to_string()))
-            }
-            .copied()
-            .flatten();
-            return Some(index.map(|index| self.descriptor_lookup_candidate(index)));
+            return Some(self.indexed_unqualified_descriptor_in_owner(name, args_len, &owner));
         }
 
+        self.indexed_qualified_descriptor_in_owner(name, args_len, current_module, &owner, unique)
+    }
+
+    fn indexed_unqualified_descriptor_in_owner<'a>(
+        &'a self,
+        name: &str,
+        args_len: Option<usize>,
+        owner: &ResolvedImportOwner,
+    ) -> Option<&'a AdtDescriptor> {
+        if let Some(descriptor) = self
+            .descriptors_by_source_identity
+            .get(&(None, None, name.to_string()))
+            .into_iter()
+            .flatten()
+            .map(|index| self.descriptor_lookup_candidate(*index))
+            .find(|descriptor| Self::descriptor_matches_arity(descriptor, args_len))
+        {
+            return Some(descriptor);
+        }
+        let index = if let Some(args_len) = args_len {
+            self.imported_descriptors_by_type_arity.get(&(
+                owner.clone(),
+                name.to_string(),
+                args_len,
+            ))
+        } else {
+            self.imported_descriptors_by_type
+                .get(&(owner.clone(), name.to_string()))
+        }
+        .copied()
+        .flatten();
+        index.map(|index| self.descriptor_lookup_candidate(index))
+    }
+
+    fn indexed_qualified_descriptor_in_owner<'a>(
+        &'a self,
+        name: &str,
+        args_len: Option<usize>,
+        current_module: Option<&str>,
+        owner: &ResolvedImportOwner,
+        unique: bool,
+    ) -> Option<Option<&'a AdtDescriptor>> {
         let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
         let type_name = segments.last()?;
         let module_path = segments[..segments.len() - 1].join("::");
@@ -100,34 +123,62 @@ impl AdtRegistry {
             .qualified_import_modules
             .get(&(owner.clone(), module_path.clone()))
         else {
-            let normalized = normalized_qualified_path(&module_path);
-            if normalized != module_path
-                && (current_module.is_some_and(|current_module| {
-                    normalized_qualified_path(current_module) == normalized
-                }) || self
-                    .qualified_import_recovery_modules
-                    .contains_key(&(owner, normalized)))
-            {
-                return None;
-            }
-            let mut builtin = self
-                .descriptors_by_source_identity
-                .get(&(None, None, type_name.clone()))
-                .into_iter()
-                .flatten()
-                .map(|index| self.descriptor_lookup_candidate(*index))
-                .filter(|descriptor| Self::descriptor_matches_arity(descriptor, args_len));
-            return Some(if unique {
-                Self::unique_candidate(builtin).flatten()
-            } else {
-                builtin.next_back()
-            });
+            return self.indexed_qualified_builtin_fallback(
+                &module_path,
+                type_name,
+                args_len,
+                current_module,
+                owner,
+                unique,
+            );
         };
         let Some(identity) = self.source_identity_from_import_modules(type_name, modules) else {
             return Some(None);
         };
+        self.select_indexed_qualified_descriptor(&identity, args_len, unique)
+    }
+
+    fn indexed_qualified_builtin_fallback<'a>(
+        &'a self,
+        module_path: &str,
+        type_name: &str,
+        args_len: Option<usize>,
+        current_module: Option<&str>,
+        owner: &ResolvedImportOwner,
+        unique: bool,
+    ) -> Option<Option<&'a AdtDescriptor>> {
+        let normalized = normalized_qualified_path(module_path);
+        if normalized != module_path
+            && (current_module.is_some_and(|current_module| {
+                normalized_qualified_path(current_module) == normalized
+            }) || self
+                .qualified_import_recovery_modules
+                .contains_key(&(owner.clone(), normalized)))
+        {
+            return None;
+        }
+        let mut builtin = self
+            .descriptors_by_source_identity
+            .get(&(None, None, type_name.to_string()))
+            .into_iter()
+            .flatten()
+            .map(|index| self.descriptor_lookup_candidate(*index))
+            .filter(|descriptor| Self::descriptor_matches_arity(descriptor, args_len));
+        Some(if unique {
+            Self::unique_candidate(builtin).flatten()
+        } else {
+            builtin.next_back()
+        })
+    }
+
+    fn select_indexed_qualified_descriptor<'a>(
+        &'a self,
+        identity: &QualifiedSourceIdentity,
+        args_len: Option<usize>,
+        unique: bool,
+    ) -> Option<Option<&'a AdtDescriptor>> {
         if self
-            .qualified_descriptor_candidates(&identity)
+            .qualified_descriptor_candidates(identity)
             .any(|descriptor| {
                 descriptor.visibility != Visibility::Public
                     && Self::descriptor_matches_arity(descriptor, args_len)
@@ -136,7 +187,7 @@ impl AdtRegistry {
             return None;
         }
         let mut candidates = self
-            .qualified_descriptor_candidates(&identity)
+            .qualified_descriptor_candidates(identity)
             .filter(|descriptor| {
                 descriptor.visibility == Visibility::Public
                     && Self::descriptor_matches_arity(descriptor, args_len)
