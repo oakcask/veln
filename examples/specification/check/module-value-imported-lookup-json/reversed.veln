@@ -1,0 +1,7 @@
+use beta
+use alpha
+
+fn imported_collision_reversed() -> Int
+	shared
+end
+

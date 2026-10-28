@@ -17,3 +17,67 @@ kind = "type"
 id = "type.variant_refinement_private"
 severity = "error"
 kind = "type"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 10
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 16
+
+[[json_assert]]
+path = "diagnostics.0.span.end.line"
+equals = 10
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 22
+
+[[json_assert]]
+path = "diagnostics.0.details"
+equals = {"boundary":"public_module_value","name":"named","written_type":"Secret","resolved_type":"main::Secret"}
+
+[[json_assert]]
+path = "diagnostics.0.related"
+length = 2
+
+[[json_assert]]
+path = "diagnostics.0.related.0.kind"
+equals = "private_type_declaration"
+
+[[json_assert]]
+path = "diagnostics.0.related.1.kind"
+equals = "public_module_value_boundary"
+
+[[json_assert]]
+path = "diagnostics.1.span.start.line"
+equals = 11
+
+[[json_assert]]
+path = "diagnostics.1.span.start.column"
+equals = 25
+
+[[json_assert]]
+path = "diagnostics.1.span.end.line"
+equals = 11
+
+[[json_assert]]
+path = "diagnostics.1.span.end.column"
+equals = 31
+
+[[json_assert]]
+path = "diagnostics.1.details"
+equals = {"written_type":"State::Hidden","base_type":"main::State","variant":"Hidden","boundary":"public_module_value","exposure_path":[{"kind":"module_value","name":"refined"}]}
+
+[[json_assert]]
+path = "diagnostics.1.related"
+length = 2
+
+[[json_assert]]
+path = "diagnostics.1.related.0.kind"
+equals = "private_variant_declaration"
+
+[[json_assert]]
+path = "diagnostics.1.related.1.kind"
+equals = "public_module_value_boundary"

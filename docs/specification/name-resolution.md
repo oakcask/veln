@@ -219,10 +219,11 @@ value used as a call target reports `type.not_callable` with that declaration's
 context and does not fall through to callable lookup. Only a missing identity
 continues through ordinary value or call resolution.
 
-An eligible import exposes public module values through the same bare and
-qualified paths as public functions. An explicit import alias is
-qualified-only. Exact written paths take precedence over local import
-qualifiers, and an ambiguous qualifier or exact path does not fall back. Two
+An eligible written import or the implicit prelude exposes public module
+values through the same bare and qualified paths as public functions. An
+explicit import alias is qualified-only. Exact written paths take precedence
+over local import qualifiers, and an ambiguous qualifier or exact path does
+not fall back. Two
 distinct imported values with the same bare name are ambiguous. An imported
 function and imported module value with the same bare name are also ambiguous.
 An import quarantined by a duplicate target or colliding qualifier contributes
@@ -236,6 +237,7 @@ selected imported module value used as a call target does not fall through to
 an imported function. Imported private values are unresolved except when an
 exact test companion imports its target module. Companion access is
 target-specific, package-local, and non-transitive. The checked cases cover
+[`imported lookup JSON`](../../examples/specification/check/module-value-imported-lookup-json/),
 [`local function precedence`](../../examples/specification/check/module-value-local-function-precedence-human/),
 [`package identity human`](../../examples/specification/check/module-value-imported-package-identity-human/),
 [`package identity JSON`](../../examples/specification/check/module-value-imported-package-identity-json/),

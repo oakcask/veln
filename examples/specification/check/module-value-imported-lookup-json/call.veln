@@ -1,0 +1,7 @@
+use values
+use functions
+
+fn imported_value_call() -> Int
+	values::answer()
+end
+

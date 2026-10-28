@@ -1,0 +1,8 @@
+use values
+
+let answer: Missing = 0
+
+fn invalid_local_still_shadows() -> Bool
+	answer
+end
+

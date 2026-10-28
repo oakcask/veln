@@ -1,0 +1,4 @@
+pub fn shared() -> Int
+	2
+end
+

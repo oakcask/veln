@@ -1,0 +1,37 @@
+command = ["check", "--json", "."]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["module value declaration `bare` is not executable", "module value declaration `qualified` is not executable", "module value declaration `aliased` is not executable", "unresolved value `setting`", "ambiguous value `shared`", "unresolved value `alpha::exact::target`", "module value `answer` is not callable", "unresolved type `Missing`"]
+not_contains = ["value.module_initializer_unsupported", "unresolved value `answer`", "unresolved value `values::answer`", "unresolved value `config::setting`", "expected `Bool`, but found `Int`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "name.ambiguous"
+severity = "error"
+kind = "name"
+message = "ambiguous value `shared`"
+
+[diagnostics.span]
+file = "app.veln"
+line = 17
+column = 2
+
+[[diagnostics]]
+id = "name.ambiguous"
+severity = "error"
+kind = "name"
+message = "ambiguous value `shared`"
+
+[diagnostics.span]
+file = "reversed.veln"
+line = 5
+column = 2
+
