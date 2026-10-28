@@ -883,9 +883,14 @@ struct QualifiedModuleIdentity {
 }
 
 #[derive(Clone, Debug)]
-struct QualifiedImportTarget {
+struct SharedQualifiedImportTarget {
     module: Arc<str>,
     package: Option<Arc<str>>,
+}
+
+#[derive(Clone, Debug)]
+struct QualifiedImportTarget {
+    shared: Arc<SharedQualifiedImportTarget>,
     consumed_segments: usize,
 }
 

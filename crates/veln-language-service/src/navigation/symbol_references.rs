@@ -29,12 +29,16 @@ fn resolved_qualified_module_identity(
     target: &QualifiedImportTarget,
     qualifier_segments: &[&str],
 ) -> QualifiedModuleIdentity {
-    let mut module = target.module.to_string();
+    let mut module = target.shared.module.to_string();
     for segment in qualifier_segments.iter().skip(target.consumed_segments) {
         module.push_str("::");
         module.push_str(segment);
     }
-    let package = target.package.as_ref().map(|package| package.to_string());
+    let package = target
+        .shared
+        .package
+        .as_ref()
+        .map(|package| package.to_string());
     record_explicit_import_alias_path_work(
         0,
         module.len() + package.as_ref().map_or(0, String::len),

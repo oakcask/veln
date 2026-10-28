@@ -707,6 +707,73 @@ mod explicit_import_alias_navigation_tests {
         );
     }
 
+    #[test]
+    fn explicit_alias_target_storage_is_shared_across_occurrences_and_module_files() {
+        fn measure(size: usize, distinct_suffixes: bool) -> (ExplicitImportAliasIndexWork, usize) {
+            let target = "a".repeat(size);
+            let package = "external";
+            let occurrence = |index: usize| {
+                if distinct_suffixes {
+                    format!("calc::s{index}::value()")
+                } else {
+                    "calc::value()".to_owned()
+                }
+            };
+            let midpoint = size / 2;
+            let first_expression = (0..midpoint)
+                .map(&occurrence)
+                .collect::<Vec<_>>()
+                .join(" + ");
+            let second_expression = (midpoint..size)
+                .map(occurrence)
+                .collect::<Vec<_>>()
+                .join(" + ");
+            let first = format!(
+                "mod app\nuse {target} as calc from \"{package}\"\n\nfn first() -> Int\n  {first_expression}\nend\n"
+            );
+            let second = format!(
+                "mod app\n\nfn second() -> Int\n  {second_expression}\nend\n"
+            );
+            let source_bytes = first.len() + second.len();
+            reset_explicit_import_alias_index_work();
+            assert!(query(
+                vec![source("first.veln", &first), source("second.veln", &second)],
+                "first.veln",
+                2,
+                target.len() + 9,
+            )
+            .is_some());
+            let work = explicit_import_alias_index_work();
+            assert_eq!(work.target_bytes, target.len() + package.len());
+            assert_eq!(work.retained_target_bytes, target.len() + package.len());
+            assert!(work.target_bytes <= source_bytes);
+            assert!(work.retained_target_bytes <= source_bytes);
+            (work, source_bytes)
+        }
+
+        for distinct_suffixes in [false, true] {
+            let (small, small_source_bytes) = measure(32, distinct_suffixes);
+            let (large, large_source_bytes) = measure(64, distinct_suffixes);
+            eprintln!(
+                "shared explicit alias targets (distinct={distinct_suffixes}): \
+                 32 bytes={small_source_bytes} {small:?}, \
+                 64 bytes={large_source_bytes} {large:?}"
+            );
+            assert!(
+                large.target_bytes <= small.target_bytes * 2 + 8,
+                "materialized target bytes: {small:?} -> {large:?}"
+            );
+            assert!(
+                large.retained_target_bytes <= small.retained_target_bytes * 2 + 8,
+                "retained unique target bytes: {small:?} -> {large:?}"
+            );
+            assert!(
+                large.path_bytes <= small.path_bytes * 2 + 256,
+                "path storage work: {small:?} -> {large:?}"
+            );
+        }
+    }
+
     fn affected_spans(result: &NavigationResult) -> Vec<SourceSpan> {
         let mut spans = vec![result.definition.span.clone()];
         spans.extend(result.references.clone());

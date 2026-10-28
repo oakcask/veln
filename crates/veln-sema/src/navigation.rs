@@ -23,8 +23,8 @@ mod schema_alias_chains;
 pub use import_paths::{
     ImportNamespaceParticipant, ResolvedExplicitImportAlias, ResolvedImportPath,
     ResolvedImportPathIndex, ResolvedImportPathPrefix, ResolvedImportPathPrefixSelection,
-    ResolvedImportPathSelection, ResolvedNavigationImport, import_namespace_participants,
-    resolved_explicit_import_aliases, resolved_navigation_imports,
+    ResolvedImportPathSelection, ResolvedNavigationImport, ResolvedNavigationImportIdentity,
+    import_namespace_participants, resolved_explicit_import_aliases, resolved_navigation_imports,
 };
 
 pub use schema_alias_chains::resolved_schema_alias_chains;

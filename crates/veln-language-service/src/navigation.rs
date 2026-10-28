@@ -18,6 +18,8 @@ thread_local! {
     static EXPLICIT_IMPORT_ALIAS_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static EXPLICIT_IMPORT_ALIAS_PATH_SEGMENTS: Cell<usize> = const { Cell::new(0) };
     static EXPLICIT_IMPORT_ALIAS_PATH_BYTES: Cell<usize> = const { Cell::new(0) };
+    static EXPLICIT_IMPORT_ALIAS_TARGET_BYTES: Cell<usize> = const { Cell::new(0) };
+    static EXPLICIT_IMPORT_ALIAS_RETAINED_TARGET_BYTES: Cell<usize> = const { Cell::new(0) };
     static EXPLICIT_IMPORT_ALIAS_RETAINED_ENTRIES: Cell<usize> = const { Cell::new(0) };
 }
 
@@ -35,6 +37,16 @@ fn record_explicit_import_alias_path_work(segments: usize, bytes: usize) {
     EXPLICIT_IMPORT_ALIAS_PATH_SEGMENTS.set(EXPLICIT_IMPORT_ALIAS_PATH_SEGMENTS.get() + segments);
     EXPLICIT_IMPORT_ALIAS_PATH_BYTES.set(EXPLICIT_IMPORT_ALIAS_PATH_BYTES.get() + bytes);
 }
+
+#[cfg(test)]
+fn record_explicit_import_alias_target_bytes(bytes: usize) {
+    EXPLICIT_IMPORT_ALIAS_TARGET_BYTES.set(EXPLICIT_IMPORT_ALIAS_TARGET_BYTES.get() + bytes);
+    EXPLICIT_IMPORT_ALIAS_RETAINED_TARGET_BYTES
+        .set(EXPLICIT_IMPORT_ALIAS_RETAINED_TARGET_BYTES.get() + bytes);
+}
+
+#[cfg(not(test))]
+fn record_explicit_import_alias_target_bytes(_bytes: usize) {}
 
 #[cfg(not(test))]
 fn record_explicit_import_alias_path_work(_segments: usize, _bytes: usize) {}
@@ -62,6 +74,8 @@ pub(crate) fn reset_explicit_import_alias_index_work() {
     EXPLICIT_IMPORT_ALIAS_TOKEN_VISITS.set(0);
     EXPLICIT_IMPORT_ALIAS_PATH_SEGMENTS.set(0);
     EXPLICIT_IMPORT_ALIAS_PATH_BYTES.set(0);
+    EXPLICIT_IMPORT_ALIAS_TARGET_BYTES.set(0);
+    EXPLICIT_IMPORT_ALIAS_RETAINED_TARGET_BYTES.set(0);
     EXPLICIT_IMPORT_ALIAS_RETAINED_ENTRIES.set(0);
 }
 
@@ -72,6 +86,8 @@ pub(crate) struct ExplicitImportAliasIndexWork {
     pub(crate) token_visits: usize,
     pub(crate) path_segments: usize,
     pub(crate) path_bytes: usize,
+    pub(crate) target_bytes: usize,
+    pub(crate) retained_target_bytes: usize,
     pub(crate) retained_entries: usize,
 }
 
@@ -82,6 +98,8 @@ pub(crate) fn explicit_import_alias_index_work() -> ExplicitImportAliasIndexWork
         token_visits: EXPLICIT_IMPORT_ALIAS_TOKEN_VISITS.get(),
         path_segments: EXPLICIT_IMPORT_ALIAS_PATH_SEGMENTS.get(),
         path_bytes: EXPLICIT_IMPORT_ALIAS_PATH_BYTES.get(),
+        target_bytes: EXPLICIT_IMPORT_ALIAS_TARGET_BYTES.get(),
+        retained_target_bytes: EXPLICIT_IMPORT_ALIAS_RETAINED_TARGET_BYTES.get(),
         retained_entries: EXPLICIT_IMPORT_ALIAS_RETAINED_ENTRIES.get(),
     }
 }

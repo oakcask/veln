@@ -178,14 +178,16 @@ fn attach_explicit_import_alias_occurrences(
     module: &veln_ast::SurfaceModule,
 ) {
     let imports = veln_sema::ResolvedImportPathIndex::new(module);
+    let mut shared_targets = BTreeMap::new();
     for file in files {
-        attach_explicit_import_alias_occurrences_in_file(file, &imports);
+        attach_explicit_import_alias_occurrences_in_file(file, &imports, &mut shared_targets);
     }
 }
 
 fn attach_explicit_import_alias_occurrences_in_file(
     file: &mut IndexedFile,
     imports: &veln_sema::ResolvedImportPathIndex<'_>,
+    shared_targets: &mut BTreeMap<veln_sema::ResolvedNavigationImportIdentity, Arc<SharedQualifiedImportTarget>>,
 ) {
     let tokens = &file.tokens;
     let mut in_use_line = false;
@@ -210,6 +212,7 @@ fn attach_explicit_import_alias_occurrences_in_file(
             &mut file.explicit_import_alias_occurrences,
             &file.module,
             imports,
+            shared_targets,
             &qualifier_segments,
             (range.start, range.end),
         );
@@ -221,6 +224,7 @@ fn attach_qualifier_resolution(
     alias_occurrences: &mut BTreeMap<(usize, usize), SourceSpan>,
     module: &str,
     imports: &veln_sema::ResolvedImportPathIndex<'_>,
+    shared_targets: &mut BTreeMap<veln_sema::ResolvedNavigationImportIdentity, Arc<SharedQualifiedImportTarget>>,
     qualifier_segments: &[&str],
     occurrence_range: (usize, usize),
 ) {
@@ -231,15 +235,20 @@ fn attach_qualifier_resolution(
     };
     let (resolution, final_alias_span) = match final_selection {
         veln_sema::ResolvedImportPathPrefixSelection::Resolved(selection) => {
+            let shared = Arc::clone(shared_targets.entry(selection.import_id).or_insert_with(|| {
+                let bytes = selection.target_module.len()
+                    + selection.target_package.map_or(0, str::len);
+                record_explicit_import_alias_path_work(0, bytes);
+                record_explicit_import_alias_target_bytes(bytes);
+                Arc::new(SharedQualifiedImportTarget {
+                    module: Arc::<str>::from(selection.target_module),
+                    package: selection.target_package.map(Arc::<str>::from),
+                })
+            }));
             let target = QualifiedImportTarget {
-                module: Arc::<str>::from(selection.target_module),
-                package: selection.target_package.map(Arc::<str>::from),
+                shared,
                 consumed_segments: selection.consumed_segments,
             };
-            record_explicit_import_alias_path_work(
-                0,
-                selection.target_module.len() + selection.target_package.map_or(0, str::len),
-            );
             (
                 QualifiedImportResolution::Resolved(target),
                 selection.alias_span,
@@ -278,7 +287,30 @@ fn attach_path_resolution(
         };
         node_index = next_index;
     }
-    index.nodes[node_index].resolution = Some(resolution);
+    let retained = index.nodes[node_index]
+        .resolution
+        .as_ref()
+        .is_some_and(|current| same_import_resolution(current, &resolution));
+    if !retained {
+        index.nodes[node_index].resolution = Some(resolution);
+    }
+}
+
+fn same_import_resolution(
+    left: &QualifiedImportResolution,
+    right: &QualifiedImportResolution,
+) -> bool {
+    match (left, right) {
+        (QualifiedImportResolution::Blocked, QualifiedImportResolution::Blocked) => true,
+        (
+            QualifiedImportResolution::Resolved(left),
+            QualifiedImportResolution::Resolved(right),
+        ) => {
+            Arc::ptr_eq(&left.shared, &right.shared)
+                && left.consumed_segments == right.consumed_segments
+        }
+        _ => false,
+    }
 }
 
 fn update_use_line(kind: TokenKind, in_use_line: &mut bool) -> bool {

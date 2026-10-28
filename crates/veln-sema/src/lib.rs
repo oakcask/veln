@@ -40,8 +40,8 @@ pub use name_recovery::normal_imported_module_for_path;
 pub use navigation::{
     ImportNamespaceParticipant, ResolvedExplicitImportAlias, ResolvedImportPath,
     ResolvedImportPathIndex, ResolvedImportPathPrefix, ResolvedImportPathPrefixSelection,
-    ResolvedImportPathSelection, ResolvedNavigationImport, ResolvedSchemaAlias,
-    ResolvedSchemaCompositionReference, import_namespace_participants,
+    ResolvedImportPathSelection, ResolvedNavigationImport, ResolvedNavigationImportIdentity,
+    ResolvedSchemaAlias, ResolvedSchemaCompositionReference, import_namespace_participants,
     resolved_explicit_import_aliases, resolved_navigation_imports, resolved_schema_alias_chains,
     resolved_schema_aliases, resolved_schema_composition_references,
     schema_repeat_count_expression_is_valid,

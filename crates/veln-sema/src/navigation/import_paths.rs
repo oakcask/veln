@@ -37,8 +37,12 @@ pub enum ResolvedImportPathSelection {
     Missing,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ResolvedNavigationImportIdentity(usize);
+
 #[derive(Clone, Copy, Debug)]
 pub struct ResolvedImportPathPrefix<'a> {
+    pub import_id: ResolvedNavigationImportIdentity,
     pub target_module: &'a str,
     pub target_package: Option<&'a str>,
     pub alias_span: Option<&'a SourceSpan>,
@@ -145,6 +149,7 @@ impl<'a> ResolvedImportPathIndex<'a> {
                         return ResolvedImportPathPrefixSelection::Missing;
                     };
                     ResolvedImportPathPrefixSelection::Resolved(ResolvedImportPathPrefix {
+                        import_id: ResolvedNavigationImportIdentity(index),
                         target_module: &use_decl.name,
                         target_package: use_decl.package.as_deref(),
                         alias_span: explicit_alias
