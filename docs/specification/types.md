@@ -694,8 +694,10 @@ the cycle. An invalid declaration and every declaration that depends on it are
 withheld from later semantic facts; unrelated valid declarations remain
 available for checking function bodies. A module value initializer resolves
 imported declarations according to their final availability. A bare or
-qualified reference can therefore select a valid imported namesake even when
-another imported namesake is invalid, independent of source and import order.
+uniquely targeted qualified reference can therefore select a valid imported
+namesake even when another imported namesake is invalid, independent of source
+and import order. Equal exact paths from distinct package origins remain
+ambiguous before availability is considered and select no namesake.
 It can also select a valid imported value when a same-named imported function
 or function alias is withheld by its public-signature visibility failure. A
 published function or alias with that name remains a collision. Rechecking an
@@ -729,14 +731,13 @@ declaration's package, including recursive and rejected private exposure. The ch
 case verifies that an undeclared type parameter cannot escape through a module
 value annotation.
 
-Availability stabilization indexes aliases, functions, module values, and
-relevant invalid-name records once by declaration owner. Rechecking an owner
-uses that index instead of rescanning the merged source set. Retained failure
-history grows only when an identity becomes unavailable. The deterministic
-work check counts owner-index entries, owner lookups, retained-history
-insertions, semantic visits, exposure rebuild entries, and availability
-updates; doubling a 64-owner invalidation chain to 128 owners increases each
-count by at most twice the smaller count plus a fixed allowance of four.
+Availability stabilization has a deterministic scaling check over imported
+module-value invalidation chains. The work metric counts owner-index entries,
+owner lookups, retained-history insertions, semantic visits, exposure rebuild
+entries, and availability updates. Doubling a 64-owner chain to 128 owners
+increases each count by at most twice the smaller count plus a fixed allowance
+of four operations. The check also bounds the peak pending-owner and retained-
+identity sets linearly in the owner count.
 
 A public module value annotation is a public type boundary. Every recursively
 named type in generic arguments, function positions, records, and unions must

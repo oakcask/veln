@@ -4,7 +4,7 @@ exit = 1
 [stdout]
 format = "json"
 contains = ["name.ambiguous", "ambiguous value `shared::answer`", "ambiguous value `shared::hidden`", "ambiguous value `shared::broken`"]
-not_contains = ["unresolved value `shared::answer`", "unresolved value `shared::hidden`", "unresolved value `shared::broken`"]
+not_contains = ["unresolved value `shared::answer`", "unresolved value `shared::hidden`", "unresolved value `shared::broken`", "module.unexported_import"]
 
 [stderr]
 format = "empty"
@@ -12,3 +12,81 @@ format = "empty"
 [[json_assert]]
 path = "status"
 equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 19
+
+[[json_assert]]
+path = "diagnostics.0.details.resolution_status"
+equals = "ambiguous"
+
+[[json_assert]]
+path = "diagnostics.5.details.resolution_status"
+equals = "ambiguous"
+
+[[diagnostics]]
+id = "name.ambiguous"
+severity = "error"
+kind = "name"
+message = "ambiguous value `shared::answer`"
+
+[diagnostics.span]
+file = "forward.veln"
+line = 4
+column = 27
+
+[[diagnostics]]
+id = "name.ambiguous"
+severity = "error"
+kind = "name"
+message = "ambiguous value `shared::hidden`"
+
+[diagnostics.span]
+file = "forward.veln"
+line = 5
+column = 27
+
+[[diagnostics]]
+id = "name.ambiguous"
+severity = "error"
+kind = "name"
+message = "ambiguous value `shared::broken`"
+
+[diagnostics.span]
+file = "forward.veln"
+line = 6
+column = 27
+
+[[diagnostics]]
+id = "name.ambiguous"
+severity = "error"
+kind = "name"
+message = "ambiguous value `shared::answer`"
+
+[diagnostics.span]
+file = "reverse.veln"
+line = 4
+column = 27
+
+[[diagnostics]]
+id = "name.ambiguous"
+severity = "error"
+kind = "name"
+message = "ambiguous value `shared::hidden`"
+
+[diagnostics.span]
+file = "reverse.veln"
+line = 5
+column = 27
+
+[[diagnostics]]
+id = "name.ambiguous"
+severity = "error"
+kind = "name"
+message = "ambiguous value `shared::broken`"
+
+[diagnostics.span]
+file = "reverse.veln"
+line = 6
+column = 27

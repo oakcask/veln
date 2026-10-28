@@ -116,10 +116,11 @@ identity still reserves its name, but a call through it does not emit
 callable. Diagnostics from independently checked call arguments remain.
 An unavailable imported module value exposes neither a bare nor a qualified
 name. With no other eligible declaration, either read reports
-`name.unresolved`. A valid imported value with the same bare name remains
-selectable without `name.ambiguous`, and a valid imported function remains
-callable without `name.ambiguous` or `type.not_callable`. These results also
-apply when a module value initializer contains the read. Conversely, a public
+`name.unresolved`. For a bare name or a qualified path that selects one target
+module, a valid imported value with the same name remains selectable without
+`name.ambiguous`, and a valid imported function remains callable without
+`name.ambiguous` or `type.not_callable`. These results also apply when a module
+value initializer contains the read. Conversely, a public
 function or function alias withheld by a signature-visibility failure does not
 make a same-named imported module value ambiguous or unresolved. An available
 public function or alias still makes the bare name ambiguous. A same-module
@@ -1007,6 +1008,16 @@ quarantined import is not a lookup candidate. The checked
 and
 [`JSON`](../../examples/specification/check/module-value-quarantined-qualified-json/)
 cases fix this boundary for an implicit qualifier and an explicit alias.
+When eligible imports from distinct package origins have the same exact
+written path, a qualified module-value read instead reports `name.ambiguous`.
+The checker selects no target module before member lookup, so member presence,
+visibility, or declaration availability cannot change the diagnostic to
+`name.unresolved` or select one declaration. The result is independent of
+import order. The checked
+[`human`](../../examples/specification/check/module-value-ambiguous-exact-member-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-ambiguous-exact-member-json/)
+cases cover public, private, and unavailable members in both orders.
 If the quarantined exact path equals the importing module's own spelling, the
 same duplicate and unresolved diagnostics apply. The checker does not resolve
 the qualified read to the same-module value, and it does not add

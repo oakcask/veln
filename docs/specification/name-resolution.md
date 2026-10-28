@@ -89,7 +89,11 @@ diagnostic for that earlier origin. If the repeated target and colliding
 qualifier refer to different earlier imports, the checker preserves both
 diagnostics and both related origins. The same written path from distinct
 package origins is ambiguous in its exact form but remains available through
-distinct aliases.
+distinct aliases. A qualified module-value read through that ambiguous exact
+form reports `name.ambiguous` before member lookup. A member that exists in
+only one target, is private in one target, or is unavailable because its
+declaration failed does not select the other target. Import order does not
+change that result.
 Import selection chooses the module before member lookup. A selected module
 that lacks the requested member does not redirect lookup to a different module
 whose alias or implicit qualifier has the same spelling.
@@ -282,8 +286,8 @@ per import. Another uses 64 and 128 package-distinct imports with the same
 written path and checks both a visible and a missing member. It compares one
 read with one read per import, so import-index construction grows with the
 imports while same-owner blocking, selection, and visibility work grows only
-with the reads. Ambiguous targets do not materialize or filter member indexes;
-the lookup reports target ambiguity before member availability or visibility.
+with the reads. The ambiguous-target workload measures target classification
+and selection before any member availability or visibility work.
 The metric counts index entries, target classification, same-owner blocking
 probes, selection probes, and visibility probes. Each field may grow at most
 twice the smaller workload plus a fixed

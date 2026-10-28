@@ -1,2 +1,5 @@
 [package]
 name = "two/pkg"
+
+[lib]
+exports = ["shared.veln"]

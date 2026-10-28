@@ -23,7 +23,7 @@ declaration is a module immutable data value.
 | --- | --- |
 | Qualified module data value matched against an admitted constructor | References to the same declaration in that arm have the intersected finite variant domain. |
 | Two import paths or aliases resolve to the same value declaration | Both references share the arm's feasible domain; package and declaration identity determine equality. |
-| Identical spelling resolves to values in different packages | Refinement of one does not narrow the other. |
+| Distinct unambiguous aliases or paths select same-spelled values in different packages | Refinement of one does not narrow the other. An ambiguous exact path supplies no declaration identity to refine. |
 | Record-field path rooted in a module data value | Apply the current immutable-root field-path rules to that declaration identity. |
 | Local binding shadows the module value's bare name | Narrow only the resolved declaration; a qualified module reference continues to identify its module value. |
 | Qualified constructor, function reference, call, indexing, or other computation | Repeated spelling does not establish stable-value identity. Existing constructor and function typing still applies independently. |

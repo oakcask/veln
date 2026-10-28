@@ -3,8 +3,8 @@ exit = 1
 
 [stdout]
 format = "text"
-contains = ["ambiguous value `shared::answer`", "ambiguous value `shared::hidden`", "ambiguous value `shared::broken`"]
-not_contains = ["unresolved value `shared::answer`", "unresolved value `shared::hidden`", "unresolved value `shared::broken`"]
+contains = ["forward.veln:4:27: error[name.ambiguous]: ambiguous value `shared::answer`", "forward.veln:5:27: error[name.ambiguous]: ambiguous value `shared::hidden`", "forward.veln:6:27: error[name.ambiguous]: ambiguous value `shared::broken`", "reverse.veln:4:27: error[name.ambiguous]: ambiguous value `shared::answer`", "reverse.veln:5:27: error[name.ambiguous]: ambiguous value `shared::hidden`", "reverse.veln:6:27: error[name.ambiguous]: ambiguous value `shared::broken`"]
+not_contains = ["unresolved value `shared::answer`", "unresolved value `shared::hidden`", "unresolved value `shared::broken`", "module.unexported_import"]
 
 [stderr]
 format = "empty"
