@@ -229,7 +229,10 @@ function and imported module value with the same bare name are also ambiguous.
 An imported module value that is unavailable after semantic checking exposes
 no bare or qualified name. It does not make a valid imported namesake
 ambiguous, and it does not collide with a valid imported function. With no
-other eligible declaration, a reference to its name is unresolved.
+other eligible declaration, a reference to its name is unresolved. These rules
+also apply inside another module value's initializer. The initializer reference
+uses the imported declarations' final availability, so source and import order
+do not change whether a valid namesake remains selectable.
 An import quarantined by a duplicate target or colliding qualifier contributes
 no qualified module-value candidate. A read through that import reports
 `name.unresolved`, not `name.ambiguous`, even when another quarantined import
@@ -269,11 +272,11 @@ imports while same-owner blocking, selection, and visibility work grows only
 with the reads. The metric counts index entries, target classification, member
 materialization, same-owner blocking probes, selection probes, and visibility
 probes. Each field may grow at most twice the smaller workload plus a fixed
-allowance of eight construction operations. A separate 64-to-128 workload resolves imported
-named annotations while constructing the same semantic environment. Its import
-path comparisons may grow by at most twice the smaller count plus 16, and its
-qualified-path byte work may grow by at most three times the smaller count.
-These checks count operations and bytes instead of elapsed time.
+allowance of eight construction operations. A separate workload runs complete
+semantic analysis for 64, 128, and 256 imported named annotations. For each
+adjacent pair, import path comparisons may grow by at most twice the smaller
+count plus 16, and qualified-path byte work may grow by at most three times the
+smaller count. These checks count operations and bytes instead of elapsed time.
 
 A public function alias cannot select an available module value. A bare alias
 target selects an available value in the alias's module. A qualified alias
@@ -724,7 +727,10 @@ uppercase and resolving the resulting path through ordinary case-sensitive
 constructor lookup. A different constructor spelling that remains unresolved
 after that initial-only repair is not treated as covered. Nested pattern
 bindings and the match-arm body are still checked. An independently provable
-constructor-pattern type mismatch is not suppressed by this recovery rule.
+constructor-pattern type mismatch is not suppressed by this recovery rule. An
+invalid-cased module or type segment in the constructor base does not establish
+coverage through the final-segment recovery rule. The match therefore retains
+an independently provable missing-case diagnostic for that constructor.
 
 Compiler-provided symbols that participate in source lookup are specified by
 [source-less-lookup.md](source-less-lookup.md). Embedded Veln prelude sources

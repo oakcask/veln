@@ -692,7 +692,13 @@ order. An acyclic forward reference has the target's written annotation. Each
 cyclic component is rejected once at a deterministic reference that closes
 the cycle. An invalid declaration and every declaration that depends on it are
 withheld from later semantic facts; unrelated valid declarations remain
-available for checking function bodies. The checked
+available for checking function bodies. A module value initializer resolves
+imported declarations according to their final availability. A bare or
+qualified reference can therefore select a valid imported namesake even when
+another imported namesake is invalid, independent of source and import order.
+With no valid candidate, the initializer reference remains unresolved.
+Cross-module initializer references do not yet form dependency edges, so
+cross-module cycles are not rejected by this dependency check. The checked
 [`module-value initializer failure`](../../examples/specification/check/module-value-initializer-unsupported-human/)
 and
 [`cycle human`](../../examples/specification/check/module-value-initializer-cycle-human/)
@@ -703,6 +709,11 @@ case covers the structured related kinds and machine-readable spans. The checked
 [`admitted initializer JSON`](../../examples/specification/check/module-value-admitted-json/)
 case verifies that representative finite-data declarations reach only the
 checked-core execution gate. The checked
+[`invalid imported exposure human`](../../examples/specification/check/module-value-invalid-import-exposure-human/)
+and
+[`invalid imported exposure JSON`](../../examples/specification/check/module-value-invalid-import-exposure-json/)
+cases cover bare and qualified initializer references after imported
+availability settles. The checked
 [`open annotation failure`](../../examples/specification/check/module-value-open-annotation-human/)
 case verifies that an undeclared type parameter cannot escape through a module
 value annotation.

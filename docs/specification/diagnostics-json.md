@@ -107,15 +107,18 @@ context identifies the selected declaration. An unavailable same-module
 identity still reserves its name, but a call through it does not emit
 `type.not_callable`, select declaration context, or fall through to another
 callable. Diagnostics from independently checked call arguments remain.
-An unavailable imported module value does not reserve its bare exposure. With
-no other eligible declaration, a bare read reports `name.unresolved`. A valid
-imported value with the same name remains selectable without
-`name.ambiguous`, and a valid imported function remains callable without
-`name.ambiguous` or `type.not_callable`. The checked invalid-import exposure
+An unavailable imported module value exposes neither a bare nor a qualified
+name. With no other eligible declaration, either read reports
+`name.unresolved`. A valid imported value with the same bare name remains
+selectable without `name.ambiguous`, and a valid imported function remains
+callable without `name.ambiguous` or `type.not_callable`. These results also
+apply when a module value initializer contains the read. The checked
+invalid-import exposure
 [`human`](../../examples/specification/check/module-value-invalid-import-exposure-human/)
 and
 [`JSON`](../../examples/specification/check/module-value-invalid-import-exposure-json/)
-cases cover these alternatives in both import orders.
+cases cover bare and qualified initializer reads and valid-namesake selection
+in both import orders.
 Explicit type arguments on the call target preserve both outcomes, and the
 primary span covers the complete type-applied callee. The checked typed-call
 cases cover the selected declaration, details, related context, primary span,
@@ -937,6 +940,14 @@ and recovery behavior.
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
 `occurrence`, `name`, `name_class`, `required_initial`, and
 `observed_initial`. Qualified written paths add zero-based `segment_index`.
+If a qualified constructor pattern has an invalid-cased module or type segment,
+that pattern does not establish constructor coverage through final-segment
+recovery. The match retains an independently provable
+`type.match_non_exhaustive` diagnostic. The checked
+[`human`](../../examples/specification/check/identifier-casing-qualified-use-paths-human/)
+and
+[`JSON`](../../examples/specification/check/identifier-casing-qualified-use-paths-json/)
+cases cover invalid module, type, and constructor segments.
 Source-derived module paths use `origin: "source_path"`,
 `occurrence: "path_segment"`, `source_path`, `source_kind`, `segment`, and
 `segment_index`; `source_kind` is `regular`, `export`, `companion`,

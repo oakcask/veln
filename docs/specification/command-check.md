@@ -54,6 +54,9 @@ with package-aware identity and visibility, and reports unsupported initializer
 forms and same-module cyclic components. Public annotations cannot expose
 private types or variant refinements. Invalid declarations and their dependents
 within the same-module dependency graph do not provide later semantic facts.
+Imported references in another module value initializer use each imported
+declaration's final availability. Bare and qualified initializer reads
+therefore use the same final import exposure in every source and import order.
 Imported and cross-module dependency propagation remains outside this gate.
 This gate still prevents lowering or
 publication. The
