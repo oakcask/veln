@@ -345,8 +345,9 @@ An invalid-cased, reserved, colliding, duplicate-target, or syntax-recovered
 alias creates no normal alias navigation identity. An alias replacement must
 start with an ASCII lowercase letter. The name `prelude` returns
 `rename.reserved`, and a collision in the owning module's import namespace
-returns `rename.conflict`. The namespace includes every written exact import
-path, including the selected alias declaration's own target path. A conflict
+returns `rename.conflict`. The namespace includes every exact spelling
+accepted by [import resolution](name-resolution.md#explicit-import-aliases),
+including the selected alias declaration's own written target path. A conflict
 with that target reports its final path segment as the conflicting declaration.
 A syntax-recovered import does not participate in that namespace and cannot
 block a valid rename. An unrelated parse error in the same source does not
