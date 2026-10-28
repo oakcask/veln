@@ -320,10 +320,11 @@ returns the alias token in the `use` declaration. References contain only
 qualifier occurrences in sources with the same module identity. Rename edits
 the declaration and those qualifiers. It does not edit the written import
 target, qualified member leaves, or a same-spelled alias owned by another
-module. An exact written import path takes precedence over a same-spelled alias,
-so its segments do not select, reference, or rename that alias. The contextual
-identifier spellings `callsite`, `handler`, and `handle` keep this alias
-identity at both their declarations and qualifier occurrences.
+module. A unique or ambiguous exact written import path takes precedence over
+a same-spelled alias. Its segments do not select, reference, or rename that
+alias, and an ambiguous exact path does not fall back to the alias. The
+contextual identifier spellings `callsite`, `handler`, and `handle` keep this
+alias identity at both their declarations and qualifier occurrences.
 
 Selection at an alias-qualified member leaf keeps the member's existing
 function, type, or constructor identity. Member references and rename include
@@ -339,7 +340,10 @@ returns `rename.conflict`. The namespace includes every written exact import
 path, including the selected alias declaration's own target path. A conflict
 with that target reports its final path segment as the conflicting declaration.
 A syntax-recovered import does not participate in that namespace and cannot
-block a valid rename. Both failures produce no edits.
+block a valid rename. An unrelated parse error in the same source does not
+remove a parse-clean alias declaration, its qualifier references, or the
+target-member identity reached through those qualifiers. Both rename failures
+produce no edits.
 
 Sources with one module identity may be supplied in any order. Alias
 selection, definition, reference sets, and rename edit sets stay unchanged.
@@ -349,10 +353,12 @@ references, prepare-rename, and rename project the shared result with their
 ordinary UTF-16 coordinate conversion. The checked
 [`explicit-import-alias-navigation`](../../examples/specification/lsp/explicit-import-alias-navigation/)
 case covers alias and target-member projection, exact-path precedence,
-recovered-import rename, conflicts with another import and with the selected
-alias's own target path, stable conflict details, edit-free rejection, and
-invalid-alias exclusion. Shared-language-service tests cover complete rename
-edit sets in the original and reversed combined-source order.
+ambiguous exact-path blocking without alias fallback, navigation beside an
+unrelated parse error, recovered-import rename, conflicts with another import
+and with the selected alias's own target path, stable conflict details,
+edit-free rejection, and invalid-alias exclusion. Shared-language-service
+tests cover complete rename edit sets in the original and reversed
+combined-source order.
 
 Alias-index construction retains module-owned import bindings and resolved
 qualifier occurrences. Checked adjacent-size workloads double, independently:
