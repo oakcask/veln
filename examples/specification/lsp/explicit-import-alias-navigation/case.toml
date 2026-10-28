@@ -8,6 +8,11 @@ format = "empty"
 
 [[lsp_assert]]
 id = 2
+path = "/result/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 2
 path = "/result/range"
 equals = {"start":{"line":0,"character":12},"end":{"line":0,"character":16}}
 
@@ -54,6 +59,11 @@ equals = [
   {"range":{"start":{"line":4,"character":2},"end":{"line":4,"character":6}},"newText":"numbers"},
   {"range":{"start":{"line":8,"character":2},"end":{"line":8,"character":6}},"newText":"numbers"}
 ]
+
+[[lsp_assert]]
+id = 5
+path = "/result/uri"
+workspace_file_uri = "math.veln"
 
 [[lsp_assert]]
 id = 5

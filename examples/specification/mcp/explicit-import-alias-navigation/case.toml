@@ -8,6 +8,11 @@ format = "empty"
 
 [[mcp_assert]]
 id = 2
+path = "/result/structuredContent/definition/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 2
 path = "/result/structuredContent/definition/range"
 equals = {"start":{"line":1,"column":13},"end":{"line":1,"column":17}}
 
@@ -95,6 +100,11 @@ equals = "numbers"
 id = 4
 path = "/result/structuredContent/edits/2/new_text"
 equals = "numbers"
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/definition/uri"
+workspace_file_uri = "math.veln"
 
 [[mcp_assert]]
 id = 5
