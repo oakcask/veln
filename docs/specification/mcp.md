@@ -420,20 +420,23 @@ alias-qualified member leaf selects the target member. Invalid and recovered
 aliases return empty navigation results. Reordering saved sources that share a
 module identity does not change the shared selections, location sets, rename
 edits, or rename-conflict details. A unique or ambiguous exact written import
-path blocks fallback to a same-spelled alias. An unrelated parse error in the
-same source does not remove a parse-clean alias, its qualifiers, or the target
-member reached through them. It also does not make an invalid-cased alias or
-qualifier eligible for normal or recovery navigation. MCP preserves the shared
-source and token order when it projects locations and conflict provenance. The
-checked
+path blocks fallback to a same-spelled alias. For an ambiguous exact path,
+definition is `null`, references are empty, and rename edits are empty at both
+the qualifier and member leaf, even when the alias's module has a matching
+member. An unrelated parse error in the same source does not remove a
+parse-clean alias, its qualifiers, or the target member reached through them.
+It also does not make an invalid-cased alias or qualifier eligible for normal
+or recovery navigation. MCP preserves the shared source and token order when
+it projects locations and conflict provenance. The checked
 [`explicit-import-alias-navigation`](../../examples/specification/mcp/explicit-import-alias-navigation/)
 transcript covers alias and member destinations, exact written-path
-precedence, ambiguous exact-path blocking, navigation beside an unrelated
-parse error, invalid-alias exclusion with and without an unrelated parse error,
-recovered-import rename, reference sets, exact edit sets, stable failure
-details, contextual aliases, and edit-free rename rejection for another import
-and for the selected alias's own target path. Its paired LSP transcript checks
-the same destinations, edits, and failures through the LSP projection.
+precedence, ambiguous exact-path qualifier and member blocking, navigation
+beside an unrelated parse error, invalid-alias exclusion with and without an
+unrelated parse error, recovered-import rename, reference sets, exact edit
+sets, stable failure details, contextual aliases, and edit-free rename
+rejection for another import and for the selected alias's own target path. Its
+paired LSP transcript checks the same destinations, edits, and failures through
+the LSP projection.
 Shared-language-service tests check the source-reordering invariant before
 either adapter projects the result.
 

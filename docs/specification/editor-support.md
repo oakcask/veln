@@ -321,10 +321,13 @@ qualifier occurrences in sources with the same module identity. Rename edits
 the declaration and those qualifiers. It does not edit the written import
 target, qualified member leaves, or a same-spelled alias owned by another
 module. A unique or ambiguous exact written import path takes precedence over
-a same-spelled alias. Its segments do not select, reference, or rename that
-alias, and an ambiguous exact path does not fall back to the alias. The
-contextual identifier spellings `callsite`, `handler`, and `handle` keep this
-alias identity at both their declarations and qualifier occurrences.
+a same-spelled alias. The path's module segments do not select, reference, or
+rename that alias. A unique exact path can still select its target member. An
+ambiguous exact path selects no navigation identity at any module or member
+segment and does not fall back to a same-spelled alias, including when that
+alias's module has a matching function, type, or constructor. The contextual
+identifier spellings `callsite`, `handler`, and `handle` keep this alias
+identity at both their declarations and qualifier occurrences.
 
 Selection at an alias-qualified member leaf keeps the member's existing
 function, type, or constructor identity. Member references and rename include
@@ -355,12 +358,13 @@ references, prepare-rename, and rename project the shared result with their
 ordinary UTF-16 coordinate conversion. The checked
 [`explicit-import-alias-navigation`](../../examples/specification/lsp/explicit-import-alias-navigation/)
 case covers alias and target-member projection, exact-path precedence,
-ambiguous exact-path blocking without alias fallback, navigation beside an
-unrelated parse error, invalid-alias exclusion with and without an unrelated
-parse error, recovered-import rename, conflicts with another import and with
-the selected alias's own target path, stable conflict details, and edit-free
-rejection. Shared-language-service tests cover complete rename edit sets in the
-original and reversed combined-source order.
+ambiguous exact-path qualifier and member blocking without alias fallback,
+navigation beside an unrelated parse error, invalid-alias exclusion with and
+without an unrelated parse error, recovered-import rename, conflicts with
+another import and with the selected alias's own target path, stable conflict
+details, and edit-free rejection. Shared-language-service tests cover the
+ambiguous function, type, and constructor member boundary and complete rename
+edit sets in the original and reversed combined-source order.
 
 Alias-index construction retains module-owned import bindings and resolved
 qualifier occurrences. Checked adjacent-size workloads double, independently:
