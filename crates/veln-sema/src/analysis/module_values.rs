@@ -147,41 +147,46 @@ pub(crate) fn check_module_values(
         environment,
         &mut pending_owners,
     );
-    let mut ever_unavailable = unavailable.clone();
-    #[cfg(test)]
-    update_module_value_availability_work(|work| {
-        work.peak_pending_owners = work.peak_pending_owners.max(pending_owners.len());
-        work.peak_retained_availability_identities = work
-            .peak_retained_availability_identities
-            .max(unavailable.len() + ever_unavailable.len());
-    });
-    let mut invalid_by_owner = invalid_identities_by_owner(&unavailable);
+    let unavailable = stabilize_module_value_availability(
+        module,
+        environment,
+        variant_diagnostics,
+        unavailable,
+        pending_owners,
+    );
 
+    let mut final_analysis = check_module_values_once(module, environment, variant_diagnostics);
+    final_analysis.invalid.extend(unavailable);
+    final_analysis
+}
+
+fn stabilize_module_value_availability(
+    module: &SurfaceModule,
+    environment: &mut TypeEnvironment,
+    variant_diagnostics: &mut VariantDiagnosticInterner,
+    mut unavailable: BTreeSet<ModuleValueIdentity>,
+    mut pending_owners: BTreeSet<(Option<String>, Option<String>)>,
+) -> BTreeSet<ModuleValueIdentity> {
+    let mut ever_unavailable = unavailable.clone();
+    record_peak_availability_work(&pending_owners, &unavailable, &ever_unavailable);
+    let mut invalid_by_owner = invalid_identities_by_owner(&unavailable);
     let mut owner_updates = 0usize;
     let update_limit = module.module_values.len().saturating_mul(4).max(1);
+
     while let Some(owner) = pending_owners.pop_first() {
-        let owner_module = module_values_for_owner(module, &owner);
-        if owner_module.module_values.is_empty() {
-            continue;
-        }
-        let owner_analysis =
-            check_module_values_once(&owner_module, environment, variant_diagnostics);
-        apply_owner_availability_changes(
+        if !recheck_owner_availability(
+            module,
             &owner,
+            environment,
+            variant_diagnostics,
             &mut unavailable,
             &mut invalid_by_owner,
-            owner_analysis.invalid,
-            environment,
             &mut pending_owners,
-        );
+        ) {
+            continue;
+        }
         ever_unavailable.extend(unavailable.iter().cloned());
-        #[cfg(test)]
-        update_module_value_availability_work(|work| {
-            work.peak_pending_owners = work.peak_pending_owners.max(pending_owners.len());
-            work.peak_retained_availability_identities = work
-                .peak_retained_availability_identities
-                .max(unavailable.len() + ever_unavailable.len());
-        });
+        record_peak_availability_work(&pending_owners, &unavailable, &ever_unavailable);
         owner_updates += 1;
         if owner_updates > update_limit {
             unavailable = ever_unavailable;
@@ -190,9 +195,54 @@ pub(crate) fn check_module_values(
         }
     }
 
-    let mut final_analysis = check_module_values_once(module, environment, variant_diagnostics);
-    final_analysis.invalid.extend(unavailable);
-    final_analysis
+    unavailable
+}
+
+fn recheck_owner_availability(
+    module: &SurfaceModule,
+    owner: &(Option<String>, Option<String>),
+    environment: &mut TypeEnvironment,
+    variant_diagnostics: &mut VariantDiagnosticInterner,
+    unavailable: &mut BTreeSet<ModuleValueIdentity>,
+    invalid_by_owner: &mut HashMap<(Option<String>, Option<String>), BTreeSet<ModuleValueIdentity>>,
+    pending_owners: &mut BTreeSet<(Option<String>, Option<String>)>,
+) -> bool {
+    let owner_module = module_values_for_owner(module, owner);
+    if owner_module.module_values.is_empty() {
+        return false;
+    }
+    let owner_analysis = check_module_values_once(&owner_module, environment, variant_diagnostics);
+    apply_owner_availability_changes(
+        owner,
+        unavailable,
+        invalid_by_owner,
+        owner_analysis.invalid,
+        environment,
+        pending_owners,
+    );
+    true
+}
+
+#[cfg(test)]
+fn record_peak_availability_work(
+    pending_owners: &BTreeSet<(Option<String>, Option<String>)>,
+    unavailable: &BTreeSet<ModuleValueIdentity>,
+    ever_unavailable: &BTreeSet<ModuleValueIdentity>,
+) {
+    update_module_value_availability_work(|work| {
+        work.peak_pending_owners = work.peak_pending_owners.max(pending_owners.len());
+        work.peak_retained_availability_identities = work
+            .peak_retained_availability_identities
+            .max(unavailable.len() + ever_unavailable.len());
+    });
+}
+
+#[cfg(not(test))]
+fn record_peak_availability_work(
+    _pending_owners: &BTreeSet<(Option<String>, Option<String>)>,
+    _unavailable: &BTreeSet<ModuleValueIdentity>,
+    _ever_unavailable: &BTreeSet<ModuleValueIdentity>,
+) {
 }
 
 fn invalid_identities_by_owner(
