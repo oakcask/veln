@@ -13,7 +13,12 @@ impl TypeEnvironment {
         let uses = selected_standard_facts(&self.uses, module_names, |use_decl| {
             use_decl.module_name.as_deref()
         });
-        let bare_module_values = facts::bare_module_value_index(&module_values, &functions, &uses);
+        let bare_module_values = facts::bare_module_value_index(
+            &module_values,
+            &functions,
+            &self.unpublished_functions,
+            &uses,
+        );
         let blocked_exact_module_value_imports = self
             .blocked_exact_module_value_imports
             .iter()

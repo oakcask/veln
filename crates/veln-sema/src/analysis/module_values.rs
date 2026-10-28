@@ -307,7 +307,15 @@ fn module_values_for_owner(
     SurfaceModule {
         module: module.module.clone(),
         uses: Vec::new(),
-        aliases: Vec::new(),
+        aliases: module
+            .aliases
+            .iter()
+            .filter(|alias| {
+                alias.package_name.as_deref() == owner.0.as_deref()
+                    && alias.module_name.as_deref() == owner.1.as_deref()
+            })
+            .cloned()
+            .collect(),
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
@@ -321,7 +329,15 @@ fn module_values_for_owner(
             })
             .cloned()
             .collect(),
-        functions: Vec::new(),
+        functions: module
+            .functions
+            .iter()
+            .filter(|function| {
+                function.package_name.as_deref() == owner.0.as_deref()
+                    && function.module_name.as_deref() == owner.1.as_deref()
+            })
+            .cloned()
+            .collect(),
         invalid_names: module.invalid_names.clone(),
     }
 }

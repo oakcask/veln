@@ -344,8 +344,12 @@ impl TypeEnvironment {
             &self.module_values,
             &self.companion_function_access_targets,
         );
-        self.bare_module_values =
-            facts::bare_module_value_index(&self.module_values, &self.functions, &self.uses);
+        self.bare_module_values = facts::bare_module_value_index(
+            &self.module_values,
+            &self.functions,
+            &self.unpublished_functions,
+            &self.uses,
+        );
         self.rebuild_module_value_exposure_reverse_indexes();
     }
 

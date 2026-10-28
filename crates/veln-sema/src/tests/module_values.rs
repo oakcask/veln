@@ -1262,38 +1262,45 @@ fn reusable_standard_base_preserves_bare_prelude_module_values() {
 
 #[test]
 fn imported_module_value_ambiguity_includes_function_data_collisions() {
-    let module = merged_modules_with_identities(vec![
-        (
-            "alpha",
-            SourceFile::new("alpha.veln", "pub let shared: Int = 1\n"),
+    for function in [
+        "pub fn shared() -> Int\n  2\nend\n",
+        concat!(
+            "pub fn original() -> Int\n",
+            "  2\n",
+            "end\n",
+            "pub fn shared = original\n",
         ),
-        (
-            "beta",
-            SourceFile::new("beta.veln", "pub fn shared() -> Int\n  2\nend\n"),
-        ),
-        (
-            "app",
-            SourceFile::new(
-                "app.veln",
-                concat!(
-                    "use alpha\n",
-                    "use beta\n",
-                    "fn read() -> Int\n",
-                    "  shared\n",
-                    "end\n",
+    ] {
+        let module = merged_modules_with_identities(vec![
+            (
+                "alpha",
+                SourceFile::new("alpha.veln", "pub let shared: Int = 1\n"),
+            ),
+            ("beta", SourceFile::new("beta.veln", function)),
+            (
+                "app",
+                SourceFile::new(
+                    "app.veln",
+                    concat!(
+                        "use alpha\n",
+                        "use beta\n",
+                        "fn read() -> Int\n",
+                        "  shared\n",
+                        "end\n",
+                    ),
                 ),
             ),
-        ),
-    ]);
+        ]);
 
-    let diagnostics = analyze_surface_module(&module);
+        let diagnostics = analyze_surface_module(&module);
 
-    assert!(
-        diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.id == "name.ambiguous"),
-        "{diagnostics:#?}"
-    );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "name.ambiguous"),
+            "{diagnostics:#?}"
+        );
+    }
 }
 
 #[test]
@@ -1624,6 +1631,159 @@ fn invalid_imported_module_value_does_not_reserve_a_bare_exposure() {
                 .all(|diagnostic| diagnostic.id != "name.ambiguous"),
             "reverse_sources={reverse_sources}: {diagnostics:#?}"
         );
+    }
+}
+
+#[test]
+fn callable_collisions_stay_unavailable_after_imported_availability_rechecks() {
+    for callable in [
+        "pub fn clash() -> Int\n  1\nend\n",
+        concat!(
+            "pub fn original() -> Int\n",
+            "  1\n",
+            "end\n",
+            "pub fn clash = original\n",
+        ),
+    ] {
+        let module = merged_modules_with_identities(vec![
+            ("b", SourceFile::new("b.veln", "pub let bad: Missing = 0\n")),
+            (
+                "a",
+                SourceFile::new(
+                    "a.veln",
+                    format!(
+                        "use b\n{callable}pub let clash: Int = 2\npub let recheck: Int = b::bad\n"
+                    ),
+                ),
+            ),
+            (
+                "c",
+                SourceFile::new(
+                    "c.veln",
+                    concat!(
+                        "use a\n",
+                        "fn bare() -> Int\n",
+                        "  clash()\n",
+                        "end\n",
+                        "fn qualified() -> Int\n",
+                        "  a::clash()\n",
+                        "end\n",
+                    ),
+                ),
+            ),
+        ]);
+        let mut environment = crate::types::TypeEnvironment::from_module(&module);
+        let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
+        let analysis = crate::analysis::check_module_values(
+            &module,
+            &mut environment,
+            &mut variant_diagnostics,
+        );
+
+        assert!(
+            analysis
+                .invalid
+                .contains(&(None, Some("a".to_string()), "clash".to_string())),
+            "{:#?}",
+            analysis.invalid
+        );
+        assert!(matches!(
+            environment.module_value_path_in_owner(&["clash".to_string()], Some("c"), None),
+            crate::types::ModuleValueLookup::Missing
+        ));
+        assert!(matches!(
+            environment.module_value_path_in_owner(
+                &["a".to_string(), "clash".to_string()],
+                Some("c"),
+                None,
+            ),
+            crate::types::ModuleValueLookup::Missing
+        ));
+
+        let diagnostics = analyze_surface_module(&module);
+        assert!(
+            diagnostics.iter().all(|diagnostic| {
+                diagnostic.id != "name.ambiguous"
+                    && diagnostic.id != "type.not_callable"
+                    && !(diagnostic.id == "name.unresolved" && diagnostic.message.contains("clash"))
+            }),
+            "{diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
+fn unpublished_functions_and_aliases_do_not_collide_with_imported_values() {
+    for reverse_sources in [false, true] {
+        for reverse_imports in [false, true] {
+            let functions = (
+                "functions",
+                SourceFile::new(
+                    "functions.veln",
+                    concat!(
+                        "pub type State\n",
+                        "  Hidden\n",
+                        "end\n",
+                        "pub fn shared(value: State::Hidden) -> Int\n",
+                        "  1\n",
+                        "end\n",
+                        "pub fn aliased = shared\n",
+                    ),
+                ),
+            );
+            let values = (
+                "values",
+                SourceFile::new(
+                    "values.veln",
+                    concat!("pub let shared: Int = 2\n", "pub let aliased: Int = 3\n",),
+                ),
+            );
+            let imports = if reverse_imports {
+                "use values\nuse functions\n"
+            } else {
+                "use functions\nuse values\n"
+            };
+            let app = (
+                "app",
+                SourceFile::new(
+                    "app.veln",
+                    format!(
+                        "{imports}let selected: Int = shared\nlet selected_alias: Int = aliased\n"
+                    ),
+                ),
+            );
+            let sources = if reverse_sources {
+                vec![app, values, functions]
+            } else {
+                vec![functions, values, app]
+            };
+            let module = merged_modules_with_identities(sources);
+            let environment = crate::types::TypeEnvironment::from_module(&module);
+
+            for name in ["shared", "aliased"] {
+                assert!(matches!(
+                    environment.module_value_path_in_owner(&[name.to_string()], Some("app"), None,),
+                    crate::types::ModuleValueLookup::Available(_)
+                ));
+            }
+
+            let diagnostics = analyze_surface_module(&module);
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| { diagnostic.id == "type.variant_refinement_private" }),
+                "{diagnostics:#?}"
+            );
+            assert!(
+                diagnostics.iter().all(|diagnostic| {
+                    diagnostic.id != "name.ambiguous"
+                        && !(diagnostic.id == "name.unresolved"
+                            && (diagnostic.message.contains("shared")
+                                || diagnostic.message.contains("aliased")))
+                }),
+                "reverse_sources={reverse_sources}, reverse_imports={reverse_imports}: {diagnostics:#?}"
+            );
+        }
     }
 }
 

@@ -284,11 +284,17 @@ fn index_new_module_value_identities(environment: &mut TypeEnvironment, first_ne
 pub(in crate::types::environment) fn bare_module_value_index(
     module_values: &[ModuleValueSignature],
     functions: &[FunctionSignature],
+    unpublished_functions: &HashSet<FunctionPublicationKey>,
     uses: &[UseDecl],
 ) -> HashMap<BareModuleValueKey, BareModuleValueExposure> {
     let imported_owners = imported_owner_index(uses);
     let mut selections = public_module_value_selections(module_values, &imported_owners);
-    record_function_collisions(&mut selections, functions, &imported_owners);
+    record_function_collisions(
+        &mut selections,
+        functions,
+        unpublished_functions,
+        &imported_owners,
+    );
     selections
 }
 
@@ -378,11 +384,13 @@ fn record_module_value_selection(
 fn record_function_collisions(
     selections: &mut HashMap<BareModuleValueKey, BareModuleValueExposure>,
     functions: &[FunctionSignature],
+    unpublished_functions: &HashSet<FunctionPublicationKey>,
     imported_owners: &ImportedOwnerIndex,
 ) {
     for function in functions
         .iter()
         .filter(|function| function.visibility == Visibility::Public)
+        .filter(|function| !unpublished_functions.contains(&function_publication_key(function)))
     {
         record_function_collision(selections, function, imported_owners);
     }
