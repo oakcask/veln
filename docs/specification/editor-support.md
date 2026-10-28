@@ -343,7 +343,9 @@ A syntax-recovered import does not participate in that namespace and cannot
 block a valid rename. An unrelated parse error in the same source does not
 remove a parse-clean alias declaration, its qualifier references, or the
 target-member identity reached through those qualifiers. Both rename failures
-produce no edits.
+produce no edits. The unrelated parse error also does not restore an
+invalid-cased alias declaration or qualifier as a normal or recovery navigation
+identity.
 
 Sources with one module identity may be supplied in any order. Alias
 selection, definition, reference sets, and rename edit sets stay unchanged.
@@ -354,11 +356,11 @@ ordinary UTF-16 coordinate conversion. The checked
 [`explicit-import-alias-navigation`](../../examples/specification/lsp/explicit-import-alias-navigation/)
 case covers alias and target-member projection, exact-path precedence,
 ambiguous exact-path blocking without alias fallback, navigation beside an
-unrelated parse error, recovered-import rename, conflicts with another import
-and with the selected alias's own target path, stable conflict details,
-edit-free rejection, and invalid-alias exclusion. Shared-language-service
-tests cover complete rename edit sets in the original and reversed
-combined-source order.
+unrelated parse error, invalid-alias exclusion with and without an unrelated
+parse error, recovered-import rename, conflicts with another import and with
+the selected alias's own target path, stable conflict details, and edit-free
+rejection. Shared-language-service tests cover complete rename edit sets in the
+original and reversed combined-source order.
 
 Alias-index construction retains module-owned import bindings and resolved
 qualifier occurrences. Checked adjacent-size workloads double, independently:
