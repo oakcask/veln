@@ -6,8 +6,11 @@ use super::*;
 
 use crate::type_syntax::parse_type_or_unknown;
 
+mod module_values;
 mod quarantine;
 
+pub(super) use module_values::bare_module_value_index;
+use module_values::finish_module_value_facts;
 use quarantine::{
     quarantine_invalid_variant_refinement_declaration_types,
     quarantine_invalid_variant_refinement_function_types,
@@ -207,138 +210,6 @@ fn finish_function_facts(module: &SurfaceModule, environment: &mut TypeEnvironme
         });
     environment.functions.extend(aliases);
     environment.functions_by_name = function_name_index(&environment.functions);
-}
-
-fn finish_module_value_facts(module: &SurfaceModule, environment: &mut TypeEnvironment) {
-    let first_new = environment.module_values.len();
-    environment.module_values.extend(
-        module
-            .module_values
-            .iter()
-            .filter(|value| value.name.is_some())
-            .map(|value| ModuleValueSignature {
-                declaration: value.clone(),
-                ty: parse_type_or_unknown(Some(&value.annotation)),
-                available: true,
-            })
-            .collect::<Vec<_>>(),
-    );
-    let module_value_types = environment.module_values[first_new..]
-        .iter()
-        .map(|value| {
-            environment.canonicalize_type_annotation_in_owner(
-                value.ty.clone(),
-                value.declaration.module_name.as_deref(),
-                value.declaration.package_name.as_deref(),
-            )
-        })
-        .collect::<Vec<_>>();
-    for (value, ty) in environment.module_values[first_new..]
-        .iter_mut()
-        .zip(module_value_types)
-    {
-        value.ty = ty;
-    }
-    for (index, value) in environment.module_values.iter().enumerate().skip(first_new) {
-        if let Some(name) = &value.declaration.name {
-            let identity = (
-                value.declaration.package_name.clone(),
-                value.declaration.module_name.clone(),
-                name.clone(),
-            );
-            environment
-                .module_values_by_identity
-                .entry(identity)
-                .and_modify(|entry| *entry = ModuleValueIndex::Collision)
-                .or_insert(ModuleValueIndex::Unique(index));
-        }
-    }
-    environment.bare_module_values = bare_module_value_index(
-        &environment.module_values,
-        &environment.functions,
-        &environment.uses,
-    );
-}
-
-pub(super) fn bare_module_value_index(
-    module_values: &[ModuleValueSignature],
-    functions: &[FunctionSignature],
-    uses: &[UseDecl],
-) -> HashMap<BareModuleValueKey, BareModuleValueExposure> {
-    let mut imported_owners =
-        HashMap::<(Option<String>, String), BTreeSet<(Option<String>, Option<String>)>>::new();
-    for use_decl in uses
-        .iter()
-        .filter(|use_decl| crate::name_recovery::use_decl_contributes_bare_exports(use_decl))
-    {
-        let target = use_decl.resolved_target();
-        imported_owners
-            .entry((target.package, target.module))
-            .or_default()
-            .insert((
-                use_decl.importing_package.clone(),
-                use_decl.module_name.clone(),
-            ));
-    }
-
-    let mut selections = HashMap::new();
-    for value in module_values
-        .iter()
-        .filter(|value| value.declaration.visibility == Visibility::Public)
-    {
-        let (Some(module), Some(name)) = (
-            value.declaration.module_name.as_ref(),
-            value.declaration.name.as_ref(),
-        ) else {
-            continue;
-        };
-        let target = (value.declaration.package_name.clone(), module.clone());
-        let Some(owners) = imported_owners.get(&target) else {
-            continue;
-        };
-        let identity = (
-            value.declaration.package_name.clone(),
-            value.declaration.module_name.clone(),
-            name.clone(),
-        );
-        for (owner_package, owner_module) in owners {
-            let key = (owner_package.clone(), owner_module.clone(), name.clone());
-            selections
-                .entry(key)
-                .and_modify(|exposure: &mut BareModuleValueExposure| {
-                    if !matches!(&exposure.selection, BareModuleValueSelection::Unique(existing) if existing == &identity)
-                    {
-                        exposure.selection = BareModuleValueSelection::Ambiguous;
-                    }
-                })
-                .or_insert_with(|| BareModuleValueExposure {
-                    selection: BareModuleValueSelection::Unique(identity.clone()),
-                    function_collision: false,
-                });
-        }
-    }
-    for function in functions
-        .iter()
-        .filter(|function| function.visibility == Visibility::Public)
-    {
-        let Some(module) = function.module_name.as_ref() else {
-            continue;
-        };
-        let target = (function.package_name.clone(), module.clone());
-        let Some(owners) = imported_owners.get(&target) else {
-            continue;
-        };
-        for (owner_package, owner_module) in owners {
-            if let Some(exposure) = selections.get_mut(&(
-                owner_package.clone(),
-                owner_module.clone(),
-                function.name.clone(),
-            )) {
-                exposure.function_collision = true;
-            }
-        }
-    }
-    selections
 }
 
 fn install_recovery_facts(module: &SurfaceModule, environment: &mut TypeEnvironment) {

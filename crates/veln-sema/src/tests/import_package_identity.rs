@@ -58,8 +58,7 @@ fn set_declaration_module_name(module: &mut SurfaceModule, name: &str) {
     }
 }
 
-#[test]
-fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
+fn same_spelled_module_values_fixture() -> SurfaceModule {
     let mut app = source_module(
         "app.veln",
         concat!(
@@ -88,6 +87,26 @@ fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
     set_declaration_module_name(&mut namesake, "shared");
     extend(&mut app, namesake);
     extend(&mut app, selected);
+    app
+}
+
+fn module_value_for_alias<'a>(
+    environment: &'a TypeEnvironment,
+    alias: &str,
+) -> &'a crate::types::ModuleValueSignature {
+    match environment.module_value_path_in_owner(
+        &[alias.to_string(), "answer".to_string()],
+        Some("owner/pkg::app"),
+        Some("owner/pkg"),
+    ) {
+        crate::types::ModuleValueLookup::Available(value) => value,
+        _ => panic!("expected {alias} package value"),
+    }
+}
+
+#[test]
+fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
+    let app = same_spelled_module_values_fixture();
 
     let diagnostics = analyze_surface_module(&app);
 
@@ -101,22 +120,8 @@ fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
         "{diagnostics:#?}"
     );
     let environment = TypeEnvironment::from_module(&app);
-    let first = match environment.module_value_path_in_owner(
-        &["first".to_string(), "answer".to_string()],
-        Some("owner/pkg::app"),
-        Some("owner/pkg"),
-    ) {
-        crate::types::ModuleValueLookup::Available(value) => value,
-        _ => panic!("expected first package value"),
-    };
-    let second = match environment.module_value_path_in_owner(
-        &["second".to_string(), "answer".to_string()],
-        Some("owner/pkg::app"),
-        Some("owner/pkg"),
-    ) {
-        crate::types::ModuleValueLookup::Available(value) => value,
-        _ => panic!("expected second package value"),
-    };
+    let first = module_value_for_alias(&environment, "first");
+    let second = module_value_for_alias(&environment, "second");
     assert!(!std::ptr::eq(first, second));
 }
 
@@ -655,140 +660,5 @@ fn each_effect_alias_excludes_the_other_package_from_inference_and_discharge() {
     }
 }
 
-#[test]
-fn each_schema_alias_selects_only_its_package_helper_and_lowered_target() {
-    for (alias, field, selected, excluded) in [
-        (
-            "local",
-            "local_value",
-            "workspace::std::shared::Packet",
-            "std::shared::Packet",
-        ),
-        (
-            "remote",
-            "remote_value",
-            "std::shared::Packet",
-            "workspace::std::shared::Packet",
-        ),
-    ] {
-        for reverse in [false, true] {
-            let mut module = source_module(
-                "app.veln",
-                &format!(
-                    "use std::shared as local\nuse shared as remote from \"std\"\n\
-                 pub fn encode_one(value: {{{field}: Int}}) -> Result<ByteChunk, EncodeError>\n\
-                   encode {alias}::AliasPacket from value\nend\n",
-                ),
-                None,
-                "app",
-            );
-            module.uses[1].name = "std::shared".to_string();
-            let local = source_module(
-                "workspace/shared.veln",
-                "pub schema Packet\n  format binary\n  local_value: UInt8\nend\npub schema AliasPacket = Packet\n",
-                None,
-                "std::shared",
-            );
-            let remote = source_module(
-                "standard/shared.veln",
-                "pub schema Packet\n  format binary\n  remote_value: UInt8\nend\npub schema AliasPacket = Packet\n",
-                Some("std"),
-                "shared",
-            );
-            for other in if reverse {
-                [remote, local]
-            } else {
-                [local, remote]
-            } {
-                extend(&mut module, other);
-            }
-            let environment = TypeEnvironment::from_module(&module);
-            let helper = environment
-                .schema_encode_signature_in_owner(
-                    &[alias.to_string(), "AliasPacket".to_string()],
-                    Some("app"),
-                    None,
-                )
-                .unwrap();
-            assert_eq!(
-                helper.params,
-                vec![Type::Record(vec![(field.to_string(), Type::int())])]
-            );
-            assert_eq!(helper.target_name, format!("schema-encode:{selected}"));
-            assert_ne!(helper.target_name, format!("schema-encode:{excluded}"));
-            let lowered = lower_checked_surface_module(&module);
-            assert!(
-                lowered.diagnostics.is_empty(),
-                "alias={alias}, reverse={reverse}, {:#?}",
-                lowered.diagnostics
-            );
-            let encoded = lowered
-                .core
-                .as_ref()
-                .unwrap()
-                .functions
-                .iter()
-                .find(|function| function.name == "encode_one")
-                .unwrap();
-            assert!(format!("{encoded:?}").contains(&format!("SchemaEncode(\"{selected}\")")));
-            assert!(!format!("{encoded:?}").contains(&format!("SchemaEncode(\"{excluded}\")")));
-        }
-    }
-}
-
-#[test]
-fn each_private_handler_alias_infers_only_its_package_clause_dependencies() {
-    for (alias, expected, excluded) in [("local", "stdio", "db"), ("remote", "db", "stdio")] {
-        let mut module = source_module(
-            "app.veln",
-            &format!(
-                "use std::shared as local\nuse shared as remote from \"std\"\nfn main() -> Int\n  {alias}::handled()\nend\n",
-            ),
-            None,
-            "app",
-        );
-        module.uses[1].name = "std::shared".to_string();
-        for (package, effect) in [(None, "stdio"), (Some("std"), "db")] {
-            let text = format!(
-                "pub effect Ask\n  value() -> Int\nend\nfn helper() -> Int effects [{effect}]\n  1\nend\n\
-                               pub fn read() -> Int effects [Ask]\n  perform Ask::value()\nend\n\
-                               handler answer() for Ask\n  value() => helper()\nend\n\
-                               pub fn handled() -> Int effects [{effect}]\n  handle read() with answer()\nend\n"
-            );
-            extend(
-                &mut module,
-                source_module(
-                    if package.is_some() {
-                        "std/shared.veln"
-                    } else {
-                        "local/shared.veln"
-                    },
-                    &text,
-                    package,
-                    if package.is_some() {
-                        "shared"
-                    } else {
-                        "std::shared"
-                    },
-                ),
-            );
-        }
-        // Access from each declaration owner also proves that same-module private handler lookup keeps its package.
-        let environment = TypeEnvironment::from_module(&module);
-        let owner_package = if alias == "remote" { Some("std") } else { None };
-        let HandlerPathResolution::Found(handler) = environment.handler_path_in_owner(
-            &["answer".to_string()],
-            Some("std::shared"),
-            owner_package,
-        ) else {
-            panic!("handler should resolve")
-        };
-        let signature = environment
-            .function_path_in_owner(&["main".to_string()], Some("app"), None)
-            .unwrap();
-        assert_eq!(signature.effects, vec![expected.to_string()]);
-        assert_eq!(handler.effects, vec![expected.to_string()]);
-        assert!(!handler.effects.iter().any(|effect| effect == excluded));
-    }
-}
+mod package_scoped_helpers;
 mod schema_type_identity;

@@ -265,60 +265,29 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn infer_module_value_call(&mut self, callee: &Expr, args: &[Expr]) -> Option<Type> {
-        if let Some(segments) = callee.callee_name_path()
-            && !matches!(segments, [name] if self.visible_binding_index(name).is_some())
-        {
-            let value = match self.environment.module_value_path_in_owner(
-                segments,
-                self.function.module_name.as_deref(),
-                self.function.package_name.as_deref(),
-            ) {
-                ModuleValueLookup::Available(value) => value,
-                ModuleValueLookup::Unavailable => {
-                    for arg in args {
-                        self.infer_expr(arg, None);
-                    }
-                    return Some(Type::Unknown);
-                }
-                ModuleValueLookup::Ambiguous => {
-                    self.ambiguous_function_value(&segments.join("::"), callee);
-                    for arg in args {
-                        self.infer_expr(arg, None);
-                    }
-                    return Some(Type::Unknown);
-                }
-                ModuleValueLookup::Missing => return None,
-            };
-            let name = value.declaration.name.as_deref().unwrap_or("<missing>");
-            let mut diagnostic = Diagnostic::new(
-                "type.not_callable",
-                Severity::Error,
-                DiagnosticKind::Type,
-                format!("module value `{name}` is not callable"),
-                Some(callee.span.clone()),
-                JsonValue::object([
-                    ("phase", JsonValue::string("type_check")),
-                    ("node_id", JsonValue::string(callee.node_id.display("name"))),
-                    ("constraint", JsonValue::string("call_target")),
-                    ("actual", JsonValue::string("module_value")),
-                    ("name", JsonValue::string(name)),
-                ]),
-            );
-            diagnostic.related.push(JsonValue::object([
-                ("kind", JsonValue::string("module_value_declaration")),
-                (
-                    "message",
-                    JsonValue::string(format!("Module value `{name}` is declared here.")),
-                ),
-                ("span", span_json(&value.declaration.span)),
-            ]));
-            self.diagnostics.push(diagnostic);
-            for arg in args {
-                self.infer_expr(arg, None);
-            }
-            return Some(Type::Unknown);
+        let segments = callee.callee_name_path()?;
+        if matches!(segments, [name] if self.visible_binding_index(name).is_some()) {
+            return None;
         }
-        None
+        match self.environment.module_value_path_in_owner(
+            segments,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
+            ModuleValueLookup::Available(value) => {
+                self.diagnostics
+                    .push(module_value_not_callable_diagnostic(value, callee));
+            }
+            ModuleValueLookup::Unavailable => {}
+            ModuleValueLookup::Ambiguous => {
+                self.ambiguous_function_value(&segments.join("::"), callee);
+            }
+            ModuleValueLookup::Missing => return None,
+        }
+        for arg in args {
+            self.infer_expr(arg, None);
+        }
+        Some(Type::Unknown)
     }
 
     pub(super) fn infer_local_callable_call(
@@ -610,4 +579,34 @@ impl<'a> FunctionChecker<'a> {
         }
         row_substitutions
     }
+}
+
+fn module_value_not_callable_diagnostic(
+    value: &crate::types::ModuleValueSignature,
+    callee: &Expr,
+) -> Diagnostic {
+    let name = value.declaration.name.as_deref().unwrap_or("<missing>");
+    let mut diagnostic = Diagnostic::new(
+        "type.not_callable",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!("module value `{name}` is not callable"),
+        Some(callee.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("type_check")),
+            ("node_id", JsonValue::string(callee.node_id.display("name"))),
+            ("constraint", JsonValue::string("call_target")),
+            ("actual", JsonValue::string("module_value")),
+            ("name", JsonValue::string(name)),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("module_value_declaration")),
+        (
+            "message",
+            JsonValue::string(format!("Module value `{name}` is declared here.")),
+        ),
+        ("span", span_json(&value.declaration.span)),
+    ]));
+    diagnostic
 }

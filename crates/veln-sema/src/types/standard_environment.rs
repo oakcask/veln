@@ -520,56 +520,27 @@ fn filter_module_declarations(
 ) -> SurfaceModule {
     SurfaceModule {
         module: module.module.clone(),
-        uses: module
-            .uses
-            .iter()
-            .filter(|decl| keep(*decl))
-            .cloned()
-            .collect(),
-        aliases: module
-            .aliases
-            .iter()
-            .filter(|decl| keep(*decl))
-            .cloned()
-            .collect(),
-        effects: module
-            .effects
-            .iter()
-            .filter(|decl| keep(*decl))
-            .cloned()
-            .collect(),
-        handlers: module
-            .handlers
-            .iter()
-            .filter(|decl| keep(*decl))
-            .cloned()
-            .collect(),
-        types: module
-            .types
-            .iter()
-            .filter(|decl| keep(*decl))
-            .cloned()
-            .collect(),
-        schemas: module
-            .schemas
-            .iter()
-            .filter(|decl| keep(*decl))
-            .cloned()
-            .collect(),
-        module_values: module
-            .module_values
-            .iter()
-            .filter(|decl| keep(*decl))
-            .cloned()
-            .collect(),
-        functions: module
-            .functions
-            .iter()
-            .filter(|decl| keep(*decl))
-            .cloned()
-            .collect(),
+        uses: filter_standard_declarations(&module.uses, &mut keep),
+        aliases: filter_standard_declarations(&module.aliases, &mut keep),
+        effects: filter_standard_declarations(&module.effects, &mut keep),
+        handlers: filter_standard_declarations(&module.handlers, &mut keep),
+        types: filter_standard_declarations(&module.types, &mut keep),
+        schemas: filter_standard_declarations(&module.schemas, &mut keep),
+        module_values: filter_standard_declarations(&module.module_values, &mut keep),
+        functions: filter_standard_declarations(&module.functions, &mut keep),
         invalid_names: module.invalid_names.clone(),
     }
+}
+
+fn filter_standard_declarations<T: Clone + StandardDeclaration>(
+    declarations: &[T],
+    keep: &mut impl FnMut(&dyn StandardDeclaration) -> bool,
+) -> Vec<T> {
+    declarations
+        .iter()
+        .filter(|declaration| keep(*declaration))
+        .cloned()
+        .collect()
 }
 
 fn is_embedded_standard_declaration(decl: &dyn StandardDeclaration) -> bool {

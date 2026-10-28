@@ -203,48 +203,81 @@ impl TypeEnvironment {
         let Some((name, _)) = segments.split_last() else {
             return ModuleValueLookup::Missing;
         };
-        if self.same_module_value_path_matches_in_owner(segments, current_module, current_package)
-            && let Some(index) = self.module_values_by_identity.get(&(
-                current_package.map(str::to_owned),
-                current_module.map(str::to_owned),
-                name.clone(),
-            ))
+        if let Some(value) =
+            self.same_owner_module_value(segments, name, current_module, current_package)
         {
-            return self.module_value_at_index(*index);
+            return value;
         }
 
         if segments.len() == 1 {
-            record_bare_module_value_lookup_work();
-            if self.functions_named(name).any(|function| {
-                function.module_name.as_deref() == current_module
-                    && function.package_name.as_deref() == current_package
-            }) {
-                return ModuleValueLookup::Missing;
-            }
-            let key = (
-                current_package.map(str::to_owned),
-                current_module.map(str::to_owned),
-                name.clone(),
-            );
-            let Some(exposure) = self.bare_module_values.get(&key) else {
-                return ModuleValueLookup::Missing;
-            };
-            if matches!(exposure.selection, BareModuleValueSelection::Ambiguous)
-                || exposure.function_collision
-            {
-                return ModuleValueLookup::Ambiguous;
-            }
-            let BareModuleValueSelection::Unique(identity) = &exposure.selection else {
-                unreachable!();
-            };
-            return self
-                .module_values_by_identity
-                .get(identity)
-                .map_or(ModuleValueLookup::Missing, |index| {
-                    self.module_value_at_index(*index)
-                });
+            return self.bare_module_value_in_owner(name, current_module, current_package);
         }
 
+        self.qualified_module_value_in_owner(segments, name, current_module, current_package)
+    }
+
+    fn same_owner_module_value<'a>(
+        &'a self,
+        segments: &[String],
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<ModuleValueLookup<'a>> {
+        self.same_module_value_path_matches_in_owner(segments, current_module, current_package)
+            .then(|| {
+                self.module_values_by_identity.get(&(
+                    current_package.map(str::to_owned),
+                    current_module.map(str::to_owned),
+                    name.to_owned(),
+                ))
+            })
+            .flatten()
+            .map(|index| self.module_value_at_index(*index))
+    }
+
+    fn bare_module_value_in_owner(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> ModuleValueLookup<'_> {
+        record_bare_module_value_lookup_work();
+        if self.functions_named(name).any(|function| {
+            function.module_name.as_deref() == current_module
+                && function.package_name.as_deref() == current_package
+        }) {
+            return ModuleValueLookup::Missing;
+        }
+        let key = (
+            current_package.map(str::to_owned),
+            current_module.map(str::to_owned),
+            name.to_owned(),
+        );
+        let Some(exposure) = self.bare_module_values.get(&key) else {
+            return ModuleValueLookup::Missing;
+        };
+        if matches!(exposure.selection, BareModuleValueSelection::Ambiguous)
+            || exposure.function_collision
+        {
+            return ModuleValueLookup::Ambiguous;
+        }
+        let BareModuleValueSelection::Unique(identity) = &exposure.selection else {
+            unreachable!();
+        };
+        self.module_values_by_identity
+            .get(identity)
+            .map_or(ModuleValueLookup::Missing, |index| {
+                self.module_value_at_index(*index)
+            })
+    }
+
+    fn qualified_module_value_in_owner(
+        &self,
+        segments: &[String],
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> ModuleValueLookup<'_> {
         let qualifier = &segments[..segments.len() - 1];
         let module_path = qualifier.join("::");
         if self.qualified_imported_module_value_path_is_ambiguous(

@@ -8,23 +8,8 @@ impl TypeEnvironment {
         let functions_by_name = facts::function_name_index(&functions);
         let recoveries = self.standard_subset_recoveries(module_names);
         let access_targets = self.standard_subset_access_targets(module_names);
-        let module_values = selected_standard_facts(&self.module_values, module_names, |value| {
-            value.declaration.module_name.as_deref()
-        });
-        let mut module_values_by_identity = HashMap::new();
-        for (index, value) in module_values.iter().enumerate() {
-            if let Some(name) = &value.declaration.name {
-                let identity = (
-                    value.declaration.package_name.clone(),
-                    value.declaration.module_name.clone(),
-                    name.clone(),
-                );
-                module_values_by_identity
-                    .entry(identity)
-                    .and_modify(|entry| *entry = ModuleValueIndex::Collision)
-                    .or_insert(ModuleValueIndex::Unique(index));
-            }
-        }
+        let (module_values, module_values_by_identity) =
+            self.standard_subset_module_values(module_names);
         let uses = selected_standard_facts(&self.uses, module_names, |use_decl| {
             use_decl.module_name.as_deref()
         });
@@ -67,6 +52,34 @@ impl TypeEnvironment {
             companion_schema_access_targets: access_targets.schemas,
             companion_effect_access_targets: access_targets.effects,
         }
+    }
+
+    fn standard_subset_module_values(
+        &self,
+        module_names: &BTreeSet<String>,
+    ) -> (
+        Vec<ModuleValueSignature>,
+        HashMap<ModuleValueIdentity, ModuleValueIndex>,
+    ) {
+        let module_values = selected_standard_facts(&self.module_values, module_names, |value| {
+            value.declaration.module_name.as_deref()
+        });
+        let mut module_values_by_identity = HashMap::new();
+        for (index, value) in module_values.iter().enumerate() {
+            let Some(name) = &value.declaration.name else {
+                continue;
+            };
+            let identity = (
+                value.declaration.package_name.clone(),
+                value.declaration.module_name.clone(),
+                name.clone(),
+            );
+            module_values_by_identity
+                .entry(identity)
+                .and_modify(|entry| *entry = ModuleValueIndex::Collision)
+                .or_insert(ModuleValueIndex::Unique(index));
+        }
+        (module_values, module_values_by_identity)
     }
 
     fn standard_subset_recoveries(
