@@ -520,6 +520,101 @@ pub(crate) struct NormalImportSelectionIndex<'a> {
     prefix_paths: Option<HashMap<ResolvedImportOwner, ImportPathPrefixIndex>>,
 }
 
+struct NormalImportSelectionIndexBuilder<'a> {
+    classification: &'a ImportClassification,
+    build_prefix_paths: bool,
+    exact_paths: HashMap<ImportBindingKey, usize>,
+    qualifiers: HashMap<ImportBindingKey, IndexedUseDecl>,
+    prefix_paths: HashMap<ResolvedImportOwner, ImportPathPrefixIndex>,
+}
+
+impl<'a> NormalImportSelectionIndexBuilder<'a> {
+    fn new(classification: &'a ImportClassification, build_prefix_paths: bool) -> Self {
+        Self {
+            classification,
+            build_prefix_paths,
+            exact_paths: HashMap::new(),
+            qualifiers: HashMap::new(),
+            prefix_paths: HashMap::new(),
+        }
+    }
+
+    fn insert_use(&mut self, index: usize, use_decl: &UseDecl) {
+        record_normal_import_selection_work(|work| work.operations += 1);
+        if self.classification.quarantined[index] {
+            self.insert_quarantined_paths(use_decl);
+        } else {
+            self.insert_selectable_use(index, use_decl);
+        }
+    }
+
+    fn insert_quarantined_paths(&mut self, use_decl: &UseDecl) {
+        if !self.build_prefix_paths {
+            return;
+        }
+        let owner = use_decl.resolved_owner();
+        for path in use_decl_exact_paths(use_decl) {
+            self.prefix_paths
+                .entry(owner.clone())
+                .or_default()
+                .insert_exact_path(&path, IndexedUseDecl::Ambiguous);
+        }
+    }
+
+    fn insert_selectable_use(&mut self, index: usize, use_decl: &UseDecl) {
+        for path in use_decl_exact_paths(use_decl) {
+            self.insert_exact_path(index, use_decl, path);
+        }
+        if simple_import_alias_matches(use_decl, &use_decl.alias) {
+            self.insert_qualifier(index, use_decl);
+        }
+    }
+
+    fn insert_exact_path(&mut self, index: usize, use_decl: &UseDecl, path: String) {
+        record_normal_import_selection_work(|work| work.operations += 1);
+        let owner = use_decl.resolved_owner();
+        if self.build_prefix_paths {
+            let selection = if self
+                .classification
+                .blocked_exact_paths
+                .contains(&(owner.clone(), path.clone()))
+            {
+                IndexedUseDecl::Ambiguous
+            } else {
+                IndexedUseDecl::Unique(index)
+            };
+            self.prefix_paths
+                .entry(owner.clone())
+                .or_default()
+                .insert_exact_path(&path, selection);
+        }
+        self.exact_paths.entry((owner, path)).or_insert(index);
+    }
+
+    fn insert_qualifier(&mut self, index: usize, use_decl: &UseDecl) {
+        record_normal_import_selection_work(|work| work.operations += 1);
+        let owner = use_decl.resolved_owner();
+        if self.build_prefix_paths {
+            let prefix = self.prefix_paths.entry(owner.clone()).or_default();
+            if self
+                .classification
+                .colliding_qualifiers
+                .contains(&(owner.clone(), use_decl.alias.clone()))
+            {
+                prefix
+                    .qualifiers
+                    .insert(use_decl.alias.clone(), IndexedUseDecl::Ambiguous);
+            } else {
+                prefix.insert_qualifier(use_decl.alias.clone(), index);
+            }
+        }
+        self.qualifiers
+            .entry((owner, use_decl.alias.clone()))
+            .and_modify(|candidate| *candidate = IndexedUseDecl::Ambiguous)
+            .or_insert(IndexedUseDecl::Unique(index));
+    }
+}
+
 #[derive(Default)]
 struct ImportPathPrefixIndex {
     nodes: Vec<ImportPathPrefixNode>,
@@ -617,64 +712,17 @@ impl<'a> NormalImportSelectionIndex<'a> {
     fn new_internal(module: &'a SurfaceModule, build_prefix_paths: bool) -> Self {
         record_normal_import_selection_work(|work| work.operations += 1);
         let classification = import_classification(module);
-        let mut exact_paths = HashMap::new();
-        let mut qualifiers = HashMap::new();
-        let mut prefix_paths = HashMap::<ResolvedImportOwner, ImportPathPrefixIndex>::new();
+        let mut builder =
+            NormalImportSelectionIndexBuilder::new(&classification, build_prefix_paths);
         for (index, use_decl) in module.uses.iter().enumerate() {
-            record_normal_import_selection_work(|work| work.operations += 1);
-            if classification.quarantined[index] {
-                if build_prefix_paths {
-                    let owner = use_decl.resolved_owner();
-                    for path in use_decl_exact_paths(use_decl) {
-                        prefix_paths
-                            .entry(owner.clone())
-                            .or_default()
-                            .insert_exact_path(&path, IndexedUseDecl::Ambiguous);
-                    }
-                }
-                continue;
-            }
-            for path in use_decl_exact_paths(use_decl) {
-                record_normal_import_selection_work(|work| work.operations += 1);
-                let owner = use_decl.resolved_owner();
-                if build_prefix_paths {
-                    let selection = if classification
-                        .blocked_exact_paths
-                        .contains(&(owner.clone(), path.clone()))
-                    {
-                        IndexedUseDecl::Ambiguous
-                    } else {
-                        IndexedUseDecl::Unique(index)
-                    };
-                    prefix_paths
-                        .entry(owner.clone())
-                        .or_default()
-                        .insert_exact_path(&path, selection);
-                }
-                exact_paths.entry((owner, path)).or_insert(index);
-            }
-            if simple_import_alias_matches(use_decl, &use_decl.alias) {
-                record_normal_import_selection_work(|work| work.operations += 1);
-                let owner = use_decl.resolved_owner();
-                if build_prefix_paths {
-                    let prefix = prefix_paths.entry(owner.clone()).or_default();
-                    if classification
-                        .colliding_qualifiers
-                        .contains(&(owner.clone(), use_decl.alias.clone()))
-                    {
-                        prefix
-                            .qualifiers
-                            .insert(use_decl.alias.clone(), IndexedUseDecl::Ambiguous);
-                    } else {
-                        prefix.insert_qualifier(use_decl.alias.clone(), index);
-                    }
-                }
-                qualifiers
-                    .entry((owner, use_decl.alias.clone()))
-                    .and_modify(|candidate| *candidate = IndexedUseDecl::Ambiguous)
-                    .or_insert(IndexedUseDecl::Unique(index));
-            }
+            builder.insert_use(index, use_decl);
         }
+        let NormalImportSelectionIndexBuilder {
+            exact_paths,
+            qualifiers,
+            prefix_paths,
+            ..
+        } = builder;
         Self {
             module,
             classification,

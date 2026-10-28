@@ -211,93 +211,127 @@ fn attach_explicit_import_alias_occurrences_in_file(
             .iter()
             .map(|index| tokens[*index].text.as_str())
             .collect::<Vec<_>>();
-        let qualifier = qualifier_segments.join("::");
-        match imports.select_prefixes(
-            qualifier_segments.iter().copied(),
-            Some(&file.module),
-        ) {
-            veln_sema::ResolvedImportPathSelection::Resolved(
-                veln_sema::ResolvedImportPath::ExplicitAlias(alias),
-            ) => {
-                for prefix_len in 1..=qualifier_segments.len() {
-                    let prefix = qualifier_segments[..prefix_len].join("::");
-                    if let veln_sema::ResolvedImportPathSelection::Resolved(path) = imports
-                        .select_prefixes(
-                            qualifier_segments[..prefix_len].iter().copied(),
-                            Some(&file.module),
-                        )
-                    {
-                        let (module, package) = match path {
-                            veln_sema::ResolvedImportPath::ExplicitAlias(alias) => {
-                                (alias.target_module, alias.target_package)
-                            }
-                            veln_sema::ResolvedImportPath::Exact {
-                                target_module,
-                                target_package,
-                            } => (target_module, target_package),
-                        };
-                        file.qualified_import_resolutions.insert(
-                            prefix,
-                            QualifiedImportResolution::Resolved(QualifiedModuleIdentity {
-                                module,
-                                package,
-                                package_resolved: true,
-                            }),
-                        );
-                    }
-                }
-                let range = tokens[token_index].range;
-                file.explicit_import_alias_occurrences
-                    .insert((range.start, range.end), alias.span);
-                record_explicit_import_alias_retained_entries(2);
+        let range = tokens[token_index].range;
+        attach_qualifier_resolution(
+            &mut file.qualified_import_resolutions,
+            &mut file.explicit_import_alias_occurrences,
+            &file.module,
+            imports,
+            &qualifier_segments,
+            (range.start, range.end),
+        );
+    }
+}
+
+fn attach_qualifier_resolution(
+    resolutions: &mut BTreeMap<String, QualifiedImportResolution>,
+    alias_occurrences: &mut BTreeMap<(usize, usize), SourceSpan>,
+    module: &str,
+    imports: &veln_sema::ResolvedImportPathIndex<'_>,
+    qualifier_segments: &[&str],
+    occurrence_range: (usize, usize),
+) {
+    match imports.select_prefixes(qualifier_segments.iter().copied(), Some(module)) {
+        veln_sema::ResolvedImportPathSelection::Resolved(
+            veln_sema::ResolvedImportPath::ExplicitAlias(alias),
+        ) => {
+            attach_resolved_alias_prefixes(resolutions, imports, module, qualifier_segments);
+            alias_occurrences.insert(occurrence_range, alias.span);
+            record_explicit_import_alias_retained_entries(2);
+        }
+        veln_sema::ResolvedImportPathSelection::Resolved(
+            veln_sema::ResolvedImportPath::Exact {
+                target_module,
+                target_package,
+            },
+        ) => {
+            attach_exact_prefixes(resolutions, imports, module, qualifier_segments);
+            resolutions.insert(
+                qualifier_segments.join("::"),
+                QualifiedImportResolution::Resolved(QualifiedModuleIdentity {
+                    module: target_module,
+                    package: target_package,
+                    package_resolved: true,
+                }),
+            );
+            record_explicit_import_alias_retained_entries(1);
+        }
+        veln_sema::ResolvedImportPathSelection::Blocked => {
+            for prefix_len in 1..=qualifier_segments.len() {
+                resolutions.insert(
+                    qualifier_segments[..prefix_len].join("::"),
+                    QualifiedImportResolution::Blocked,
+                );
+                record_explicit_import_alias_retained_entries(1);
             }
+        }
+        veln_sema::ResolvedImportPathSelection::Missing => {}
+    }
+}
+
+fn attach_resolved_alias_prefixes(
+    resolutions: &mut BTreeMap<String, QualifiedImportResolution>,
+    imports: &veln_sema::ResolvedImportPathIndex<'_>,
+    module: &str,
+    qualifier_segments: &[&str],
+) {
+    for prefix_len in 1..=qualifier_segments.len() {
+        let prefix = qualifier_segments[..prefix_len].join("::");
+        let veln_sema::ResolvedImportPathSelection::Resolved(path) = imports.select_prefixes(
+            qualifier_segments[..prefix_len].iter().copied(),
+            Some(module),
+        ) else {
+            continue;
+        };
+        let (module, package) = resolved_path_identity(path);
+        resolutions.insert(
+            prefix,
+            QualifiedImportResolution::Resolved(QualifiedModuleIdentity {
+                module,
+                package,
+                package_resolved: true,
+            }),
+        );
+    }
+}
+
+fn attach_exact_prefixes(
+    resolutions: &mut BTreeMap<String, QualifiedImportResolution>,
+    imports: &veln_sema::ResolvedImportPathIndex<'_>,
+    module: &str,
+    qualifier_segments: &[&str],
+) {
+    for prefix_len in 1..qualifier_segments.len() {
+        let prefix = qualifier_segments[..prefix_len].join("::");
+        let resolution = match imports.select_prefixes(
+            qualifier_segments[..prefix_len].iter().copied(),
+            Some(module),
+        ) {
             veln_sema::ResolvedImportPathSelection::Resolved(
                 veln_sema::ResolvedImportPath::Exact {
                     target_module,
                     target_package,
                 },
-            ) => {
-                for prefix_len in 1..qualifier_segments.len() {
-                    let prefix = qualifier_segments[..prefix_len].join("::");
-                    let resolution = match imports.select_prefixes(
-                        qualifier_segments[..prefix_len].iter().copied(),
-                        Some(&file.module),
-                    ) {
-                        veln_sema::ResolvedImportPathSelection::Resolved(
-                            veln_sema::ResolvedImportPath::Exact {
-                                target_module,
-                                target_package,
-                            },
-                        ) => QualifiedImportResolution::Resolved(QualifiedModuleIdentity {
-                            module: target_module,
-                            package: target_package,
-                            package_resolved: true,
-                        }),
-                        _ => QualifiedImportResolution::Blocked,
-                    };
-                    file.qualified_import_resolutions.insert(prefix, resolution);
-                }
-                file.qualified_import_resolutions.insert(
-                    qualifier,
-                    QualifiedImportResolution::Resolved(QualifiedModuleIdentity {
-                        module: target_module,
-                        package: target_package,
-                        package_resolved: true,
-                    }),
-                );
-                record_explicit_import_alias_retained_entries(1);
-            }
-            veln_sema::ResolvedImportPathSelection::Blocked => {
-                for prefix_len in 1..=qualifier_segments.len() {
-                    file.qualified_import_resolutions.insert(
-                        qualifier_segments[..prefix_len].join("::"),
-                        QualifiedImportResolution::Blocked,
-                    );
-                    record_explicit_import_alias_retained_entries(1);
-                }
-            }
-            veln_sema::ResolvedImportPathSelection::Missing => {}
+            ) => QualifiedImportResolution::Resolved(QualifiedModuleIdentity {
+                module: target_module,
+                package: target_package,
+                package_resolved: true,
+            }),
+            _ => QualifiedImportResolution::Blocked,
+        };
+        resolutions.insert(prefix, resolution);
+    }
+}
+
+fn resolved_path_identity(path: veln_sema::ResolvedImportPath) -> (String, Option<String>) {
+    match path {
+        veln_sema::ResolvedImportPath::ExplicitAlias(alias) => {
+            (alias.target_module, alias.target_package)
         }
+        veln_sema::ResolvedImportPath::Exact {
+            target_module,
+            target_package,
+        } => (target_module, target_package),
     }
 }
 
