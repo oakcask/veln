@@ -99,49 +99,96 @@ impl AdtRegistry {
             ));
         }
 
+        self.indexed_qualified_descriptor_including_quarantined(
+            name,
+            args_len,
+            current_module,
+            &owner,
+        )
+    }
+
+    fn indexed_qualified_descriptor_including_quarantined<'a>(
+        &'a self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        owner: &ResolvedImportOwner,
+    ) -> Option<Option<&'a AdtDescriptor>> {
         let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
         let type_name = segments.last()?;
         let module_path = segments[..segments.len() - 1].join("::");
         crate::adt::lookup_validation::record_qualified_path_work(module_path.len());
-        if let Some(identity) = self
-            .qualified_import_modules
-            .get(&(owner.clone(), module_path.clone()))
-            .and_then(|modules| self.source_identity_from_import_modules(type_name, modules))
-        {
-            return Some(
-                self.qualified_descriptor_candidates(&identity)
-                    .rev()
-                    .find(|descriptor| Self::descriptor_matches_arity(descriptor, Some(args_len))),
-            );
+        if let Some(descriptor) = self.indexed_exact_descriptor_including_quarantined(
+            &module_path,
+            type_name,
+            args_len,
+            owner,
+        ) {
+            return Some(descriptor);
         }
         if let Some(builtin) = self.indexed_qualified_builtin_fallback(
             &module_path,
             type_name,
             Some(args_len),
             current_module,
-            &owner,
+            owner,
             false,
         ) {
             return Some(builtin);
         }
+        Some(self.indexed_recovered_descriptor_including_quarantined(
+            &segments,
+            &module_path,
+            type_name,
+            args_len,
+            current_module,
+            owner,
+        ))
+    }
+
+    fn indexed_exact_descriptor_including_quarantined<'a>(
+        &'a self,
+        module_path: &str,
+        type_name: &str,
+        args_len: usize,
+        owner: &ResolvedImportOwner,
+    ) -> Option<Option<&'a AdtDescriptor>> {
+        let modules = self
+            .qualified_import_modules
+            .get(&(owner.clone(), module_path.to_string()))?;
+        let identity = self.source_identity_from_import_modules(type_name, modules)?;
+        Some(
+            self.qualified_descriptor_candidates(&identity)
+                .rev()
+                .find(|descriptor| Self::descriptor_matches_arity(descriptor, Some(args_len))),
+        )
+    }
+
+    fn indexed_recovered_descriptor_including_quarantined<'a>(
+        &'a self,
+        segments: &[String],
+        module_path: &str,
+        type_name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        owner: &ResolvedImportOwner,
+    ) -> Option<&'a AdtDescriptor> {
         let identity = self
             .indexed_recovered_qualified_source_identity(
                 type_name,
                 &segments[..segments.len() - 1],
                 current_module,
-                &owner,
+                owner,
             )
             .unwrap_or(QualifiedSourceIdentity::Ambiguous);
-        Some(
-            self.qualified_descriptor_candidates(&identity)
-                .rev()
-                .find(|descriptor| Self::descriptor_matches_arity(descriptor, Some(args_len)))
-                .or_else(|| {
-                    (normalized_qualified_path(&module_path) == "prelude")
-                        .then(|| self.root_descriptor(type_name, Some(args_len)))
-                        .flatten()
-                }),
-        )
+        self.qualified_descriptor_candidates(&identity)
+            .rev()
+            .find(|descriptor| Self::descriptor_matches_arity(descriptor, Some(args_len)))
+            .or_else(|| {
+                (normalized_qualified_path(module_path) == "prelude")
+                    .then(|| self.root_descriptor(type_name, Some(args_len)))
+                    .flatten()
+            })
     }
 
     fn indexed_recovered_qualified_source_identity(
