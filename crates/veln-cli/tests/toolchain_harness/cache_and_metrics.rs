@@ -464,8 +464,7 @@ pub(super) fn metrics_baseline_check_preserves_report_fields() {
     }
 }
 
-#[test]
-pub(super) fn metrics_cli_output_is_stable_for_reversed_input_order() {
+fn metrics_order_fixture() -> TestProject {
     let project = TestProject::new(
         "metrics-cli-output-is-stable-for-reversed-input-order".to_string(),
         &ToolSetup::default(),
@@ -487,57 +486,40 @@ pub(super) fn metrics_cli_output_is_stable_for_reversed_input_order() {
     )
     .expect("util source should be written");
 
-    let forward_json = project.veln_with_artifact(
-        &[
-            "metrics".to_string(),
-            "--json".to_string(),
-            "src/app.veln".to_string(),
-            "src/util.veln".to_string(),
-        ],
-        None,
-        &[],
-        None,
-        None,
-    );
-    let reversed_json = project.veln_with_artifact(
-        &[
-            "metrics".to_string(),
-            "--json".to_string(),
-            "src/util.veln".to_string(),
-            "src/app.veln".to_string(),
-        ],
-        None,
-        &[],
-        None,
-        None,
-    );
-    let forward_human = project.veln_with_artifact(
-        &[
-            "metrics".to_string(),
-            "src/app.veln".to_string(),
-            "src/util.veln".to_string(),
-        ],
-        None,
-        &[],
-        None,
-        None,
-    );
-    let reversed_human = project.veln_with_artifact(
-        &[
-            "metrics".to_string(),
-            "src/util.veln".to_string(),
-            "src/app.veln".to_string(),
-        ],
-        None,
-        &[],
-        None,
-        None,
-    );
+    project
+}
 
-    assert_success("forward JSON metrics", &forward_json);
-    assert_success("reversed JSON metrics", &reversed_json);
-    assert_success("forward human metrics", &forward_human);
-    assert_success("reversed human metrics", &reversed_human);
+fn run_metrics_for_paths(
+    project: &TestProject,
+    label: &str,
+    paths: [&str; 2],
+    json: bool,
+) -> std::process::Output {
+    let mut args = vec!["metrics".to_string()];
+    if json {
+        args.push("--json".to_string());
+    }
+    args.extend(paths.into_iter().map(str::to_string));
+
+    let output = project.veln_with_artifact(&args, None, &[], None, None);
+    assert_success(label, &output);
+    output
+}
+
+#[test]
+pub(super) fn metrics_cli_output_is_stable_for_reversed_input_order() {
+    let project = metrics_order_fixture();
+    let forward_paths = ["src/app.veln", "src/util.veln"];
+    let reversed_paths = ["src/util.veln", "src/app.veln"];
+
+    let forward_json = run_metrics_for_paths(&project, "forward JSON metrics", forward_paths, true);
+    let reversed_json =
+        run_metrics_for_paths(&project, "reversed JSON metrics", reversed_paths, true);
+    let forward_human =
+        run_metrics_for_paths(&project, "forward human metrics", forward_paths, false);
+    let reversed_human =
+        run_metrics_for_paths(&project, "reversed human metrics", reversed_paths, false);
+
     assert_eq!(forward_json.stdout, reversed_json.stdout);
     assert_eq!(forward_human.stdout, reversed_human.stdout);
     assert!(
