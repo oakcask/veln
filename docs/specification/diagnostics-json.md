@@ -963,6 +963,14 @@ quarantined import is not a lookup candidate. The checked
 and
 [`JSON`](../../examples/specification/check/module-value-quarantined-qualified-json/)
 cases fix this boundary for an implicit qualifier and an explicit alias.
+If the quarantined exact path equals the importing module's own spelling, the
+same duplicate and unresolved diagnostics apply. The checker does not resolve
+the qualified read to the same-module value, and it does not add
+`name.ambiguous` or `type.mismatch`. The checked
+[`human`](../../examples/specification/check/module-value-quarantined-exact-same-module-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-quarantined-exact-same-module-json/)
+cases cover both import orders.
 When correcting an invalid target
 segment or alias uniquely selects one public export in the import's target
 package, the casing diagnostic remains and the recovered member does not add
