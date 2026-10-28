@@ -1071,9 +1071,39 @@ impl SymbolIndex {
         file: &IndexedFile,
         qualifier: &str,
     ) -> Vec<QualifiedModuleIdentity> {
-        match file.qualified_import_resolutions.get(qualifier) {
-            Some(QualifiedImportResolution::Resolved(identity)) => {
-                return vec![identity.clone()];
+        let qualifier_segments = qualifier.split("::").collect::<Vec<_>>();
+        let mut node_index = 0;
+        for segment in &qualifier_segments {
+            let Some(next_index) = file.qualified_import_resolutions.nodes[node_index]
+                .children
+                .get(*segment)
+            else {
+                node_index = usize::MAX;
+                break;
+            };
+            node_index = *next_index;
+        }
+        record_explicit_import_alias_path_work(qualifier_segments.len(), 0);
+        let resolution = (node_index != usize::MAX)
+            .then(|| file.qualified_import_resolutions.nodes[node_index].resolution.as_ref())
+            .flatten();
+        match resolution {
+            Some(QualifiedImportResolution::Resolved(target)) => {
+                let mut module = target.module.to_string();
+                for segment in qualifier_segments.iter().skip(target.consumed_segments) {
+                    module.push_str("::");
+                    module.push_str(segment);
+                }
+                let package = target.package.as_ref().map(|package| package.to_string());
+                record_explicit_import_alias_path_work(
+                    0,
+                    module.len() + package.as_ref().map_or(0, String::len),
+                );
+                return vec![QualifiedModuleIdentity {
+                    module,
+                    package,
+                    package_resolved: true,
+                }];
             }
             Some(QualifiedImportResolution::Blocked) => return Vec::new(),
             None => {}

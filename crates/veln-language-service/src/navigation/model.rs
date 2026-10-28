@@ -883,9 +883,35 @@ struct QualifiedModuleIdentity {
 }
 
 #[derive(Clone, Debug)]
+struct QualifiedImportTarget {
+    module: Arc<str>,
+    package: Option<Arc<str>>,
+    consumed_segments: usize,
+}
+
+#[derive(Clone, Debug)]
 enum QualifiedImportResolution {
-    Resolved(QualifiedModuleIdentity),
+    Resolved(QualifiedImportTarget),
     Blocked,
+}
+
+#[derive(Clone, Debug, Default)]
+struct QualifiedImportResolutionNode {
+    children: BTreeMap<String, usize>,
+    resolution: Option<QualifiedImportResolution>,
+}
+
+#[derive(Clone, Debug)]
+struct QualifiedImportResolutionIndex {
+    nodes: Vec<QualifiedImportResolutionNode>,
+}
+
+impl Default for QualifiedImportResolutionIndex {
+    fn default() -> Self {
+        Self {
+            nodes: vec![QualifiedImportResolutionNode::default()],
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -906,7 +932,7 @@ struct IndexedFile {
     import_aliases: Arc<BTreeMap<String, String>>,
     external_import_aliases: Arc<BTreeMap<String, (String, String)>>,
     explicit_import_alias_occurrences: BTreeMap<(usize, usize), SourceSpan>,
-    qualified_import_resolutions: BTreeMap<String, QualifiedImportResolution>,
+    qualified_import_resolutions: QualifiedImportResolutionIndex,
     schema_alias_external_imports: Vec<ExternalImport>,
     workspace_imports: Vec<WorkspaceImport>,
     invalid_declaration_names: Vec<SourceSpan>,

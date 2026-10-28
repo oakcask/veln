@@ -378,9 +378,12 @@ and retained alias-index entries grow by at most twice the smaller case plus a
 fixed setup allowance. This metric covers the language-service loops that
 combine module imports and attach alias occurrences; it does not measure the
 semantic helpers that supply resolved imports and aliases. For the same-line
-workload, token visits, visited path segments, and visited path bytes have that
-bound. For the deep-path workload, visited path segments and bytes have that
-bound. Elapsed time is not the conformance metric.
+workload, token visits, prefix-resolution segment visits, and bytes retained
+for segment keys and imported target bases have that bound. For the deep-path
+workload, the metric also includes trie lookup segment visits and bytes
+allocated when the selected target module and package are materialized. Those
+segment visits and retained or allocated bytes have the same bound. Elapsed
+time is not the conformance metric.
 
 ### Shared variant-refinement navigation
 

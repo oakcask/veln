@@ -199,13 +199,6 @@ fn attach_explicit_import_alias_occurrences_in_file(
         else {
             continue;
         };
-        record_explicit_import_alias_path_work(
-            qualifier_indices.len(),
-            qualifier_indices
-                .iter()
-                .map(|index| tokens[*index].text.len())
-                .sum(),
-        );
         record_explicit_import_alias_construction_work(qualifier_indices.len());
         let qualifier_segments = qualifier_indices
             .iter()
@@ -224,114 +217,87 @@ fn attach_explicit_import_alias_occurrences_in_file(
 }
 
 fn attach_qualifier_resolution(
-    resolutions: &mut BTreeMap<String, QualifiedImportResolution>,
+    resolutions: &mut QualifiedImportResolutionIndex,
     alias_occurrences: &mut BTreeMap<(usize, usize), SourceSpan>,
     module: &str,
     imports: &veln_sema::ResolvedImportPathIndex<'_>,
     qualifier_segments: &[&str],
     occurrence_range: (usize, usize),
 ) {
-    match imports.select_prefixes(qualifier_segments.iter().copied(), Some(module)) {
-        veln_sema::ResolvedImportPathSelection::Resolved(
-            veln_sema::ResolvedImportPath::ExplicitAlias(alias),
-        ) => {
-            attach_resolved_alias_prefixes(resolutions, imports, module, qualifier_segments);
-            alias_occurrences.insert(occurrence_range, alias.span);
-            record_explicit_import_alias_retained_entries(2);
-        }
-        veln_sema::ResolvedImportPathSelection::Resolved(
-            veln_sema::ResolvedImportPath::Exact {
-                target_module,
-                target_package,
-            },
-        ) => {
-            attach_exact_prefixes(resolutions, imports, module, qualifier_segments);
-            resolutions.insert(
-                qualifier_segments.join("::"),
-                QualifiedImportResolution::Resolved(QualifiedModuleIdentity {
-                    module: target_module,
-                    package: target_package,
-                    package_resolved: true,
-                }),
+    let prefix_selections = imports.select_prefix_sequence(qualifier_segments, Some(module));
+    record_explicit_import_alias_path_work(qualifier_segments.len(), 0);
+    let Some(final_selection) = prefix_selections.last().copied() else {
+        return;
+    };
+    let final_alias_span = match final_selection {
+        veln_sema::ResolvedImportPathPrefixSelection::Resolved(selection) => selection.alias_span,
+        veln_sema::ResolvedImportPathPrefixSelection::Blocked => {
+            attach_prefix_resolutions(
+                resolutions,
+                qualifier_segments,
+                std::iter::repeat_n(Some(QualifiedImportResolution::Blocked), qualifier_segments.len()),
             );
-            record_explicit_import_alias_retained_entries(1);
+            return;
         }
-        veln_sema::ResolvedImportPathSelection::Blocked => {
-            for prefix_len in 1..=qualifier_segments.len() {
-                resolutions.insert(
-                    qualifier_segments[..prefix_len].join("::"),
-                    QualifiedImportResolution::Blocked,
+        veln_sema::ResolvedImportPathPrefixSelection::Missing => return,
+    };
+    let final_is_exact = final_alias_span.is_none();
+    let mut targets = BTreeMap::<(&str, Option<&str>), (Arc<str>, Option<Arc<str>>)>::new();
+    let prefix_resolutions = prefix_selections.into_iter().map(|selection| match selection {
+        veln_sema::ResolvedImportPathPrefixSelection::Resolved(selection)
+            if !final_is_exact || selection.alias_span.is_none() =>
+        {
+            let key = (selection.target_module, selection.target_package);
+            let (module, package) = targets.entry(key).or_insert_with(|| {
+                record_explicit_import_alias_path_work(
+                    0,
+                    selection.target_module.len()
+                        + selection.target_package.map_or(0, str::len),
                 );
-                record_explicit_import_alias_retained_entries(1);
-            }
+                (
+                    Arc::<str>::from(selection.target_module),
+                    selection.target_package.map(Arc::<str>::from),
+                )
+            });
+            Some(QualifiedImportResolution::Resolved(QualifiedImportTarget {
+                module: Arc::clone(module),
+                package: package.as_ref().map(Arc::clone),
+                consumed_segments: selection.consumed_segments,
+            }))
         }
-        veln_sema::ResolvedImportPathSelection::Missing => {}
+        _ if final_is_exact => Some(QualifiedImportResolution::Blocked),
+        _ => None,
+    });
+    attach_prefix_resolutions(resolutions, qualifier_segments, prefix_resolutions);
+    if let Some(alias_span) = final_alias_span {
+        alias_occurrences.insert(occurrence_range, alias_span.clone());
+        record_explicit_import_alias_retained_entries(1);
     }
 }
 
-fn attach_resolved_alias_prefixes(
-    resolutions: &mut BTreeMap<String, QualifiedImportResolution>,
-    imports: &veln_sema::ResolvedImportPathIndex<'_>,
-    module: &str,
+fn attach_prefix_resolutions(
+    index: &mut QualifiedImportResolutionIndex,
     qualifier_segments: &[&str],
+    resolutions: impl IntoIterator<Item = Option<QualifiedImportResolution>>,
 ) {
-    for prefix_len in 1..=qualifier_segments.len() {
-        let prefix = qualifier_segments[..prefix_len].join("::");
-        let veln_sema::ResolvedImportPathSelection::Resolved(path) = imports.select_prefixes(
-            qualifier_segments[..prefix_len].iter().copied(),
-            Some(module),
-        ) else {
-            continue;
+    let mut node_index = 0;
+    for (segment, resolution) in qualifier_segments.iter().zip(resolutions) {
+        let next_index = if let Some(next_index) = index.nodes[node_index].children.get(*segment) {
+            *next_index
+        } else {
+            let next_index = index.nodes.len();
+            index.nodes.push(QualifiedImportResolutionNode::default());
+            index.nodes[node_index]
+                .children
+                .insert((*segment).to_owned(), next_index);
+            record_explicit_import_alias_path_work(0, segment.len());
+            record_explicit_import_alias_retained_entries(1);
+            next_index
         };
-        let (module, package) = resolved_path_identity(path);
-        resolutions.insert(
-            prefix,
-            QualifiedImportResolution::Resolved(QualifiedModuleIdentity {
-                module,
-                package,
-                package_resolved: true,
-            }),
-        );
-    }
-}
-
-fn attach_exact_prefixes(
-    resolutions: &mut BTreeMap<String, QualifiedImportResolution>,
-    imports: &veln_sema::ResolvedImportPathIndex<'_>,
-    module: &str,
-    qualifier_segments: &[&str],
-) {
-    for prefix_len in 1..qualifier_segments.len() {
-        let prefix = qualifier_segments[..prefix_len].join("::");
-        let resolution = match imports.select_prefixes(
-            qualifier_segments[..prefix_len].iter().copied(),
-            Some(module),
-        ) {
-            veln_sema::ResolvedImportPathSelection::Resolved(
-                veln_sema::ResolvedImportPath::Exact {
-                    target_module,
-                    target_package,
-                },
-            ) => QualifiedImportResolution::Resolved(QualifiedModuleIdentity {
-                module: target_module,
-                package: target_package,
-                package_resolved: true,
-            }),
-            _ => QualifiedImportResolution::Blocked,
-        };
-        resolutions.insert(prefix, resolution);
-    }
-}
-
-fn resolved_path_identity(path: veln_sema::ResolvedImportPath) -> (String, Option<String>) {
-    match path {
-        veln_sema::ResolvedImportPath::ExplicitAlias(alias) => {
-            (alias.target_module, alias.target_package)
+        node_index = next_index;
+        if let Some(resolution) = resolution {
+            index.nodes[node_index].resolution = Some(resolution);
         }
-        veln_sema::ResolvedImportPath::Exact {
-            target_module,
-            target_package,
-        } => (target_module, target_package),
     }
 }
 

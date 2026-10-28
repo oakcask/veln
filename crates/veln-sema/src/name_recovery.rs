@@ -502,6 +502,7 @@ enum IndexedUseDecl {
     Ambiguous,
 }
 
+#[derive(Clone, Copy)]
 pub(crate) enum ImportPrefixSelection {
     Selected {
         index: usize,
@@ -698,6 +699,46 @@ impl ImportPathPrefixIndex {
             },
         }
     }
+
+    fn select_each_prefix(&self, segments: &[&str]) -> Vec<ImportPrefixSelection> {
+        let qualifier = segments
+            .first()
+            .and_then(|segment| self.qualifiers.get(*segment))
+            .copied();
+        let mut node_index = self.nodes.first().map(|_| 0);
+        let mut exact_use = None;
+        let mut selections = Vec::with_capacity(segments.len());
+        for (index, segment) in segments.iter().enumerate() {
+            if let Some(current_index) = node_index {
+                node_index = self.nodes[current_index].children.get(*segment).copied();
+                if let Some(next_index) = node_index
+                    && let Some(selection) = self.nodes[next_index].exact_use
+                {
+                    exact_use = Some((selection, index + 1));
+                }
+            }
+            selections.push(match exact_use {
+                Some((IndexedUseDecl::Unique(index), consumed_segments)) => {
+                    ImportPrefixSelection::Selected {
+                        index,
+                        explicit_alias: false,
+                        consumed_segments,
+                    }
+                }
+                Some((IndexedUseDecl::Ambiguous, _)) => ImportPrefixSelection::Blocked,
+                None => match qualifier {
+                    Some(IndexedUseDecl::Unique(index)) => ImportPrefixSelection::Selected {
+                        index,
+                        explicit_alias: true,
+                        consumed_segments: 1,
+                    },
+                    Some(IndexedUseDecl::Ambiguous) => ImportPrefixSelection::Blocked,
+                    None => ImportPrefixSelection::Missing,
+                },
+            });
+        }
+        selections
+    }
 }
 
 impl<'a> NormalImportSelectionIndex<'a> {
@@ -748,6 +789,25 @@ impl<'a> NormalImportSelectionIndex<'a> {
             .map_or(ImportPrefixSelection::Missing, |paths| {
                 paths.select_prefixes(segments)
             })
+    }
+
+    pub(crate) fn select_import_prefix_sequence(
+        &self,
+        segments: &[&str],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Vec<ImportPrefixSelection> {
+        let owner = ResolvedImportOwner {
+            package: current_package.map(str::to_string),
+            module: current_module.map(str::to_string),
+        };
+        self.prefix_paths
+            .as_ref()
+            .and_then(|paths| paths.get(&owner))
+            .map_or_else(
+                || vec![ImportPrefixSelection::Missing; segments.len()],
+                |paths| paths.select_each_prefix(segments),
+            )
     }
 
     pub(crate) fn selected_use(&self, index: usize) -> Option<&'a UseDecl> {

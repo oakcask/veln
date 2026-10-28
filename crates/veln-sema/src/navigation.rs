@@ -117,6 +117,21 @@ pub enum ResolvedImportPathSelection {
     Missing,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct ResolvedImportPathPrefix<'a> {
+    pub target_module: &'a str,
+    pub target_package: Option<&'a str>,
+    pub alias_span: Option<&'a SourceSpan>,
+    pub consumed_segments: usize,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum ResolvedImportPathPrefixSelection<'a> {
+    Resolved(ResolvedImportPathPrefix<'a>),
+    Blocked,
+    Missing,
+}
+
 pub struct ResolvedImportPathIndex<'a> {
     imports: NormalImportSelectionIndex<'a>,
 }
@@ -190,6 +205,38 @@ impl<'a> ResolvedImportPathIndex<'a> {
             ImportPrefixSelection::Blocked => ResolvedImportPathSelection::Blocked,
             ImportPrefixSelection::Missing => ResolvedImportPathSelection::Missing,
         }
+    }
+
+    pub fn select_prefix_sequence(
+        &self,
+        segments: &[&str],
+        current_module: Option<&str>,
+    ) -> Vec<ResolvedImportPathPrefixSelection<'a>> {
+        self.imports
+            .select_import_prefix_sequence(segments, current_module, None)
+            .into_iter()
+            .map(|selection| match selection {
+                ImportPrefixSelection::Selected {
+                    index,
+                    explicit_alias,
+                    consumed_segments,
+                } => {
+                    let Some(use_decl) = self.imports.selected_use(index) else {
+                        return ResolvedImportPathPrefixSelection::Missing;
+                    };
+                    ResolvedImportPathPrefixSelection::Resolved(ResolvedImportPathPrefix {
+                        target_module: &use_decl.name,
+                        target_package: use_decl.package.as_deref(),
+                        alias_span: explicit_alias
+                            .then(|| use_decl.alias_span.as_ref())
+                            .flatten(),
+                        consumed_segments,
+                    })
+                }
+                ImportPrefixSelection::Blocked => ResolvedImportPathPrefixSelection::Blocked,
+                ImportPrefixSelection::Missing => ResolvedImportPathPrefixSelection::Missing,
+            })
+            .collect()
     }
 }
 

@@ -212,7 +212,7 @@ fn indexed_dependency_source(
         import_aliases: Arc::new(imports.local_aliases),
         external_import_aliases: Arc::new(imports.external_aliases),
         explicit_import_alias_occurrences: BTreeMap::new(),
-        qualified_import_resolutions: BTreeMap::new(),
+        qualified_import_resolutions: QualifiedImportResolutionIndex::default(),
         schema_alias_external_imports: Vec::new(),
         workspace_imports: Vec::new(),
         invalid_declaration_names,

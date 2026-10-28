@@ -160,7 +160,7 @@ fn indexed_workspace_file(
         import_aliases: Arc::new(imports.modules.local_aliases),
         external_import_aliases: Arc::new(imports.modules.external_aliases),
         explicit_import_alias_occurrences: BTreeMap::new(),
-        qualified_import_resolutions: BTreeMap::new(),
+        qualified_import_resolutions: QualifiedImportResolutionIndex::default(),
         schema_alias_external_imports: imports.schema_alias_external_imports,
         workspace_imports: imports.workspace_imports,
         invalid_declaration_names: syntax.invalid_declaration_names,

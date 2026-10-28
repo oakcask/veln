@@ -592,7 +592,7 @@ mod explicit_import_alias_navigation_tests {
     }
 
     #[test]
-    fn explicit_alias_deep_paths_have_adjacent_linear_segment_and_byte_work() {
+    fn explicit_alias_deep_paths_have_adjacent_linear_resolution_and_storage_work() {
         fn measure(depth: usize) -> ExplicitImportAliasIndexWork {
             let suffix = std::iter::repeat_n("part", depth)
                 .chain(std::iter::once("value"))
@@ -608,20 +608,35 @@ mod explicit_import_alias_navigation_tests {
                 ),
             ];
             reset_explicit_import_alias_index_work();
-            assert!(query(sources, "app.veln", 1, 14).is_some());
-            explicit_import_alias_index_work()
+            let _ = query(sources, "app.veln", 4, 9 + depth * 6);
+            let work = explicit_import_alias_index_work();
+            assert!(
+                work.path_segments >= depth * 2,
+                "deep prefix attachment and lookup must both be measured: {work:?}"
+            );
+            work
+        }
+
+        fn old_prefix_key_bytes(depth: usize) -> usize {
+            (depth + 1) * 4 + 3 * depth * (depth + 1)
         }
 
         let small = measure(32);
         let large = measure(64);
         eprintln!("deep alias paths: 32={small:?}, 64={large:?}");
+        let old_small = old_prefix_key_bytes(32);
+        let old_large = old_prefix_key_bytes(64);
+        assert!(
+            old_large > old_small * 2 + 8,
+            "the replaced per-prefix keys must exceed the linear bound: {old_small} -> {old_large}"
+        );
         assert!(
             large.path_segments <= small.path_segments * 2 + 2,
-            "path segments: {small:?} -> {large:?}"
+            "resolution segment visits: {small:?} -> {large:?}"
         );
         assert!(
             large.path_bytes <= small.path_bytes * 2 + 8,
-            "path bytes: {small:?} -> {large:?}"
+            "retained key and constructed target bytes: {small:?} -> {large:?}"
         );
     }
 
