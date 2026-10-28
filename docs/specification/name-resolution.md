@@ -225,6 +225,11 @@ qualified-only. Exact written paths take precedence over local import
 qualifiers, and an ambiguous qualifier or exact path does not fall back. Two
 distinct imported values with the same bare name are ambiguous. An imported
 function and imported module value with the same bare name are also ambiguous.
+An import quarantined by a duplicate target or colliding qualifier contributes
+no qualified module-value candidate. A read through that import reports
+`name.unresolved`, not `name.ambiguous`, even when another quarantined import
+uses the same written path or qualifier. Source and import order do not change
+that result.
 A same-module function or module-value declaration is selected before imports;
 an invalid local module value still does not expose an imported fallback. A
 selected imported module value used as a call target does not fall through to
@@ -235,8 +240,19 @@ target-specific, package-local, and non-transitive. The checked cases cover
 [`package identity human`](../../examples/specification/check/module-value-imported-package-identity-human/),
 [`package identity JSON`](../../examples/specification/check/module-value-imported-package-identity-json/),
 [`companion access`](../../examples/specification/check/module-value-companion-private-human/),
+[`private rejection`](../../examples/specification/check/module-value-private-import-human/),
+[`quarantined qualified human`](../../examples/specification/check/module-value-quarantined-qualified-human/),
 and
-[`private rejection`](../../examples/specification/check/module-value-private-import-human/).
+[`quarantined qualified JSON`](../../examples/specification/check/module-value-quarantined-qualified-json/).
+
+Qualified module-value import selection has a deterministic scaling check. The
+workload compares 64 and 128 distinct imports and performs one qualified read
+per import. Doubling the workload must double both the counted index-build work
+and the counted lookup work. A separate 64-to-128 workload resolves imported
+named annotations while constructing the same semantic environment. Its import
+path comparisons may grow by at most twice the smaller count plus 16, and its
+qualified-path byte work may grow by at most three times the smaller count.
+These checks count operations and bytes instead of elapsed time.
 
 A public function alias cannot select an available module value. A bare alias
 target selects an available value in the alias's module. A qualified alias

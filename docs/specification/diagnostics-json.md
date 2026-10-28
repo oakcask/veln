@@ -955,6 +955,14 @@ This ordering follows source order even when the invalid spelling is later;
 the independent `name.invalid_case` record is retained.
 Parser diagnostics precede casing diagnostics for one import; reserved and
 duplicate facts follow casing, while target-resolution facts stay independent.
+When duplicate targets or colliding qualifiers quarantine every import for a
+qualified module-value path, the duplicate diagnostics remain and the read
+reports `name.unresolved`. It does not report `name.ambiguous`, because a
+quarantined import is not a lookup candidate. The checked
+[`human`](../../examples/specification/check/module-value-quarantined-qualified-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-quarantined-qualified-json/)
+cases fix this boundary for an implicit qualifier and an explicit alias.
 When correcting an invalid target
 segment or alias uniquely selects one public export in the import's target
 package, the casing diagnostic remains and the recovered member does not add
