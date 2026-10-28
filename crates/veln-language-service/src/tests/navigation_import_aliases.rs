@@ -320,6 +320,77 @@ mod explicit_import_alias_navigation_tests {
     }
 
     #[test]
+    fn ambiguous_exact_written_path_does_not_fall_back_to_alias_navigation() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source("fallback.veln", "pub fn member() -> Int\n  0\nend\n"),
+                source(
+                    "app.veln",
+                    concat!(
+                        "mod app\n",
+                        "use api as first from \"one\"\n",
+                        "use api as second from \"two\"\n",
+                        "use fallback as api\n\n",
+                        "fn main() -> Int\n",
+                        "  api::member()\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![
+                dependency_snapshot(
+                    "one",
+                    &[("api.veln", "pub fn member() -> Int\n  1\nend\n")],
+                    ["api.veln"],
+                ),
+                dependency_snapshot(
+                    "two",
+                    &[("api.veln", "pub fn member() -> Int\n  2\nend\n")],
+                    ["api.veln"],
+                ),
+            ],
+        );
+
+        assert!(query_snapshot(&snapshot, "app.veln", 4, 17).is_none());
+        assert!(query_snapshot(&snapshot, "app.veln", 7, 3).is_none());
+    }
+
+    #[test]
+    fn unrelated_parse_error_preserves_valid_alias_navigation() {
+        let sources = vec![
+            source("math.veln", "pub fn double() -> Int\n  2\nend\n"),
+            source(
+                "app.veln",
+                concat!(
+                    "use math as calc\n\n",
+                    "fn broken() -> Int\n",
+                    "  1 +\n",
+                    "end\n\n",
+                    "fn main() -> Int\n",
+                    "  calc::double()\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        for (line, column) in [(1, 13), (8, 3)] {
+            let alias = query(sources.clone(), "app.veln", line, column).unwrap();
+            assert_eq!(alias.selected_symbol.kind, SymbolKind::ImportAlias);
+            assert_location(&alias.definition, "app.veln", 1, 13);
+            assert_eq!(locations(&alias.references), [("app.veln", 8, 3)]);
+            assert_eq!(
+                locations(&affected_spans(&alias)),
+                [("app.veln", 1, 13), ("app.veln", 8, 3)]
+            );
+        }
+
+        let member = query(sources, "app.veln", 8, 9).unwrap();
+        assert_eq!(member.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&member.definition, "math.veln", 1, 8);
+        assert_eq!(locations(&member.references), [("app.veln", 8, 9)]);
+    }
+
+    #[test]
     fn recovered_import_spelling_does_not_block_alias_rename() {
         let sources = vec![
             source("alpha.veln", "pub fn value() -> Int\n  1\nend\n"),

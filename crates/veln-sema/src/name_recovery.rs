@@ -519,11 +519,11 @@ struct ImportPathPrefixIndex {
 #[derive(Default)]
 struct ImportPathPrefixNode {
     children: HashMap<String, usize>,
-    exact_use: Option<usize>,
+    exact_use: Option<IndexedUseDecl>,
 }
 
 impl ImportPathPrefixIndex {
-    fn insert_exact_path(&mut self, path: &str, use_index: usize) {
+    fn insert_exact_path(&mut self, path: &str, selection: IndexedUseDecl) {
         if self.nodes.is_empty() {
             self.nodes.push(ImportPathPrefixNode::default());
         }
@@ -541,7 +541,7 @@ impl ImportPathPrefixIndex {
             };
             node_index = next_index;
         }
-        self.nodes[node_index].exact_use.get_or_insert(use_index);
+        self.nodes[node_index].exact_use.get_or_insert(selection);
     }
 
     fn insert_qualifier(&mut self, qualifier: String, use_index: usize) {
@@ -572,13 +572,15 @@ impl ImportPathPrefixIndex {
                 break;
             };
             node_index = *next_index;
-            if let Some(index) = self.nodes[node_index].exact_use {
-                exact_use = Some(index);
+            if let Some(selection) = self.nodes[node_index].exact_use {
+                exact_use = Some(selection);
             }
         }
-        exact_use
-            .map(|index| (index, false))
-            .or_else(|| qualifier.map(|index| (index, true)))
+        match exact_use {
+            Some(IndexedUseDecl::Unique(index)) => Some((index, false)),
+            Some(IndexedUseDecl::Ambiguous) => None,
+            None => qualifier.map(|index| (index, true)),
+        }
     }
 }
 
@@ -605,15 +607,19 @@ impl<'a> NormalImportSelectionIndex<'a> {
             for path in use_decl_exact_paths(use_decl) {
                 record_normal_import_selection_work(|work| work.operations += 1);
                 let owner = use_decl.resolved_owner();
-                if build_prefix_paths
-                    && !classification
+                if build_prefix_paths {
+                    let selection = if classification
                         .blocked_exact_paths
                         .contains(&(owner.clone(), path.clone()))
-                {
+                    {
+                        IndexedUseDecl::Ambiguous
+                    } else {
+                        IndexedUseDecl::Unique(index)
+                    };
                     prefix_paths
                         .entry(owner.clone())
                         .or_default()
-                        .insert_exact_path(&path, index);
+                        .insert_exact_path(&path, selection);
                 }
                 exact_paths.entry((owner, path)).or_insert(index);
             }

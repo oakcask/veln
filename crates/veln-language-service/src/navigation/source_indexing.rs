@@ -434,11 +434,16 @@ fn append_parsed_surface_module(
     file: &IndexedFile,
     parsed: &ParseOutput,
 ) {
-    if file.navigation_isolated || !parsed.diagnostics.is_empty() {
+    if file.navigation_isolated {
         return;
     }
     let mut module = veln_ast::lower_surface_ast(&parsed.tree);
     assign_module_name(&mut module, &file.module);
+    if !parsed.diagnostics.is_empty() {
+        module.uses.retain(|use_decl| !use_decl.recovered);
+        merged.uses.extend(module.uses);
+        return;
+    }
     append_surface_module(merged, module);
 }
 
