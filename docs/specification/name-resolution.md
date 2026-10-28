@@ -226,6 +226,11 @@ over local import qualifiers, and an ambiguous qualifier or exact path does
 not fall back. Two
 distinct imported values with the same bare name are ambiguous. An imported
 function and imported module value with the same bare name are also ambiguous.
+This collision requires an available public function or public function alias.
+A function or alias withheld because its public signature exposes an
+inaccessible type or refinement does not hide or make ambiguous an otherwise
+available imported module value. This result is the same when analysis uses a
+reusable standard-library environment.
 An imported module value that is unavailable after semantic checking exposes
 no bare or qualified name. It does not make a valid imported namesake
 ambiguous, and it does not collide with a valid imported function. With no
@@ -233,6 +238,10 @@ other eligible declaration, a reference to its name is unresolved. These rules
 also apply inside another module value's initializer. The initializer reference
 uses the imported declarations' final availability, so source and import order
 do not change whether a valid namesake remains selectable.
+A same-module function or function alias that collides with a module value
+keeps that module-value identity unavailable when imported availability changes
+cause its owner to be checked again. An importer cannot expose that value by
+triggering a later availability update.
 An import quarantined by a duplicate target or colliding qualifier contributes
 no qualified module-value candidate. A read through that import reports
 `name.unresolved`, not `name.ambiguous`, even when another quarantined import

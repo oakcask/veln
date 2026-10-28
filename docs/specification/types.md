@@ -696,6 +696,11 @@ available for checking function bodies. A module value initializer resolves
 imported declarations according to their final availability. A bare or
 qualified reference can therefore select a valid imported namesake even when
 another imported namesake is invalid, independent of source and import order.
+It can also select a valid imported value when a same-named imported function
+or function alias is withheld by its public-signature visibility failure. A
+published function or alias with that name remains a collision. Rechecking an
+owner after an imported dependency becomes unavailable does not restore a
+module value that collides with a same-module function or alias.
 With no valid candidate, the initializer reference remains unresolved.
 Cross-module initializer references do not yet form dependency edges, so
 cross-module cycles are not rejected by this dependency check. The checked
@@ -713,7 +718,8 @@ checked-core execution gate. The checked
 and
 [`invalid imported exposure JSON`](../../examples/specification/check/module-value-invalid-import-exposure-json/)
 cases cover bare and qualified initializer references after imported
-availability settles. The checked
+availability settles, including function publication and owner-recheck
+boundaries. The checked
 [`imported annotation owner human`](../../examples/specification/check/module-value-imported-annotation-owner-human/)
 and
 [`imported annotation owner JSON`](../../examples/specification/check/module-value-imported-annotation-owner-json/)

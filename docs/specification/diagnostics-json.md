@@ -119,13 +119,21 @@ name. With no other eligible declaration, either read reports
 `name.unresolved`. A valid imported value with the same bare name remains
 selectable without `name.ambiguous`, and a valid imported function remains
 callable without `name.ambiguous` or `type.not_callable`. These results also
-apply when a module value initializer contains the read. The checked
+apply when a module value initializer contains the read. Conversely, a public
+function or function alias withheld by a signature-visibility failure does not
+make a same-named imported module value ambiguous or unresolved. An available
+public function or alias still makes the bare name ambiguous. A same-module
+function or alias collision continues to withhold its module value after an
+imported dependency causes that module's availability to be checked again; its
+importers emit neither a derivative ambiguity nor `type.not_callable` for the
+withheld value. The checked
 invalid-import exposure
 [`human`](../../examples/specification/check/module-value-invalid-import-exposure-human/)
 and
 [`JSON`](../../examples/specification/check/module-value-invalid-import-exposure-json/)
-cases cover bare and qualified initializer reads and valid-namesake selection
-in both import orders.
+cases cover bare and qualified initializer reads, published and withheld
+function collisions, owner rechecks, and valid-namesake selection in both
+import orders.
 Explicit type arguments on the call target preserve both outcomes, and the
 primary span covers the complete type-applied callee. The checked typed-call
 cases cover the selected declaration, details, related context, primary span,
