@@ -141,6 +141,51 @@ fn explicit_import_alias_presentation_retains_dependency_package_provenance() {
 }
 
 #[test]
+fn explicit_import_alias_completion_projects_every_supported_member_kind() {
+    let snapshot = EffectiveProjectSnapshot::new(vec![
+        SourceFile::new(
+            "catalog.veln",
+            concat!(
+                "pub fn build() -> Item\n",
+                "  Item\n",
+                "end\n",
+                "pub type Item\n",
+                "  pub Empty\n",
+                "  pub Value(Int)\n",
+                "end\n",
+                "pub type Alias = Item\n",
+            ),
+        ),
+        SourceFile::new(
+            "main.veln",
+            "use catalog as local\nfn main() -> Int\n  local::build()\nend\n",
+        ),
+    ]);
+
+    let completion = completion_at(&snapshot, &position("main.veln", 3, 10));
+    assert_eq!(
+        completion
+            .iter()
+            .map(|candidate| (candidate.label.as_str(), candidate.kind))
+            .collect::<Vec<_>>(),
+        vec![
+            ("Alias", CompletionCandidateKind::Type),
+            ("Empty", CompletionCandidateKind::Constructor),
+            ("Item", CompletionCandidateKind::Type),
+            ("Value", CompletionCandidateKind::Constructor),
+            ("build", CompletionCandidateKind::Function),
+        ]
+    );
+    assert!(completion.iter().all(|candidate| {
+        candidate.import_alias.as_ref().is_some_and(|provenance| {
+            provenance.qualifier == "local"
+                && provenance.package.is_none()
+                && provenance.target_module == "catalog"
+        })
+    }));
+}
+
+#[test]
 fn explicit_import_alias_presentation_respects_complete_exact_path_precedence() {
     let snapshot = EffectiveProjectSnapshot::new(vec![
         SourceFile::new("alpha.veln", "pub fn value() -> Int\n  1\nend\n"),

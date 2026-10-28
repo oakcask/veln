@@ -963,8 +963,14 @@ equals = []
 
 [[mcp_assert]]
 id = 57
-path = "/result/structuredContent/items/0"
-equals = {"label":"double","kind":"function","detail":"function from package workspace, module math via calc","qualifier":"calc","package":null,"module":"math"}
+path = "/result/structuredContent/items"
+equals = [
+  {"label":"Number","kind":"type","detail":"type from package workspace, module math via calc","qualifier":"calc","package":null,"module":"math"},
+  {"label":"NumberAlias","kind":"type","detail":"type from package workspace, module math via calc","qualifier":"calc","package":null,"module":"math"},
+  {"label":"One","kind":"constructor","detail":"constructor from package workspace, module math via calc","qualifier":"calc","package":null,"module":"math"},
+  {"label":"Zero","kind":"constructor","detail":"constructor from package workspace, module math via calc","qualifier":"calc","package":null,"module":"math"},
+  {"label":"double","kind":"function","detail":"function from package workspace, module math via calc","qualifier":"calc","package":null,"module":"math"}
+]
 
 [[mcp_assert]]
 id = 58

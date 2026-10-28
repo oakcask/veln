@@ -758,13 +758,14 @@ target module: math"""
 
 [[lsp_assert]]
 id = 62
-path = "/result/0/label"
-equals = "double"
-
-[[lsp_assert]]
-id = 62
-path = "/result/0/detail"
-equals = "function from package workspace, module math via calc"
+path = "/result"
+equals = [
+  {"label":"Number","kind":7,"detail":"type from package workspace, module math via calc"},
+  {"label":"NumberAlias","kind":7,"detail":"type from package workspace, module math via calc"},
+  {"label":"One","kind":4,"detail":"constructor from package workspace, module math via calc"},
+  {"label":"Zero","kind":4,"detail":"constructor from package workspace, module math via calc"},
+  {"label":"double","kind":3,"detail":"function from package workspace, module math via calc"}
+]
 
 [[lsp_assert]]
 id = 63
