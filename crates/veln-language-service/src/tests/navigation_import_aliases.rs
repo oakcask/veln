@@ -320,6 +320,73 @@ mod explicit_import_alias_navigation_tests {
     }
 
     #[test]
+    fn mixed_alias_and_exact_paths_keep_independent_navigation_in_both_orders() {
+        for reversed in [false, true] {
+            let (body, alias_line, exact_line) = if reversed {
+                (
+                    concat!(
+                        "fn exact_call() -> Int\n",
+                        "  foo::bar::value()\n",
+                        "end\n\n",
+                        "fn alias_call() -> Int\n",
+                        "  foo::value()\n",
+                        "end\n",
+                    ),
+                    9,
+                    5,
+                )
+            } else {
+                (
+                    concat!(
+                        "fn alias_call() -> Int\n",
+                        "  foo::value()\n",
+                        "end\n\n",
+                        "fn exact_call() -> Int\n",
+                        "  foo::bar::value()\n",
+                        "end\n",
+                    ),
+                    5,
+                    9,
+                )
+            };
+            let sources = vec![
+                source("alpha.veln", "pub fn value() -> Int\n  1\nend\n"),
+                source("foo/bar.veln", "pub fn value() -> Int\n  2\nend\n"),
+                source(
+                    "app.veln",
+                    &format!("use alpha as foo\nuse foo::bar\n\n{body}"),
+                ),
+            ];
+
+            let alias = query(sources.clone(), "app.veln", alias_line, 3).unwrap();
+            assert_eq!(alias.selected_symbol.kind, SymbolKind::ImportAlias);
+            assert_location(&alias.definition, "app.veln", 1, 14);
+            assert_eq!(locations(&alias.references), [("app.veln", alias_line, 3)]);
+            assert_eq!(
+                locations(&affected_spans(&alias)),
+                [("app.veln", 1, 14), ("app.veln", alias_line, 3)]
+            );
+            assert!(query(sources.clone(), "app.veln", exact_line, 3).is_none());
+
+            let alias_member = query(sources.clone(), "app.veln", alias_line, 8).unwrap();
+            assert_eq!(alias_member.selected_symbol.kind, SymbolKind::Function);
+            assert_location(&alias_member.definition, "alpha.veln", 1, 8);
+            assert_eq!(
+                locations(&affected_spans(&alias_member)),
+                [("alpha.veln", 1, 8), ("app.veln", alias_line, 8)]
+            );
+
+            let exact_member = query(sources, "app.veln", exact_line, 13).unwrap();
+            assert_eq!(exact_member.selected_symbol.kind, SymbolKind::Function);
+            assert_location(&exact_member.definition, "foo/bar.veln", 1, 8);
+            assert_eq!(
+                locations(&affected_spans(&exact_member)),
+                [("app.veln", exact_line, 13), ("foo/bar.veln", 1, 8)]
+            );
+        }
+    }
+
+    #[test]
     fn ambiguous_exact_written_path_does_not_fall_back_to_alias_navigation() {
         for reversed in [false, true] {
             let mut dependencies = vec![

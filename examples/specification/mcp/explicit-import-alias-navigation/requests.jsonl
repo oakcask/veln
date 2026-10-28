@@ -44,3 +44,13 @@
 {"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"definition","arguments":{"source":"blocked_exact.veln","line":7,"column":8}}}
 {"jsonrpc":"2.0","id":45,"method":"tools/call","params":{"name":"references","arguments":{"source":"blocked_exact.veln","line":7,"column":8,"include_declaration":true}}}
 {"jsonrpc":"2.0","id":46,"method":"tools/call","params":{"name":"rename","arguments":{"source":"blocked_exact.veln","line":7,"column":8,"new_name":"other"}}}
+{"jsonrpc":"2.0","id":47,"method":"tools/call","params":{"name":"definition","arguments":{"source":"precedence.veln","line":9,"column":3}}}
+{"jsonrpc":"2.0","id":48,"method":"tools/call","params":{"name":"references","arguments":{"source":"precedence.veln","line":9,"column":3,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":49,"method":"tools/call","params":{"name":"rename","arguments":{"source":"precedence.veln","line":9,"column":3,"new_name":"local"}}}
+{"jsonrpc":"2.0","id":50,"method":"tools/call","params":{"name":"definition","arguments":{"source":"precedence.veln","line":9,"column":8}}}
+{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"references","arguments":{"source":"precedence.veln","line":9,"column":8,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"rename","arguments":{"source":"precedence.veln","line":9,"column":8,"new_name":"alias_value"}}}
+{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"references","arguments":{"source":"precedence.veln","line":5,"column":13,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"rename","arguments":{"source":"precedence.veln","line":5,"column":13,"new_name":"exact_value"}}}
+{"jsonrpc":"2.0","id":55,"method":"tools/call","params":{"name":"references","arguments":{"source":"precedence.veln","line":5,"column":3,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"rename","arguments":{"source":"precedence.veln","line":5,"column":3,"new_name":"other"}}}

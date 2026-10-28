@@ -4,3 +4,7 @@ use foo::bar
 fn main() -> Int
   foo::bar::value()
 end
+
+fn alias_call() -> Int
+  foo::value()
+end

@@ -229,70 +229,41 @@ fn attach_qualifier_resolution(
     let Some(final_selection) = prefix_selections.last().copied() else {
         return;
     };
-    let final_alias_span = match final_selection {
-        veln_sema::ResolvedImportPathPrefixSelection::Resolved(selection) => selection.alias_span,
-        veln_sema::ResolvedImportPathPrefixSelection::Blocked => {
-            attach_prefix_resolutions(
-                resolutions,
-                qualifier_segments,
-                std::iter::repeat_n(Some(QualifiedImportResolution::Blocked), qualifier_segments.len()),
+    let (resolution, final_alias_span) = match final_selection {
+        veln_sema::ResolvedImportPathPrefixSelection::Resolved(selection) => {
+            let target = QualifiedImportTarget {
+                module: Arc::<str>::from(selection.target_module),
+                package: selection.target_package.map(Arc::<str>::from),
+                consumed_segments: selection.consumed_segments,
+            };
+            record_explicit_import_alias_path_work(
+                0,
+                selection.target_module.len() + selection.target_package.map_or(0, str::len),
             );
-            return;
+            (
+                QualifiedImportResolution::Resolved(target),
+                selection.alias_span,
+            )
+        },
+        veln_sema::ResolvedImportPathPrefixSelection::Blocked => {
+            (QualifiedImportResolution::Blocked, None)
         }
         veln_sema::ResolvedImportPathPrefixSelection::Missing => return,
     };
-    let final_is_exact = final_alias_span.is_none();
-    let prefix_resolutions = resolved_prefix_resolutions(&prefix_selections, final_is_exact);
-    attach_prefix_resolutions(resolutions, qualifier_segments, prefix_resolutions);
+    attach_path_resolution(resolutions, qualifier_segments, resolution);
     if let Some(alias_span) = final_alias_span {
         alias_occurrences.insert(occurrence_range, alias_span.clone());
         record_explicit_import_alias_retained_entries(1);
     }
 }
 
-fn resolved_prefix_resolutions(
-    prefix_selections: &[veln_sema::ResolvedImportPathPrefixSelection<'_>],
-    final_is_exact: bool,
-) -> Vec<Option<QualifiedImportResolution>> {
-    let mut targets = BTreeMap::<(&str, Option<&str>), (Arc<str>, Option<Arc<str>>)>::new();
-    prefix_selections
-        .iter()
-        .copied()
-        .map(|selection| match selection {
-            veln_sema::ResolvedImportPathPrefixSelection::Resolved(selection)
-                if !final_is_exact || selection.alias_span.is_none() =>
-            {
-                let key = (selection.target_module, selection.target_package);
-                let (module, package) = targets.entry(key).or_insert_with(|| {
-                    record_explicit_import_alias_path_work(
-                        0,
-                        selection.target_module.len()
-                            + selection.target_package.map_or(0, str::len),
-                    );
-                    (
-                        Arc::<str>::from(selection.target_module),
-                        selection.target_package.map(Arc::<str>::from),
-                    )
-                });
-                Some(QualifiedImportResolution::Resolved(QualifiedImportTarget {
-                    module: Arc::clone(module),
-                    package: package.as_ref().map(Arc::clone),
-                    consumed_segments: selection.consumed_segments,
-                }))
-            }
-            _ if final_is_exact => Some(QualifiedImportResolution::Blocked),
-            _ => None,
-        })
-        .collect()
-}
-
-fn attach_prefix_resolutions(
+fn attach_path_resolution(
     index: &mut QualifiedImportResolutionIndex,
     qualifier_segments: &[&str],
-    resolutions: impl IntoIterator<Item = Option<QualifiedImportResolution>>,
+    resolution: QualifiedImportResolution,
 ) {
     let mut node_index = 0;
-    for (segment, resolution) in qualifier_segments.iter().zip(resolutions) {
+    for segment in qualifier_segments {
         let next_index = if let Some(next_index) = index.nodes[node_index].children.get(*segment) {
             *next_index
         } else {
@@ -306,10 +277,8 @@ fn attach_prefix_resolutions(
             next_index
         };
         node_index = next_index;
-        if let Some(resolution) = resolution {
-            index.nodes[node_index].resolution = Some(resolution);
-        }
     }
+    index.nodes[node_index].resolution = Some(resolution);
 }
 
 fn update_use_line(kind: TokenKind, in_use_line: &mut bool) -> bool {

@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#lsp-encoding; behavior=#lsp-navigation-formatting-and-rename; limits=#boundaries
-update-when: The `veln lsp` semantic-token, publish-diagnostic, completion, signature-help, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP navigation declaration-policy or bounded-work evidence changes.
+update-when: The `veln lsp` semantic-token, publish-diagnostic, completion, signature-help, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP navigation declaration policy changes.
 ---
 
 # Editor Support
@@ -358,6 +358,7 @@ references, prepare-rename, and rename project the shared result with their
 ordinary UTF-16 coordinate conversion. The checked
 [`explicit-import-alias-navigation`](../../examples/specification/lsp/explicit-import-alias-navigation/)
 case covers alias and target-member projection, exact-path precedence,
+mixed alias-qualified and exact paths with the same first segment,
 ambiguous exact-path qualifier and member blocking without alias fallback,
 navigation beside an unrelated parse error, invalid-alias exclusion with and
 without an unrelated parse error, recovered-import rename, conflicts with
@@ -365,26 +366,6 @@ another import and with the selected alias's own target path, stable conflict
 details, and edit-free rejection. Shared-language-service tests cover the
 ambiguous function, type, and constructor member boundary and complete rename
 edit sets in the original and reversed combined-source order.
-
-Alias-index construction retains module-owned import bindings and resolved
-qualifier occurrences. Checked adjacent-size workloads double, independently:
-
-- files, distinct aliases, and occurrences in one shared module;
-- alias-qualified occurrences on one source line; and
-- segments in one deep alias-qualified path.
-
-For the first workload, instrumented language-service attachment operations
-and retained alias-index entries grow by at most twice the smaller case plus a
-fixed setup allowance. This metric covers the language-service loops that
-combine module imports and attach alias occurrences; it does not measure the
-semantic helpers that supply resolved imports and aliases. For the same-line
-workload, token visits, prefix-resolution segment visits, and bytes retained
-for segment keys and imported target bases have that bound. For the deep-path
-workload, the metric also includes trie lookup segment visits and bytes
-in the selected target-module and package strings materialized for lookup.
-Those segment visits and retained or materialized content bytes have the same
-bound. The byte metric does not include allocator capacity. Elapsed time is not
-the conformance metric.
 
 ### Shared variant-refinement navigation
 
