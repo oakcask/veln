@@ -1,0 +1,8 @@
+use values as config from "dep/pkg"
+use values from "dep/pkg"
+
+let answer: Int = 1
+
+fn read() -> Int
+	values::answer
+end

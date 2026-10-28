@@ -14,13 +14,33 @@ impl TypeEnvironment {
             use_decl.module_name.as_deref()
         });
         let bare_module_values = facts::bare_module_value_index(&module_values, &functions, &uses);
-        let qualified_module_value_imports = facts::qualified_module_value_import_index(&uses);
+        let blocked_exact_module_value_imports = self
+            .blocked_exact_module_value_imports
+            .iter()
+            .filter(|(owner, _)| {
+                owner
+                    .module
+                    .as_ref()
+                    .is_none_or(|module| module_names.contains(module))
+            })
+            .cloned()
+            .collect();
+        let public_module_value_identities = facts::public_module_value_identities(&module_values);
+        let exact_module_value_imports = facts::exact_module_value_import_paths(&uses);
+        let qualified_module_value_imports = facts::qualified_module_value_import_index(
+            &uses,
+            &module_values,
+            &access_targets.functions,
+        );
         Self {
             resolution_owner: None,
             module_values,
             module_values_by_identity,
             bare_module_values,
             qualified_module_value_imports,
+            exact_module_value_imports,
+            blocked_exact_module_value_imports,
+            public_module_value_identities,
             functions,
             functions_by_name,
             unpublished_functions: self.unpublished_functions.clone(),

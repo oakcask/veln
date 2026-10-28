@@ -246,11 +246,22 @@ target-specific, package-local, and non-transitive. The checked cases cover
 [`quarantined qualified human`](../../examples/specification/check/module-value-quarantined-qualified-human/),
 and
 [`quarantined qualified JSON`](../../examples/specification/check/module-value-quarantined-qualified-json/).
+The checked
+[`same-module exact quarantine human`](../../examples/specification/check/module-value-quarantined-exact-same-module-human/)
+and
+[`same-module exact quarantine JSON`](../../examples/specification/check/module-value-quarantined-exact-same-module-json/)
+cases also cover an exact path that equals the importing module's own spelling.
 
-Qualified module-value import selection has a deterministic scaling check. The
+Qualified module-value import selection has deterministic scaling checks. One
 workload compares 64 and 128 distinct imports and performs one qualified read
-per import. Doubling the workload must double both the counted index-build work
-and the counted lookup work. A separate 64-to-128 workload resolves imported
+per import. Another uses 64 and 128 package-distinct imports with the same
+written path and checks both a visible and a missing member. It compares one
+read with one read per import, so import-index construction grows with the
+imports while same-owner blocking, selection, and visibility work grows only
+with the reads. The metric counts index entries, target classification, member
+materialization, same-owner blocking probes, selection probes, and visibility
+probes. Each field may grow at most twice the smaller workload plus a fixed
+allowance of eight construction operations. A separate 64-to-128 workload resolves imported
 named annotations while constructing the same semantic environment. Its import
 path comparisons may grow by at most twice the smaller count plus 16, and its
 qualified-path byte work may grow by at most three times the smaller count.

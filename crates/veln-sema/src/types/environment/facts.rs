@@ -10,7 +10,10 @@ mod module_values;
 mod quarantine;
 
 use module_values::finish_module_value_facts;
-pub(super) use module_values::{bare_module_value_index, qualified_module_value_import_index};
+pub(super) use module_values::{
+    bare_module_value_index, exact_module_value_import_paths, public_module_value_identities,
+    qualified_module_value_import_index,
+};
 use quarantine::{
     quarantine_invalid_variant_refinement_declaration_types,
     quarantine_invalid_variant_refinement_function_types,
@@ -31,6 +34,12 @@ impl<T: Clone> BaseFacts for Vec<T> {
 impl<K: Clone + Ord, V: Clone> BaseFacts for BTreeMap<K, V> {
     fn extend_with(&mut self, base: &Self) {
         self.extend(base.clone());
+    }
+}
+
+impl<T: Clone + Eq + std::hash::Hash> BaseFacts for HashSet<T> {
+    fn extend_with(&mut self, base: &Self) {
+        self.extend(base.iter().cloned());
     }
 }
 
@@ -56,6 +65,7 @@ struct SymbolFacts {
     type_symbols: Vec<NamedSymbol>,
     uses: Vec<UseDecl>,
     quarantined_uses: Vec<UseDecl>,
+    blocked_exact_import_paths: HashSet<QualifiedModuleValueKey>,
     companion_function_access_targets: BTreeMap<String, String>,
     companion_schema_access_targets: BTreeMap<String, String>,
 }
@@ -163,7 +173,10 @@ fn initial_environment(
             .map(|base| base.module_values_by_identity.clone())
             .unwrap_or_default(),
         bare_module_values: HashMap::new(),
-        qualified_module_value_imports: qualified_module_value_import_index(&symbols.uses),
+        qualified_module_value_imports: HashMap::new(),
+        exact_module_value_imports: exact_module_value_import_paths(&symbols.uses),
+        blocked_exact_module_value_imports: symbols.blocked_exact_import_paths,
+        public_module_value_identities: HashSet::new(),
         functions: callables.functions,
         functions_by_name: HashMap::new(),
         unpublished_functions: base
@@ -536,6 +549,11 @@ fn symbol_facts(
         &mut quarantined_uses,
         base.map(|base| &base.quarantined_uses),
     );
+    let mut blocked_exact_import_paths = crate::name_recovery::blocked_exact_import_paths(module);
+    extend_with_base_facts(
+        &mut blocked_exact_import_paths,
+        base.map(|base| &base.blocked_exact_module_value_imports),
+    );
     let mut companion_function_access_targets = companion_function_access_targets(module);
     extend_with_base_facts(
         &mut companion_function_access_targets,
@@ -551,6 +569,7 @@ fn symbol_facts(
         type_symbols,
         uses,
         quarantined_uses,
+        blocked_exact_import_paths,
         companion_function_access_targets,
         companion_schema_access_targets,
     }

@@ -3,11 +3,31 @@ use super::*;
 type ImportedOwnerIndex =
     HashMap<(Option<String>, String), BTreeSet<(Option<String>, Option<String>)>>;
 
+pub(in crate::types::environment) fn exact_module_value_import_paths(
+    uses: &[UseDecl],
+) -> HashSet<QualifiedModuleValueKey> {
+    uses.iter()
+        .flat_map(|use_decl| {
+            let owner = use_decl.resolved_owner();
+            crate::name_recovery::use_decl_exact_paths(use_decl)
+                .into_iter()
+                .map(move |path| (owner.clone(), path))
+        })
+        .collect()
+}
+
 pub(super) fn finish_module_value_facts(module: &SurfaceModule, environment: &mut TypeEnvironment) {
     let first_new = environment.module_values.len();
     append_module_value_signatures(module, &mut environment.module_values);
     canonicalize_new_module_value_types(environment, first_new);
     index_new_module_value_identities(environment, first_new);
+    environment.public_module_value_identities =
+        public_module_value_identities(&environment.module_values);
+    environment.qualified_module_value_imports = qualified_module_value_import_index(
+        &environment.uses,
+        &environment.module_values,
+        &environment.companion_function_access_targets,
+    );
     environment.bare_module_values = bare_module_value_index(
         &environment.module_values,
         &environment.functions,
@@ -17,12 +37,21 @@ pub(super) fn finish_module_value_facts(module: &SurfaceModule, environment: &mu
 
 pub(in crate::types::environment) fn qualified_module_value_import_index(
     uses: &[UseDecl],
-) -> HashMap<QualifiedModuleValueKey, QualifiedModuleValueImports> {
-    let mut imports = HashMap::<QualifiedModuleValueKey, QualifiedModuleValueImports>::new();
+    module_values: &[ModuleValueSignature],
+    companion_access_targets: &BTreeMap<String, String>,
+) -> HashMap<QualifiedModuleValueKey, QualifiedModuleValueImportSelection> {
+    #[derive(Default)]
+    struct Candidates {
+        exact: Vec<UseDecl>,
+        implicit: Vec<UseDecl>,
+    }
+
+    let mut imports = HashMap::<QualifiedModuleValueKey, Candidates>::new();
     for use_decl in uses {
         record_qualified_module_value_import_build_work();
         let owner = use_decl.resolved_owner();
         for path in crate::name_recovery::use_decl_exact_paths(use_decl) {
+            record_qualified_module_value_import_build_work();
             imports
                 .entry((owner.clone(), path))
                 .or_default()
@@ -34,6 +63,7 @@ pub(in crate::types::environment) fn qualified_module_value_import_index(
             &use_decl.alias,
             use_decl.module_name.as_deref(),
         ) {
+            record_qualified_module_value_import_build_work();
             imports
                 .entry((owner, use_decl.alias.clone()))
                 .or_default()
@@ -41,7 +71,105 @@ pub(in crate::types::environment) fn qualified_module_value_import_index(
                 .push(use_decl.clone());
         }
     }
+
+    let mut public_names_by_target =
+        HashMap::<(Option<String>, Option<String>), HashSet<String>>::new();
+    let mut all_names_by_target =
+        HashMap::<(Option<String>, Option<String>), HashSet<String>>::new();
+    for value in module_values {
+        record_qualified_module_value_member_materialization_work();
+        let Some(name) = &value.declaration.name else {
+            continue;
+        };
+        let target = (
+            value.declaration.package_name.clone(),
+            value.declaration.module_name.clone(),
+        );
+        all_names_by_target
+            .entry(target.clone())
+            .or_default()
+            .insert(name.clone());
+        if value.declaration.visibility == Visibility::Public {
+            public_names_by_target
+                .entry(target)
+                .or_default()
+                .insert(name.clone());
+        }
+    }
+
     imports
+        .into_iter()
+        .filter_map(|(key, candidates)| {
+            let selected = if candidates.exact.is_empty() {
+                candidates.implicit
+            } else {
+                candidates.exact
+            };
+            let targets = selected
+                .iter()
+                .map(|use_decl| {
+                    record_qualified_module_value_target_classification_work();
+                    let target = use_decl.resolved_target();
+                    (target.package, target.module)
+                })
+                .collect::<HashSet<_>>();
+            if targets.is_empty() {
+                return None;
+            }
+            if targets.len() == 1 {
+                return Some((
+                    key,
+                    QualifiedModuleValueImportSelection::Unique(Box::new(
+                        selected.into_iter().next().expect("selected import"),
+                    )),
+                ));
+            }
+
+            let mut visible_members = HashSet::new();
+            for use_decl in &selected {
+                record_qualified_module_value_target_classification_work();
+                let target = use_decl.resolved_target();
+                let target_key = (target.package, Some(target.module));
+                let private_access = use_decl.package.is_none()
+                    && key.0.module.as_ref().is_some_and(|owner_module| {
+                        companion_access_targets
+                            .get(owner_module)
+                            .is_some_and(|allowed| allowed == &use_decl.name)
+                    });
+                let names = if private_access {
+                    all_names_by_target.get(&target_key)
+                } else {
+                    public_names_by_target.get(&target_key)
+                };
+                if let Some(names) = names {
+                    for name in names {
+                        record_qualified_module_value_member_materialization_work();
+                        visible_members.insert(name.clone());
+                    }
+                }
+            }
+            Some((
+                key,
+                QualifiedModuleValueImportSelection::Ambiguous { visible_members },
+            ))
+        })
+        .collect()
+}
+
+pub(in crate::types::environment) fn public_module_value_identities(
+    module_values: &[ModuleValueSignature],
+) -> HashSet<ModuleValueIdentity> {
+    module_values
+        .iter()
+        .filter(|value| value.declaration.visibility == Visibility::Public)
+        .filter_map(|value| {
+            Some((
+                value.declaration.package_name.clone(),
+                value.declaration.module_name.clone(),
+                value.declaration.name.clone()?,
+            ))
+        })
+        .collect()
 }
 
 fn append_module_value_signatures(

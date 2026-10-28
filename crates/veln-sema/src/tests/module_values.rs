@@ -123,6 +123,70 @@ fn module_with_imported_named_annotations(count: usize) -> SurfaceModule {
     merged
 }
 
+fn module_with_colliding_qualified_imports(count: usize) -> SurfaceModule {
+    let imports = (0..count)
+        .map(|index| format!("use shared from \"package_{index}\"\n"))
+        .collect::<String>();
+    let owner_source = SourceFile::new("app.veln", imports);
+    let mut merged = veln_ast::lower_surface_ast_with_package_module_identity(
+        &parse(&owner_source).tree,
+        "owner/pkg".to_string(),
+        "app".to_string(),
+        owner_source.span(veln_source::TextRange::new(0, 0)),
+    );
+    for use_decl in &mut merged.uses {
+        use_decl.name = "shared".to_string();
+    }
+    for index in 0..count {
+        let declaration_count = if index == 0 { 2 } else { 1 };
+        for declaration_index in 0..declaration_count {
+            let source = SourceFile::new(
+                format!("package_{index}/shared_{declaration_index}.veln"),
+                "pub let answer: Int = 1\n",
+            );
+            let mut module = veln_ast::lower_surface_ast_with_package_module_identity(
+                &parse(&source).tree,
+                format!("package_{index}"),
+                "shared".to_string(),
+                source.span(veln_source::TextRange::new(0, 0)),
+            );
+            for value in &mut module.module_values {
+                value.module_name = Some("shared".to_string());
+            }
+            merged.module_values.extend(module.module_values);
+        }
+    }
+    merged
+}
+
+fn colliding_qualified_import_work(
+    count: usize,
+    lookup_count: usize,
+) -> crate::types::QualifiedModuleValueImportWork {
+    let module = module_with_colliding_qualified_imports(count);
+    crate::types::reset_qualified_module_value_import_work();
+    let environment = crate::types::TypeEnvironment::from_module(&module);
+    for _ in 0..lookup_count {
+        assert!(matches!(
+            environment.module_value_path_in_owner(
+                &["shared".to_string(), "answer".to_string()],
+                Some("owner/pkg::app"),
+                Some("owner/pkg"),
+            ),
+            crate::types::ModuleValueLookup::Ambiguous
+        ));
+        assert!(matches!(
+            environment.module_value_path_in_owner(
+                &["shared".to_string(), "missing".to_string()],
+                Some("owner/pkg::app"),
+                Some("owner/pkg"),
+            ),
+            crate::types::ModuleValueLookup::Missing
+        ));
+    }
+    crate::types::take_qualified_module_value_import_work()
+}
+
 #[test]
 #[ignore = "supporting wall-clock evidence; deterministic lookup work is asserted separately"]
 fn bare_imported_module_value_lookup_reports_adjacent_size_timings() {
@@ -161,6 +225,26 @@ fn imported_named_annotation_analysis_reports_adjacent_size_timings() {
         ));
         eprintln!(
             "imported named annotations: {count} imports and annotations in {:?}",
+            started.elapsed()
+        );
+    }
+}
+
+#[test]
+#[ignore = "supporting wall-clock evidence; deterministic collision work is asserted separately"]
+fn qualified_module_value_colliding_imports_report_adjacent_size_timings() {
+    for count in [128, 256, 512, 1_024] {
+        let started = std::time::Instant::now();
+        let work = colliding_qualified_import_work(count, count);
+        eprintln!(
+            "qualified module value collisions: {count} imports and references in {:?}, work={work:?}",
+            started.elapsed()
+        );
+
+        let started = std::time::Instant::now();
+        let control = colliding_qualified_import_work(count, 1);
+        eprintln!(
+            "qualified module value collision control: {count} imports and one reference in {:?}, work={control:?}",
             started.elapsed()
         );
     }
@@ -965,6 +1049,89 @@ fn quarantined_imports_do_not_create_qualified_module_value_ambiguity() {
 }
 
 #[test]
+fn quarantined_exact_import_blocks_same_owner_module_value_fallback() {
+    let analyze = |reverse_sources: bool, reverse_imports: bool| {
+        let imports = if reverse_imports {
+            concat!(
+                "use values as config from \"dep/pkg\"\n",
+                "use values from \"dep/pkg\"\n",
+            )
+        } else {
+            concat!(
+                "use values from \"dep/pkg\"\n",
+                "use values as config from \"dep/pkg\"\n",
+            )
+        };
+        let owner_source = SourceFile::new(
+            "values.veln",
+            format!("{imports}let answer: Int = 1\nfn read() -> Int\n  values::answer\nend\n"),
+        );
+        let owner = veln_ast::lower_surface_ast_with_package_module_identity(
+            &parse(&owner_source).tree,
+            "owner/pkg".to_string(),
+            "values".to_string(),
+            owner_source.span(veln_source::TextRange::new(0, 0)),
+        );
+        let dependency_source = SourceFile::new(
+            "vendor/dep/values.veln",
+            "pub let answer: String = \"dep\"\n",
+        );
+        let dependency = veln_ast::lower_surface_ast_with_package_module_identity(
+            &parse(&dependency_source).tree,
+            "dep/pkg".to_string(),
+            "values".to_string(),
+            dependency_source.span(veln_source::TextRange::new(0, 0)),
+        );
+        let (mut merged, other) = if reverse_sources {
+            (dependency, owner)
+        } else {
+            (owner, dependency)
+        };
+        merged.uses.extend(other.uses);
+        merged.module_values.extend(other.module_values);
+        merged.functions.extend(other.functions);
+
+        analyze_surface_module(&merged)
+            .into_iter()
+            .filter(|diagnostic| {
+                matches!(
+                    diagnostic.id.as_str(),
+                    "name.duplicate" | "name.unresolved" | "name.ambiguous" | "type.mismatch"
+                )
+            })
+            .map(|diagnostic| (diagnostic.id, diagnostic.message))
+            .collect::<Vec<_>>()
+    };
+
+    let expected = analyze(false, false);
+    assert_eq!(
+        expected
+            .iter()
+            .filter(|(id, _)| id == "name.duplicate")
+            .count(),
+        1,
+        "{expected:#?}"
+    );
+    assert_eq!(
+        expected
+            .iter()
+            .filter(|(id, message)| id == "name.unresolved" && message.contains("values::answer"))
+            .count(),
+        1,
+        "{expected:#?}"
+    );
+    assert!(
+        expected
+            .iter()
+            .all(|(id, _)| !matches!(id.as_str(), "name.ambiguous" | "type.mismatch")),
+        "{expected:#?}"
+    );
+    assert_eq!(analyze(true, false), expected);
+    assert_eq!(analyze(false, true), expected);
+    assert_eq!(analyze(true, true), expected);
+}
+
+#[test]
 fn reusable_standard_base_preserves_bare_prelude_module_values() {
     let standard_source = SourceFile::new("prelude.veln", "pub let answer: Int = 42\n");
     let standard = veln_ast::lower_surface_ast_with_package_module_identity(
@@ -1129,7 +1296,7 @@ fn bare_imported_module_value_lookup_work_is_bounded_per_reference() {
 
 #[test]
 fn qualified_module_value_import_work_includes_construction_and_lookup() {
-    fn work_for(count: usize) -> (usize, usize) {
+    fn work_for(count: usize) -> crate::types::QualifiedModuleValueImportWork {
         let module = module_with_bare_imported_values(count);
         crate::types::reset_qualified_module_value_import_work();
         let environment = crate::types::TypeEnvironment::from_module(&module);
@@ -1148,13 +1315,49 @@ fn qualified_module_value_import_work_includes_construction_and_lookup() {
 
     let smaller = work_for(64);
     let larger = work_for(128);
+    assert!(smaller.index_build >= 64, "{smaller:?}");
+    assert!(smaller.target_classification >= 64, "{smaller:?}");
+    assert!(smaller.member_materialization >= 64, "{smaller:?}");
+    assert_eq!(smaller.same_owner_blocking, 64);
+    assert_eq!(smaller.selection, 64 * 3);
+    assert_eq!(smaller.visibility, 64);
+    assert!(larger.index_build <= smaller.index_build * 2 + 4);
+    assert!(larger.target_classification <= smaller.target_classification * 2 + 4);
+    assert!(larger.member_materialization <= smaller.member_materialization * 2 + 4);
+    assert_eq!(larger.same_owner_blocking, smaller.same_owner_blocking * 2);
+    assert_eq!(larger.selection, smaller.selection * 2);
+    assert_eq!(larger.visibility, smaller.visibility * 2);
+}
+
+#[test]
+fn colliding_qualified_module_value_import_work_is_bounded_per_reference() {
+    let smaller = colliding_qualified_import_work(64, 64);
+    let larger = colliding_qualified_import_work(128, 128);
+    let smaller_control = colliding_qualified_import_work(64, 1);
+    let larger_control = colliding_qualified_import_work(128, 1);
+
     assert!(
-        smaller.0 >= 64,
-        "index construction must be counted: {smaller:?}"
+        larger.index_build <= smaller.index_build * 2 + 8,
+        "{smaller:?} -> {larger:?}"
     );
-    assert_eq!(smaller.1, 64);
-    assert_eq!(larger.0, smaller.0 * 2);
-    assert_eq!(larger.1, smaller.1 * 2);
+    assert!(
+        larger.target_classification <= smaller.target_classification * 2 + 8,
+        "{smaller:?} -> {larger:?}"
+    );
+    assert!(
+        larger.member_materialization <= smaller.member_materialization * 2 + 8,
+        "{smaller:?} -> {larger:?}"
+    );
+    assert_eq!(larger.same_owner_blocking, smaller.same_owner_blocking * 2);
+    assert_eq!(larger.selection, smaller.selection * 2);
+    assert_eq!(larger.visibility, smaller.visibility * 2);
+
+    assert_eq!(smaller_control.same_owner_blocking, 2);
+    assert_eq!(larger_control.same_owner_blocking, 2);
+    assert_eq!(smaller_control.selection, 4);
+    assert_eq!(larger_control.selection, 4);
+    assert_eq!(smaller_control.visibility, 2);
+    assert_eq!(larger_control.visibility, 2);
 }
 
 #[test]

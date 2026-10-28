@@ -15,20 +15,10 @@ type FunctionPublicationKey = (
 type BareModuleValueKey = (Option<String>, Option<String>, String);
 type QualifiedModuleValueKey = (veln_ast::ResolvedImportOwner, String);
 
-#[derive(Clone, Debug, Default)]
-struct QualifiedModuleValueImports {
-    exact: Vec<UseDecl>,
-    implicit: Vec<UseDecl>,
-}
-
-impl QualifiedModuleValueImports {
-    fn selected(&self) -> &[UseDecl] {
-        if self.exact.is_empty() {
-            &self.implicit
-        } else {
-            &self.exact
-        }
-    }
+#[derive(Clone, Debug)]
+enum QualifiedModuleValueImportSelection {
+    Unique(Box<UseDecl>),
+    Ambiguous { visible_members: HashSet<String> },
 }
 
 #[derive(Clone, Debug)]
@@ -46,7 +36,30 @@ struct BareModuleValueExposure {
 #[cfg(test)]
 thread_local! {
     static BARE_MODULE_VALUE_LOOKUP_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
-    static QUALIFIED_MODULE_VALUE_IMPORT_WORK: std::cell::Cell<(usize, usize)> = const { std::cell::Cell::new((0, 0)) };
+    static QUALIFIED_MODULE_VALUE_IMPORT_WORK: std::cell::Cell<QualifiedModuleValueImportWork> = const { std::cell::Cell::new(QualifiedModuleValueImportWork::ZERO) };
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct QualifiedModuleValueImportWork {
+    pub(crate) index_build: usize,
+    pub(crate) target_classification: usize,
+    pub(crate) member_materialization: usize,
+    pub(crate) same_owner_blocking: usize,
+    pub(crate) selection: usize,
+    pub(crate) visibility: usize,
+}
+
+#[cfg(test)]
+impl QualifiedModuleValueImportWork {
+    const ZERO: Self = Self {
+        index_build: 0,
+        target_classification: 0,
+        member_materialization: 0,
+        same_owner_blocking: 0,
+        selection: 0,
+        visibility: 0,
+    };
 }
 
 #[cfg(test)]
@@ -61,27 +74,66 @@ pub(crate) fn take_bare_module_value_lookup_work() -> usize {
 
 #[cfg(test)]
 pub(crate) fn reset_qualified_module_value_import_work() {
-    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| work.set((0, 0)));
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| work.set(QualifiedModuleValueImportWork::ZERO));
 }
 
 #[cfg(test)]
-pub(crate) fn take_qualified_module_value_import_work() -> (usize, usize) {
-    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| work.replace((0, 0)))
+pub(crate) fn take_qualified_module_value_import_work() -> QualifiedModuleValueImportWork {
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK
+        .with(|work| work.replace(QualifiedModuleValueImportWork::ZERO))
 }
 
 fn record_qualified_module_value_import_build_work() {
     #[cfg(test)]
     QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| {
-        let (build, lookup) = work.get();
-        work.set((build + 1, lookup));
+        let mut value = work.get();
+        value.index_build += 1;
+        work.set(value);
     });
 }
 
-fn record_qualified_module_value_import_lookup_work() {
+fn record_qualified_module_value_target_classification_work() {
     #[cfg(test)]
     QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| {
-        let (build, lookup) = work.get();
-        work.set((build, lookup + 1));
+        let mut value = work.get();
+        value.target_classification += 1;
+        work.set(value);
+    });
+}
+
+fn record_qualified_module_value_member_materialization_work() {
+    #[cfg(test)]
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| {
+        let mut value = work.get();
+        value.member_materialization += 1;
+        work.set(value);
+    });
+}
+
+fn record_qualified_module_value_same_owner_work() {
+    #[cfg(test)]
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| {
+        let mut value = work.get();
+        value.same_owner_blocking += 1;
+        work.set(value);
+    });
+}
+
+fn record_qualified_module_value_selection_work() {
+    #[cfg(test)]
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| {
+        let mut value = work.get();
+        value.selection += 1;
+        work.set(value);
+    });
+}
+
+fn record_qualified_module_value_visibility_work() {
+    #[cfg(test)]
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| {
+        let mut value = work.get();
+        value.visibility += 1;
+        work.set(value);
     });
 }
 
@@ -175,7 +227,11 @@ pub(crate) struct TypeEnvironment {
     module_values: Vec<ModuleValueSignature>,
     module_values_by_identity: HashMap<ModuleValueIdentity, ModuleValueIndex>,
     bare_module_values: HashMap<BareModuleValueKey, BareModuleValueExposure>,
-    qualified_module_value_imports: HashMap<QualifiedModuleValueKey, QualifiedModuleValueImports>,
+    qualified_module_value_imports:
+        HashMap<QualifiedModuleValueKey, QualifiedModuleValueImportSelection>,
+    exact_module_value_imports: HashSet<QualifiedModuleValueKey>,
+    blocked_exact_module_value_imports: HashSet<QualifiedModuleValueKey>,
+    public_module_value_identities: HashSet<ModuleValueIdentity>,
     functions: Vec<FunctionSignature>,
     functions_by_name: HashMap<String, Vec<usize>>,
     unpublished_functions: HashSet<FunctionPublicationKey>,
@@ -322,40 +378,37 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         current_package: Option<&str>,
     ) -> ModuleValueLookup<'_> {
-        let qualifier = &segments[..segments.len() - 1];
-        let module_path = qualifier.join("::");
-        record_qualified_module_value_import_lookup_work();
+        let module_path = segments[..segments.len() - 1].join("::");
         let owner = veln_ast::ResolvedImportOwner {
             package: current_package.map(str::to_string),
             module: current_module.map(str::to_string),
         };
-        let Some(imports) = self
-            .qualified_module_value_imports
-            .get(&(owner, module_path))
-        else {
+        let key = (owner, module_path);
+        record_qualified_module_value_selection_work();
+        let exact_path_is_blocked = self.blocked_exact_module_value_imports.contains(&key);
+        record_qualified_module_value_selection_work();
+        let selection = self.qualified_module_value_imports.get(&key);
+        if exact_path_is_blocked && !self.exact_module_value_imports.contains(&key) {
             return ModuleValueLookup::Missing;
-        };
-        let candidates = imports.selected();
-        let targets = candidates
-            .iter()
-            .map(|use_decl| {
-                let target = use_decl.resolved_target();
-                (target.package, target.module)
-            })
-            .collect::<BTreeSet<_>>();
-        if targets.len() > 1 {
-            return if candidates.iter().any(|use_decl| {
-                self.visible_module_value_index_for_use(use_decl, name, current_module)
-                    .is_some()
-            }) {
-                ModuleValueLookup::Ambiguous
-            } else {
-                ModuleValueLookup::Missing
-            };
         }
-        let Some(use_decl) = candidates.first() else {
+        // A blocked exact path with selectable package-distinct exact targets remains
+        // ambiguous. Without one, return above instead of using an implicit or local
+        // fallback.
+        let Some(selection) = selection else {
             return ModuleValueLookup::Missing;
         };
+        let use_decl = match selection {
+            QualifiedModuleValueImportSelection::Unique(use_decl) => use_decl,
+            QualifiedModuleValueImportSelection::Ambiguous { visible_members } => {
+                record_qualified_module_value_visibility_work();
+                return if visible_members.contains(name) {
+                    ModuleValueLookup::Ambiguous
+                } else {
+                    ModuleValueLookup::Missing
+                };
+            }
+        };
+        record_qualified_module_value_selection_work();
         let Some(index) = self.visible_module_value_index_for_use(use_decl, name, current_module)
         else {
             return ModuleValueLookup::Missing;
@@ -377,19 +430,8 @@ impl TypeEnvironment {
         let index = *self.module_values_by_identity.get(&identity)?;
         let private_access =
             self.companion_private_module_value_access_allowed(use_decl, current_module);
-        let visible = match index {
-            ModuleValueIndex::Unique(index) => {
-                self.module_values[index].declaration.visibility == veln_ast::Visibility::Public
-                    || private_access
-            }
-            ModuleValueIndex::Collision => self.module_values.iter().any(|value| {
-                value.declaration.package_name == identity.0
-                    && value.declaration.module_name == identity.1
-                    && value.declaration.name.as_ref() == Some(&identity.2)
-                    && (value.declaration.visibility == veln_ast::Visibility::Public
-                        || private_access)
-            }),
-        };
+        record_qualified_module_value_visibility_work();
+        let visible = self.public_module_value_identities.contains(&identity) || private_access;
         visible.then_some(index)
     }
 
@@ -448,14 +490,17 @@ impl TypeEnvironment {
             return false;
         };
         let qualifier = qualifier.join("::");
-        if self.uses.iter().any(|use_decl| {
-            use_decl.importing_package.as_deref() == current_package
-                && crate::name_recovery::use_decl_matches_exact_import_path(
-                    use_decl,
-                    &qualifier,
-                    current_module,
-                )
-        }) {
+        record_qualified_module_value_same_owner_work();
+        let key = (
+            veln_ast::ResolvedImportOwner {
+                package: current_package.map(str::to_string),
+                module: current_module.map(str::to_string),
+            },
+            qualifier.clone(),
+        );
+        if self.blocked_exact_module_value_imports.contains(&key)
+            || self.exact_module_value_imports.contains(&key)
+        {
             return false;
         }
         qualifier == module

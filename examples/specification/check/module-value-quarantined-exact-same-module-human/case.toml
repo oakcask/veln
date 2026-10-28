@@ -1,0 +1,10 @@
+command = ["check", "values.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[name.duplicate]: duplicate import name `values`", "error[name.unresolved]: unresolved value `values::answer`"]
+not_contains = ["error[name.ambiguous]", "type mismatch"]
+
+[stderr]
+format = "empty"
