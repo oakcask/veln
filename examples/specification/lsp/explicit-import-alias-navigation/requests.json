@@ -44,6 +44,9 @@
   {"jsonrpc":"2.0","id":43,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"invalid_unrelated_error.veln"}},"position":{"line":7,"character":2},"context":{"includeDeclaration":true}}},
   {"jsonrpc":"2.0","id":44,"method":"textDocument/prepareRename","params":{"textDocument":{"uri":{"$workspace_file_uri":"invalid_unrelated_error.veln"}},"position":{"line":7,"character":2}}},
   {"jsonrpc":"2.0","id":45,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"invalid_unrelated_error.veln"}},"position":{"line":7,"character":2},"newName":"numbers"}},
-  {"jsonrpc":"2.0","id":46,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","id":46,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"blocked_exact.veln"}},"position":{"line":6,"character":7}}},
+  {"jsonrpc":"2.0","id":47,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"blocked_exact.veln"}},"position":{"line":6,"character":7},"context":{"includeDeclaration":true}}},
+  {"jsonrpc":"2.0","id":48,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"blocked_exact.veln"}},"position":{"line":6,"character":7},"newName":"other"}},
+  {"jsonrpc":"2.0","id":49,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

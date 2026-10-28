@@ -1,8 +1,8 @@
 [package]
 name = "explicit-import-alias-navigation"
 
-[dependencies.one]
+[dependencies."example/one"]
 path = "vendor/one"
 
-[dependencies.two]
+[dependencies."example/two"]
 path = "vendor/two"

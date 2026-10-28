@@ -552,3 +552,18 @@ equals = null
 id = 45
 path = "/result/changes"
 equals = {}
+
+[[lsp_assert]]
+id = 46
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 47
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 48
+path = "/result/changes"
+equals = {}

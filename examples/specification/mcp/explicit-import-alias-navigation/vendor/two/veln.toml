@@ -1,5 +1,5 @@
 [package]
-name = "two"
+name = "example/two"
 
 [lib]
 exports = ["api.veln"]

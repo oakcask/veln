@@ -1066,15 +1066,38 @@ impl SymbolIndex {
             })
     }
 
-    fn qualified_module_candidates(&self, file: &IndexedFile, qualifier: &str) -> Vec<String> {
-        let mut modules = vec![qualifier.to_string()];
-        if let Some(module) = resolve_qualified_alias(&file.import_aliases, qualifier) {
-            modules.push(module);
+    fn qualified_module_candidates(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+    ) -> Vec<QualifiedModuleIdentity> {
+        match file.qualified_import_resolutions.get(qualifier) {
+            Some(QualifiedImportResolution::Resolved(identity)) => {
+                return vec![identity.clone()];
+            }
+            Some(QualifiedImportResolution::Blocked) => return Vec::new(),
+            None => {}
         }
-        if let Some((module, _package)) =
+        let mut modules = vec![QualifiedModuleIdentity {
+            module: qualifier.to_string(),
+            package: None,
+            package_resolved: false,
+        }];
+        if let Some(module) = resolve_qualified_alias(&file.import_aliases, qualifier) {
+            modules.push(QualifiedModuleIdentity {
+                module,
+                package: None,
+                package_resolved: true,
+            });
+        }
+        if let Some((module, package)) =
             resolve_external_qualified_alias(&file.external_import_aliases, qualifier)
         {
-            modules.push(module);
+            modules.push(QualifiedModuleIdentity {
+                module,
+                package: Some(package),
+                package_resolved: true,
+            });
         }
         modules
     }

@@ -321,38 +321,63 @@ mod explicit_import_alias_navigation_tests {
 
     #[test]
     fn ambiguous_exact_written_path_does_not_fall_back_to_alias_navigation() {
-        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
-            vec![
-                source("fallback.veln", "pub fn member() -> Int\n  0\nend\n"),
-                source(
-                    "app.veln",
-                    concat!(
-                        "mod app\n",
-                        "use api as first from \"one\"\n",
-                        "use api as second from \"two\"\n",
-                        "use fallback as api\n\n",
-                        "fn main() -> Int\n",
-                        "  api::member()\n",
-                        "end\n",
-                    ),
-                ),
-            ],
-            vec![
+        for reversed in [false, true] {
+            let mut dependencies = vec![
                 dependency_snapshot(
                     "one",
-                    &[("api.veln", "pub fn member() -> Int\n  1\nend\n")],
+                    &[(
+                        "api.veln",
+                        concat!(
+                            "pub fn member() -> Int\n  1\nend\n\n",
+                            "pub type Item\n  pub Ready(Int)\nend\n",
+                        ),
+                    )],
                     ["api.veln"],
                 ),
                 dependency_snapshot(
                     "two",
-                    &[("api.veln", "pub fn member() -> Int\n  2\nend\n")],
+                    &[(
+                        "api.veln",
+                        concat!(
+                            "pub fn member() -> Int\n  2\nend\n\n",
+                            "pub type Item\n  pub Ready(Int)\nend\n",
+                        ),
+                    )],
                     ["api.veln"],
                 ),
-            ],
-        );
+            ];
+            if reversed {
+                dependencies.reverse();
+            }
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![
+                    source("fallback.veln", "pub fn member() -> Int\n  0\nend\n"),
+                    source(
+                        "app.veln",
+                        concat!(
+                            "mod app\n",
+                            "use api as first from \"one\"\n",
+                            "use api as second from \"two\"\n",
+                            "use fallback as api\n\n",
+                            "fn main() -> Int\n",
+                            "  api::member()\n",
+                            "end\n\n",
+                            "fn inspect(value: api::Item) -> Int\n",
+                            "  api::Item::Ready(1)\n",
+                            "end\n",
+                        ),
+                    ),
+                ],
+                dependencies,
+            );
 
-        assert!(query_snapshot(&snapshot, "app.veln", 4, 17).is_none());
-        assert!(query_snapshot(&snapshot, "app.veln", 7, 3).is_none());
+            for (line, column) in [(4, 17), (7, 3), (7, 8), (10, 19), (10, 24), (11, 3), (11, 8), (11, 14)] {
+                assert!(
+                    query_snapshot(&snapshot, "app.veln", line, column).is_none(),
+                    "unexpected navigation identity at {line}:{column} with reversed={reversed}",
+                );
+            }
+        }
     }
 
     #[test]

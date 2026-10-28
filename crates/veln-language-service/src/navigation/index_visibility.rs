@@ -51,13 +51,13 @@ fn visible_imported_type_alias_for_bare_reference(
 fn visible_type_for_qualified_reference(
     file: &IndexedFile,
     symbol: &TypeSymbol,
-    qualified_modules: &[String],
+    qualified_modules: &[QualifiedModuleIdentity],
     name: &str,
 ) -> bool {
     symbol.name == name
         && qualified_modules
             .iter()
-            .any(|module| module == &symbol.module)
+            .any(|module| qualified_module_matches(module, &symbol.module, symbol.package.as_deref()))
         && match &symbol.package {
             Some(package) => {
                 file.external_uses
@@ -71,13 +71,13 @@ fn visible_type_for_qualified_reference(
 fn visible_type_alias_for_qualified_reference(
     file: &IndexedFile,
     symbol: &TypeAliasSymbol,
-    qualified_modules: &[String],
+    qualified_modules: &[QualifiedModuleIdentity],
     name: &str,
 ) -> bool {
     symbol.name == name
         && qualified_modules
             .iter()
-            .any(|module| module == &symbol.module)
+            .any(|module| qualified_module_matches(module, &symbol.module, symbol.package.as_deref()))
         && match &symbol.package {
             Some(package) => {
                 file.external_uses
@@ -86,6 +86,22 @@ fn visible_type_alias_for_qualified_reference(
             }
             None => symbol.module == file.module || file.uses.contains(&symbol.module),
         }
+}
+
+fn qualified_module_matches(
+    candidate: &QualifiedModuleIdentity,
+    module: &str,
+    package: Option<&str>,
+) -> bool {
+    candidate.module == module
+        && (!candidate.package_resolved || candidate.package.as_deref() == package)
+}
+
+fn qualified_package_matches(
+    candidate: &QualifiedModuleIdentity,
+    package: Option<&str>,
+) -> bool {
+    !candidate.package_resolved || candidate.package.as_deref() == package
 }
 
 fn resolve_external_qualified_alias(

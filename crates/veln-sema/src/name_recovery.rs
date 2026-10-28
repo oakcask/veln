@@ -502,6 +502,16 @@ enum IndexedUseDecl {
     Ambiguous,
 }
 
+pub(crate) enum ImportPrefixSelection {
+    Selected {
+        index: usize,
+        explicit_alias: bool,
+        consumed_segments: usize,
+    },
+    Blocked,
+    Missing,
+}
+
 pub(crate) struct NormalImportSelectionIndex<'a> {
     module: &'a SurfaceModule,
     classification: Rc<ImportClassification>,
@@ -554,16 +564,13 @@ impl ImportPathPrefixIndex {
     fn select_prefixes<'s>(
         &self,
         segments: impl IntoIterator<Item = &'s str>,
-    ) -> Option<(usize, bool)> {
+    ) -> ImportPrefixSelection {
         let mut node_index = 0;
         let mut qualifier = None;
         let mut exact_use = None;
         for (index, segment) in segments.into_iter().enumerate() {
             if index == 0 {
-                qualifier = match self.qualifiers.get(segment) {
-                    Some(IndexedUseDecl::Unique(index)) => Some(*index),
-                    Some(IndexedUseDecl::Ambiguous) | None => None,
-                };
+                qualifier = self.qualifiers.get(segment).copied();
             }
             let Some(node) = self.nodes.get(node_index) else {
                 break;
@@ -573,13 +580,27 @@ impl ImportPathPrefixIndex {
             };
             node_index = *next_index;
             if let Some(selection) = self.nodes[node_index].exact_use {
-                exact_use = Some(selection);
+                exact_use = Some((selection, index + 1));
             }
         }
         match exact_use {
-            Some(IndexedUseDecl::Unique(index)) => Some((index, false)),
-            Some(IndexedUseDecl::Ambiguous) => None,
-            None => qualifier.map(|index| (index, true)),
+            Some((IndexedUseDecl::Unique(index), consumed_segments)) => {
+                ImportPrefixSelection::Selected {
+                    index,
+                    explicit_alias: false,
+                    consumed_segments,
+                }
+            }
+            Some((IndexedUseDecl::Ambiguous, _)) => ImportPrefixSelection::Blocked,
+            None => match qualifier {
+                Some(IndexedUseDecl::Unique(index)) => ImportPrefixSelection::Selected {
+                    index,
+                    explicit_alias: true,
+                    consumed_segments: 1,
+                },
+                Some(IndexedUseDecl::Ambiguous) => ImportPrefixSelection::Blocked,
+                None => ImportPrefixSelection::Missing,
+            },
         }
     }
 }
@@ -602,6 +623,15 @@ impl<'a> NormalImportSelectionIndex<'a> {
         for (index, use_decl) in module.uses.iter().enumerate() {
             record_normal_import_selection_work(|work| work.operations += 1);
             if classification.quarantined[index] {
+                if build_prefix_paths {
+                    let owner = use_decl.resolved_owner();
+                    for path in use_decl_exact_paths(use_decl) {
+                        prefix_paths
+                            .entry(owner.clone())
+                            .or_default()
+                            .insert_exact_path(&path, IndexedUseDecl::Ambiguous);
+                    }
+                }
                 continue;
             }
             for path in use_decl_exact_paths(use_decl) {
@@ -626,15 +656,18 @@ impl<'a> NormalImportSelectionIndex<'a> {
             if simple_import_alias_matches(use_decl, &use_decl.alias) {
                 record_normal_import_selection_work(|work| work.operations += 1);
                 let owner = use_decl.resolved_owner();
-                if build_prefix_paths
-                    && !classification
+                if build_prefix_paths {
+                    let prefix = prefix_paths.entry(owner.clone()).or_default();
+                    if classification
                         .colliding_qualifiers
                         .contains(&(owner.clone(), use_decl.alias.clone()))
-                {
-                    prefix_paths
-                        .entry(owner.clone())
-                        .or_default()
-                        .insert_qualifier(use_decl.alias.clone(), index);
+                    {
+                        prefix
+                            .qualifiers
+                            .insert(use_decl.alias.clone(), IndexedUseDecl::Ambiguous);
+                    } else {
+                        prefix.insert_qualifier(use_decl.alias.clone(), index);
+                    }
                 }
                 qualifiers
                     .entry((owner, use_decl.alias.clone()))
@@ -651,25 +684,26 @@ impl<'a> NormalImportSelectionIndex<'a> {
         }
     }
 
-    pub(crate) fn imported_use_for_prefixes<'s>(
+    pub(crate) fn select_import_prefixes<'s>(
         &self,
         segments: impl IntoIterator<Item = &'s str>,
         current_module: Option<&str>,
         current_package: Option<&str>,
-    ) -> Option<(&'a UseDecl, bool)> {
+    ) -> ImportPrefixSelection {
         let owner = ResolvedImportOwner {
             package: current_package.map(str::to_string),
             module: current_module.map(str::to_string),
         };
-        let (index, explicit_alias) = self
-            .prefix_paths
-            .as_ref()?
-            .get(&owner)?
-            .select_prefixes(segments)?;
-        self.module
-            .uses
-            .get(index)
-            .map(|use_decl| (use_decl, explicit_alias))
+        self.prefix_paths
+            .as_ref()
+            .and_then(|paths| paths.get(&owner))
+            .map_or(ImportPrefixSelection::Missing, |paths| {
+                paths.select_prefixes(segments)
+            })
+    }
+
+    pub(crate) fn selected_use(&self, index: usize) -> Option<&'a UseDecl> {
+        self.module.uses.get(index)
     }
 
     pub(crate) fn imported_use_for_path(

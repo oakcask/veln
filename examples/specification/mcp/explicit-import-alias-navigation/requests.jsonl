@@ -41,3 +41,6 @@
 {"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"definition","arguments":{"source":"invalid_unrelated_error.veln","line":8,"column":3}}}
 {"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"references","arguments":{"source":"invalid_unrelated_error.veln","line":8,"column":3,"include_declaration":true}}}
 {"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"rename","arguments":{"source":"invalid_unrelated_error.veln","line":8,"column":3,"new_name":"numbers"}}}
+{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"definition","arguments":{"source":"blocked_exact.veln","line":7,"column":8}}}
+{"jsonrpc":"2.0","id":45,"method":"tools/call","params":{"name":"references","arguments":{"source":"blocked_exact.veln","line":7,"column":8,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":46,"method":"tools/call","params":{"name":"rename","arguments":{"source":"blocked_exact.veln","line":7,"column":8,"new_name":"other"}}}

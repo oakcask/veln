@@ -876,6 +876,19 @@ impl RecoverySymbol {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+struct QualifiedModuleIdentity {
+    module: String,
+    package: Option<String>,
+    package_resolved: bool,
+}
+
+#[derive(Clone, Debug)]
+enum QualifiedImportResolution {
+    Resolved(QualifiedModuleIdentity),
+    Blocked,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum LocalSymbolKind {
     ValueBinding,
     HandlerContextParameter,
@@ -893,6 +906,7 @@ struct IndexedFile {
     import_aliases: Arc<BTreeMap<String, String>>,
     external_import_aliases: Arc<BTreeMap<String, (String, String)>>,
     explicit_import_alias_occurrences: BTreeMap<(usize, usize), SourceSpan>,
+    qualified_import_resolutions: BTreeMap<String, QualifiedImportResolution>,
     schema_alias_external_imports: Vec<ExternalImport>,
     workspace_imports: Vec<WorkspaceImport>,
     invalid_declaration_names: Vec<SourceSpan>,

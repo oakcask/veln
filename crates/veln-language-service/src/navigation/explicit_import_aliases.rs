@@ -207,18 +207,97 @@ fn attach_explicit_import_alias_occurrences_in_file(
                 .sum(),
         );
         record_explicit_import_alias_construction_work(qualifier_indices.len());
-        let Some(veln_sema::ResolvedImportPath::ExplicitAlias(alias)) = imports.resolve_prefixes(
-            qualifier_indices
-                .iter()
-                .map(|index| tokens[*index].text.as_str()),
+        let qualifier_segments = qualifier_indices
+            .iter()
+            .map(|index| tokens[*index].text.as_str())
+            .collect::<Vec<_>>();
+        let qualifier = qualifier_segments.join("::");
+        match imports.select_prefixes(
+            qualifier_segments.iter().copied(),
             Some(&file.module),
-        ) else {
-            continue;
-        };
-        let range = tokens[token_index].range;
-        file.explicit_import_alias_occurrences
-            .insert((range.start, range.end), alias.span);
-        record_explicit_import_alias_retained_entries(1);
+        ) {
+            veln_sema::ResolvedImportPathSelection::Resolved(
+                veln_sema::ResolvedImportPath::ExplicitAlias(alias),
+            ) => {
+                for prefix_len in 1..=qualifier_segments.len() {
+                    let prefix = qualifier_segments[..prefix_len].join("::");
+                    if let veln_sema::ResolvedImportPathSelection::Resolved(path) = imports
+                        .select_prefixes(
+                            qualifier_segments[..prefix_len].iter().copied(),
+                            Some(&file.module),
+                        )
+                    {
+                        let (module, package) = match path {
+                            veln_sema::ResolvedImportPath::ExplicitAlias(alias) => {
+                                (alias.target_module, alias.target_package)
+                            }
+                            veln_sema::ResolvedImportPath::Exact {
+                                target_module,
+                                target_package,
+                            } => (target_module, target_package),
+                        };
+                        file.qualified_import_resolutions.insert(
+                            prefix,
+                            QualifiedImportResolution::Resolved(QualifiedModuleIdentity {
+                                module,
+                                package,
+                                package_resolved: true,
+                            }),
+                        );
+                    }
+                }
+                let range = tokens[token_index].range;
+                file.explicit_import_alias_occurrences
+                    .insert((range.start, range.end), alias.span);
+                record_explicit_import_alias_retained_entries(2);
+            }
+            veln_sema::ResolvedImportPathSelection::Resolved(
+                veln_sema::ResolvedImportPath::Exact {
+                    target_module,
+                    target_package,
+                },
+            ) => {
+                for prefix_len in 1..qualifier_segments.len() {
+                    let prefix = qualifier_segments[..prefix_len].join("::");
+                    let resolution = match imports.select_prefixes(
+                        qualifier_segments[..prefix_len].iter().copied(),
+                        Some(&file.module),
+                    ) {
+                        veln_sema::ResolvedImportPathSelection::Resolved(
+                            veln_sema::ResolvedImportPath::Exact {
+                                target_module,
+                                target_package,
+                            },
+                        ) => QualifiedImportResolution::Resolved(QualifiedModuleIdentity {
+                            module: target_module,
+                            package: target_package,
+                            package_resolved: true,
+                        }),
+                        _ => QualifiedImportResolution::Blocked,
+                    };
+                    file.qualified_import_resolutions.insert(prefix, resolution);
+                }
+                file.qualified_import_resolutions.insert(
+                    qualifier,
+                    QualifiedImportResolution::Resolved(QualifiedModuleIdentity {
+                        module: target_module,
+                        package: target_package,
+                        package_resolved: true,
+                    }),
+                );
+                record_explicit_import_alias_retained_entries(1);
+            }
+            veln_sema::ResolvedImportPathSelection::Blocked => {
+                for prefix_len in 1..=qualifier_segments.len() {
+                    file.qualified_import_resolutions.insert(
+                        qualifier_segments[..prefix_len].join("::"),
+                        QualifiedImportResolution::Blocked,
+                    );
+                    record_explicit_import_alias_retained_entries(1);
+                }
+            }
+            veln_sema::ResolvedImportPathSelection::Missing => {}
+        }
     }
 }
 

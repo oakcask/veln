@@ -9,8 +9,8 @@ use crate::analysis::boundary::schema_composition::{
 };
 use crate::analysis::boundary::schema_repeat_resolution::companion_private_schema_access_allowed;
 use crate::name_recovery::{
-    NormalImportSelectionIndex, normal_use_decls, public_alias_has_invalid_target_leaf,
-    schema_composition_imported_use_for_path,
+    ImportPrefixSelection, NormalImportSelectionIndex, normal_use_decls,
+    public_alias_has_invalid_target_leaf, schema_composition_imported_use_for_path,
 };
 use crate::schema::primitives::{
     SchemaRepeatPayload, repeat_schema_primitive, schema_length_expression,
@@ -103,8 +103,18 @@ pub struct ResolvedNavigationImport {
 
 #[derive(Clone, Debug)]
 pub enum ResolvedImportPath {
-    Exact,
+    Exact {
+        target_module: String,
+        target_package: Option<String>,
+    },
     ExplicitAlias(ResolvedExplicitImportAlias),
+}
+
+#[derive(Clone, Debug)]
+pub enum ResolvedImportPathSelection {
+    Resolved(ResolvedImportPath),
+    Blocked,
+    Missing,
 }
 
 pub struct ResolvedImportPathIndex<'a> {
@@ -134,21 +144,52 @@ impl<'a> ResolvedImportPathIndex<'a> {
         segments: impl IntoIterator<Item = &'s str>,
         current_module: Option<&str>,
     ) -> Option<ResolvedImportPath> {
-        let (use_decl, explicit_alias) =
-            self.imports
-                .imported_use_for_prefixes(segments, current_module, None)?;
-        if explicit_alias {
-            return Some(ResolvedImportPath::ExplicitAlias(
-                ResolvedExplicitImportAlias {
-                    declaring_module: use_decl.module_name.clone()?,
-                    name: use_decl.alias.clone(),
-                    span: use_decl.alias_span.clone()?,
-                    target_module: use_decl.name.clone(),
-                    target_package: use_decl.package.clone(),
-                },
-            ));
+        let segments = segments.into_iter().collect::<Vec<_>>();
+        let ImportPrefixSelection::Selected {
+            index,
+            explicit_alias,
+            consumed_segments,
+        } = self
+            .imports
+            .select_import_prefixes(segments.iter().copied(), current_module, None)
+        else {
+            return None;
+        };
+        let use_decl = self.imports.selected_use(index)?;
+        Some(resolved_import_path_from_selection(
+            use_decl,
+            explicit_alias,
+            &segments[consumed_segments..],
+        ))
+    }
+
+    pub fn select_prefixes<'s>(
+        &self,
+        segments: impl IntoIterator<Item = &'s str>,
+        current_module: Option<&str>,
+    ) -> ResolvedImportPathSelection {
+        let segments = segments.into_iter().collect::<Vec<_>>();
+        match self
+            .imports
+            .select_import_prefixes(segments.iter().copied(), current_module, None)
+        {
+            ImportPrefixSelection::Selected {
+                index,
+                explicit_alias,
+                consumed_segments,
+            } => {
+                let Some(use_decl) = self.imports.selected_use(index) else {
+                    return ResolvedImportPathSelection::Missing;
+                };
+                ResolvedImportPathSelection::Resolved(resolved_import_path_from_selection(
+                    use_decl,
+                    explicit_alias,
+                    &segments[consumed_segments..],
+                ))
+            }
+            ImportPrefixSelection::Blocked => ResolvedImportPathSelection::Blocked,
+            ImportPrefixSelection::Missing => ResolvedImportPathSelection::Missing,
         }
-        Some(ResolvedImportPath::Exact)
     }
 }
 
@@ -209,7 +250,39 @@ fn resolved_import_path_from_use(
             },
         ));
     }
-    Some(ResolvedImportPath::Exact)
+    Some(ResolvedImportPath::Exact {
+        target_module: use_decl.name.clone(),
+        target_package: use_decl.package.clone(),
+    })
+}
+
+fn resolved_import_path_from_selection(
+    use_decl: &veln_ast::UseDecl,
+    explicit_alias: bool,
+    suffix: &[&str],
+) -> ResolvedImportPath {
+    let target_module = if suffix.is_empty() {
+        use_decl.name.clone()
+    } else {
+        format!("{}::{}", use_decl.name, suffix.join("::"))
+    };
+    if explicit_alias {
+        ResolvedImportPath::ExplicitAlias(ResolvedExplicitImportAlias {
+            declaring_module: use_decl.module_name.clone().unwrap_or_default(),
+            name: use_decl.alias.clone(),
+            span: use_decl
+                .alias_span
+                .clone()
+                .unwrap_or_else(|| use_decl.span.clone()),
+            target_module,
+            target_package: use_decl.package.clone(),
+        })
+    } else {
+        ResolvedImportPath::Exact {
+            target_module,
+            target_package: use_decl.package.clone(),
+        }
+    }
 }
 
 pub fn import_namespace_participants(module: &SurfaceModule) -> Vec<ImportNamespaceParticipant> {

@@ -139,7 +139,10 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<TypeAliasSymbol> {
         let qualified_modules = self.qualified_module_candidates(file, qualifier);
-        let unique_qualified_modules = qualified_modules.iter().collect::<BTreeSet<_>>();
+        let unique_qualified_modules = qualified_modules
+            .iter()
+            .map(|identity| identity.module.as_str())
+            .collect::<BTreeSet<_>>();
         if unique_qualified_modules.iter().any(|module| {
             self.workspace_types_in_module(module, name)
                 .any(|symbol| {
@@ -696,7 +699,13 @@ impl SymbolIndex {
                 Some(package) => {
                     valid_function_navigation_symbol(symbol)
                         && symbol.name == name
-                        && qualified_modules.iter().any(|module| module == &symbol.module)
+                        && qualified_modules.iter().any(|module| {
+                            qualified_module_matches(
+                                module,
+                                &symbol.module,
+                                Some(package.as_str()),
+                            )
+                        })
                         && (symbol.standard_prelude
                             || file
                                 .external_uses
@@ -705,7 +714,9 @@ impl SymbolIndex {
                 None => {
                     valid_function_navigation_symbol(symbol)
                         && symbol.name == name
-                        && qualified_modules.iter().any(|module| module == &symbol.module)
+                        && qualified_modules.iter().any(|module| {
+                            qualified_module_matches(module, &symbol.module, None)
+                        })
                         && file.uses.contains(&symbol.module)
                         && (symbol.public
                             || file
@@ -841,12 +852,21 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<ConstructorSymbol> {
         let qualified_modules = self.qualified_module_candidates(file, qualifier);
+        if qualified_modules.is_empty() {
+            return None;
+        }
         self.first_constructor_matching(|symbol| {
             symbol.package.is_none()
                 && symbol.name == name
+                && qualified_modules
+                    .iter()
+                    .any(|module| qualified_package_matches(module, None))
                 && (qualified_modules
                     .iter()
-                    .any(|module| constructor_qualifier_matches(symbol, module))
+                    .any(|module| {
+                        qualified_package_matches(module, None)
+                            && constructor_qualifier_matches(symbol, &module.module)
+                    })
                     || (qualifier == symbol.type_name && symbol.module == file.module)
                     || self.workspace_constructor_reexport_qualifier_matches(
                         file, symbol, qualifier,
@@ -861,10 +881,19 @@ impl SymbolIndex {
                 symbol.name == name
                     && (qualified_modules
                         .iter()
-                        .any(|module| constructor_qualifier_matches(symbol, module))
+                        .any(|module| {
+                            qualified_package_matches(module, symbol.package.as_deref())
+                                && constructor_qualifier_matches(symbol, &module.module)
+                        })
                         || qualified_modules
                             .iter()
-                            .any(|module| module == &format!("{}::{}", symbol.module, symbol.type_name)))
+                            .any(|module| {
+                                qualified_module_matches(
+                                    module,
+                                    &format!("{}::{}", symbol.module, symbol.type_name),
+                                    symbol.package.as_deref(),
+                                )
+                            }))
                     && match &symbol.package {
                         Some(package) => {
                             symbol.standard_prelude
@@ -881,6 +910,9 @@ impl SymbolIndex {
                 symbol.name == name
                     && symbol.public
                     && symbol.package.is_some()
+                    && qualified_modules.iter().any(|module| {
+                        qualified_package_matches(module, symbol.package.as_deref())
+                    })
                     && self.package_constructor_reexport_qualifier_matches(file, symbol, qualifier)
             })
             .map(constructor_selected_through_public_alias)

@@ -1,6 +1,6 @@
 mod blocked_exact
-use api as first from "one"
-use api as second from "two"
+use api as first from "example/one"
+use api as second from "example/two"
 use fallback as api
 
 fn main() -> Int
