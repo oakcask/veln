@@ -838,7 +838,7 @@ fn imported_module_values_follow_bare_qualified_and_alias_exposure() {
     let module = merged_modules_with_identities(vec![
         (
             "values",
-            SourceFile::new("values.veln", "pub let answer: String = \"imported\"\n"),
+            SourceFile::new("values.veln", "pub let answer: Int = 42\n"),
         ),
         (
             "app",
@@ -888,7 +888,7 @@ fn imported_module_values_follow_bare_qualified_and_alias_exposure() {
     assert!(
         diagnostics.iter().all(|diagnostic| {
             diagnostic.id != "value.module_initializer_unsupported"
-                && diagnostic.id != "type.annotation_mismatch"
+                && diagnostic.id != "type.mismatch"
         }),
         "{diagnostics:#?}"
     );
