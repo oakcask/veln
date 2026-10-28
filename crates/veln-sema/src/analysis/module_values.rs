@@ -207,8 +207,7 @@ fn check_module_value(
     let mut has_invalid_dependency = false;
     collect_dependencies(
         &value.initializer,
-        value.module_name.as_deref(),
-        value.package_name.as_deref(),
+        value,
         value_indices,
         environment,
         &mut Vec::new(),

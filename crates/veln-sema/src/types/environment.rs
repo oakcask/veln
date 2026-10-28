@@ -146,14 +146,14 @@ impl TypeEnvironment {
         let Some((name, _)) = segments.split_last() else {
             return ModuleValueLookup::Missing;
         };
-        if self.same_module_value_path_matches_in_owner(segments, current_module, current_package) {
-            if let Some(index) = self.module_values_by_identity.get(&(
+        if self.same_module_value_path_matches_in_owner(segments, current_module, current_package)
+            && let Some(index) = self.module_values_by_identity.get(&(
                 current_package.map(str::to_owned),
                 current_module.map(str::to_owned),
                 name.clone(),
-            )) {
-                return self.module_value_at_index(*index);
-            }
+            ))
+        {
+            return self.module_value_at_index(*index);
         }
 
         if segments.len() == 1 {

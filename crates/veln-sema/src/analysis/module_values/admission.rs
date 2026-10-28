@@ -214,8 +214,7 @@ fn check_admitted_arguments(
 
 pub(super) fn collect_dependencies(
     expr: &Expr,
-    current_module: Option<&str>,
-    current_package: Option<&str>,
+    declaration: &veln_ast::ModuleValueDecl,
     value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &TypeEnvironment,
     bindings: &mut Vec<String>,
@@ -227,8 +226,8 @@ pub(super) fn collect_dependencies(
         && let Some(target) = module_value_index(
             value_indices,
             segments,
-            current_module,
-            current_package,
+            declaration.module_name.as_deref(),
+            declaration.package_name.as_deref(),
             environment,
         )
     {
@@ -244,8 +243,7 @@ pub(super) fn collect_dependencies(
         ExprKind::Match { scrutinee, arms } => {
             collect_dependencies(
                 scrutinee,
-                current_module,
-                current_package,
+                declaration,
                 value_indices,
                 environment,
                 bindings,
@@ -258,8 +256,7 @@ pub(super) fn collect_dependencies(
                     .for_each_binding(&mut |name| bindings.push(name.to_string()));
                 collect_dependencies(
                     &arm.expr,
-                    current_module,
-                    current_package,
+                    declaration,
                     value_indices,
                     environment,
                     bindings,
@@ -273,8 +270,7 @@ pub(super) fn collect_dependencies(
             let binding_count = bindings.len();
             collect_body_dependencies(
                 body,
-                current_module,
-                current_package,
+                declaration,
                 value_indices,
                 environment,
                 bindings,
@@ -286,8 +282,7 @@ pub(super) fn collect_dependencies(
         _ => expr.for_each_child(&mut |child| {
             collect_dependencies(
                 child,
-                current_module,
-                current_package,
+                declaration,
                 value_indices,
                 environment,
                 bindings,
@@ -300,8 +295,7 @@ pub(super) fn collect_dependencies(
 
 fn collect_body_dependencies(
     body: &[BodyLine],
-    current_module: Option<&str>,
-    current_package: Option<&str>,
+    declaration: &veln_ast::ModuleValueDecl,
     value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &TypeEnvironment,
     bindings: &mut Vec<String>,
@@ -313,8 +307,7 @@ fn collect_body_dependencies(
             BodyLineKind::Let { pattern, expr, .. } => {
                 collect_dependencies(
                     expr,
-                    current_module,
-                    current_package,
+                    declaration,
                     value_indices,
                     environment,
                     bindings,
@@ -325,8 +318,7 @@ fn collect_body_dependencies(
             }
             BodyLineKind::Expr { expr } => collect_dependencies(
                 expr,
-                current_module,
-                current_package,
+                declaration,
                 value_indices,
                 environment,
                 bindings,
@@ -337,8 +329,7 @@ fn collect_body_dependencies(
                 let binding_count = bindings.len();
                 collect_body_dependencies(
                     body,
-                    current_module,
-                    current_package,
+                    declaration,
                     value_indices,
                     environment,
                     bindings,
