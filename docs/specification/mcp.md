@@ -424,10 +424,11 @@ order when it projects locations and conflict provenance. The checked
 [`explicit-import-alias-navigation`](../../examples/specification/mcp/explicit-import-alias-navigation/)
 transcript covers alias and member destinations, exact written-path
 precedence, recovered-import rename, reference sets, exact edit sets, stable
-failure details, contextual aliases, and edit-free rename rejection. Its paired
-LSP transcript checks the same destinations, edits, and failures through the
-LSP projection. Shared-language-service tests check the source-reordering
-invariant before either adapter projects the result.
+failure details, contextual aliases, and edit-free rename rejection for
+another import and for the selected alias's own target path. Its paired LSP
+transcript checks the same destinations, edits, and failures through the LSP
+projection. Shared-language-service tests check the source-reordering invariant
+before either adapter projects the result.
 
 For an eligible public workspace effect, `definition` and `references` accept
 selection at the declaration, a bare same-module occurrence, or the
@@ -621,10 +622,12 @@ declaration and qualifier occurrences in the owning module only. The written
 target, member leaves, and same-spelled aliases in other modules are excluded.
 The reserved replacement `prelude` returns `rename.reserved` with
 `symbol_class` and `requested_name`. A collision with another qualifier or
-exact path in the owning import namespace returns `rename.conflict`. Neither
-failure contains edits. Renaming a member reached through an alias continues
-to use the member identity and edits member leaves without editing alias
-tokens.
+exact path in the owning import namespace returns `rename.conflict`. Exact
+paths include the selected alias declaration's own written target; that
+collision reports the target's final path segment as the conflicting
+declaration. Neither failure contains edits. Renaming a member reached through
+an alias continues to use the member identity and edits member leaves without
+editing alias tokens.
 
 A workspace type alias keeps a rename identity separate from its target type
 and from same-spelled type declarations. Its edits include type positions that

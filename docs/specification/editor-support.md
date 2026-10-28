@@ -335,8 +335,11 @@ An invalid-cased, reserved, colliding, duplicate-target, or syntax-recovered
 alias creates no normal alias navigation identity. An alias replacement must
 start with an ASCII lowercase letter. The name `prelude` returns
 `rename.reserved`, and a collision in the owning module's import namespace
-returns `rename.conflict`. A syntax-recovered import does not participate in
-that namespace and cannot block a valid rename. Both failures produce no edits.
+returns `rename.conflict`. The namespace includes every written exact import
+path, including the selected alias declaration's own target path. A conflict
+with that target reports its final path segment as the conflicting declaration.
+A syntax-recovered import does not participate in that namespace and cannot
+block a valid rename. Both failures produce no edits.
 
 Sources with one module identity may be supplied in any order. Alias
 selection, definition, reference sets, and rename edit sets stay unchanged.
@@ -346,9 +349,10 @@ references, prepare-rename, and rename project the shared result with their
 ordinary UTF-16 coordinate conversion. The checked
 [`explicit-import-alias-navigation`](../../examples/specification/lsp/explicit-import-alias-navigation/)
 case covers alias and target-member projection, exact-path precedence,
-recovered-import rename, stable conflict details, edit-free rejection, and
-invalid-alias exclusion. Shared-language-service tests cover complete
-rename edit sets in the original and reversed combined-source order.
+recovered-import rename, conflicts with another import and with the selected
+alias's own target path, stable conflict details, edit-free rejection, and
+invalid-alias exclusion. Shared-language-service tests cover complete rename
+edit sets in the original and reversed combined-source order.
 
 Alias-index construction retains module-owned import bindings and resolved
 qualifier occurrences. Checked adjacent-size workloads double, independently:
