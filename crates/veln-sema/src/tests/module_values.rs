@@ -30,6 +30,44 @@ fn module_with_value_chain(count: usize) -> SurfaceModule {
     lower_surface_ast(&parsed.tree)
 }
 
+fn module_with_imported_invalidation_chain(count: usize) -> SurfaceModule {
+    let mut merged = SurfaceModule {
+        module: None,
+        uses: Vec::new(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        types: Vec::new(),
+        module_values: Vec::new(),
+        functions: Vec::new(),
+        invalid_names: Vec::new(),
+    };
+    for index in 0..count {
+        let module_name = format!("chain_{index}");
+        let text = if index == 0 {
+            "pub let value_0: Missing = 0\n".to_string()
+        } else {
+            format!(
+                "use chain_{}\npub let value_{index}: Int = value_{}\n",
+                index - 1,
+                index - 1,
+            )
+        };
+        let source = SourceFile::new(format!("chain_{index}.veln"), text);
+        let module = veln_ast::lower_surface_ast_with_module_identity(
+            &parse(&source).tree,
+            module_name,
+            source.span(veln_source::TextRange::new(0, 0)),
+        );
+        merged.module = module.module;
+        merged.uses.extend(module.uses);
+        merged.module_values.extend(module.module_values);
+        merged.invalid_names.extend(module.invalid_names);
+    }
+    merged
+}
+
 fn module_with_unresolved_value_annotations(count: usize) -> SurfaceModule {
     let source = SourceFile::new(
         "main.veln",
@@ -313,6 +351,64 @@ fn module_value_dependency_analysis_reports_adjacent_size_timings() {
         assert_eq!(diagnostics.len(), count, "{diagnostics:#?}");
         eprintln!("module value dependencies: {count} declarations in {elapsed:?}");
     }
+}
+
+#[test]
+#[ignore = "supporting wall-clock evidence; deterministic availability work is asserted separately"]
+fn imported_module_value_invalidation_chain_reports_adjacent_size_timings() {
+    for count in [128, 256, 512] {
+        let module = module_with_imported_invalidation_chain(count);
+        let started = std::time::Instant::now();
+        let diagnostics = analyze_surface_module(&module);
+        let elapsed = started.elapsed();
+
+        assert!(diagnostics.len() >= count, "{diagnostics:#?}");
+        eprintln!("imported module value invalidation: {count} declarations in {elapsed:?}");
+    }
+}
+
+#[test]
+fn imported_module_value_invalidation_work_is_adjacent_linear() {
+    fn work_for(count: usize) -> crate::analysis::ModuleValueAvailabilityWork {
+        let module = module_with_imported_invalidation_chain(count);
+        reset_module_value_availability_work();
+        let diagnostics = analyze_surface_module(&module);
+        let work = take_module_value_availability_work();
+
+        assert!(diagnostics.len() >= count, "{diagnostics:#?}");
+        assert!(work.semantic_visits <= count * 4 + 4, "{work:#?}");
+        assert!(
+            work.full_exposure_rebuild_entries <= count * 2 + count.saturating_sub(1) + 4,
+            "{work:#?}"
+        );
+        assert!(work.availability_updates <= count + 1, "{work:#?}");
+        assert!(work.peak_pending_owners <= count, "{work:#?}");
+        assert!(
+            work.peak_retained_availability_identities <= count * 2,
+            "{work:#?}"
+        );
+        work
+    }
+
+    let smaller = work_for(64);
+    let larger = work_for(128);
+    assert!(
+        larger.semantic_visits <= smaller.semantic_visits * 2 + 4,
+        "{smaller:#?} -> {larger:#?}"
+    );
+    assert!(
+        larger.full_exposure_rebuild_entries <= smaller.full_exposure_rebuild_entries * 2 + 4,
+        "{smaller:#?} -> {larger:#?}"
+    );
+    assert!(
+        larger.availability_updates <= smaller.availability_updates * 2 + 1,
+        "{smaller:#?} -> {larger:#?}"
+    );
+    assert!(
+        larger.peak_retained_availability_identities
+            <= smaller.peak_retained_availability_identities * 2,
+        "{smaller:#?} -> {larger:#?}"
+    );
 }
 
 #[test]

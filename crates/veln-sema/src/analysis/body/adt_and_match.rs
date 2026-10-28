@@ -903,7 +903,7 @@ impl<'a> FunctionChecker<'a> {
         let pattern_scrutinee_type = match infer_match_scrutinee_type_from_constructor_patterns(
             arms,
             self.function.module_name.as_deref(),
-            &self.environment.uses,
+            &self.resolution_uses,
             &self.environment.adts,
         ) {
             MatchScrutineePatternInference::Inferred(ty) => Some(ty),
@@ -991,7 +991,7 @@ impl<'a> FunctionChecker<'a> {
             constructor_name,
             descriptor,
             self.function.module_name.as_deref(),
-            &self.environment.uses,
+            &self.resolution_uses,
         )?;
         let variant = constructor.variant.name.clone();
         let variant_rank = coverage.rank(&variant)?;
@@ -1537,7 +1537,7 @@ impl<'a> FunctionChecker<'a> {
             name,
             descriptor,
             self.function.module_name.as_deref(),
-            &self.environment.uses,
+            &self.resolution_uses,
         )?;
         if args.len() != constructor.variant.payload_fields.len() {
             return None;
@@ -1572,7 +1572,7 @@ impl<'a> FunctionChecker<'a> {
                     name,
                     descriptor,
                     self.function.module_name.as_deref(),
-                    &self.environment.uses,
+                    &self.resolution_uses,
                 ) else {
                     return false;
                 };

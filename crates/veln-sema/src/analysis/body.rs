@@ -223,7 +223,9 @@ fn literal_or_unit_pattern_is_compatible(pattern: &Pattern, expected: &Type) -> 
 pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) function: &'a Function,
     pub(super) environment: &'a TypeEnvironment,
+    pub(super) resolution_uses: Vec<veln_ast::UseDecl>,
     pub(super) supports_callsite_modifier: bool,
+    pub(super) annotation_owner_prevalidated: bool,
     pub(super) declaration_types_are_quarantined: bool,
     pub(super) bindings: Vec<Binding>,
     binding_positions: HashMap<String, Vec<usize>>,
@@ -478,6 +480,7 @@ impl<'a> FunctionChecker<'a> {
             function,
             environment,
             function.kind == FunctionKind::Function,
+            false,
             variant_diagnostics,
         )
     }
@@ -487,35 +490,72 @@ impl<'a> FunctionChecker<'a> {
         environment: &'a TypeEnvironment,
         variant_diagnostics: &'a mut VariantDiagnosticInterner,
     ) -> Self {
-        Self::new(function, environment, false, variant_diagnostics)
+        Self::new(
+            function,
+            environment,
+            false,
+            function.package_name.is_some(),
+            variant_diagnostics,
+        )
     }
 
     fn new(
         function: &'a Function,
         environment: &'a TypeEnvironment,
         supports_callsite_modifier: bool,
+        annotation_owner_prevalidated: bool,
         variant_diagnostics: &'a mut VariantDiagnosticInterner,
     ) -> Self {
-        let declaration_types_are_quarantined = annotation_has_unavailable_refinement_identity(
-            &function.return_type_refinements,
-            &function.return_type_paths,
-            function.module_name.as_deref(),
-            environment,
-            &[],
-        ) || (function.kind == FunctionKind::Function
-            && function.params.iter().any(|param| {
-                annotation_has_unavailable_refinement_identity(
-                    &param.ty_refinements,
-                    &param.ty_paths,
+        let owner_paths_are_resolved = |paths: &[veln_ast::TypePathSegments]| {
+            paths.iter().all(|path| {
+                environment.annotation_type_path_is_resolved_in_owner(
+                    &path.segments.join("::"),
+                    path.type_argument_count,
                     function.module_name.as_deref(),
-                    environment,
-                    &[],
+                    function.package_name.as_deref(),
                 )
-            }));
+            })
+        };
+        let declaration_types_are_quarantined = if annotation_owner_prevalidated {
+            !owner_paths_are_resolved(&function.return_type_paths)
+                || (function.kind == FunctionKind::Function
+                    && function
+                        .params
+                        .iter()
+                        .any(|param| !owner_paths_are_resolved(&param.ty_paths)))
+        } else {
+            annotation_has_unavailable_refinement_identity(
+                &function.return_type_refinements,
+                &function.return_type_paths,
+                function.module_name.as_deref(),
+                environment,
+                &[],
+            ) || (function.kind == FunctionKind::Function
+                && function.params.iter().any(|param| {
+                    annotation_has_unavailable_refinement_identity(
+                        &param.ty_refinements,
+                        &param.ty_paths,
+                        function.module_name.as_deref(),
+                        environment,
+                        &[],
+                    )
+                }))
+        };
+        let resolution_uses = environment
+            .uses
+            .iter()
+            .filter(|use_decl| {
+                use_decl.module_name.as_deref() == function.module_name.as_deref()
+                    && use_decl.importing_package.as_deref() == function.package_name.as_deref()
+            })
+            .cloned()
+            .collect();
         Self {
             function,
             environment,
+            resolution_uses,
             supports_callsite_modifier,
+            annotation_owner_prevalidated,
             declaration_types_are_quarantined,
             bindings: Vec::new(),
             binding_positions: HashMap::new(),

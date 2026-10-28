@@ -434,7 +434,6 @@ fn check_module_declarations(
     let mut diagnostics = Vec::new();
 
     let module_value_analysis = check_module_values(module, environment, variant_diagnostics);
-    environment.quarantine_module_values(&module_value_analysis.invalid);
     diagnostics.extend(module_value_analysis.diagnostics);
     diagnostics.extend(
         module

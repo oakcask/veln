@@ -248,6 +248,8 @@ target-specific, package-local, and non-transitive. The checked cases cover
 [`local function precedence`](../../examples/specification/check/module-value-local-function-precedence-human/),
 [`package identity human`](../../examples/specification/check/module-value-imported-package-identity-human/),
 [`package identity JSON`](../../examples/specification/check/module-value-imported-package-identity-json/),
+[`imported annotation owner human`](../../examples/specification/check/module-value-imported-annotation-owner-human/),
+[`imported annotation owner JSON`](../../examples/specification/check/module-value-imported-annotation-owner-json/),
 [`invalid imported exposure human`](../../examples/specification/check/module-value-invalid-import-exposure-human/),
 [`invalid imported exposure JSON`](../../examples/specification/check/module-value-invalid-import-exposure-json/),
 [`owner-package fallback human`](../../examples/specification/check/module-value-owner-package-fallback-human/),

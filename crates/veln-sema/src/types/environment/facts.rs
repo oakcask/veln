@@ -165,7 +165,6 @@ fn initial_environment(
     symbols: SymbolFacts,
 ) -> TypeEnvironment {
     TypeEnvironment {
-        resolution_owner: None,
         module_values: base
             .map(|base| base.module_values.clone())
             .unwrap_or_default(),
@@ -173,7 +172,10 @@ fn initial_environment(
             .map(|base| base.module_values_by_identity.clone())
             .unwrap_or_default(),
         bare_module_values: HashMap::new(),
+        bare_module_value_keys_by_identity: HashMap::new(),
+        module_value_import_owners: HashMap::new(),
         qualified_module_value_imports: HashMap::new(),
+        qualified_ambiguous_keys_by_identity: HashMap::new(),
         exact_module_value_imports: exact_module_value_import_paths(&symbols.uses),
         blocked_exact_module_value_imports: symbols.blocked_exact_import_paths,
         public_module_value_identities: HashSet::new(),

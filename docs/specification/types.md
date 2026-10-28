@@ -714,6 +714,11 @@ and
 [`invalid imported exposure JSON`](../../examples/specification/check/module-value-invalid-import-exposure-json/)
 cases cover bare and qualified initializer references after imported
 availability settles. The checked
+[`imported annotation owner human`](../../examples/specification/check/module-value-imported-annotation-owner-human/)
+and
+[`imported annotation owner JSON`](../../examples/specification/check/module-value-imported-annotation-owner-json/)
+cases cover annotations and constructors selected from a sibling module in the
+declaration's package, including recursive and rejected private exposure. The checked
 [`open annotation failure`](../../examples/specification/check/module-value-open-annotation-human/)
 case verifies that an undeclared type parameter cannot escape through a module
 value annotation.
@@ -1504,5 +1509,7 @@ inventing an arithmetic rewrite.
   `crates/veln-sema/src/tests/import_package_identity.rs`.
 - Module-value annotation ownership and visibility across same-spelled package
   modules: `crates/veln-sema/src/tests/import_package_identity.rs`.
+- Imported module-value availability propagation and its deterministic work
+  counters: `crates/veln-sema/src/tests/module_values.rs`.
 - Parser coverage: `crates/veln-syntax/src/tests/calls_and_generics.rs`,
   `literals_and_numbers.rs`, and `patterns_and_control_flow.rs`.

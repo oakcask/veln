@@ -177,6 +177,83 @@ fn public_module_value_visibility_uses_complete_package_and_module_owner() {
 }
 
 #[test]
+fn dependency_owned_module_value_annotations_use_imported_sibling_types() {
+    let states = concat!(
+        "type Secret\n",
+        "  pub Value\n",
+        "end\n",
+        "pub type State\n",
+        "  pub Ready\n",
+        "  Hidden\n",
+        "end\n",
+    );
+    let shared = concat!(
+        "use states\n",
+        "pub let ready: states::State::Ready = states::State::Ready\n",
+        "pub let nested: {state: states::State::Ready} = {state: states::State::Ready}\n",
+        "pub let private_named: {secret: states::Secret} = 0\n",
+        "pub let private_variant: Option<states::State::Hidden> = 0\n",
+    );
+
+    for reverse in [false, true] {
+        let mut one_states = source_module("one/states.veln", states, Some("one/pkg"), "states");
+        let mut one_shared = source_module("one/shared.veln", shared, Some("one/pkg"), "shared");
+        let mut two_states = source_module("two/states.veln", states, Some("two/pkg"), "states");
+        let mut two_shared = source_module("two/shared.veln", shared, Some("two/pkg"), "shared");
+        set_declaration_module_name(&mut one_states, "states");
+        set_declaration_module_name(&mut one_shared, "shared");
+        set_declaration_module_name(&mut two_states, "states");
+        set_declaration_module_name(&mut two_shared, "shared");
+        assert!(one_shared.types.is_empty());
+        assert!(two_shared.types.is_empty());
+
+        let ordered = if reverse {
+            [two_shared, one_states, two_states, one_shared]
+        } else {
+            [one_shared, two_states, one_states, two_shared]
+        };
+        let mut module = ordered[0].clone();
+        for other in ordered.into_iter().skip(1) {
+            extend(&mut module, other);
+        }
+
+        let diagnostics = analyze_surface_module(&module);
+        assert!(
+            diagnostics.iter().all(|diagnostic| {
+                diagnostic.id != "type.invalid_annotation"
+                    && !(diagnostic.id == "name.unresolved"
+                        && diagnostic.message.contains("State::Ready"))
+            }),
+            "reverse={reverse}: {diagnostics:#?}"
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.public_annotation_private")
+                .count(),
+            2,
+            "reverse={reverse}: {diagnostics:#?}"
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+                .count(),
+            2,
+            "reverse={reverse}: {diagnostics:#?}"
+        );
+        for package in ["one/pkg::states", "two/pkg::states"] {
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| format!("{diagnostic:?}").contains(package)),
+                "missing provenance for {package}: {diagnostics:#?}"
+            );
+        }
+    }
+}
+
+#[test]
 fn module_value_annotation_does_not_fall_back_to_a_namesake_package() {
     for reverse in [false, true] {
         let one = source_module(

@@ -1,0 +1,38 @@
+command = ["check", "--json", "app.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["type.public_annotation_private", "type.variant_refinement_private", "private_type_declaration", "private_variant_declaration", "public_module_value_boundary", "one/pkg::states::Secret", "two/pkg::states::Secret", "one/pkg::states::State", "two/pkg::states::State"]
+not_contains = ["type.invalid_annotation", "unresolved type `states::State::Ready`", "name.ambiguous"]
+
+[stderr]
+format = "empty"
+
+[[diagnostics]]
+id = "type.public_annotation_private"
+severity = "error"
+kind = "type"
+message = "public module value annotation exposes private type `one/pkg::states::Secret`"
+
+[[diagnostics]]
+id = "type.variant_refinement_private"
+severity = "error"
+kind = "type"
+message = "public refinement exposes private variant `one/pkg::states::State::Hidden`"
+
+[[diagnostics]]
+id = "type.public_annotation_private"
+severity = "error"
+kind = "type"
+message = "public module value annotation exposes private type `two/pkg::states::Secret`"
+
+[[diagnostics]]
+id = "type.variant_refinement_private"
+severity = "error"
+kind = "type"
+message = "public refinement exposes private variant `two/pkg::states::State::Hidden`"
+
+[[json_assert]]
+path = "status"
+equals = "error"

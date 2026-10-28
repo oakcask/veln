@@ -34,7 +34,7 @@ impl<'a> FunctionChecker<'a> {
         match self.environment.adts.nullary_constructor(
             segments,
             self.function.module_name.as_deref(),
-            &self.environment.uses,
+            &self.resolution_uses,
         ) {
             ConstructorLookup::Found(constructor) => {
                 self.infer_nullary_constructor_name(segments, expr, expected, constructor)
@@ -74,7 +74,7 @@ impl<'a> FunctionChecker<'a> {
                     segments,
                     descriptor,
                     self.function.module_name.as_deref(),
-                    &self.environment.uses,
+                    &self.resolution_uses,
                 )
             })
             .filter(|constructor| constructor.variant.payload_fields.is_empty())?;
@@ -350,7 +350,7 @@ impl<'a> FunctionChecker<'a> {
             match self.environment.adts.constructor(
                 segments,
                 self.function.module_name.as_deref(),
-                &self.environment.uses,
+                &self.resolution_uses,
             ) {
                 ConstructorLookup::Found(constructor)
                     if !constructor.variant.payload_fields.is_empty() =>
@@ -399,7 +399,7 @@ impl<'a> FunctionChecker<'a> {
                     segments,
                     descriptor,
                     self.function.module_name.as_deref(),
-                    &self.environment.uses,
+                    &self.resolution_uses,
                 )
             })
             .filter(|constructor| !constructor.variant.payload_fields.is_empty())?;

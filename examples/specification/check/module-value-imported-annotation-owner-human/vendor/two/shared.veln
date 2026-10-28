@@ -1,0 +1,6 @@
+use states
+
+pub let nested: {state: states::State::Ready} = {state: states::Ready}
+pub let ready: states::State::Ready = states::Ready
+pub let private_variant: Option<states::State::Hidden> = 0
+pub let private_named: {secret: states::Secret} = 0

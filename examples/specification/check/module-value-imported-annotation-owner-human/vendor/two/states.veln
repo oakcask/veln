@@ -1,0 +1,8 @@
+type Secret
+	pub Value
+end
+
+pub type State
+	pub Ready
+	Hidden
+end

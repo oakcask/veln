@@ -33,6 +33,66 @@ pub(crate) struct ModuleValueAnalysis {
 
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct ModuleValueAvailabilityWork {
+    pub(crate) semantic_visits: usize,
+    pub(crate) full_exposure_rebuild_entries: usize,
+    pub(crate) availability_updates: usize,
+    pub(crate) peak_pending_owners: usize,
+    pub(crate) peak_retained_availability_identities: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    static MODULE_VALUE_AVAILABILITY_WORK:
+        std::cell::Cell<ModuleValueAvailabilityWork> =
+        const { std::cell::Cell::new(ModuleValueAvailabilityWork {
+            semantic_visits: 0,
+            full_exposure_rebuild_entries: 0,
+            availability_updates: 0,
+            peak_pending_owners: 0,
+            peak_retained_availability_identities: 0,
+        }) };
+}
+
+#[cfg(test)]
+fn update_module_value_availability_work(update: impl FnOnce(&mut ModuleValueAvailabilityWork)) {
+    MODULE_VALUE_AVAILABILITY_WORK.set({
+        let mut work = MODULE_VALUE_AVAILABILITY_WORK.get();
+        update(&mut work);
+        work
+    });
+}
+
+#[cfg(test)]
+pub(crate) fn reset_module_value_availability_work() {
+    MODULE_VALUE_AVAILABILITY_WORK.set(ModuleValueAvailabilityWork::default());
+}
+
+#[cfg(test)]
+pub(crate) fn take_module_value_availability_work() -> ModuleValueAvailabilityWork {
+    MODULE_VALUE_AVAILABILITY_WORK.replace(ModuleValueAvailabilityWork::default())
+}
+
+#[cfg(test)]
+pub(crate) fn record_module_value_exposure_rebuild(entries: usize) {
+    update_module_value_availability_work(|work| {
+        work.full_exposure_rebuild_entries += entries;
+    });
+}
+
+#[cfg(not(test))]
+pub(crate) fn record_module_value_exposure_rebuild(_entries: usize) {}
+
+#[cfg(test)]
+pub(crate) fn record_module_value_availability_update() {
+    update_module_value_availability_work(|work| work.availability_updates += 1);
+}
+
+#[cfg(not(test))]
+pub(crate) fn record_module_value_availability_update() {}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct ModuleValueAnnotationDedupWork {
     pub(crate) indexed_diagnostics: usize,
     pub(crate) path_lookups: usize,
@@ -79,22 +139,140 @@ pub(crate) fn check_module_values(
     unavailable.extend(invalid_cased_module_value_identities(module));
     environment.quarantine_module_values(&unavailable);
 
-    let mut seen = BTreeSet::new();
-    loop {
-        let analysis = check_module_values_once(module, environment, variant_diagnostics);
-        if analysis.invalid == unavailable {
-            return analysis;
+    let initial = check_module_values_once(module, environment, variant_diagnostics);
+    let mut pending_owners = BTreeSet::new();
+    apply_availability_changes(
+        &mut unavailable,
+        &initial.invalid,
+        environment,
+        &mut pending_owners,
+    );
+    let mut ever_unavailable = unavailable.clone();
+    #[cfg(test)]
+    update_module_value_availability_work(|work| {
+        work.peak_pending_owners = work.peak_pending_owners.max(pending_owners.len());
+        work.peak_retained_availability_identities = work
+            .peak_retained_availability_identities
+            .max(unavailable.len() + ever_unavailable.len());
+    });
+    let mut invalid_by_owner = invalid_identities_by_owner(&unavailable);
+
+    let mut owner_updates = 0usize;
+    let update_limit = module.module_values.len().saturating_mul(4).max(1);
+    while let Some(owner) = pending_owners.pop_first() {
+        let owner_module = module_values_for_owner(module, &owner);
+        if owner_module.module_values.is_empty() {
+            continue;
         }
-        if !seen.insert(unavailable.clone()) {
-            let mut conservative = unavailable;
-            conservative.extend(analysis.invalid);
-            environment.quarantine_module_values(&conservative);
-            let mut analysis = check_module_values_once(module, environment, variant_diagnostics);
-            analysis.invalid.extend(conservative);
-            return analysis;
+        let owner_analysis =
+            check_module_values_once(&owner_module, environment, variant_diagnostics);
+        apply_owner_availability_changes(
+            &owner,
+            &mut unavailable,
+            &mut invalid_by_owner,
+            owner_analysis.invalid,
+            environment,
+            &mut pending_owners,
+        );
+        ever_unavailable.extend(unavailable.iter().cloned());
+        #[cfg(test)]
+        update_module_value_availability_work(|work| {
+            work.peak_pending_owners = work.peak_pending_owners.max(pending_owners.len());
+            work.peak_retained_availability_identities = work
+                .peak_retained_availability_identities
+                .max(unavailable.len() + ever_unavailable.len());
+        });
+        owner_updates += 1;
+        if owner_updates > update_limit {
+            unavailable = ever_unavailable;
+            environment.quarantine_module_values(&unavailable);
+            break;
         }
-        unavailable = analysis.invalid;
-        environment.quarantine_module_values(&unavailable);
+    }
+
+    let mut final_analysis = check_module_values_once(module, environment, variant_diagnostics);
+    final_analysis.invalid.extend(unavailable);
+    final_analysis
+}
+
+fn invalid_identities_by_owner(
+    invalid: &BTreeSet<ModuleValueIdentity>,
+) -> HashMap<(Option<String>, Option<String>), BTreeSet<ModuleValueIdentity>> {
+    let mut by_owner = HashMap::new();
+    for identity in invalid {
+        by_owner
+            .entry((identity.0.clone(), identity.1.clone()))
+            .or_insert_with(BTreeSet::new)
+            .insert(identity.clone());
+    }
+    by_owner
+}
+
+fn apply_owner_availability_changes(
+    owner: &(Option<String>, Option<String>),
+    current: &mut BTreeSet<ModuleValueIdentity>,
+    invalid_by_owner: &mut HashMap<(Option<String>, Option<String>), BTreeSet<ModuleValueIdentity>>,
+    next_owner: BTreeSet<ModuleValueIdentity>,
+    environment: &mut TypeEnvironment,
+    pending_owners: &mut BTreeSet<(Option<String>, Option<String>)>,
+) {
+    let current_owner = invalid_by_owner.entry(owner.clone()).or_default();
+    let changes = current_owner
+        .symmetric_difference(&next_owner)
+        .cloned()
+        .collect::<Vec<_>>();
+    for identity in changes {
+        let available = !next_owner.contains(&identity);
+        if available {
+            current.remove(&identity);
+        } else {
+            current.insert(identity.clone());
+        }
+        pending_owners.extend(environment.set_module_value_availability(&identity, available));
+    }
+    *current_owner = next_owner;
+}
+
+fn apply_availability_changes(
+    current: &mut BTreeSet<ModuleValueIdentity>,
+    next: &BTreeSet<ModuleValueIdentity>,
+    environment: &mut TypeEnvironment,
+    pending_owners: &mut BTreeSet<(Option<String>, Option<String>)>,
+) {
+    let changes = current
+        .symmetric_difference(next)
+        .cloned()
+        .collect::<Vec<_>>();
+    for identity in changes {
+        let available = !next.contains(&identity);
+        pending_owners.extend(environment.set_module_value_availability(&identity, available));
+    }
+    current.clone_from(next);
+}
+
+fn module_values_for_owner(
+    module: &SurfaceModule,
+    owner: &(Option<String>, Option<String>),
+) -> SurfaceModule {
+    SurfaceModule {
+        module: module.module.clone(),
+        uses: Vec::new(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        types: Vec::new(),
+        module_values: module
+            .module_values
+            .iter()
+            .filter(|value| {
+                value.package_name.as_deref() == owner.0.as_deref()
+                    && value.module_name.as_deref() == owner.1.as_deref()
+            })
+            .cloned()
+            .collect(),
+        functions: Vec::new(),
+        invalid_names: module.invalid_names.clone(),
     }
 }
 
@@ -112,6 +290,8 @@ fn check_module_values_once(
     let value_indices = module_value_indices(module, &colliding_identities);
 
     for (index, value) in module.module_values.iter().enumerate() {
+        #[cfg(test)]
+        update_module_value_availability_work(|work| work.semantic_visits += 1);
         invalid[index] |= check_module_value(
             value,
             index,
@@ -170,7 +350,6 @@ fn check_module_value(
     append_module_value_diagnostics(
         value,
         index,
-        value_indices,
         environment,
         variant_diagnostics,
         expected.as_ref(),
@@ -207,7 +386,6 @@ fn collect_value_dependencies(
 fn append_module_value_diagnostics(
     value: &veln_ast::ModuleValueDecl,
     index: usize,
-    value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
     expected: Option<&Type>,
@@ -216,7 +394,6 @@ fn append_module_value_diagnostics(
     check_admitted_expr(
         &value.initializer,
         value,
-        value_indices,
         environment,
         expected,
         diagnostics,

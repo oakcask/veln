@@ -127,33 +127,28 @@ pub(crate) fn check_variant_refinement_bases(
     collect_type_annotations(module, environment, &mut diagnostics);
     collect_effect_annotations(module, environment, &mut diagnostics);
     collect_schema_annotations(module, environment, &mut diagnostics);
-    collect_module_value_annotations(module, environment, &mut diagnostics);
+    collect_unowned_module_value_annotations(module, environment, &mut diagnostics);
     collect_function_annotations(module, environment, &mut diagnostics);
     collect_handler_annotations(module, environment, &mut diagnostics);
 
     diagnostics
 }
 
-fn collect_module_value_annotations(
+fn collect_unowned_module_value_annotations(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
     diagnostics: &mut Vec<VariantRefinementBaseDiagnostic>,
 ) {
-    for value in &module.module_values {
-        let owner_environment = environment
-            .adts
-            .module_has_multiple_packages(value.module_name.as_deref())
-            .then(|| {
-                environment.with_resolution_owner(
-                    value.module_name.as_deref(),
-                    value.package_name.as_deref(),
-                )
-            });
+    for value in module
+        .module_values
+        .iter()
+        .filter(|value| value.package_name.is_none())
+    {
         collect_declaration_annotation(
             &value.annotation_refinements,
             &value.annotation_paths,
             value.module_name.as_deref(),
-            owner_environment.as_ref().unwrap_or(environment),
+            environment,
             &[],
             value.node_id.display("module-value"),
             [value.node_id.display("module-value")],

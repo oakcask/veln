@@ -34,7 +34,8 @@ mod types;
 
 #[cfg(test)]
 pub(crate) use analysis::{
-    reset_module_value_annotation_dedup_work, take_module_value_annotation_dedup_work,
+    reset_module_value_annotation_dedup_work, reset_module_value_availability_work,
+    take_module_value_annotation_dedup_work, take_module_value_availability_work,
 };
 pub use name_recovery::normal_imported_module_for_path;
 pub use navigation::{

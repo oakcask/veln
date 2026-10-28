@@ -272,7 +272,7 @@ impl<'a> FunctionChecker<'a> {
             self.environment.adts.constructor(
                 name,
                 self.function.module_name.as_deref(),
-                &self.environment.uses,
+                &self.resolution_uses,
             ),
             ConstructorLookup::Found(_) | ConstructorLookup::Ambiguous
         )
@@ -339,7 +339,7 @@ impl<'a> FunctionChecker<'a> {
                 name,
                 descriptor,
                 self.function.module_name.as_deref(),
-                &self.environment.uses,
+                &self.resolution_uses,
             )
             .or_else(|| {
                 self.environment
@@ -425,7 +425,7 @@ impl<'a> FunctionChecker<'a> {
                 self.environment.adts.constructor(
                     name,
                     self.function.module_name.as_deref(),
-                    &self.environment.uses,
+                    &self.resolution_uses,
                 ),
                 ConstructorLookup::Missing
             )
@@ -508,7 +508,7 @@ impl<'a> FunctionChecker<'a> {
         let ConstructorLookup::Found(constructor) = self.environment.adts.constructor(
             name,
             self.function.module_name.as_deref(),
-            &self.environment.uses,
+            &self.resolution_uses,
         ) else {
             return;
         };
@@ -537,7 +537,7 @@ impl<'a> FunctionChecker<'a> {
                 &recovered,
                 descriptor,
                 self.function.module_name.as_deref(),
-                &self.environment.uses,
+                &self.resolution_uses,
             )
             .is_some()
         {
@@ -546,7 +546,7 @@ impl<'a> FunctionChecker<'a> {
         let ConstructorLookup::Found(constructor) = self.environment.adts.constructor(
             &recovered,
             self.function.module_name.as_deref(),
-            &self.environment.uses,
+            &self.resolution_uses,
         ) else {
             return;
         };

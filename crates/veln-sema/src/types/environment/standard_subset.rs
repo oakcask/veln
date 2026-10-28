@@ -33,11 +33,13 @@ impl TypeEnvironment {
             &access_targets.functions,
         );
         Self {
-            resolution_owner: None,
             module_values,
             module_values_by_identity,
             bare_module_values,
+            bare_module_value_keys_by_identity: HashMap::new(),
+            module_value_import_owners: HashMap::new(),
             qualified_module_value_imports,
+            qualified_ambiguous_keys_by_identity: HashMap::new(),
             exact_module_value_imports,
             blocked_exact_module_value_imports,
             public_module_value_identities,

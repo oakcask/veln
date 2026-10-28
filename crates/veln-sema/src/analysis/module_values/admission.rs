@@ -13,8 +13,30 @@ use crate::types::{ModuleValueIdentity, ModuleValueIndex, ModuleValueLookup, Typ
 pub(super) fn check_admitted_expr(
     expr: &Expr,
     declaration: &veln_ast::ModuleValueDecl,
-    value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &TypeEnvironment,
+    expected: Option<&Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let resolution_uses = environment
+        .uses
+        .iter()
+        .filter(|use_decl| {
+            use_decl.module_name.as_deref() == declaration.module_name.as_deref()
+                && use_decl.importing_package.as_deref() == declaration.package_name.as_deref()
+        })
+        .cloned()
+        .collect();
+    let scope = AdmissionScope {
+        declaration,
+        environment,
+        resolution_uses,
+    };
+    check_admitted_expr_in_scope(expr, &scope, expected, diagnostics);
+}
+
+fn check_admitted_expr_in_scope(
+    expr: &Expr,
+    scope: &AdmissionScope<'_>,
     expected: Option<&Type>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
@@ -25,15 +47,13 @@ pub(super) fn check_admitted_expr(
         | ExprKind::Unit => {}
         ExprKind::Record(fields) => {
             if fields.is_empty() && expected.is_some_and(|ty| ty.dict_parts().is_some()) {
-                diagnostics.push(unsupported_diagnostic(expr, declaration));
+                diagnostics.push(unsupported_diagnostic(expr, scope.declaration));
                 return;
             }
             for field in fields {
-                check_admitted_expr(
+                check_admitted_expr_in_scope(
                     &field.expr,
-                    declaration,
-                    value_indices,
-                    environment,
+                    scope,
                     expected.and_then(|ty| ty.record_field(&field.name)),
                     diagnostics,
                 );
@@ -43,58 +63,48 @@ pub(super) fn check_admitted_expr(
             op: veln_ast::PrefixOp::Negate,
             expr: inner,
         } if matches!(inner.kind, ExprKind::IntLiteral(_)) => {}
-        ExprKind::NamePath { segments, .. } => check_admitted_name(
-            expr,
-            segments,
-            declaration,
-            value_indices,
-            environment,
-            diagnostics,
-        ),
+        ExprKind::NamePath { segments, .. } => {
+            check_admitted_name(expr, segments, scope, diagnostics)
+        }
         ExprKind::Call { callee, args } => {
-            let scope = AdmissionScope {
-                declaration,
-                value_indices,
-                environment,
-            };
-            check_admitted_call(expr, callee, args, &scope, expected, diagnostics);
+            check_admitted_call(expr, callee, args, scope, expected, diagnostics);
         }
         ExprKind::Missing => {}
-        _ => diagnostics.push(unsupported_diagnostic(expr, declaration)),
+        _ => diagnostics.push(unsupported_diagnostic(expr, scope.declaration)),
     }
 }
 
 fn check_admitted_name(
     expr: &Expr,
     segments: &[String],
-    declaration: &veln_ast::ModuleValueDecl,
-    _value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
-    environment: &TypeEnvironment,
+    scope: &AdmissionScope<'_>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let current_module = declaration.module_name.as_deref();
+    let current_module = scope.declaration.module_name.as_deref();
     if !matches!(
-        environment.module_value_path_in_owner(
+        scope.environment.module_value_path_in_owner(
             segments,
             current_module,
-            declaration.package_name.as_deref(),
+            scope.declaration.package_name.as_deref(),
         ),
         ModuleValueLookup::Missing
     ) || matches!(
-        environment
-            .adts
-            .nullary_constructor(segments, current_module, &environment.uses),
+        scope.environment.adts.nullary_constructor(
+            segments,
+            current_module,
+            &scope.resolution_uses
+        ),
         ConstructorLookup::Found(_)
     ) {
         return;
     }
     if known_function(
-        environment,
+        scope.environment,
         segments,
         current_module,
-        declaration.package_name.as_deref(),
+        scope.declaration.package_name.as_deref(),
     ) {
-        diagnostics.push(unsupported_diagnostic(expr, declaration));
+        diagnostics.push(unsupported_diagnostic(expr, scope.declaration));
     }
 }
 
@@ -110,6 +120,7 @@ fn check_admitted_call(
         scope.environment,
         callee,
         scope.declaration.module_name.as_deref(),
+        &scope.resolution_uses,
         expected,
     ) {
         found @ ConstructorCall::Found { .. } => {
@@ -148,8 +159,8 @@ fn check_admitted_call(
 
 struct AdmissionScope<'a> {
     declaration: &'a veln_ast::ModuleValueDecl,
-    value_indices: &'a HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &'a TypeEnvironment,
+    resolution_uses: Vec<veln_ast::UseDecl>,
 }
 
 fn check_constructor_arguments(
@@ -184,14 +195,7 @@ fn check_constructor_arguments(
             .or_else(|| {
                 adt::payload_type_with_resolved_args(constructor, index, |_| Type::Unknown)
             });
-        check_admitted_expr(
-            arg,
-            scope.declaration,
-            scope.value_indices,
-            scope.environment,
-            payload_expected.as_ref(),
-            diagnostics,
-        );
+        check_admitted_expr_in_scope(arg, scope, payload_expected.as_ref(), diagnostics);
     }
 }
 
@@ -201,14 +205,7 @@ fn check_admitted_arguments(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     for arg in args {
-        check_admitted_expr(
-            arg,
-            scope.declaration,
-            scope.value_indices,
-            scope.environment,
-            None,
-            diagnostics,
-        );
+        check_admitted_expr_in_scope(arg, scope, None, diagnostics);
     }
 }
 
@@ -394,6 +391,7 @@ fn constructor_call<'a>(
     environment: &'a TypeEnvironment,
     callee: &Expr,
     current_module: Option<&str>,
+    resolution_uses: &[veln_ast::UseDecl],
     expected: Option<&Type>,
 ) -> ConstructorCall<'a> {
     let Some((segments, _)) = callee.callee_name_path_and_type_args() else {
@@ -412,13 +410,13 @@ fn constructor_call<'a>(
                 segments,
                 descriptor,
                 current_module,
-                &environment.uses,
+                resolution_uses,
             )
         });
     match contextual.map(ConstructorLookup::Found).unwrap_or_else(|| {
         environment
             .adts
-            .constructor(segments, current_module, &environment.uses)
+            .constructor(segments, current_module, resolution_uses)
     }) {
         ConstructorLookup::Found(constructor) => ConstructorCall::Found {
             constructor,

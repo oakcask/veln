@@ -98,11 +98,7 @@ impl TypeEnvironment {
         ty: Type,
         current_module: Option<&str>,
     ) -> Type {
-        self.canonicalize_type_annotation_in_owner(
-            ty,
-            current_module,
-            self.resolution_package(current_module),
-        )
+        self.canonicalize_type_annotation_in_owner(ty, current_module, None)
     }
 
     pub(crate) fn canonicalize_type_annotation_in_owner(
@@ -194,14 +190,6 @@ impl TypeEnvironment {
         args_len: usize,
         current_module: Option<&str>,
     ) -> Option<&crate::adt::descriptors::AdtDescriptor> {
-        if self.resolution_owner.is_some() {
-            return self.variant_refinement_descriptor_identity_in_owner(
-                base,
-                args_len,
-                current_module,
-                self.resolution_package(current_module),
-            );
-        }
         if let Some(descriptor) =
             self.adts
                 .unique_descriptor_for_type_path(base, args_len, current_module, &self.uses)

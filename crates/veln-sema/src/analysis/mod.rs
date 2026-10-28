@@ -82,10 +82,15 @@ pub(crate) use boundary::{
     check_schema_type_references, check_test_declaration_boundary, check_type_effect_labels,
 };
 pub(crate) use handlers::check_handler_declarations;
-pub(crate) use module_values::check_module_values;
 #[cfg(test)]
 pub(crate) use module_values::{
-    reset_module_value_annotation_dedup_work, take_module_value_annotation_dedup_work,
+    ModuleValueAvailabilityWork, reset_module_value_annotation_dedup_work,
+    reset_module_value_availability_work, take_module_value_annotation_dedup_work,
+    take_module_value_availability_work,
+};
+pub(crate) use module_values::{
+    check_module_values, record_module_value_availability_update,
+    record_module_value_exposure_rebuild,
 };
 #[cfg(test)]
 pub(crate) use variant_refinement_bases::{

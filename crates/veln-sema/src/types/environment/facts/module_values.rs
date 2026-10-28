@@ -9,7 +9,8 @@ struct QualifiedImportCandidates {
     implicit: Vec<UseDecl>,
 }
 
-type ModuleValueNamesByTarget = HashMap<(Option<String>, Option<String>), HashSet<String>>;
+type ModuleValueNamesByTarget =
+    HashMap<(Option<String>, Option<String>), HashMap<String, (ModuleValueIdentity, bool)>>;
 
 pub(in crate::types::environment) fn exact_module_value_import_paths(
     uses: &[UseDecl],
@@ -91,7 +92,7 @@ fn available_module_value_names_by_target(
 ) -> (ModuleValueNamesByTarget, ModuleValueNamesByTarget) {
     let mut public_names_by_target = ModuleValueNamesByTarget::new();
     let mut all_names_by_target = ModuleValueNamesByTarget::new();
-    for value in module_values.iter().filter(|value| value.available) {
+    for value in module_values {
         record_qualified_module_value_member_materialization_work();
         let Some(name) = &value.declaration.name else {
             continue;
@@ -100,15 +101,20 @@ fn available_module_value_names_by_target(
             value.declaration.package_name.clone(),
             value.declaration.module_name.clone(),
         );
+        let identity = (
+            value.declaration.package_name.clone(),
+            value.declaration.module_name.clone(),
+            name.clone(),
+        );
         all_names_by_target
             .entry(target.clone())
             .or_default()
-            .insert(name.clone());
+            .insert(name.clone(), (identity.clone(), value.available));
         if value.declaration.visibility == Visibility::Public {
             public_names_by_target
                 .entry(target)
                 .or_default()
-                .insert(name.clone());
+                .insert(name.clone(), (identity, value.available));
         }
     }
     (public_names_by_target, all_names_by_target)
@@ -146,7 +152,7 @@ fn qualified_import_selection(
         ));
     }
 
-    let visible_members = ambiguous_import_visible_members(
+    let (member_candidates, active_members) = ambiguous_import_visible_members(
         &key,
         &selected,
         companion_access_targets,
@@ -155,7 +161,10 @@ fn qualified_import_selection(
     );
     Some((
         key,
-        QualifiedModuleValueImportSelection::Ambiguous { visible_members },
+        QualifiedModuleValueImportSelection::Ambiguous {
+            candidates: member_candidates,
+            active: active_members,
+        },
     ))
 }
 
@@ -165,8 +174,12 @@ fn ambiguous_import_visible_members(
     companion_access_targets: &BTreeMap<String, String>,
     public_names_by_target: &ModuleValueNamesByTarget,
     all_names_by_target: &ModuleValueNamesByTarget,
-) -> HashSet<String> {
-    let mut visible_members = HashSet::new();
+) -> (
+    HashMap<String, BTreeSet<ModuleValueIdentity>>,
+    HashMap<String, BTreeSet<ModuleValueIdentity>>,
+) {
+    let mut member_candidates = HashMap::<String, BTreeSet<ModuleValueIdentity>>::new();
+    let mut active_members = HashMap::<String, BTreeSet<ModuleValueIdentity>>::new();
     for use_decl in selected {
         record_qualified_module_value_target_classification_work();
         let target = use_decl.resolved_target();
@@ -183,13 +196,22 @@ fn ambiguous_import_visible_members(
             public_names_by_target.get(&target_key)
         };
         if let Some(names) = names {
-            for name in names {
+            for (name, (identity, available)) in names {
                 record_qualified_module_value_member_materialization_work();
-                visible_members.insert(name.clone());
+                member_candidates
+                    .entry(name.clone())
+                    .or_default()
+                    .insert(identity.clone());
+                if *available {
+                    active_members
+                        .entry(name.clone())
+                        .or_default()
+                        .insert(identity.clone());
+                }
             }
         }
     }
-    visible_members
+    (member_candidates, active_members)
 }
 
 pub(in crate::types::environment) fn public_module_value_identities(
@@ -295,7 +317,7 @@ fn public_module_value_selections(
     let mut selections = HashMap::new();
     for value in module_values
         .iter()
-        .filter(|value| value.available && value.declaration.visibility == Visibility::Public)
+        .filter(|value| value.declaration.visibility == Visibility::Public)
     {
         record_module_value_selections(&mut selections, value, imported_owners);
     }
@@ -324,7 +346,7 @@ fn record_module_value_selections(
     );
     for (owner_package, owner_module) in owners {
         let key = (owner_package.clone(), owner_module.clone(), name.clone());
-        record_module_value_selection(selections, key, &identity);
+        record_module_value_selection(selections, key, &identity, value.available);
     }
 }
 
@@ -332,17 +354,23 @@ fn record_module_value_selection(
     selections: &mut HashMap<BareModuleValueKey, BareModuleValueExposure>,
     key: BareModuleValueKey,
     identity: &ModuleValueIdentity,
+    available: bool,
 ) {
     selections
         .entry(key)
         .and_modify(|exposure| {
-            if !matches!(&exposure.selection, BareModuleValueSelection::Unique(existing) if existing == identity)
-            {
-                exposure.selection = BareModuleValueSelection::Ambiguous;
+            exposure.candidates.insert(identity.clone());
+            if available {
+                exposure.active.insert(identity.clone());
             }
         })
         .or_insert_with(|| BareModuleValueExposure {
-            selection: BareModuleValueSelection::Unique(identity.clone()),
+            candidates: BTreeSet::from([identity.clone()]),
+            active: if available {
+                BTreeSet::from([identity.clone()])
+            } else {
+                BTreeSet::new()
+            },
             function_collision: false,
         });
 }

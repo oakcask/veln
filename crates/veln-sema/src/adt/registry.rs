@@ -148,20 +148,6 @@ impl TypeAliasExposurePath<'_> {
     }
 }
 
-impl AdtRegistry {
-    pub(crate) fn module_has_multiple_packages(&self, module: Option<&str>) -> bool {
-        let mut packages = self
-            .descriptors_by_source_identity
-            .keys()
-            .filter(|(_, descriptor_module, _)| descriptor_module.as_deref() == module)
-            .map(|(package, _, _)| package);
-        let Some(first) = packages.next() else {
-            return false;
-        };
-        packages.any(|package| package != first)
-    }
-}
-
 pub(crate) struct TypeAliasExposureDeclarations<'a> {
     segments: &'a [Arc<[TypeAliasExposureNode]>],
     next: Option<TypeAliasExposureNodeId>,
