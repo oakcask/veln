@@ -507,14 +507,96 @@ pub(crate) struct NormalImportSelectionIndex<'a> {
     classification: Rc<ImportClassification>,
     exact_paths: HashMap<ImportBindingKey, usize>,
     qualifiers: HashMap<ImportBindingKey, IndexedUseDecl>,
+    prefix_paths: Option<HashMap<ResolvedImportOwner, ImportPathPrefixIndex>>,
+}
+
+#[derive(Default)]
+struct ImportPathPrefixIndex {
+    nodes: Vec<ImportPathPrefixNode>,
+    qualifiers: HashMap<String, IndexedUseDecl>,
+}
+
+#[derive(Default)]
+struct ImportPathPrefixNode {
+    children: HashMap<String, usize>,
+    exact_use: Option<usize>,
+}
+
+impl ImportPathPrefixIndex {
+    fn insert_exact_path(&mut self, path: &str, use_index: usize) {
+        if self.nodes.is_empty() {
+            self.nodes.push(ImportPathPrefixNode::default());
+        }
+        let mut node_index = 0;
+        for segment in path.split("::") {
+            let next_index = if let Some(index) = self.nodes[node_index].children.get(segment) {
+                *index
+            } else {
+                let index = self.nodes.len();
+                self.nodes.push(ImportPathPrefixNode::default());
+                self.nodes[node_index]
+                    .children
+                    .insert(segment.to_string(), index);
+                index
+            };
+            node_index = next_index;
+        }
+        self.nodes[node_index].exact_use.get_or_insert(use_index);
+    }
+
+    fn insert_qualifier(&mut self, qualifier: String, use_index: usize) {
+        self.qualifiers
+            .entry(qualifier)
+            .and_modify(|candidate| *candidate = IndexedUseDecl::Ambiguous)
+            .or_insert(IndexedUseDecl::Unique(use_index));
+    }
+
+    fn select_prefixes<'s>(
+        &self,
+        segments: impl IntoIterator<Item = &'s str>,
+    ) -> Option<(usize, bool)> {
+        let mut node_index = 0;
+        let mut qualifier = None;
+        let mut exact_use = None;
+        for (index, segment) in segments.into_iter().enumerate() {
+            if index == 0 {
+                qualifier = match self.qualifiers.get(segment) {
+                    Some(IndexedUseDecl::Unique(index)) => Some(*index),
+                    Some(IndexedUseDecl::Ambiguous) | None => None,
+                };
+            }
+            let Some(node) = self.nodes.get(node_index) else {
+                break;
+            };
+            let Some(next_index) = node.children.get(segment) else {
+                break;
+            };
+            node_index = *next_index;
+            if let Some(index) = self.nodes[node_index].exact_use {
+                exact_use = Some(index);
+            }
+        }
+        exact_use
+            .map(|index| (index, false))
+            .or_else(|| qualifier.map(|index| (index, true)))
+    }
 }
 
 impl<'a> NormalImportSelectionIndex<'a> {
     pub(crate) fn new(module: &'a SurfaceModule) -> Self {
+        Self::new_internal(module, false)
+    }
+
+    pub(crate) fn new_with_prefix_paths(module: &'a SurfaceModule) -> Self {
+        Self::new_internal(module, true)
+    }
+
+    fn new_internal(module: &'a SurfaceModule, build_prefix_paths: bool) -> Self {
         record_normal_import_selection_work(|work| work.operations += 1);
         let classification = import_classification(module);
         let mut exact_paths = HashMap::new();
         let mut qualifiers = HashMap::new();
+        let mut prefix_paths = HashMap::<ResolvedImportOwner, ImportPathPrefixIndex>::new();
         for (index, use_decl) in module.uses.iter().enumerate() {
             record_normal_import_selection_work(|work| work.operations += 1);
             if classification.quarantined[index] {
@@ -522,14 +604,34 @@ impl<'a> NormalImportSelectionIndex<'a> {
             }
             for path in use_decl_exact_paths(use_decl) {
                 record_normal_import_selection_work(|work| work.operations += 1);
-                exact_paths
-                    .entry((use_decl.resolved_owner(), path))
-                    .or_insert(index);
+                let owner = use_decl.resolved_owner();
+                if build_prefix_paths
+                    && !classification
+                        .blocked_exact_paths
+                        .contains(&(owner.clone(), path.clone()))
+                {
+                    prefix_paths
+                        .entry(owner.clone())
+                        .or_default()
+                        .insert_exact_path(&path, index);
+                }
+                exact_paths.entry((owner, path)).or_insert(index);
             }
             if simple_import_alias_matches(use_decl, &use_decl.alias) {
                 record_normal_import_selection_work(|work| work.operations += 1);
+                let owner = use_decl.resolved_owner();
+                if build_prefix_paths
+                    && !classification
+                        .colliding_qualifiers
+                        .contains(&(owner.clone(), use_decl.alias.clone()))
+                {
+                    prefix_paths
+                        .entry(owner.clone())
+                        .or_default()
+                        .insert_qualifier(use_decl.alias.clone(), index);
+                }
                 qualifiers
-                    .entry((use_decl.resolved_owner(), use_decl.alias.clone()))
+                    .entry((owner, use_decl.alias.clone()))
                     .and_modify(|candidate| *candidate = IndexedUseDecl::Ambiguous)
                     .or_insert(IndexedUseDecl::Unique(index));
             }
@@ -539,7 +641,29 @@ impl<'a> NormalImportSelectionIndex<'a> {
             classification,
             exact_paths,
             qualifiers,
+            prefix_paths: build_prefix_paths.then_some(prefix_paths),
         }
+    }
+
+    pub(crate) fn imported_use_for_prefixes<'s>(
+        &self,
+        segments: impl IntoIterator<Item = &'s str>,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<(&'a UseDecl, bool)> {
+        let owner = ResolvedImportOwner {
+            package: current_package.map(str::to_string),
+            module: current_module.map(str::to_string),
+        };
+        let (index, explicit_alias) = self
+            .prefix_paths
+            .as_ref()?
+            .get(&owner)?
+            .select_prefixes(segments)?;
+        self.module
+            .uses
+            .get(index)
+            .map(|use_decl| (use_decl, explicit_alias))
     }
 
     pub(crate) fn imported_use_for_path(

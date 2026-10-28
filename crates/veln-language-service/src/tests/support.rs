@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::navigation::{
+    ExplicitImportAliasIndexWork,
     constructor_reference_collections, dependency_path_classifications, dependency_source_indexes,
     dependency_source_parses, function_scope_collections, handler_clause_binding_token_visits,
     handler_clause_body_range_work, handler_clause_scope_token_visits,

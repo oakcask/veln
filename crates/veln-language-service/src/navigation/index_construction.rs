@@ -433,16 +433,27 @@ fn attach_explicit_import_alias_occurrences(
     let imports = veln_sema::ResolvedImportPathIndex::new(module);
     for file in files {
         let tokens = &file.tokens;
+        let mut in_use_line = false;
         for token_index in 0..tokens.len() {
             record_explicit_import_alias_construction_work(1);
+            record_explicit_import_alias_token_visit();
+            match tokens[token_index].kind {
+                TokenKind::Newline | TokenKind::Eof => {
+                    in_use_line = false;
+                    continue;
+                }
+                TokenKind::Use => {
+                    in_use_line = true;
+                    continue;
+                }
+                _ => {}
+            }
             if tokens[token_index].kind != TokenKind::Ident
+                || in_use_line
                 || previous_non_layout_token(tokens, token_index)
                     .is_some_and(|token| token.kind == TokenKind::DoubleColon)
                 || next_non_layout_token(tokens, token_index)
                     .is_none_or(|token| token.kind != TokenKind::DoubleColon)
-                || line_tokens_before(tokens, token_index)
-                    .iter()
-                    .any(|token| token.kind == TokenKind::Use)
             {
                 continue;
             }
@@ -452,25 +463,27 @@ fn attach_explicit_import_alias_occurrences(
                 segment_indices.push(next);
                 cursor = next;
             }
-            for prefix_len in (1..segment_indices.len()).rev() {
-                let segments = segment_indices[..prefix_len]
+            let qualifier_indices = &segment_indices[..segment_indices.len() - 1];
+            record_explicit_import_alias_path_work(
+                qualifier_indices.len(),
+                qualifier_indices
                     .iter()
-                    .map(|index| tokens[*index].text.clone())
-                    .collect::<Vec<_>>();
-                record_explicit_import_alias_construction_work(1);
-                match imports.resolve(&segments, Some(&file.module)) {
-                    Some(veln_sema::ResolvedImportPath::Exact) => break,
-                    Some(veln_sema::ResolvedImportPath::ExplicitAlias(alias)) => {
-                        let range = tokens[token_index].range;
-                        file.explicit_import_alias_occurrences.insert(
-                            (range.start, range.end),
-                            alias.span,
-                        );
-                        record_explicit_import_alias_retained_entries(1);
-                        break;
-                    }
-                    None => {}
-                }
+                    .map(|index| tokens[*index].text.len())
+                    .sum(),
+            );
+            record_explicit_import_alias_construction_work(qualifier_indices.len());
+            if let Some(veln_sema::ResolvedImportPath::ExplicitAlias(alias)) = imports
+                .resolve_prefixes(
+                    qualifier_indices
+                        .iter()
+                        .map(|index| tokens[*index].text.as_str()),
+                    Some(&file.module),
+                )
+            {
+                let range = tokens[token_index].range;
+                file.explicit_import_alias_occurrences
+                    .insert((range.start, range.end), alias.span);
+                record_explicit_import_alias_retained_entries(1);
             }
         }
     }

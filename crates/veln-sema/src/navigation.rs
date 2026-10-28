@@ -114,7 +114,7 @@ pub struct ResolvedImportPathIndex<'a> {
 impl<'a> ResolvedImportPathIndex<'a> {
     pub fn new(module: &'a SurfaceModule) -> Self {
         Self {
-            imports: NormalImportSelectionIndex::new(module),
+            imports: NormalImportSelectionIndex::new_with_prefix_paths(module),
         }
     }
 
@@ -127,6 +127,28 @@ impl<'a> ResolvedImportPathIndex<'a> {
             .imports
             .imported_use_for_path(segments, current_module, None)?;
         resolved_import_path_from_use(use_decl, segments)
+    }
+
+    pub fn resolve_prefixes<'s>(
+        &self,
+        segments: impl IntoIterator<Item = &'s str>,
+        current_module: Option<&str>,
+    ) -> Option<ResolvedImportPath> {
+        let (use_decl, explicit_alias) =
+            self.imports
+                .imported_use_for_prefixes(segments, current_module, None)?;
+        if explicit_alias {
+            return Some(ResolvedImportPath::ExplicitAlias(
+                ResolvedExplicitImportAlias {
+                    declaring_module: use_decl.module_name.clone()?,
+                    name: use_decl.alias.clone(),
+                    span: use_decl.alias_span.clone()?,
+                    target_module: use_decl.name.clone(),
+                    target_package: use_decl.package.clone(),
+                },
+            ));
+        }
+        Some(ResolvedImportPath::Exact)
     }
 }
 

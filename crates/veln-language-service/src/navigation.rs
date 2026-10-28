@@ -15,6 +15,9 @@ use veln_syntax::{
 #[cfg(test)]
 thread_local! {
     static EXPLICIT_IMPORT_ALIAS_CONSTRUCTION_WORK: Cell<usize> = const { Cell::new(0) };
+    static EXPLICIT_IMPORT_ALIAS_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
+    static EXPLICIT_IMPORT_ALIAS_PATH_SEGMENTS: Cell<usize> = const { Cell::new(0) };
+    static EXPLICIT_IMPORT_ALIAS_PATH_BYTES: Cell<usize> = const { Cell::new(0) };
     static EXPLICIT_IMPORT_ALIAS_RETAINED_ENTRIES: Cell<usize> = const { Cell::new(0) };
 }
 
@@ -28,6 +31,23 @@ fn record_explicit_import_alias_construction_work(amount: usize) {
 fn record_explicit_import_alias_construction_work(_amount: usize) {}
 
 #[cfg(test)]
+fn record_explicit_import_alias_path_work(segments: usize, bytes: usize) {
+    EXPLICIT_IMPORT_ALIAS_PATH_SEGMENTS.set(EXPLICIT_IMPORT_ALIAS_PATH_SEGMENTS.get() + segments);
+    EXPLICIT_IMPORT_ALIAS_PATH_BYTES.set(EXPLICIT_IMPORT_ALIAS_PATH_BYTES.get() + bytes);
+}
+
+#[cfg(not(test))]
+fn record_explicit_import_alias_path_work(_segments: usize, _bytes: usize) {}
+
+#[cfg(test)]
+fn record_explicit_import_alias_token_visit() {
+    EXPLICIT_IMPORT_ALIAS_TOKEN_VISITS.set(EXPLICIT_IMPORT_ALIAS_TOKEN_VISITS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_explicit_import_alias_token_visit() {}
+
+#[cfg(test)]
 fn record_explicit_import_alias_retained_entries(amount: usize) {
     EXPLICIT_IMPORT_ALIAS_RETAINED_ENTRIES
         .set(EXPLICIT_IMPORT_ALIAS_RETAINED_ENTRIES.get() + amount);
@@ -39,15 +59,31 @@ fn record_explicit_import_alias_retained_entries(_amount: usize) {}
 #[cfg(test)]
 pub(crate) fn reset_explicit_import_alias_index_work() {
     EXPLICIT_IMPORT_ALIAS_CONSTRUCTION_WORK.set(0);
+    EXPLICIT_IMPORT_ALIAS_TOKEN_VISITS.set(0);
+    EXPLICIT_IMPORT_ALIAS_PATH_SEGMENTS.set(0);
+    EXPLICIT_IMPORT_ALIAS_PATH_BYTES.set(0);
     EXPLICIT_IMPORT_ALIAS_RETAINED_ENTRIES.set(0);
 }
 
 #[cfg(test)]
-pub(crate) fn explicit_import_alias_index_work() -> (usize, usize) {
-    (
-        EXPLICIT_IMPORT_ALIAS_CONSTRUCTION_WORK.get(),
-        EXPLICIT_IMPORT_ALIAS_RETAINED_ENTRIES.get(),
-    )
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ExplicitImportAliasIndexWork {
+    pub(crate) construction: usize,
+    pub(crate) token_visits: usize,
+    pub(crate) path_segments: usize,
+    pub(crate) path_bytes: usize,
+    pub(crate) retained_entries: usize,
+}
+
+#[cfg(test)]
+pub(crate) fn explicit_import_alias_index_work() -> ExplicitImportAliasIndexWork {
+    ExplicitImportAliasIndexWork {
+        construction: EXPLICIT_IMPORT_ALIAS_CONSTRUCTION_WORK.get(),
+        token_visits: EXPLICIT_IMPORT_ALIAS_TOKEN_VISITS.get(),
+        path_segments: EXPLICIT_IMPORT_ALIAS_PATH_SEGMENTS.get(),
+        path_bytes: EXPLICIT_IMPORT_ALIAS_PATH_BYTES.get(),
+        retained_entries: EXPLICIT_IMPORT_ALIAS_RETAINED_ENTRIES.get(),
+    }
 }
 
 include!("navigation/model.rs");

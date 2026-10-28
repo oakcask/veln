@@ -316,7 +316,7 @@ mod explicit_import_alias_navigation_tests {
 
     #[test]
     fn explicit_alias_index_work_and_retention_are_adjacent_linear() {
-        fn measure(size: usize) -> (usize, usize) {
+        fn measure(size: usize) -> ExplicitImportAliasIndexWork {
             let mut sources = Vec::new();
             for index in 0..size {
                 sources.push(source(
@@ -338,8 +338,85 @@ mod explicit_import_alias_navigation_tests {
         let small = measure(24);
         let large = measure(48);
         eprintln!("explicit alias index adjacent sizes: 24={small:?}, 48={large:?}");
-        assert!(large.0 <= small.0 * 2 + 64, "construction work: {small:?} -> {large:?}");
-        assert!(large.1 <= small.1 * 2 + 8, "retained entries: {small:?} -> {large:?}");
+        assert!(
+            large.construction <= small.construction * 2 + 64,
+            "construction work: {small:?} -> {large:?}"
+        );
+        assert!(
+            large.retained_entries <= small.retained_entries * 2 + 8,
+            "retained entries: {small:?} -> {large:?}"
+        );
+    }
+
+    #[test]
+    fn explicit_alias_occurrences_on_one_line_have_adjacent_linear_token_work() {
+        fn measure(size: usize) -> ExplicitImportAliasIndexWork {
+            let expression = std::iter::repeat_n("calc::value()", size)
+                .collect::<Vec<_>>()
+                .join(" + ");
+            let sources = vec![
+                source("alpha.veln", "pub fn value() -> Int\n  1\nend\n"),
+                source(
+                    "app.veln",
+                    &format!(
+                        "use alpha as calc\n\nfn main() -> Int\n  {expression}\nend\n"
+                    ),
+                ),
+            ];
+            reset_explicit_import_alias_index_work();
+            assert!(query(sources, "app.veln", 1, 14).is_some());
+            explicit_import_alias_index_work()
+        }
+
+        let small = measure(32);
+        let large = measure(64);
+        eprintln!("same-line alias occurrences: 32={small:?}, 64={large:?}");
+        assert!(
+            large.token_visits <= small.token_visits * 2 + 16,
+            "token visits: {small:?} -> {large:?}"
+        );
+        assert!(
+            large.path_segments <= small.path_segments * 2 + 2,
+            "path segments: {small:?} -> {large:?}"
+        );
+        assert!(
+            large.path_bytes <= small.path_bytes * 2 + 8,
+            "path bytes: {small:?} -> {large:?}"
+        );
+    }
+
+    #[test]
+    fn explicit_alias_deep_paths_have_adjacent_linear_segment_and_byte_work() {
+        fn measure(depth: usize) -> ExplicitImportAliasIndexWork {
+            let suffix = std::iter::repeat_n("part", depth)
+                .chain(std::iter::once("value"))
+                .collect::<Vec<_>>()
+                .join("::");
+            let sources = vec![
+                source("alpha.veln", "pub fn value() -> Int\n  1\nend\n"),
+                source(
+                    "app.veln",
+                    &format!(
+                        "use alpha as calc\n\nfn main() -> Int\n  calc::{suffix}()\nend\n"
+                    ),
+                ),
+            ];
+            reset_explicit_import_alias_index_work();
+            assert!(query(sources, "app.veln", 1, 14).is_some());
+            explicit_import_alias_index_work()
+        }
+
+        let small = measure(32);
+        let large = measure(64);
+        eprintln!("deep alias paths: 32={small:?}, 64={large:?}");
+        assert!(
+            large.path_segments <= small.path_segments * 2 + 2,
+            "path segments: {small:?} -> {large:?}"
+        );
+        assert!(
+            large.path_bytes <= small.path_bytes * 2 + 8,
+            "path bytes: {small:?} -> {large:?}"
+        );
     }
 
     fn affected_spans(result: &NavigationResult) -> Vec<SourceSpan> {
