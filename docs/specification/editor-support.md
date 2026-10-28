@@ -381,9 +381,10 @@ semantic helpers that supply resolved imports and aliases. For the same-line
 workload, token visits, prefix-resolution segment visits, and bytes retained
 for segment keys and imported target bases have that bound. For the deep-path
 workload, the metric also includes trie lookup segment visits and bytes
-allocated when the selected target module and package are materialized. Those
-segment visits and retained or allocated bytes have the same bound. Elapsed
-time is not the conformance metric.
+in the selected target-module and package strings materialized for lookup.
+Those segment visits and retained or materialized content bytes have the same
+bound. The byte metric does not include allocator capacity. Elapsed time is not
+the conformance metric.
 
 ### Shared variant-refinement navigation
 
