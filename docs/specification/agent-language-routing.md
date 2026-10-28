@@ -108,7 +108,10 @@ or escaped syntax does not make a path reachable.
 ## Verification
 
 `workflow-scripts/fixtures/veln-language/scenarios.json` records the tool and
-repository results for the acceptance model. The separate
+repository results for the acceptance model.
+`workflow-scripts/fixtures/veln-language/snapshot-catalogs.json` records the
+archived catalog overlays and the current base digest that make stale-snapshot
+transitions reproducible. The separate
 `request-selection-oracle.json` file records each reviewed raw request and its
 expected observable route. `language-topic-oracle.json` independently records
 the reviewed topic selections for language scenarios. Run

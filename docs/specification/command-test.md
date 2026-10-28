@@ -93,7 +93,9 @@ blocked with reason `static_gate` in JSON. Reachable `begin` and `defer` forms
 produce typed IR and execute; their cleanup behavior is specified by the
 [execution boundary](execution.md#runtime-readiness-and-host-boundaries).
 A module immutable value declaration in the selected analysis first reports
-any finite-data initializer, annotation, or dependency diagnostic. Every such
+any finite-data initializer, annotation, public visibility, imported lookup,
+or same-module dependency diagnostic. Imported lookup retains package-aware
+declaration identity. Every such
 declaration also produces the static diagnostic
 `module.value_not_executable`, and no test worker starts.
 Variant-refinement errors in the selected analysis are static diagnostics,

@@ -672,7 +672,10 @@ literals; records whose fields are admitted; visible nullary and payload ADT
 constructors whose payloads are admitted; and eligible same-module or imported
 module value references. Imported references use the ordinary import exposure,
 qualifier, package identity, and visibility rules, including exact-companion
-access to a private target. Parentheses preserve admission. Float literals,
+access to a private target. Annotation type lookup uses the package and module
+that own the module value. A same-spelled type in another package cannot close
+the annotation or replace the selected type or refinement visibility identity.
+Parentheses preserve admission. Float literals,
 collection
 literals, functions and ordinary calls, other operators, field access, control
 flow, effects, handlers, and holes are not admitted.
@@ -1488,5 +1491,7 @@ inventing an arithmetic rewrite.
 - Import-selected package identity and namesake ADT compatibility:
   `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs` and
   `crates/veln-sema/src/tests/import_package_identity.rs`.
+- Module-value annotation ownership and visibility across same-spelled package
+  modules: `crates/veln-sema/src/tests/import_package_identity.rs`.
 - Parser coverage: `crates/veln-syntax/src/tests/calls_and_generics.rs`,
   `literals_and_numbers.rs`, and `patterns_and_control_flow.rs`.
