@@ -24,11 +24,7 @@ fn checked_main_return(module: &SurfaceModule) -> CoreExpr {
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .into_iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
+    let main = core_function(&core, "main");
     let CoreStmtKind::Return { expr } = &main.body[0].kind else {
         panic!("tail expression should lower as return");
     };
@@ -56,7 +52,7 @@ fn assert_main_passes_function_value(module: &SurfaceModule, index: usize, expec
 
 #[test]
 fn infers_non_constructor_calls_from_local_function_signatures() {
-    let source = SourceFile::new(
+    let module = clean_surface_module(
         "main.veln",
         concat!(
             "fn parse(raw: String) -> Result<Int, AppError>\n",
@@ -67,9 +63,6 @@ fn infers_non_constructor_calls_from_local_function_signatures() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
     let diagnostics = analyze_surface_module(&module);
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
