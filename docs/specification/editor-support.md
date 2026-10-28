@@ -2,13 +2,13 @@
 role: specification
 authority: normative
 specification-coverage: usage=#lsp-encoding; behavior=#lsp-navigation-formatting-and-rename; limits=#boundaries
-update-when: The `veln lsp` semantic-token, publish-diagnostic, completion, signature-help, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP navigation declaration policy changes.
+update-when: The `veln lsp` semantic-token, publish-diagnostic, hover, completion, signature-help, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP presentation or navigation declaration policy changes.
 ---
 
 # Editor Support
 
 This page specifies implemented editor-facing classification and interaction.
-It covers compiler-owned editor records, LSP diagnostics, navigation,
+It covers compiler-owned editor records, LSP diagnostics, navigation, hover,
 completion, signature help, formatting, rename, semantic-token transport, and
 VSCode integration.
 
@@ -19,7 +19,7 @@ VSCode integration.
 - LSP `textDocument/semanticTokens/full` integer data comes from `veln-lsp`.
 - LSP `textDocument/publishDiagnostics` messages come from `veln-lsp`.
 - Definition and reference identity comes from `veln-language-service`.
-- Completion and signature help come from `veln-language-service`.
+- Hover, completion, and signature help come from `veln-language-service`.
 - LSP `textDocument/definition`, `textDocument/references`,
   `textDocument/prepareRename`, and `textDocument/rename` convert shared
   navigation results to LSP responses in `veln-lsp`.
@@ -123,8 +123,9 @@ enclosing source function has the declaration modifier.
 `veln-lsp` exposes the semantic-token legend, full-token response data, and a
 stdio JSON-RPC server. The server advertises `textDocumentSync`,
 `definitionProvider`, `referencesProvider`, `documentFormattingProvider`,
-`completionProvider`, `signatureHelpProvider`, `renameProvider.prepareProvider`,
-and `semanticTokensProvider` with full-document semantic token support. It
+`hoverProvider`, `completionProvider` with `:` as a trigger character,
+`signatureHelpProvider`, `renameProvider.prepareProvider`, and
+`semanticTokensProvider` with full-document semantic token support. It
 handles `initialize`, `initialized`,
 `shutdown`, `exit`, `textDocument/didOpen`, `textDocument/didChange`,
 `textDocument/didClose`, `textDocument/semanticTokens/full`,
@@ -520,7 +521,7 @@ object must directly contain both `line` and `character`; a missing or duplicate
 another object is invalid. A coordinate that is negative, non-integral, too
 large for the server's coordinate type, beyond the retained line, or outside
 the retained source returns the JSON-RPC Invalid Params error. It does not
-become a successful empty completion result, `null` signature-help or
+become a successful empty completion result, `null` hover, signature-help, or
 definition result, empty reference result, `null` prepare-rename result, or
 empty rename edit. For rename, this position error also takes precedence when
 `newName` is missing or is not an identifier. A valid retained-source position
@@ -529,7 +530,7 @@ with a missing or invalid direct
 references. A valid position that selects no supported symbol still succeeds
 with `null`, an empty list, or an empty rename edit as appropriate for the
 request.
-An invalid completion, signature-help, or navigation request does not change
+An invalid hover, completion, signature-help, or navigation request does not change
 the retained snapshot or a later result for the same valid saved selection.
 This includes an invalid-final base selected from an unsaved overlay after the
 corresponding disk text changes. Inbound positions use the overlay's UTF-16
