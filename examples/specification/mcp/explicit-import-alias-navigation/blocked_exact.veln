@@ -6,3 +6,7 @@ use fallback as api
 fn main() -> Int
   api::member()
 end
+
+fn first_member() -> Int
+  first::member()
+end

@@ -5,6 +5,164 @@ fn snapshot(text: &str) -> EffectiveProjectSnapshot {
     EffectiveProjectSnapshot::new(vec![SourceFile::new("main.veln", text)])
 }
 
+fn position(path: &str, line: usize, column: usize) -> SourcePosition {
+    SourcePosition {
+        source: SourcePath::new(path),
+        line,
+        column,
+    }
+}
+
+#[test]
+fn explicit_import_alias_presentation_preserves_importing_module_identity() {
+    let snapshot = EffectiveProjectSnapshot::new(vec![
+        SourceFile::new("alpha.veln", "pub fn value() -> Int\n  1\nend\n"),
+        SourceFile::new("beta.veln", "pub fn value() -> Int\n  2\nend\n"),
+        SourceFile::new(
+            "app_a.veln",
+            "mod app_a\nuse alpha as calc\nfn main() -> Int\n  calc::value()\nend\n",
+        ),
+        SourceFile::new(
+            "app_b.veln",
+            "mod app_b\nuse beta as calc\nfn main() -> Int\n  calc::value()\nend\n",
+        ),
+    ]);
+
+    for (path, target) in [("app_a.veln", "alpha"), ("app_b.veln", "beta")] {
+        let alias = import_alias_presentation_at(&snapshot, &position(path, 2, 14))
+            .expect("valid alias declaration presentation");
+        assert_eq!(alias.provenance.qualifier, "calc");
+        assert_eq!(alias.provenance.package, None);
+        assert_eq!(alias.provenance.target_module, target);
+        assert_eq!(alias.selection, ImportAliasPresentationSelection::Alias);
+
+        let member = import_alias_presentation_at(&snapshot, &position(path, 4, 9))
+            .expect("valid alias member presentation");
+        assert_eq!(member.provenance.target_module, target);
+        assert_eq!(
+            member.selection,
+            ImportAliasPresentationSelection::Member {
+                name: "value".to_string(),
+                kind: CompletionCandidateKind::Function,
+            }
+        );
+
+        let completion = completion_at(&snapshot, &position(path, 4, 9));
+        let value = completion
+            .iter()
+            .find(|candidate| candidate.label == "value")
+            .expect("qualified member completion");
+        assert_eq!(value.kind, CompletionCandidateKind::Function);
+        assert_eq!(
+            value.import_alias.as_ref().expect("alias provenance"),
+            &member.provenance
+        );
+    }
+}
+
+#[test]
+fn explicit_import_alias_presentation_excludes_collisions_invalid_and_recovered_aliases() {
+    let snapshot = EffectiveProjectSnapshot::new(vec![
+        SourceFile::new("alpha.veln", "pub fn value() -> Int\n  1\nend\n"),
+        SourceFile::new("beta.veln", "pub fn value() -> Int\n  2\nend\n"),
+        SourceFile::new("collision_a.veln", "mod collision\nuse alpha as calc\n"),
+        SourceFile::new("collision_b.veln", "mod collision\nuse beta as calc\n"),
+        SourceFile::new(
+            "collision_use.veln",
+            "mod collision\nfn main() -> Int\n  calc::value()\nend\n",
+        ),
+        SourceFile::new(
+            "invalid.veln",
+            "use alpha as Calc\nfn main() -> Int\n  Calc::value()\nend\n",
+        ),
+        SourceFile::new(
+            "recovered.veln",
+            "use alpha as calc as nested\nfn main() -> Int\n  calc::value()\nend\n",
+        ),
+    ]);
+
+    for (path, line, alias_column, member_column) in [
+        ("collision_use.veln", 3, 3, 9),
+        ("invalid.veln", 3, 3, 9),
+        ("recovered.veln", 3, 3, 9),
+    ] {
+        assert!(
+            import_alias_presentation_at(&snapshot, &position(path, line, alias_column)).is_none(),
+            "unexpected alias presentation for {path}"
+        );
+        assert!(
+            import_alias_presentation_at(&snapshot, &position(path, line, member_column)).is_none(),
+            "unexpected member presentation for {path}"
+        );
+        assert!(
+            completion_at(&snapshot, &position(path, line, member_column)).is_empty(),
+            "unexpected qualified completion for {path}"
+        );
+    }
+}
+
+#[test]
+fn explicit_import_alias_presentation_retains_dependency_package_provenance() {
+    let dependency = crate::tests::dependency_snapshot(
+        "example/pkg",
+        &[("api.veln", "pub fn member() -> Int\n  1\nend\n")],
+        ["api.veln"],
+    );
+    let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+        vec![SourceFile::new(
+            "main.veln",
+            concat!(
+                "use api as short from \"example/pkg\"\n",
+                "fn main() -> Int\n",
+                "  short::member()\n",
+                "end\n",
+            ),
+        )],
+        vec![dependency],
+    );
+
+    let presentation = import_alias_presentation_at(&snapshot, &position("main.veln", 3, 10))
+        .expect("dependency member presentation");
+    assert_eq!(presentation.provenance.qualifier, "short");
+    assert_eq!(
+        presentation.provenance.package.as_deref(),
+        Some("example/pkg")
+    );
+    assert_eq!(presentation.provenance.target_module, "api");
+
+    let completion = completion_at(&snapshot, &position("main.veln", 3, 10));
+    assert!(completion.iter().any(|candidate| {
+        candidate.label == "member"
+            && candidate
+                .import_alias
+                .as_ref()
+                .is_some_and(|provenance| provenance == &presentation.provenance)
+    }));
+}
+
+#[test]
+fn explicit_import_alias_presentation_respects_complete_exact_path_precedence() {
+    let snapshot = EffectiveProjectSnapshot::new(vec![
+        SourceFile::new("alpha.veln", "pub fn value() -> Int\n  1\nend\n"),
+        SourceFile::new("foo/bar.veln", "pub fn value() -> Int\n  2\nend\n"),
+        SourceFile::new(
+            "main.veln",
+            concat!(
+                "use alpha as foo\n",
+                "use foo::bar\n",
+                "fn main() -> Int\n",
+                "  foo::bar::value()\n",
+                "end\n",
+            ),
+        ),
+    ]);
+
+    assert!(
+        import_alias_presentation_at(&snapshot, &position("main.veln", 4, 13)).is_none(),
+        "an exact-path member must not inherit same-spelled alias provenance"
+    );
+}
+
 #[test]
 fn completion_distinguishes_modifier_builtin_and_ordinary_contexts() {
     let snapshot = snapshot(concat!(

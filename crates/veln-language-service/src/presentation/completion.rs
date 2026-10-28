@@ -4,6 +4,7 @@ use super::{
     CompletionCandidate, CompletionCandidateKind, EffectiveProjectSnapshot, SourcePosition,
     presentation_parse_structure_is_bounded, source_offset,
 };
+use crate::navigation::explicit_import_alias_completion;
 
 pub fn completion_at(
     snapshot: &EffectiveProjectSnapshot,
@@ -16,6 +17,10 @@ pub fn completion_at(
         return Vec::new();
     };
     let tokens = lex(source).tokens;
+    if let Some(candidates) = explicit_import_alias_completion(snapshot, position, &tokens, offset)
+    {
+        return candidates;
+    }
     if !presentation_parse_structure_is_bounded(&tokens) {
         return Vec::new();
     }
@@ -60,9 +65,10 @@ fn body_completion(function: &FunctionDecl, line: usize) -> Vec<CompletionCandid
         });
     (function.callsite.is_some() && body_start_line <= line && line < function.span.end.line)
         .then_some(CompletionCandidate {
-            label: "callsite",
-            detail: "built-in SourceLocation local",
+            label: "callsite".to_string(),
+            detail: "built-in SourceLocation local".to_string(),
             kind: CompletionCandidateKind::BuiltinLocal,
+            import_alias: None,
         })
         .into_iter()
         .collect()
@@ -79,9 +85,10 @@ fn modifier_completion(
         && function_parameters_are_closed(tokens, function.span.start.offset, offset);
     available
         .then_some(CompletionCandidate {
-            label: "callsite",
-            detail: "call-site declaration modifier",
+            label: "callsite".to_string(),
+            detail: "call-site declaration modifier".to_string(),
             kind: CompletionCandidateKind::DeclarationModifier,
+            import_alias: None,
         })
         .into_iter()
         .collect()

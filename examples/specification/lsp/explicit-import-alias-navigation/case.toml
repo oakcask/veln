@@ -739,3 +739,62 @@ equals = []
 id = 58
 path = "/result/changes"
 equals = {}
+
+[[lsp_assert]]
+id = 60
+path = "/result/contents/value"
+equals = """
+import alias calc
+package: workspace
+target module: math"""
+
+[[lsp_assert]]
+id = 61
+path = "/result/contents/value"
+equals = """
+function calc::double
+package: workspace
+target module: math"""
+
+[[lsp_assert]]
+id = 62
+path = "/result/0/label"
+equals = "double"
+
+[[lsp_assert]]
+id = 62
+path = "/result/0/detail"
+equals = "function from package workspace, module math via calc"
+
+[[lsp_assert]]
+id = 63
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 64
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 65
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 66
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 67
+path = "/result/contents/value"
+equals = """
+function first::member
+package: example/one
+target module: api"""
+
+[[lsp_assert]]
+id = 68
+path = "/result/0"
+equals = {"label":"member","kind":3,"detail":"function from package example/one, module api via first"}

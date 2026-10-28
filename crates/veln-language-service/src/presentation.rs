@@ -11,7 +11,9 @@ use veln_syntax::{
     declaration_function_signature, lex, parse, presentation_parse_structure_is_bounded,
 };
 
-use crate::navigation::{SignatureShadowIndex, function_signature_definition_at};
+use crate::navigation::{
+    SignatureShadowIndex, explicit_import_alias_presentation_at, function_signature_definition_at,
+};
 use crate::{EffectiveProjectSnapshot, NavigationSource, SourcePosition};
 
 mod completion;
@@ -22,13 +24,46 @@ pub use completion::completion_at;
 pub enum CompletionCandidateKind {
     DeclarationModifier,
     BuiltinLocal,
+    Function,
+    Type,
+    Constructor,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CompletionCandidate {
-    pub label: &'static str,
-    pub detail: &'static str,
+    pub label: String,
+    pub detail: String,
     pub kind: CompletionCandidateKind,
+    pub import_alias: Option<ImportAliasProvenance>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ImportAliasProvenance {
+    pub qualifier: String,
+    pub package: Option<String>,
+    pub target_module: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ImportAliasPresentationSelection {
+    Alias,
+    Member {
+        name: String,
+        kind: CompletionCandidateKind,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ImportAliasPresentation {
+    pub provenance: ImportAliasProvenance,
+    pub selection: ImportAliasPresentationSelection,
+}
+
+pub fn import_alias_presentation_at(
+    snapshot: &EffectiveProjectSnapshot,
+    position: &SourcePosition,
+) -> Option<ImportAliasPresentation> {
+    explicit_import_alias_presentation_at(snapshot, position)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

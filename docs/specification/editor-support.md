@@ -129,7 +129,7 @@ handles `initialize`, `initialized`,
 `shutdown`, `exit`, `textDocument/didOpen`, `textDocument/didChange`,
 `textDocument/didClose`, `textDocument/semanticTokens/full`,
 `textDocument/definition`, `textDocument/references`,
-`textDocument/completion`, `textDocument/signatureHelp`,
+`textDocument/hover`, `textDocument/completion`, `textDocument/signatureHelp`,
 `textDocument/formatting`, `textDocument/prepareRename`, and `textDocument/rename`.
 
 The full response uses LSP relative integer encoding in groups of five:
@@ -145,14 +145,27 @@ stream remains valid for LSP clients.
 Start characters and token lengths count UTF-16 code units, including when a
 non-BMP scalar precedes a token on the same line.
 
-## LSP Completion And Signature Help
+## LSP Hover, Completion, And Signature Help
+
+`textDocument/hover` returns source presentation for a valid explicit import
+alias declaration, an alias qualifier, or a member selected through that
+qualifier. The plaintext content preserves the written local qualifier and
+reports its package provenance and target module. Workspace provenance is
+reported as `workspace`; a direct dependency uses its package identity. An
+alias hover labels the import alias. A member hover labels the existing member
+kind and its alias-qualified spelling. Other valid positions return `null`.
 
 `textDocument/completion` returns a completion-item array. Each call-site
 declaration-modifier item has `label` set to `callsite`, completion-item `kind`
 14, and `detail` set to `call-site declaration modifier`. Each built-in
 call-site local item has the same label, completion-item `kind` 6, and `detail`
 set to `built-in SourceLocation local`. A valid retained-source position with
-no completion candidate returns an empty array.
+no completion candidate returns an empty array. Immediately after a valid
+explicit import alias and `::`, completion returns the public navigable
+members of the target module. The item label is the member name. Its kind uses
+the corresponding LSP function, type, or constructor kind, and its detail
+preserves the written qualifier, package
+provenance, and target module. Items sort by label and declaration kind.
 
 `textDocument/signatureHelp` returns one signature for the resolved source
 function call. The result has `activeSignature` 0, the zero-based active
@@ -165,7 +178,7 @@ qualified function named `handle` resolves as a call target, while the bare
 `handle (expression) with handler()` operator returns `null` at its grouping
 parenthesis.
 
-Completion and signature-help requests use the retained project snapshot and
+Hover, completion, and signature-help requests use the retained project snapshot and
 the same position shape, UTF-16 conversion, invalid-position response, and
 failure-state preservation specified for navigation below.
 
@@ -341,6 +354,14 @@ alias-qualified member leaves, but exclude the alias declaration, qualifier
 tokens, and written import target. This behavior does not add navigation for a
 new member declaration class.
 
+Hover and qualified completion use the same valid alias identity and target
+provenance as navigation. A same-spelled alias in another importing module
+therefore retains its own target. Invalid-cased, colliding, and
+syntax-recovered aliases produce neither alias-qualified hover nor qualified
+completion. Completion exposes only existing public declaration kinds that
+are navigable in the resolved target module; it does not make private or new
+declaration classes visible.
+
 An invalid-cased, reserved, colliding, duplicate-target, or syntax-recovered
 alias creates no normal alias navigation identity. An alias replacement must
 start with an ASCII lowercase letter. The name `prelude` returns
@@ -364,11 +385,15 @@ LSP definition,
 references, prepare-rename, and rename project the shared result with their
 ordinary UTF-16 coordinate conversion. The checked
 [`explicit-import-alias-navigation`](../../examples/specification/lsp/explicit-import-alias-navigation/)
-case covers alias and target-member projection, exact-path precedence,
+case covers alias and target-member navigation, alias and member hover,
+workspace and dependency provenance in qualified completion, exact-path
+precedence,
 mixed alias-qualified and exact paths with the same first segment,
 ambiguous exact-path qualifier and member blocking without alias fallback,
-navigation beside an unrelated parse error, invalid-alias exclusion with and
-without an unrelated parse error, recovered-import rename, conflicts with
+navigation beside an unrelated parse error, presentation exclusion for
+colliding, invalid-cased, and syntax-recovered aliases, invalid-alias
+navigation exclusion with and without an unrelated parse error,
+recovered-import rename, conflicts with
 another import and with the selected alias's own target path, stable conflict
 details, and edit-free rejection. Shared-language-service tests cover the
 ambiguous function, type, and constructor member boundary and complete rename
@@ -977,7 +1002,7 @@ Implemented support includes:
 
 - TextMate fallback highlighting and editor-neutral semantic token records.
 - Full-document semantic token legend and relative integer encoding.
-- Stdio lifecycle, diagnostics, completion, signature-help, definition,
+- Stdio lifecycle, diagnostics, hover, completion, signature-help, definition,
   references, formatting, prepare-rename, and rename responses described above.
 - Workspace and document-scoped diagnostics with compiler messages, UTF-16
   primary and related ranges, unsaved overlays, source-casing diagnostics, and
@@ -990,9 +1015,11 @@ Implemented support includes:
 - VSCode activation, semantic tokens, Problems-pane diagnostics, and the
   `veln-pkg:` content provider.
 
-The server does not implement range or delta semantic-token requests or hover.
+The server does not implement range or delta semantic-token requests. Hover is
+limited to valid explicit import aliases and members selected through them.
 Completion is limited to the call-site declaration contexts specified in
-[Call-site Declarations](call-site-declarations.md#declaration-behavior).
+[Call-site Declarations](call-site-declarations.md#declaration-behavior) and
+qualified members reached through valid explicit import aliases.
 Signature help is limited to source function calls that resolve through the
 saved workspace and retained package snapshot. General dependency search,
 definition, and rename remain

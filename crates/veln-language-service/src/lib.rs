@@ -25,7 +25,9 @@ pub use package_documentation::{
     RenderedPackageDocResource, render_package_documentation,
 };
 pub use presentation::{
-    CompletionCandidate, CompletionCandidateKind, SignatureHelp, completion_at, signature_help_at,
+    CompletionCandidate, CompletionCandidateKind, ImportAliasPresentation,
+    ImportAliasPresentationSelection, ImportAliasProvenance, SignatureHelp, completion_at,
+    import_alias_presentation_at, signature_help_at,
 };
 pub use virtual_source::{VirtualSourceCatalog, VirtualSourceCatalogError, VirtualSourceEntry};
 

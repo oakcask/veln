@@ -59,6 +59,54 @@ fn tools_present_callsite_completion_and_signature_help() {
 }
 
 #[test]
+fn completion_projects_explicit_import_alias_provenance() {
+    let workspace = TempWorkspace::new("explicit-import-alias-presentation");
+    workspace.write("veln.toml", "");
+    workspace.write("alpha.veln", "pub fn value() -> Int\n  1\nend\n");
+    workspace.write(
+        "app.veln",
+        "mod app\nuse alpha as calc\nfn main() -> Int\n  calc::value()\nend\n",
+    );
+    workspace.write("collision_a.veln", "mod collision\nuse alpha as calc\n");
+    workspace.write("collision_b.veln", "mod collision\nuse app as calc\n");
+    workspace.write(
+        "collision_use.veln",
+        "mod collision\nfn main() -> Int\n  calc::value()\nend\n",
+    );
+    workspace.write(
+        "invalid.veln",
+        "use alpha as Calc\nfn main() -> Int\n  Calc::value()\nend\n",
+    );
+    workspace.write(
+        "recovered.veln",
+        "use alpha as calc as nested\nfn main() -> Int\n  calc::value()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+
+    let result = server.completion_tool(&json!({
+        "source": "app.veln", "line": 4, "column": 9
+    }));
+    assert_eq!(
+        result["structuredContent"]["items"],
+        json!([{
+            "label": "value",
+            "kind": "function",
+            "detail": "function from package workspace, module alpha via calc",
+            "qualifier": "calc",
+            "package": null,
+            "module": "alpha"
+        }])
+    );
+
+    for source in ["collision_use.veln", "invalid.veln", "recovered.veln"] {
+        let result = server.completion_tool(&json!({
+            "source": source, "line": 3, "column": 9
+        }));
+        assert_eq!(result["structuredContent"]["items"], json!([]), "{source}");
+    }
+}
+
+#[test]
 fn presentation_uses_dependencies_without_admitting_resources_at_full_capacity() {
     let workspace = TempWorkspace::new("callsite-presentation-capacity");
     workspace.write(

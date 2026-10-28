@@ -798,6 +798,8 @@ struct ImportAliasSymbol {
     module: String,
     name: String,
     declaration: NavigationLocation,
+    target_module: String,
+    target_package: Option<String>,
 }
 
 #[derive(Clone, Debug)]

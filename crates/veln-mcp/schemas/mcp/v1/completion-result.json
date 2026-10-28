@@ -24,11 +24,21 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "label": { "const": "callsite" },
-              "kind": { "enum": ["modifier", "builtin_local"] },
-              "detail": { "type": "string" }
+              "label": { "type": "string", "minLength": 1 },
+              "kind": { "enum": ["modifier", "builtin_local", "function", "type", "constructor"] },
+              "detail": { "type": "string" },
+              "qualifier": { "type": "string", "minLength": 1 },
+              "package": { "type": ["string", "null"] },
+              "module": { "type": "string", "minLength": 1 }
             },
-            "required": ["label", "kind", "detail"]
+            "required": ["label", "kind", "detail"],
+            "allOf": [
+              {
+                "if": { "properties": { "kind": { "enum": ["modifier", "builtin_local"] } } },
+                "then": { "properties": { "label": { "const": "callsite" } } },
+                "else": { "required": ["qualifier", "package", "module"] }
+              }
+            ]
           }
         }
       },

@@ -30,8 +30,21 @@ pub(crate) fn completion(
                     let kind = match candidate.kind {
                         CompletionCandidateKind::DeclarationModifier => "modifier",
                         CompletionCandidateKind::BuiltinLocal => "builtin_local",
+                        CompletionCandidateKind::Function => "function",
+                        CompletionCandidateKind::Type => "type",
+                        CompletionCandidateKind::Constructor => "constructor",
                     };
-                    json!({"label": candidate.label, "kind": kind, "detail": candidate.detail})
+                    match candidate.import_alias {
+                        Some(provenance) => json!({
+                            "label": candidate.label,
+                            "kind": kind,
+                            "detail": candidate.detail,
+                            "qualifier": provenance.qualifier,
+                            "package": provenance.package,
+                            "module": provenance.target_module
+                        }),
+                        None => json!({"label": candidate.label, "kind": kind, "detail": candidate.detail}),
+                    }
                 })
                 .collect::<Vec<_>>();
             json!({"items": items})
