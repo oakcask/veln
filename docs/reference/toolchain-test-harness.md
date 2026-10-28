@@ -361,6 +361,7 @@ The `publish-diagnostics`, `semantic-tokens`,
 `adt-variant-refinement-semantic-token-boundary`,
 `adt-variant-refinement-navigation`,
 `adt-variant-refinement-alias-navigation`,
+`explicit-import-alias-navigation`,
 `saved-navigation-cross-adapter`,
 `identifier-casing-snapshot-boundary`,
 `identifier-casing-overlay-boundary`, and
@@ -430,6 +431,14 @@ refinements, and empty results for invalid mixed-base or generic-argument
 unions. The adjacent `-alias-navigation` case covers generic,
 transitive, and imported workspace aliases while preserving the written alias
 rename boundary and UTF-16 ranges.
+The paired `explicit-import-alias-navigation` LSP and MCP specification cases
+use decoded assertions for definition, references, and rename on the local
+alias qualifier and on a member reached through that qualifier. They check
+exact-path precedence, contextual identifier spellings, invalid-alias
+exclusion, recovered-import collision handling, and edit-free reserved-name
+and namespace-conflict failures. Their exact edit and location arrays also
+check the LSP UTF-16 and MCP Unicode-scalar projections of the shared ordered
+navigation result.
 
 The `decoded_mcp_jsonl_*` and `manifest_mcp_assertions_*` tests in
 `toolchain_harness.rs` cover MCP JSONL decoding, ID selection, pointer
