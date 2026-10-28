@@ -8,6 +8,8 @@ fn index_explicit_import_aliases(
             module: alias.declaring_module,
             name: alias.name,
             declaration: workspace_location(alias.span),
+            target_module: alias.target_module,
+            target_package: alias.target_package,
         })
         .collect::<Vec<_>>();
     record_explicit_import_alias_construction_work(aliases.len());

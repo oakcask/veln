@@ -19,8 +19,8 @@ use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
 use veln_language_service::navigate_for_rename;
 use veln_language_service::{
     DirectDependencySnapshot, EffectiveProjectSnapshot, NavigationLocation, NavigationSource,
-    SourcePosition, completion_at, definition_at, navigate, navigation_result_for_rename,
-    signature_help_at, validate_rename_in_snapshot,
+    SourcePosition, completion_at, definition_at, import_alias_presentation_at, navigate,
+    navigation_result_for_rename, signature_help_at, validate_rename_in_snapshot,
 };
 use veln_project::{
     PackageIdentity, PackageSnapshotSource, Project, ProjectManifest,
@@ -151,6 +151,7 @@ impl Server {
             "textDocument/didClose" => self.handle_document_close(message),
             "textDocument/semanticTokens/full" => self.handle_semantic_tokens(message, id),
             "textDocument/completion" => self.handle_completion(message, id),
+            "textDocument/hover" => self.handle_hover(message, id),
             "textDocument/signatureHelp" => self.handle_signature_help(message, id),
             "textDocument/definition" => self.handle_definition(message, id),
             "veln/virtualDocument" => self.handle_virtual_document(message, id),
@@ -233,6 +234,24 @@ impl Server {
                 response(&id, &completion_result(&candidates))
             }
             Ok(None) => response(&id, "[]"),
+            Err(NavigationRequestFailure::InvalidPosition) => {
+                invalid_navigation_position_response(&id)
+            }
+        })
+        .into_iter()
+        .collect()
+    }
+
+    fn handle_hover(&self, message: &str, id: Option<String>) -> Vec<String> {
+        id.map(|id| match self.navigation_position_at_request(message) {
+            Ok(Some((_, snapshot, position))) => response(
+                &id,
+                &import_alias_presentation_at(&snapshot, &position).map_or_else(
+                    || "null".to_string(),
+                    |presentation| hover_result(&presentation),
+                ),
+            ),
+            Ok(None) => response(&id, "null"),
             Err(NavigationRequestFailure::InvalidPosition) => {
                 invalid_navigation_position_response(&id)
             }

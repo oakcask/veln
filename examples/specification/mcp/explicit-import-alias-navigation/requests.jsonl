@@ -54,3 +54,8 @@
 {"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"rename","arguments":{"source":"precedence.veln","line":5,"column":13,"new_name":"exact_value"}}}
 {"jsonrpc":"2.0","id":55,"method":"tools/call","params":{"name":"references","arguments":{"source":"precedence.veln","line":5,"column":3,"include_declaration":true}}}
 {"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"rename","arguments":{"source":"precedence.veln","line":5,"column":3,"new_name":"other"}}}
+{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"completion","arguments":{"source":"main.veln","line":5,"column":9}}}
+{"jsonrpc":"2.0","id":58,"method":"tools/call","params":{"name":"completion","arguments":{"source":"invalid.veln","line":5,"column":9}}}
+{"jsonrpc":"2.0","id":59,"method":"tools/call","params":{"name":"completion","arguments":{"source":"recovery_invalid.veln","line":5,"column":8}}}
+{"jsonrpc":"2.0","id":60,"method":"tools/call","params":{"name":"completion","arguments":{"source":"conflict_use.veln","line":3,"column":10}}}
+{"jsonrpc":"2.0","id":61,"method":"tools/call","params":{"name":"completion","arguments":{"source":"blocked_exact.veln","line":11,"column":10}}}

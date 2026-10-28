@@ -9,10 +9,6 @@ This umbrella records only the unimplemented follow-up work for language
 services. The implemented workspace, direct-dependency, and standard-library
 navigation behavior is specified by [Editor Support](../specification/editor-support.md)
 and [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md).
-The remaining hover provenance and qualified completion work for explicit
-import aliases is owned by the focused
-[Explicit Import Alias Source Presentation](explicit-import-aliases.md)
-proposal, not this umbrella.
 
 ## Remaining scope
 

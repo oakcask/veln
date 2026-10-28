@@ -17,6 +17,7 @@ use veln_syntax::{format_tree, parse};
 
 use crate::{legend, semantic_tokens_full};
 use veln_language_service::{CompletionCandidate, CompletionCandidateKind, SignatureHelp};
+use veln_language_service::{ImportAliasPresentation, ImportAliasPresentationSelection};
 
 mod diagnostic;
 
@@ -32,7 +33,7 @@ pub(crate) fn document_uri_and_text(message: &str) -> Option<(String, String)> {
 pub(crate) fn initialize_result() -> String {
     let legend = legend();
     format!(
-        "{{\"capabilities\":{{\"textDocumentSync\":1,\"definitionProvider\":true,\"referencesProvider\":true,\"completionProvider\":{{\"triggerCharacters\":[]}},\"signatureHelpProvider\":{{\"triggerCharacters\":[\"(\",\",\"]}},\"documentFormattingProvider\":true,\"renameProvider\":{{\"prepareProvider\":true}},\"semanticTokensProvider\":{{\"legend\":{{\"tokenTypes\":[{}],\"tokenModifiers\":[{}]}},\"full\":true,\"range\":false}}}}}}",
+        "{{\"capabilities\":{{\"textDocumentSync\":1,\"definitionProvider\":true,\"referencesProvider\":true,\"hoverProvider\":true,\"completionProvider\":{{\"triggerCharacters\":[\":\"]}},\"signatureHelpProvider\":{{\"triggerCharacters\":[\"(\",\",\"]}},\"documentFormattingProvider\":true,\"renameProvider\":{{\"prepareProvider\":true}},\"semanticTokensProvider\":{{\"legend\":{{\"tokenTypes\":[{}],\"tokenModifiers\":[{}]}},\"full\":true,\"range\":false}}}}}}",
         json_string_list(&legend.token_types),
         json_string_list(&legend.token_modifiers),
     )
@@ -45,16 +46,55 @@ pub(crate) fn completion_result(candidates: &[CompletionCandidate]) -> String {
             let kind = match candidate.kind {
                 CompletionCandidateKind::DeclarationModifier => 14,
                 CompletionCandidateKind::BuiltinLocal => 6,
+                CompletionCandidateKind::Function => 3,
+                CompletionCandidateKind::Type => 7,
+                CompletionCandidateKind::Constructor => 4,
             };
             format!(
                 "{{\"label\":\"{}\",\"kind\":{kind},\"detail\":\"{}\"}}",
-                escape_json(candidate.label),
-                escape_json(candidate.detail),
+                escape_json(&candidate.label),
+                escape_json(&candidate.detail),
             )
         })
         .collect::<Vec<_>>()
         .join(",");
     format!("[{items}]")
+}
+
+pub(crate) fn hover_result(presentation: &ImportAliasPresentation) -> String {
+    let package = presentation
+        .provenance
+        .package
+        .as_deref()
+        .unwrap_or("workspace");
+    let subject = match &presentation.selection {
+        ImportAliasPresentationSelection::Alias => {
+            format!("import alias {}", presentation.provenance.qualifier)
+        }
+        ImportAliasPresentationSelection::Member { name, kind } => format!(
+            "{} {}::{name}",
+            completion_kind_name(*kind),
+            presentation.provenance.qualifier,
+        ),
+    };
+    let value = format!(
+        "{subject}\npackage: {package}\ntarget module: {}",
+        presentation.provenance.target_module,
+    );
+    format!(
+        "{{\"contents\":{{\"kind\":\"plaintext\",\"value\":\"{}\"}}}}",
+        escape_json(&value),
+    )
+}
+
+fn completion_kind_name(kind: CompletionCandidateKind) -> &'static str {
+    match kind {
+        CompletionCandidateKind::DeclarationModifier => "modifier",
+        CompletionCandidateKind::BuiltinLocal => "built-in local",
+        CompletionCandidateKind::Function => "function",
+        CompletionCandidateKind::Type => "type",
+        CompletionCandidateKind::Constructor => "constructor",
+    }
 }
 
 pub(crate) fn signature_help_result(help: &SignatureHelp) -> String {

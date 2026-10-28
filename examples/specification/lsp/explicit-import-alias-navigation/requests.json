@@ -57,6 +57,15 @@
   {"jsonrpc":"2.0","id":56,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"precedence.veln"}},"position":{"line":4,"character":12},"newName":"exact_value"}},
   {"jsonrpc":"2.0","id":57,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"precedence.veln"}},"position":{"line":4,"character":2},"context":{"includeDeclaration":true}}},
   {"jsonrpc":"2.0","id":58,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"precedence.veln"}},"position":{"line":4,"character":2},"newName":"other"}},
+  {"jsonrpc":"2.0","id":60,"method":"textDocument/hover","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":0,"character":12}}},
+  {"jsonrpc":"2.0","id":61,"method":"textDocument/hover","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":4,"character":8}}},
+  {"jsonrpc":"2.0","id":62,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":4,"character":8}}},
+  {"jsonrpc":"2.0","id":63,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"invalid.veln"}},"position":{"line":4,"character":8}}},
+  {"jsonrpc":"2.0","id":64,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"recovery_invalid.veln"}},"position":{"line":4,"character":7}}},
+  {"jsonrpc":"2.0","id":65,"method":"textDocument/hover","params":{"textDocument":{"uri":{"$workspace_file_uri":"conflict_use.veln"}},"position":{"line":2,"character":9}}},
+  {"jsonrpc":"2.0","id":66,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"conflict_use.veln"}},"position":{"line":2,"character":9}}},
+  {"jsonrpc":"2.0","id":67,"method":"textDocument/hover","params":{"textDocument":{"uri":{"$workspace_file_uri":"blocked_exact.veln"}},"position":{"line":10,"character":9}}},
+  {"jsonrpc":"2.0","id":68,"method":"textDocument/completion","params":{"textDocument":{"uri":{"$workspace_file_uri":"blocked_exact.veln"}},"position":{"line":10,"character":9}}},
   {"jsonrpc":"2.0","id":59,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

@@ -568,6 +568,17 @@ For a header with a trailing comment, the position immediately before the `#`
 marker is the terminal modifier position. Positions inside the comment,
 including the end of the comment line, return no modifier candidate.
 
+Immediately after a valid explicit import alias and `::`, `completion` returns
+the public navigable members of the resolved target module. Each item contains
+the member `label`, declaration `kind`, and human-readable `detail`. It also
+contains the written local `qualifier`, the target `module`, and `package` as
+either a direct-dependency identity or `null` for workspace provenance. Items
+sort by label and declaration kind. Same-spelled aliases in different
+importing modules retain their distinct targets. A colliding, invalid-cased,
+or syntax-recovered alias returns an empty item array. This completion surface
+does not expose private members or add a declaration kind that navigation does
+not already support.
+
 `signature_help` returns either `signature: null` or one signature object. The
 object contains the canonical source declaration `label`, source-parameter
 labels, and zero-based `activeParameter`. A call-site-aware declaration's label
@@ -932,6 +943,12 @@ transcript uses a source over the implementation's structural-work budget to
 check empty completion, `null` saved-navigation signature help, unchanged
 workspace selection, and a subsequent successful completion from another
 saved source.
+The checked
+[`explicit-import-alias-navigation`](../../examples/specification/mcp/explicit-import-alias-navigation/)
+transcript covers workspace and direct-dependency qualified completion
+provenance and empty results for colliding, invalid-cased, and recovered
+aliases. Shared language-service tests keep same-spelled aliases in different
+importing modules distinct and check alias and member presentation together.
 The checked
 `examples/specification/mcp/references-recovery-navigation/` transcript covers
 recovery selection from a declaration and reference, declaration exclusion and
