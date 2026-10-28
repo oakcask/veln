@@ -1,2 +1,6 @@
 mod recovery
 use extra as bad as nested
+
+fn main() -> Int
+  bad::value()
+end

@@ -18,3 +18,9 @@
 {"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"references","arguments":{"source":"contextual.veln","line":4,"column":3,"include_declaration":true}}}
 {"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"rename","arguments":{"source":"contextual.veln","line":4,"column":3,"new_name":"scope"}}}
 {"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"rename","arguments":{"source":"contextual.veln","line":4,"column":3,"new_name":"Numbers"}}}
+{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"definition","arguments":{"source":"recovery_invalid.veln","line":2,"column":14}}}
+{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"references","arguments":{"source":"recovery_invalid.veln","line":2,"column":14,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"rename","arguments":{"source":"recovery_invalid.veln","line":2,"column":14,"new_name":"fixed"}}}
+{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"definition","arguments":{"source":"recovery_invalid.veln","line":5,"column":3}}}
+{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"references","arguments":{"source":"recovery_invalid.veln","line":5,"column":3,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"rename","arguments":{"source":"recovery_invalid.veln","line":5,"column":3,"new_name":"fixed"}}}

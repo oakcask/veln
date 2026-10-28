@@ -258,6 +258,9 @@ mod explicit_import_alias_navigation_tests {
         assert_eq!(expected.references, actual.references);
         assert_eq!(expected_alias_affected, affected_spans(&actual));
         let actual_member = query(reordered, "app_more.veln", 4, 9).unwrap();
+        assert_eq!(expected_member.selection, actual_member.selection);
+        assert_eq!(expected_member.definition, actual_member.definition);
+        assert_eq!(expected_member.references, actual_member.references);
         assert_eq!(expected_member_affected, affected_spans(&actual_member));
     }
 
