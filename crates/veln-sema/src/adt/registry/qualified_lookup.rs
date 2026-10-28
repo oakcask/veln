@@ -70,17 +70,16 @@ impl AdtRegistry {
             .get(&(owner.clone(), module_path.clone()))
         else {
             let normalized = normalized_qualified_path(&module_path);
-            if normalized != module_path {
-                if current_module.is_some_and(|current_module| {
+            if normalized != module_path
+                && (current_module.is_some_and(|current_module| {
                     normalized_qualified_path(current_module) == normalized
                 }) || self
                     .qualified_import_recovery_modules
-                    .contains_key(&(owner, normalized))
-                {
-                    return None;
-                }
+                    .contains_key(&(owner, normalized)))
+            {
+                return None;
             }
-            let builtin = self
+            let mut builtin = self
                 .descriptors_by_source_identity
                 .get(&(None, None, type_name.clone()))
                 .into_iter()
@@ -90,7 +89,7 @@ impl AdtRegistry {
             return Some(if unique {
                 Self::unique_candidate(builtin).flatten()
             } else {
-                builtin.last()
+                builtin.next_back()
             });
         };
         let Some(identity) = self.source_identity_from_import_modules(type_name, modules) else {
@@ -105,7 +104,7 @@ impl AdtRegistry {
         {
             return None;
         }
-        let candidates = self
+        let mut candidates = self
             .qualified_descriptor_candidates(&identity)
             .filter(|descriptor| {
                 descriptor.visibility == Visibility::Public
@@ -115,7 +114,7 @@ impl AdtRegistry {
         Some(if unique {
             Self::unique_candidate(candidates).flatten()
         } else {
-            candidates.last()
+            candidates.next_back()
         })
     }
 
