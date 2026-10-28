@@ -125,38 +125,74 @@ fn alias_completion_candidates(
 ) -> Vec<CompletionCandidate> {
     let provenance = alias_provenance(alias);
     let mut candidates = Vec::new();
-    candidates.extend(index.functions.iter().filter_map(|symbol| {
-        (symbol.public
-            && !symbol.invalid_declaration_name
-            && presentation_target_matches(
-                &symbol.module,
-                symbol.package.as_deref(),
-                alias,
-            ))
-        .then(|| completion_candidate(&symbol.name, CompletionCandidateKind::Function, &provenance))
-    }));
-    candidates.extend(index.types.iter().filter_map(|symbol| {
-        (symbol.public
-            && presentation_target_matches(
-                &symbol.module,
-                symbol.package.as_deref(),
-                alias,
-            ))
-        .then(|| completion_candidate(&symbol.name, CompletionCandidateKind::Type, &provenance))
-    }));
-    candidates.extend(index.type_aliases.iter().filter_map(|symbol| {
-        presentation_target_matches(&symbol.module, symbol.package.as_deref(), alias)
-            .then(|| completion_candidate(&symbol.name, CompletionCandidateKind::Type, &provenance))
-    }));
-    candidates.extend(index.constructors.iter().filter_map(|symbol| {
-        (symbol.public
-            && presentation_target_matches(
-                &symbol.module,
-                symbol.package.as_deref(),
-                alias,
-            ))
-        .then(|| completion_candidate(&symbol.name, CompletionCandidateKind::Constructor, &provenance))
-    }));
+    candidates.extend(
+        index
+            .functions
+            .iter()
+            .filter(|symbol| {
+                symbol.public
+                    && !symbol.invalid_declaration_name
+                    && presentation_target_matches(
+                        &symbol.module,
+                        symbol.package.as_deref(),
+                        alias,
+                    )
+            })
+            .map(|symbol| {
+                completion_candidate(
+                    &symbol.name,
+                    CompletionCandidateKind::Function,
+                    &provenance,
+                )
+            }),
+    );
+    candidates.extend(
+        index
+            .types
+            .iter()
+            .filter(|symbol| {
+                symbol.public
+                    && presentation_target_matches(
+                        &symbol.module,
+                        symbol.package.as_deref(),
+                        alias,
+                    )
+            })
+            .map(|symbol| {
+                completion_candidate(&symbol.name, CompletionCandidateKind::Type, &provenance)
+            }),
+    );
+    candidates.extend(
+        index
+            .type_aliases
+            .iter()
+            .filter(|symbol| {
+                presentation_target_matches(&symbol.module, symbol.package.as_deref(), alias)
+            })
+            .map(|symbol| {
+                completion_candidate(&symbol.name, CompletionCandidateKind::Type, &provenance)
+            }),
+    );
+    candidates.extend(
+        index
+            .constructors
+            .iter()
+            .filter(|symbol| {
+                symbol.public
+                    && presentation_target_matches(
+                        &symbol.module,
+                        symbol.package.as_deref(),
+                        alias,
+                    )
+            })
+            .map(|symbol| {
+                completion_candidate(
+                    &symbol.name,
+                    CompletionCandidateKind::Constructor,
+                    &provenance,
+                )
+            }),
+    );
     candidates.sort_by(|left, right| {
         left.label
             .cmp(&right.label)
