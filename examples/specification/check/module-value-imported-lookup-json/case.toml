@@ -34,4 +34,3 @@ message = "ambiguous value `shared`"
 file = "reversed.veln"
 line = 5
 column = 2
-

@@ -20,4 +20,3 @@ end
 fn exact_path_does_not_fall_back() -> Int
 	alpha::exact::target
 end
-

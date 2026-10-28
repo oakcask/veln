@@ -470,6 +470,63 @@ fn quarantined_constructor_arity_diagnostic(
     )
 }
 
+fn declaration_types_are_quarantined(
+    function: &Function,
+    environment: &TypeEnvironment,
+    annotation_owner_prevalidated: bool,
+) -> bool {
+    if annotation_owner_prevalidated {
+        let owner_paths_are_resolved = |paths: &[veln_ast::TypePathSegments]| {
+            paths.iter().all(|path| {
+                environment.annotation_type_path_is_resolved_in_owner(
+                    &path.segments.join("::"),
+                    path.type_argument_count,
+                    function.module_name.as_deref(),
+                    function.package_name.as_deref(),
+                )
+            })
+        };
+        return !owner_paths_are_resolved(&function.return_type_paths)
+            || (function.kind == FunctionKind::Function
+                && function
+                    .params
+                    .iter()
+                    .any(|param| !owner_paths_are_resolved(&param.ty_paths)));
+    }
+
+    annotation_has_unavailable_refinement_identity(
+        &function.return_type_refinements,
+        &function.return_type_paths,
+        function.module_name.as_deref(),
+        environment,
+        &[],
+    ) || (function.kind == FunctionKind::Function
+        && function.params.iter().any(|param| {
+            annotation_has_unavailable_refinement_identity(
+                &param.ty_refinements,
+                &param.ty_paths,
+                function.module_name.as_deref(),
+                environment,
+                &[],
+            )
+        }))
+}
+
+fn resolution_uses_for_function(
+    function: &Function,
+    environment: &TypeEnvironment,
+) -> Vec<veln_ast::UseDecl> {
+    environment
+        .uses
+        .iter()
+        .filter(|use_decl| {
+            use_decl.module_name.as_deref() == function.module_name.as_deref()
+                && use_decl.importing_package.as_deref() == function.package_name.as_deref()
+        })
+        .cloned()
+        .collect()
+}
+
 impl<'a> FunctionChecker<'a> {
     pub(super) fn for_source_declaration(
         function: &'a Function,
@@ -506,50 +563,9 @@ impl<'a> FunctionChecker<'a> {
         annotation_owner_prevalidated: bool,
         variant_diagnostics: &'a mut VariantDiagnosticInterner,
     ) -> Self {
-        let owner_paths_are_resolved = |paths: &[veln_ast::TypePathSegments]| {
-            paths.iter().all(|path| {
-                environment.annotation_type_path_is_resolved_in_owner(
-                    &path.segments.join("::"),
-                    path.type_argument_count,
-                    function.module_name.as_deref(),
-                    function.package_name.as_deref(),
-                )
-            })
-        };
-        let declaration_types_are_quarantined = if annotation_owner_prevalidated {
-            !owner_paths_are_resolved(&function.return_type_paths)
-                || (function.kind == FunctionKind::Function
-                    && function
-                        .params
-                        .iter()
-                        .any(|param| !owner_paths_are_resolved(&param.ty_paths)))
-        } else {
-            annotation_has_unavailable_refinement_identity(
-                &function.return_type_refinements,
-                &function.return_type_paths,
-                function.module_name.as_deref(),
-                environment,
-                &[],
-            ) || (function.kind == FunctionKind::Function
-                && function.params.iter().any(|param| {
-                    annotation_has_unavailable_refinement_identity(
-                        &param.ty_refinements,
-                        &param.ty_paths,
-                        function.module_name.as_deref(),
-                        environment,
-                        &[],
-                    )
-                }))
-        };
-        let resolution_uses = environment
-            .uses
-            .iter()
-            .filter(|use_decl| {
-                use_decl.module_name.as_deref() == function.module_name.as_deref()
-                    && use_decl.importing_package.as_deref() == function.package_name.as_deref()
-            })
-            .cloned()
-            .collect();
+        let declaration_types_are_quarantined =
+            declaration_types_are_quarantined(function, environment, annotation_owner_prevalidated);
+        let resolution_uses = resolution_uses_for_function(function, environment);
         Self {
             function,
             environment,
