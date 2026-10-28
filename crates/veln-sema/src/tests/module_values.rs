@@ -1466,6 +1466,125 @@ fn invalid_local_module_value_shadows_an_imported_value() {
 }
 
 #[test]
+fn invalid_imported_module_value_does_not_reserve_a_bare_exposure() {
+    for reverse_sources in [false, true] {
+        let alpha = (
+            "alpha",
+            SourceFile::new("alpha.veln", "pub let shared: Missing = 0\n"),
+        );
+        let app = (
+            "app",
+            SourceFile::new("app.veln", "use alpha\nfn read() -> Int\n  shared\nend\n"),
+        );
+        let sources = if reverse_sources {
+            vec![app, alpha]
+        } else {
+            vec![alpha, app]
+        };
+
+        let diagnostics = analyze_surface_module(&merged_modules_with_identities(sources));
+
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "name.unresolved"
+                    && diagnostic.message == "unresolved value `shared`"
+            }),
+            "reverse_sources={reverse_sources}: {diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "name.ambiguous"),
+            "reverse_sources={reverse_sources}: {diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
+fn valid_imported_value_survives_an_invalid_namesake_in_every_order() {
+    for reverse_sources in [false, true] {
+        for reverse_imports in [false, true] {
+            let alpha = (
+                "alpha",
+                SourceFile::new("alpha.veln", "pub let shared: Missing = 0\n"),
+            );
+            let beta = (
+                "beta",
+                SourceFile::new("beta.veln", "pub let shared: Int = 2\n"),
+            );
+            let imports = if reverse_imports {
+                "use beta\nuse alpha\n"
+            } else {
+                "use alpha\nuse beta\n"
+            };
+            let app = (
+                "app",
+                SourceFile::new(
+                    "app.veln",
+                    format!("{imports}fn read() -> Int\n  shared\nend\n"),
+                ),
+            );
+            let sources = if reverse_sources {
+                vec![beta, alpha, app]
+            } else {
+                vec![alpha, beta, app]
+            };
+
+            let diagnostics = analyze_surface_module(&merged_modules_with_identities(sources));
+
+            assert!(
+                diagnostics.iter().all(|diagnostic| {
+                    diagnostic.id != "name.ambiguous"
+                        && !(diagnostic.id == "name.unresolved"
+                            && diagnostic.message == "unresolved value `shared`")
+                }),
+                "reverse_sources={reverse_sources}, reverse_imports={reverse_imports}: {diagnostics:#?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn invalid_imported_value_does_not_collide_with_a_valid_imported_function() {
+    for reverse_imports in [false, true] {
+        let imports = if reverse_imports {
+            "use functions\nuse values\n"
+        } else {
+            "use values\nuse functions\n"
+        };
+        let module = merged_modules_with_identities(vec![
+            (
+                "values",
+                SourceFile::new("values.veln", "pub let shared: Missing = 0\n"),
+            ),
+            (
+                "functions",
+                SourceFile::new("functions.veln", "pub fn shared() -> Int\n  2\nend\n"),
+            ),
+            (
+                "app",
+                SourceFile::new(
+                    "app.veln",
+                    format!("{imports}fn read() -> Int\n  shared()\nend\n"),
+                ),
+            ),
+        ]);
+
+        let diagnostics = analyze_surface_module(&module);
+
+        assert!(
+            diagnostics.iter().all(|diagnostic| {
+                !matches!(
+                    diagnostic.id.as_str(),
+                    "name.ambiguous" | "type.not_callable"
+                ) && !(diagnostic.id == "name.unresolved" && diagnostic.message.contains("shared"))
+            }),
+            "reverse_imports={reverse_imports}: {diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
 fn exact_companion_can_read_private_module_values_but_other_modules_cannot() {
     let module = merged_modules_with_identities(vec![
         (

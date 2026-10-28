@@ -292,6 +292,19 @@ impl TypeEnvironment {
                 ))
             });
         }
+        self.rebuild_module_value_exposures();
+    }
+
+    fn rebuild_module_value_exposures(&mut self) {
+        self.public_module_value_identities =
+            facts::public_module_value_identities(&self.module_values);
+        self.qualified_module_value_imports = facts::qualified_module_value_import_index(
+            &self.uses,
+            &self.module_values,
+            &self.companion_function_access_targets,
+        );
+        self.bare_module_values =
+            facts::bare_module_value_index(&self.module_values, &self.functions, &self.uses);
     }
 
     pub(crate) fn module_value_path_in_owner(

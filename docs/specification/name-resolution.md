@@ -226,6 +226,10 @@ over local import qualifiers, and an ambiguous qualifier or exact path does
 not fall back. Two
 distinct imported values with the same bare name are ambiguous. An imported
 function and imported module value with the same bare name are also ambiguous.
+An imported module value that is unavailable after semantic checking exposes
+no bare or qualified name. It does not make a valid imported namesake
+ambiguous, and it does not collide with a valid imported function. With no
+other eligible declaration, a reference to its name is unresolved.
 An import quarantined by a duplicate target or colliding qualifier contributes
 no qualified module-value candidate. A read through that import reports
 `name.unresolved`, not `name.ambiguous`, even when another quarantined import
@@ -241,6 +245,10 @@ target-specific, package-local, and non-transitive. The checked cases cover
 [`local function precedence`](../../examples/specification/check/module-value-local-function-precedence-human/),
 [`package identity human`](../../examples/specification/check/module-value-imported-package-identity-human/),
 [`package identity JSON`](../../examples/specification/check/module-value-imported-package-identity-json/),
+[`invalid imported exposure human`](../../examples/specification/check/module-value-invalid-import-exposure-human/),
+[`invalid imported exposure JSON`](../../examples/specification/check/module-value-invalid-import-exposure-json/),
+[`owner-package fallback human`](../../examples/specification/check/module-value-owner-package-fallback-human/),
+[`owner-package fallback JSON`](../../examples/specification/check/module-value-owner-package-fallback-json/),
 [`companion access`](../../examples/specification/check/module-value-companion-private-human/),
 [`private rejection`](../../examples/specification/check/module-value-private-import-human/),
 [`quarantined qualified human`](../../examples/specification/check/module-value-quarantined-qualified-human/),

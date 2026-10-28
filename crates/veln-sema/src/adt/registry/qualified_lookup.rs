@@ -8,6 +8,37 @@ use recovery_helpers::{
 };
 
 impl AdtRegistry {
+    fn fallback_descriptor_for_unqualified_type_path<'a>(
+        &'a self,
+        name: &str,
+        args_len: Option<usize>,
+        current_module: Option<&str>,
+        owner_uses: &[UseDecl],
+    ) -> Option<&'a AdtDescriptor> {
+        self.root_descriptor(name, args_len)
+            .or_else(|| self.unique_imported_descriptor(name, args_len, current_module, owner_uses))
+    }
+
+    fn fallback_unique_descriptor_for_unqualified_type_path<'a>(
+        &'a self,
+        name: &str,
+        args_len: Option<usize>,
+        current_module: Option<&str>,
+        owner_uses: &[UseDecl],
+    ) -> Option<&'a AdtDescriptor> {
+        let root = self
+            .descriptors_by_source_identity
+            .get(&(None, None, name.to_string()))
+            .into_iter()
+            .flatten()
+            .map(|index| self.descriptor_lookup_candidate(*index))
+            .filter(|descriptor| Self::descriptor_matches_arity(descriptor, args_len));
+        if let Some(root) = Self::unique_candidate(root) {
+            return root;
+        }
+        self.unique_imported_descriptor(name, args_len, current_module, owner_uses)
+    }
+
     fn owner_uses(
         uses: &[UseDecl],
         current_module: Option<&str>,
@@ -170,6 +201,14 @@ impl AdtRegistry {
             return descriptor;
         }
         let owner_uses = Self::owner_uses(uses, current_module, current_package);
+        if !name.contains("::") {
+            return self.fallback_unique_descriptor_for_unqualified_type_path(
+                name,
+                Some(args_len),
+                current_module,
+                &owner_uses,
+            );
+        }
         self.unique_descriptor_for_type_path(name, args_len, current_module, &owner_uses)
     }
 
@@ -205,6 +244,14 @@ impl AdtRegistry {
             return descriptor;
         }
         let owner_uses = Self::owner_uses(uses, current_module, current_package);
+        if !name.contains("::") {
+            return self.fallback_unique_descriptor_for_unqualified_type_path(
+                name,
+                None,
+                current_module,
+                &owner_uses,
+            );
+        }
         self.unique_descriptor_for_type_path_any_arity(name, current_module, &owner_uses)
     }
 
@@ -219,8 +266,8 @@ impl AdtRegistry {
         let segments = name.split("::").collect::<Vec<_>>();
         let type_name = segments.last()?;
         let qualifier = segments[..segments.len().saturating_sub(1)].join("::");
-        if (!name.contains("::") || current_module == Some(qualifier.as_str()))
-            && let Some(descriptor) = self
+        if !name.contains("::") || current_module == Some(qualifier.as_str()) {
+            let local = self
                 .descriptors_by_source_identity
                 .get(&(
                     current_package.map(str::to_string),
@@ -231,11 +278,20 @@ impl AdtRegistry {
                 .flatten()
                 .rev()
                 .map(|index| self.descriptor_lookup_candidate(*index))
-                .find(|descriptor| Self::descriptor_matches_arity(descriptor, Some(args_len)))
-        {
-            return Some(descriptor);
+                .find(|descriptor| Self::descriptor_matches_arity(descriptor, Some(args_len)));
+            if name.contains("::") || local.is_some() {
+                return local;
+            }
         }
         let owner_uses = Self::owner_uses(uses, current_module, current_package);
+        if !name.contains("::") {
+            return self.fallback_descriptor_for_unqualified_type_path(
+                name,
+                Some(args_len),
+                current_module,
+                &owner_uses,
+            );
+        }
         self.descriptor_for_type_path_including_quarantined(
             name,
             args_len,
@@ -281,6 +337,14 @@ impl AdtRegistry {
             return descriptor;
         }
         let owner_uses = Self::owner_uses(uses, current_module, current_package);
+        if !name.contains("::") {
+            return self.fallback_descriptor_for_unqualified_type_path(
+                name,
+                Some(args_len),
+                current_module,
+                &owner_uses,
+            );
+        }
         self.descriptor_for_type_path(name, args_len, current_module, &owner_uses)
     }
 

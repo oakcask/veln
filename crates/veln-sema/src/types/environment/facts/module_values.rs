@@ -21,18 +21,7 @@ pub(super) fn finish_module_value_facts(module: &SurfaceModule, environment: &mu
     append_module_value_signatures(module, &mut environment.module_values);
     canonicalize_new_module_value_types(environment, first_new);
     index_new_module_value_identities(environment, first_new);
-    environment.public_module_value_identities =
-        public_module_value_identities(&environment.module_values);
-    environment.qualified_module_value_imports = qualified_module_value_import_index(
-        &environment.uses,
-        &environment.module_values,
-        &environment.companion_function_access_targets,
-    );
-    environment.bare_module_values = bare_module_value_index(
-        &environment.module_values,
-        &environment.functions,
-        &environment.uses,
-    );
+    environment.rebuild_module_value_exposures();
 }
 
 pub(in crate::types::environment) fn qualified_module_value_import_index(
@@ -76,7 +65,7 @@ pub(in crate::types::environment) fn qualified_module_value_import_index(
         HashMap::<(Option<String>, Option<String>), HashSet<String>>::new();
     let mut all_names_by_target =
         HashMap::<(Option<String>, Option<String>), HashSet<String>>::new();
-    for value in module_values {
+    for value in module_values.iter().filter(|value| value.available) {
         record_qualified_module_value_member_materialization_work();
         let Some(name) = &value.declaration.name else {
             continue;
@@ -161,7 +150,7 @@ pub(in crate::types::environment) fn public_module_value_identities(
 ) -> HashSet<ModuleValueIdentity> {
     module_values
         .iter()
-        .filter(|value| value.declaration.visibility == Visibility::Public)
+        .filter(|value| value.available && value.declaration.visibility == Visibility::Public)
         .filter_map(|value| {
             Some((
                 value.declaration.package_name.clone(),
@@ -259,7 +248,7 @@ fn public_module_value_selections(
     let mut selections = HashMap::new();
     for value in module_values
         .iter()
-        .filter(|value| value.declaration.visibility == Visibility::Public)
+        .filter(|value| value.available && value.declaration.visibility == Visibility::Public)
     {
         record_module_value_selections(&mut selections, value, imported_owners);
     }

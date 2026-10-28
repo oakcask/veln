@@ -1,0 +1,6 @@
+use alpha
+use beta
+
+fn read() -> Int
+	shared
+end

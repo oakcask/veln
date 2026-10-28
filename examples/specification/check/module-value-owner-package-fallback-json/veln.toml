@@ -1,0 +1,5 @@
+[dependencies."one/pkg"]
+path = "vendor/one"
+
+[dependencies."two/pkg"]
+path = "vendor/two"

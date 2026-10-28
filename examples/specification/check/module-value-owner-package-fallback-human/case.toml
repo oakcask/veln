@@ -1,0 +1,10 @@
+command = ["check", "app.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["unresolved type `Secret`"]
+not_contains = ["public module value annotation exposes private type", "one/pkg::shared::Secret", "Private type `one/pkg::shared::Secret` is declared here."]
+
+[stderr]
+format = "empty"

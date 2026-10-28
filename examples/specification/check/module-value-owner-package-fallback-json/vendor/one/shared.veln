@@ -1,0 +1,5 @@
+type Secret
+	Value
+end
+
+pub let answer: Int = 1

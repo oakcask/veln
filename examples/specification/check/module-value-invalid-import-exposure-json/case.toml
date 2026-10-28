@@ -1,0 +1,25 @@
+command = ["check", "--json", "."]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["unresolved type `Missing`", "unresolved value `shared`"]
+not_contains = ["name.ambiguous", "ambiguous value `shared`", "type.not_callable", "module value `shared` is not callable"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved value `shared`"
+
+[diagnostics.span]
+file = "invalid_only.veln"
+line = 4
+column = 2

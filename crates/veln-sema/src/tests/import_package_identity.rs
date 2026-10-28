@@ -177,6 +177,51 @@ fn public_module_value_visibility_uses_complete_package_and_module_owner() {
 }
 
 #[test]
+fn module_value_annotation_does_not_fall_back_to_a_namesake_package() {
+    for reverse in [false, true] {
+        let one = source_module(
+            "one/shared.veln",
+            "type Secret\n  Value\nend\n",
+            Some("one/pkg"),
+            "shared",
+        );
+        let two = source_module(
+            "two/shared.veln",
+            "pub let leaked: Secret = 0\n",
+            Some("two/pkg"),
+            "shared",
+        );
+        let mut module = if reverse { two.clone() } else { one.clone() };
+        if reverse {
+            extend(&mut module, one);
+        } else {
+            extend(&mut module, two);
+        }
+
+        let diagnostics = analyze_surface_module(&module);
+
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "name.unresolved"
+                    && diagnostic.message == "unresolved type `Secret`"
+            }),
+            "reverse={reverse}: {diagnostics:#?}"
+        );
+        assert!(
+            diagnostics.iter().all(|diagnostic| {
+                diagnostic.id != "type.public_annotation_private"
+                    && !diagnostic.message.contains("one/pkg::shared::Secret")
+                    && diagnostic
+                        .related
+                        .iter()
+                        .all(|related| !format!("{related:?}").contains("one/pkg::shared::Secret"))
+            }),
+            "reverse={reverse}: {diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
 fn same_qualified_module_value_path_from_distinct_packages_is_ambiguous() {
     let mut app = source_module(
         "app.veln",

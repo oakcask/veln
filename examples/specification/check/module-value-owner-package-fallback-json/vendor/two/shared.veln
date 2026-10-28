@@ -1,0 +1,2 @@
+pub let leaked: Secret = 0
+pub let answer: Int = 2
