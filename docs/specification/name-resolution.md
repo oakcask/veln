@@ -257,6 +257,8 @@ target-specific, package-local, and non-transitive. The checked cases cover
 [`local function precedence`](../../examples/specification/check/module-value-local-function-precedence-human/),
 [`package identity human`](../../examples/specification/check/module-value-imported-package-identity-human/),
 [`package identity JSON`](../../examples/specification/check/module-value-imported-package-identity-json/),
+[`ambiguous exact member human`](../../examples/specification/check/module-value-ambiguous-exact-member-human/),
+[`ambiguous exact member JSON`](../../examples/specification/check/module-value-ambiguous-exact-member-json/),
 [`imported annotation owner human`](../../examples/specification/check/module-value-imported-annotation-owner-human/),
 [`imported annotation owner JSON`](../../examples/specification/check/module-value-imported-annotation-owner-json/),
 [`invalid imported exposure human`](../../examples/specification/check/module-value-invalid-import-exposure-human/),
@@ -280,9 +282,11 @@ per import. Another uses 64 and 128 package-distinct imports with the same
 written path and checks both a visible and a missing member. It compares one
 read with one read per import, so import-index construction grows with the
 imports while same-owner blocking, selection, and visibility work grows only
-with the reads. The metric counts index entries, target classification, member
-materialization, same-owner blocking probes, selection probes, and visibility
-probes. Each field may grow at most twice the smaller workload plus a fixed
+with the reads. Ambiguous targets do not materialize or filter member indexes;
+the lookup reports target ambiguity before member availability or visibility.
+The metric counts index entries, target classification, same-owner blocking
+probes, selection probes, and visibility probes. Each field may grow at most
+twice the smaller workload plus a fixed
 allowance of eight construction operations. A separate workload runs complete
 semantic analysis for 64, 128, and 256 imported named annotations. For each
 adjacent pair, import path comparisons may grow by at most twice the smaller

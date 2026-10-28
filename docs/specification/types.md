@@ -729,6 +729,15 @@ declaration's package, including recursive and rejected private exposure. The ch
 case verifies that an undeclared type parameter cannot escape through a module
 value annotation.
 
+Availability stabilization indexes aliases, functions, module values, and
+relevant invalid-name records once by declaration owner. Rechecking an owner
+uses that index instead of rescanning the merged source set. Retained failure
+history grows only when an identity becomes unavailable. The deterministic
+work check counts owner-index entries, owner lookups, retained-history
+insertions, semantic visits, exposure rebuild entries, and availability
+updates; doubling a 64-owner invalidation chain to 128 owners increases each
+count by at most twice the smaller count plus a fixed allowance of four.
+
 A public module value annotation is a public type boundary. Every recursively
 named type in generic arguments, function positions, records, and unions must
 resolve to a public type. A private named type reports

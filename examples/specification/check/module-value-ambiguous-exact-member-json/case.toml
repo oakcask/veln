@@ -1,0 +1,14 @@
+command = ["check", "--json", "forward.veln", "reverse.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["name.ambiguous", "ambiguous value `shared::answer`", "ambiguous value `shared::hidden`", "ambiguous value `shared::broken`"]
+not_contains = ["unresolved value `shared::answer`", "unresolved value `shared::hidden`", "unresolved value `shared::broken`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

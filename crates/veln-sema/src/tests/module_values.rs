@@ -221,10 +221,54 @@ fn colliding_qualified_import_work(
                 Some("owner/pkg::app"),
                 Some("owner/pkg"),
             ),
-            crate::types::ModuleValueLookup::Missing
+            crate::types::ModuleValueLookup::Ambiguous
         ));
     }
     crate::types::take_qualified_module_value_import_work()
+}
+
+#[test]
+fn ambiguous_exact_module_value_import_is_not_selected_by_member_presence() {
+    for imports in [
+        "use shared from \"one/pkg\"\nuse shared from \"two/pkg\"\n",
+        "use shared from \"two/pkg\"\nuse shared from \"one/pkg\"\n",
+    ] {
+        let owner_source = SourceFile::new("app.veln", imports);
+        let mut merged = veln_ast::lower_surface_ast_with_package_module_identity(
+            &parse(&owner_source).tree,
+            "app/pkg".to_string(),
+            "app".to_string(),
+            owner_source.span(veln_source::TextRange::new(0, 0)),
+        );
+        for use_decl in &mut merged.uses {
+            use_decl.name = "shared".to_string();
+        }
+        for (package, declaration) in [
+            ("one/pkg", "pub let answer: Int = 1\n"),
+            ("two/pkg", "pub let other: Int = 2\n"),
+        ] {
+            let source = SourceFile::new(format!("{package}/shared.veln"), declaration);
+            let module = veln_ast::lower_surface_ast_with_package_module_identity(
+                &parse(&source).tree,
+                package.to_string(),
+                "shared".to_string(),
+                source.span(veln_source::TextRange::new(0, 0)),
+            );
+            merged.module_values.extend(module.module_values);
+        }
+
+        let environment = crate::types::TypeEnvironment::from_module(&merged);
+        for member in ["answer", "other", "missing"] {
+            assert!(matches!(
+                environment.module_value_path_in_owner(
+                    &["shared".to_string(), member.to_string()],
+                    Some("app/pkg::app"),
+                    Some("app/pkg"),
+                ),
+                crate::types::ModuleValueLookup::Ambiguous
+            ));
+        }
+    }
 }
 
 #[test]
@@ -377,6 +421,9 @@ fn imported_module_value_invalidation_work_is_adjacent_linear() {
 
         assert!(diagnostics.len() >= count, "{diagnostics:#?}");
         assert!(work.semantic_visits <= count * 4 + 4, "{work:#?}");
+        assert!(work.owner_index_entries <= count * 2 + 2, "{work:#?}");
+        assert!(work.owner_recheck_lookups <= count + 1, "{work:#?}");
+        assert!(work.retained_history_insertions <= count + 1, "{work:#?}");
         assert!(
             work.full_exposure_rebuild_entries <= count * 2 + count.saturating_sub(1) + 4,
             "{work:#?}"
@@ -398,6 +445,18 @@ fn imported_module_value_invalidation_work_is_adjacent_linear() {
     );
     assert!(
         larger.full_exposure_rebuild_entries <= smaller.full_exposure_rebuild_entries * 2 + 4,
+        "{smaller:#?} -> {larger:#?}"
+    );
+    assert!(
+        larger.owner_index_entries <= smaller.owner_index_entries * 2 + 4,
+        "{smaller:#?} -> {larger:#?}"
+    );
+    assert!(
+        larger.owner_recheck_lookups <= smaller.owner_recheck_lookups * 2 + 1,
+        "{smaller:#?} -> {larger:#?}"
+    );
+    assert!(
+        larger.retained_history_insertions <= smaller.retained_history_insertions * 2 + 1,
         "{smaller:#?} -> {larger:#?}"
     );
     assert!(
@@ -1427,7 +1486,7 @@ fn qualified_module_value_import_work_includes_construction_and_lookup() {
     let larger = work_for(128);
     assert!(smaller.index_build >= 64, "{smaller:?}");
     assert!(smaller.target_classification >= 64, "{smaller:?}");
-    assert!(smaller.member_materialization >= 64, "{smaller:?}");
+    assert_eq!(smaller.member_materialization, 0, "{smaller:?}");
     assert_eq!(smaller.same_owner_blocking, 64);
     assert_eq!(smaller.selection, 64 * 3);
     assert_eq!(smaller.visibility, 64);
@@ -1460,14 +1519,14 @@ fn colliding_qualified_module_value_import_work_is_bounded_per_reference() {
     );
     assert_eq!(larger.same_owner_blocking, smaller.same_owner_blocking * 2);
     assert_eq!(larger.selection, smaller.selection * 2);
-    assert_eq!(larger.visibility, smaller.visibility * 2);
+    assert_eq!(larger.visibility, 0);
 
     assert_eq!(smaller_control.same_owner_blocking, 2);
     assert_eq!(larger_control.same_owner_blocking, 2);
     assert_eq!(smaller_control.selection, 4);
     assert_eq!(larger_control.selection, 4);
-    assert_eq!(smaller_control.visibility, 2);
-    assert_eq!(larger_control.visibility, 2);
+    assert_eq!(smaller_control.visibility, 0);
+    assert_eq!(larger_control.visibility, 0);
 }
 
 #[test]

@@ -1,0 +1,6 @@
+use shared from "one/pkg"
+use shared from "two/pkg"
+
+let forward_answer: Int = shared::answer
+let forward_hidden: Int = shared::hidden
+let forward_broken: Int = shared::broken

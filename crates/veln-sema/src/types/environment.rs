@@ -19,10 +19,7 @@ type QualifiedModuleValueKey = (veln_ast::ResolvedImportOwner, String);
 #[derive(Clone, Debug)]
 enum QualifiedModuleValueImportSelection {
     Unique(Box<UseDecl>),
-    Ambiguous {
-        candidates: HashMap<String, BTreeSet<ModuleValueIdentity>>,
-        active: HashMap<String, BTreeSet<ModuleValueIdentity>>,
-    },
+    Ambiguous,
 }
 
 #[derive(Clone, Debug)]
@@ -96,15 +93,6 @@ fn record_qualified_module_value_target_classification_work() {
     QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| {
         let mut value = work.get();
         value.target_classification += 1;
-        work.set(value);
-    });
-}
-
-fn record_qualified_module_value_member_materialization_work() {
-    #[cfg(test)]
-    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| {
-        let mut value = work.get();
-        value.member_materialization += 1;
         work.set(value);
     });
 }
@@ -229,8 +217,6 @@ pub(crate) struct TypeEnvironment {
     module_value_import_owners: HashMap<ModuleValueIdentity, BTreeSet<ModuleValueOwner>>,
     qualified_module_value_imports:
         HashMap<QualifiedModuleValueKey, QualifiedModuleValueImportSelection>,
-    qualified_ambiguous_keys_by_identity:
-        HashMap<ModuleValueIdentity, Vec<(QualifiedModuleValueKey, String)>>,
     exact_module_value_imports: HashSet<QualifiedModuleValueKey>,
     blocked_exact_module_value_imports: HashSet<QualifiedModuleValueKey>,
     public_module_value_identities: HashSet<ModuleValueIdentity>,
@@ -315,21 +301,6 @@ impl TypeEnvironment {
                 }
             }
         }
-        if let Some(entries) = self.qualified_ambiguous_keys_by_identity.get(identity) {
-            for (key, name) in entries {
-                let Some(QualifiedModuleValueImportSelection::Ambiguous { active, .. }) =
-                    self.qualified_module_value_imports.get_mut(key)
-                else {
-                    continue;
-                };
-                let identities = active.entry(name.clone()).or_default();
-                if available {
-                    identities.insert(identity.clone());
-                } else {
-                    identities.remove(identity);
-                }
-            }
-        }
         self.module_value_import_owners
             .get(identity)
             .cloned()
@@ -339,11 +310,8 @@ impl TypeEnvironment {
     fn rebuild_module_value_exposures(&mut self) {
         self.public_module_value_identities =
             facts::public_module_value_identities(&self.module_values);
-        self.qualified_module_value_imports = facts::qualified_module_value_import_index(
-            &self.uses,
-            &self.module_values,
-            &self.companion_function_access_targets,
-        );
+        self.qualified_module_value_imports =
+            facts::qualified_module_value_import_index(&self.uses);
         self.bare_module_values = facts::bare_module_value_index(
             &self.module_values,
             &self.functions,
@@ -363,22 +331,6 @@ impl TypeEnvironment {
                     .push(key.clone());
             }
         }
-        self.qualified_ambiguous_keys_by_identity.clear();
-        for (key, selection) in &self.qualified_module_value_imports {
-            let QualifiedModuleValueImportSelection::Ambiguous { candidates, .. } = selection
-            else {
-                continue;
-            };
-            for (name, identities) in candidates {
-                for identity in identities {
-                    self.qualified_ambiguous_keys_by_identity
-                        .entry(identity.clone())
-                        .or_default()
-                        .push((key.clone(), name.clone()));
-                }
-            }
-        }
-
         let mut owners_by_target = HashMap::<
             (Option<String>, Option<String>),
             BTreeSet<(Option<String>, Option<String>)>,
@@ -520,23 +472,8 @@ impl TypeEnvironment {
         };
         let use_decl = match selection {
             QualifiedModuleValueImportSelection::Unique(use_decl) => use_decl,
-            QualifiedModuleValueImportSelection::Ambiguous { active, .. } => {
-                record_qualified_module_value_visibility_work();
-                let Some(identities) = active.get(name) else {
-                    return ModuleValueLookup::Missing;
-                };
-                if identities.len() > 1 {
-                    return ModuleValueLookup::Ambiguous;
-                }
-                let Some(identity) = identities.first() else {
-                    return ModuleValueLookup::Missing;
-                };
-                return self
-                    .module_values_by_identity
-                    .get(identity)
-                    .map_or(ModuleValueLookup::Missing, |index| {
-                        self.module_value_at_index(*index)
-                    });
+            QualifiedModuleValueImportSelection::Ambiguous => {
+                return ModuleValueLookup::Ambiguous;
             }
         };
         record_qualified_module_value_selection_work();

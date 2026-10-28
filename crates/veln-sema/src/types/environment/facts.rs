@@ -175,7 +175,6 @@ fn initial_environment(
         bare_module_value_keys_by_identity: HashMap::new(),
         module_value_import_owners: HashMap::new(),
         qualified_module_value_imports: HashMap::new(),
-        qualified_ambiguous_keys_by_identity: HashMap::new(),
         exact_module_value_imports: exact_module_value_import_paths(&symbols.uses),
         blocked_exact_module_value_imports: symbols.blocked_exact_import_paths,
         public_module_value_identities: HashSet::new(),

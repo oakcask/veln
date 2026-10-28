@@ -32,11 +32,7 @@ impl TypeEnvironment {
             .collect();
         let public_module_value_identities = facts::public_module_value_identities(&module_values);
         let exact_module_value_imports = facts::exact_module_value_import_paths(&uses);
-        let qualified_module_value_imports = facts::qualified_module_value_import_index(
-            &uses,
-            &module_values,
-            &access_targets.functions,
-        );
+        let qualified_module_value_imports = facts::qualified_module_value_import_index(&uses);
         Self {
             module_values,
             module_values_by_identity,
@@ -44,7 +40,6 @@ impl TypeEnvironment {
             bare_module_value_keys_by_identity: HashMap::new(),
             module_value_import_owners: HashMap::new(),
             qualified_module_value_imports,
-            qualified_ambiguous_keys_by_identity: HashMap::new(),
             exact_module_value_imports,
             blocked_exact_module_value_imports,
             public_module_value_identities,

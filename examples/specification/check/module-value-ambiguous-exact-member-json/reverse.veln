@@ -1,0 +1,6 @@
+use shared from "two/pkg"
+use shared from "one/pkg"
+
+let reverse_answer: Int = shared::answer
+let reverse_hidden: Int = shared::hidden
+let reverse_broken: Int = shared::broken

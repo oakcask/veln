@@ -9,9 +9,6 @@ struct QualifiedImportCandidates {
     implicit: Vec<UseDecl>,
 }
 
-type ModuleValueNamesByTarget =
-    HashMap<(Option<String>, Option<String>), HashMap<String, (ModuleValueIdentity, bool)>>;
-
 pub(in crate::types::environment) fn exact_module_value_import_paths(
     uses: &[UseDecl],
 ) -> HashSet<QualifiedModuleValueKey> {
@@ -35,24 +32,12 @@ pub(super) fn finish_module_value_facts(module: &SurfaceModule, environment: &mu
 
 pub(in crate::types::environment) fn qualified_module_value_import_index(
     uses: &[UseDecl],
-    module_values: &[ModuleValueSignature],
-    companion_access_targets: &BTreeMap<String, String>,
 ) -> HashMap<QualifiedModuleValueKey, QualifiedModuleValueImportSelection> {
     let imports = qualified_import_candidates(uses);
-    let (public_names_by_target, all_names_by_target) =
-        available_module_value_names_by_target(module_values);
 
     imports
         .into_iter()
-        .filter_map(|(key, candidates)| {
-            qualified_import_selection(
-                key,
-                candidates,
-                companion_access_targets,
-                &public_names_by_target,
-                &all_names_by_target,
-            )
-        })
+        .filter_map(|(key, candidates)| qualified_import_selection(key, candidates))
         .collect()
 }
 
@@ -87,45 +72,9 @@ fn qualified_import_candidates(
     imports
 }
 
-fn available_module_value_names_by_target(
-    module_values: &[ModuleValueSignature],
-) -> (ModuleValueNamesByTarget, ModuleValueNamesByTarget) {
-    let mut public_names_by_target = ModuleValueNamesByTarget::new();
-    let mut all_names_by_target = ModuleValueNamesByTarget::new();
-    for value in module_values {
-        record_qualified_module_value_member_materialization_work();
-        let Some(name) = &value.declaration.name else {
-            continue;
-        };
-        let target = (
-            value.declaration.package_name.clone(),
-            value.declaration.module_name.clone(),
-        );
-        let identity = (
-            value.declaration.package_name.clone(),
-            value.declaration.module_name.clone(),
-            name.clone(),
-        );
-        all_names_by_target
-            .entry(target.clone())
-            .or_default()
-            .insert(name.clone(), (identity.clone(), value.available));
-        if value.declaration.visibility == Visibility::Public {
-            public_names_by_target
-                .entry(target)
-                .or_default()
-                .insert(name.clone(), (identity, value.available));
-        }
-    }
-    (public_names_by_target, all_names_by_target)
-}
-
 fn qualified_import_selection(
     key: QualifiedModuleValueKey,
     candidates: QualifiedImportCandidates,
-    companion_access_targets: &BTreeMap<String, String>,
-    public_names_by_target: &ModuleValueNamesByTarget,
-    all_names_by_target: &ModuleValueNamesByTarget,
 ) -> Option<(QualifiedModuleValueKey, QualifiedModuleValueImportSelection)> {
     let selected = if candidates.exact.is_empty() {
         candidates.implicit
@@ -152,66 +101,7 @@ fn qualified_import_selection(
         ));
     }
 
-    let (member_candidates, active_members) = ambiguous_import_visible_members(
-        &key,
-        &selected,
-        companion_access_targets,
-        public_names_by_target,
-        all_names_by_target,
-    );
-    Some((
-        key,
-        QualifiedModuleValueImportSelection::Ambiguous {
-            candidates: member_candidates,
-            active: active_members,
-        },
-    ))
-}
-
-fn ambiguous_import_visible_members(
-    key: &QualifiedModuleValueKey,
-    selected: &[UseDecl],
-    companion_access_targets: &BTreeMap<String, String>,
-    public_names_by_target: &ModuleValueNamesByTarget,
-    all_names_by_target: &ModuleValueNamesByTarget,
-) -> (
-    HashMap<String, BTreeSet<ModuleValueIdentity>>,
-    HashMap<String, BTreeSet<ModuleValueIdentity>>,
-) {
-    let mut member_candidates = HashMap::<String, BTreeSet<ModuleValueIdentity>>::new();
-    let mut active_members = HashMap::<String, BTreeSet<ModuleValueIdentity>>::new();
-    for use_decl in selected {
-        record_qualified_module_value_target_classification_work();
-        let target = use_decl.resolved_target();
-        let target_key = (target.package, Some(target.module));
-        let private_access = use_decl.package.is_none()
-            && key.0.module.as_ref().is_some_and(|owner_module| {
-                companion_access_targets
-                    .get(owner_module)
-                    .is_some_and(|allowed| allowed == &use_decl.name)
-            });
-        let names = if private_access {
-            all_names_by_target.get(&target_key)
-        } else {
-            public_names_by_target.get(&target_key)
-        };
-        if let Some(names) = names {
-            for (name, (identity, available)) in names {
-                record_qualified_module_value_member_materialization_work();
-                member_candidates
-                    .entry(name.clone())
-                    .or_default()
-                    .insert(identity.clone());
-                if *available {
-                    active_members
-                        .entry(name.clone())
-                        .or_default()
-                        .insert(identity.clone());
-                }
-            }
-        }
-    }
-    (member_candidates, active_members)
+    Some((key, QualifiedModuleValueImportSelection::Ambiguous))
 }
 
 pub(in crate::types::environment) fn public_module_value_identities(
