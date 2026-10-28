@@ -639,6 +639,11 @@ fn rename_failure_details_json(
             escape_json(&failure.requested_name),
             required_initial.as_str(),
         ),
+        RenameFailureKind::ReservedName => format!(
+            "{{\"symbol_class\":\"{}\",\"requested_name\":\"{}\"}}",
+            failure.symbol_class.as_str(),
+            escape_json(&failure.requested_name),
+        ),
         RenameFailureKind::Conflict {
             conflicting_declaration,
             affected_scope,

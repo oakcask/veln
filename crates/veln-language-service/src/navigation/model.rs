@@ -8,6 +8,7 @@ pub struct SourcePosition {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SymbolKind {
+    ImportAlias,
     Schema,
     Effect,
     Handler,
@@ -30,6 +31,7 @@ impl SymbolKind {
 
     pub fn rename_name_class(&self) -> RenameNameClass {
         match self {
+            Self::ImportAlias => RenameNameClass::ImportAlias,
             Self::Schema | Self::Effect | Self::Handler | Self::EffectOperation => {
                 RenameNameClass::CasingNeutral
             }
@@ -48,6 +50,7 @@ impl SymbolKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RenameNameClass {
     CasingNeutral,
+    ImportAlias,
     Type,
     Constructor,
     Function,
@@ -58,6 +61,7 @@ impl RenameNameClass {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::CasingNeutral => "casing_neutral",
+            Self::ImportAlias => "import_alias",
             Self::Type => "type",
             Self::Constructor => "constructor",
             Self::Function => "function",
@@ -68,6 +72,7 @@ impl RenameNameClass {
     pub fn required_initial(self) -> RenameRequiredInitial {
         match self {
             Self::CasingNeutral => RenameRequiredInitial::Any,
+            Self::ImportAlias => RenameRequiredInitial::AsciiLowercase,
             Self::Type | Self::Constructor => RenameRequiredInitial::AsciiUppercase,
             Self::Function | Self::ValueBinding => RenameRequiredInitial::AsciiLowercase,
         }
@@ -115,6 +120,7 @@ pub enum RenameFailureKind {
     InvalidCase {
         required_initial: RenameRequiredInitial,
     },
+    ReservedName,
     Conflict {
         conflicting_declaration: Box<NavigationLocation>,
         affected_scope: Box<RenameAffectedScope>,
@@ -190,6 +196,14 @@ pub fn validate_rename(
             symbol_class,
             requested_name: requested_name.to_string(),
             kind: RenameFailureKind::InvalidCase { required_initial },
+        });
+    }
+    if result.selected_symbol.kind == SymbolKind::ImportAlias && requested_name == "prelude" {
+        return Err(RenameFailure {
+            code: "rename.reserved",
+            symbol_class,
+            requested_name: requested_name.to_string(),
+            kind: RenameFailureKind::ReservedName,
         });
     }
     Ok(())
@@ -340,6 +354,8 @@ fn navigation_selection_is_unsupported(
     line_tokens_before(&tokens, token_index)
         .iter()
         .any(|token| token.kind == TokenKind::Use)
+        && previous_non_layout_token(&tokens, token_index)
+            .is_none_or(|token| token.kind != TokenKind::Ident || token.text != "as")
 }
 
 fn schema_navigation_candidate(
@@ -458,6 +474,7 @@ impl Symbol {
 
     fn definition(&self) -> NavigationLocation {
         match self {
+            Self::ImportAlias(symbol) => symbol.declaration.clone(),
             Self::Schema(symbol) | Self::SchemaAlias(symbol) => symbol.declaration.clone(),
             Self::Effect(symbol) => symbol.declaration.clone(),
             Self::Handler(symbol) => symbol.declaration.clone(),
@@ -483,6 +500,7 @@ impl Symbol {
 
     fn kind(&self) -> SymbolKind {
         match self {
+            Self::ImportAlias(_) => SymbolKind::ImportAlias,
             Self::Schema(_) | Self::SchemaAlias(_) => SymbolKind::Schema,
             Self::Effect(_) => SymbolKind::Effect,
             Self::Handler(_) => SymbolKind::Handler,
@@ -497,6 +515,7 @@ impl Symbol {
 
     fn name(&self) -> &str {
         match self {
+            Self::ImportAlias(symbol) => &symbol.name,
             Self::Schema(symbol) | Self::SchemaAlias(symbol) => &symbol.name,
             Self::Effect(symbol) => &symbol.name,
             Self::Handler(symbol) => &symbol.name,
@@ -512,6 +531,7 @@ impl Symbol {
 
     fn references(&self, index: &SymbolIndex) -> Vec<SourceSpan> {
         match self {
+            Self::ImportAlias(symbol) => index.import_alias_references(symbol),
             Self::Schema(symbol) => index.schema_references(symbol),
             Self::SchemaAlias(symbol) => index.schema_alias_references(symbol),
             Self::Effect(symbol) => index.effect_references(symbol),
@@ -542,6 +562,7 @@ impl Symbol {
 
     fn package_origin(&self) -> Option<PackageOrigin> {
         match self {
+            Self::ImportAlias(_) => None,
             Self::Schema(symbol) | Self::SchemaAlias(symbol) => symbol.package_origin,
             Self::Function(symbol) => symbol.package_origin,
             Self::Type(symbol) => symbol.package_origin,
@@ -686,6 +707,7 @@ impl SelectedNavigationSymbol {
 
 fn self_role_for_symbol(symbol: Option<&Symbol>) -> Option<NameClass> {
     match symbol? {
+        Symbol::ImportAlias(_) => None,
         Symbol::Schema(_)
         | Symbol::SchemaAlias(_)
         | Symbol::Effect(_)
@@ -757,6 +779,7 @@ struct SymbolRequest {
 
 #[derive(Clone, Debug)]
 enum Symbol {
+    ImportAlias(ImportAliasSymbol),
     Schema(NeutralSymbol),
     SchemaAlias(NeutralSymbol),
     Effect(NeutralSymbol),
@@ -768,6 +791,21 @@ enum Symbol {
     Constructor(ConstructorSymbol),
     Local(LocalSymbol),
     Recovery(RecoverySymbol),
+}
+
+#[derive(Clone, Debug)]
+struct ImportAliasSymbol {
+    module: String,
+    name: String,
+    declaration: NavigationLocation,
+}
+
+#[derive(Clone, Debug)]
+struct ImportNamespaceBinding {
+    module: String,
+    qualifier: String,
+    declaration: NavigationLocation,
+    selected_alias_declaration: Option<SourceSpan>,
 }
 
 #[derive(Clone, Debug)]
@@ -820,6 +858,7 @@ struct RecoverySymbol {
 impl RecoverySymbol {
     fn name_class(&self) -> Option<NameClass> {
         match self.kind {
+            SymbolKind::ImportAlias => None,
             SymbolKind::Schema
             | SymbolKind::Effect
             | SymbolKind::Handler
@@ -837,6 +876,50 @@ impl RecoverySymbol {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+struct QualifiedModuleIdentity {
+    module: String,
+    package: Option<String>,
+    package_resolved: bool,
+}
+
+#[derive(Clone, Debug)]
+struct SharedQualifiedImportTarget {
+    module: Arc<str>,
+    package: Option<Arc<str>>,
+}
+
+#[derive(Clone, Debug)]
+struct QualifiedImportTarget {
+    shared: Arc<SharedQualifiedImportTarget>,
+    consumed_segments: usize,
+}
+
+#[derive(Clone, Debug)]
+enum QualifiedImportResolution {
+    Resolved(QualifiedImportTarget),
+    Blocked,
+}
+
+#[derive(Clone, Debug, Default)]
+struct QualifiedImportResolutionNode {
+    children: BTreeMap<String, usize>,
+    resolution: Option<QualifiedImportResolution>,
+}
+
+#[derive(Clone, Debug)]
+struct QualifiedImportResolutionIndex {
+    nodes: Vec<QualifiedImportResolutionNode>,
+}
+
+impl Default for QualifiedImportResolutionIndex {
+    fn default() -> Self {
+        Self {
+            nodes: vec![QualifiedImportResolutionNode::default()],
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum LocalSymbolKind {
     ValueBinding,
     HandlerContextParameter,
@@ -849,10 +932,12 @@ struct IndexedFile {
     tokens: Vec<Token>,
     module: String,
     companion_target_module: Option<String>,
-    uses: BTreeSet<String>,
-    external_uses: BTreeSet<(String, String)>,
-    import_aliases: BTreeMap<String, String>,
-    external_import_aliases: BTreeMap<String, (String, String)>,
+    uses: Arc<BTreeSet<String>>,
+    external_uses: Arc<BTreeSet<(String, String)>>,
+    import_aliases: Arc<BTreeMap<String, String>>,
+    external_import_aliases: Arc<BTreeMap<String, (String, String)>>,
+    explicit_import_alias_occurrences: BTreeMap<(usize, usize), SourceSpan>,
+    qualified_import_resolutions: QualifiedImportResolutionIndex,
     schema_alias_external_imports: Vec<ExternalImport>,
     workspace_imports: Vec<WorkspaceImport>,
     invalid_declaration_names: Vec<SourceSpan>,
@@ -1091,6 +1176,8 @@ pub(crate) struct IndexedDependencies {
 #[derive(Debug)]
 pub(crate) struct SymbolIndex {
     files: Vec<IndexedFile>,
+    import_aliases: Vec<ImportAliasSymbol>,
+    import_namespace_bindings: Vec<ImportNamespaceBinding>,
     schemas: Vec<NeutralSymbol>,
     schema_aliases: Vec<NeutralSymbol>,
     package_schemas: BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,

@@ -28,8 +28,7 @@ fn visible_imported_type_for_bare_reference(
         && symbol.public
         && match &symbol.package {
             Some(package) => {
-                file.external_uses
-                    .contains(&(symbol.module.clone(), package.clone()))
+                has_external_use(file, &symbol.module, package)
                     || symbol.standard_prelude
             }
             None => symbol.module != file.module && file.uses.contains(&symbol.module),
@@ -51,17 +50,16 @@ fn visible_imported_type_alias_for_bare_reference(
 fn visible_type_for_qualified_reference(
     file: &IndexedFile,
     symbol: &TypeSymbol,
-    qualified_modules: &[String],
+    qualified_modules: &[QualifiedModuleIdentity],
     name: &str,
 ) -> bool {
     symbol.name == name
         && qualified_modules
             .iter()
-            .any(|module| module == &symbol.module)
+            .any(|module| qualified_module_matches(module, &symbol.module, symbol.package.as_deref()))
         && match &symbol.package {
             Some(package) => {
-                file.external_uses
-                    .contains(&(symbol.module.clone(), package.clone()))
+                has_external_use(file, &symbol.module, package)
                     || symbol.standard_prelude
             }
             None => symbol.module == file.module || file.uses.contains(&symbol.module),
@@ -71,21 +69,56 @@ fn visible_type_for_qualified_reference(
 fn visible_type_alias_for_qualified_reference(
     file: &IndexedFile,
     symbol: &TypeAliasSymbol,
-    qualified_modules: &[String],
+    qualified_modules: &[QualifiedModuleIdentity],
     name: &str,
 ) -> bool {
     symbol.name == name
         && qualified_modules
             .iter()
-            .any(|module| module == &symbol.module)
+            .any(|module| qualified_module_matches(module, &symbol.module, symbol.package.as_deref()))
         && match &symbol.package {
             Some(package) => {
-                file.external_uses
-                    .contains(&(symbol.module.clone(), package.clone()))
+                has_external_use(file, &symbol.module, package)
                     || symbol.standard_prelude
             }
             None => symbol.module == file.module || file.uses.contains(&symbol.module),
         }
+}
+
+fn has_external_use(file: &IndexedFile, module: &str, package: &str) -> bool {
+    file.external_uses
+        .iter()
+        .any(|(used_module, used_package)| used_module == module && used_package == package)
+}
+
+fn qualified_module_matches(
+    candidate: &QualifiedModuleIdentity,
+    module: &str,
+    package: Option<&str>,
+) -> bool {
+    candidate.module == module
+        && (!candidate.package_resolved || candidate.package.as_deref() == package)
+}
+
+fn qualified_constructor_type_matches(
+    candidate: &QualifiedModuleIdentity,
+    module: &str,
+    type_name: &str,
+    package: Option<&str>,
+) -> bool {
+    (!candidate.package_resolved || candidate.package.as_deref() == package)
+        && candidate
+            .module
+            .strip_prefix(module)
+            .and_then(|suffix| suffix.strip_prefix("::"))
+            .is_some_and(|suffix| suffix == type_name)
+}
+
+fn qualified_package_matches(
+    candidate: &QualifiedModuleIdentity,
+    package: Option<&str>,
+) -> bool {
+    !candidate.package_resolved || candidate.package.as_deref() == package
 }
 
 fn resolve_external_qualified_alias(

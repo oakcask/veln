@@ -1,0 +1,9 @@
+use recovery_math as Calc
+
+fn broken() -> Int
+  1 2
+end
+
+fn main() -> Int
+  Calc::double()
+end

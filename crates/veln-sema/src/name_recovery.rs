@@ -502,44 +502,316 @@ enum IndexedUseDecl {
     Ambiguous,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) enum ImportPrefixSelection {
+    Selected {
+        index: usize,
+        explicit_alias: bool,
+        consumed_segments: usize,
+    },
+    Blocked,
+    Missing,
+}
+
 pub(crate) struct NormalImportSelectionIndex<'a> {
     module: &'a SurfaceModule,
     classification: Rc<ImportClassification>,
     exact_paths: HashMap<ImportBindingKey, usize>,
     qualifiers: HashMap<ImportBindingKey, IndexedUseDecl>,
+    prefix_paths: Option<HashMap<ResolvedImportOwner, ImportPathPrefixIndex>>,
+}
+
+struct NormalImportSelectionIndexBuilder<'a> {
+    classification: &'a ImportClassification,
+    build_prefix_paths: bool,
+    exact_paths: HashMap<ImportBindingKey, usize>,
+    qualifiers: HashMap<ImportBindingKey, IndexedUseDecl>,
+    prefix_paths: HashMap<ResolvedImportOwner, ImportPathPrefixIndex>,
+}
+
+impl<'a> NormalImportSelectionIndexBuilder<'a> {
+    fn new(classification: &'a ImportClassification, build_prefix_paths: bool) -> Self {
+        Self {
+            classification,
+            build_prefix_paths,
+            exact_paths: HashMap::new(),
+            qualifiers: HashMap::new(),
+            prefix_paths: HashMap::new(),
+        }
+    }
+
+    fn insert_use(&mut self, index: usize, use_decl: &UseDecl) {
+        record_normal_import_selection_work(|work| work.operations += 1);
+        if self.classification.quarantined[index] {
+            self.insert_quarantined_paths(use_decl);
+        } else {
+            self.insert_selectable_use(index, use_decl);
+        }
+    }
+
+    fn insert_quarantined_paths(&mut self, use_decl: &UseDecl) {
+        if !self.build_prefix_paths {
+            return;
+        }
+        let owner = use_decl.resolved_owner();
+        for path in use_decl_exact_paths(use_decl) {
+            self.prefix_paths
+                .entry(owner.clone())
+                .or_default()
+                .insert_exact_path(&path, IndexedUseDecl::Ambiguous);
+        }
+    }
+
+    fn insert_selectable_use(&mut self, index: usize, use_decl: &UseDecl) {
+        for path in use_decl_exact_paths(use_decl) {
+            self.insert_exact_path(index, use_decl, path);
+        }
+        if simple_import_alias_matches(use_decl, &use_decl.alias) {
+            self.insert_qualifier(index, use_decl);
+        }
+    }
+
+    fn insert_exact_path(&mut self, index: usize, use_decl: &UseDecl, path: String) {
+        record_normal_import_selection_work(|work| work.operations += 1);
+        let owner = use_decl.resolved_owner();
+        if self.build_prefix_paths {
+            let selection = if self
+                .classification
+                .blocked_exact_paths
+                .contains(&(owner.clone(), path.clone()))
+            {
+                IndexedUseDecl::Ambiguous
+            } else {
+                IndexedUseDecl::Unique(index)
+            };
+            self.prefix_paths
+                .entry(owner.clone())
+                .or_default()
+                .insert_exact_path(&path, selection);
+        }
+        self.exact_paths.entry((owner, path)).or_insert(index);
+    }
+
+    fn insert_qualifier(&mut self, index: usize, use_decl: &UseDecl) {
+        record_normal_import_selection_work(|work| work.operations += 1);
+        let owner = use_decl.resolved_owner();
+        if self.build_prefix_paths {
+            let prefix = self.prefix_paths.entry(owner.clone()).or_default();
+            if self
+                .classification
+                .colliding_qualifiers
+                .contains(&(owner.clone(), use_decl.alias.clone()))
+            {
+                prefix
+                    .qualifiers
+                    .insert(use_decl.alias.clone(), IndexedUseDecl::Ambiguous);
+            } else {
+                prefix.insert_qualifier(use_decl.alias.clone(), index);
+            }
+        }
+        self.qualifiers
+            .entry((owner, use_decl.alias.clone()))
+            .and_modify(|candidate| *candidate = IndexedUseDecl::Ambiguous)
+            .or_insert(IndexedUseDecl::Unique(index));
+    }
+}
+
+#[derive(Default)]
+struct ImportPathPrefixIndex {
+    nodes: Vec<ImportPathPrefixNode>,
+    qualifiers: HashMap<String, IndexedUseDecl>,
+}
+
+#[derive(Default)]
+struct ImportPathPrefixNode {
+    children: HashMap<String, usize>,
+    exact_use: Option<IndexedUseDecl>,
+}
+
+impl ImportPathPrefixIndex {
+    fn insert_exact_path(&mut self, path: &str, selection: IndexedUseDecl) {
+        if self.nodes.is_empty() {
+            self.nodes.push(ImportPathPrefixNode::default());
+        }
+        let mut node_index = 0;
+        for segment in path.split("::") {
+            let next_index = if let Some(index) = self.nodes[node_index].children.get(segment) {
+                *index
+            } else {
+                let index = self.nodes.len();
+                self.nodes.push(ImportPathPrefixNode::default());
+                self.nodes[node_index]
+                    .children
+                    .insert(segment.to_string(), index);
+                index
+            };
+            node_index = next_index;
+        }
+        self.nodes[node_index].exact_use.get_or_insert(selection);
+    }
+
+    fn insert_qualifier(&mut self, qualifier: String, use_index: usize) {
+        self.qualifiers
+            .entry(qualifier)
+            .and_modify(|candidate| *candidate = IndexedUseDecl::Ambiguous)
+            .or_insert(IndexedUseDecl::Unique(use_index));
+    }
+
+    fn select_prefixes<'s>(
+        &self,
+        segments: impl IntoIterator<Item = &'s str>,
+    ) -> ImportPrefixSelection {
+        let mut node_index = 0;
+        let mut qualifier = None;
+        let mut exact_use = None;
+        for (index, segment) in segments.into_iter().enumerate() {
+            if index == 0 {
+                qualifier = self.qualifiers.get(segment).copied();
+            }
+            let Some(node) = self.nodes.get(node_index) else {
+                break;
+            };
+            let Some(next_index) = node.children.get(segment) else {
+                break;
+            };
+            node_index = *next_index;
+            if let Some(selection) = self.nodes[node_index].exact_use {
+                exact_use = Some((selection, index + 1));
+            }
+        }
+        match exact_use {
+            Some((IndexedUseDecl::Unique(index), consumed_segments)) => {
+                ImportPrefixSelection::Selected {
+                    index,
+                    explicit_alias: false,
+                    consumed_segments,
+                }
+            }
+            Some((IndexedUseDecl::Ambiguous, _)) => ImportPrefixSelection::Blocked,
+            None => match qualifier {
+                Some(IndexedUseDecl::Unique(index)) => ImportPrefixSelection::Selected {
+                    index,
+                    explicit_alias: true,
+                    consumed_segments: 1,
+                },
+                Some(IndexedUseDecl::Ambiguous) => ImportPrefixSelection::Blocked,
+                None => ImportPrefixSelection::Missing,
+            },
+        }
+    }
+
+    fn select_each_prefix(&self, segments: &[&str]) -> Vec<ImportPrefixSelection> {
+        let qualifier = segments
+            .first()
+            .and_then(|segment| self.qualifiers.get(*segment))
+            .copied();
+        let mut node_index = self.nodes.first().map(|_| 0);
+        let mut exact_use = None;
+        let mut selections = Vec::with_capacity(segments.len());
+        for (index, segment) in segments.iter().enumerate() {
+            if let Some(current_index) = node_index {
+                node_index = self.nodes[current_index].children.get(*segment).copied();
+                if let Some(next_index) = node_index
+                    && let Some(selection) = self.nodes[next_index].exact_use
+                {
+                    exact_use = Some((selection, index + 1));
+                }
+            }
+            selections.push(match exact_use {
+                Some((IndexedUseDecl::Unique(index), consumed_segments)) => {
+                    ImportPrefixSelection::Selected {
+                        index,
+                        explicit_alias: false,
+                        consumed_segments,
+                    }
+                }
+                Some((IndexedUseDecl::Ambiguous, _)) => ImportPrefixSelection::Blocked,
+                None => match qualifier {
+                    Some(IndexedUseDecl::Unique(index)) => ImportPrefixSelection::Selected {
+                        index,
+                        explicit_alias: true,
+                        consumed_segments: 1,
+                    },
+                    Some(IndexedUseDecl::Ambiguous) => ImportPrefixSelection::Blocked,
+                    None => ImportPrefixSelection::Missing,
+                },
+            });
+        }
+        selections
+    }
 }
 
 impl<'a> NormalImportSelectionIndex<'a> {
     pub(crate) fn new(module: &'a SurfaceModule) -> Self {
+        Self::new_internal(module, false)
+    }
+
+    pub(crate) fn new_with_prefix_paths(module: &'a SurfaceModule) -> Self {
+        Self::new_internal(module, true)
+    }
+
+    fn new_internal(module: &'a SurfaceModule, build_prefix_paths: bool) -> Self {
         record_normal_import_selection_work(|work| work.operations += 1);
         let classification = import_classification(module);
-        let mut exact_paths = HashMap::new();
-        let mut qualifiers = HashMap::new();
+        let mut builder =
+            NormalImportSelectionIndexBuilder::new(&classification, build_prefix_paths);
         for (index, use_decl) in module.uses.iter().enumerate() {
-            record_normal_import_selection_work(|work| work.operations += 1);
-            if classification.quarantined[index] {
-                continue;
-            }
-            for path in use_decl_exact_paths(use_decl) {
-                record_normal_import_selection_work(|work| work.operations += 1);
-                exact_paths
-                    .entry((use_decl.resolved_owner(), path))
-                    .or_insert(index);
-            }
-            if simple_import_alias_matches(use_decl, &use_decl.alias) {
-                record_normal_import_selection_work(|work| work.operations += 1);
-                qualifiers
-                    .entry((use_decl.resolved_owner(), use_decl.alias.clone()))
-                    .and_modify(|candidate| *candidate = IndexedUseDecl::Ambiguous)
-                    .or_insert(IndexedUseDecl::Unique(index));
-            }
+            builder.insert_use(index, use_decl);
         }
+        let NormalImportSelectionIndexBuilder {
+            exact_paths,
+            qualifiers,
+            prefix_paths,
+            ..
+        } = builder;
         Self {
             module,
             classification,
             exact_paths,
             qualifiers,
+            prefix_paths: build_prefix_paths.then_some(prefix_paths),
         }
+    }
+
+    pub(crate) fn select_import_prefixes<'s>(
+        &self,
+        segments: impl IntoIterator<Item = &'s str>,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> ImportPrefixSelection {
+        let owner = ResolvedImportOwner {
+            package: current_package.map(str::to_string),
+            module: current_module.map(str::to_string),
+        };
+        self.prefix_paths
+            .as_ref()
+            .and_then(|paths| paths.get(&owner))
+            .map_or(ImportPrefixSelection::Missing, |paths| {
+                paths.select_prefixes(segments)
+            })
+    }
+
+    pub(crate) fn select_import_prefix_sequence(
+        &self,
+        segments: &[&str],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Vec<ImportPrefixSelection> {
+        let owner = ResolvedImportOwner {
+            package: current_package.map(str::to_string),
+            module: current_module.map(str::to_string),
+        };
+        self.prefix_paths
+            .as_ref()
+            .and_then(|paths| paths.get(&owner))
+            .map_or_else(
+                || vec![ImportPrefixSelection::Missing; segments.len()],
+                |paths| paths.select_each_prefix(segments),
+            )
+    }
+
+    pub(crate) fn selected_use(&self, index: usize) -> Option<&'a UseDecl> {
+        self.module.uses.get(index)
     }
 
     pub(crate) fn imported_use_for_path(

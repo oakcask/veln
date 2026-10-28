@@ -162,6 +162,10 @@ fn rename_failure(root: &std::path::Path, failure: RenameFailure) -> ToolOutcome
             "requested_name": failure.requested_name,
             "required_initial": required_initial.as_str()
         }),
+        RenameFailureKind::ReservedName => json!({
+            "symbol_class": failure.symbol_class.as_str(),
+            "requested_name": failure.requested_name
+        }),
         RenameFailureKind::Conflict {
             conflicting_declaration,
             affected_scope,

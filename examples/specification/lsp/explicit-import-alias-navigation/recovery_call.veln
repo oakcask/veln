@@ -1,0 +1,5 @@
+mod recovery
+
+fn main() -> Int
+  calc::value()
+end

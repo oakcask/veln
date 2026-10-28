@@ -1,0 +1,741 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+source_errors = "expected"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 2
+path = "/result/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 2
+path = "/result/range"
+equals = {"start":{"line":0,"character":12},"end":{"line":0,"character":16}}
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 3
+path = "/result/0/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 3
+path = "/result/0/range"
+equals = {"start":{"line":0,"character":12},"end":{"line":0,"character":16}}
+
+[[lsp_assert]]
+id = 3
+path = "/result/1/range"
+equals = {"start":{"line":4,"character":2},"end":{"line":4,"character":6}}
+
+[[lsp_assert]]
+id = 3
+path = "/result/1/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 3
+path = "/result/2/range"
+equals = {"start":{"line":8,"character":2},"end":{"line":8,"character":6}}
+
+[[lsp_assert]]
+id = 3
+path = "/result/2/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 4
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals = [
+  {"range":{"start":{"line":0,"character":12},"end":{"line":0,"character":16}},"newText":"numbers"},
+  {"range":{"start":{"line":4,"character":2},"end":{"line":4,"character":6}},"newText":"numbers"},
+  {"range":{"start":{"line":8,"character":2},"end":{"line":8,"character":6}},"newText":"numbers"}
+]
+
+[[lsp_assert]]
+id = 5
+path = "/result/uri"
+workspace_file_uri = "math.veln"
+
+[[lsp_assert]]
+id = 5
+path = "/result/range"
+equals = {"start":{"line":0,"character":7},"end":{"line":0,"character":13}}
+
+[[lsp_assert]]
+id = 6
+path = "/result"
+length = 4
+
+[[lsp_assert]]
+id = 6
+path = "/result/0/uri"
+workspace_file_uri = "math.veln"
+
+[[lsp_assert]]
+id = 6
+path = "/result/0/range"
+equals = {"start":{"line":0,"character":7},"end":{"line":0,"character":13}}
+
+[[lsp_assert]]
+id = 6
+path = "/result/1/range"
+equals = {"start":{"line":3,"character":10},"end":{"line":3,"character":16}}
+
+[[lsp_assert]]
+id = 6
+path = "/result/1/uri"
+workspace_file_uri = "contextual.veln"
+
+[[lsp_assert]]
+id = 6
+path = "/result/2/range"
+equals = {"start":{"line":4,"character":8},"end":{"line":4,"character":14}}
+
+[[lsp_assert]]
+id = 6
+path = "/result/2/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 6
+path = "/result/3/range"
+equals = {"start":{"line":8,"character":8},"end":{"line":8,"character":14}}
+
+[[lsp_assert]]
+id = 6
+path = "/result/3/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 7
+path = "/result/changes/$workspace_file_uri:contextual.veln"
+equals = [
+  {"range":{"start":{"line":3,"character":10},"end":{"line":3,"character":16}},"newText":"twice"}
+]
+
+[[lsp_assert]]
+id = 7
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals = [
+  {"range":{"start":{"line":4,"character":8},"end":{"line":4,"character":14}},"newText":"twice"},
+  {"range":{"start":{"line":8,"character":8},"end":{"line":8,"character":14}},"newText":"twice"}
+]
+
+[[lsp_assert]]
+id = 7
+path = "/result/changes/$workspace_file_uri:math.veln"
+equals = [
+  {"range":{"start":{"line":0,"character":7},"end":{"line":0,"character":13}},"newText":"twice"}
+]
+
+[[lsp_assert]]
+id = 8
+path = "/error/data/code"
+equals = "rename.reserved"
+
+[[lsp_assert]]
+id = 8
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 9
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 9
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 10
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 11
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 12
+path = "/result"
+length = 2
+
+[[lsp_assert]]
+id = 12
+path = "/result/0/uri"
+workspace_file_uri = "precedence.veln"
+
+[[lsp_assert]]
+id = 12
+path = "/result/0/range"
+equals = {"start":{"line":0,"character":13},"end":{"line":0,"character":16}}
+
+[[lsp_assert]]
+id = 12
+path = "/result/1/uri"
+workspace_file_uri = "precedence.veln"
+
+[[lsp_assert]]
+id = 12
+path = "/result/1/range"
+equals = {"start":{"line":8,"character":2},"end":{"line":8,"character":5}}
+
+[[lsp_assert]]
+id = 13
+path = "/result/changes/$workspace_file_uri:precedence.veln"
+equals = [
+  {"range":{"start":{"line":0,"character":13},"end":{"line":0,"character":16}},"newText":"other"},
+  {"range":{"start":{"line":8,"character":2},"end":{"line":8,"character":5}},"newText":"other"}
+]
+
+[[lsp_assert]]
+id = 14
+path = "/result/uri"
+workspace_file_uri = "foo/bar.veln"
+
+[[lsp_assert]]
+id = 14
+path = "/result/range"
+equals = {"start":{"line":0,"character":7},"end":{"line":0,"character":12}}
+
+[[lsp_assert]]
+id = 15
+path = "/result/changes/$workspace_file_uri:recovery_alias.veln"
+equals = [
+  {"range":{"start":{"line":1,"character":13},"end":{"line":1,"character":17}},"newText":"bad"}
+]
+
+[[lsp_assert]]
+id = 15
+path = "/result/changes/$workspace_file_uri:recovery_call.veln"
+equals = [
+  {"range":{"start":{"line":3,"character":2},"end":{"line":3,"character":6}},"newText":"bad"}
+]
+
+[[lsp_assert]]
+id = 16
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 16
+path = "/error/data/details/symbol_class"
+equals = "import_alias"
+
+[[lsp_assert]]
+id = 16
+path = "/error/data/details/requested_name"
+equals = "clash"
+
+[[lsp_assert]]
+id = 16
+path = "/error/data/details/conflicting_declaration/uri"
+workspace_file_uri = "conflict_a.veln"
+
+[[lsp_assert]]
+id = 16
+path = "/error/data/details/conflicting_declaration/range"
+equals = {"start":{"line":1,"character":13},"end":{"line":1,"character":18}}
+
+[[lsp_assert]]
+id = 16
+path = "/error/data/details/affected_scope"
+equals = {"kind":"module","name":"collision"}
+
+[[lsp_assert]]
+id = 16
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 17
+path = "/result/uri"
+workspace_file_uri = "contextual.veln"
+
+[[lsp_assert]]
+id = 17
+path = "/result/range"
+equals = {"start":{"line":0,"character":12},"end":{"line":0,"character":18}}
+
+[[lsp_assert]]
+id = 18
+path = "/result"
+length = 2
+
+[[lsp_assert]]
+id = 18
+path = "/result/0/uri"
+workspace_file_uri = "contextual.veln"
+
+[[lsp_assert]]
+id = 18
+path = "/result/0/range"
+equals = {"start":{"line":0,"character":12},"end":{"line":0,"character":18}}
+
+[[lsp_assert]]
+id = 18
+path = "/result/1/uri"
+workspace_file_uri = "contextual.veln"
+
+[[lsp_assert]]
+id = 18
+path = "/result/1/range"
+equals = {"start":{"line":3,"character":2},"end":{"line":3,"character":8}}
+
+[[lsp_assert]]
+id = 19
+path = "/result/changes/$workspace_file_uri:contextual.veln"
+equals = [
+  {"range":{"start":{"line":0,"character":12},"end":{"line":0,"character":18}},"newText":"scope"},
+  {"range":{"start":{"line":3,"character":2},"end":{"line":3,"character":8}},"newText":"scope"}
+]
+
+[[lsp_assert]]
+id = 20
+path = "/error/data/code"
+equals = "rename.invalid_case"
+
+[[lsp_assert]]
+id = 20
+path = "/error/data/details"
+equals = {"symbol_class":"import_alias","requested_name":"Numbers","required_initial":"ascii_lowercase"}
+
+[[lsp_assert]]
+id = 20
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 21
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 22
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 23
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 24
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 25
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 26
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 27
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 27
+path = "/error/data/details/symbol_class"
+equals = "import_alias"
+
+[[lsp_assert]]
+id = 27
+path = "/error/data/details/requested_name"
+equals = "math"
+
+[[lsp_assert]]
+id = 27
+path = "/error/data/details/conflicting_declaration/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 27
+path = "/error/data/details/conflicting_declaration/range"
+equals = {"start":{"line":0,"character":4},"end":{"line":0,"character":8}}
+
+[[lsp_assert]]
+id = 27
+path = "/error/data/details/affected_scope"
+equals = {"kind":"module","name":"main"}
+
+[[lsp_assert]]
+id = 27
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 28
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 28
+path = "/error/data/details/symbol_class"
+equals = "import_alias"
+
+[[lsp_assert]]
+id = 28
+path = "/error/data/details/requested_name"
+equals = "math"
+
+[[lsp_assert]]
+id = 28
+path = "/error/data/details/conflicting_declaration/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 28
+path = "/error/data/details/conflicting_declaration/range"
+equals = {"start":{"line":0,"character":4},"end":{"line":0,"character":8}}
+
+[[lsp_assert]]
+id = 28
+path = "/error/data/details/affected_scope"
+equals = {"kind":"module","name":"main"}
+
+[[lsp_assert]]
+id = 28
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 29
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 30
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 31
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 32
+path = "/result/uri"
+workspace_file_uri = "unrelated_error.veln"
+
+[[lsp_assert]]
+id = 32
+path = "/result/range"
+equals = {"start":{"line":0,"character":21},"end":{"line":0,"character":25}}
+
+[[lsp_assert]]
+id = 33
+path = "/result"
+length = 2
+
+[[lsp_assert]]
+id = 33
+path = "/result/0/uri"
+workspace_file_uri = "unrelated_error.veln"
+
+[[lsp_assert]]
+id = 33
+path = "/result/0/range"
+equals = {"start":{"line":0,"character":21},"end":{"line":0,"character":25}}
+
+[[lsp_assert]]
+id = 33
+path = "/result/1/uri"
+workspace_file_uri = "unrelated_error.veln"
+
+[[lsp_assert]]
+id = 33
+path = "/result/1/range"
+equals = {"start":{"line":7,"character":2},"end":{"line":7,"character":6}}
+
+[[lsp_assert]]
+id = 34
+path = "/result/changes/$workspace_file_uri:unrelated_error.veln"
+equals = [
+  {"range":{"start":{"line":0,"character":21},"end":{"line":0,"character":25}},"newText":"numbers"},
+  {"range":{"start":{"line":7,"character":2},"end":{"line":7,"character":6}},"newText":"numbers"}
+]
+
+[[lsp_assert]]
+id = 35
+path = "/result/uri"
+workspace_file_uri = "recovery_math.veln"
+
+[[lsp_assert]]
+id = 35
+path = "/result/range"
+equals = {"start":{"line":0,"character":7},"end":{"line":0,"character":13}}
+
+[[lsp_assert]]
+id = 36
+path = "/result"
+length = 2
+
+[[lsp_assert]]
+id = 36
+path = "/result/0/uri"
+workspace_file_uri = "recovery_math.veln"
+
+[[lsp_assert]]
+id = 36
+path = "/result/0/range"
+equals = {"start":{"line":0,"character":7},"end":{"line":0,"character":13}}
+
+[[lsp_assert]]
+id = 36
+path = "/result/1/uri"
+workspace_file_uri = "unrelated_error.veln"
+
+[[lsp_assert]]
+id = 36
+path = "/result/1/range"
+equals = {"start":{"line":7,"character":8},"end":{"line":7,"character":14}}
+
+[[lsp_assert]]
+id = 37
+path = "/result/changes/$workspace_file_uri:recovery_math.veln"
+equals = [
+  {"range":{"start":{"line":0,"character":7},"end":{"line":0,"character":13}},"newText":"twice"}
+]
+
+[[lsp_assert]]
+id = 37
+path = "/result/changes/$workspace_file_uri:unrelated_error.veln"
+equals = [
+  {"range":{"start":{"line":7,"character":8},"end":{"line":7,"character":14}},"newText":"twice"}
+]
+
+[[lsp_assert]]
+id = 38
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 39
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 40
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 41
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 42
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 43
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 44
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 45
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 46
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 47
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 48
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 49
+path = "/result/uri"
+workspace_file_uri = "precedence.veln"
+
+[[lsp_assert]]
+id = 49
+path = "/result/range"
+equals = {"start":{"line":0,"character":13},"end":{"line":0,"character":16}}
+
+[[lsp_assert]]
+id = 50
+path = "/result"
+length = 2
+
+[[lsp_assert]]
+id = 50
+path = "/result/0/uri"
+workspace_file_uri = "precedence.veln"
+
+[[lsp_assert]]
+id = 50
+path = "/result/0/range"
+equals = {"start":{"line":0,"character":13},"end":{"line":0,"character":16}}
+
+[[lsp_assert]]
+id = 50
+path = "/result/1/uri"
+workspace_file_uri = "precedence.veln"
+
+[[lsp_assert]]
+id = 50
+path = "/result/1/range"
+equals = {"start":{"line":8,"character":2},"end":{"line":8,"character":5}}
+
+[[lsp_assert]]
+id = 51
+path = "/result/changes/$workspace_file_uri:precedence.veln"
+equals = [
+  {"range":{"start":{"line":0,"character":13},"end":{"line":0,"character":16}},"newText":"local"},
+  {"range":{"start":{"line":8,"character":2},"end":{"line":8,"character":5}},"newText":"local"}
+]
+
+[[lsp_assert]]
+id = 52
+path = "/result/uri"
+workspace_file_uri = "alpha.veln"
+
+[[lsp_assert]]
+id = 52
+path = "/result/range"
+equals = {"start":{"line":0,"character":7},"end":{"line":0,"character":12}}
+
+[[lsp_assert]]
+id = 53
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 53
+path = "/result/0/uri"
+workspace_file_uri = "alpha.veln"
+
+[[lsp_assert]]
+id = 53
+path = "/result/0/range"
+equals = {"start":{"line":0,"character":7},"end":{"line":0,"character":12}}
+
+[[lsp_assert]]
+id = 53
+path = "/result/1/uri"
+workspace_file_uri = "precedence.veln"
+
+[[lsp_assert]]
+id = 53
+path = "/result/1/range"
+equals = {"start":{"line":8,"character":7},"end":{"line":8,"character":12}}
+
+[[lsp_assert]]
+id = 53
+path = "/result/2/uri"
+workspace_file_uri = "recovery_call.veln"
+
+[[lsp_assert]]
+id = 53
+path = "/result/2/range"
+equals = {"start":{"line":3,"character":8},"end":{"line":3,"character":13}}
+
+[[lsp_assert]]
+id = 54
+path = "/result/changes/$workspace_file_uri:alpha.veln"
+equals = [
+  {"range":{"start":{"line":0,"character":7},"end":{"line":0,"character":12}},"newText":"alias_value"}
+]
+
+[[lsp_assert]]
+id = 54
+path = "/result/changes/$workspace_file_uri:precedence.veln"
+equals = [
+  {"range":{"start":{"line":8,"character":7},"end":{"line":8,"character":12}},"newText":"alias_value"}
+]
+
+[[lsp_assert]]
+id = 54
+path = "/result/changes/$workspace_file_uri:recovery_call.veln"
+equals = [
+  {"range":{"start":{"line":3,"character":8},"end":{"line":3,"character":13}},"newText":"alias_value"}
+]
+
+[[lsp_assert]]
+id = 55
+path = "/result"
+length = 2
+
+[[lsp_assert]]
+id = 55
+path = "/result/0/uri"
+workspace_file_uri = "foo/bar.veln"
+
+[[lsp_assert]]
+id = 55
+path = "/result/0/range"
+equals = {"start":{"line":0,"character":7},"end":{"line":0,"character":12}}
+
+[[lsp_assert]]
+id = 55
+path = "/result/1/uri"
+workspace_file_uri = "precedence.veln"
+
+[[lsp_assert]]
+id = 55
+path = "/result/1/range"
+equals = {"start":{"line":4,"character":12},"end":{"line":4,"character":17}}
+
+[[lsp_assert]]
+id = 56
+path = "/result/changes/$workspace_file_uri:alpha.veln"
+missing = true
+
+[[lsp_assert]]
+id = 56
+path = "/result/changes/$workspace_file_uri:recovery_call.veln"
+missing = true
+
+[[lsp_assert]]
+id = 56
+path = "/result/changes/$workspace_file_uri:precedence.veln"
+equals = [
+  {"range":{"start":{"line":4,"character":12},"end":{"line":4,"character":17}},"newText":"exact_value"}
+]
+
+[[lsp_assert]]
+id = 57
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 58
+path = "/result/changes"
+equals = {}

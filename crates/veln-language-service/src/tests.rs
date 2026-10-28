@@ -13,6 +13,8 @@ include!("tests/navigation_recovery_rename_conflicts.rs");
 include!("tests/navigation_rename_constructor_conflicts.rs");
 include!("tests/navigation_rename_ambiguities.rs");
 include!("tests/navigation_qualified.rs");
+include!("tests/navigation_import_aliases.rs");
+include!("tests/navigation_import_alias_performance.rs");
 include!("tests/dependencies_prelude.rs");
 include!("tests/dependencies_function_references.rs");
 include!("tests/dependencies_function_alias_references.rs");

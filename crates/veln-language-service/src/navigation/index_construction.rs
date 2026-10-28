@@ -40,6 +40,8 @@ struct WorkspaceIndexInput {
     files: Vec<IndexedFile>,
     declarations: FileDeclarations,
     module: veln_ast::SurfaceModule,
+    import_aliases: Vec<ImportAliasSymbol>,
+    import_namespace_bindings: Vec<ImportNamespaceBinding>,
 }
 
 struct SchemaNavigationIndex {
@@ -88,6 +90,8 @@ impl SymbolIndex {
             mut files,
             mut declarations,
             module: workspace_module,
+            import_aliases,
+            import_namespace_bindings,
         } = index_workspace_input(
             sources,
             direct_dependencies,
@@ -126,6 +130,8 @@ impl SymbolIndex {
         files.extend(standard_library.files.clone());
         let file_indices_by_identity = file_indices_by_identity(&files);
         Self {
+            import_aliases,
+            import_namespace_bindings,
             schemas: declarations.schemas,
             schema_aliases,
             package_schemas,
@@ -262,6 +268,8 @@ fn index_workspace_input(
         append_parsed_surface_module(&mut module, &file, &parsed);
         files.push(file);
     }
+    let (import_aliases, import_namespace_bindings) =
+        index_explicit_import_aliases(&mut files, &module);
     declarations.extend(direct_dependencies.declarations.clone());
     declarations.extend(standard_library.declarations.clone());
     if classify_workspace_paths && workspace_needs_path_classification(&files, &module) {
@@ -274,6 +282,8 @@ fn index_workspace_input(
         files,
         declarations,
         module,
+        import_aliases,
+        import_namespace_bindings,
     }
 }
 

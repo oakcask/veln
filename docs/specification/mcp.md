@@ -413,6 +413,36 @@ source uses project scope; another accepted source uses anonymous single-file
 scope. A source below an unselected descendant manifest is not analyzed as
 part of the outer project.
 
+Saved definition, references, and rename project the shared
+[explicit import alias identity](editor-support.md#explicit-import-alias-navigation).
+The alias declaration and qualifiers select the module-local alias, while an
+alias-qualified member leaf selects the target member. Invalid and recovered
+aliases return empty navigation results. Reordering saved sources that share a
+module identity does not change the shared selections, location sets, rename
+edits, or rename-conflict details. A unique or ambiguous exact written import
+path blocks fallback to a same-spelled alias only for a selected path that
+matches that exact prefix. A shorter alias-qualified path with the same first
+segment continues to select the alias and its target member, independent of
+source occurrence order. For an ambiguous exact path, definition is `null`,
+references are empty, and rename edits are empty at both the qualifier and
+member leaf, even when the alias's module has a matching member. An unrelated
+parse error in the same source does not remove a
+parse-clean alias, its qualifiers, or the target member reached through them.
+It also does not make an invalid-cased alias or qualifier eligible for normal
+or recovery navigation. MCP preserves the shared source and token order when
+it projects locations and conflict provenance. The checked
+[`explicit-import-alias-navigation`](../../examples/specification/mcp/explicit-import-alias-navigation/)
+transcript covers alias and member destinations, exact written-path
+precedence, ambiguous exact-path qualifier and member blocking, navigation
+beside an unrelated parse error, invalid-alias exclusion with and without an
+unrelated parse error, recovered-import rename, reference sets, exact edit
+sets, stable failure details, contextual aliases, and edit-free rename
+rejection for another import and for the selected alias's own target path. Its
+paired LSP transcript checks the same destinations, edits, and failures through
+the LSP projection.
+Shared-language-service tests check the source-reordering invariant before
+either adapter projects the result.
+
 For an eligible public workspace effect, `definition` and `references` accept
 selection at the declaration, a bare same-module occurrence, or the
 effect-name leaf of a qualified occurrence reached through one parse-clean,
@@ -468,7 +498,8 @@ and locals keep their own definition, reference, and rename identity. MCP
 inherits this recovery boundary from the shared language-service snapshot, as
 does the LSP adapter.
 
-The supported definition set includes workspace functions, types,
+The supported definition set includes valid workspace explicit import aliases,
+workspace functions, types,
 constructors, handler context and operation-clause parameters, exact
 test-companion private-function access, and unique class-compatible invalid
 source recovery records. Eligible package selections include public functions,
@@ -587,7 +618,8 @@ or `_`. Reserved words pass this lexical check. A malformed non-empty name
 returns `rename.invalid_name` with exactly `details: {requested_name}`. An
 empty name is rejected by the input schema.
 
-The supported symbol set contains workspace types, type aliases,
+The supported symbol set contains valid explicit import aliases, workspace
+types, type aliases,
 constructors, functions, function aliases, test declarations, exact-companion
 private functions, value bindings, handler context parameters, and handler
 operation-clause parameters. It also contains the unambiguous recovery
@@ -596,6 +628,20 @@ with an ASCII uppercase letter. A function or value-binding replacement must
 start with an ASCII lowercase letter. Recovery records retain their symbol
 class. A class mismatch returns `rename.invalid_case` with exactly
 `symbol_class`, `requested_name`, and `required_initial` in `details`.
+
+An explicit import alias replacement uses the module-name casing class and
+must start with an ASCII lowercase letter. Its edits contain the alias
+declaration and qualifier occurrences in the owning module only. The written
+target, member leaves, and same-spelled aliases in other modules are excluded.
+The reserved replacement `prelude` returns `rename.reserved` with
+`symbol_class` and `requested_name`. A collision with another qualifier or
+exact path in the owning import namespace returns `rename.conflict`. Exact
+paths include every spelling accepted by
+[import resolution](name-resolution.md#explicit-import-aliases), including the
+selected alias declaration's own written target; that collision reports the
+target's final path segment as the conflicting declaration. Neither failure
+contains edits. Renaming a member reached through an alias continues to use
+the member identity and edits member leaves without editing alias tokens.
 
 A workspace type alias keeps a rename identity separate from its target type
 and from same-spelled type declarations. Its edits include type positions that
@@ -668,10 +714,11 @@ project_wide:false}` for anonymous source scope. The reference locations have
 start line, start column, end line, and end column. A nonfinal page contains
 exactly `page_size` locations and `next_cursor`; the final page omits it.
 
-Supported reference identities are workspace effects, effect operations,
-handlers, schemas, eligible workspace, direct-dependency, and standard-library
-schema aliases, functions, types, constructors, value bindings, handler
-context parameters, and handler operation-clause parameters.
+Supported reference identities are valid workspace explicit import aliases,
+workspace effects, effect operations, handlers, schemas, eligible workspace,
+direct-dependency, and standard-library schema aliases, functions, types,
+constructors, value bindings, handler context parameters, and handler
+operation-clause parameters.
 
 ### Recovery References
 

@@ -2,7 +2,7 @@
 role: specification
 authority: normative
 specification-coverage: usage=#lsp-encoding; behavior=#lsp-navigation-formatting-and-rename; limits=#boundaries
-update-when: The `veln lsp` semantic-token, publish-diagnostic, completion, signature-help, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP navigation declaration-policy or bounded-work evidence changes.
+update-when: The `veln lsp` semantic-token, publish-diagnostic, completion, signature-help, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP navigation declaration policy changes.
 ---
 
 # Editor Support
@@ -309,6 +309,70 @@ ranges.
 Definition and references use the shared selected symbol and reference set.
 Prepare-rename and rename use the same selected-symbol model only for
 rename-supported symbol classes.
+
+### Explicit import alias navigation
+
+A valid explicit import alias is a module-local import-namespace identity.
+It is distinct from the imported module and from every declaration reached
+through that module. Selection at the alias declaration or at the first
+qualifier segment of an alias-qualified path selects the alias. Definition
+returns the alias token in the `use` declaration. References contain only
+qualifier occurrences in sources with the same module identity. Rename edits
+the declaration and those qualifiers. It does not edit the written import
+target, qualified member leaves, or a same-spelled alias owned by another
+module. A unique or ambiguous exact written import path takes precedence over
+a same-spelled alias. The path's module segments do not select, reference, or
+rename that alias. A unique exact path can still select its target member. An
+ambiguous exact path selects no navigation identity at any module or member
+segment and does not fall back to a same-spelled alias, including when that
+alias's module has a matching function, type, or constructor. The contextual
+identifier spellings `callsite`, `handler`, and `handle` keep this alias
+identity at both their declarations and qualifier occurrences.
+
+Exact-path precedence is specific to the complete qualifier path being
+selected. Given `use alpha as foo` and `use foo::bar`, `foo::value` still
+selects the alias and a member from `alpha`, while `foo::bar::value` selects
+the exact-path member. Reversing those occurrences in a source does not change
+either selection.
+
+Selection at an alias-qualified member leaf keeps the member's existing
+function, type, or constructor identity. Member references and rename include
+alias-qualified member leaves, but exclude the alias declaration, qualifier
+tokens, and written import target. This behavior does not add navigation for a
+new member declaration class.
+
+An invalid-cased, reserved, colliding, duplicate-target, or syntax-recovered
+alias creates no normal alias navigation identity. An alias replacement must
+start with an ASCII lowercase letter. The name `prelude` returns
+`rename.reserved`, and a collision in the owning module's import namespace
+returns `rename.conflict`. The namespace includes every exact spelling
+accepted by [import resolution](name-resolution.md#explicit-import-aliases),
+including the selected alias declaration's own written target path. A conflict
+with that target reports its final path segment as the conflicting declaration.
+A syntax-recovered import does not participate in that namespace and cannot
+block a valid rename. An unrelated parse error in the same source does not
+remove a parse-clean alias declaration, its qualifier references, or the
+target-member identity reached through those qualifiers. Both rename failures
+produce no edits. The unrelated parse error also does not restore an
+invalid-cased alias declaration or qualifier as a normal or recovery navigation
+identity.
+
+Sources with one module identity may be supplied in any order. Alias
+selection, definition, reference sets, and rename edit sets stay unchanged.
+Conflict details and ordered locations use stable source-path and token order.
+LSP definition,
+references, prepare-rename, and rename project the shared result with their
+ordinary UTF-16 coordinate conversion. The checked
+[`explicit-import-alias-navigation`](../../examples/specification/lsp/explicit-import-alias-navigation/)
+case covers alias and target-member projection, exact-path precedence,
+mixed alias-qualified and exact paths with the same first segment,
+ambiguous exact-path qualifier and member blocking without alias fallback,
+navigation beside an unrelated parse error, invalid-alias exclusion with and
+without an unrelated parse error, recovered-import rename, conflicts with
+another import and with the selected alias's own target path, stable conflict
+details, and edit-free rejection. Shared-language-service tests cover the
+ambiguous function, type, and constructor member boundary and complete rename
+edit sets in the original and reversed combined-source order.
 
 ### Shared variant-refinement navigation
 

@@ -1,0 +1,3 @@
+pub fn double() -> Int
+  2
+end

@@ -4,7 +4,110 @@ enum SchemaSymbolReferenceKind {
     Alias,
 }
 
+fn indexed_qualified_import_resolution<'a>(
+    file: &'a IndexedFile,
+    qualifier_segments: &[&str],
+) -> Option<&'a QualifiedImportResolution> {
+    let mut node_index = Some(0);
+    for segment in qualifier_segments {
+        node_index = node_index.and_then(|index| {
+            file.qualified_import_resolutions.nodes[index]
+                .children
+                .get(*segment)
+                .copied()
+        });
+    }
+    record_explicit_import_alias_path_work(qualifier_segments.len(), 0);
+    node_index.and_then(|index| {
+        file.qualified_import_resolutions.nodes[index]
+            .resolution
+            .as_ref()
+    })
+}
+
+fn resolved_qualified_module_identity(
+    target: &QualifiedImportTarget,
+    qualifier_segments: &[&str],
+) -> QualifiedModuleIdentity {
+    let mut module = target.shared.module.to_string();
+    for segment in qualifier_segments.iter().skip(target.consumed_segments) {
+        module.push_str("::");
+        module.push_str(segment);
+    }
+    let package = target
+        .shared
+        .package
+        .as_ref()
+        .map(|package| package.to_string());
+    record_explicit_import_alias_path_work(
+        0,
+        module.len() + package.as_ref().map_or(0, String::len),
+    );
+    record_explicit_import_alias_member_identity_bytes(
+        module.len() + package.as_ref().map_or(0, String::len),
+    );
+    QualifiedModuleIdentity {
+        module,
+        package,
+        package_resolved: true,
+    }
+}
+
+fn fallback_qualified_module_candidates(
+    file: &IndexedFile,
+    qualifier: &str,
+) -> Vec<QualifiedModuleIdentity> {
+    let mut modules = vec![QualifiedModuleIdentity {
+        module: qualifier.to_string(),
+        package: None,
+        package_resolved: false,
+    }];
+    if let Some(module) = resolve_qualified_alias(&file.import_aliases, qualifier) {
+        modules.push(QualifiedModuleIdentity {
+            module,
+            package: None,
+            package_resolved: true,
+        });
+    }
+    if let Some((module, package)) =
+        resolve_external_qualified_alias(&file.external_import_aliases, qualifier)
+    {
+        modules.push(QualifiedModuleIdentity {
+            module,
+            package: Some(package),
+            package_resolved: true,
+        });
+    }
+    modules
+}
+
+fn constructor_matches_declaration(
+    candidate: &ConstructorSymbol,
+    symbol: &ConstructorSymbol,
+) -> bool {
+    candidate.declaration_kind == SymbolDeclarationKind::Declaration
+        && same_constructor(candidate, symbol)
+}
+
 impl SymbolIndex {
+    fn import_alias_references(&self, symbol: &ImportAliasSymbol) -> Vec<SourceSpan> {
+        let mut references = self
+            .files
+            .iter()
+            .filter(|file| workspace_navigation_file(file) && file.module == symbol.module)
+            .flat_map(|file| {
+                file.explicit_import_alias_occurrences
+                    .iter()
+                    .filter(|(_, declaration)| **declaration == symbol.declaration.span)
+                    .map(|((start, end), _)| {
+                        file.source.span(TextRange::new(*start, *end))
+                    })
+            })
+            .collect::<Vec<_>>();
+        sort_locations(&mut references);
+        references
+    }
+
     fn effect_operation_references(&self, symbol: &EffectOperationSymbol) -> Vec<SourceSpan> {
         let eligible_handlers = self.effect_operation_reference_handlers();
         self.files
@@ -612,9 +715,7 @@ impl SymbolIndex {
             Some(package) => {
                 symbol.public
                     && (symbol.standard_prelude
-                        || file
-                            .external_uses
-                            .contains(&(symbol.module.clone(), package.clone())))
+                        || has_external_use(file, &symbol.module, package))
             }
             None => {
                 file.uses.contains(&symbol.module)
@@ -633,6 +734,13 @@ impl SymbolIndex {
         qualifier: &str,
         symbol: &FunctionSymbol,
     ) -> Vec<SourceSpan> {
+        let Some(candidate) = self.function_for_qualified_call_ref(file, qualifier, &symbol.name)
+        else {
+            return Vec::new();
+        };
+        if !same_function(candidate, symbol) {
+            return Vec::new();
+        }
         let tokens = &file.tokens;
         let module_segments = qualifier.split("::").collect::<Vec<_>>();
         tokens
@@ -645,9 +753,6 @@ impl SymbolIndex {
                         || ((symbol.package.is_some() || symbol.public)
                             && (file.token_has_classified_role(token, NameClass::ValueBinding)
                                 || is_qualified_function_value_token(tokens, *index))))
-                    && self
-                        .function_for_qualified_call(file, qualifier, &token.text)
-                        .is_some_and(|candidate| same_function(&candidate, symbol))
             })
             .map(|(_, token)| file.source.span(token.range))
             .collect()
@@ -659,6 +764,7 @@ impl SymbolIndex {
             .filter(|file| workspace_navigation_file(file))
             .flat_map(|file| {
                 let tokens = &file.tokens;
+                let mut qualified_matches = HashMap::<String, bool>::new();
                 let mut spans = file
                     .type_reference_spans(&symbol.name)
                     .into_iter()
@@ -680,9 +786,22 @@ impl SymbolIndex {
                                 })
                                 .then_some(span);
                         }
-                        self.visible_type_for_reference(file, tokens, token_index, &symbol.name)
-                            .is_some_and(|candidate| same_type(&candidate, symbol))
-                            .then_some(span)
+                        let matches = match qualifier_for_token(tokens, token_index) {
+                            Some(qualifier) => *qualified_matches
+                                .entry(qualifier.clone())
+                                .or_insert_with(|| {
+                                    self.visible_type_for_qualified_reference(
+                                        file,
+                                        &qualifier,
+                                        &symbol.name,
+                                    )
+                                    .is_some_and(|candidate| same_type(&candidate, symbol))
+                                }),
+                            None => self
+                                .visible_type_for_bare_reference(file, &symbol.name)
+                                .is_some_and(|candidate| same_type(&candidate, symbol)),
+                        };
+                        matches.then_some(span)
                     })
                     .collect::<Vec<_>>();
                 spans.extend(self.constructor_type_qualifier_references(file, tokens, symbol));
@@ -811,6 +930,7 @@ impl SymbolIndex {
         tokens: &[Token],
         symbol: &TypeSymbol,
     ) -> Vec<SourceSpan> {
+        let mut qualified_matches = HashMap::<(String, String), bool>::new();
         tokens
             .iter()
             .enumerate()
@@ -829,14 +949,27 @@ impl SymbolIndex {
                             )
                         });
                 }
-                if self
-                    .visible_type_alias_for_reference(file, tokens, *index, &token.text)
-                    .is_some()
-                {
-                    return false;
-                }
-                self.type_for_constructor_qualifier_token(file, tokens, *index, &token.text)
-                    .is_some_and(|candidate| same_type(&candidate, symbol))
+                let qualifier = qualifier_for_token(tokens, *index).unwrap_or_default();
+                let constructor_name = next_path_segment_index(tokens, *index)
+                    .map(|constructor_index| tokens[constructor_index].text.clone())
+                    .unwrap_or_default();
+                *qualified_matches
+                    .entry((qualifier, constructor_name))
+                    .or_insert_with(|| {
+                        if self
+                            .visible_type_alias_for_reference(file, tokens, *index, &token.text)
+                            .is_some()
+                        {
+                            return false;
+                        }
+                        self.type_for_constructor_qualifier_token(
+                            file,
+                            tokens,
+                            *index,
+                            &token.text,
+                        )
+                        .is_some_and(|candidate| same_type(&candidate, symbol))
+                    })
             })
             .map(|(_, token)| file.source.span(token.range))
             .collect()
@@ -911,34 +1044,91 @@ impl SymbolIndex {
         self.files
             .iter()
             .filter(|file| workspace_navigation_file(file))
-            .flat_map(|file| {
-                let tokens = &file.tokens;
-                tokens
-                    .iter()
-                    .enumerate()
-                    .filter(|(index, token)| {
-                        #[cfg(test)]
-                        record_variant_refinement_reference_token_visit();
-                        let refinement = file
-                            .variant_refinement_final_ranges
-                            .contains(&(token.range.start, token.range.end));
-                        token.kind == TokenKind::Ident
-                            && token.text == symbol.name
-                            && !same_span(&file.source.span(token.range), &symbol.declaration.span)
-                            && (refinement
-                                || file.token_is_constructor_reference(*index)
-                                || file.token_has_classified_role(token, NameClass::Constructor))
-                            && self
-                                .constructor_symbol_for_call(file, tokens, *index, &token.text)
-                                .is_some_and(|candidate| {
-                                    candidate.declaration_kind == SymbolDeclarationKind::Declaration
-                                        && same_constructor(&candidate, symbol)
-                                })
-                    })
-                    .map(|(_, token)| file.source.span(token.range))
-                    .collect::<Vec<_>>()
-            })
+            .flat_map(|file| self.constructor_references_in_file(file, symbol))
             .collect()
+    }
+
+    fn constructor_references_in_file(
+        &self,
+        file: &IndexedFile,
+        symbol: &ConstructorSymbol,
+    ) -> Vec<SourceSpan> {
+        let tokens = &file.tokens;
+        let mut qualified_matches = HashMap::<String, bool>::new();
+        tokens
+            .iter()
+            .enumerate()
+            .filter(|(index, token)| {
+                self.constructor_reference_token_matches(
+                    file,
+                    tokens,
+                    *index,
+                    token,
+                    symbol,
+                    &mut qualified_matches,
+                )
+            })
+            .map(|(_, token)| file.source.span(token.range))
+            .collect()
+    }
+
+    fn constructor_reference_token_matches(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        token: &Token,
+        symbol: &ConstructorSymbol,
+        qualified_matches: &mut HashMap<String, bool>,
+    ) -> bool {
+        #[cfg(test)]
+        record_variant_refinement_reference_token_visit();
+        let refinement = file
+            .variant_refinement_final_ranges
+            .contains(&(token.range.start, token.range.end));
+        if token.kind != TokenKind::Ident
+            || token.text != symbol.name
+            || same_span(&file.source.span(token.range), &symbol.declaration.span)
+            || (!refinement
+                && !file.token_is_constructor_reference(token_index)
+                && !file.token_has_classified_role(token, NameClass::Constructor))
+        {
+            return false;
+        }
+        self.constructor_reference_resolves(
+            file,
+            tokens,
+            token_index,
+            symbol,
+            refinement,
+            qualified_matches,
+        )
+    }
+
+    fn constructor_reference_resolves(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        symbol: &ConstructorSymbol,
+        refinement: bool,
+        qualified_matches: &mut HashMap<String, bool>,
+    ) -> bool {
+        let token = &tokens[token_index];
+        if refinement {
+            return self
+                .constructor_symbol_for_call(file, tokens, token_index, &token.text)
+                .is_some_and(|candidate| constructor_matches_declaration(&candidate, symbol));
+        }
+        let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
+            return self
+                .constructor_for_bare_call(file, &token.text)
+                .is_some_and(|candidate| constructor_matches_declaration(&candidate, symbol));
+        };
+        *qualified_matches.entry(qualifier.clone()).or_insert_with(|| {
+            self.constructor_for_qualified_call(file, &qualifier, &symbol.name)
+                .is_some_and(|candidate| constructor_matches_declaration(&candidate, symbol))
+        })
     }
 
     fn constructor_symbol_for_call(
@@ -1036,8 +1226,7 @@ impl SymbolIndex {
                         && !symbol.standard_prelude
                         && symbol.public
                         && symbol.package.as_ref().is_some_and(|package| {
-                            file.external_uses
-                                .contains(&(symbol.module.clone(), package.clone()))
+                            has_external_use(file, &symbol.module, package)
                                 || self.constructor_reexport_visible_from(
                                     file,
                                     symbol,
@@ -1048,17 +1237,19 @@ impl SymbolIndex {
             })
     }
 
-    fn qualified_module_candidates(&self, file: &IndexedFile, qualifier: &str) -> Vec<String> {
-        let mut modules = vec![qualifier.to_string()];
-        if let Some(module) = resolve_qualified_alias(&file.import_aliases, qualifier) {
-            modules.push(module);
+    fn qualified_module_candidates(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+    ) -> Vec<QualifiedModuleIdentity> {
+        let qualifier_segments = qualifier.split("::").collect::<Vec<_>>();
+        match indexed_qualified_import_resolution(file, &qualifier_segments) {
+            Some(QualifiedImportResolution::Resolved(target)) => vec![
+                resolved_qualified_module_identity(target, &qualifier_segments),
+            ],
+            Some(QualifiedImportResolution::Blocked) => Vec::new(),
+            None => fallback_qualified_module_candidates(file, qualifier),
         }
-        if let Some((module, _package)) =
-            resolve_external_qualified_alias(&file.external_import_aliases, qualifier)
-        {
-            modules.push(module);
-        }
-        modules
     }
 
     fn qualifiers_for_module(
