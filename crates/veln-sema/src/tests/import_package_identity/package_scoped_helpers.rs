@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::HandlerPathResolution;
 
 #[test]
 fn each_schema_alias_selects_only_its_package_helper_and_lowered_target() {

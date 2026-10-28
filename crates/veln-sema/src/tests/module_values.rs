@@ -1210,62 +1210,65 @@ fn quarantined_imports_do_not_create_qualified_module_value_ambiguity() {
     }
 }
 
+fn analyze_quarantined_owner_module_value_fallback(
+    reverse_sources: bool,
+    reverse_imports: bool,
+) -> Vec<(String, veln_diagnostics::DiagnosticText)> {
+    let imports = if reverse_imports {
+        concat!(
+            "use values as config from \"dep/pkg\"\n",
+            "use values from \"dep/pkg\"\n",
+        )
+    } else {
+        concat!(
+            "use values from \"dep/pkg\"\n",
+            "use values as config from \"dep/pkg\"\n",
+        )
+    };
+    let owner_source = SourceFile::new(
+        "values.veln",
+        format!("{imports}let answer: Int = 1\nfn read() -> Int\n  values::answer\nend\n"),
+    );
+    let owner = veln_ast::lower_surface_ast_with_package_module_identity(
+        &parse(&owner_source).tree,
+        "owner/pkg".to_string(),
+        "values".to_string(),
+        owner_source.span(veln_source::TextRange::new(0, 0)),
+    );
+    let dependency_source = SourceFile::new(
+        "vendor/dep/values.veln",
+        "pub let answer: String = \"dep\"\n",
+    );
+    let dependency = veln_ast::lower_surface_ast_with_package_module_identity(
+        &parse(&dependency_source).tree,
+        "dep/pkg".to_string(),
+        "values".to_string(),
+        dependency_source.span(veln_source::TextRange::new(0, 0)),
+    );
+    let (mut merged, other) = if reverse_sources {
+        (dependency, owner)
+    } else {
+        (owner, dependency)
+    };
+    merged.uses.extend(other.uses);
+    merged.module_values.extend(other.module_values);
+    merged.functions.extend(other.functions);
+
+    analyze_surface_module(&merged)
+        .into_iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.id.as_str(),
+                "name.duplicate" | "name.unresolved" | "name.ambiguous" | "type.mismatch"
+            )
+        })
+        .map(|diagnostic| (diagnostic.id, diagnostic.message))
+        .collect::<Vec<_>>()
+}
+
 #[test]
 fn quarantined_exact_import_blocks_same_owner_module_value_fallback() {
-    let analyze = |reverse_sources: bool, reverse_imports: bool| {
-        let imports = if reverse_imports {
-            concat!(
-                "use values as config from \"dep/pkg\"\n",
-                "use values from \"dep/pkg\"\n",
-            )
-        } else {
-            concat!(
-                "use values from \"dep/pkg\"\n",
-                "use values as config from \"dep/pkg\"\n",
-            )
-        };
-        let owner_source = SourceFile::new(
-            "values.veln",
-            format!("{imports}let answer: Int = 1\nfn read() -> Int\n  values::answer\nend\n"),
-        );
-        let owner = veln_ast::lower_surface_ast_with_package_module_identity(
-            &parse(&owner_source).tree,
-            "owner/pkg".to_string(),
-            "values".to_string(),
-            owner_source.span(veln_source::TextRange::new(0, 0)),
-        );
-        let dependency_source = SourceFile::new(
-            "vendor/dep/values.veln",
-            "pub let answer: String = \"dep\"\n",
-        );
-        let dependency = veln_ast::lower_surface_ast_with_package_module_identity(
-            &parse(&dependency_source).tree,
-            "dep/pkg".to_string(),
-            "values".to_string(),
-            dependency_source.span(veln_source::TextRange::new(0, 0)),
-        );
-        let (mut merged, other) = if reverse_sources {
-            (dependency, owner)
-        } else {
-            (owner, dependency)
-        };
-        merged.uses.extend(other.uses);
-        merged.module_values.extend(other.module_values);
-        merged.functions.extend(other.functions);
-
-        analyze_surface_module(&merged)
-            .into_iter()
-            .filter(|diagnostic| {
-                matches!(
-                    diagnostic.id.as_str(),
-                    "name.duplicate" | "name.unresolved" | "name.ambiguous" | "type.mismatch"
-                )
-            })
-            .map(|diagnostic| (diagnostic.id, diagnostic.message))
-            .collect::<Vec<_>>()
-    };
-
-    let expected = analyze(false, false);
+    let expected = analyze_quarantined_owner_module_value_fallback(false, false);
     assert_eq!(
         expected
             .iter()
@@ -1288,9 +1291,18 @@ fn quarantined_exact_import_blocks_same_owner_module_value_fallback() {
             .all(|(id, _)| !matches!(id.as_str(), "name.ambiguous" | "type.mismatch")),
         "{expected:#?}"
     );
-    assert_eq!(analyze(true, false), expected);
-    assert_eq!(analyze(false, true), expected);
-    assert_eq!(analyze(true, true), expected);
+    assert_eq!(
+        analyze_quarantined_owner_module_value_fallback(true, false),
+        expected
+    );
+    assert_eq!(
+        analyze_quarantined_owner_module_value_fallback(false, true),
+        expected
+    );
+    assert_eq!(
+        analyze_quarantined_owner_module_value_fallback(true, true),
+        expected
+    );
 }
 
 #[test]
