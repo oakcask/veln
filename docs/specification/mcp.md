@@ -420,10 +420,13 @@ alias-qualified member leaf selects the target member. Invalid and recovered
 aliases return empty navigation results. Reordering saved sources that share a
 module identity does not change the shared selections, location sets, rename
 edits, or rename-conflict details. A unique or ambiguous exact written import
-path blocks fallback to a same-spelled alias. For an ambiguous exact path,
-definition is `null`, references are empty, and rename edits are empty at both
-the qualifier and member leaf, even when the alias's module has a matching
-member. An unrelated parse error in the same source does not remove a
+path blocks fallback to a same-spelled alias only for a selected path that
+matches that exact prefix. A shorter alias-qualified path with the same first
+segment continues to select the alias and its target member, independent of
+source occurrence order. For an ambiguous exact path, definition is `null`,
+references are empty, and rename edits are empty at both the qualifier and
+member leaf, even when the alias's module has a matching member. An unrelated
+parse error in the same source does not remove a
 parse-clean alias, its qualifiers, or the target member reached through them.
 It also does not make an invalid-cased alias or qualifier eligible for normal
 or recovery navigation. MCP preserves the shared source and token order when

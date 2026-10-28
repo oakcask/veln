@@ -434,8 +434,9 @@ rename boundary and UTF-16 ranges.
 The paired `explicit-import-alias-navigation` LSP and MCP specification cases
 use decoded assertions for definition, references, and rename on the local
 alias qualifier and on a member reached through that qualifier. They check
-exact-path precedence, contextual identifier spellings, invalid-alias
-exclusion, recovered-alias declaration and qualifier exclusion,
+exact-path precedence, independent mixed alias and exact paths that share a
+first segment, contextual identifier spellings, invalid-alias exclusion,
+recovered-alias declaration and qualifier exclusion,
 recovered-import collision handling, ambiguous exact-path qualifier and member
 blocking without alias fallback, navigation beside an unrelated parse error,
 invalid-alias exclusion beside an unrelated parse error, and edit-free

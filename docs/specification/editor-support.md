@@ -329,6 +329,12 @@ alias's module has a matching function, type, or constructor. The contextual
 identifier spellings `callsite`, `handler`, and `handle` keep this alias
 identity at both their declarations and qualifier occurrences.
 
+Exact-path precedence is specific to the complete qualifier path being
+selected. Given `use alpha as foo` and `use foo::bar`, `foo::value` still
+selects the alias and a member from `alpha`, while `foo::bar::value` selects
+the exact-path member. Reversing those occurrences in a source does not change
+either selection.
+
 Selection at an alias-qualified member leaf keeps the member's existing
 function, type, or constructor identity. Member references and rename include
 alias-qualified member leaves, but exclude the alias declaration, qualifier
