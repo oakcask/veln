@@ -222,23 +222,28 @@ pub fn import_namespace_participants(module: &SurfaceModule) -> Vec<ImportNamesp
         let Some(declaring_module) = use_decl.module_name.clone() else {
             continue;
         };
-        let declaration_span = use_decl
-            .alias_span
-            .clone()
-            .or_else(|| use_decl.name_spans.last().cloned())
+        let target_span = use_decl
+            .name_spans
+            .last()
+            .cloned()
             .unwrap_or_else(|| use_decl.span.clone());
-        for qualifier in use_decl
-            .exact_paths()
-            .into_iter()
-            .chain(std::iter::once(use_decl.alias.clone()))
-        {
+        for qualifier in use_decl.exact_paths() {
             participants.push(ImportNamespaceParticipant {
                 declaring_module: declaring_module.clone(),
                 qualifier,
-                declaration_span: declaration_span.clone(),
-                explicit_alias_span: use_decl.alias_span.clone(),
+                declaration_span: target_span.clone(),
+                explicit_alias_span: None,
             });
         }
+        participants.push(ImportNamespaceParticipant {
+            declaring_module,
+            qualifier: use_decl.alias.clone(),
+            declaration_span: use_decl
+                .alias_span
+                .clone()
+                .unwrap_or_else(|| target_span.clone()),
+            explicit_alias_span: use_decl.alias_span.clone(),
+        });
     }
     participants.sort_by(|left, right| {
         left.declaration_span

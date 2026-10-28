@@ -25,6 +25,8 @@
   {"jsonrpc":"2.0","id":24,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"recovery_invalid.veln"}},"position":{"line":4,"character":2}}},
   {"jsonrpc":"2.0","id":25,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"recovery_invalid.veln"}},"position":{"line":4,"character":2},"context":{"includeDeclaration":true}}},
   {"jsonrpc":"2.0","id":26,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"recovery_invalid.veln"}},"position":{"line":4,"character":2},"newName":"fixed"}},
-  {"jsonrpc":"2.0","id":27,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","id":27,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":0,"character":12},"newName":"math"}},
+  {"jsonrpc":"2.0","id":28,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":4,"character":2},"newName":"math"}},
+  {"jsonrpc":"2.0","id":29,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

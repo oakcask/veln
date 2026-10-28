@@ -470,3 +470,73 @@ equals = []
 id = 26
 path = "/result/structuredContent/edits"
 equals = []
+
+[[mcp_assert]]
+id = 27
+path = "/result/structuredContent/code"
+equals = "rename.conflict"
+
+[[mcp_assert]]
+id = 27
+path = "/result/structuredContent/details/symbol_class"
+equals = "import_alias"
+
+[[mcp_assert]]
+id = 27
+path = "/result/structuredContent/details/requested_name"
+equals = "math"
+
+[[mcp_assert]]
+id = 27
+path = "/result/structuredContent/details/conflicting_declaration/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 27
+path = "/result/structuredContent/details/conflicting_declaration/range"
+equals = {"start":{"line":1,"column":5},"end":{"line":1,"column":9}}
+
+[[mcp_assert]]
+id = 27
+path = "/result/structuredContent/details/affected_scope"
+equals = {"kind":"module","name":"main"}
+
+[[mcp_assert]]
+id = 27
+path = "/result/structuredContent/edits"
+missing = true
+
+[[mcp_assert]]
+id = 28
+path = "/result/structuredContent/code"
+equals = "rename.conflict"
+
+[[mcp_assert]]
+id = 28
+path = "/result/structuredContent/details/symbol_class"
+equals = "import_alias"
+
+[[mcp_assert]]
+id = 28
+path = "/result/structuredContent/details/requested_name"
+equals = "math"
+
+[[mcp_assert]]
+id = 28
+path = "/result/structuredContent/details/conflicting_declaration/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 28
+path = "/result/structuredContent/details/conflicting_declaration/range"
+equals = {"start":{"line":1,"column":5},"end":{"line":1,"column":9}}
+
+[[mcp_assert]]
+id = 28
+path = "/result/structuredContent/details/affected_scope"
+equals = {"kind":"module","name":"main"}
+
+[[mcp_assert]]
+id = 28
+path = "/result/structuredContent/edits"
+missing = true

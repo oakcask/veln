@@ -148,8 +148,35 @@ mod explicit_import_alias_navigation_tests {
             "extra",
             "app.veln",
             3,
-            14,
+            5,
         );
+    }
+
+    #[test]
+    fn explicit_alias_rename_rejects_its_own_written_target() {
+        let snapshot = EffectiveProjectSnapshot::new(alias_sources());
+        for (line, column) in [(2, 13), (6, 3)] {
+            let result = query_snapshot(&snapshot, "app.veln", line, column).unwrap();
+            assert_eq!(result.selected_symbol.kind, SymbolKind::ImportAlias);
+            assert_location(&result.definition, "app.veln", 2, 13);
+            assert_eq!(
+                locations(&result.references),
+                [
+                    ("app.veln", 6, 3),
+                    ("app.veln", 9, 14),
+                    ("app.veln", 10, 3),
+                    ("app_more.veln", 4, 3),
+                ]
+            );
+            assert_rename_conflict(
+                validate_rename_in_snapshot(&snapshot, &result, "math").unwrap_err(),
+                RenameNameClass::ImportAlias,
+                "math",
+                "app.veln",
+                2,
+                5,
+            );
+        }
     }
 
     #[test]
