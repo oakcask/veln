@@ -357,20 +357,28 @@ mod explicit_import_alias_navigation_tests {
 
     #[test]
     fn unrelated_parse_error_preserves_valid_alias_navigation() {
+        let app = source(
+            "app.veln",
+            concat!(
+                "use math as calc\n\n",
+                "fn broken() -> Int\n",
+                "  1 2\n",
+                "end\n\n",
+                "fn main() -> Int\n",
+                "  calc::double()\n",
+                "end\n",
+            ),
+        );
+        let parsed = veln_syntax::parse(&app);
+        assert!(
+            parsed
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "parse.expected_newline")
+        );
         let sources = vec![
             source("math.veln", "pub fn double() -> Int\n  2\nend\n"),
-            source(
-                "app.veln",
-                concat!(
-                    "use math as calc\n\n",
-                    "fn broken() -> Int\n",
-                    "  1 +\n",
-                    "end\n\n",
-                    "fn main() -> Int\n",
-                    "  calc::double()\n",
-                    "end\n",
-                ),
-            ),
+            app,
         ];
 
         for (line, column) in [(1, 13), (8, 3)] {
@@ -388,6 +396,48 @@ mod explicit_import_alias_navigation_tests {
         assert_eq!(member.selected_symbol.kind, SymbolKind::Function);
         assert_location(&member.definition, "math.veln", 1, 8);
         assert_eq!(locations(&member.references), [("app.veln", 8, 9)]);
+    }
+
+    #[test]
+    fn unrelated_parse_error_does_not_restore_invalid_alias_navigation() {
+        let app = source(
+            "app.veln",
+            concat!(
+                "use math as Calc\n\n",
+                "fn broken() -> Int\n",
+                "  1 2\n",
+                "end\n\n",
+                "fn main() -> Int\n",
+                "  Calc::double()\n",
+                "end\n",
+            ),
+        );
+        let parsed = veln_syntax::parse(&app);
+        assert!(
+            parsed
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "parse.expected_newline")
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("math.veln", "pub fn double() -> Int\n  2\nend\n"),
+            app,
+        ]);
+
+        for (line, column) in [(1, 13), (8, 3)] {
+            assert!(query_snapshot(&snapshot, "app.veln", line, column).is_none());
+            assert!(
+                navigate_for_rename(
+                    &snapshot,
+                    SourcePosition {
+                        source: SourcePath::new("app.veln"),
+                        line,
+                        column,
+                    },
+                )
+                .is_none()
+            );
+        }
     }
 
     #[test]

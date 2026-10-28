@@ -1,7 +1,7 @@
 use recovery_math as calc
 
 fn broken() -> Int
-  1 +
+  1 2
 end
 
 fn main() -> Int

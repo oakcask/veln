@@ -441,7 +441,23 @@ fn append_parsed_surface_module(
     assign_module_name(&mut module, &file.module);
     if !parsed.diagnostics.is_empty() {
         module.uses.retain(|use_decl| !use_decl.recovered);
+        let retained_use_name_ranges = module
+            .uses
+            .iter()
+            .flat_map(|use_decl| {
+                use_decl
+                    .name_spans
+                    .iter()
+                    .chain(use_decl.alias_span.iter())
+                    .map(|span| (span.start.offset, span.end.offset))
+            })
+            .collect::<BTreeSet<_>>();
+        module.invalid_names.retain(|invalid| {
+            retained_use_name_ranges
+                .contains(&(invalid.span.start.offset, invalid.span.end.offset))
+        });
         merged.uses.extend(module.uses);
+        merged.invalid_names.extend(module.invalid_names);
         return;
     }
     append_surface_module(merged, module);

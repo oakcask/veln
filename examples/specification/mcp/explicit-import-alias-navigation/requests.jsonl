@@ -35,3 +35,9 @@
 {"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"definition","arguments":{"source":"unrelated_error.veln","line":8,"column":9}}}
 {"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"references","arguments":{"source":"unrelated_error.veln","line":8,"column":9,"include_declaration":true}}}
 {"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"rename","arguments":{"source":"unrelated_error.veln","line":8,"column":9,"new_name":"twice"}}}
+{"jsonrpc":"2.0","id":38,"method":"tools/call","params":{"name":"definition","arguments":{"source":"invalid_unrelated_error.veln","line":1,"column":22}}}
+{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"references","arguments":{"source":"invalid_unrelated_error.veln","line":1,"column":22,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"rename","arguments":{"source":"invalid_unrelated_error.veln","line":1,"column":22,"new_name":"numbers"}}}
+{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"definition","arguments":{"source":"invalid_unrelated_error.veln","line":8,"column":3}}}
+{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"references","arguments":{"source":"invalid_unrelated_error.veln","line":8,"column":3,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"rename","arguments":{"source":"invalid_unrelated_error.veln","line":8,"column":3,"new_name":"numbers"}}}

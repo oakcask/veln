@@ -705,3 +705,33 @@ equals = {"start":{"line":8,"column":9},"end":{"line":8,"column":15}}
 id = 37
 path = "/result/structuredContent/edits/1/new_text"
 equals = "twice"
+
+[[mcp_assert]]
+id = 38
+path = "/result/structuredContent/definition"
+equals = null
+
+[[mcp_assert]]
+id = 39
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 40
+path = "/result/structuredContent/edits"
+equals = []
+
+[[mcp_assert]]
+id = 41
+path = "/result/structuredContent/definition"
+equals = null
+
+[[mcp_assert]]
+id = 42
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 43
+path = "/result/structuredContent/edits"
+equals = []
