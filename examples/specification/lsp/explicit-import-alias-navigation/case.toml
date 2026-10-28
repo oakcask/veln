@@ -63,7 +63,7 @@ equals = {"start":{"line":0,"character":7},"end":{"line":0,"character":13}}
 [[lsp_assert]]
 id = 6
 path = "/result"
-length = 3
+length = 4
 
 [[lsp_assert]]
 id = 6
@@ -78,22 +78,39 @@ equals = {"start":{"line":0,"character":7},"end":{"line":0,"character":13}}
 [[lsp_assert]]
 id = 6
 path = "/result/1/range"
-equals = {"start":{"line":4,"character":8},"end":{"line":4,"character":14}}
+equals = {"start":{"line":3,"character":10},"end":{"line":3,"character":16}}
 
 [[lsp_assert]]
 id = 6
 path = "/result/1/uri"
-workspace_file_uri = "main.veln"
+workspace_file_uri = "contextual.veln"
 
 [[lsp_assert]]
 id = 6
 path = "/result/2/range"
-equals = {"start":{"line":8,"character":8},"end":{"line":8,"character":14}}
+equals = {"start":{"line":4,"character":8},"end":{"line":4,"character":14}}
 
 [[lsp_assert]]
 id = 6
 path = "/result/2/uri"
 workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 6
+path = "/result/3/range"
+equals = {"start":{"line":8,"character":8},"end":{"line":8,"character":14}}
+
+[[lsp_assert]]
+id = 6
+path = "/result/3/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 7
+path = "/result/changes/$workspace_file_uri:contextual.veln"
+equals = [
+  {"range":{"start":{"line":3,"character":10},"end":{"line":3,"character":16}},"newText":"twice"}
+]
 
 [[lsp_assert]]
 id = 7
@@ -218,5 +235,63 @@ equals = {"kind":"module","name":"collision"}
 
 [[lsp_assert]]
 id = 16
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 17
+path = "/result/uri"
+workspace_file_uri = "contextual.veln"
+
+[[lsp_assert]]
+id = 17
+path = "/result/range"
+equals = {"start":{"line":0,"character":12},"end":{"line":0,"character":18}}
+
+[[lsp_assert]]
+id = 18
+path = "/result"
+length = 2
+
+[[lsp_assert]]
+id = 18
+path = "/result/0/uri"
+workspace_file_uri = "contextual.veln"
+
+[[lsp_assert]]
+id = 18
+path = "/result/0/range"
+equals = {"start":{"line":0,"character":12},"end":{"line":0,"character":18}}
+
+[[lsp_assert]]
+id = 18
+path = "/result/1/uri"
+workspace_file_uri = "contextual.veln"
+
+[[lsp_assert]]
+id = 18
+path = "/result/1/range"
+equals = {"start":{"line":3,"character":2},"end":{"line":3,"character":8}}
+
+[[lsp_assert]]
+id = 19
+path = "/result/changes/$workspace_file_uri:contextual.veln"
+equals = [
+  {"range":{"start":{"line":0,"character":12},"end":{"line":0,"character":18}},"newText":"scope"},
+  {"range":{"start":{"line":3,"character":2},"end":{"line":3,"character":8}},"newText":"scope"}
+]
+
+[[lsp_assert]]
+id = 20
+path = "/error/data/code"
+equals = "rename.invalid_case"
+
+[[lsp_assert]]
+id = 20
+path = "/error/data/details"
+equals = {"symbol_class":"import_alias","requested_name":"Numbers","required_initial":"ascii_lowercase"}
+
+[[lsp_assert]]
+id = 20
 path = "/result"
 missing = true

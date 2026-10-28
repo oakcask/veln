@@ -14,3 +14,7 @@
 {"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"definition","arguments":{"source":"precedence.veln","line":5,"column":13}}}
 {"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"rename","arguments":{"source":"recovery_call.veln","line":4,"column":3,"new_name":"bad"}}}
 {"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"rename","arguments":{"source":"conflict_selected.veln","line":2,"column":14,"new_name":"clash"}}}
+{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"definition","arguments":{"source":"contextual.veln","line":4,"column":3}}}
+{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"references","arguments":{"source":"contextual.veln","line":4,"column":3,"include_declaration":true}}}
+{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"rename","arguments":{"source":"contextual.veln","line":4,"column":3,"new_name":"scope"}}}
+{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"rename","arguments":{"source":"contextual.veln","line":4,"column":3,"new_name":"Numbers"}}}

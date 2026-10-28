@@ -96,6 +96,7 @@ include!("navigation/workspace_source_index.rs");
 include!("navigation/workspace_schema_composition.rs");
 include!("navigation/package_schemas.rs");
 include!("navigation/schema_navigation_indexing.rs");
+include!("navigation/explicit_import_aliases.rs");
 include!("navigation/index_construction.rs");
 include!("navigation/index.rs");
 include!("navigation/index_visibility.rs");

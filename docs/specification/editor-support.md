@@ -321,7 +321,9 @@ qualifier occurrences in sources with the same module identity. Rename edits
 the declaration and those qualifiers. It does not edit the written import
 target, qualified member leaves, or a same-spelled alias owned by another
 module. An exact written import path takes precedence over a same-spelled alias,
-so its segments do not select, reference, or rename that alias.
+so its segments do not select, reference, or rename that alias. The contextual
+identifier spellings `callsite`, `handler`, and `handle` keep this alias
+identity at both their declarations and qualifier occurrences.
 
 Selection at an alias-qualified member leaf keeps the member's existing
 function, type, or constructor identity. Member references and rename include
@@ -355,11 +357,14 @@ qualifier occurrences. Checked adjacent-size workloads double, independently:
 - alias-qualified occurrences on one source line; and
 - segments in one deep alias-qualified path.
 
-For the first workload, measured construction operations and retained
-alias-index entries grow by at most twice the smaller case plus a fixed setup
-allowance. For the same-line workload, token visits, visited path segments, and
-visited path bytes have that bound. For the deep-path workload, visited path
-segments and bytes have that bound. Elapsed time is not the conformance metric.
+For the first workload, instrumented language-service attachment operations
+and retained alias-index entries grow by at most twice the smaller case plus a
+fixed setup allowance. This metric covers the language-service loops that
+combine module imports and attach alias occurrences; it does not measure the
+semantic helpers that supply resolved imports and aliases. For the same-line
+workload, token visits, visited path segments, and visited path bytes have that
+bound. For the deep-path workload, visited path segments and bytes have that
+bound. Elapsed time is not the conformance metric.
 
 ### Shared variant-refinement navigation
 

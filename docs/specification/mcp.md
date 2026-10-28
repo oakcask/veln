@@ -418,14 +418,16 @@ Saved definition, references, and rename project the shared
 The alias declaration and qualifiers select the module-local alias, while an
 alias-qualified member leaf selects the target member. Invalid and recovered
 aliases return empty navigation results. Reordering saved sources that share a
-module identity does not change selections, location sets, rename edits, or
-rename-conflict details. Ordered locations and conflict provenance retain
-stable source and token order. The checked
+module identity does not change the shared selections, location sets, rename
+edits, or rename-conflict details. MCP preserves the shared source and token
+order when it projects locations and conflict provenance. The checked
 [`explicit-import-alias-navigation`](../../examples/specification/mcp/explicit-import-alias-navigation/)
 transcript covers alias and member destinations, exact written-path
 precedence, recovered-import rename, reference sets, exact edit sets, stable
-failure details, and edit-free rename rejection. Its paired LSP transcript
-checks the same destinations, edits, and failures through the LSP projection.
+failure details, contextual aliases, and edit-free rename rejection. Its paired
+LSP transcript checks the same destinations, edits, and failures through the
+LSP projection. Shared-language-service tests check the source-reordering
+invariant before either adapter projects the result.
 
 For an eligible public workspace effect, `definition` and `references` accept
 selection at the declaration, a bare same-module occurrence, or the

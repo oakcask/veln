@@ -1,0 +1,5 @@
+use math as handle
+
+fn contextual() -> Int
+  handle::double(3)
+end

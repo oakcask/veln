@@ -91,6 +91,36 @@ mod explicit_import_alias_navigation_tests {
     }
 
     #[test]
+    fn contextual_identifier_aliases_keep_their_navigation_identity() {
+        for alias in ["callsite", "handler", "handle"] {
+            let sources = vec![
+                source("math.veln", "pub fn double() -> Int\n  2\nend\n"),
+                source(
+                    "app.veln",
+                    &format!(
+                        "use math as {alias}\n\nfn main() -> Int\n  {alias}::double()\nend\n"
+                    ),
+                ),
+            ];
+            let declaration = query(sources.clone(), "app.veln", 1, 13).unwrap();
+            let qualifier = query(sources.clone(), "app.veln", 4, 3).unwrap();
+            for result in [&declaration, &qualifier] {
+                assert_eq!(result.selected_symbol.kind, SymbolKind::ImportAlias);
+                assert_location(&result.definition, "app.veln", 1, 13);
+                assert_eq!(locations(&result.references), [("app.veln", 4, 3)]);
+                assert_eq!(
+                    locations(&affected_spans(result)),
+                    [("app.veln", 1, 13), ("app.veln", 4, 3)]
+                );
+            }
+
+            let member = query(sources, "app.veln", 4, alias.len() + 5).unwrap();
+            assert_eq!(member.selected_symbol.kind, SymbolKind::Function);
+            assert_location(&member.definition, "math.veln", 1, 8);
+        }
+    }
+
+    #[test]
     fn explicit_alias_rename_validates_reserved_case_and_import_namespace() {
         let snapshot = EffectiveProjectSnapshot::new(alias_sources());
         let result = query_snapshot(&snapshot, "app.veln", 6, 3).unwrap();
