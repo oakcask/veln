@@ -349,11 +349,17 @@ invalid-alias exclusion. Shared-language-service tests cover complete
 rename edit sets in the original and reversed combined-source order.
 
 Alias-index construction retains module-owned import bindings and resolved
-qualifier occurrences. For the generated workload that doubles files,
-distinct aliases, and occurrences in one shared module, measured construction
-operations and retained alias-index entries grow by at most twice the smaller
-case plus a fixed setup allowance. The checked adjacent sizes report both
-counts; elapsed time is not the conformance metric.
+qualifier occurrences. Checked adjacent-size workloads double, independently:
+
+- files, distinct aliases, and occurrences in one shared module;
+- alias-qualified occurrences on one source line; and
+- segments in one deep alias-qualified path.
+
+For the first workload, measured construction operations and retained
+alias-index entries grow by at most twice the smaller case plus a fixed setup
+allowance. For the same-line workload, token visits, visited path segments, and
+visited path bytes have that bound. For the deep-path workload, visited path
+segments and bytes have that bound. Elapsed time is not the conformance metric.
 
 ### Shared variant-refinement navigation
 
