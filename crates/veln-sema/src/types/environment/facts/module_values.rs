@@ -15,6 +15,35 @@ pub(super) fn finish_module_value_facts(module: &SurfaceModule, environment: &mu
     );
 }
 
+pub(in crate::types::environment) fn qualified_module_value_import_index(
+    uses: &[UseDecl],
+) -> HashMap<QualifiedModuleValueKey, QualifiedModuleValueImports> {
+    let mut imports = HashMap::<QualifiedModuleValueKey, QualifiedModuleValueImports>::new();
+    for use_decl in uses {
+        record_qualified_module_value_import_build_work();
+        let owner = use_decl.resolved_owner();
+        for path in crate::name_recovery::use_decl_exact_paths(use_decl) {
+            imports
+                .entry((owner.clone(), path))
+                .or_default()
+                .exact
+                .push(use_decl.clone());
+        }
+        if crate::name_recovery::use_decl_matches_implicit_import_alias(
+            use_decl,
+            &use_decl.alias,
+            use_decl.module_name.as_deref(),
+        ) {
+            imports
+                .entry((owner, use_decl.alias.clone()))
+                .or_default()
+                .implicit
+                .push(use_decl.clone());
+        }
+    }
+    imports
+}
+
 fn append_module_value_signatures(
     module: &SurfaceModule,
     module_values: &mut Vec<ModuleValueSignature>,

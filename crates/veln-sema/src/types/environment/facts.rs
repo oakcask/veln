@@ -9,8 +9,8 @@ use crate::type_syntax::parse_type_or_unknown;
 mod module_values;
 mod quarantine;
 
-pub(super) use module_values::bare_module_value_index;
 use module_values::finish_module_value_facts;
+pub(super) use module_values::{bare_module_value_index, qualified_module_value_import_index};
 use quarantine::{
     quarantine_invalid_variant_refinement_declaration_types,
     quarantine_invalid_variant_refinement_function_types,
@@ -154,10 +154,6 @@ fn initial_environment(
     callables: CallableFacts,
     symbols: SymbolFacts,
 ) -> TypeEnvironment {
-    let mut all_uses = module.uses.clone();
-    if let Some(base) = base {
-        all_uses.extend(base.all_uses.clone());
-    }
     TypeEnvironment {
         resolution_owner: None,
         module_values: base
@@ -167,6 +163,7 @@ fn initial_environment(
             .map(|base| base.module_values_by_identity.clone())
             .unwrap_or_default(),
         bare_module_values: HashMap::new(),
+        qualified_module_value_imports: qualified_module_value_import_index(&symbols.uses),
         functions: callables.functions,
         functions_by_name: HashMap::new(),
         unpublished_functions: base
@@ -181,7 +178,6 @@ fn initial_environment(
         schema_symbols: symbols.schema_symbols,
         type_symbols: symbols.type_symbols,
         uses: symbols.uses,
-        all_uses,
         quarantined_uses: symbols.quarantined_uses,
         invalid_names: module.invalid_names.clone(),
         adts: declarations.adts,

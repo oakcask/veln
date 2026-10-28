@@ -22,6 +22,103 @@ impl AdtRegistry {
             .collect()
     }
 
+    fn indexed_imported_descriptor_in_owner(
+        &self,
+        name: &str,
+        args_len: Option<usize>,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+        unique: bool,
+    ) -> Option<Option<&AdtDescriptor>> {
+        if !self.source_import_indexes_ready {
+            return None;
+        }
+        crate::adt::lookup_validation::record_import_path_comparison();
+        let owner = ResolvedImportOwner {
+            package: current_package.map(str::to_string),
+            module: current_module.map(str::to_string),
+        };
+        if !name.contains("::") {
+            if let Some(descriptor) = self
+                .descriptors_by_source_identity
+                .get(&(None, None, name.to_string()))
+                .into_iter()
+                .flatten()
+                .map(|index| self.descriptor_lookup_candidate(*index))
+                .find(|descriptor| Self::descriptor_matches_arity(descriptor, args_len))
+            {
+                return Some(Some(descriptor));
+            }
+            let index = if let Some(args_len) = args_len {
+                self.imported_descriptors_by_type_arity
+                    .get(&(owner, name.to_string(), args_len))
+            } else {
+                self.imported_descriptors_by_type
+                    .get(&(owner, name.to_string()))
+            }
+            .copied()
+            .flatten();
+            return Some(index.map(|index| self.descriptor_lookup_candidate(index)));
+        }
+
+        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+        let type_name = segments.last()?;
+        let module_path = segments[..segments.len() - 1].join("::");
+        crate::adt::lookup_validation::record_qualified_path_work(module_path.len());
+        let Some(modules) = self
+            .qualified_import_modules
+            .get(&(owner.clone(), module_path.clone()))
+        else {
+            let normalized = normalized_qualified_path(&module_path);
+            if normalized != module_path {
+                if current_module.is_some_and(|current_module| {
+                    normalized_qualified_path(current_module) == normalized
+                }) || self
+                    .qualified_import_recovery_modules
+                    .contains_key(&(owner, normalized))
+                {
+                    return None;
+                }
+            }
+            let builtin = self
+                .descriptors_by_source_identity
+                .get(&(None, None, type_name.clone()))
+                .into_iter()
+                .flatten()
+                .map(|index| self.descriptor_lookup_candidate(*index))
+                .filter(|descriptor| Self::descriptor_matches_arity(descriptor, args_len));
+            return Some(if unique {
+                Self::unique_candidate(builtin).flatten()
+            } else {
+                builtin.last()
+            });
+        };
+        let Some(identity) = self.source_identity_from_import_modules(type_name, modules) else {
+            return Some(None);
+        };
+        if self
+            .qualified_descriptor_candidates(&identity)
+            .any(|descriptor| {
+                descriptor.visibility != Visibility::Public
+                    && Self::descriptor_matches_arity(descriptor, args_len)
+            })
+        {
+            return None;
+        }
+        let candidates = self
+            .qualified_descriptor_candidates(&identity)
+            .filter(|descriptor| {
+                descriptor.visibility == Visibility::Public
+                    && Self::descriptor_matches_arity(descriptor, args_len)
+                    && !self.descriptor_is_quarantined(descriptor)
+            });
+        Some(if unique {
+            Self::unique_candidate(candidates).flatten()
+        } else {
+            candidates.last()
+        })
+    }
+
     fn owner_local_descriptors<'a>(
         &'a self,
         name: &str,
@@ -64,6 +161,15 @@ impl AdtRegistry {
                 return local.flatten();
             }
         }
+        if let Some(descriptor) = self.indexed_imported_descriptor_in_owner(
+            name,
+            Some(args_len),
+            current_module,
+            current_package,
+            true,
+        ) {
+            return descriptor;
+        }
         let owner_uses = Self::owner_uses(uses, current_module, current_package);
         self.unique_descriptor_for_type_path(name, args_len, current_module, &owner_uses)
     }
@@ -89,6 +195,15 @@ impl AdtRegistry {
             if qualifier.is_some() || local.is_some() {
                 return local.flatten();
             }
+        }
+        if let Some(descriptor) = self.indexed_imported_descriptor_in_owner(
+            name,
+            None,
+            current_module,
+            current_package,
+            true,
+        ) {
+            return descriptor;
         }
         let owner_uses = Self::owner_uses(uses, current_module, current_package);
         self.unique_descriptor_for_type_path_any_arity(name, current_module, &owner_uses)
@@ -156,6 +271,15 @@ impl AdtRegistry {
             if qualifier.is_some() {
                 return None;
             }
+        }
+        if let Some(descriptor) = self.indexed_imported_descriptor_in_owner(
+            name,
+            Some(args_len),
+            current_module,
+            current_package,
+            false,
+        ) {
+            return descriptor;
         }
         let owner_uses = Self::owner_uses(uses, current_module, current_package);
         self.descriptor_for_type_path(name, args_len, current_module, &owner_uses)

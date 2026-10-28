@@ -13,6 +13,23 @@ type FunctionPublicationKey = (
 );
 
 type BareModuleValueKey = (Option<String>, Option<String>, String);
+type QualifiedModuleValueKey = (veln_ast::ResolvedImportOwner, String);
+
+#[derive(Clone, Debug, Default)]
+struct QualifiedModuleValueImports {
+    exact: Vec<UseDecl>,
+    implicit: Vec<UseDecl>,
+}
+
+impl QualifiedModuleValueImports {
+    fn selected(&self) -> &[UseDecl] {
+        if self.exact.is_empty() {
+            &self.implicit
+        } else {
+            &self.exact
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 enum BareModuleValueSelection {
@@ -29,6 +46,7 @@ struct BareModuleValueExposure {
 #[cfg(test)]
 thread_local! {
     static BARE_MODULE_VALUE_LOOKUP_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static QUALIFIED_MODULE_VALUE_IMPORT_WORK: std::cell::Cell<(usize, usize)> = const { std::cell::Cell::new((0, 0)) };
 }
 
 #[cfg(test)]
@@ -39,6 +57,32 @@ pub(crate) fn reset_bare_module_value_lookup_work() {
 #[cfg(test)]
 pub(crate) fn take_bare_module_value_lookup_work() -> usize {
     BARE_MODULE_VALUE_LOOKUP_WORK.with(|work| work.replace(0))
+}
+
+#[cfg(test)]
+pub(crate) fn reset_qualified_module_value_import_work() {
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| work.set((0, 0)));
+}
+
+#[cfg(test)]
+pub(crate) fn take_qualified_module_value_import_work() -> (usize, usize) {
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| work.replace((0, 0)))
+}
+
+fn record_qualified_module_value_import_build_work() {
+    #[cfg(test)]
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| {
+        let (build, lookup) = work.get();
+        work.set((build + 1, lookup));
+    });
+}
+
+fn record_qualified_module_value_import_lookup_work() {
+    #[cfg(test)]
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| {
+        let (build, lookup) = work.get();
+        work.set((build, lookup + 1));
+    });
 }
 
 fn record_bare_module_value_lookup_work() {
@@ -131,6 +175,7 @@ pub(crate) struct TypeEnvironment {
     module_values: Vec<ModuleValueSignature>,
     module_values_by_identity: HashMap<ModuleValueIdentity, ModuleValueIndex>,
     bare_module_values: HashMap<BareModuleValueKey, BareModuleValueExposure>,
+    qualified_module_value_imports: HashMap<QualifiedModuleValueKey, QualifiedModuleValueImports>,
     functions: Vec<FunctionSignature>,
     functions_by_name: HashMap<String, Vec<usize>>,
     unpublished_functions: HashSet<FunctionPublicationKey>,
@@ -143,7 +188,6 @@ pub(crate) struct TypeEnvironment {
     schema_symbols: SchemaSymbolTable,
     type_symbols: Vec<NamedSymbol>,
     pub(crate) uses: Vec<UseDecl>,
-    all_uses: Vec<UseDecl>,
     quarantined_uses: Vec<UseDecl>,
     invalid_names: Vec<InvalidName>,
     pub(crate) adts: AdtRegistry,
@@ -280,35 +324,36 @@ impl TypeEnvironment {
     ) -> ModuleValueLookup<'_> {
         let qualifier = &segments[..segments.len() - 1];
         let module_path = qualifier.join("::");
-        if self.qualified_imported_module_value_path_is_ambiguous(
-            &module_path,
-            name,
-            current_module,
-            current_package,
-        ) {
-            return ModuleValueLookup::Ambiguous;
-        }
-        if crate::name_recovery::use_decl_path_is_ambiguous(
-            self.all_uses
-                .iter()
-                .filter(|use_decl| use_decl.importing_package.as_deref() == current_package),
-            &module_path,
-            current_module,
-        ) {
-            return if self.ambiguous_imported_module_value_path_exists(
-                &module_path,
-                name,
-                current_module,
-                current_package,
-            ) {
+        record_qualified_module_value_import_lookup_work();
+        let owner = veln_ast::ResolvedImportOwner {
+            package: current_package.map(str::to_string),
+            module: current_module.map(str::to_string),
+        };
+        let Some(imports) = self
+            .qualified_module_value_imports
+            .get(&(owner, module_path))
+        else {
+            return ModuleValueLookup::Missing;
+        };
+        let candidates = imports.selected();
+        let targets = candidates
+            .iter()
+            .map(|use_decl| {
+                let target = use_decl.resolved_target();
+                (target.package, target.module)
+            })
+            .collect::<BTreeSet<_>>();
+        if targets.len() > 1 {
+            return if candidates.iter().any(|use_decl| {
+                self.visible_module_value_index_for_use(use_decl, name, current_module)
+                    .is_some()
+            }) {
                 ModuleValueLookup::Ambiguous
             } else {
                 ModuleValueLookup::Missing
             };
         }
-        let Some(use_decl) =
-            imported_use_for_path_in_owner(&self.uses, qualifier, current_module, current_package)
-        else {
+        let Some(use_decl) = candidates.first() else {
             return ModuleValueLookup::Missing;
         };
         let Some(index) = self.visible_module_value_index_for_use(use_decl, name, current_module)
@@ -316,94 +361,6 @@ impl TypeEnvironment {
             return ModuleValueLookup::Missing;
         };
         self.module_value_at_index(index)
-    }
-
-    fn ambiguous_imported_module_value_path_exists(
-        &self,
-        module_path: &str,
-        name: &str,
-        current_module: Option<&str>,
-        current_package: Option<&str>,
-    ) -> bool {
-        let owner_uses = self.all_uses.iter().filter(|use_decl| {
-            use_decl.importing_package.as_deref() == current_package
-                && use_decl.module_name.as_deref() == current_module
-        });
-        let exact = owner_uses
-            .clone()
-            .filter(|use_decl| {
-                crate::name_recovery::use_decl_matches_exact_import_path(
-                    use_decl,
-                    module_path,
-                    current_module,
-                )
-            })
-            .collect::<Vec<_>>();
-        let candidates = if exact.is_empty() {
-            owner_uses
-                .filter(|use_decl| {
-                    crate::name_recovery::use_decl_matches_implicit_import_alias(
-                        use_decl,
-                        module_path,
-                        current_module,
-                    )
-                })
-                .collect::<Vec<_>>()
-        } else {
-            exact
-        };
-        candidates.into_iter().any(|use_decl| {
-            self.visible_module_value_index_for_use(use_decl, name, current_module)
-                .is_some()
-        })
-    }
-
-    fn qualified_imported_module_value_path_is_ambiguous(
-        &self,
-        module_path: &str,
-        name: &str,
-        current_module: Option<&str>,
-        current_package: Option<&str>,
-    ) -> bool {
-        let owner_uses = self.all_uses.iter().filter(|use_decl| {
-            use_decl.importing_package.as_deref() == current_package
-                && use_decl.module_name.as_deref() == current_module
-        });
-        let exact = owner_uses
-            .clone()
-            .filter(|use_decl| {
-                crate::name_recovery::use_decl_matches_exact_import_path(
-                    use_decl,
-                    module_path,
-                    current_module,
-                )
-            })
-            .collect::<Vec<_>>();
-        let candidates = if exact.is_empty() {
-            owner_uses
-                .filter(|use_decl| {
-                    crate::name_recovery::use_decl_matches_implicit_import_alias(
-                        use_decl,
-                        module_path,
-                        current_module,
-                    )
-                })
-                .collect::<Vec<_>>()
-        } else {
-            exact
-        };
-        candidates
-            .into_iter()
-            .filter_map(|use_decl| {
-                self.visible_module_value_index_for_use(use_decl, name, current_module)
-                    .map(|_| {
-                        let target = use_decl.resolved_target();
-                        (target.package, target.module, name.to_string())
-                    })
-            })
-            .collect::<BTreeSet<_>>()
-            .len()
-            > 1
     }
 
     fn visible_module_value_index_for_use(

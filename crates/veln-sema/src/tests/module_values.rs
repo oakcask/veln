@@ -83,6 +83,46 @@ fn module_with_bare_imported_values(count: usize) -> SurfaceModule {
     merged
 }
 
+fn module_with_imported_named_annotations(count: usize) -> SurfaceModule {
+    let mut merged = SurfaceModule {
+        module: None,
+        uses: Vec::new(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        types: Vec::new(),
+        module_values: Vec::new(),
+        functions: Vec::new(),
+        invalid_names: Vec::new(),
+    };
+    for index in 0..count {
+        let module_name = format!("types_{index}");
+        let source = SourceFile::new(
+            format!("types_{index}.veln"),
+            "pub type Item\n  Only\nend\n",
+        );
+        let module = veln_ast::lower_surface_ast_with_module_identity(
+            &parse(&source).tree,
+            module_name,
+            source.span(veln_source::TextRange::new(0, 0)),
+        );
+        merged.types.extend(module.types);
+    }
+    let app_source = (0..count)
+        .map(|index| format!("use types_{index}\nlet value_{index}: types_{index}::Item = 0\n"))
+        .collect::<String>();
+    let source = SourceFile::new("app.veln", app_source);
+    let app = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&source).tree,
+        "app".to_string(),
+        source.span(veln_source::TextRange::new(0, 0)),
+    );
+    merged.uses.extend(app.uses);
+    merged.module_values.extend(app.module_values);
+    merged
+}
+
 #[test]
 #[ignore = "supporting wall-clock evidence; deterministic lookup work is asserted separately"]
 fn bare_imported_module_value_lookup_reports_adjacent_size_timings() {
@@ -102,6 +142,25 @@ fn bare_imported_module_value_lookup_reports_adjacent_size_timings() {
         }
         eprintln!(
             "bare imported module value lookup: {count} imports and references in {:?}",
+            started.elapsed()
+        );
+    }
+}
+
+#[test]
+#[ignore = "supporting wall-clock evidence; deterministic import work is asserted separately"]
+fn imported_named_annotation_analysis_reports_adjacent_size_timings() {
+    for count in [100, 200, 400] {
+        let module = module_with_imported_named_annotations(count);
+        let started = std::time::Instant::now();
+        let environment = crate::types::TypeEnvironment::from_module(&module);
+        assert!(matches!(
+            environment.module_value_path_in_owner(&["value_0".to_string()], Some("app"), None,),
+            crate::types::ModuleValueLookup::Unavailable
+                | crate::types::ModuleValueLookup::Available(_)
+        ));
+        eprintln!(
+            "imported named annotations: {count} imports and annotations in {:?}",
             started.elapsed()
         );
     }
@@ -819,6 +878,93 @@ fn qualified_module_value_exact_path_no_fallback_is_stable() {
 }
 
 #[test]
+fn quarantined_imports_do_not_create_qualified_module_value_ambiguity() {
+    fn assert_case(
+        first_import: &str,
+        second_import: &str,
+        qualified_value: &str,
+        reverse_sources: bool,
+    ) {
+        let values = (
+            "values",
+            SourceFile::new("values.veln", "pub let answer: Int = 42\n"),
+        );
+        let alpha = (
+            "alpha",
+            SourceFile::new("alpha.veln", "pub let answer: Int = 1\n"),
+        );
+        let beta = (
+            "beta",
+            SourceFile::new("beta.veln", "pub let answer: Int = 2\n"),
+        );
+        let app = (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                format!(
+                    "{first_import}\n{second_import}\nfn read() -> Int\n  {qualified_value}\nend\n"
+                ),
+            ),
+        );
+        let sources = if reverse_sources {
+            vec![app, beta, alpha, values]
+        } else {
+            vec![values, alpha, beta, app]
+        };
+        let diagnostics = analyze_surface_module(&merged_modules_with_identities(sources));
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "name.duplicate")
+                .count(),
+            1,
+            "{diagnostics:#?}"
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "name.unresolved")
+                .count(),
+            1,
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "name.ambiguous"),
+            "{diagnostics:#?}"
+        );
+    }
+
+    for reverse_sources in [false, true] {
+        assert_case(
+            "use values",
+            "use values as config",
+            "values::answer",
+            reverse_sources,
+        );
+        assert_case(
+            "use values as config",
+            "use values",
+            "values::answer",
+            reverse_sources,
+        );
+        assert_case(
+            "use alpha as shared",
+            "use beta as shared",
+            "shared::answer",
+            reverse_sources,
+        );
+        assert_case(
+            "use beta as shared",
+            "use alpha as shared",
+            "shared::answer",
+            reverse_sources,
+        );
+    }
+}
+
+#[test]
 fn reusable_standard_base_preserves_bare_prelude_module_values() {
     let standard_source = SourceFile::new("prelude.veln", "pub let answer: Int = 42\n");
     let standard = veln_ast::lower_surface_ast_with_package_module_identity(
@@ -979,6 +1125,65 @@ fn bare_imported_module_value_lookup_work_is_bounded_per_reference() {
 
     assert_eq!(work_for(64), 64);
     assert_eq!(work_for(128), 128);
+}
+
+#[test]
+fn qualified_module_value_import_work_includes_construction_and_lookup() {
+    fn work_for(count: usize) -> (usize, usize) {
+        let module = module_with_bare_imported_values(count);
+        crate::types::reset_qualified_module_value_import_work();
+        let environment = crate::types::TypeEnvironment::from_module(&module);
+        for index in 0..count {
+            assert!(matches!(
+                environment.module_value_path_in_owner(
+                    &[format!("values_{index}"), format!("value_{index}"),],
+                    Some("app"),
+                    None,
+                ),
+                crate::types::ModuleValueLookup::Available(_)
+            ));
+        }
+        crate::types::take_qualified_module_value_import_work()
+    }
+
+    let smaller = work_for(64);
+    let larger = work_for(128);
+    assert!(
+        smaller.0 >= 64,
+        "index construction must be counted: {smaller:?}"
+    );
+    assert_eq!(smaller.1, 64);
+    assert_eq!(larger.0, smaller.0 * 2);
+    assert_eq!(larger.1, smaller.1 * 2);
+}
+
+#[test]
+fn imported_named_annotation_lookup_work_is_adjacent_linear() {
+    fn work_for(count: usize) -> (usize, usize) {
+        let module = module_with_imported_named_annotations(count);
+        crate::adt::reset_import_path_comparisons();
+        crate::adt::reset_qualified_path_work();
+        let _environment = crate::types::TypeEnvironment::from_module(&module);
+        (
+            crate::adt::import_path_comparisons(),
+            crate::adt::qualified_path_work(),
+        )
+    }
+
+    let smaller = work_for(64);
+    let larger = work_for(128);
+    assert!(
+        smaller.0 >= 64 * 2,
+        "construction and lookup must be counted: {smaller:?}"
+    );
+    assert!(
+        larger.0 <= smaller.0 * 2 + 16,
+        "import work must be adjacent-linear: {smaller:?} -> {larger:?}"
+    );
+    assert!(
+        larger.1 <= smaller.1 * 3,
+        "qualified path byte work must remain bounded: {smaller:?} -> {larger:?}"
+    );
 }
 
 #[test]

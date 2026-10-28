@@ -1,0 +1,10 @@
+command = ["check", "app.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[name.duplicate]: duplicate import name `values`", "error[name.duplicate]: duplicate import alias name `shared`", "error[name.unresolved]: unresolved value `values::answer`", "error[name.unresolved]: unresolved value `shared::answer`"]
+not_contains = ["error[name.ambiguous]"]
+
+[stderr]
+format = "empty"

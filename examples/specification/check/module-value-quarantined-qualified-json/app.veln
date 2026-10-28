@@ -1,0 +1,12 @@
+use values
+use values
+use alpha as shared
+use beta as shared
+
+fn duplicate_target() -> Int
+	values::answer
+end
+
+fn duplicate_alias() -> Int
+	shared::answer
+end
