@@ -53,11 +53,7 @@ fn public_function_alias_reexports_imported_target() {
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
+    let main = core_function(&core, "main");
     let CoreStmtKind::Return { expr } = &main.body[0].kind else {
         panic!("tail expression should lower as return");
     };
@@ -154,11 +150,7 @@ fn assert_return_call_target(
     function_name: &str,
     expected: CoreCallTarget,
 ) {
-    let function = core
-        .functions
-        .iter()
-        .find(|function| function.name == function_name)
-        .unwrap_or_else(|| panic!("{function_name} should be lowered"));
+    let function = core_function(core, function_name);
     let CoreStmtKind::Return { expr } = &function.body[0].kind else {
         panic!("{function_name} tail expression should lower as return");
     };
@@ -173,11 +165,7 @@ fn assert_let_function_value(
     function_name: &str,
     expected: &str,
 ) {
-    let function = core
-        .functions
-        .iter()
-        .find(|function| function.name == function_name)
-        .unwrap_or_else(|| panic!("{function_name} should be lowered"));
+    let function = core_function(core, function_name);
     let CoreStmtKind::Let { expr, .. } = &function.body[0].kind else {
         panic!("{function_name} should start with let");
     };
@@ -246,7 +234,7 @@ fn companion_function_alias_cannot_reexport_private_target_function() {
 
 #[test]
 fn unresolved_qualified_calls_do_not_fall_back_to_bare_functions() {
-    let source = SourceFile::new(
+    let module = clean_surface_module(
         "main.veln",
         concat!(
             "mod app.main\n",
@@ -258,9 +246,6 @@ fn unresolved_qualified_calls_do_not_fall_back_to_bare_functions() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
     let diagnostics = analyze_surface_module(&module);
 
     assert!(diagnostics.iter().any(|diagnostic| {
@@ -275,7 +260,7 @@ fn unresolved_qualified_calls_do_not_fall_back_to_bare_functions() {
 
 #[test]
 fn pipeline_inserts_left_value_as_first_call_argument() {
-    let source = SourceFile::new(
+    let module = clean_surface_module(
         "main.veln",
         concat!(
             "fn add(left: Int, right: Int) -> Int\n",
@@ -286,18 +271,11 @@ fn pipeline_inserts_left_value_as_first_call_argument() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
     let lowered = lower_checked_surface_module(&module);
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
+    let main = core_function(&core, "main");
     let CoreStmtKind::Return { expr } = &main.body[0].kind else {
         panic!("tail expression should lower as return");
     };
@@ -312,9 +290,7 @@ fn pipeline_inserts_left_value_as_first_call_argument() {
 
 #[test]
 fn pipeline_requires_call_target() {
-    let source = SourceFile::new("main.veln", "pub fn main() -> Int\n  1 |> 2\nend\n");
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
+    let module = clean_surface_module("main.veln", "pub fn main() -> Int\n  1 |> 2\nend\n");
 
     let diagnostics = analyze_surface_module(&module);
 
@@ -326,7 +302,7 @@ fn pipeline_requires_call_target() {
 
 #[test]
 fn pipeline_requires_named_call_target() {
-    let source = SourceFile::new(
+    let module = clean_surface_module(
         "main.veln",
         concat!(
             "fn make(value: Int, callback: fn(Int) -> Int) -> fn(Int) -> Int\n",
@@ -337,9 +313,6 @@ fn pipeline_requires_named_call_target() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
     let diagnostics = analyze_surface_module(&module);
 
     assert!(diagnostics.iter().any(|diagnostic| {
@@ -350,7 +323,7 @@ fn pipeline_requires_named_call_target() {
 
 #[test]
 fn method_call_shape_reports_targeted_diagnostic() {
-    let source = SourceFile::new(
+    let module = clean_surface_module(
         "main.veln",
         concat!(
             "pub fn main(value: String) -> Int\n",
@@ -358,9 +331,6 @@ fn method_call_shape_reports_targeted_diagnostic() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
     let diagnostics = analyze_surface_module(&module);
 
     assert_eq!(diagnostics.len(), 1);

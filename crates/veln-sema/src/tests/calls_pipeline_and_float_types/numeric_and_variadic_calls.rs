@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn match_exhaustiveness_reports_missing_result_case() {
-    let source = SourceFile::new(
+    let module = clean_surface_module(
         "main.veln",
         concat!(
             "fn main(value: Result<Int, String>) -> String\n",
@@ -12,9 +12,6 @@ fn match_exhaustiveness_reports_missing_result_case() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
     let lowered = lower_checked_surface_module(&module);
 
     let diagnostic = lowered
@@ -27,7 +24,7 @@ fn match_exhaustiveness_reports_missing_result_case() {
 
 #[test]
 fn accepts_float_numeric_operators() {
-    let source = SourceFile::new(
+    let module = clean_surface_module(
         "main.veln",
         concat!(
             "pub fn main(left: Float, right: Float) -> {sum: Float, negated: Float, ordered: Bool}\n",
@@ -35,18 +32,11 @@ fn accepts_float_numeric_operators() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
     let lowered = lower_checked_surface_module(&module);
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
+    let main = core_function(&core, "main");
     let CoreStmtKind::Return { expr } = &main.body[0].kind else {
         panic!("tail expression should lower as return");
     };
@@ -114,7 +104,7 @@ fn accepts_float_numeric_operators() {
 
 #[test]
 fn variadic_parameter_lowers_body_binding_to_list() {
-    let source = SourceFile::new(
+    let module = clean_surface_module(
         "main.veln",
         concat!(
             "fn collect(values: ...Int) -> List<Int>\n",
@@ -122,18 +112,11 @@ fn variadic_parameter_lowers_body_binding_to_list() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
     let lowered = lower_checked_surface_module(&module);
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.expect("checked core should be built");
-    let collect = core
-        .functions
-        .iter()
-        .find(|function| function.name == "collect")
-        .expect("collect should be lowered");
+    let collect = core_function(&core, "collect");
     assert_eq!(
         collect.params[0].ty,
         CoreType::named("List", vec![CoreType::int()])
@@ -161,11 +144,7 @@ fn function_header_lowering_preserves_resolved_core_metadata() {
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.expect("checked core should be built");
-    let summarize = core
-        .functions
-        .iter()
-        .find(|function| function.name == "summarize")
-        .expect("summarize should be lowered");
+    let summarize = core_function(&core, "summarize");
     assert_eq!(summarize.visibility, veln_ast::Visibility::Public);
     assert_eq!(summarize.params[0].ty, CoreType::string());
     assert_eq!(
@@ -188,7 +167,7 @@ fn function_header_lowering_preserves_resolved_core_metadata() {
 
 #[test]
 fn variadic_call_lowers_tail_arguments_to_list() {
-    let source = SourceFile::new(
+    let module = clean_surface_module(
         "main.veln",
         concat!(
             "fn collect(prefix: String, values: ...Int) -> List<Int>\n",
@@ -199,18 +178,11 @@ fn variadic_call_lowers_tail_arguments_to_list() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
     let lowered = lower_checked_surface_module(&module);
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
+    let main = core_function(&core, "main");
     let CoreStmtKind::Return { expr } = &main.body[0].kind else {
         panic!("tail expression should lower as return");
     };
@@ -223,7 +195,7 @@ fn variadic_call_lowers_tail_arguments_to_list() {
 
 #[test]
 fn variadic_pipeline_lowers_shifted_tail_arguments_to_list() {
-    let source = SourceFile::new(
+    let module = clean_surface_module(
         "main.veln",
         concat!(
             "fn collect(values: ...String) -> List<String>\n",
@@ -234,18 +206,11 @@ fn variadic_pipeline_lowers_shifted_tail_arguments_to_list() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
     let lowered = lower_checked_surface_module(&module);
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
+    let main = core_function(&core, "main");
     let CoreStmtKind::Return { expr } = &main.body[0].kind else {
         panic!("tail expression should lower as return");
     };
@@ -266,19 +231,13 @@ fn core_list_len(expr: &CoreExpr) -> usize {
 
 #[test]
 fn lowers_boolean_literals_through_core_and_ir() {
-    let source = SourceFile::new("main.veln", "fn main() -> Bool\n  true\nend\n");
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
+    let module = clean_surface_module("main.veln", "fn main() -> Bool\n  true\nend\n");
 
     let lowered = lower_checked_surface_module(&module);
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
+    let main = core_function(&core, "main");
     let CoreStmtKind::Return { expr } = &main.body[0].kind else {
         panic!("tail expression should lower as return");
     };
@@ -300,7 +259,7 @@ fn lowers_boolean_literals_through_core_and_ir() {
 
 #[test]
 fn infers_float_numeric_operators_from_call_results() {
-    let source = SourceFile::new(
+    let module = clean_surface_module(
         "main.veln",
         concat!(
             "fn value() -> Float\n",
@@ -311,18 +270,11 @@ fn infers_float_numeric_operators_from_call_results() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
     let lowered = lower_checked_surface_module(&module);
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
+    let main = core_function(&core, "main");
     let CoreStmtKind::Return { expr } = &main.body[0].kind else {
         panic!("tail expression should lower as return");
     };
@@ -338,7 +290,7 @@ fn infers_float_numeric_operators_from_call_results() {
 
 #[test]
 fn accepts_int_operands_in_float_operator_contexts() {
-    let source = SourceFile::new(
+    let module = clean_surface_module(
         "main.veln",
         concat!(
             "pub fn main(left: Float, count: Int) -> {sum: Float, ordered: Bool, expected: Float}\n",
@@ -346,18 +298,11 @@ fn accepts_int_operands_in_float_operator_contexts() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
     let lowered = lower_checked_surface_module(&module);
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.expect("checked core should be built");
-    let main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "main")
-        .expect("main should be lowered");
+    let main = core_function(&core, "main");
     let CoreStmtKind::Return { expr } = &main.body[0].kind else {
         panic!("tail expression should lower as return");
     };
@@ -392,12 +337,10 @@ fn accepts_int_operands_in_float_operator_contexts() {
 
 #[test]
 fn rejects_int_values_in_float_assignment_contexts() {
-    let source = SourceFile::new(
+    let module = clean_surface_module(
         "main.veln",
         concat!("pub fn main() -> Float\n", "  1\n", "end\n",),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
 
     let diagnostics = analyze_surface_module(&module);
 
@@ -408,7 +351,7 @@ fn rejects_int_values_in_float_assignment_contexts() {
 
 #[test]
 fn reports_float_operator_operand_mismatch() {
-    let source = SourceFile::new(
+    let module = clean_surface_module(
         "main.veln",
         concat!(
             "pub fn main(left: Float) -> Float\n",
@@ -416,9 +359,6 @@ fn reports_float_operator_operand_mismatch() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
     let diagnostics = analyze_surface_module(&module);
 
     assert_eq!(diagnostics.len(), 1);
@@ -431,7 +371,7 @@ fn reports_float_operator_operand_mismatch() {
 
 #[test]
 fn comparison_does_not_select_float_from_expected_result() {
-    let source = SourceFile::new(
+    let module = clean_surface_module(
         "main.veln",
         concat!(
             "pub fn main(left: Int, right: Int) -> Float\n",
@@ -439,9 +379,6 @@ fn comparison_does_not_select_float_from_expected_result() {
             "end\n",
         ),
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
     let diagnostics = analyze_surface_module(&module);
 
     assert_eq!(diagnostics.len(), 1);
