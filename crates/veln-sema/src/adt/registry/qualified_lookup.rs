@@ -98,8 +98,8 @@ impl AdtRegistry {
         let segments = name.split("::").collect::<Vec<_>>();
         let type_name = segments.last()?;
         let qualifier = segments[..segments.len().saturating_sub(1)].join("::");
-        if !name.contains("::") || current_module == Some(qualifier.as_str()) {
-            if let Some(descriptor) = self
+        if (!name.contains("::") || current_module == Some(qualifier.as_str()))
+            && let Some(descriptor) = self
                 .descriptors_by_source_identity
                 .get(&(
                     current_package.map(str::to_string),
@@ -111,9 +111,8 @@ impl AdtRegistry {
                 .rev()
                 .map(|index| self.descriptor_lookup_candidate(*index))
                 .find(|descriptor| Self::descriptor_matches_arity(descriptor, Some(args_len)))
-            {
-                return Some(descriptor);
-            }
+        {
+            return Some(descriptor);
         }
         let owner_uses = Self::owner_uses(uses, current_module, current_package);
         self.descriptor_for_type_path_including_quarantined(
