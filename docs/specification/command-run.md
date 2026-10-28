@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The veln run command selection, execution gate, entry argument, runtime diagnostic, stdout, or JSON behavior changes.
+update-when: The veln run command selection, analysis or execution gate, entry argument, runtime diagnostic, stdout, or JSON behavior changes.
 specification-coverage: usage=#run-command; behavior=#analysis-and-execution-gates; limits=#limits
 ---
 

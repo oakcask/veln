@@ -143,6 +143,11 @@ an alias does not expose a private package declaration, extend exact companion
 access, or make an import transitive. Public function, type, and schema aliases
 may select an explicit import in their own declaring module, but the local
 import qualifier does not become part of the published identity.
+For a qualified type annotation, an exact written import path is selected
+before a same-spelled current-module path. The selected type therefore retains
+the imported package identity even when the import target and the importing
+module have the same module spelling. An unqualified type name continues to
+select the current module's declaration.
 
 Every import retains both its written target package and the package that owns
 the importing source. An explicit `from` package determines target origin;
@@ -256,7 +261,8 @@ an invalid local module value still does not expose an imported fallback. A
 selected imported module value used as a call target does not fall through to
 an imported function. Imported private values are unresolved except when an
 exact test companion imports its target module. Companion access is
-target-specific, package-local, and non-transitive. The checked cases cover
+target-specific, package-local, and non-transitive. It applies to value reads
+in function bodies and module-value initializers. The checked cases cover
 [`imported lookup JSON`](../../examples/specification/check/module-value-imported-lookup-json/),
 [`local function precedence`](../../examples/specification/check/module-value-local-function-precedence-human/),
 [`package identity human`](../../examples/specification/check/module-value-imported-package-identity-human/),
@@ -269,7 +275,13 @@ target-specific, package-local, and non-transitive. The checked cases cover
 [`invalid imported exposure JSON`](../../examples/specification/check/module-value-invalid-import-exposure-json/),
 [`owner-package fallback human`](../../examples/specification/check/module-value-owner-package-fallback-human/),
 [`owner-package fallback JSON`](../../examples/specification/check/module-value-owner-package-fallback-json/),
-[`companion access`](../../examples/specification/check/module-value-companion-private-human/),
+[`companion function-body access`](../../examples/specification/check/module-value-companion-private-human/),
+[`companion initializer access human`](../../examples/specification/check/module-value-companion-private-access-human/),
+[`companion initializer access JSON`](../../examples/specification/check/module-value-companion-private-access-json/),
+[`wrong-target companion human`](../../examples/specification/check/module-value-companion-private-wrong-target-human/),
+[`wrong-target companion JSON`](../../examples/specification/check/module-value-companion-private-wrong-target-json/),
+[`exact import owner collision human`](../../examples/specification/check/module-value-exact-import-owner-collision-human/),
+[`exact import owner collision JSON`](../../examples/specification/check/module-value-exact-import-owner-collision-json/),
 [`private rejection`](../../examples/specification/check/module-value-private-import-human/),
 [`quarantined qualified human`](../../examples/specification/check/module-value-quarantined-qualified-human/),
 and

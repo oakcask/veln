@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The veln doc command selection, generated documentation output, manifest metadata, or source-error gate changes.
+update-when: The veln doc command selection, generated documentation output, manifest metadata, source-analysis gate, or write gate changes.
 specification-coverage: usage=#doc-command; behavior=#metadata-and-generated-content; limits=#limits
 ---
 

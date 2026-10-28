@@ -673,8 +673,11 @@ constructors whose payloads are admitted; and eligible same-module or imported
 module value references. Imported references use the ordinary import exposure,
 qualifier, package identity, and visibility rules, including exact-companion
 access to a private target. Annotation type lookup uses the package and module
-that own the module value. A same-spelled type in another package cannot close
-the annotation or replace the selected type or refinement visibility identity.
+that own the module value. An exact written import path in the annotation takes
+precedence over a same-spelled type in the owning module and retains the
+imported package identity. Without that exact import selection, a same-spelled
+type in another package cannot close the annotation or replace the selected
+type or refinement visibility identity.
 Parentheses preserve admission. Float literals,
 collection
 literals, functions and ordinary calls, other operators, field access, control
@@ -727,17 +730,41 @@ and
 [`imported annotation owner JSON`](../../examples/specification/check/module-value-imported-annotation-owner-json/)
 cases cover annotations and constructors selected from a sibling module in the
 declaration's package, including recursive and rejected private exposure. The checked
+[`exact import owner collision human`](../../examples/specification/check/module-value-exact-import-owner-collision-human/)
+and
+[`exact import owner collision JSON`](../../examples/specification/check/module-value-exact-import-owner-collision-json/)
+cases cover an exact annotation import whose module spelling matches the
+declaration owner's module. The checked
+[`companion initializer access human`](../../examples/specification/check/module-value-companion-private-access-human/),
+[`companion initializer access JSON`](../../examples/specification/check/module-value-companion-private-access-json/),
+[`wrong-target companion human`](../../examples/specification/check/module-value-companion-private-wrong-target-human/),
+and
+[`wrong-target companion JSON`](../../examples/specification/check/module-value-companion-private-wrong-target-json/)
+cases cover the exact-target private-value boundary. The checked
 [`open annotation failure`](../../examples/specification/check/module-value-open-annotation-human/)
 case verifies that an undeclared type parameter cannot escape through a module
 value annotation.
 
-Availability stabilization has a deterministic scaling check over imported
-module-value invalidation chains. The work metric counts owner-index entries,
-owner lookups, retained-history insertions, semantic visits, exposure rebuild
-entries, and availability updates. Doubling a 64-owner chain to 128 owners
-increases each count by at most twice the smaller count plus a fixed allowance
-of four operations. The check also bounds the peak pending-owner and retained-
-identity sets linearly in the owner count.
+Bare imported-value exposure uses deterministic construction and lookup checks.
+The construction workload varies 32 and 64 exported names independently from
+32 and 64 importing modules. Reverse-index entries grow with imports and do not
+grow when only the number of exports doubles. Construction materializes no
+per-name exposure. The first lookup of one imported name materializes and
+caches one exposure; repeating that lookup performs neither operation, and a
+different name materializes and caches one more exposure.
+
+Availability stabilization has deterministic scaling checks over imported
+module-value invalidation chains and fan-out. They count semantic visits,
+reverse-dependency entries, dependent-declaration recheck lookups,
+retained-history insertions, availability updates, and peak pending and
+retained identities. Increasing a chain workload from 64 to 128 keeps each
+checked count at no more than twice its smaller-workload value plus four
+operations; retained-history and availability-update counts use an allowance
+of one, and the peak retained-identity count has no fixed allowance. Separate
+32 and 64 chain-and-fan-out workloads bound dependency-index entries and
+recheck lookups by the number of dependency edges plus one. Doubling the chain
+allows at most twice the recheck lookups plus two; doubling only unrelated
+declarations allows at most one additional recheck lookup.
 
 A public module value annotation is a public type boundary. Every recursively
 named type in generic arguments, function positions, records, and unions must

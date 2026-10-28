@@ -57,13 +57,16 @@ within the same-module dependency graph do not provide later semantic facts.
 Imported references in another module value initializer use each imported
 declaration's final availability. Bare and qualified initializer reads
 therefore use the same final import exposure in every source and import order.
-When an imported declaration becomes unavailable, importers are rechecked and
-that unavailability can continue through later imported initializer reads.
-This recheck preserves same-module function and function-alias collisions. An
-imported function or alias whose public signature is withheld does not collide
-with an available imported module value; an available public callable still
-does. The result is independent of source and import order and of reusable
-standard-library analysis.
+When an imported declaration becomes unavailable, that unavailability can
+continue through initializer reads that depend on it. Unrelated declarations
+retain their semantic facts. This propagation preserves same-module function
+and function-alias collisions. An imported function or alias whose public
+signature is withheld does not collide with an available imported module value;
+an available public callable still does. An exact companion may read a private
+value from its explicitly imported target inside an initializer; an ordinary
+source or wrong-target companion reports the read as unresolved. The result is
+independent of source and import order and of reusable standard-library
+analysis.
 Cross-module references do not yet create dependency-graph edges or
 cross-module cycle diagnostics. This gate still prevents lowering or
 publication. The

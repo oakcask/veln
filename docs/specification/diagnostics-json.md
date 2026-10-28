@@ -92,9 +92,12 @@ and
 cases fix the rendered and structured forms.
 Annotation resolution uses the imports of the module that declares the value.
 It retains the selected type's package and module identity when producing
-private-declaration context. If the annotation does not resolve from that
-owner, the checker instead reports `name.unresolved` at the written type. An
-equal type spelling in the consuming package or another package does not
+private-declaration context. An exact written import path takes precedence over
+a same-spelled type in the declaration owner's module. The imported type's
+identity therefore controls whether the annotation is public; a bare type name
+continues to select the owner's type. If the annotation does not resolve from
+that owner, the checker instead reports `name.unresolved` at the written type.
+An equal type spelling in the consuming package or another package does not
 change that diagnostic into `type.public_annotation_private` or supply
 private-declaration context. The checked imported-owner
 [`human`](../../examples/specification/check/module-value-imported-annotation-owner-human/)
@@ -105,7 +108,12 @@ The checked owner-package fallback
 [`human`](../../examples/specification/check/module-value-owner-package-fallback-human/)
 and
 [`JSON`](../../examples/specification/check/module-value-owner-package-fallback-json/)
-cases cover this diagnostic boundary.
+cases cover this diagnostic boundary. The checked exact-import collision
+[`human`](../../examples/specification/check/module-value-exact-import-owner-collision-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-exact-import-owner-collision-json/)
+cases cover the same-spelled owner boundary and the absence of derivative
+unresolved or ambiguity diagnostics.
 
 An available module value selected as a call target reports
 `type.not_callable` at that target. Its details identify `call_target` as the
@@ -135,6 +143,18 @@ and
 cases cover bare and qualified initializer reads, published and withheld
 function collisions, owner rechecks, and valid-namesake selection in both
 import orders.
+An exact test companion that explicitly imports its target may read the
+target's private module value without `name.unresolved`. The same read from an
+ordinary source or a companion for another target reports `name.unresolved`.
+The checked companion initializer
+[`human`](../../examples/specification/check/module-value-companion-private-access-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-companion-private-access-json/)
+cases cover access, while the wrong-target
+[`human`](../../examples/specification/check/module-value-companion-private-wrong-target-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-companion-private-wrong-target-json/)
+cases cover rejection.
 Explicit type arguments on the call target preserve both outcomes, and the
 primary span covers the complete type-applied callee. The checked typed-call
 cases cover the selected declaration, details, related context, primary span,

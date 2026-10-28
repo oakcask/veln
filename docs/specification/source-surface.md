@@ -322,10 +322,11 @@ selection excludes exact companions, whether discovered or explicitly named.
 
 The target must exist in the same package for `check` and `test`. With an
 explicit `use` of that exact target, a companion may qualify private target
-functions, source ADT types and constructors, schemas in schema positions,
-nominal effects in effect positions, and handlers in `handle` expressions.
-The permission is exact-target and non-transitive: bare names, wrong targets,
-missing imports, integration modules, and external packages do not gain it.
+functions, module immutable values in value positions, source ADT types and
+constructors, schemas in schema positions, nominal effects in effect
+positions, and handlers in `handle` expressions. The permission is
+exact-target and non-transitive: bare names, wrong targets, missing imports,
+integration modules, and external packages do not gain it.
 
 Companions cannot declare public functions, effects, handlers, types, public
 variants, schemas, or public aliases. A manifest `[lib].exports` cannot publish

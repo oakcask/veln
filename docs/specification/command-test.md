@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The veln test command selection, parallel execution, source-error gate, runtime failure, or output behavior changes.
+update-when: The veln test command selection, parallel execution, static-analysis gate, runtime failure, or output behavior changes.
 specification-coverage: usage=#test-command; behavior=#selection-and-jobs; limits=#limits
 ---
 

@@ -31,11 +31,13 @@ Same-module and eligible imported references are resolved before function
 bodies are checked. Imported selection retains package-aware declaration
 identity and visibility, including public annotation boundaries. Invalid
 declarations and their same-module dependents are withheld from later semantic
-facts. When imported availability changes, the owner is checked again without
-discarding same-module function and function-alias collisions. Imported bare
-selection considers only functions and aliases that remain publicly available,
-so a signature-visibility failure cannot hide a valid module value. The same
-boundary applies when analysis reuses a prepared standard-library environment.
+facts. When imported availability changes, that unavailability propagates only
+through module-value initializers that depend on the changed declaration;
+unrelated declarations retain their semantic facts. This propagation preserves
+same-module function and function-alias collisions. Imported bare selection
+considers only functions and aliases that remain publicly available, so a
+signature-visibility failure cannot hide a valid module value. The same boundary
+applies when analysis reuses a prepared standard-library environment.
 Initializer or same-module dependency failures are reported together with
 `module.value_not_executable` for each declaration. The latter error keeps the
 shared pipeline from producing checked core or typed IR for that selection.
