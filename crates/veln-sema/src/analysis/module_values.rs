@@ -38,6 +38,8 @@ pub(crate) struct ModuleValueAvailabilityWork {
     pub(crate) semantic_visits: usize,
     pub(crate) owner_index_entries: usize,
     pub(crate) owner_recheck_lookups: usize,
+    pub(crate) dependency_index_entries: usize,
+    pub(crate) declaration_recheck_lookups: usize,
     pub(crate) retained_history_insertions: usize,
     pub(crate) full_exposure_rebuild_entries: usize,
     pub(crate) availability_updates: usize,
@@ -53,6 +55,8 @@ thread_local! {
             semantic_visits: 0,
             owner_index_entries: 0,
             owner_recheck_lookups: 0,
+            dependency_index_entries: 0,
+            declaration_recheck_lookups: 0,
             retained_history_insertions: 0,
             full_exposure_rebuild_entries: 0,
             availability_updates: 0,
@@ -218,7 +222,7 @@ fn check_module_values_once(
     }
 }
 
-fn check_module_value(
+pub(super) fn check_module_value(
     value: &veln_ast::ModuleValueDecl,
     index: usize,
     value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,

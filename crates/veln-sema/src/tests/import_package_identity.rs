@@ -299,6 +299,85 @@ fn module_value_annotation_does_not_fall_back_to_a_namesake_package() {
 }
 
 #[test]
+fn exact_import_matching_owner_module_selects_dependency_annotation_identity() {
+    for dependency_first in [false, true] {
+        let mut owner = source_module(
+            "owner/values.veln",
+            concat!(
+                "use values from \"dep/pkg\"\n",
+                "type Secret\n",
+                "  Owner\n",
+                "end\n",
+                "pub let selected: values::Secret = 0\n",
+                "pub let rejected: Secret = 0\n",
+            ),
+            Some("owner/pkg"),
+            "values",
+        );
+        let mut dependency = source_module(
+            "dep/values.veln",
+            "pub type Secret\n  pub Dependency\nend\n",
+            Some("dep/pkg"),
+            "values",
+        );
+        set_declaration_module_name(&mut owner, "values");
+        set_declaration_module_name(&mut dependency, "values");
+        let mut project = if dependency_first {
+            dependency.clone()
+        } else {
+            owner.clone()
+        };
+        if dependency_first {
+            extend(&mut project, owner);
+        } else {
+            extend(&mut project, dependency);
+        }
+
+        let diagnostics = analyze_surface_module(&project);
+        let visibility = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.public_annotation_private")
+            .collect::<Vec<_>>();
+        assert_eq!(
+            visibility.len(),
+            1,
+            "dependency_first={dependency_first}: {diagnostics:#?}"
+        );
+        assert!(
+            visibility[0].message.contains("owner/pkg::values::Secret"),
+            "dependency_first={dependency_first}: {diagnostics:#?}"
+        );
+
+        let environment = TypeEnvironment::from_module(&project);
+        let selected = match environment.module_value_path_in_owner(
+            &["selected".to_string()],
+            Some("values"),
+            Some("owner/pkg"),
+        ) {
+            crate::types::ModuleValueLookup::Available(value) => value,
+            _ => panic!("expected selected owner value"),
+        };
+        let rejected = match environment.module_value_path_in_owner(
+            &["rejected".to_string()],
+            Some("values"),
+            Some("owner/pkg"),
+        ) {
+            crate::types::ModuleValueLookup::Available(value) => value,
+            _ => panic!("expected rejected owner value"),
+        };
+        assert!(matches!(
+            &selected.ty,
+            Type::Named { identity, .. } if identity == "dep/pkg::values::Secret"
+        ));
+        assert!(matches!(
+            &rejected.ty,
+            Type::Named { identity, .. } if identity == "owner/pkg::values::Secret"
+        ));
+        assert_ne!(selected.ty, rejected.ty);
+    }
+}
+
+#[test]
 fn same_qualified_module_value_path_from_distinct_packages_is_ambiguous() {
     let mut app = source_module(
         "app.veln",

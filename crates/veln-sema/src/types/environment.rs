@@ -14,6 +14,8 @@ type FunctionPublicationKey = (
 
 type BareModuleValueKey = (Option<String>, Option<String>, String);
 type ModuleValueOwner = (Option<String>, Option<String>);
+type ModuleValueTarget = (Option<String>, Option<String>);
+type ModuleValueExportKey = (Option<String>, Option<String>, String);
 type QualifiedModuleValueKey = (veln_ast::ResolvedImportOwner, String);
 
 #[derive(Clone, Debug)]
@@ -27,6 +29,66 @@ struct BareModuleValueExposure {
     candidates: BTreeSet<ModuleValueIdentity>,
     active: BTreeSet<ModuleValueIdentity>,
     function_collision: bool,
+}
+
+#[cfg(test)]
+thread_local! {
+    static BARE_MODULE_VALUE_EXPOSURE_WORK: std::cell::Cell<BareModuleValueExposureWork> =
+        const { std::cell::Cell::new(BareModuleValueExposureWork::ZERO) };
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct BareModuleValueExposureWork {
+    pub(crate) materialized_exposures: usize,
+    pub(crate) reverse_index_entries: usize,
+    pub(crate) cache_entries: usize,
+}
+
+#[cfg(test)]
+impl BareModuleValueExposureWork {
+    const ZERO: Self = Self {
+        materialized_exposures: 0,
+        reverse_index_entries: 0,
+        cache_entries: 0,
+    };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_bare_module_value_exposure_work() {
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| work.set(BareModuleValueExposureWork::ZERO));
+}
+
+#[cfg(test)]
+pub(crate) fn take_bare_module_value_exposure_work() -> BareModuleValueExposureWork {
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| work.replace(BareModuleValueExposureWork::ZERO))
+}
+
+fn record_bare_module_value_materialized_exposure() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.materialized_exposures += 1;
+        work.set(value);
+    });
+}
+
+fn record_bare_module_value_reverse_index_entry() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.reverse_index_entries += 1;
+        work.set(value);
+    });
+}
+
+fn record_bare_module_value_cache_entry() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.cache_entries += 1;
+        work.set(value);
+    });
 }
 
 #[cfg(test)]
@@ -212,9 +274,12 @@ mod standard_subset;
 pub(crate) struct TypeEnvironment {
     module_values: Vec<ModuleValueSignature>,
     module_values_by_identity: HashMap<ModuleValueIdentity, ModuleValueIndex>,
-    bare_module_values: HashMap<BareModuleValueKey, BareModuleValueExposure>,
-    bare_module_value_keys_by_identity: HashMap<ModuleValueIdentity, Vec<BareModuleValueKey>>,
-    module_value_import_owners: HashMap<ModuleValueIdentity, BTreeSet<ModuleValueOwner>>,
+    bare_module_value_exports: HashMap<ModuleValueExportKey, ModuleValueIdentity>,
+    bare_function_exports: HashSet<ModuleValueExportKey>,
+    bare_module_value_import_targets: HashMap<ModuleValueOwner, BTreeSet<ModuleValueTarget>>,
+    module_value_import_owners: HashMap<ModuleValueTarget, BTreeSet<ModuleValueOwner>>,
+    bare_module_value_cache:
+        Arc<std::sync::RwLock<HashMap<BareModuleValueKey, BareModuleValueExposure>>>,
     qualified_module_value_imports:
         HashMap<QualifiedModuleValueKey, QualifiedModuleValueImportSelection>,
     exact_module_value_imports: HashSet<QualifiedModuleValueKey>,
@@ -236,6 +301,7 @@ pub(crate) struct TypeEnvironment {
     invalid_names: Vec<InvalidName>,
     pub(crate) adts: AdtRegistry,
     companion_function_access_targets: BTreeMap<String, String>,
+    companion_module_value_access_targets: HashMap<ResolvedImportOwner, ResolvedImportOwner>,
     companion_schema_access_targets: BTreeMap<String, String>,
     companion_effect_access_targets: BTreeMap<String, CompanionAccessTarget>,
 }
@@ -288,21 +354,9 @@ impl TypeEnvironment {
                 self.public_module_value_identities.remove(identity);
             }
         }
-        if let Some(keys) = self.bare_module_value_keys_by_identity.get(identity) {
-            for key in keys {
-                let exposure = self
-                    .bare_module_values
-                    .get_mut(key)
-                    .expect("reverse-indexed bare module value exposure");
-                if available {
-                    exposure.active.insert(identity.clone());
-                } else {
-                    exposure.active.remove(identity);
-                }
-            }
-        }
+        self.bare_module_value_cache = Arc::new(std::sync::RwLock::new(HashMap::new()));
         self.module_value_import_owners
-            .get(identity)
+            .get(&(identity.0.clone(), identity.1.clone()))
             .cloned()
             .unwrap_or_default()
     }
@@ -312,60 +366,17 @@ impl TypeEnvironment {
             facts::public_module_value_identities(&self.module_values);
         self.qualified_module_value_imports =
             facts::qualified_module_value_import_index(&self.uses);
-        self.bare_module_values = facts::bare_module_value_index(
+        let indexes = facts::bare_module_value_indexes(
             &self.module_values,
             &self.functions,
             &self.unpublished_functions,
             &self.uses,
         );
-        self.rebuild_module_value_exposure_reverse_indexes();
-    }
-
-    fn rebuild_module_value_exposure_reverse_indexes(&mut self) {
-        self.bare_module_value_keys_by_identity.clear();
-        for (key, exposure) in &self.bare_module_values {
-            for identity in &exposure.candidates {
-                self.bare_module_value_keys_by_identity
-                    .entry(identity.clone())
-                    .or_default()
-                    .push(key.clone());
-            }
-        }
-        let mut owners_by_target = HashMap::<
-            (Option<String>, Option<String>),
-            BTreeSet<(Option<String>, Option<String>)>,
-        >::new();
-        for use_decl in &self.uses {
-            let target = use_decl.resolved_target();
-            owners_by_target
-                .entry((target.package, Some(target.module)))
-                .or_default()
-                .insert((
-                    use_decl.importing_package.clone(),
-                    use_decl.module_name.clone(),
-                ));
-        }
-        self.module_value_import_owners.clear();
-        for value in &self.module_values {
-            let Some(name) = &value.declaration.name else {
-                continue;
-            };
-            let target = (
-                value.declaration.package_name.clone(),
-                value.declaration.module_name.clone(),
-            );
-            let Some(owners) = owners_by_target.get(&target) else {
-                continue;
-            };
-            self.module_value_import_owners.insert(
-                (
-                    value.declaration.package_name.clone(),
-                    value.declaration.module_name.clone(),
-                    name.clone(),
-                ),
-                owners.clone(),
-            );
-        }
+        self.bare_module_value_exports = indexes.module_values;
+        self.bare_function_exports = indexes.functions;
+        self.bare_module_value_import_targets = indexes.targets_by_owner;
+        self.module_value_import_owners = indexes.owners_by_target;
+        self.bare_module_value_cache = Arc::new(std::sync::RwLock::new(HashMap::new()));
     }
 
     pub(crate) fn module_value_path_in_owner(
@@ -388,6 +399,83 @@ impl TypeEnvironment {
         }
 
         self.qualified_module_value_in_owner(segments, name, current_module, current_package)
+    }
+
+    pub(crate) fn module_value_dependency_identity_in_owner(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<ModuleValueIdentity> {
+        let (name, _) = segments.split_last()?;
+        if self.same_module_value_path_matches_in_owner(segments, current_module, current_package) {
+            let identity = (
+                current_package.map(str::to_owned),
+                current_module.map(str::to_owned),
+                name.clone(),
+            );
+            return matches!(
+                self.module_values_by_identity.get(&identity),
+                Some(ModuleValueIndex::Unique(_))
+            )
+            .then_some(identity);
+        }
+        if segments.len() == 1 {
+            if self.functions_named(name).any(|function| {
+                function.module_name.as_deref() == current_module
+                    && function.package_name.as_deref() == current_package
+            }) {
+                return None;
+            }
+            let key = (
+                current_package.map(str::to_owned),
+                current_module.map(str::to_owned),
+                name.clone(),
+            );
+            let exposure = self.materialize_bare_module_value_exposure(&key)?;
+            if exposure.candidates.len() != 1 || exposure.function_collision {
+                return None;
+            }
+            return exposure.candidates.into_iter().next().filter(|identity| {
+                matches!(
+                    self.module_values_by_identity.get(identity),
+                    Some(ModuleValueIndex::Unique(_))
+                )
+            });
+        }
+
+        let module_path = segments[..segments.len() - 1].join("::");
+        let owner = veln_ast::ResolvedImportOwner {
+            package: current_package.map(str::to_owned),
+            module: current_module.map(str::to_owned),
+        };
+        let key = (owner, module_path);
+        if self.blocked_exact_module_value_imports.contains(&key)
+            && !self.exact_module_value_imports.contains(&key)
+        {
+            return None;
+        }
+        let QualifiedModuleValueImportSelection::Unique(use_decl) =
+            self.qualified_module_value_imports.get(&key)?
+        else {
+            return None;
+        };
+        let identity = (
+            use_decl.resolved_target().package,
+            Some(use_decl.name.clone()),
+            name.clone(),
+        );
+        let ModuleValueIndex::Unique(index) = self.module_values_by_identity.get(&identity)? else {
+            return None;
+        };
+        let value = &self.module_values[*index];
+        (value.declaration.visibility == Visibility::Public
+            || self.companion_private_module_value_access_allowed(
+                use_decl,
+                current_module,
+                current_package,
+            ))
+        .then_some(identity)
     }
 
     fn same_owner_module_value<'a>(
@@ -427,8 +515,24 @@ impl TypeEnvironment {
             current_module.map(str::to_owned),
             name.to_owned(),
         );
-        let Some(exposure) = self.bare_module_values.get(&key) else {
-            return ModuleValueLookup::Missing;
+        let exposure = if let Some(exposure) = self
+            .bare_module_value_cache
+            .read()
+            .expect("bare module value cache read")
+            .get(&key)
+        {
+            exposure.clone()
+        } else {
+            let exposure = self.materialize_bare_module_value_exposure(&key);
+            let Some(exposure) = exposure else {
+                return ModuleValueLookup::Missing;
+            };
+            record_bare_module_value_cache_entry();
+            self.bare_module_value_cache
+                .write()
+                .expect("bare module value cache write")
+                .insert(key, exposure.clone());
+            exposure
         };
         if exposure.active.len() > 1 || (exposure.function_collision && !exposure.active.is_empty())
         {
@@ -442,6 +546,31 @@ impl TypeEnvironment {
             .map_or(ModuleValueLookup::Missing, |index| {
                 self.module_value_at_index(*index)
             })
+    }
+
+    fn materialize_bare_module_value_exposure(
+        &self,
+        key: &BareModuleValueKey,
+    ) -> Option<BareModuleValueExposure> {
+        let owner = (key.0.clone(), key.1.clone());
+        let targets = self.bare_module_value_import_targets.get(&owner)?;
+        let mut exposure = BareModuleValueExposure {
+            candidates: BTreeSet::new(),
+            active: BTreeSet::new(),
+            function_collision: false,
+        };
+        for target in targets {
+            let export_key = (target.0.clone(), target.1.clone(), key.2.clone());
+            if let Some(identity) = self.bare_module_value_exports.get(&export_key) {
+                record_bare_module_value_materialized_exposure();
+                exposure.candidates.insert(identity.clone());
+                if self.public_module_value_identities.contains(identity) {
+                    exposure.active.insert(identity.clone());
+                }
+            }
+            exposure.function_collision |= self.bare_function_exports.contains(&export_key);
+        }
+        (!exposure.candidates.is_empty()).then_some(exposure)
     }
 
     fn qualified_module_value_in_owner(
@@ -477,8 +606,12 @@ impl TypeEnvironment {
             }
         };
         record_qualified_module_value_selection_work();
-        let Some(index) = self.visible_module_value_index_for_use(use_decl, name, current_module)
-        else {
+        let Some(index) = self.visible_module_value_index_for_use(
+            use_decl,
+            name,
+            current_module,
+            current_package,
+        ) else {
             return ModuleValueLookup::Missing;
         };
         self.module_value_at_index(index)
@@ -489,6 +622,7 @@ impl TypeEnvironment {
         use_decl: &UseDecl,
         name: &str,
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> Option<ModuleValueIndex> {
         let identity = (
             use_decl.resolved_target().package,
@@ -496,8 +630,11 @@ impl TypeEnvironment {
             name.to_owned(),
         );
         let index = *self.module_values_by_identity.get(&identity)?;
-        let private_access =
-            self.companion_private_module_value_access_allowed(use_decl, current_module);
+        let private_access = self.companion_private_module_value_access_allowed(
+            use_decl,
+            current_module,
+            current_package,
+        );
         record_qualified_module_value_visibility_work();
         let visible = self.public_module_value_identities.contains(&identity) || private_access;
         visible.then_some(index)
@@ -521,13 +658,20 @@ impl TypeEnvironment {
         &self,
         use_decl: &UseDecl,
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> bool {
-        use_decl.package.is_none()
-            && current_module.is_some_and(|current_module| {
-                self.companion_function_access_targets
-                    .get(current_module)
-                    .is_some_and(|allowed_target| allowed_target == &use_decl.name)
-            })
+        let current_owner = ResolvedImportOwner {
+            package: current_package.map(str::to_owned),
+            module: current_module.map(str::to_owned),
+        };
+        let resolved_target = use_decl.resolved_target();
+        let imported_target = ResolvedImportOwner {
+            package: resolved_target.package,
+            module: Some(resolved_target.module),
+        };
+        self.companion_module_value_access_targets
+            .get(&current_owner)
+            .is_some_and(|allowed_target| allowed_target == &imported_target)
     }
 
     pub(crate) fn resolves_available_module_value_alias_target(

@@ -1,0 +1,5 @@
+[package]
+name = "dep/pkg"
+
+[lib]
+exports = ["values.veln"]

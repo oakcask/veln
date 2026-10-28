@@ -13,7 +13,7 @@ impl TypeEnvironment {
         let uses = selected_standard_facts(&self.uses, module_names, |use_decl| {
             use_decl.module_name.as_deref()
         });
-        let bare_module_values = facts::bare_module_value_index(
+        let bare_indexes = facts::bare_module_value_indexes(
             &module_values,
             &functions,
             &self.unpublished_functions,
@@ -36,9 +36,11 @@ impl TypeEnvironment {
         Self {
             module_values,
             module_values_by_identity,
-            bare_module_values,
-            bare_module_value_keys_by_identity: HashMap::new(),
-            module_value_import_owners: HashMap::new(),
+            bare_module_value_exports: bare_indexes.module_values,
+            bare_function_exports: bare_indexes.functions,
+            bare_module_value_import_targets: bare_indexes.targets_by_owner,
+            module_value_import_owners: bare_indexes.owners_by_target,
+            bare_module_value_cache: Arc::new(std::sync::RwLock::new(HashMap::new())),
             qualified_module_value_imports,
             exact_module_value_imports,
             blocked_exact_module_value_imports,
@@ -69,6 +71,7 @@ impl TypeEnvironment {
             invalid_names: self.invalid_names.clone(),
             adts: self.adts.standard_subset(module_names),
             companion_function_access_targets: access_targets.functions,
+            companion_module_value_access_targets: access_targets.module_values,
             companion_schema_access_targets: access_targets.schemas,
             companion_effect_access_targets: access_targets.effects,
         }
@@ -142,6 +145,21 @@ impl TypeEnvironment {
                 &self.companion_function_access_targets,
                 module_names,
             ),
+            module_values: self
+                .companion_module_value_access_targets
+                .iter()
+                .filter(|(owner, target)| {
+                    owner
+                        .module
+                        .as_ref()
+                        .is_some_and(|module| module_names.contains(module))
+                        && target
+                            .module
+                            .as_ref()
+                            .is_some_and(|module| module_names.contains(module))
+                })
+                .map(|(owner, target)| (owner.clone(), target.clone()))
+                .collect(),
             schemas: selected_standard_access_targets(
                 &self.companion_schema_access_targets,
                 module_names,
@@ -167,6 +185,7 @@ struct StandardSubsetRecoveries {
 
 struct StandardSubsetAccessTargets {
     functions: BTreeMap<String, String>,
+    module_values: HashMap<ResolvedImportOwner, ResolvedImportOwner>,
     schemas: BTreeMap<String, String>,
     effects: BTreeMap<String, CompanionAccessTarget>,
 }

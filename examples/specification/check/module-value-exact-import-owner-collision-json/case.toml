@@ -1,0 +1,14 @@
+command = ["check", "--json", "."]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["module.value_not_executable", "accepted", "type.public_annotation_private", "values::Secret", "private_type_declaration", "public_module_value_boundary"]
+not_contains = ["name.unresolved", "name.ambiguous", "type.variant_refinement_unknown", "dep/pkg::values::Secret"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

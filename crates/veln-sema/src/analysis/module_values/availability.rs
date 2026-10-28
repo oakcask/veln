@@ -1,91 +1,79 @@
 use std::collections::{BTreeSet, HashMap};
 
-use veln_ast::SurfaceModule;
+use veln_ast::{Expr, ExprKind, SurfaceModule};
 
-use super::check_module_values_once;
+use super::{check_module_value, colliding_module_value_identities, module_value_indices};
 use crate::analysis::VariantDiagnosticInterner;
 use crate::types::{ModuleValueIdentity, TypeEnvironment};
 
-type ModuleValueOwner = (Option<String>, Option<String>);
-
-struct ModuleValueAvailabilityState<'a> {
-    unavailable: &'a mut BTreeSet<ModuleValueIdentity>,
-    invalid_by_owner: &'a mut HashMap<ModuleValueOwner, BTreeSet<ModuleValueIdentity>>,
-    pending_owners: &'a mut BTreeSet<ModuleValueOwner>,
-    ever_unavailable: &'a mut BTreeSet<ModuleValueIdentity>,
-}
+type ReverseDependencies = HashMap<ModuleValueIdentity, Vec<usize>>;
 
 pub(super) fn stabilize_module_value_availability(
     module: &SurfaceModule,
     environment: &mut TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
     mut unavailable: BTreeSet<ModuleValueIdentity>,
-    mut pending_owners: BTreeSet<ModuleValueOwner>,
+    mut pending_dependencies: BTreeSet<ModuleValueIdentity>,
 ) -> BTreeSet<ModuleValueIdentity> {
     let mut ever_unavailable = unavailable.clone();
     record_retained_history_insertions(ever_unavailable.len());
-    record_peak_availability_work(&pending_owners, &unavailable, &ever_unavailable);
-    let mut invalid_by_owner = invalid_identities_by_owner(&unavailable);
-    let modules_by_owner = module_values_by_owner(module);
-    let mut owner_updates = 0usize;
-    let update_limit = module.module_values.len().saturating_mul(4).max(1);
+    let reverse_dependencies = reverse_dependencies(module, environment);
+    let colliding = colliding_module_value_identities(module);
+    let value_indices = module_value_indices(module, &colliding);
+    record_peak_availability_work(&pending_dependencies, &unavailable, &ever_unavailable);
 
-    while let Some(owner) = pending_owners.pop_first() {
-        if !recheck_owner_availability(
-            &modules_by_owner,
-            &owner,
-            environment,
-            variant_diagnostics,
-            &mut ModuleValueAvailabilityState {
-                unavailable: &mut unavailable,
-                invalid_by_owner: &mut invalid_by_owner,
-                pending_owners: &mut pending_owners,
-                ever_unavailable: &mut ever_unavailable,
-            },
-        ) {
+    while let Some(changed) = pending_dependencies.pop_first() {
+        let Some(dependents) = reverse_dependencies.get(&changed) else {
             continue;
+        };
+        for index in dependents {
+            record_declaration_recheck_lookup();
+            let value = &module.module_values[*index];
+            let Some(identity) = value.name.as_ref().map(|name| {
+                (
+                    value.package_name.clone(),
+                    value.module_name.clone(),
+                    name.clone(),
+                )
+            }) else {
+                continue;
+            };
+            if unavailable.contains(&identity) {
+                continue;
+            }
+            let mut dependencies = Vec::new();
+            let mut diagnostics = Vec::new();
+            #[cfg(test)]
+            super::update_module_value_availability_work(|work| work.semantic_visits += 1);
+            if !check_module_value(
+                value,
+                *index,
+                &value_indices,
+                environment,
+                variant_diagnostics,
+                &mut dependencies,
+                &mut diagnostics,
+            ) {
+                continue;
+            }
+            unavailable.insert(identity.clone());
+            if ever_unavailable.insert(identity.clone()) {
+                record_retained_history_insertions(1);
+            }
+            let _ = environment.set_module_value_availability(&identity, false);
+            pending_dependencies.insert(identity);
         }
-        record_peak_availability_work(&pending_owners, &unavailable, &ever_unavailable);
-        owner_updates += 1;
-        if owner_updates > update_limit {
-            unavailable = ever_unavailable;
-            environment.quarantine_module_values(&unavailable);
-            break;
-        }
+        record_peak_availability_work(&pending_dependencies, &unavailable, &ever_unavailable);
     }
 
     unavailable
-}
-
-fn recheck_owner_availability(
-    modules_by_owner: &HashMap<ModuleValueOwner, SurfaceModule>,
-    owner: &ModuleValueOwner,
-    environment: &mut TypeEnvironment,
-    variant_diagnostics: &mut VariantDiagnosticInterner,
-    state: &mut ModuleValueAvailabilityState<'_>,
-) -> bool {
-    record_owner_recheck_lookup();
-    let Some(owner_module) = modules_by_owner.get(owner) else {
-        return false;
-    };
-    let owner_analysis = check_module_values_once(owner_module, environment, variant_diagnostics);
-    apply_owner_availability_changes(
-        owner,
-        state.unavailable,
-        state.invalid_by_owner,
-        owner_analysis.invalid,
-        environment,
-        state.pending_owners,
-        state.ever_unavailable,
-    );
-    true
 }
 
 pub(super) fn apply_availability_changes(
     current: &mut BTreeSet<ModuleValueIdentity>,
     next: &BTreeSet<ModuleValueIdentity>,
     environment: &mut TypeEnvironment,
-    pending_owners: &mut BTreeSet<ModuleValueOwner>,
+    pending_dependencies: &mut BTreeSet<ModuleValueIdentity>,
 ) {
     let changes = current
         .symmetric_difference(next)
@@ -93,162 +81,73 @@ pub(super) fn apply_availability_changes(
         .collect::<Vec<_>>();
     for identity in changes {
         let available = !next.contains(&identity);
-        pending_owners.extend(environment.set_module_value_availability(&identity, available));
+        let _ = environment.set_module_value_availability(&identity, available);
+        pending_dependencies.insert(identity);
     }
     current.clone_from(next);
 }
 
-fn apply_owner_availability_changes(
-    owner: &ModuleValueOwner,
-    current: &mut BTreeSet<ModuleValueIdentity>,
-    invalid_by_owner: &mut HashMap<ModuleValueOwner, BTreeSet<ModuleValueIdentity>>,
-    next_owner: BTreeSet<ModuleValueIdentity>,
-    environment: &mut TypeEnvironment,
-    pending_owners: &mut BTreeSet<ModuleValueOwner>,
-    ever_unavailable: &mut BTreeSet<ModuleValueIdentity>,
-) {
-    let current_owner = invalid_by_owner.entry(owner.clone()).or_default();
-    let changes = current_owner
-        .symmetric_difference(&next_owner)
-        .cloned()
-        .collect::<Vec<_>>();
-    for identity in changes {
-        let available = !next_owner.contains(&identity);
-        if available {
-            current.remove(&identity);
-        } else {
-            current.insert(identity.clone());
-            record_retained_history_insertions(1);
-            ever_unavailable.insert(identity.clone());
-        }
-        pending_owners.extend(environment.set_module_value_availability(&identity, available));
-    }
-    *current_owner = next_owner;
-}
-
-fn invalid_identities_by_owner(
-    invalid: &BTreeSet<ModuleValueIdentity>,
-) -> HashMap<ModuleValueOwner, BTreeSet<ModuleValueIdentity>> {
-    let mut by_owner = HashMap::new();
-    for identity in invalid {
-        by_owner
-            .entry((identity.0.clone(), identity.1.clone()))
-            .or_insert_with(BTreeSet::new)
-            .insert(identity.clone());
-    }
-    by_owner
-}
-
-fn module_values_by_owner(module: &SurfaceModule) -> HashMap<ModuleValueOwner, SurfaceModule> {
-    let mut owners = HashMap::new();
-    add_aliases_by_owner(&mut owners, module);
-    add_functions_by_owner(&mut owners, module);
-    add_values_by_owner(&mut owners, module);
-    owners
-}
-
-fn add_aliases_by_owner(
-    owners: &mut HashMap<ModuleValueOwner, SurfaceModule>,
+fn reverse_dependencies(
     module: &SurfaceModule,
-) {
-    for alias in &module.aliases {
-        record_owner_index_entry();
-        owner_module(
-            owners,
-            module,
-            (alias.package_name.clone(), alias.module_name.clone()),
-        )
-        .aliases
-        .push(alias.clone());
-    }
-}
-
-fn add_functions_by_owner(
-    owners: &mut HashMap<ModuleValueOwner, SurfaceModule>,
-    module: &SurfaceModule,
-) {
-    for function in &module.functions {
-        record_owner_index_entry();
-        owner_module(
-            owners,
-            module,
-            (function.package_name.clone(), function.module_name.clone()),
-        )
-        .functions
-        .push(function.clone());
-    }
-}
-
-fn add_values_by_owner(
-    owners: &mut HashMap<ModuleValueOwner, SurfaceModule>,
-    module: &SurfaceModule,
-) {
-    let invalid_names_by_span = module
-        .invalid_names
-        .iter()
-        .map(|invalid| {
-            record_owner_index_entry();
-            (
-                (
-                    invalid.span.file.clone(),
-                    invalid.span.start.offset,
-                    invalid.span.end.offset,
-                ),
-                invalid,
-            )
-        })
-        .collect::<HashMap<_, _>>();
-
-    for value in &module.module_values {
-        record_owner_index_entry();
-        let owner = owner_module(
-            owners,
-            module,
-            (value.package_name.clone(), value.module_name.clone()),
+    environment: &TypeEnvironment,
+) -> ReverseDependencies {
+    let mut reverse = HashMap::<ModuleValueIdentity, BTreeSet<usize>>::new();
+    for (index, value) in module.module_values.iter().enumerate() {
+        collect_reverse_dependencies(
+            &value.initializer,
+            value.module_name.as_deref(),
+            value.package_name.as_deref(),
+            index,
+            environment,
+            &mut reverse,
         );
-        owner.module_values.push(value.clone());
-        let Some(name_span) = &value.name_span else {
-            continue;
-        };
-        let key = (
-            name_span.file.clone(),
-            name_span.start.offset,
-            name_span.end.offset,
-        );
-        if let Some(invalid) = invalid_names_by_span.get(&key) {
-            record_owner_index_entry();
-            owner.invalid_names.push((*invalid).clone());
+    }
+    reverse
+        .into_iter()
+        .map(|(identity, dependents)| (identity, dependents.into_iter().collect()))
+        .collect()
+}
+
+fn collect_reverse_dependencies(
+    expr: &Expr,
+    owner_module: Option<&str>,
+    owner_package: Option<&str>,
+    dependent: usize,
+    environment: &TypeEnvironment,
+    reverse: &mut HashMap<ModuleValueIdentity, BTreeSet<usize>>,
+) {
+    if let ExprKind::NamePath { segments, .. } = &expr.kind
+        && let Some(identity) = environment.module_value_dependency_identity_in_owner(
+            segments,
+            owner_module,
+            owner_package,
+        )
+    {
+        let inserted = reverse.entry(identity).or_default().insert(dependent);
+        if inserted {
+            record_dependency_index_entry();
         }
     }
-}
-
-fn owner_module<'a>(
-    owners: &'a mut HashMap<ModuleValueOwner, SurfaceModule>,
-    module: &SurfaceModule,
-    owner: ModuleValueOwner,
-) -> &'a mut SurfaceModule {
-    owners.entry(owner).or_insert_with(|| SurfaceModule {
-        module: module.module.clone(),
-        uses: Vec::new(),
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        types: Vec::new(),
-        module_values: Vec::new(),
-        functions: Vec::new(),
-        invalid_names: Vec::new(),
-    })
+    expr.for_each_child(&mut |child| {
+        collect_reverse_dependencies(
+            child,
+            owner_module,
+            owner_package,
+            dependent,
+            environment,
+            reverse,
+        );
+    });
 }
 
 #[cfg(test)]
 fn record_peak_availability_work(
-    pending_owners: &BTreeSet<ModuleValueOwner>,
+    pending_dependencies: &BTreeSet<ModuleValueIdentity>,
     unavailable: &BTreeSet<ModuleValueIdentity>,
     ever_unavailable: &BTreeSet<ModuleValueIdentity>,
 ) {
     super::update_module_value_availability_work(|work| {
-        work.peak_pending_owners = work.peak_pending_owners.max(pending_owners.len());
+        work.peak_pending_owners = work.peak_pending_owners.max(pending_dependencies.len());
         work.peak_retained_availability_identities = work
             .peak_retained_availability_identities
             .max(unavailable.len() + ever_unavailable.len());
@@ -257,31 +156,33 @@ fn record_peak_availability_work(
 
 #[cfg(not(test))]
 fn record_peak_availability_work(
-    _pending_owners: &BTreeSet<ModuleValueOwner>,
+    _pending_dependencies: &BTreeSet<ModuleValueIdentity>,
     _unavailable: &BTreeSet<ModuleValueIdentity>,
     _ever_unavailable: &BTreeSet<ModuleValueIdentity>,
 ) {
 }
 
 #[cfg(test)]
-fn record_owner_index_entry() {
-    super::update_module_value_availability_work(|work| work.owner_index_entries += 1);
+fn record_dependency_index_entry() {
+    super::update_module_value_availability_work(|work| work.dependency_index_entries += 1);
 }
 
 #[cfg(not(test))]
-fn record_owner_index_entry() {}
+fn record_dependency_index_entry() {}
 
 #[cfg(test)]
-fn record_owner_recheck_lookup() {
-    super::update_module_value_availability_work(|work| work.owner_recheck_lookups += 1);
+fn record_declaration_recheck_lookup() {
+    super::update_module_value_availability_work(|work| work.declaration_recheck_lookups += 1);
 }
 
 #[cfg(not(test))]
-fn record_owner_recheck_lookup() {}
+fn record_declaration_recheck_lookup() {}
 
 #[cfg(test)]
 fn record_retained_history_insertions(count: usize) {
-    super::update_module_value_availability_work(|work| work.retained_history_insertions += count);
+    super::update_module_value_availability_work(|work| {
+        work.retained_history_insertions += count;
+    });
 }
 
 #[cfg(not(test))]

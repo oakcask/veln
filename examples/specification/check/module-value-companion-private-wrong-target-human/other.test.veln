@@ -1,0 +1,2 @@
+use math
+let wrong_target: Int = math::secret

@@ -11,7 +11,7 @@ mod quarantine;
 
 use module_values::finish_module_value_facts;
 pub(super) use module_values::{
-    bare_module_value_index, exact_module_value_import_paths, public_module_value_identities,
+    bare_module_value_indexes, exact_module_value_import_paths, public_module_value_identities,
     qualified_module_value_import_index,
 };
 use quarantine::{
@@ -32,6 +32,12 @@ impl<T: Clone> BaseFacts for Vec<T> {
 }
 
 impl<K: Clone + Ord, V: Clone> BaseFacts for BTreeMap<K, V> {
+    fn extend_with(&mut self, base: &Self) {
+        self.extend(base.clone());
+    }
+}
+
+impl<K: Clone + Eq + std::hash::Hash, V: Clone> BaseFacts for HashMap<K, V> {
     fn extend_with(&mut self, base: &Self) {
         self.extend(base.clone());
     }
@@ -67,6 +73,7 @@ struct SymbolFacts {
     quarantined_uses: Vec<UseDecl>,
     blocked_exact_import_paths: HashSet<QualifiedModuleValueKey>,
     companion_function_access_targets: BTreeMap<String, String>,
+    companion_module_value_access_targets: HashMap<ResolvedImportOwner, ResolvedImportOwner>,
     companion_schema_access_targets: BTreeMap<String, String>,
 }
 
@@ -171,9 +178,11 @@ fn initial_environment(
         module_values_by_identity: base
             .map(|base| base.module_values_by_identity.clone())
             .unwrap_or_default(),
-        bare_module_values: HashMap::new(),
-        bare_module_value_keys_by_identity: HashMap::new(),
+        bare_module_value_exports: HashMap::new(),
+        bare_function_exports: HashSet::new(),
+        bare_module_value_import_targets: HashMap::new(),
         module_value_import_owners: HashMap::new(),
+        bare_module_value_cache: Arc::new(std::sync::RwLock::new(HashMap::new())),
         qualified_module_value_imports: HashMap::new(),
         exact_module_value_imports: exact_module_value_import_paths(&symbols.uses),
         blocked_exact_module_value_imports: symbols.blocked_exact_import_paths,
@@ -196,6 +205,7 @@ fn initial_environment(
         invalid_names: module.invalid_names.clone(),
         adts: declarations.adts,
         companion_function_access_targets: symbols.companion_function_access_targets,
+        companion_module_value_access_targets: symbols.companion_module_value_access_targets,
         companion_schema_access_targets: symbols.companion_schema_access_targets,
         companion_effect_access_targets: declarations.companion_effect_access_targets,
     }
@@ -560,6 +570,11 @@ fn symbol_facts(
         &mut companion_function_access_targets,
         base.map(|base| &base.companion_function_access_targets),
     );
+    let mut companion_module_value_access_targets = companion_module_value_access_targets(module);
+    extend_with_base_facts(
+        &mut companion_module_value_access_targets,
+        base.map(|base| &base.companion_module_value_access_targets),
+    );
     let mut companion_schema_access_targets = companion_access_targets(module);
     extend_with_base_facts(
         &mut companion_schema_access_targets,
@@ -572,6 +587,7 @@ fn symbol_facts(
         quarantined_uses,
         blocked_exact_import_paths,
         companion_function_access_targets,
+        companion_module_value_access_targets,
         companion_schema_access_targets,
     }
 }

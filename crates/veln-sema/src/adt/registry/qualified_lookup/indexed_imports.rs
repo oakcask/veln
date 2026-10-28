@@ -1,6 +1,72 @@
 use super::*;
 
 impl AdtRegistry {
+    pub(super) fn indexed_exact_imported_descriptor_in_owner(
+        &self,
+        name: &str,
+        args_len: Option<usize>,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+        unique: bool,
+    ) -> Option<Option<&AdtDescriptor>> {
+        if !self.source_import_indexes_ready || !name.contains("::") {
+            return None;
+        }
+        crate::adt::lookup_validation::record_import_path_comparison();
+        let owner = ResolvedImportOwner {
+            package: current_package.map(str::to_string),
+            module: current_module.map(str::to_string),
+        };
+        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+        let type_name = segments.last()?;
+        let module_path = segments[..segments.len() - 1].join("::");
+        crate::adt::lookup_validation::record_qualified_path_work(module_path.len());
+        let modules = self.qualified_import_modules.get(&(owner, module_path))?;
+        if modules.exact.is_empty() {
+            return None;
+        }
+        let Some(identity) = self.source_identity_from_import_modules(type_name, modules) else {
+            return Some(None);
+        };
+        Some(
+            self.select_indexed_qualified_descriptor(&identity, args_len, unique)
+                .flatten(),
+        )
+    }
+
+    pub(super) fn indexed_exact_imported_descriptor_including_quarantined_in_owner(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<Option<&AdtDescriptor>> {
+        if !self.source_import_indexes_ready || !name.contains("::") {
+            return None;
+        }
+        crate::adt::lookup_validation::record_import_path_comparison();
+        let owner = ResolvedImportOwner {
+            package: current_package.map(str::to_string),
+            module: current_module.map(str::to_string),
+        };
+        let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+        let type_name = segments.last()?;
+        let module_path = segments[..segments.len() - 1].join("::");
+        crate::adt::lookup_validation::record_qualified_path_work(module_path.len());
+        let modules = self.qualified_import_modules.get(&(owner, module_path))?;
+        if modules.exact.is_empty() {
+            return None;
+        }
+        let Some(identity) = self.source_identity_from_import_modules(type_name, modules) else {
+            return Some(None);
+        };
+        Some(
+            self.qualified_descriptor_candidates(&identity)
+                .rev()
+                .find(|descriptor| Self::descriptor_matches_arity(descriptor, Some(args_len))),
+        )
+    }
+
     pub(super) fn indexed_imported_descriptor_in_owner(
         &self,
         name: &str,

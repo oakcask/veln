@@ -1,8 +1,5 @@
 use super::*;
 
-type ImportedOwnerIndex =
-    HashMap<(Option<String>, String), BTreeSet<(Option<String>, Option<String>)>>;
-
 #[derive(Default)]
 struct QualifiedImportCandidates {
     exact: Vec<UseDecl>,
@@ -171,141 +168,79 @@ fn index_new_module_value_identities(environment: &mut TypeEnvironment, first_ne
     }
 }
 
-pub(in crate::types::environment) fn bare_module_value_index(
+pub(in crate::types::environment) struct BareModuleValueIndexes {
+    pub(in crate::types::environment) module_values:
+        HashMap<ModuleValueExportKey, ModuleValueIdentity>,
+    pub(in crate::types::environment) functions: HashSet<ModuleValueExportKey>,
+    pub(in crate::types::environment) targets_by_owner:
+        HashMap<ModuleValueOwner, BTreeSet<ModuleValueTarget>>,
+    pub(in crate::types::environment) owners_by_target:
+        HashMap<ModuleValueTarget, BTreeSet<ModuleValueOwner>>,
+}
+
+pub(in crate::types::environment) fn bare_module_value_indexes(
     module_values: &[ModuleValueSignature],
     functions: &[FunctionSignature],
     unpublished_functions: &HashSet<FunctionPublicationKey>,
     uses: &[UseDecl],
-) -> HashMap<BareModuleValueKey, BareModuleValueExposure> {
-    let imported_owners = imported_owner_index(uses);
-    let mut selections = public_module_value_selections(module_values, &imported_owners);
-    record_function_collisions(
-        &mut selections,
-        functions,
-        unpublished_functions,
-        &imported_owners,
-    );
-    selections
-}
-
-fn imported_owner_index(uses: &[UseDecl]) -> ImportedOwnerIndex {
-    let mut imported_owners = HashMap::new();
+) -> BareModuleValueIndexes {
+    let mut targets_by_owner = HashMap::<ModuleValueOwner, BTreeSet<ModuleValueTarget>>::new();
+    let mut owners_by_target = HashMap::<ModuleValueTarget, BTreeSet<ModuleValueOwner>>::new();
     for use_decl in uses
         .iter()
         .filter(|use_decl| crate::name_recovery::use_decl_contributes_bare_exports(use_decl))
     {
         let target = use_decl.resolved_target();
-        imported_owners
-            .entry((target.package, target.module))
-            .or_insert_with(BTreeSet::new)
-            .insert((
-                use_decl.importing_package.clone(),
-                use_decl.module_name.clone(),
-            ));
+        let target = (target.package, Some(target.module));
+        let owner = (
+            use_decl.importing_package.clone(),
+            use_decl.module_name.clone(),
+        );
+        if targets_by_owner
+            .entry(owner.clone())
+            .or_default()
+            .insert(target.clone())
+        {
+            record_bare_module_value_reverse_index_entry();
+        }
+        if owners_by_target.entry(target).or_default().insert(owner) {
+            record_bare_module_value_reverse_index_entry();
+        }
     }
-    imported_owners
-}
 
-fn public_module_value_selections(
-    module_values: &[ModuleValueSignature],
-    imported_owners: &ImportedOwnerIndex,
-) -> HashMap<BareModuleValueKey, BareModuleValueExposure> {
-    let mut selections = HashMap::new();
-    for value in module_values
+    let module_values = module_values
         .iter()
         .filter(|value| value.declaration.visibility == Visibility::Public)
-    {
-        record_module_value_selections(&mut selections, value, imported_owners);
-    }
-    selections
-}
-
-fn record_module_value_selections(
-    selections: &mut HashMap<BareModuleValueKey, BareModuleValueExposure>,
-    value: &ModuleValueSignature,
-    imported_owners: &ImportedOwnerIndex,
-) {
-    let (Some(module), Some(name)) = (
-        value.declaration.module_name.as_ref(),
-        value.declaration.name.as_ref(),
-    ) else {
-        return;
-    };
-    let target = (value.declaration.package_name.clone(), module.clone());
-    let Some(owners) = imported_owners.get(&target) else {
-        return;
-    };
-    let identity = (
-        value.declaration.package_name.clone(),
-        value.declaration.module_name.clone(),
-        name.clone(),
-    );
-    for (owner_package, owner_module) in owners {
-        let key = (owner_package.clone(), owner_module.clone(), name.clone());
-        record_module_value_selection(selections, key, &identity, value.available);
-    }
-}
-
-fn record_module_value_selection(
-    selections: &mut HashMap<BareModuleValueKey, BareModuleValueExposure>,
-    key: BareModuleValueKey,
-    identity: &ModuleValueIdentity,
-    available: bool,
-) {
-    selections
-        .entry(key)
-        .and_modify(|exposure| {
-            exposure.candidates.insert(identity.clone());
-            if available {
-                exposure.active.insert(identity.clone());
-            }
+        .filter_map(|value| {
+            let module = value.declaration.module_name.clone()?;
+            let name = value.declaration.name.clone()?;
+            let identity = (
+                value.declaration.package_name.clone(),
+                Some(module.clone()),
+                name.clone(),
+            );
+            Some((
+                (value.declaration.package_name.clone(), Some(module), name),
+                identity,
+            ))
         })
-        .or_insert_with(|| BareModuleValueExposure {
-            candidates: BTreeSet::from([identity.clone()]),
-            active: if available {
-                BTreeSet::from([identity.clone()])
-            } else {
-                BTreeSet::new()
-            },
-            function_collision: false,
-        });
-}
-
-fn record_function_collisions(
-    selections: &mut HashMap<BareModuleValueKey, BareModuleValueExposure>,
-    functions: &[FunctionSignature],
-    unpublished_functions: &HashSet<FunctionPublicationKey>,
-    imported_owners: &ImportedOwnerIndex,
-) {
-    for function in functions
+        .collect();
+    let functions = functions
         .iter()
         .filter(|function| function.visibility == Visibility::Public)
         .filter(|function| !unpublished_functions.contains(&function_publication_key(function)))
-    {
-        record_function_collision(selections, function, imported_owners);
-    }
-}
-
-fn record_function_collision(
-    selections: &mut HashMap<BareModuleValueKey, BareModuleValueExposure>,
-    function: &FunctionSignature,
-    imported_owners: &ImportedOwnerIndex,
-) {
-    let Some(module) = function.module_name.as_ref() else {
-        return;
-    };
-    let target = (function.package_name.clone(), module.clone());
-    let Some(owners) = imported_owners.get(&target) else {
-        return;
-    };
-    for (owner_package, owner_module) in owners {
-        let key = (
-            owner_package.clone(),
-            owner_module.clone(),
-            function.name.clone(),
-        );
-        if let Some(exposure) = selections.get_mut(&key) {
-            exposure.function_collision = true;
-        }
+        .filter_map(|function| {
+            Some((
+                function.package_name.clone(),
+                Some(function.module_name.clone()?),
+                function.name.clone(),
+            ))
+        })
+        .collect();
+    BareModuleValueIndexes {
+        module_values,
+        functions,
+        targets_by_owner,
+        owners_by_target,
     }
 }

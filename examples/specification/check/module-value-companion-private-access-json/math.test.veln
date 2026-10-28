@@ -1,0 +1,2 @@
+use math
+let observed: Int = math::secret

@@ -1,0 +1,10 @@
+command = ["check", "."]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["module value declaration `accepted` is not executable", "public module value annotation exposes private type `values::Secret`", "Private type `values::Secret` is declared here."]
+not_contains = ["unresolved type `values::Secret`", "public module value annotation exposes private type `dep/pkg::values::Secret`", "name.ambiguous"]
+
+[stderr]
+format = "empty"

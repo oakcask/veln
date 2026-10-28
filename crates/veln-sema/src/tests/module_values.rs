@@ -68,6 +68,35 @@ fn module_with_imported_invalidation_chain(count: usize) -> SurfaceModule {
     merged
 }
 
+fn module_with_imported_invalidation_fanout(
+    chain_count: usize,
+    unrelated_value_count: usize,
+) -> SurfaceModule {
+    let mut merged = module_with_imported_invalidation_chain(chain_count);
+    let imports = (0..chain_count)
+        .map(|index| format!("use chain_{index}\n"))
+        .collect::<String>();
+    let dependent_values = (0..chain_count)
+        .map(|index| format!("let observed_{index}: Int = chain_{index}::value_{index}\n"))
+        .collect::<String>();
+    let unrelated_values = (0..unrelated_value_count)
+        .map(|index| format!("let unrelated_{index}: Int = {index}\n"))
+        .collect::<String>();
+    let source = SourceFile::new(
+        "a_fanout.veln",
+        format!("{imports}{dependent_values}{unrelated_values}"),
+    );
+    let fanout = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&source).tree,
+        "a_fanout".to_string(),
+        source.span(veln_source::TextRange::new(0, 0)),
+    );
+    merged.uses.extend(fanout.uses);
+    merged.module_values.extend(fanout.module_values);
+    merged.invalid_names.extend(fanout.invalid_names);
+    merged
+}
+
 fn module_with_unresolved_value_annotations(count: usize) -> SurfaceModule {
     let source = SourceFile::new(
         "main.veln",
@@ -118,6 +147,33 @@ fn module_with_bare_imported_values(count: usize) -> SurfaceModule {
         source.span(veln_source::TextRange::new(0, 0)),
     );
     merged.uses.extend(app.uses);
+    merged
+}
+
+fn module_with_public_exports_and_importers(
+    export_count: usize,
+    importer_count: usize,
+) -> SurfaceModule {
+    let export_source = SourceFile::new(
+        "values.veln",
+        (0..export_count)
+            .map(|index| format!("pub let value_{index}: Int = {index}\n"))
+            .collect::<String>(),
+    );
+    let mut merged = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&export_source).tree,
+        "values".to_string(),
+        export_source.span(veln_source::TextRange::new(0, 0)),
+    );
+    for index in 0..importer_count {
+        let source = SourceFile::new(format!("owner_{index}.veln"), "use values\n");
+        let owner = veln_ast::lower_surface_ast_with_module_identity(
+            &parse(&source).tree,
+            format!("owner_{index}"),
+            source.span(veln_source::TextRange::new(0, 0)),
+        );
+        merged.uses.extend(owner.uses);
+    }
     merged
 }
 
@@ -296,6 +352,76 @@ fn bare_imported_module_value_lookup_reports_adjacent_size_timings() {
 }
 
 #[test]
+fn bare_module_value_exposure_construction_is_additive_and_lookup_is_lazy() {
+    fn construction_work(
+        exports: usize,
+        importers: usize,
+    ) -> crate::types::BareModuleValueExposureWork {
+        let module = module_with_public_exports_and_importers(exports, importers);
+        crate::types::reset_bare_module_value_exposure_work();
+        let _environment = crate::types::TypeEnvironment::from_module(&module);
+        let work = crate::types::take_bare_module_value_exposure_work();
+        assert_eq!(work.materialized_exposures, 0, "{work:#?}");
+        assert_eq!(work.cache_entries, 0, "{work:#?}");
+        assert!(
+            work.reverse_index_entries >= importers * 2
+                && work.reverse_index_entries <= importers * 8,
+            "{work:#?}"
+        );
+        work
+    }
+
+    let base = construction_work(32, 32);
+    let more_exports = construction_work(64, 32);
+    let more_importers = construction_work(32, 64);
+    let both = construction_work(64, 64);
+    assert_eq!(
+        more_exports.reverse_index_entries,
+        base.reverse_index_entries
+    );
+    assert_eq!(
+        more_importers.reverse_index_entries,
+        base.reverse_index_entries * 2
+    );
+    assert_eq!(
+        both.reverse_index_entries,
+        more_importers.reverse_index_entries
+    );
+
+    let module = module_with_public_exports_and_importers(64, 64);
+    crate::types::reset_bare_module_value_exposure_work();
+    let environment = crate::types::TypeEnvironment::from_module(&module);
+    assert!(matches!(
+        environment.module_value_path_in_owner(&["value_0".to_string()], Some("owner_0"), None,),
+        crate::types::ModuleValueLookup::Available(_)
+    ));
+    let first = crate::types::take_bare_module_value_exposure_work();
+    assert_eq!(first.materialized_exposures, 1, "{first:#?}");
+    assert_eq!(first.cache_entries, 1, "{first:#?}");
+    assert!(
+        first.reverse_index_entries >= 128 && first.reverse_index_entries <= 512,
+        "{first:#?}"
+    );
+
+    crate::types::reset_bare_module_value_exposure_work();
+    assert!(matches!(
+        environment.module_value_path_in_owner(&["value_0".to_string()], Some("owner_0"), None,),
+        crate::types::ModuleValueLookup::Available(_)
+    ));
+    let cached = crate::types::take_bare_module_value_exposure_work();
+    assert_eq!(cached.materialized_exposures, 0, "{cached:#?}");
+    assert_eq!(cached.cache_entries, 0, "{cached:#?}");
+
+    assert!(matches!(
+        environment.module_value_path_in_owner(&["value_1".to_string()], Some("owner_0"), None,),
+        crate::types::ModuleValueLookup::Available(_)
+    ));
+    let second = crate::types::take_bare_module_value_exposure_work();
+    assert_eq!(second.materialized_exposures, 1, "{second:#?}");
+    assert_eq!(second.cache_entries, 1, "{second:#?}");
+}
+
+#[test]
 #[ignore = "supporting wall-clock evidence; deterministic import work is asserted separately"]
 fn imported_named_annotation_analysis_reports_adjacent_size_timings() {
     for count in [100, 200, 400, 800] {
@@ -401,13 +527,15 @@ fn module_value_dependency_analysis_reports_adjacent_size_timings() {
 #[ignore = "supporting wall-clock evidence; deterministic availability work is asserted separately"]
 fn imported_module_value_invalidation_chain_reports_adjacent_size_timings() {
     for count in [128, 256, 512] {
-        let module = module_with_imported_invalidation_chain(count);
+        let module = module_with_imported_invalidation_fanout(count, count);
         let started = std::time::Instant::now();
         let diagnostics = analyze_surface_module(&module);
         let elapsed = started.elapsed();
 
         assert!(diagnostics.len() >= count, "{diagnostics:#?}");
-        eprintln!("imported module value invalidation: {count} declarations in {elapsed:?}");
+        eprintln!(
+            "imported module value invalidation fanout: {count} chain and {count} unrelated declarations in {elapsed:?}"
+        );
     }
 }
 
@@ -467,6 +595,54 @@ fn imported_module_value_invalidation_work_is_adjacent_linear() {
         larger.peak_retained_availability_identities
             <= smaller.peak_retained_availability_identities * 2,
         "{smaller:#?} -> {larger:#?}"
+    );
+}
+
+#[test]
+fn imported_invalidation_rechecks_only_dependent_declarations() {
+    fn work_for(
+        chain_count: usize,
+        unrelated_value_count: usize,
+    ) -> crate::analysis::ModuleValueAvailabilityWork {
+        let module = module_with_imported_invalidation_fanout(chain_count, unrelated_value_count);
+        reset_module_value_availability_work();
+        let diagnostics = analyze_surface_module(&module);
+        let work = take_module_value_availability_work();
+
+        let declaration_count = chain_count * 2 + unrelated_value_count;
+        let dependency_edges = chain_count.saturating_sub(1) + chain_count;
+        assert!(diagnostics.len() >= chain_count * 2, "{diagnostics:#?}");
+        assert!(
+            work.semantic_visits <= declaration_count * 2 + dependency_edges + 4,
+            "{work:#?}"
+        );
+        assert!(
+            work.dependency_index_entries <= dependency_edges + 1,
+            "{work:#?}"
+        );
+        assert!(
+            work.declaration_recheck_lookups <= dependency_edges + 1,
+            "{work:#?}"
+        );
+        work
+    }
+
+    let base = work_for(32, 32);
+    let more_chain = work_for(64, 32);
+    let more_unrelated = work_for(32, 64);
+    let both = work_for(64, 64);
+
+    assert!(
+        more_unrelated.declaration_recheck_lookups <= base.declaration_recheck_lookups + 1,
+        "{base:#?} -> {more_unrelated:#?}"
+    );
+    assert!(
+        both.declaration_recheck_lookups <= more_chain.declaration_recheck_lookups + 1,
+        "{more_chain:#?} -> {both:#?}"
+    );
+    assert!(
+        more_chain.declaration_recheck_lookups <= base.declaration_recheck_lookups * 2 + 2,
+        "{base:#?} -> {more_chain:#?}"
     );
 }
 
@@ -2044,7 +2220,7 @@ fn invalid_imported_value_does_not_collide_with_a_valid_imported_function() {
 }
 
 #[test]
-fn exact_companion_can_read_private_module_values_but_other_modules_cannot() {
+fn exact_companion_module_value_can_read_private_module_values_but_other_sources_cannot() {
     let module = merged_modules_with_identities(vec![
         (
             "math",
@@ -2054,14 +2230,25 @@ fn exact_companion_can_read_private_module_values_but_other_modules_cannot() {
             "math.test",
             SourceFile::new(
                 "math.test.veln",
-                "use math\nfn read() -> Int\n  math::secret\nend\n",
+                "use math\nlet observed: Int = math::secret\n",
             ),
         ),
         (
             "other",
+            SourceFile::new("other.veln", "let marker: Int = 0\n"),
+        ),
+        (
+            "other.test",
             SourceFile::new(
-                "other.veln",
-                "use math\nfn read() -> Int\n  math::secret\nend\n",
+                "other.test.veln",
+                "use math\nlet wrong_target: Int = math::secret\n",
+            ),
+        ),
+        (
+            "consumer",
+            SourceFile::new(
+                "consumer.veln",
+                "use math\nlet ordinary: Int = math::secret\n",
             ),
         ),
     ]);
@@ -2073,7 +2260,15 @@ fn exact_companion_can_read_private_module_values_but_other_modules_cannot() {
             .iter()
             .filter(|diagnostic| diagnostic.id == "name.unresolved")
             .count(),
-        1,
+        2,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.span.as_ref().is_none_or(|span| {
+                span.file.as_str() != "math.test.veln" || diagnostic.id != "name.unresolved"
+            })
+        }),
         "{diagnostics:#?}"
     );
 }
