@@ -49,9 +49,10 @@ name-resolution specifications.
 The `declarations-aliases` topic projects `TypeDecl` with zero or more
 `TypeVariant` entries, so the published grammar admits a named type declaration
 with no constructors. It also projects typed module `let` declarations and
-states their finite-data initializer checking, same-module lookup, and
-non-executable boundary. The selected formatter example demonstrates the
-accepted private and public forms without presenting them as runtime values.
+states their finite-data initializer checking, same-module and imported lookup,
+package-aware visibility, and non-executable boundary. The selected formatter
+example demonstrates the accepted private and public forms without presenting
+them as runtime values.
 The `types-inference-constructors` topic includes the executable productions
 for variant-refinement type text. Every alternative requires an uppercase
 final segment. A non-generic alternative also requires an uppercase base leaf.

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "snapshots": [
     {
-      "base_digest": "3d7a8e972632d52ad48123bde71cb77f5eae39c097242ad2ef3e0716362aafb7",
+      "base_digest": "ed3b0d62795a922609edc741e2be3b2f073ef0c12e2cb867ab6c7863d2e66bc4",
       "digest": "75e44626729c7dee7c3ec784fba9a8b5940a8b018a40e4f046467efac1b1b99d",
       "topic_overrides": [
         {
@@ -32,11 +32,43 @@
             "The selected examples cover typed operators and lexical cleanup-region formatting.",
             "The begin and defer forms have public static and tooling surfaces only. A reachable use prevents checked-core execution readiness with deferred_cleanup_runtime while public runtime integration is incomplete. Behind that gate, the compiler and JVM backend implement registration-time local snapshots and reverse-registration-order cleanup when a region completes normally, postfix `?` propagates an `Err`, or a contract or runtime failure leaves the region. Cleanup registrations and handler frames unwind in reverse lexical nesting order, and successful cleanup preserves the original throwable. Public pipeline integration, task cancellation, cleanup-failure precedence, and continued cleanup after a cleanup failure remain unimplemented."
           ]
+        },
+        {
+          "topic_id": "declarations-aliases",
+          "id": "declarations-aliases",
+          "title": "Declarations And Aliases",
+          "summary": "Typed module values, functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items.",
+          "keywords": ["aliases", "effects", "functions", "handlers", "module values", "types"],
+          "body": [
+            "The descriptor selects the executable item productions for source declarations.",
+            "A typed module `let` declaration has the form `[pub] let name: Type = initializer`. Parsing, formatting, syntax trees, and lowered ASTs preserve it. Semantic analysis checks the written annotation, finite-data initializer, same-module references, and dependency cycles. The declaration is addressable within its module, but imported lookup, visibility, checked-core lowering, and code generation remain unavailable. Every declaration reports `module.value_not_executable`.",
+            "The selected example exercises public member alias re-exports in a checked case.",
+            "The formatter example exercises accepted private and public typed module `let` declarations."
+          ]
+        },
+        {
+          "topic_id": "types-inference-constructors",
+          "id": "types-inference-constructors",
+          "title": "Types, Inference, And Constructors",
+          "summary": "Type text, inference, constructors, and ADT variant refinements define typed values, assignments, calls, aggregates, and control-flow results.",
+          "keywords": ["annotations", "assignability", "constructors", "control flow", "finite set", "inference", "match refinement", "public visibility", "publication quarantine", "returns", "runtime erasure", "type aliases", "types", "variant refinement"],
+          "body": [
+            "The topic selects grammar for type parameters, return annotations, result bindings, ADT variant-refinement type text, and constructor patterns.",
+            "A refinement `State::Ready` identifies the singleton set containing the declared `Ready` variant of `State`. A union such as `State::Ready | State::Closed` identifies a finite set of variants from the same ADT identity and type arguments. Duplicate alternatives are removed and the set uses declaration order. A constructor expression infers its singleton refinement when type information is available.",
+            "A refinement is assignable to the same refinement or to a refinement whose variant set is a superset. It can widen directly to its base ADT, and the same comparison recurses through covariant record fields and function results. Function inputs are contravariant, concrete effect sets are covariant, and named generic arguments remain invariant. Assignment in the opposite direction is rejected at each covariant position.",
+            "Lists, dictionaries, records, and constructor payloads retain compatible refinements. Aggregate inference joins compatible singleton and finite-set refinements. Control-flow result inference applies the same join to `if` and `match` branches. A join widens to the base ADT when one branch is already base-typed or when the joined set contains every declared variant.",
+            "A constructor pattern narrows a stable matched value to the selected singleton in that arm. A residual catch-all receives the feasible variants not selected by earlier arms. Refinement applies to immutable parameters and local bindings, transparent local aliases that share one feasible domain, and record-field paths rooted at those stable values. Computed expressions are not stable refinement paths.",
+            "Refinements are erased at runtime and use the base ADT representation. They do not add a runtime state store, linear consumption, reachability or progress proofs, payload predicates, or restrictions on constructing visible variants.",
+            "A public type-alias chain whose resolved target is an ADT can qualify a refinement. Alias-qualified and target-qualified forms use the target ADT identity and type arguments, so equal variant sets are mutually assignable. Expected alias-qualified constructor context supplies the target ADT's generic payload arguments. Constructor patterns preserve those payload arguments when the scrutinee and pattern use target and alias qualifiers of the same ADT. One unambiguous alias from an explicit annotation is preserved for display. Constructor inference uses the target ADT name. A join preserves one alias preference when its other contributions use the target name, but conflicting alias preferences make the result use the target name. This reconciliation is independent of contribution order and still applies when a singleton ADT or complete refinement union collapses to the base ADT. Qualified immutable-value refinement remains unavailable because module values are not transparent stable match paths, and imported module-value lookup and execution are not implemented.",
+            "A refinement in a public function parameter or result, or in a public variant payload of a public ADT, must expose a visible base ADT and visible selected variants. This check traverses records, named type arguments, nested function parameters and results, refinement unions, and transparent aliases. An inaccessible refinement prevents publication of the declaration. Publication quarantine propagates through public ADT payload dependencies and then to public functions whose signatures depend on a quarantined ADT. An ordinary named reference to a quarantined ADT does not duplicate the causal privacy diagnostic.",
+            "Every successfully instantiated alternative in one refinement union must have the same nominal ADT identity and invariant generic arguments. Each later conflicting alternative reports a focused union-base diagnostic with the earliest successful alternative as context. A mixed-base union makes its annotation invalid and quarantines the complete containing function, effect operation, handler, or ADT-constructor signature.",
+            "The selected checked examples exercise constructor singleton inference, subset assignment and widening, complete record and function assignment, refined call typing, alias identity and presentation, generic alias constructor and pattern boundaries, aggregate retention, control-flow result joins, recursive public visibility, and transitive publication quarantine."
+          ]
         }
       ]
     },
     {
-      "base_digest": "3d7a8e972632d52ad48123bde71cb77f5eae39c097242ad2ef3e0716362aafb7",
+      "base_digest": "ed3b0d62795a922609edc741e2be3b2f073ef0c12e2cb867ab6c7863d2e66bc4",
       "digest": "38a9e07320bd7d4eba145ae403424fa9a52f676450099936d50524838a2390bd",
       "topic_overrides": [
         {
@@ -49,6 +81,38 @@
             "The expression grammar selection is production-based and does not duplicate a hand-maintained grammar.",
             "The selected examples cover typed operators and lexical cleanup-region formatting.",
             "The begin and defer forms have public static and tooling surfaces only. A reachable use prevents checked-core execution readiness with deferred_cleanup_runtime while public runtime integration is incomplete. Behind that gate, the compiler and JVM backend implement registration-time local snapshots and reverse-registration-order cleanup when a region completes normally, postfix `?` propagates an `Err`, or a contract or runtime failure leaves the region. Cleanup registrations and handler frames unwind in reverse lexical nesting order, and successful cleanup preserves the original throwable. Public pipeline integration, task cancellation, cleanup-failure precedence, and continued cleanup after a cleanup failure remain unimplemented."
+          ]
+        },
+        {
+          "topic_id": "declarations-aliases",
+          "id": "declarations-aliases",
+          "title": "Declarations And Aliases",
+          "summary": "Typed module values, functions, tests, effects, handlers, type declarations, schemas, and public aliases are source-level items.",
+          "keywords": ["aliases", "effects", "functions", "handlers", "module values", "types"],
+          "body": [
+            "The descriptor selects the executable item productions for source declarations.",
+            "A typed module `let` declaration has the form `[pub] let name: Type = initializer`. Parsing, formatting, syntax trees, and lowered ASTs preserve it. Semantic analysis checks the written annotation, finite-data initializer, same-module references, and dependency cycles. The declaration is addressable within its module, but imported lookup, visibility, checked-core lowering, and code generation remain unavailable. Every declaration reports `module.value_not_executable`.",
+            "The selected example exercises public member alias re-exports in a checked case.",
+            "The formatter example exercises accepted private and public typed module `let` declarations."
+          ]
+        },
+        {
+          "topic_id": "types-inference-constructors",
+          "id": "types-inference-constructors",
+          "title": "Types, Inference, And Constructors",
+          "summary": "Type text, inference, constructors, and ADT variant refinements define typed values, assignments, calls, aggregates, and control-flow results.",
+          "keywords": ["annotations", "assignability", "constructors", "control flow", "finite set", "inference", "match refinement", "public visibility", "publication quarantine", "returns", "runtime erasure", "type aliases", "types", "variant refinement"],
+          "body": [
+            "The topic selects grammar for type parameters, return annotations, result bindings, ADT variant-refinement type text, and constructor patterns.",
+            "A refinement `State::Ready` identifies the singleton set containing the declared `Ready` variant of `State`. A union such as `State::Ready | State::Closed` identifies a finite set of variants from the same ADT identity and type arguments. Duplicate alternatives are removed and the set uses declaration order. A constructor expression infers its singleton refinement when type information is available.",
+            "A refinement is assignable to the same refinement or to a refinement whose variant set is a superset. It can widen directly to its base ADT, and the same comparison recurses through covariant record fields and function results. Function inputs are contravariant, concrete effect sets are covariant, and named generic arguments remain invariant. Assignment in the opposite direction is rejected at each covariant position.",
+            "Lists, dictionaries, records, and constructor payloads retain compatible refinements. Aggregate inference joins compatible singleton and finite-set refinements. Control-flow result inference applies the same join to `if` and `match` branches. A join widens to the base ADT when one branch is already base-typed or when the joined set contains every declared variant.",
+            "A constructor pattern narrows a stable matched value to the selected singleton in that arm. A residual catch-all receives the feasible variants not selected by earlier arms. Refinement applies to immutable parameters and local bindings, transparent local aliases that share one feasible domain, and record-field paths rooted at those stable values. Computed expressions are not stable refinement paths.",
+            "Refinements are erased at runtime and use the base ADT representation. They do not add a runtime state store, linear consumption, reachability or progress proofs, payload predicates, or restrictions on constructing visible variants.",
+            "A public type-alias chain whose resolved target is an ADT can qualify a refinement. Alias-qualified and target-qualified forms use the target ADT identity and type arguments, so equal variant sets are mutually assignable. Expected alias-qualified constructor context supplies the target ADT's generic payload arguments. Constructor patterns preserve those payload arguments when the scrutinee and pattern use target and alias qualifiers of the same ADT. One unambiguous alias from an explicit annotation is preserved for display. Constructor inference uses the target ADT name. A join preserves one alias preference when its other contributions use the target name, but conflicting alias preferences make the result use the target name. This reconciliation is independent of contribution order and still applies when a singleton ADT or complete refinement union collapses to the base ADT. Qualified immutable-value refinement remains unavailable because module values are not transparent stable match paths, and imported module-value lookup and execution are not implemented.",
+            "A refinement in a public function parameter or result, or in a public variant payload of a public ADT, must expose a visible base ADT and visible selected variants. This check traverses records, named type arguments, nested function parameters and results, refinement unions, and transparent aliases. An inaccessible refinement prevents publication of the declaration. Publication quarantine propagates through public ADT payload dependencies and then to public functions whose signatures depend on a quarantined ADT. An ordinary named reference to a quarantined ADT does not duplicate the causal privacy diagnostic.",
+            "Every successfully instantiated alternative in one refinement union must have the same nominal ADT identity and invariant generic arguments. Each later conflicting alternative reports a focused union-base diagnostic with the earliest successful alternative as context. A mixed-base union makes its annotation invalid and quarantines the complete containing function, effect operation, handler, or ADT-constructor signature.",
+            "The selected checked examples exercise constructor singleton inference, subset assignment and widening, complete record and function assignment, refined call typing, alias identity and presentation, generic alias constructor and pattern boundaries, aggregate retention, control-flow result joins, recursive public visibility, and transitive publication quarantine."
           ]
         }
       ]

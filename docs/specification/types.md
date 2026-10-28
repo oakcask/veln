@@ -669,10 +669,11 @@ Every typed module `let` initializer is checked against its written closed
 annotation, even when the declaration is unused. The admitted initializer
 language contains integer, Boolean, string, and unit literals; negative integer
 literals; records whose fields are admitted; visible nullary and payload ADT
-constructors whose payloads are admitted; and same-module or eligible public
-imported module value references. Imported references use the ordinary import
-exposure, qualifier, package identity, and visibility rules. Parentheses
-preserve admission. Float literals, collection
+constructors whose payloads are admitted; and eligible same-module or imported
+module value references. Imported references use the ordinary import exposure,
+qualifier, package identity, and visibility rules, including exact-companion
+access to a private target. Parentheses preserve admission. Float literals,
+collection
 literals, functions and ordinary calls, other operators, field access, control
 flow, effects, handlers, and holes are not admitted.
 An ordinary call whose callee is not a name path is rejected at the complete
