@@ -2476,6 +2476,39 @@ fn unpublished_functions_and_aliases_do_not_collide_with_imported_values() {
 }
 
 #[test]
+fn private_imported_module_value_does_not_collide_with_public_function() {
+    for reverse_imports in [false, true] {
+        let imports = if reverse_imports {
+            "use values\nuse functions\n"
+        } else {
+            "use functions\nuse values\n"
+        };
+        let module = merged_modules_with_identities(vec![
+            (
+                "values",
+                SourceFile::new("values.veln", "let shared: Int = 1\n"),
+            ),
+            (
+                "functions",
+                SourceFile::new("functions.veln", "pub fn shared() -> Int\n  2\nend\n"),
+            ),
+            (
+                "app",
+                SourceFile::new(
+                    "app.veln",
+                    format!("{imports}fn read() -> Int\n  shared()\nend\n"),
+                ),
+            ),
+        ]);
+
+        let diagnostics = analyze_surface_module(&module);
+
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+        assert_eq!(diagnostics[0].id, "module.value_not_executable");
+    }
+}
+
+#[test]
 fn valid_imported_value_survives_an_invalid_namesake_in_every_order() {
     for reverse_sources in [false, true] {
         for reverse_imports in [false, true] {
