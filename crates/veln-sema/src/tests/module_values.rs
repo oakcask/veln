@@ -1,5 +1,7 @@
 use super::*;
 
+mod public_annotation_aliases;
+
 fn module_with_values(count: usize) -> SurfaceModule {
     let source = SourceFile::new(
         "main.veln",
@@ -2665,4 +2667,5 @@ fn module_value_annotations_and_initializers_use_existing_type_name_rules() {
     );
 }
 
+mod availability;
 mod invariants;

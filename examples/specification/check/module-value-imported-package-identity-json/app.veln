@@ -1,5 +1,15 @@
 use shared as first from "one/pkg"
 use shared as second from "two/pkg"
 
-let from_first: Int = first::answer
-let from_second: Int = second::answer
+fn first_matches() -> first::OneValue
+	first::answer
+end
+fn second_matches() -> second::TwoValue
+	second::answer
+end
+fn first_identity() -> Int
+	first::answer
+end
+fn second_identity() -> Int
+	second::answer
+end

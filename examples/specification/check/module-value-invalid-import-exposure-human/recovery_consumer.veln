@@ -1,0 +1,21 @@
+use recovery_owner as forward
+use recovery_reversed as reverse
+
+let observed_forward: Int = forward::selected
+let observed_reverse: Int = reverse::selected
+
+fn read_forward() -> String
+	forward::selected
+end
+
+fn read_reverse() -> String
+	reverse::selected
+end
+
+fn read_observed_forward() -> String
+	observed_forward
+end
+
+fn read_observed_reverse() -> String
+	observed_reverse
+end

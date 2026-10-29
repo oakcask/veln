@@ -15,6 +15,7 @@ pub(super) fn stabilize_module_value_availability(
     mut unavailable: BTreeSet<ModuleValueIdentity>,
     mut pending_dependencies: BTreeSet<ModuleValueIdentity>,
     reverse_dependencies: &ReverseDependencies,
+    intrinsic_invalid: &BTreeSet<ModuleValueIdentity>,
 ) -> BTreeSet<ModuleValueIdentity> {
     let mut ever_unavailable = unavailable.clone();
     record_retained_history_insertions(ever_unavailable.len());
@@ -38,14 +39,14 @@ pub(super) fn stabilize_module_value_availability(
             }) else {
                 continue;
             };
-            if unavailable.contains(&identity) {
+            if intrinsic_invalid.contains(&identity) {
                 continue;
             }
             let mut dependencies = Vec::new();
             let mut diagnostics = Vec::new();
             #[cfg(test)]
             super::update_module_value_availability_work(|work| work.semantic_visits += 1);
-            if !check_module_value(
+            let mut invalid = check_module_value(
                 value,
                 *index,
                 &value_indices,
@@ -53,14 +54,31 @@ pub(super) fn stabilize_module_value_availability(
                 variant_diagnostics,
                 &mut dependencies,
                 &mut diagnostics,
-            ) {
+            );
+            // Same-module reads reserve unavailable names without producing a
+            // lookup diagnostic, so their dependency status must be checked too.
+            invalid |= dependencies.iter().any(|dependency| {
+                let target = &module.module_values[dependency.target];
+                target.name.as_ref().is_some_and(|name| {
+                    unavailable.contains(&(
+                        target.package_name.clone(),
+                        target.module_name.clone(),
+                        name.clone(),
+                    ))
+                })
+            });
+            if invalid == unavailable.contains(&identity) {
                 continue;
             }
-            unavailable.insert(identity.clone());
-            if ever_unavailable.insert(identity.clone()) {
-                record_retained_history_insertions(1);
+            if invalid {
+                unavailable.insert(identity.clone());
+                if ever_unavailable.insert(identity.clone()) {
+                    record_retained_history_insertions(1);
+                }
+            } else {
+                unavailable.remove(&identity);
             }
-            let _ = environment.set_module_value_availability(&identity, false);
+            let _ = environment.set_module_value_availability(&identity, !invalid);
             pending_dependencies.insert(identity);
         }
         record_peak_availability_work(&pending_dependencies, &unavailable, &ever_unavailable);
@@ -116,16 +134,16 @@ fn collect_reverse_dependencies(
     environment: &TypeEnvironment,
     reverse: &mut HashMap<ModuleValueIdentity, BTreeSet<usize>>,
 ) {
-    if let ExprKind::NamePath { segments, .. } = &expr.kind
-        && let Some(identity) = environment.module_value_dependency_identity_in_owner(
+    if let ExprKind::NamePath { segments, .. } = &expr.kind {
+        for identity in environment.module_value_dependency_candidates_in_owner(
             segments,
             owner_module,
             owner_package,
-        )
-    {
-        let inserted = reverse.entry(identity).or_default().insert(dependent);
-        if inserted {
-            record_dependency_index_entry();
+        ) {
+            let inserted = reverse.entry(identity).or_default().insert(dependent);
+            if inserted {
+                record_dependency_index_entry();
+            }
         }
     }
     expr.for_each_child(&mut |child| {

@@ -30,6 +30,9 @@ pub(super) struct Dependency {
 pub(crate) struct ModuleValueAnalysis {
     pub(crate) diagnostics: Vec<Diagnostic>,
     pub(crate) invalid: BTreeSet<ModuleValueIdentity>,
+    // Collisions, invalid casing, and same-module cycles cannot recover when
+    // imported candidates change. Other failures are rechecked at each change.
+    intrinsic_invalid: BTreeSet<ModuleValueIdentity>,
 }
 
 #[cfg(test)]
@@ -159,42 +162,18 @@ pub(crate) fn check_module_values(
         environment,
         &mut pending_owners,
     );
-    let mut unavailable = availability::stabilize_module_value_availability(
+    let unavailable = availability::stabilize_module_value_availability(
         module,
         environment,
         variant_diagnostics,
         unavailable,
         pending_owners,
         &reverse_dependencies,
+        &initial.intrinsic_invalid,
     );
 
-    let mut final_analysis = check_module_values_once(module, environment, variant_diagnostics);
-    if !unavailable.is_superset(&final_analysis.invalid) {
-        let mut next_unavailable = unavailable.clone();
-        next_unavailable.extend(final_analysis.invalid.iter().cloned());
-        let mut pending_dependencies = BTreeSet::new();
-        availability::apply_availability_changes(
-            &mut unavailable,
-            &next_unavailable,
-            environment,
-            &mut pending_dependencies,
-        );
-        unavailable = availability::stabilize_module_value_availability(
-            module,
-            environment,
-            variant_diagnostics,
-            unavailable,
-            pending_dependencies,
-            &reverse_dependencies,
-        );
-        final_analysis = check_module_values_once(module, environment, variant_diagnostics);
-        debug_assert!(
-            unavailable.is_superset(&final_analysis.invalid),
-            "unavailable={unavailable:#?}, final_invalid={:#?}",
-            final_analysis.invalid,
-        );
-    }
-    final_analysis.invalid.extend(unavailable);
+    let final_analysis = check_module_values_once(module, environment, variant_diagnostics);
+    debug_assert_eq!(unavailable, final_analysis.invalid);
     final_analysis
 }
 
@@ -206,9 +185,9 @@ fn check_module_values_once(
     let mut diagnostics = Vec::new();
     let mut dependencies = vec![Vec::new(); module.module_values.len()];
     let colliding_identities = colliding_module_value_identities(module);
-    let mut initially_invalid = colliding_identities.clone();
-    initially_invalid.extend(invalid_cased_module_value_identities(module));
-    let mut invalid = initially_invalid_values(module, &initially_invalid);
+    let mut intrinsic_invalid = colliding_identities.clone();
+    intrinsic_invalid.extend(invalid_cased_module_value_identities(module));
+    let mut invalid = initially_invalid_values(module, &intrinsic_invalid);
     let value_indices = module_value_indices(module, &colliding_identities);
 
     for (index, value) in module.module_values.iter().enumerate() {
@@ -229,10 +208,19 @@ fn check_module_values_once(
     diagnostics.extend(cycle_diagnostics);
     for index in cyclic {
         invalid[index] = true;
+        let value = &module.module_values[index];
+        if let Some(name) = &value.name {
+            intrinsic_invalid.insert((
+                value.package_name.clone(),
+                value.module_name.clone(),
+                name.clone(),
+            ));
+        }
     }
     propagate_invalid_dependencies(&dependencies, &mut invalid);
     ModuleValueAnalysis {
         diagnostics,
+        intrinsic_invalid,
         invalid: module
             .module_values
             .iter()

@@ -401,7 +401,39 @@ impl TypeEnvironment {
         self.qualified_module_value_in_owner(segments, name, current_module, current_package)
     }
 
-    pub(crate) fn module_value_dependency_identity_in_owner(
+    pub(crate) fn module_value_dependency_candidates_in_owner(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Vec<ModuleValueIdentity> {
+        if let [name] = segments
+            && self
+                .same_owner_module_value(segments, name, current_module, current_package)
+                .is_none()
+            && !self.functions_named(name).any(|function| {
+                function.module_name.as_deref() == current_module
+                    && function.package_name.as_deref() == current_package
+            })
+        {
+            let key = (
+                current_package.map(str::to_owned),
+                current_module.map(str::to_owned),
+                name.clone(),
+            );
+            // Retain every candidate, including currently unavailable and ambiguous
+            // candidates: either transition can change the selected declaration.
+            return self
+                .materialize_bare_module_value_exposure(&key)
+                .map(|exposure| exposure.candidates.into_iter().collect())
+                .unwrap_or_default();
+        }
+        self.module_value_dependency_identity_in_owner(segments, current_module, current_package)
+            .into_iter()
+            .collect()
+    }
+
+    fn module_value_dependency_identity_in_owner(
         &self,
         segments: &[String],
         current_module: Option<&str>,

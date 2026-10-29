@@ -1,4 +1,7 @@
-pub let answer: Int = 1
+pub type TwoValue
+	pub Two
+end
+pub let answer: TwoValue = Two
 type Secret
 	pub Value
 end

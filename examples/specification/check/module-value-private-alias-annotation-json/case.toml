@@ -1,0 +1,105 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["type.public_annotation_private", "private_type_declaration", "public_module_value_boundary"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "type.public_annotation_private"
+
+[[json_assert]]
+path = "diagnostics.1.details"
+equals = {"boundary":"public_module_value","name":"direct","written_type":"Secret","resolved_type":"main::Secret"}
+
+[[json_assert]]
+path = "diagnostics.1.span.start.line"
+equals = 11
+
+[[json_assert]]
+path = "diagnostics.1.span.start.column"
+equals = 17
+
+[[json_assert]]
+path = "diagnostics.1.related"
+length = 2
+
+[[json_assert]]
+path = "diagnostics.1.related.0.kind"
+equals = "private_type_declaration"
+
+[[json_assert]]
+path = "diagnostics.1.related.0.message"
+equals = "Private type `main::Secret` is declared here."
+
+[[json_assert]]
+path = "diagnostics.1.related.0.span.start.line"
+equals = 9
+
+[[json_assert]]
+path = "diagnostics.1.related.0.span.start.column"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.1.related.1.kind"
+equals = "public_module_value_boundary"
+
+[[json_assert]]
+path = "diagnostics.1.related.1.message"
+equals = "Public module value `direct` exposes this type."
+
+[[json_assert]]
+path = "diagnostics.1.related.1.span.start.line"
+equals = 11
+
+[[json_assert]]
+path = "diagnostics.1.related.1.span.start.column"
+equals = 17
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "type.public_annotation_private"
+
+[[json_assert]]
+path = "diagnostics.3.details"
+equals = {"boundary":"public_module_value","name":"nested","written_type":"Secret","resolved_type":"main::Secret"}
+
+[[json_assert]]
+path = "diagnostics.3.span.start.line"
+equals = 12
+
+[[json_assert]]
+path = "diagnostics.3.span.start.column"
+equals = 25
+
+[[json_assert]]
+path = "diagnostics.3.related.0.message"
+equals = "Private type `main::Secret` is declared here."
+
+[[json_assert]]
+path = "diagnostics.3.related.0.span.start.line"
+equals = 9
+
+[[json_assert]]
+path = "diagnostics.3.related.1.kind"
+equals = "public_module_value_boundary"
+
+[[json_assert]]
+path = "diagnostics.3.related.1.message"
+equals = "Public module value `nested` exposes this type."
+
+[[json_assert]]
+path = "diagnostics.3.related.1.span.start.line"
+equals = 12
+
+[[json_assert]]
+path = "diagnostics.3.related.1.span.start.column"
+equals = 17

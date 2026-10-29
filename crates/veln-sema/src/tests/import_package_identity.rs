@@ -58,36 +58,61 @@ fn set_declaration_module_name(module: &mut SurfaceModule, name: &str) {
     }
 }
 
-fn same_spelled_module_values_fixture() -> SurfaceModule {
+fn same_spelled_module_values_fixture(
+    source_order: [usize; 3],
+    reverse_imports: bool,
+    reverse_declarations: bool,
+) -> SurfaceModule {
+    let imports = [
+        "use shared as first from \"selected/pkg\"\n",
+        "use shared as second from \"namesake/pkg\"\n",
+    ];
+    let imports = if reverse_imports {
+        format!("{}{}", imports[1], imports[0])
+    } else {
+        imports.concat()
+    };
     let mut app = source_module(
         "app.veln",
-        concat!(
-            "use shared as first from \"selected/pkg\"\n",
-            "use shared as second from \"namesake/pkg\"\n",
-            "fn read() -> Int\n  first::answer + second::answer\nend\n",
+        &format!(
+            "{imports}fn first_value() -> first::Marker\n  first::answer\nend\n\
+             fn second_value() -> second::Marker\n  second::answer\nend\n"
         ),
         Some("owner/pkg"),
         "app",
     );
-    app.uses[0].name = "shared".to_string();
-    app.uses[1].name = "shared".to_string();
+    for use_decl in &mut app.uses {
+        use_decl.name = "shared".to_string();
+    }
+    let declarations = concat!(
+        "pub type Marker\n  pub Value\nend\n",
+        "pub let answer: Marker = Value\n",
+        "pub let distraction: Int = 2\n",
+    );
     let mut selected = source_module(
         "selected/shared.veln",
-        "pub let answer: Int = 1\n",
+        declarations,
         Some("selected/pkg"),
         "shared",
     );
     let mut namesake = source_module(
         "namesake/shared.veln",
-        "pub let answer: Int = 1\n",
+        declarations,
         Some("namesake/pkg"),
         "shared",
     );
     set_declaration_module_name(&mut selected, "shared");
     set_declaration_module_name(&mut namesake, "shared");
-    extend(&mut app, namesake);
-    extend(&mut app, selected);
-    app
+    if reverse_declarations {
+        selected.module_values.reverse();
+        namesake.module_values.reverse();
+    }
+    let sources = [app, selected, namesake];
+    let mut merged = sources[source_order[0]].clone();
+    for index in source_order.into_iter().skip(1) {
+        extend(&mut merged, sources[index].clone());
+    }
+    merged
 }
 
 fn module_value_for_alias<'a>(
@@ -106,23 +131,61 @@ fn module_value_for_alias<'a>(
 
 #[test]
 fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
-    let app = same_spelled_module_values_fixture();
+    for source_order in [
+        [0, 1, 2],
+        [0, 2, 1],
+        [1, 0, 2],
+        [1, 2, 0],
+        [2, 0, 1],
+        [2, 1, 0],
+    ] {
+        for reverse_imports in [false, true] {
+            for reverse_declarations in [false, true] {
+                let app = same_spelled_module_values_fixture(
+                    source_order,
+                    reverse_imports,
+                    reverse_declarations,
+                );
+                let context = format!(
+                    "source_order={source_order:?}, reverse_imports={reverse_imports}, \
+                     reverse_declarations={reverse_declarations}"
+                );
+                let diagnostics = analyze_surface_module(&app);
+                assert!(
+                    diagnostics.iter().all(|diagnostic| {
+                        !matches!(
+                            diagnostic.id.as_str(),
+                            "name.unresolved" | "name.ambiguous" | "name.duplicate"
+                        )
+                    }),
+                    "{context}: {diagnostics:#?}"
+                );
 
-    let diagnostics = analyze_surface_module(&app);
-
-    assert!(
-        diagnostics.iter().all(|diagnostic| {
-            !matches!(
-                diagnostic.id.as_str(),
-                "name.unresolved" | "name.ambiguous" | "name.duplicate"
-            )
-        }),
-        "{diagnostics:#?}"
-    );
-    let environment = TypeEnvironment::from_module(&app);
-    let first = module_value_for_alias(&environment, "first");
-    let second = module_value_for_alias(&environment, "second");
-    assert!(!std::ptr::eq(first, second));
+                let environment = TypeEnvironment::from_module(&app);
+                for (alias, package) in [("first", "selected/pkg"), ("second", "namesake/pkg")] {
+                    let value = module_value_for_alias(&environment, alias);
+                    assert_eq!(
+                        (
+                            value.declaration.package_name.as_deref(),
+                            value.declaration.module_name.as_deref(),
+                            value.declaration.name.as_deref(),
+                        ),
+                        (Some(package), Some("shared"), Some("answer")),
+                        "alias={alias}, {context}"
+                    );
+                    assert!(
+                        matches!(
+                            &value.ty,
+                            Type::Named { identity, .. }
+                                if identity == &format!("{package}::shared::Marker")
+                        ),
+                        "alias={alias}, {context}: {:?}",
+                        value.ty
+                    );
+                }
+            }
+        }
+    }
 }
 
 #[test]

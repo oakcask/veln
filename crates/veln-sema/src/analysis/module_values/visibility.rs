@@ -15,53 +15,48 @@ pub(super) fn public_named_type_diagnostics(
         return Vec::new();
     }
     let mut seen = BTreeSet::new();
-    value
-        .annotation_paths
-        .iter()
-        .filter_map(|path| private_type_diagnostic(value, path, environment, &mut seen))
-        .collect()
-}
-
-fn private_type_diagnostic(
-    value: &ModuleValueDecl,
-    path: &TypePathSegments,
-    environment: &TypeEnvironment,
-    seen: &mut BTreeSet<String>,
-) -> Option<Diagnostic> {
-    let written = path.segments.join("::");
-    let descriptor = resolved_descriptor(value, path, environment, &written)?;
-    let identity = descriptor.identity();
-    if descriptor.visibility != Visibility::Private || !seen.insert(identity.clone()) {
-        return None;
+    let mut diagnostics = Vec::new();
+    for path in &value.annotation_paths {
+        let written = path.segments.join("::");
+        let Some(descriptors) = resolved_descriptors(value, path, environment, &written) else {
+            continue;
+        };
+        for descriptor in descriptors {
+            let identity = descriptor.declaration_identity();
+            if descriptor.visibility == Visibility::Private && seen.insert(identity.clone()) {
+                diagnostics.push(exposure_diagnostic(
+                    value,
+                    path,
+                    environment,
+                    descriptor,
+                    written.clone(),
+                    identity,
+                ));
+            }
+        }
     }
-    Some(exposure_diagnostic(
-        value,
-        path,
-        environment,
-        descriptor,
-        written,
-        identity,
-    ))
+    diagnostics
 }
 
-fn resolved_descriptor<'a>(
+fn resolved_descriptors<'a>(
     value: &ModuleValueDecl,
     path: &TypePathSegments,
     environment: &'a TypeEnvironment,
     written: &str,
-) -> Option<&'a AdtDescriptor> {
+) -> Option<[&'a AdtDescriptor; 2]> {
     let descriptor = environment.annotation_type_descriptor_in_owner(
         written,
         path.type_argument_count,
         value.module_name.as_deref(),
         value.package_name.as_deref(),
     )?;
-    Some(
+    Some([
+        descriptor,
         environment
             .adts
             .terminal_descriptor_for_alias(descriptor)
             .unwrap_or_else(|| environment.adts.canonical_descriptor_for(descriptor)),
-    )
+    ])
 }
 
 fn exposure_diagnostic(
@@ -104,7 +99,16 @@ fn append_private_declaration(
     descriptor: &AdtDescriptor,
     identity: &str,
 ) {
-    let Some(span) = environment.adts.declaration_span(descriptor) else {
+    let alias_path = environment.adts.type_alias_exposure_path(descriptor);
+    let alias_span = alias_path.and_then(|path| {
+        path.declarations()
+            .next()
+            .map(|declaration| declaration.span.clone())
+    });
+    let Some(span) = alias_span
+        .as_ref()
+        .or_else(|| environment.adts.declaration_span(descriptor))
+    else {
         return;
     };
     diagnostic.related.push(JsonValue::object([

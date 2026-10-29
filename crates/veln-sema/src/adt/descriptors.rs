@@ -41,6 +41,10 @@ impl AdtDescriptor {
         if let Some(identity) = &self.nominal_identity {
             return identity.clone();
         }
+        self.declaration_identity()
+    }
+
+    pub(crate) fn declaration_identity(&self) -> String {
         match (self.package_name.as_deref(), self.module_name.as_deref()) {
             (None, None) | (_, Some("std::prelude")) => self.type_name.clone(),
             (Some(package), Some(module))
