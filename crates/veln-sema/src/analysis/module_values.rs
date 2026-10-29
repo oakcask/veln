@@ -30,7 +30,7 @@ pub(super) struct Dependency {
 pub(crate) struct ModuleValueAnalysis {
     pub(crate) diagnostics: Vec<Diagnostic>,
     pub(crate) invalid: BTreeSet<ModuleValueIdentity>,
-    // Collisions, invalid casing, and same-module cycles cannot recover when
+    // Collisions, invalid casing, and initializer cycles cannot recover when
     // imported candidates change. Other failures are rechecked at each change.
     intrinsic_invalid: BTreeSet<ModuleValueIdentity>,
 }

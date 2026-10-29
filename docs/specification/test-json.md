@@ -166,7 +166,7 @@ record for arbitrary panics, raw stderr matching, or process exit status.
 
 When selected analysis contains a module immutable value, the run-level
 `diagnostics` array includes its initializer, annotation-visibility, imported
-lookup, and same-module dependency diagnostics. Imported lookup retains
+lookup, and package-wide dependency diagnostics. Imported lookup retains
 package-aware declaration identity. The array also includes
 `module.value_not_executable` for every module-value declaration. Every
 selected case is then reported with `status: "blocked"` and

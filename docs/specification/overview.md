@@ -50,7 +50,7 @@ The following behavior is fixed for the implemented slice:
 - Typed module `let` declarations have a fixed parsing, formatting, and
   package-aware same-module and imported semantic-analysis surface for finite
   immutable data. `veln fmt` accepts a valid declaration. After initializer
-  and same-module dependency checking,
+  and package-wide dependency checking,
   `veln check`, `veln run`, `veln test`, and `veln doc` report
   `module.value_not_executable` before checked-core, typed-IR, runtime, or
   package-documentation use. See

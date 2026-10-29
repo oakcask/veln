@@ -50,8 +50,8 @@ cannot replace the JVM launch target.
 A module immutable value declaration in the selected analysis is semantically
 checked before backend launch. Invalid finite-data initializers, annotation
 mismatches, public visibility failures, imported lookup failures, and
-same-module dependency cycles report their semantic diagnostics. Imported
-lookup retains package-aware declaration identity. Every
+dependency cycles across package sources report their semantic diagnostics.
+Imported lookup retains package-aware declaration identity. Every
 declaration also produces `module.value_not_executable`, so even a valid
 initializer cannot supply a value to the selected program.
 

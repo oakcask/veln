@@ -1,0 +1,10 @@
+command = ["check", "alpha.veln", "beta.veln", "gamma.veln", "consumer.veln", "downstream.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["beta.veln:2:22: error[value.module_initializer_cycle]: module value reference `left` closes an initializer cycle", "alpha.veln:3:1: Module value `left` participates in this initializer cycle.", "beta.veln:2:1: Module value `right` participates in this initializer cycle.", "alpha.veln:3:21: Module value `left` depends on `right` here.", "beta.veln:2:22: Module value `right` depends on `left` here.", "consumer.veln:7:2: error[type.mismatch]: expected `String`, but found `Bool`"]
+not_contains = ["ambiguous value", "unresolved value `healthy`", "expected `String`, but found `Int`", "expected `Bool`, but found `Int`"]
+
+[stderr]
+format = "empty"

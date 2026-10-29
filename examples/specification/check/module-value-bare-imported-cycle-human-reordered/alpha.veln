@@ -1,0 +1,4 @@
+use beta as namesake from "namesake/pkg"
+use beta
+pub let left: Int = right
+pub let healthy: Bool = namesake::right

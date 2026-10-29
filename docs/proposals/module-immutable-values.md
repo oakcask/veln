@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Module immutable-value imported lookup, package-aware declaration identity, visibility, cross-module dependencies, execution, documentation publication, language-service navigation, or their planned verification changes.
+update-when: Module immutable-value execution, documentation publication, language-service navigation, or their planned verification changes.
 ---
 
 # Module Immutable Data Value Completion
@@ -9,13 +9,16 @@ Complete the remaining compiler and tooling support for typed module `let`
 declarations. The current specifications own the implemented syntax,
 formatting, finite-data initializer checking, annotation assignability,
 same-module and imported lookup, package-aware declaration identity,
-same-module dependency validation, visibility, and initializer diagnostics.
+same-module and cross-module dependency validation, visibility, and initializer
+diagnostics.
 
 ## Scope
 
 The current [type specification](../specification/types.md#module-immutable-value-initializers)
-defines initializer admission, annotation checking, the same-module dependency
-graph, and same-module cycle rejection. The current
+defines initializer admission, annotation checking, the package-aware
+declaration identity and dependency graph formed by selected same-module and
+imported references across package sources, and same-module and cross-module
+cycle rejection. The current
 [name-resolution specification](../specification/name-resolution.md#namespaces-and-use-roles)
 defines package-aware declaration identity, same-module and imported lookup,
 forward lookup, local shadowing, visibility, and the shared
@@ -24,7 +27,6 @@ function/module-value namespace. The current compiler deliberately retains
 
 This proposal now owns only:
 
-- imported and cross-module dependency validation;
 - checked-core lowering and immutable runtime value construction;
 - package-documentation publication of public names and annotations; and
 - language-service definition, references, and rename for module values.
@@ -33,16 +35,7 @@ Qualified match refinement remains a separate dependent proposal. General
 effectful module initialization and mutable global variables remain outside
 this proposal.
 
-## Remaining Imported Dependencies
-
-Dependencies must connect selected module-value declarations across all
-package sources. Every cross-module cyclic component must fail without
-publishing its declarations or any dependent value. Independent valid
-declarations must remain available for semantic diagnostics. The selected
-closing reference and related declaration and dependency locations must remain
-the same when source enumeration or import order changes.
-
-## Remaining Execution And Publication
+## Remaining Execution, Publication, And Navigation
 
 Every accepted reference must produce the same immutable finite data. Source,
 import, and first-use order must not change the value. There is no effectful
@@ -65,7 +58,6 @@ same-spelled function.
 
 | Concern | Observable acceptance | Planned evidence |
 | --- | --- | --- |
-| Imported dependencies | Cross-module cycles and their dependents are quarantined while unrelated facts remain available; source and import reordering does not change cycle selection. | Multi-module semantic and checked command cases with reordered sources and imports. |
 | Execution | Admitted literals, records, constructors, and references produce their declared immutable data without initializer effects. | Checked `veln run` examples with independently written expected values. |
 | Publication | Public names and annotations are documented atomically without initializer text. | Package-documentation success and failure cases. |
 | Navigation | Definition, references, and rename retain declaration identity across valid import spellings. | Language-service and protocol cases. |

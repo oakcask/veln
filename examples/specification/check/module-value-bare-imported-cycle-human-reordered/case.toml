@@ -1,0 +1,11 @@
+command = ["check", "consumer.veln", "beta.veln", "alpha.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains_file = "case-text/cycle-diagnostic.txt"
+contains = ["consumer.veln:7:2: error[type.mismatch]: expected `String`, but found `Bool`"]
+not_contains = ["ambiguous value", "unresolved value `healthy`", "expected `String`, but found `Int`"]
+
+[stderr]
+format = "empty"

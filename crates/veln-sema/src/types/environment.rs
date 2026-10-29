@@ -679,7 +679,7 @@ impl TypeEnvironment {
             .unwrap_or_default()
     }
 
-    fn module_value_dependency_identity_in_owner(
+    pub(crate) fn module_value_dependency_identity_in_owner(
         &self,
         segments: &[String],
         current_module: Option<&str>,
@@ -699,36 +699,64 @@ impl TypeEnvironment {
             }
         }
         if segments.len() == 1 {
-            if self.functions_named(name).any(|function| {
-                function.module_name.as_deref() == current_module
-                    && function.package_name.as_deref() == current_package
-            }) {
-                return None;
-            }
-            let key = (
-                current_package.map(str::to_owned),
-                current_module.map(str::to_owned),
-                name.clone(),
+            return self.bare_module_value_dependency_identity(
+                name,
+                current_module,
+                current_package,
             );
-            let exposure = self.materialize_bare_module_value_exposure(&key)?;
-            if !exposure.function_candidates.is_empty() {
-                return None;
-            }
-            let identity = if exposure.active.len() == 1 {
-                exposure.active.into_iter().next()
-            } else if exposure.active.is_empty() && exposure.candidates.len() == 1 {
-                exposure.candidates.into_iter().next()
-            } else {
-                None
-            };
-            return identity.filter(|identity| {
-                matches!(
-                    self.module_values_by_identity.get(identity),
-                    Some(ModuleValueIndex::Unique(_))
-                )
-            });
         }
 
+        self.qualified_module_value_dependency_identity(
+            segments,
+            name,
+            current_module,
+            current_package,
+        )
+    }
+
+    fn bare_module_value_dependency_identity(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<ModuleValueIdentity> {
+        if self.functions_named(name).any(|function| {
+            function.module_name.as_deref() == current_module
+                && function.package_name.as_deref() == current_package
+        }) {
+            return None;
+        }
+        let key = (
+            current_package.map(str::to_owned),
+            current_module.map(str::to_owned),
+            name.to_owned(),
+        );
+        let exposure = self.materialize_bare_module_value_exposure(&key)?;
+        if !exposure.function_candidates.is_empty() {
+            return None;
+        }
+        let identity = if exposure.active.len() == 1 {
+            exposure.active.into_iter().next()
+        } else if exposure.active.is_empty() && exposure.candidates.len() == 1 {
+            exposure.candidates.into_iter().next()
+        } else {
+            None
+        };
+        identity.filter(|identity| {
+            matches!(
+                self.module_values_by_identity.get(identity),
+                Some(ModuleValueIndex::Unique(_))
+            )
+        })
+    }
+
+    fn qualified_module_value_dependency_identity(
+        &self,
+        segments: &[String],
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<ModuleValueIdentity> {
         let module_path = segments[..segments.len() - 1].join("::");
         let owner = veln_ast::ResolvedImportOwner {
             package: current_package.map(str::to_owned),
@@ -748,7 +776,7 @@ impl TypeEnvironment {
         let identity = (
             use_decl.resolved_target().package,
             Some(use_decl.name.clone()),
-            name.clone(),
+            name.to_owned(),
         );
         let ModuleValueIndex::Unique(index) = self.module_values_by_identity.get(&identity)? else {
             return None;

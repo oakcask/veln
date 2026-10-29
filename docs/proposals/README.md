@@ -20,10 +20,9 @@ also states it.
   payloads, predicates, and ordinary decoder functions, extending the
   implemented direct-field and composed-schema operation:
   [schema-runtime-refinement-validation.md](schema-runtime-refinement-validation.md).
-- With typed module `let` syntax, same-module analysis, imported lookup,
-  package-aware stable identity, and visibility implemented, add cross-module
-  dependency validation, execution, documentation publication, and
-  language-service navigation:
+- With typed module `let` syntax, package-wide dependency validation, imported
+  lookup, package-aware stable identity, and visibility implemented, add
+  execution, documentation publication, and language-service navigation:
   [module-immutable-values.md](module-immutable-values.md).
 - Generic named-type variance, bounded inference, and variance metadata:
   [generic-and-function-variance.md](generic-and-function-variance.md).

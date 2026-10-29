@@ -258,14 +258,16 @@ analysis rejects every declaration in that component after recovery repeats.
 An intrinsic declaration failure that remains continuously unavailable is not
 a recovery repeat. It does not reject otherwise valid declarations in the
 candidate component.
-This relation propagates semantic availability and does not create an
-initializer dependency-graph edge or a cross-module initializer-cycle
-diagnostic. It includes competing fixed points that would otherwise depend on
-publishing one declaration before checking another. Rejected declarations
-remain unavailable, their dependents are not republished, and independent
-valid candidates remain selectable. Source order and import order do not
-change the rejected component, diagnostics, or remaining selection.
-Duplicate declarations, invalid-cased declarations, and same-module
+This relation propagates semantic availability and does not itself create an
+initializer dependency-graph edge. Selected same-module and imported
+initializer references create those edges and can produce an initializer-cycle
+diagnostic. The availability relation includes competing fixed points that
+would otherwise depend on publishing one declaration before checking another.
+Rejected declarations remain unavailable, their dependents are not
+republished, and independent valid candidates remain selectable. Source order
+and import order do not change the rejected component, diagnostics, or
+remaining selection.
+Duplicate declarations, invalid-cased declarations, and
 initializer cycles remain unavailable when imported availability changes.
 A same-module function or function alias that collides with a module value
 keeps that module-value identity unavailable when imported availability changes
@@ -315,6 +317,15 @@ The checked
 and
 [`same-module exact quarantine JSON`](../../examples/specification/check/module-value-quarantined-exact-same-module-json/)
 cases also cover an exact path that equals the importing module's own spelling.
+The checked bare-import cycle
+[`human`](../../examples/specification/check/module-value-bare-imported-cycle-human/),
+[`reordered human`](../../examples/specification/check/module-value-bare-imported-cycle-human-reordered/),
+[`JSON`](../../examples/specification/check/module-value-bare-imported-cycle-json/),
+and
+[`reordered JSON`](../../examples/specification/check/module-value-bare-imported-cycle-json-reordered/)
+cases cover dependency selection through an ordinary import while an aliased
+package-distinct namesake remains independently selectable. They also keep both
+selections invariant under source and import reordering.
 
 Qualified module-value import selection has deterministic scaling checks. One
 workload compares 64 and 128 distinct imports and performs one qualified read

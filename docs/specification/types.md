@@ -690,13 +690,17 @@ literal when a `Dict<K, V>` annotation, record field, constructor payload, or
 resolved alias supplies that expectation. Without a dictionary expectation it
 remains an admitted empty structural record.
 
-Same-module references form a dependency graph independent of declaration
-order. An acyclic forward reference has the target's written annotation. Each
-cyclic component is rejected once at a deterministic reference that closes
-the cycle. An invalid declaration and every declaration that depends on it are
-withheld from later semantic facts; unrelated valid declarations remain
-available for checking function bodies. A module value initializer resolves
-imported declarations according to their final availability. A bare or
+Selected same-module and imported references between package sources form a
+dependency graph independent of declaration, source-enumeration, and import
+order. Declaration identity includes the owning package and module. An acyclic
+forward or imported reference has the target's written annotation. Each cyclic
+component is rejected once at a deterministic reference that closes the cycle.
+The diagnostic orders its declaration and dependency locations by declaration
+identity and source location. An invalid declaration and every declaration
+reachable from it through one or more dependency edges, including across
+modules, are withheld from later semantic facts; unrelated valid declarations
+remain available for checking function bodies. A module value initializer
+resolves imported declarations according to their final availability. A bare or
 uniquely targeted qualified reference can therefore select a valid imported
 namesake even when another imported namesake is invalid, independent of source
 and import order. Equal exact paths from distinct package origins remain
@@ -706,9 +710,8 @@ or function alias is withheld by its public-signature visibility failure. A
 published function or alias with that name remains a collision. Rechecking an
 owner after an imported dependency becomes unavailable does not restore a
 module value that collides with a same-module function or alias.
-With no valid candidate, the initializer reference remains unresolved.
-Cross-module initializer references do not yet form dependency edges, so
-cross-module cycles are not rejected by this dependency check. The checked
+With no valid candidate, the initializer reference remains unresolved. The
+checked
 [`module-value initializer failure`](../../examples/specification/check/module-value-initializer-unsupported-human/)
 and
 [`cycle human`](../../examples/specification/check/module-value-initializer-cycle-human/)
@@ -716,6 +719,23 @@ cases cover the initializer boundary and the rendered cycle notes, spans, and
 order. The checked
 [`cycle JSON`](../../examples/specification/check/module-value-initializer-cycle-json/)
 case covers the structured related kinds and machine-readable spans. The checked
+cross-module cycle
+[`human`](../../examples/specification/check/module-value-cross-module-cycle-human/),
+[`reordered human`](../../examples/specification/check/module-value-cross-module-cycle-human-reordered/),
+[`JSON`](../../examples/specification/check/module-value-cross-module-cycle-json/),
+and
+[`reordered JSON`](../../examples/specification/check/module-value-cross-module-cycle-json-reordered/)
+cases cover imported dependency edges, multi-hop transitive quarantine,
+unrelated facts, and invariant cycle locations after source and import
+reordering. The checked bare-import cycle
+[`human`](../../examples/specification/check/module-value-bare-imported-cycle-human/),
+[`reordered human`](../../examples/specification/check/module-value-bare-imported-cycle-human-reordered/),
+[`JSON`](../../examples/specification/check/module-value-bare-imported-cycle-json/),
+and
+[`reordered JSON`](../../examples/specification/check/module-value-bare-imported-cycle-json-reordered/)
+cases cover the same invariant diagnostic contract when ordinary import
+exposure selects the dependency without a qualifier, including in the presence
+of an aliased namesake from another package. The checked
 [`admitted initializer JSON`](../../examples/specification/check/module-value-admitted-json/)
 case verifies that representative finite-data declarations reach only the
 checked-core execution gate. The checked
@@ -779,8 +799,8 @@ recheck lookups by the number of dependency edges plus one. Doubling the chain
 allows at most twice the recheck lookups plus two; doubling only unrelated
 declarations allows at most one additional recheck lookup.
 These availability/recheck relations propagate semantic invalidation. They are
-not initializer dependency-graph edges and do not reject cross-module
-initializer cycles.
+separate from the initializer dependency-graph edges that reject initializer
+cycles.
 Same-module cycle storage uses a separate adjacent-size semantic workload. It
 compares rings of 256 and 512 declarations after complete analysis, requires
 one deterministic cycle diagnostic at each size, and counts every identity
@@ -791,7 +811,7 @@ When a failed imported declaration is removed from an ambiguous initializer
 lookup, the remaining valid declaration supplies the initializer type. A
 dependent module value whose initializer then satisfies its annotation becomes
 available to its importers. Duplicate declarations, invalid-cased declarations,
-and same-module initializer cycles do not recover through this process. The
+and initializer cycles do not recover through this process. The
 checked invalid-import exposure cases cover recovery and retained package
 identity in both source and import orders.
 If recovery inside a cyclic availability candidate-dependency component causes

@@ -124,7 +124,7 @@ blockers prevent execution.
 Module immutable value declarations do not reach checked core or typed IR.
 Shared semantic analysis checks their written annotations, finite-data
 initializers, eligible imported references, package-aware visibility, and
-same-module dependencies. It then emits
+selected dependency edges across package sources. It then emits
 `module.value_not_executable` for every declaration, which blocks execution
 before code generation. Parsing, formatting, and semantic checking for the
 declaration do not create a runtime value or initialization phase.

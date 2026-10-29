@@ -1,0 +1,8 @@
+use alpha
+pub let blocked: Int = left
+fn reads_blocked() -> String
+	blocked
+end
+fn reads_healthy() -> String
+	healthy
+end

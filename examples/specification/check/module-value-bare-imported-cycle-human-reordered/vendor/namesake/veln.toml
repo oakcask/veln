@@ -1,0 +1,5 @@
+[package]
+name = "namesake/pkg"
+
+[lib]
+exports = ["beta.veln"]

@@ -347,17 +347,26 @@ fn module_value_index(
     environment: &TypeEnvironment,
 ) -> Option<ModuleValueIndex> {
     let (name, _) = segments.split_last()?;
-    environment
-        .same_module_value_path_matches_in_owner(segments, current_module, current_package)
-        .then(|| {
-            value_indices.get(&(
-                current_package.map(str::to_owned),
-                current_module.map(str::to_owned),
-                name.clone(),
-            ))
-        })
-        .flatten()
-        .copied()
+    if environment.same_module_value_path_matches_in_owner(
+        segments,
+        current_module,
+        current_package,
+    ) {
+        let identity = (
+            current_package.map(str::to_owned),
+            current_module.map(str::to_owned),
+            name.clone(),
+        );
+        if let Some(index) = value_indices.get(&identity) {
+            return Some(*index);
+        }
+    }
+    let identity = environment.module_value_dependency_identity_in_owner(
+        segments,
+        current_module,
+        current_package,
+    )?;
+    value_indices.get(&identity).copied()
 }
 
 fn known_function(
