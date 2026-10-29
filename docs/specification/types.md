@@ -697,10 +697,10 @@ forward or imported reference has the target's written annotation. Each cyclic
 component is rejected once at a deterministic reference that closes the cycle.
 The diagnostic orders its declaration and dependency locations by declaration
 identity and source location. An invalid declaration and every declaration
-that depends on it, including through another module, are withheld from later
-semantic facts; unrelated valid declarations remain available for checking
-function bodies. A module value initializer resolves
-imported declarations according to their final availability. A bare or
+reachable from it through one or more dependency edges, including across
+modules, are withheld from later semantic facts; unrelated valid declarations
+remain available for checking function bodies. A module value initializer
+resolves imported declarations according to their final availability. A bare or
 uniquely targeted qualified reference can therefore select a valid imported
 namesake even when another imported namesake is invalid, independent of source
 and import order. Equal exact paths from distinct package origins remain
@@ -725,8 +725,9 @@ cross-module cycle
 [`JSON`](../../examples/specification/check/module-value-cross-module-cycle-json/),
 and
 [`reordered JSON`](../../examples/specification/check/module-value-cross-module-cycle-json-reordered/)
-cases cover imported dependency edges, transitive quarantine, unrelated facts,
-and invariant cycle locations after source and import reordering. The checked
+cases cover imported dependency edges, multi-hop transitive quarantine,
+unrelated facts, and invariant cycle locations after source and import
+reordering. The checked
 [`admitted initializer JSON`](../../examples/specification/check/module-value-admitted-json/)
 case verifies that representative finite-data declarations reach only the
 checked-core execution gate. The checked

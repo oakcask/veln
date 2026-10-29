@@ -81,7 +81,9 @@ case covers the structured details and spans. The checked cross-module
 and
 [`reordered JSON`](../../examples/specification/check/module-value-cross-module-cycle-json-reordered/)
 cases additionally fix transitive quarantine and the same locations after
-source and import reordering.
+source and import reordering. The quarantine suppresses diagnostics that would
+otherwise arise from direct and multi-hop dependents reading unavailable
+module values.
 
 A function type in a module value annotation uses the ordinary effect-list
 diagnostics. An unbound row tail reports `effect.row_unbound`, and an unknown

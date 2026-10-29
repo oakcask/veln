@@ -53,8 +53,8 @@ references including forward references, resolves eligible imported references
 with package-aware identity and visibility, and reports unsupported initializer
 forms and cyclic components across package sources. Public annotations cannot
 expose private types or variant refinements. Invalid declarations and their
-dependents within the package-wide dependency graph do not provide later
-semantic facts.
+direct or multi-hop dependents within the package-wide dependency graph do not
+provide later semantic facts.
 Imported references in another module value initializer use each imported
 declaration's final availability. Bare and qualified initializer reads
 therefore use the same final import exposure in every source and import order.
