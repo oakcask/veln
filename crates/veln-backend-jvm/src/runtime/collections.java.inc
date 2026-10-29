@@ -5,7 +5,8 @@
         Object baseOffset,
         Object schemaNameValue,
         Object fieldNameValues,
-        Object expectedVariantValues
+        Object expectedVariantValues,
+        Object childPlanValues
     ) {
         long byteOffset = byteOffsetLong(baseOffset);
         String schemaName = asString(schemaNameValue);
@@ -21,46 +22,77 @@
                 }
             ));
         }
-        java.util.List<?> fieldNames = (java.util.List<?>) fieldNameValues;
-        java.util.List<?> expectedByField = (java.util.List<?>) expectedVariantValues;
+        Object failure = schemaRefinementFailure(
+            value,
+            baseOffset,
+            rootPath,
+            (java.util.List<?>) fieldNameValues,
+            (java.util.List<?>) expectedVariantValues,
+            (java.util.List<?>) childPlanValues
+        );
+        return failure == null ? okPreservingValue(value) : failure;
+    }
+
+    private static Object schemaRefinementFailure(
+        Object value,
+        Object baseOffset,
+        String path,
+        java.util.List<?> fieldNames,
+        java.util.List<?> expectedByField,
+        java.util.List<?> childrenByField
+    ) {
         for (int index = 0; index < fieldNames.size(); index += 1) {
             java.util.List<?> expected = (java.util.List<?>) expectedByField.get(index);
-            if (expected.isEmpty()) {
-                continue;
-            }
             String fieldName = asString(fieldNames.get(index));
             Object fieldValue = recordField(value, fieldName);
-            String actual = fieldValue instanceof Adt
-                ? adtLeafName(((Adt) fieldValue).name)
-                : format(fieldValue);
-            boolean admitted = false;
-            for (Object candidate : expected) {
-                if (actual.equals(asString(candidate))) {
-                    admitted = true;
-                    break;
+            String fieldPath = path + "/" + jsonPointerToken(fieldName);
+            if (!expected.isEmpty()) {
+                String actual = fieldValue instanceof Adt
+                    ? adtLeafName(((Adt) fieldValue).name)
+                    : format(fieldValue);
+                boolean admitted = false;
+                for (Object candidate : expected) {
+                    if (actual.equals(asString(candidate))) {
+                        admitted = true;
+                        break;
+                    }
+                }
+                if (!admitted) {
+                    StringBuilder expectedText = new StringBuilder();
+                    for (int variantIndex = 0; variantIndex < expected.size(); variantIndex += 1) {
+                        if (variantIndex > 0) {
+                            expectedText.append(", ");
+                        }
+                        expectedText.append(asString(expected.get(variantIndex)));
+                    }
+                    return err(adt(
+                        "DecodeError::DecodeErrorWithReason",
+                        new Object[] {
+                            "schema.variant_refinement_mismatch",
+                            baseOffset,
+                            fieldPath,
+                            "actual variant `" + actual + "`; expected one of `" + expectedText + "`"
+                        }
+                    ));
                 }
             }
-            if (admitted) {
+            java.util.List<?> child = (java.util.List<?>) childrenByField.get(index);
+            if (child.isEmpty()) {
                 continue;
             }
-            StringBuilder expectedText = new StringBuilder();
-            for (int variantIndex = 0; variantIndex < expected.size(); variantIndex += 1) {
-                if (variantIndex > 0) {
-                    expectedText.append(", ");
-                }
-                expectedText.append(asString(expected.get(variantIndex)));
+            Object failure = schemaRefinementFailure(
+                fieldValue,
+                baseOffset,
+                fieldPath,
+                (java.util.List<?>) child.get(0),
+                (java.util.List<?>) child.get(1),
+                (java.util.List<?>) child.get(2)
+            );
+            if (failure != null) {
+                return failure;
             }
-            return err(adt(
-                "DecodeError::DecodeErrorWithReason",
-                new Object[] {
-                    "schema.variant_refinement_mismatch",
-                    baseOffset,
-                    rootPath + "/" + jsonPointerToken(fieldName),
-                    "actual variant `" + actual + "`; expected one of `" + expectedText + "`"
-                }
-            ));
         }
-        return okPreservingValue(value);
+        return null;
     }
 
     private static String adtLeafName(String name) {

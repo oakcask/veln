@@ -17,8 +17,8 @@ also states it.
 ## Ready
 
 - Recursive runtime validation through nested records, containers, source-ADT
-  payloads, composed format-neutral schemas, predicates, and ordinary decoder
-  functions, extending the implemented direct-field operation:
+  payloads, predicates, and ordinary decoder functions, extending the
+  implemented direct-field and composed-schema operation:
   [schema-runtime-refinement-validation.md](schema-runtime-refinement-validation.md).
 - With typed module `let` syntax, same-module analysis, imported lookup,
   package-aware stable identity, and visibility implemented, add cross-module

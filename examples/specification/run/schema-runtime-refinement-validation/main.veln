@@ -12,19 +12,24 @@ type ConnectedPacket
 	ConnectedPacket
 end
 
+schema Detail
+	phase: State::Connected
+end
+
 schema Metadata
+	detail: Detail
 	version: Int
 end
 
 schema ConnectedPacket
+	metadata: Metadata
 	primary: State::Connected | State::Closing
 	secondary: State::Connected
 	states: List<State>
 	nested: {state: State}
-	metadata: Metadata
 end
 
-fn validate_packet(packet: {primary: State, secondary: State, states: List<State>, nested: {state: State}, metadata: {version: Int}}, offset: ByteOffset) -> Result<{primary: State::Connected | State::Closing, secondary: State::Connected, states: List<State>, nested: {state: State}, metadata: {version: Int}}, DecodeError>
+fn validate_packet(packet: {metadata: {detail: {phase: State}, version: Int}, primary: State, secondary: State, states: List<State>, nested: {state: State}}, offset: ByteOffset) -> Result<{metadata: {detail: {phase: State::Connected}, version: Int}, primary: State::Connected | State::Closing, secondary: State::Connected, states: List<State>, nested: {state: State}}, DecodeError>
 	validate ConnectedPacket from packet at offset
 end
 
@@ -36,7 +41,7 @@ fn state_value(state: State) -> Int
 	end
 end
 
-fn report(result: Result<{primary: State::Connected | State::Closing, secondary: State::Connected, states: List<State>, nested: {state: State}, metadata: {version: Int}}, DecodeError>) -> () effects [stdio]
+fn report(result: Result<{metadata: {detail: {phase: State::Connected}, version: Int}, primary: State::Connected | State::Closing, secondary: State::Connected, states: List<State>, nested: {state: State}}, DecodeError>) -> () effects [stdio]
 	match result
 		Ok(packet) => begin
 			match packet.primary
@@ -72,10 +77,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let second_offset = byte_offset(19)?
 	let first_states: List<State> = list_cons(Closed(17), list_nil())
 	let second_states: List<State> = list_cons(Connected(31), list_nil())
-	report(validate_packet({primary: Connected(1), secondary: Connected(2), states: first_states, nested: {state: Closed(3)}, metadata: {version: 4}}, zero_offset))
-	report(validate_packet({primary: Closed(5), secondary: Connected(6), states: first_states, nested: {state: Connected(7)}, metadata: {version: 8}}, zero_offset))
-	report(validate_packet({primary: Closed(9), secondary: Connected(10), states: first_states, nested: {state: Connected(11)}, metadata: {version: 12}}, negative_offset))
-	report(validate_packet({primary: Connected(3), secondary: Connected(5), states: first_states, nested: {state: Closed(23)}, metadata: {version: 29}}, first_offset))
-	report(validate_packet({primary: Closed(11), secondary: Closed(13), states: second_states, nested: {state: Connected(37)}, metadata: {version: 41}}, second_offset))
+	report(validate_packet({metadata: {detail: {phase: Connected(0)}, version: 4}, primary: Connected(1), secondary: Connected(2), states: first_states, nested: {state: Closed(3)}}, zero_offset))
+	report(validate_packet({metadata: {detail: {phase: Connected(0)}, version: 8}, primary: Closed(5), secondary: Connected(6), states: first_states, nested: {state: Connected(7)}}, zero_offset))
+	report(validate_packet({metadata: {detail: {phase: Closed(0)}, version: 12}, primary: Closed(9), secondary: Connected(10), states: first_states, nested: {state: Connected(11)}}, negative_offset))
+	report(validate_packet({metadata: {detail: {phase: Closed(0)}, version: 29}, primary: Closed(3), secondary: Connected(5), states: first_states, nested: {state: Closed(23)}}, first_offset))
+	report(validate_packet({metadata: {detail: {phase: Connected(0)}, version: 41}, primary: Closed(11), secondary: Closed(13), states: second_states, nested: {state: Connected(37)}}, second_offset))
 	Ok(())
 end

@@ -1460,17 +1460,23 @@ refinement-bearing representation schemas is current behavior under the
 [diagnostic](diagnostics-json.md#diagnostic-families) specifications.
 For `validate Schema from value at offset`, a supported format-neutral schema
 with direct singleton or finite-set refinement fields derives an input record
-by replacing each such refinement with its resolved base ADT while preserving
-nominal identity and generic arguments. The result is
+by replacing each such refinement with its resolved base ADT. The derivation
+recurses through composed format-neutral schema fields while preserving field
+requirements, schema visibility, nominal identity, and generic arguments. The result is
 `Result<SchemaRecord, DecodeError>` and retains the written refinements.
 Contextual typing applies the erased record to `value` and requires
 `ByteOffset` for `offset`; an unrelated ADT, generic argument, record shape, or
 scalar remains a static mismatch. Other supported field types that contain no
 refinement remain unchanged in both records, including containers, anonymous
 records, and composed format-neutral schemas. Refinement erasure and traversal
-inside those shapes, recursive payload traversal, and schema predicates remain
-proposal work, as do qualified-value control-flow refinement and the
-provider-dependent unavailable-descriptor diagnostic.
+inside containers, anonymous records, source-ADT payloads, or recursive values
+remain proposal work. Every reachable composed schema must be format-neutral
+and predicate-free, including composed branches that contain no refinement. A
+field `where` clause,
+schema `validate` clause, or binary schema anywhere in that graph makes the
+operation a static failure, as do
+qualified-value control-flow refinement and the provider-dependent
+unavailable-descriptor diagnostic.
 This behavior does not add variance for named generic constructors, generic
 inference, or effect-row bound solving.
 

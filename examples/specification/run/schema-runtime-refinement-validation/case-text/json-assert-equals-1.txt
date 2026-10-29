@@ -10,10 +10,10 @@ schema.validation_offset_invalid
 -5
 /ConnectedPacket
 offset=-5; expected a non-negative ByteOffset
-ok:3
-nested:23
-metadata:29
-states:preserved
+schema.variant_refinement_mismatch
+7
+/ConnectedPacket/metadata/detail/phase
+actual variant `Closed`; expected one of `Connected`
 schema.variant_refinement_mismatch
 19
 /ConnectedPacket/primary

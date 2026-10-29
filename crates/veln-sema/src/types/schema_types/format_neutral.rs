@@ -47,6 +47,21 @@ pub(crate) fn format_neutral_schema_runtime_validation_types(
     schema: &SchemaDecl,
     adts: &AdtRegistry,
 ) -> Option<(Type, Type)> {
+    let (erased, refined, has_refinement) = format_neutral_schema_runtime_validation_types_inner(
+        module,
+        schema,
+        adts,
+        &mut Vec::new(),
+    )?;
+    has_refinement.then_some((erased, refined))
+}
+
+fn format_neutral_schema_runtime_validation_types_inner(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    adts: &AdtRegistry,
+    composition_stack: &mut Vec<(Option<String>, Option<String>, String)>,
+) -> Option<(Type, Type, bool)> {
     if schema.format.is_some()
         || !schema.validations.is_empty()
         || schema
@@ -56,31 +71,70 @@ pub(crate) fn format_neutral_schema_runtime_validation_types(
     {
         return None;
     }
-    let refined_fields = format_neutral_schema_encode_record_fields(module, schema, adts)?;
-    let mut erased_fields = Vec::with_capacity(refined_fields.len());
-    let mut has_refinement = false;
-    for (name, refined) in &refined_fields {
-        let erased = match refined {
-            Type::VariantRefinement {
-                name,
-                identity,
-                args,
-                unresolved_alternatives,
-                ..
-            } if unresolved_alternatives.is_empty()
-                && args
-                    .iter()
-                    .all(|arg| !format_neutral_type_contains_refinement(arg)) =>
-            {
-                has_refinement = true;
-                Type::resolved_named(name.clone(), identity.clone(), args.clone())
-            }
-            _ if !format_neutral_type_contains_refinement(refined) => refined.clone(),
-            _ => return None,
-        };
-        erased_fields.push((name.clone(), erased));
+    let key = (
+        schema.package_name.clone(),
+        schema.module_name.clone(),
+        schema.name.clone()?,
+    );
+    if composition_stack.contains(&key) {
+        return None;
     }
-    has_refinement.then_some((Type::Record(erased_fields), Type::Record(refined_fields)))
+    composition_stack.push(key);
+    let mut erased_fields = Vec::with_capacity(schema.fields.len());
+    let mut refined_fields = Vec::with_capacity(schema.fields.len());
+    let mut has_refinement = false;
+    for field in &schema.fields {
+        let refined =
+            format_neutral_schema_encode_field_type_for_schema(module, schema, adts, &field.ty)?;
+        let traversal = if schema.visibility == Visibility::Public {
+            FormatNeutralSchemaTraversal::EncodePublic
+        } else {
+            FormatNeutralSchemaTraversal::EncodePrivate
+        };
+        let erased = if let Some(child) =
+            format_neutral_schema_composed_field_target(module, schema, adts, &field.ty, traversal)
+        {
+            let (child_erased, child_refined, child_has_refinement) =
+                format_neutral_schema_runtime_validation_types_inner(
+                    module,
+                    child,
+                    adts,
+                    composition_stack,
+                )?;
+            if child_refined != refined {
+                return None;
+            }
+            has_refinement |= child_has_refinement;
+            child_erased
+        } else {
+            match &refined {
+                Type::VariantRefinement {
+                    name,
+                    identity,
+                    args,
+                    unresolved_alternatives,
+                    ..
+                } if unresolved_alternatives.is_empty()
+                    && args
+                        .iter()
+                        .all(|arg| !format_neutral_type_contains_refinement(arg)) =>
+                {
+                    has_refinement = true;
+                    Type::resolved_named(name.clone(), identity.clone(), args.clone())
+                }
+                _ if !format_neutral_type_contains_refinement(&refined) => refined.clone(),
+                _ => return None,
+            }
+        };
+        erased_fields.push((field.name.clone(), erased));
+        refined_fields.push((field.name.clone(), refined));
+    }
+    composition_stack.pop();
+    Some((
+        Type::Record(erased_fields),
+        Type::Record(refined_fields),
+        has_refinement,
+    ))
 }
 
 fn format_neutral_type_contains_refinement(ty: &Type) -> bool {
@@ -170,6 +224,31 @@ fn format_neutral_schema_resolved_field_type(
     traversal: FormatNeutralSchemaTraversal,
     composition_stack: &mut Vec<(Option<String>, Option<String>, String)>,
 ) -> Option<Type> {
+    if let Some(ty) = format_neutral_schema_non_composed_field_type_for_traversal(
+        module, schema, adts, text, traversal,
+    ) {
+        return Some(ty);
+    }
+    if let Some(target) = schema_field_target(module, schema, text)
+        && target.format.is_none()
+    {
+        return format_neutral_schema_composition_value_type(
+            module,
+            target,
+            traversal,
+            composition_stack,
+        );
+    }
+    None
+}
+
+fn format_neutral_schema_non_composed_field_type_for_traversal(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    adts: &AdtRegistry,
+    text: &str,
+    traversal: FormatNeutralSchemaTraversal,
+) -> Option<Type> {
     let parsed = parse_type_annotation(text).ok()?;
     if !format_neutral_schema_written_constructors_are_visible(
         module,
@@ -206,16 +285,6 @@ fn format_neutral_schema_resolved_field_type(
         traversal,
     ) {
         return Some(ty);
-    }
-    if let Some(target) = schema_field_target(module, schema, text)
-        && target.format.is_none()
-    {
-        return format_neutral_schema_composition_value_type(
-            module,
-            target,
-            traversal,
-            composition_stack,
-        );
     }
     None
 }
@@ -357,6 +426,23 @@ impl FormatNeutralSchemaTraversal {
     fn is_decode(self) -> bool {
         matches!(self, Self::DecodePrivate | Self::DecodePublic)
     }
+}
+
+fn format_neutral_schema_composed_field_target<'a>(
+    module: &'a SurfaceModule,
+    schema: &SchemaDecl,
+    adts: &AdtRegistry,
+    text: &str,
+    traversal: FormatNeutralSchemaTraversal,
+) -> Option<&'a SchemaDecl> {
+    if format_neutral_schema_non_composed_field_type_for_traversal(
+        module, schema, adts, text, traversal,
+    )
+    .is_some()
+    {
+        return None;
+    }
+    schema_field_target(module, schema, text)
 }
 
 fn format_neutral_schema_composition_value_type(

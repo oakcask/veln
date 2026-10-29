@@ -75,7 +75,8 @@ public final class SchemaRefinementNegativeOffsetHarness {
             VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(-1) }),
             "ConnectedPacket",
             VelnRuntime.list("state"),
-            VelnRuntime.list(VelnRuntime.list("Connected"))
+            VelnRuntime.list(VelnRuntime.list("Connected")),
+            VelnRuntime.list(VelnRuntime.list())
         );
         System.out.println(result);
     }
@@ -111,21 +112,54 @@ fn jvm_runtime_schema_refinement_validation_preserves_record_identity_on_success
 public final class SchemaRefinementSuccessIdentityHarness {
     public static void main(String[] args) {
         Object state = VelnRuntime.adt("State::Connected", new Object[] {});
-        Object value = VelnRuntime.record("state", state);
+        Object child = VelnRuntime.record("a/b~c", state);
+        Object value = VelnRuntime.record("child", child);
+        Object suppliedChild = VelnRuntime.recordField(value, "child");
+        Object suppliedState = VelnRuntime.recordField(suppliedChild, "a/b~c");
         Object result = VelnRuntime.validateSchemaRefinements(
             value,
             VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(7) }),
-            "ConnectedPacket",
-            VelnRuntime.list("state"),
-            VelnRuntime.list(VelnRuntime.list("Connected"))
+            "Parent/Schema~",
+            VelnRuntime.list("child"),
+            VelnRuntime.list(VelnRuntime.list()),
+            VelnRuntime.list(VelnRuntime.list(
+                VelnRuntime.list("a/b~c"),
+                VelnRuntime.list(VelnRuntime.list("Connected")),
+                VelnRuntime.list(VelnRuntime.list())
+            ))
         );
         if (VelnRuntime.unwrapOk(result) != value) {
             throw new AssertionError("validation rebuilt the supplied record");
         }
-        if (VelnRuntime.recordField(value, "state") != state) {
+        if (VelnRuntime.recordField(value, "child") != suppliedChild
+                || VelnRuntime.recordField(suppliedChild, "a/b~c") != suppliedState) {
             throw new AssertionError("validation rebuilt the supplied payload");
         }
+        Object rejected = VelnRuntime.validateSchemaRefinements(
+            VelnRuntime.record(
+                "child",
+                VelnRuntime.record(
+                    "a/b~c",
+                    VelnRuntime.adt("State::Closed", new Object[] {})
+                ),
+                "later",
+                VelnRuntime.adt("State::Closed", new Object[] {})
+            ),
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(31) }),
+            "Parent/Schema~",
+            VelnRuntime.list("child", "later"),
+            VelnRuntime.list(VelnRuntime.list(), VelnRuntime.list("Connected")),
+            VelnRuntime.list(
+                VelnRuntime.list(
+                    VelnRuntime.list("a/b~c"),
+                    VelnRuntime.list(VelnRuntime.list("Connected")),
+                    VelnRuntime.list(VelnRuntime.list())
+                ),
+                VelnRuntime.list()
+            )
+        );
         System.out.println("validation preserved record identity");
+        System.out.println(rejected);
     }
 }
 "#,
@@ -138,7 +172,12 @@ public final class SchemaRefinementSuccessIdentityHarness {
     );
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "validation preserved record identity\n"
+        concat!(
+            "validation preserved record identity\n",
+            "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, ",
+            "ByteOffset(31), /Parent~1Schema~0/child/a~1b~0c, ",
+            "actual variant `Closed`; expected one of `Connected`))\n"
+        )
     );
 }
 
@@ -171,7 +210,8 @@ public final class SchemaRefinementRejectionIdentityHarness {
             VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(7) }),
             "ConnectedPacket",
             VelnRuntime.list("state", "metadata"),
-            VelnRuntime.list(VelnRuntime.list("Connected"), VelnRuntime.list())
+            VelnRuntime.list(VelnRuntime.list("Connected"), VelnRuntime.list()),
+            VelnRuntime.list(VelnRuntime.list(), VelnRuntime.list())
         );
         if (result.isOk()
                 || !result.toString().contains("schema.variant_refinement_mismatch")) {

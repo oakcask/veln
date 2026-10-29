@@ -21,6 +21,20 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_expr(code, base_offset);
         code.ldc_string(&schema.declaration_name);
         self.emit_schema_field_names(code, schema);
+        self.emit_schema_refinement_expectations(code, schema);
+        self.emit_schema_refinement_children(code, schema);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "validateSchemaRefinements",
+            &object_method_descriptor(6),
+        );
+    }
+
+    fn emit_schema_refinement_expectations(
+        &mut self,
+        code: &mut MethodCode,
+        schema: &IrSchemaDecodeSpec,
+    ) {
         self.emit_object_array(code, schema.fields.len(), |this, code, index| {
             let variants = schema.fields[index]
                 .variant_refinement
@@ -41,10 +55,39 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             "list",
             "([Ljava/lang/Object;)Ljava/util/List;",
         );
+    }
+
+    fn emit_schema_refinement_children(
+        &mut self,
+        code: &mut MethodCode,
+        schema: &IrSchemaDecodeSpec,
+    ) {
+        self.emit_object_array(code, schema.fields.len(), |this, code, index| {
+            let Some(child) = schema.fields[index].payload_schema.as_deref() else {
+                this.emit_object_array(code, 0, |_, _, _| {});
+                code.invokestatic(
+                    &this.program.options.runtime_class,
+                    "list",
+                    "([Ljava/lang/Object;)Ljava/util/List;",
+                );
+                return;
+            };
+            this.emit_object_array(code, 3, |this, code, part| match part {
+                0 => this.emit_schema_field_names(code, child),
+                1 => this.emit_schema_refinement_expectations(code, child),
+                2 => this.emit_schema_refinement_children(code, child),
+                _ => unreachable!("schema refinement child descriptor part"),
+            });
+            code.invokestatic(
+                &this.program.options.runtime_class,
+                "list",
+                "([Ljava/lang/Object;)Ljava/util/List;",
+            );
+        });
         code.invokestatic(
             &self.program.options.runtime_class,
-            "validateSchemaRefinements",
-            &object_method_descriptor(5),
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
         );
     }
 

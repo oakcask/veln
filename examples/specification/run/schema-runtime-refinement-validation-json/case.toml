@@ -24,7 +24,7 @@ equals = 19
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.field_path"
-equals = [{"kind":"schema","name":"ConnectedPacket"},{"kind":"field","name":"state"}]
+equals = [{"kind":"schema","name":"ConnectedPacket"},{"kind":"field","name":"child"},{"kind":"field","name":"state"}]
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.reason"

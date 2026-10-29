@@ -69,6 +69,181 @@ fn explicit_schema_validate_expression_erases_direct_refinement_inputs() {
 }
 
 #[test]
+fn explicit_schema_validate_expression_erases_composed_schema_refinements() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "type OtherState\n  Connected\nend\n",
+            "type Box<A>\n  Open(value: A)\n  Shut\nend\n",
+            "schema Leaf\n",
+            "  state: State::Connected\n",
+            "  box: Box<Int>::Open\n",
+            "end\n",
+            "schema Child\n",
+            "  leaf: Leaf\n",
+            "end\n",
+            "schema Parent\n",
+            "  first: Child\n",
+            "  count: Int\n",
+            "  second: Child\n",
+            "end\n",
+            "fn check(value: {first: {leaf: {state: State, box: Box<Int>}}, count: Int, second: {leaf: {state: State, box: Box<Int>}}}, base: ByteOffset) -> Result<{first: {leaf: {state: State::Connected, box: Box<Int>::Open}}, count: Int, second: {leaf: {state: State::Connected, box: Box<Int>::Open}}}, DecodeError>\n",
+            "  validate Parent from value at base\n",
+            "end\n",
+            "fn wrong_identity(value: {first: {leaf: {state: OtherState, box: Box<Int>}}, count: Int, second: {leaf: {state: State, box: Box<Int>}}}, base: ByteOffset) -> ()\n",
+            "  validate Parent from value at base\n  ()\nend\n",
+            "fn wrong_generic(value: {first: {leaf: {state: State, box: Box<String>}}, count: Int, second: {leaf: {state: State, box: Box<Int>}}}, base: ByteOffset) -> ()\n",
+            "  validate Parent from value at base\n  ()\nend\n",
+            "fn wrong_shape(value: {first: {leaf: {state: State}}, count: Int, second: {leaf: {state: State, box: Box<Int>}}}, base: ByteOffset) -> ()\n",
+            "  validate Parent from value at base\n  ()\nend\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+    let mismatches = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
+        .collect::<Vec<_>>();
+    assert_eq!(mismatches.len(), 3, "{:#?}", lowered.diagnostics);
+    for expected in ["OtherState", "Box<String>", "box"] {
+        assert!(
+            mismatches
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(expected)),
+            "missing mismatch for {expected}: {mismatches:#?}"
+        );
+    }
+    assert!(
+        lowered
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "schema.validate_expression"),
+        "composed schema validation should be eligible: {:#?}",
+        lowered.diagnostics
+    );
+}
+
+#[test]
+fn explicit_schema_validate_expression_checks_all_unrefined_composed_branches() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "schema Refined\n  state: State::Connected\nend\n",
+            "schema Plain\n  value: Int\nend\n",
+            "schema Parent\n",
+            "  before: Plain\n",
+            "  first: Refined\n",
+            "  second: Refined\n",
+            "  after: Plain\n",
+            "end\n",
+            "schema PlainOnly\n  child: Plain\nend\n",
+            "fn accepted(value: {before: {value: Int}, first: {state: State}, second: {state: State}, after: {value: Int}}, base: ByteOffset) -> Result<{before: {value: Int}, first: {state: State::Connected}, second: {state: State::Connected}, after: {value: Int}}, DecodeError>\n",
+            "  validate Parent from value at base\n",
+            "end\n",
+            "fn no_refinement(value: {child: {value: Int}}, base: ByteOffset) -> ()\n",
+            "  validate PlainOnly from value at base\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+    let validation_diagnostics = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.validate_expression")
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        validation_diagnostics.len(),
+        1,
+        "{:#?}",
+        lowered.diagnostics
+    );
+    assert!(
+        validation_diagnostics[0].message.contains("PlainOnly"),
+        "{validation_diagnostics:#?}"
+    );
+}
+
+#[test]
+fn explicit_schema_validate_expression_rejects_predicates_in_any_composed_branch() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "schema Refined\n  state: State::Connected\nend\n",
+            "schema FieldPredicate\n  value: Int where true\nend\n",
+            "schema SchemaPredicate\n  format binary\n  value: Int\n  validate value == value\nend\n",
+            "schema FieldIntermediate\n  nested: FieldPredicate\nend\n",
+            "schema SchemaIntermediate\n  nested: SchemaPredicate\nend\n",
+            "schema FieldDirectBefore\n  blocked: FieldPredicate\n  refined: Refined\nend\n",
+            "schema FieldDirectAfter\n  refined: Refined\n  blocked: FieldPredicate\nend\n",
+            "schema FieldNestedBefore\n  blocked: FieldIntermediate\n  refined: Refined\nend\n",
+            "schema FieldNestedAfter\n  refined: Refined\n  blocked: FieldIntermediate\nend\n",
+            "schema SchemaDirectBefore\n  blocked: SchemaPredicate\n  refined: Refined\nend\n",
+            "schema SchemaDirectAfter\n  refined: Refined\n  blocked: SchemaPredicate\nend\n",
+            "schema SchemaNestedBefore\n  blocked: SchemaIntermediate\n  refined: Refined\nend\n",
+            "schema SchemaNestedAfter\n  refined: Refined\n  blocked: SchemaIntermediate\nend\n",
+            "fn field_direct_before(value: {blocked: {value: Int}, refined: {state: State}}, base: ByteOffset) -> ()\n  validate FieldDirectBefore from value at base\n  ()\nend\n",
+            "fn field_direct_after(value: {refined: {state: State}, blocked: {value: Int}}, base: ByteOffset) -> ()\n  validate FieldDirectAfter from value at base\n  ()\nend\n",
+            "fn field_nested_before(value: {blocked: {nested: {value: Int}}, refined: {state: State}}, base: ByteOffset) -> ()\n  validate FieldNestedBefore from value at base\n  ()\nend\n",
+            "fn field_nested_after(value: {refined: {state: State}, blocked: {nested: {value: Int}}}, base: ByteOffset) -> ()\n  validate FieldNestedAfter from value at base\n  ()\nend\n",
+            "fn schema_direct_before(value: {blocked: {value: Int}, refined: {state: State}}, base: ByteOffset) -> ()\n  validate SchemaDirectBefore from value at base\n  ()\nend\n",
+            "fn schema_direct_after(value: {refined: {state: State}, blocked: {value: Int}}, base: ByteOffset) -> ()\n  validate SchemaDirectAfter from value at base\n  ()\nend\n",
+            "fn schema_nested_before(value: {blocked: {nested: {value: Int}}, refined: {state: State}}, base: ByteOffset) -> ()\n  validate SchemaNestedBefore from value at base\n  ()\nend\n",
+            "fn schema_nested_after(value: {refined: {state: State}, blocked: {nested: {value: Int}}}, base: ByteOffset) -> ()\n  validate SchemaNestedAfter from value at base\n  ()\nend\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let mut module = lower_surface_ast(&parsed.tree);
+    module
+        .schemas
+        .iter_mut()
+        .find(|schema| schema.name.as_deref() == Some("SchemaPredicate"))
+        .expect("schema predicate fixture")
+        .format = None;
+    let lowered = lower_checked_surface_module(&module);
+    let validation_diagnostics = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.validate_expression")
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        validation_diagnostics.len(),
+        8,
+        "{:#?}",
+        lowered.diagnostics
+    );
+    for schema in [
+        "FieldDirectBefore",
+        "FieldDirectAfter",
+        "FieldNestedBefore",
+        "FieldNestedAfter",
+        "SchemaDirectBefore",
+        "SchemaDirectAfter",
+        "SchemaNestedBefore",
+        "SchemaNestedAfter",
+    ] {
+        assert!(
+            validation_diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(schema)),
+            "missing unsupported target {schema}: {validation_diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
 fn explicit_schema_validate_expression_checks_erased_inputs_and_offset() {
     let source = SourceFile::new(
         "main.veln",
@@ -133,19 +308,19 @@ fn explicit_schema_validate_expression_rejects_unsupported_refinement_shapes() {
         "main.veln",
         concat!(
             "type State\n  Connected\n  Closed\nend\n",
-            "schema RefinedChild\n  state: State::Connected\nend\n",
             "schema NestedPacket\n  direct: State::Connected\n  nested: {state: State::Connected}\nend\n",
             "schema ContainerPacket\n  direct: State::Connected\n  states: List<State::Connected>\nend\n",
-            "schema ComposedPacket\n  direct: State::Connected\n  child: RefinedChild\nend\n",
             "schema PredicatePacket\n  direct: State::Connected where true\nend\n",
+            "schema PredicateChild\n  state: State::Connected where true\nend\n",
+            "schema ComposedPredicatePacket\n  child: PredicateChild\nend\n",
             "fn nested(value: {direct: State, nested: {state: State}}, base: ByteOffset) -> ()\n",
             "  validate NestedPacket from value at base\n  ()\nend\n",
             "fn container(value: {direct: State, states: List<State>}, base: ByteOffset) -> ()\n",
             "  validate ContainerPacket from value at base\n  ()\nend\n",
-            "fn composed(value: {direct: State, child: {state: State}}, base: ByteOffset) -> ()\n",
-            "  validate ComposedPacket from value at base\n  ()\nend\n",
             "fn predicate(value: {direct: State}, base: ByteOffset) -> ()\n",
             "  validate PredicatePacket from value at base\n  ()\nend\n",
+            "fn composed_predicate(value: {child: {state: State}}, base: ByteOffset) -> ()\n",
+            "  validate ComposedPredicatePacket from value at base\n  ()\nend\n",
         ),
     );
     let parsed = parse(&source);
@@ -167,8 +342,8 @@ fn explicit_schema_validate_expression_rejects_unsupported_refinement_shapes() {
     for schema in [
         "NestedPacket",
         "ContainerPacket",
-        "ComposedPacket",
         "PredicatePacket",
+        "ComposedPredicatePacket",
     ] {
         assert!(
             validation_diagnostics
