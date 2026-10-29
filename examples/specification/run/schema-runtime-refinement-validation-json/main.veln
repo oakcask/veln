@@ -5,13 +5,17 @@ pub type State
 	pub Closed
 end
 
-schema ConnectedPacket
+schema Child
 	state: State::Connected
 end
 
-pub fn main() -> Result<{state: State::Connected}, DecodeError>
+schema ConnectedPacket
+	child: Child
+end
+
+pub fn main() -> Result<{child: {state: State::Connected}}, DecodeError>
 	match byte_offset(19)
-		Ok(offset) => validate ConnectedPacket from {state: Closed} at offset
+		Ok(offset) => validate ConnectedPacket from {child: {state: Closed}} at offset
 		Err(_) => main()
 	end
 end

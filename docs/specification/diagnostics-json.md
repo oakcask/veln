@@ -1160,8 +1160,9 @@ uses `schema.variant_refinement_mismatch`, and a negative offset uses
 `schema.validation_offset_invalid`. Their byte-diagnostic projection preserves
 the exact `ByteOffset`, `reason`, and decoded JSON Pointer `field_path`. The
 root segment has kind `schema` and the terminal declaration name; following
-segments have kind `field`. Human rendering identifies the failed fact at the
-offset and places the path and mismatch or offset reason in notes.
+segments have kind `field`, including each containing composed-schema field
+before the rejected direct field. Human rendering identifies the failed fact
+at the offset and places the path and mismatch or offset reason in notes.
 
 Type inference diagnostics include:
 

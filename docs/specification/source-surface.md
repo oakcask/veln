@@ -464,18 +464,19 @@ admitted by the format-neutral field rules. A written import does not create a
 bare schema operation path. Generated helper names are implementation details.
 
 `validate SchemaName from value at base_offset` accepts a format-neutral schema
-whose refinement-bearing positions are direct record fields containing
-singleton or finite-set source-ADT refinements. The value is checked against
-the schema-local record after replacing each supported direct refinement with
-its base ADT, and `base_offset` must be `ByteOffset`. The result is
+whose refinement-bearing positions are direct record fields of that schema or
+of recursively composed format-neutral schemas. Each such field contains a
+singleton or finite-set source-ADT refinement. The value is checked against
+the schema-local record after recursively replacing each supported refinement
+with its base ADT, and `base_offset` must be `ByteOffset`. The result is
 `Result<SchemaRecord, DecodeError>` with the refinements retained. A supported
-validation schema has at least one such field and has no field-local or
-schema-level predicate. Other supported fields may contain unrefined
-containers, anonymous records, or composed format-neutral schemas; validation
-preserves those fields without traversing them. Refinement erasure and
-traversal inside those shapes, recursive payload traversal, and binary schemas
-are not eligible. The value and offset expressions are evaluated once, in that
-order. Schema-path lookup,
+validation schema has at least one reachable such field. It and every composed
+schema on a path to a refinement have no field-local or schema-level predicate.
+Other supported fields may contain unrefined containers and anonymous records;
+validation preserves those fields without traversing them. Refinement erasure
+inside anonymous records, containers, source-ADT payloads, or recursive values
+is not eligible. Binary schemas are also not eligible. The value and offset
+expressions are evaluated once, in that order. Schema-path lookup,
 public aliases, and exact-companion private access follow the decode and encode
 rules above. This expression use of `validate` is distinct from a schema-body
 validation predicate.

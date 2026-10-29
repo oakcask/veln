@@ -19,7 +19,8 @@ This proposal retains only the unimplemented recursive and composition work.
 
 ## Proposed Extension
 
-The existing expression and result shape remain unchanged:
+The existing expression, composed-schema traversal, and result shape remain
+unchanged:
 
 ```veln
 validate ConnectedPacket from base_record at base_offset
@@ -28,10 +29,9 @@ validate ConnectedPacket from base_record at base_offset
 The value input remains the schema-local record with every refinement-bearing
 position replaced by its base ADT. The extension would derive that erased type
 recursively through anonymous records, source-ADT payloads, `Option`, `Result`,
-`List`, `Vec`, `Dict<String, T>`, and composed format-neutral schemas. It would
-preserve nominal identity, generic argument positions, visibility, and field
-requirements. Unsupported shapes and binary schemas would remain static
-failures.
+`List`, `Vec`, and `Dict<String, T>`. It would preserve nominal identity,
+generic argument positions, visibility, and field requirements. Unsupported
+shapes and binary schemas would remain static failures.
 
 Runtime traversal would cover the same recursive positions. It would retain
 the current representation-preserving `Result<SchemaRecord, DecodeError>`
@@ -48,7 +48,6 @@ recoverable `schema.variant_refinement_mismatch` and
 | `Option` and `Result` | Visit only the actual constructor's payload. |
 | `List` and `Vec` | Visit elements in increasing index order. |
 | `Dict<String, T>` | Visit values by ascending lexicographic order of key UTF-8 bytes. |
-| Composed format-neutral schema | Visit target fields at the containing path. |
 | Recursive finite value | Validate every actual payload occurrence; repeated type identity does not suppress later values. |
 
 After every refinement-bearing position succeeds, validation would evaluate
@@ -84,7 +83,7 @@ change no wire bytes, and would not weaken
 
 | Concern | Required evidence |
 | --- | --- |
-| Recursive typing | Nested record, generic source-ADT payload, option, result, list, vector, dictionary, and composed-schema erasure; wrong identities and generic arguments remain rejected. |
+| Recursive typing | Nested record, generic source-ADT payload, option, result, list, vector, and dictionary erasure; wrong identities and generic arguments remain rejected. |
 | Runtime traversal | Admitted and excluded constructors at every recursive position, including repeated recursive values. |
 | Ordering and paths | Multiple failures, dictionary insertion permutations, escaped keys, payload segments, and composed terminal-schema roots. |
 | Predicates | Refinements precede predicates; child, field, and schema predicates follow the specified order. |

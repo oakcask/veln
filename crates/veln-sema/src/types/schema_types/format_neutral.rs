@@ -47,6 +47,21 @@ pub(crate) fn format_neutral_schema_runtime_validation_types(
     schema: &SchemaDecl,
     adts: &AdtRegistry,
 ) -> Option<(Type, Type)> {
+    let (erased, refined, has_refinement) = format_neutral_schema_runtime_validation_types_inner(
+        module,
+        schema,
+        adts,
+        &mut Vec::new(),
+    )?;
+    has_refinement.then_some((erased, refined))
+}
+
+fn format_neutral_schema_runtime_validation_types_inner(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    adts: &AdtRegistry,
+    composition_stack: &mut Vec<(Option<String>, Option<String>, String)>,
+) -> Option<(Type, Type, bool)> {
     if schema.format.is_some()
         || !schema.validations.is_empty()
         || schema
@@ -56,11 +71,22 @@ pub(crate) fn format_neutral_schema_runtime_validation_types(
     {
         return None;
     }
-    let refined_fields = format_neutral_schema_encode_record_fields(module, schema, adts)?;
-    let mut erased_fields = Vec::with_capacity(refined_fields.len());
+    let key = (
+        schema.package_name.clone(),
+        schema.module_name.clone(),
+        schema.name.clone()?,
+    );
+    if composition_stack.contains(&key) {
+        return None;
+    }
+    composition_stack.push(key);
+    let mut erased_fields = Vec::with_capacity(schema.fields.len());
+    let mut refined_fields = Vec::with_capacity(schema.fields.len());
     let mut has_refinement = false;
-    for (name, refined) in &refined_fields {
-        let erased = match refined {
+    for field in &schema.fields {
+        let refined =
+            format_neutral_schema_encode_field_type_for_schema(module, schema, adts, &field.ty)?;
+        let erased = match &refined {
             Type::VariantRefinement {
                 name,
                 identity,
@@ -75,12 +101,35 @@ pub(crate) fn format_neutral_schema_runtime_validation_types(
                 has_refinement = true;
                 Type::resolved_named(name.clone(), identity.clone(), args.clone())
             }
-            _ if !format_neutral_type_contains_refinement(refined) => refined.clone(),
-            _ => return None,
+            _ if !format_neutral_type_contains_refinement(&refined) => refined.clone(),
+            _ => {
+                let child = schema_field_target(module, schema, &field.ty)?;
+                if child.format.is_some() {
+                    return None;
+                }
+                let (child_erased, child_refined, child_has_refinement) =
+                    format_neutral_schema_runtime_validation_types_inner(
+                        module,
+                        child,
+                        adts,
+                        composition_stack,
+                    )?;
+                if child_refined != refined {
+                    return None;
+                }
+                has_refinement |= child_has_refinement;
+                child_erased
+            }
         };
-        erased_fields.push((name.clone(), erased));
+        erased_fields.push((field.name.clone(), erased));
+        refined_fields.push((field.name.clone(), refined));
     }
-    has_refinement.then_some((Type::Record(erased_fields), Type::Record(refined_fields)))
+    composition_stack.pop();
+    Some((
+        Type::Record(erased_fields),
+        Type::Record(refined_fields),
+        has_refinement,
+    ))
 }
 
 fn format_neutral_type_contains_refinement(ty: &Type) -> bool {

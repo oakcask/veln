@@ -1,9 +1,9 @@
 # Imported public aliases validate through the terminal schema declaration.
 use models
 
-pub fn main() -> Result<{state: models::State::Connected}, DecodeError>
+pub fn main() -> Result<{child: {state: models::State::Connected}}, DecodeError>
 	match byte_offset(23)
-		Ok(offset) => validate models::Alias from {state: models::Closed} at offset
+		Ok(offset) => validate models::Alias from {child: {state: models::Closed}} at offset
 		Err(_) => main()
 	end
 end

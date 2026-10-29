@@ -3,8 +3,12 @@ pub type State
 	pub Closed
 end
 
-pub schema Packet
+pub schema Child
 	state: State::Connected
+end
+
+pub schema Packet
+	child: Child
 end
 
 pub schema Alias = Packet

@@ -255,7 +255,7 @@ Format-neutral runtime refinement validation reports these result failures in
 
 | ID | Additional fields |
 | --- | --- |
-| `schema.variant_refinement_mismatch` | The exact supplied `byte_offset`, a `field_path` starting at the terminal schema declaration and ending at the rejected direct field, and `reason` naming the actual and admitted variants. |
+| `schema.variant_refinement_mismatch` | The exact supplied `byte_offset`, a `field_path` starting at the terminal schema declaration, passing through containing composed-schema fields, and ending at the rejected direct field, plus `reason` naming the actual and admitted variants. |
 | `schema.validation_offset_invalid` | The exact negative supplied `byte_offset`, the terminal schema declaration root in `field_path`, and `reason` naming the rejected offset. |
 
 Both failures retain the supplied offset. Their paths do not start at a public
