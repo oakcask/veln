@@ -56,6 +56,31 @@ pub handler stalling_exporter(entered: Sender<()>, release: Receiver<()>) for ho
 	identity(kind, sequence) => string::concat(string::concat(string::concat("stalled-", kind), "-"), int_to_string(sequence))
 end
 
+pub handler controlled_record_exporter(lines: Sender<String>, release: Receiver<()>) for host_effects::ObservationExporter effects [concurrency]
+	write(destination, line, diagnostic) => begin
+		let _ = channel::send(lines, string::concat(string::concat(if diagnostic
+			"diagnostic:"
+		else
+			"record:"
+		end, destination), string::concat(":", line)))
+		if diagnostic
+			true
+		else
+			begin
+				let _ = channel::recv(release)
+				true
+			end
+		end
+	end
+	identity(kind, sequence) => string::concat(string::concat(string::concat("controlled-", kind), "-"), int_to_string(sequence))
+end
+
+pub fn signal_buffered_idle(idle: Sender<()>, resume: Receiver<()>) -> () effects [concurrency]
+	let _ = channel::send(idle, ())
+	let _ = channel::recv(resume)
+	()
+end
+
 pub fn o1_attributes() -> List<Attribute>
 	list_cons(observe::Attribute("enabled", observe::BoolValue(true)), list_cons(observe::Attribute("attempt", observe::IntValue(3)), list_cons(observe::Attribute("route", observe::StringValue("checkout")), list_nil())))
 end

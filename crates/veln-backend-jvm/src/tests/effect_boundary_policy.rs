@@ -121,10 +121,17 @@ fn concurrent_task_cancellation_uses_one_atomic_initiation_claim() {
 fn production_metric_cardinality_uses_bounded_indexed_state_without_owner_tasks() {
     let observe = include_str!("../../../veln-stdlib/veln/observe.veln");
     let runtime = include_str!("../runtime/observability.java.inc");
+    let production_start = observe
+        .find("fn start_production")
+        .expect("production implementation should remain present");
+    let production_end = observe
+        .find("pub fn new_json_lines")
+        .expect("JSON Lines implementation should follow production");
+    let production = &observe[production_start..production_end];
 
     assert!(observe.contains("channel::recv(state_channel.rx)"));
     assert!(observe.contains("restore_uncommitted_production_state"));
-    assert!(!observe.contains("task::spawn_with"));
+    assert!(!production.contains("task::spawn_with"));
     assert!(!observe.contains("production_transaction"));
 
     assert!(runtime.contains("java.util.TreeSet<MetricSeriesIdentity>"));

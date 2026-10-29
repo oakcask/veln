@@ -93,16 +93,18 @@ prelude names or public standard-package declarations. The
 owns the source-visible series identity, admission, health, cancellation, and
 state-bound behavior.
 
-The JVM runtime provides the JSON record encoder, configured destination
-writer, and identity generator reached by the JSON Lines observation handler.
-Without a scoped `host_effects::ObservationExporter` handler, the writer
-flushes standard-error records or creates and appends UTF-8 bytes to the
+The JVM runtime provides the JSON record encoder and configured destination
+writer reached by the synchronous JSON Lines handler and the direct buffered
+exporter. It also provides the identity generator used by synchronous span
+export. Without a scoped `host_effects::ObservationExporter` handler, the
+writer flushes standard-error records or creates and appends UTF-8 bytes to the
 configured file, and the identity generator adds a host-generated UUID to the
 configured prefix and identity kind. A scoped Veln handler can replace writes
-and identities for deterministic tests. The
-[standard-library observability specification](standard-library-observability.md#synchronous-json-lines-export)
-owns the source-visible schema, sequencing, limits, failure health, and
-destination choices.
+and identities for deterministic tests. The standard-library observability
+specification owns the source-visible contracts for
+[synchronous JSON Lines export](standard-library-observability.md#synchronous-json-lines-export)
+and
+[direct buffered export](standard-library-observability.md#direct-buffered-json-lines-export).
 
 If network-handler cleanup cannot confirm that every retained resource is
 closed, leaving the handled scope produces a cleanup failure after attempting

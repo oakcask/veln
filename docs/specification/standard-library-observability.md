@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The standard-library Observe effect, observation handlers, JSON Lines schema, export destinations, exporter health, scoped span helpers, explicit task, channel-value, fan-in, or carrier context propagation, structured logging, named domain events, or observation data model changes.
+update-when: The standard-library Observe effect, observation handlers, JSON Lines schema, export destinations, direct buffered exporter construction, capacity, admission, draining, shutdown, or reports, exporter health, scoped span helpers, explicit task, channel-value, fan-in, or carrier context propagation, structured logging, named domain events, or observation data model changes.
 specification-coverage: usage=#usage; behavior=#behavior; limits=#limits
 ---
 
@@ -13,9 +13,10 @@ handler, explicit channel-value context attachment, explicit fan-in parent and
 link selection, explicit carrier context propagation, and call-site-aware
 structured log helpers for four severities, named domain events, counter
 increments, histogram samples, and a configured production metric-cardinality
-policy with bounded health reporting. It also provides a synchronous JSON
-Lines handler with configured resource identity, scope identity, attribute
-limits, destinations, and exporter health.
+policy with bounded health reporting. It provides a synchronous JSON Lines
+handler with configured resource identity, scope identity, attribute limits,
+destinations, and exporter health, plus a direct bounded buffered exporter with
+explicit admission, health inspection, and shutdown operations.
 Programs choose a lexical handler for the effect; the library does not select
 an exporter implicitly.
 
@@ -178,6 +179,17 @@ policy. `observe::start_export_span` writes a span-start record and returns its
 span handle. `observe::finish_export_span` writes a finish record for a span
 returned by `observe::start_export_span`. The `observe::json_lines` handler
 combines these lower-level operations and is the ordinary installation route.
+
+For direct buffered export, call `observe::new_buffered_json_lines` with the
+same resource, scope, metric limit, exporter limits, destinations, and identity
+prefix as the explicit synchronous constructor, followed by a positive record
+capacity. Match `BufferedJsonLines(exporter)` or
+`InvalidCapacity(capacity)`. Submit log, event, counter, and histogram records
+with `observe::buffered_export_observation`, inspect a non-consuming snapshot
+with `observe::buffered_exporter_health`, and call
+`observe::shutdown_buffered` after all producers finish. The buffered exporter
+has no implicit scope-exit shutdown; a program can register the explicit call
+with `defer` when its cleanup path consumes the report.
 
 Use `traced::spawn(context, body)` to start a child task whose callback needs
 an explicit `observe::TraceContext`. The callback accepts that context as its
@@ -489,6 +501,45 @@ span representations are accepted as a no-op. Each direct start, finish, or
 observation export uses the same sequence, destination, attribute-limit, and
 failure-health rules as handler-driven export.
 
+### Direct buffered JSON Lines export
+
+`new_buffered_json_lines` rejects zero and negative capacity before it starts a
+worker or performs destination I/O. Every positive `Int` is a valid logical
+record bound. Capacity counts accepted records until their destination attempt
+completes, including the record currently in flight. It does not bound record
+bytes.
+
+An open exporter returns `Accepted`, `Full`, or `InvalidRecord` from
+`buffered_export_observation`. An invalid record and a valid record submitted at
+capacity each increment `failed_exports` once without performing destination
+I/O. A valid record below capacity is captured and accepted without waiting for
+its destination attempt. Accepted records use their admission order for
+sequence allocation and destination attempts. The exporter makes one
+destination attempt at a time, releases the record's slot only after that
+attempt completes, and preserves that order while draining. A record accepted
+while the preceding destination attempt settles is drained without requiring
+another submission or a shutdown call to wake the worker. Direct metric
+submission does not apply metric-cardinality admission.
+After the queue becomes idle, each later submission can wake the same worker
+without retaining drain stack frames from earlier idle-to-wake cycles. Worker
+stack use therefore does not grow with the number of completed idle cycles.
+
+Normal `shutdown_buffered` closes admission. After it returns, later submissions
+return `Closed`. Shutdown waits until every accepted record has one completed
+destination attempt. With an enabled diagnostic destination that accepts the
+write, it then attempts one final exporter-health summary and reports
+`SummaryAccepted`. The summary attempt follows every record attempt, including
+when the record and diagnostic destinations identify the same output. The
+admission result at the concurrent shutdown transition remains planned work.
+
+For that enabled accepted destination, normal shutdown freezes and returns
+`BufferedShutdownReport(Completed, health, SummaryAccepted)`. Later shutdown
+calls return the same report without another record or summary attempt.
+`buffered_exporter_health` is non-consuming and returns that frozen health after
+completion. The worker retains the scoped observation-destination provider
+active at construction, even if submission and shutdown occur after that scope
+exits.
+
 ### Span lifecycle and recording
 
 A root span receives a trace identity and a span identity from its recording.
@@ -587,12 +638,15 @@ ambient. Raw task and channel operations remain unchanged.
 
 ## Limits
 
-Metric query APIs, asynchronous metric callbacks, buffered export, automatic
-shutdown flushing, and external telemetry-protocol adapters are not
-available. The synchronous exporter has no retry or durable-audit guarantee.
-Its identity bound counts series rather than the bytes in their names and
-attributes. The standalone cardinality handler does not retain or export
-accepted observations. The no-op handler does not record,
+Metric query APIs, asynchronous metric callbacks, automatic shutdown flushing,
+and external telemetry-protocol adapters are not available. Buffered
+`Observe` handling, buffered span start and finish, concurrent shutdown,
+shutdown interruption, late host-call completion, and configured destination
+failure schedules are not available. The synchronous and buffered exporters
+have no retry or durable-audit guarantee.
+The production metric-cardinality identity bound counts series rather than the
+bytes in their names and attributes. The standalone cardinality handler does
+not retain or export accepted observations. The no-op handler does not record,
 enrich, buffer, export, or report observations. `trace::in_span` currently
 accepts only a body returning `Result<(), String>`, while forwarding that
 body's effect row; it does not define rescue or exception recovery.
@@ -642,6 +696,15 @@ process or machine termination can prevent it from running.
   schema-invalid export rejection, portable hostile-source replacement, and
   preservation of package, nested logical module, and package-relative file
   identity.
+- Direct buffered constructor, capacity, admission, ordered drain, repeated
+  idle-to-wake stack use, enabled accepted final summary, completed-report, and
+  repeated-shutdown coverage is in `observe.test.veln`, with scoped destination
+  support in
+  [`observe_test_support_test.veln`](../../crates/veln-stdlib/veln/observe_test_support_test.veln).
+  The
+  [`observability-buffered-json-lines-host-boundary`](../../examples/specification/run/observability-buffered-json-lines-host-boundary/)
+  case checks ordered worker drain and the final summary through the real JVM
+  file destination.
 - Production index boundary coverage:
   [`effect_boundary_policy.rs`](../../crates/veln-backend-jvm/src/tests/effect_boundary_policy.rs)
   checks bounded indexed state and the absence of owner tasks, while

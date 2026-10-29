@@ -202,7 +202,12 @@ require `concurrency`. Handling with `observe::json_lines(exporter)` removes
 `observe::Observe` and adds `time` and `concurrency`. Its host write boundary
 uses real configured destinations unless a scoped
 `host_effects::ObservationExporter` handler is installed by test support; no
-environment variable or system property selects that substitution. The
+environment variable or system property selects that substitution.
+`observe::new_buffered_json_lines` adds `concurrency` and creates a worker that
+inherits the active observation-exporter adapter. Direct buffered admission
+adds `time` and `concurrency`; buffered health and normal shutdown add
+`concurrency`. The inherited adapter remains attached to the worker after the
+constructing handler scope exits. The
 `trace::in_span<effect E>` helper
 retains `observe::Observe` together with the effect row `E` of its callback
 until an enclosing handler discharges the observation effect. The

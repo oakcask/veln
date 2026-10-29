@@ -26,7 +26,9 @@ also states it.
   [module-immutable-values.md](module-immutable-values.md).
 - Generic named-type variance, bounded inference, and variance metadata:
   [generic-and-function-variance.md](generic-and-function-variance.md).
-- Bounded buffered observation export and explicit shutdown:
+- Buffered observation handlers, spans, failure schedules, concurrent shutdown,
+  interruption, and late host-call completion beyond the implemented normal
+  direct lifecycle:
   [observability.md](observability.md).
 
 ## Blocked
