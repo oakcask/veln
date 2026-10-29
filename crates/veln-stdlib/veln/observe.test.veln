@@ -371,7 +371,7 @@ fn new_buffered_for_test(capacity: Int, diagnostic_destination: DiagnosticDestin
 	)
 end
 
-fn new_buffered_for_test_with_settlement(capacity: Int, diagnostic_destination: DiagnosticDestination, settled: Sender<()>) -> BufferedJsonLinesConstruction effects [concurrency]
+fn new_buffered_for_test_with_settlement(capacity: Int, diagnostic_destination: DiagnosticDestination, settled: Sender<()>, resume: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
 	observe::new_buffered_json_lines_with_settlement_hook_for_test(
 		observe::Resource("svc", list_nil()),
 		observe::InstrumentationScope("scope", "1"),
@@ -383,6 +383,7 @@ fn new_buffered_for_test_with_settlement(capacity: Int, diagnostic_destination: 
 		capacity,
 		observe_test_support_test::signal_buffered_settlement,
 		settled,
+		resume,
 	)
 end
 
@@ -463,10 +464,11 @@ test buffered_invalid_record_reports_outcome_without_record_destination_attempt(
 end
 
 test buffered_capacity_counts_in_flight_and_releases_after_completion() -> Result<(), String> effects [time, concurrency]
-	let lines = observe_test_support_test::export_lines(5)
-	let release = channel::bounded<()>(2)
-	let settled = channel::bounded<()>(2)
-	let constructed = handle new_buffered_for_test_with_settlement(1, observe::DiagnosticStandardError, settled.tx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
+	let lines = observe_test_support_test::export_lines(7)
+	let release = channel::bounded<()>(3)
+	let settled = channel::bounded<()>(3)
+	let resume = channel::bounded<()>(3)
+	let constructed = handle new_buffered_for_test_with_settlement(1, observe::DiagnosticStandardError, settled.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let first = handle observe::buffered_export_observation(exporter, buffered_log("first")) with observe_test_support_test::clock(0)
@@ -478,22 +480,34 @@ test buffered_capacity_counts_in_flight_and_releases_after_completion() -> Resul
 					match channel::recv(settled.rx)
 						Some(_) => begin
 							let outstanding = observe::buffered_outstanding_for_test(exporter)
-							let third = handle observe::buffered_export_observation(exporter, buffered_log("after")) with observe_test_support_test::clock(0)
+							let third = handle observe::buffered_export_observation(exporter, buffered_log("second")) with observe_test_support_test::clock(0)
+							let _ = channel::send(resume.tx, ())
+							let second_line = channel::recv(lines.rx)
 							let _ = channel::send(release.tx, ())
+							let second_settled = channel::recv(settled.rx)
+							let fourth = handle observe::buffered_export_observation(exporter, buffered_log("third")) with observe_test_support_test::clock(0)
+							let _ = channel::send(resume.tx, ())
+							let third_line = channel::recv(lines.rx)
+							let _ = channel::send(release.tx, ())
+							let third_settled = channel::recv(settled.rx)
+							let _ = channel::send(resume.tx, ())
 							let report = observe::shutdown_buffered(exporter)
 							match first
 								observe::Accepted => match second
 									observe::Full => match full_health
 										observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match third
-											observe::Accepted => match report
-												observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => if outstanding == 0 and buffered_contains(first_line, "\"message\":\"first\"")
-													Ok(())
-												else
-													Err("buffered capacity slot or first record changed")
+											observe::Accepted => match fourth
+												observe::Accepted => match report
+													observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => if outstanding == 0 and buffered_contains(first_line, "\"message\":\"first\"") and buffered_line_contains(second_line, "\"message\":\"second\"") and buffered_line_contains(third_line, "\"message\":\"third\"") and buffered_settled(second_settled) and buffered_settled(third_settled)
+														Ok(())
+													else
+														Err("buffered repeated slot release or destination order changed")
+													end
+													_ => Err("buffered shutdown report did not retain the full rejection")
 												end
-												_ => Err("buffered shutdown report did not retain the full rejection")
+												_ => Err("second buffered readmission did not return before its destination release")
 											end
-											_ => Err("buffered capacity did not admit after destination completion")
+											_ => Err("buffered capacity did not admit after first destination completion")
 									end
 										_ => Err("buffered full admission did not increment failed exports once")
 								end
@@ -509,6 +523,20 @@ test buffered_capacity_counts_in_flight_and_releases_after_completion() -> Resul
 			end
 		end
 		_ => Err("positive buffered capacity was rejected")
+	end
+end
+
+fn buffered_line_contains(line: Option<String>, fragment: String) -> Bool
+	match line
+		Some(value) => buffered_contains(value, fragment)
+		None => false
+	end
+end
+
+fn buffered_settled(value: Option<()>) -> Bool
+	match value
+		Some(_) => true
+		None => false
 	end
 end
 

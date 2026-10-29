@@ -1,0 +1,43 @@
+use observe from "std"
+use clock
+
+# This case checks the real JVM buffered observation-exporter boundary.
+# Companion tests own API and capacity permutations. No observation exporter
+# handler is installed here, so the worker retains the production provider and
+# normal shutdown must flush records before the final summary and clean up.
+pub fn main() -> () effects [stdio, time, concurrency]
+	match configured()
+		observe::BufferedJsonLines(exporter) => begin
+			let first = handle observe::buffered_export_observation(exporter, observe::Log(observe::LogRecord("log", observe::Info, "first", list_nil(), None, source()))) with clock::fixed()
+			let second = handle observe::buffered_export_observation(exporter, observe::Event(observe::EventRecord("second", list_nil(), None, source()))) with clock::fixed()
+			match first
+				observe::Accepted => match second
+					observe::Accepted => match observe::shutdown_buffered(exporter)
+						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => stdio::println("buffered-worker-shutdown-complete")
+						_ => stdio::println("buffered-shutdown-failed")
+					end
+					_ => stdio::println("buffered-second-admission-failed")
+				end
+				_ => stdio::println("buffered-first-admission-failed")
+			end
+		end
+		observe::InvalidCapacity(_) => stdio::println("buffered-construction-failed")
+	end
+end
+
+fn source() -> SourceLocation
+	{ package: "", module: "main", file: "main.veln", start_line: 1, start_column: 1, start_offset: 0, end_line: 1, end_column: 2, end_offset: 1 }
+end
+
+fn configured() -> BufferedJsonLinesConstruction effects [concurrency]
+	observe::new_buffered_json_lines(
+		observe::Resource("checkout", list_nil()),
+		observe::InstrumentationScope("host", "1"),
+		4,
+		observe::ExporterLimits(8, 64, 4, list_nil()),
+		observe::FileDestination("records.jsonl"),
+		observe::DiagnosticFileDestination("records.jsonl"),
+		"host",
+		2,
+	)
+end
