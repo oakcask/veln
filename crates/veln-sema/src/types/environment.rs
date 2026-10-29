@@ -20,14 +20,14 @@ type QualifiedModuleValueKey = (veln_ast::ResolvedImportOwner, String);
 #[derive(Clone, Debug)]
 enum QualifiedModuleValueImportSelection {
     Unique(Box<UseDecl>),
-    Ambiguous,
+    Ambiguous(Vec<UseDecl>),
 }
 
 #[derive(Clone, Debug)]
 struct BareModuleValueExposure {
     candidates: BTreeSet<ModuleValueIdentity>,
     active: BTreeSet<ModuleValueIdentity>,
-    function_collision: bool,
+    function_candidates: BTreeSet<ModuleValueTarget>,
 }
 
 #[cfg(test)]
@@ -439,6 +439,120 @@ impl TypeEnvironment {
         self.qualified_module_value_in_owner(segments, name, current_module, current_package)
     }
 
+    pub(crate) fn module_value_ambiguity_candidates(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Vec<ModuleValueAmbiguityCandidate> {
+        let Some((name, _)) = segments.split_last() else {
+            return Vec::new();
+        };
+        if segments.len() > 1 {
+            let owner = ResolvedImportOwner {
+                package: current_package.map(str::to_owned),
+                module: current_module.map(str::to_owned),
+            };
+            let module_path = segments[..segments.len() - 1].join("::");
+            let Some(QualifiedModuleValueImportSelection::Ambiguous(imports)) = self
+                .qualified_module_value_imports
+                .get(&(owner, module_path))
+            else {
+                return Vec::new();
+            };
+            return imports
+                .iter()
+                .map(|use_decl| {
+                    let target = use_decl.resolved_target();
+                    ModuleValueAmbiguityCandidate {
+                        kind: ModuleValueAmbiguityCandidateKind::ImportTarget,
+                        package_name: target.package,
+                        module_name: target.module,
+                        alias: if use_decl.alias.is_empty() {
+                            use_decl.written_name.clone()
+                        } else {
+                            use_decl.alias.clone()
+                        },
+                        span: use_decl.span.clone(),
+                    }
+                })
+                .collect();
+        }
+
+        let owner = (
+            current_package.map(str::to_owned),
+            current_module.map(str::to_owned),
+        );
+        let key = (owner.0.clone(), owner.1.clone(), name.clone());
+        let Some(exposure) = self.materialize_bare_module_value_exposure(&key) else {
+            return Vec::new();
+        };
+        let mut candidates = Vec::new();
+        for identity in exposure.active {
+            let target = (identity.0, identity.1);
+            if let Some(use_decl) = self.ambiguity_import_for_target(&owner, &target) {
+                candidates.push(ModuleValueAmbiguityCandidate {
+                    kind: ModuleValueAmbiguityCandidateKind::ModuleValue,
+                    package_name: target.0,
+                    module_name: target.1.unwrap_or_default(),
+                    alias: use_decl.alias.clone(),
+                    span: use_decl.span.clone(),
+                });
+            }
+        }
+        for target in exposure.function_candidates {
+            if let Some(use_decl) = self.ambiguity_import_for_target(&owner, &target) {
+                candidates.push(ModuleValueAmbiguityCandidate {
+                    kind: ModuleValueAmbiguityCandidateKind::Function,
+                    package_name: target.0,
+                    module_name: target.1.unwrap_or_default(),
+                    alias: use_decl.alias.clone(),
+                    span: use_decl.span.clone(),
+                });
+            }
+        }
+        candidates.sort_by(|left, right| {
+            (
+                &left.package_name,
+                &left.module_name,
+                left.kind,
+                &left.alias,
+                left.span.start.offset,
+            )
+                .cmp(&(
+                    &right.package_name,
+                    &right.module_name,
+                    right.kind,
+                    &right.alias,
+                    right.span.start.offset,
+                ))
+        });
+        candidates
+    }
+
+    fn ambiguity_import_for_target(
+        &self,
+        owner: &ModuleValueOwner,
+        target: &ModuleValueTarget,
+    ) -> Option<&UseDecl> {
+        self.uses
+            .iter()
+            .filter(|use_decl| {
+                crate::name_recovery::use_decl_contributes_bare_exports(use_decl)
+                    && use_decl.importing_package == owner.0
+                    && use_decl.module_name == owner.1
+                    && {
+                        let resolved = use_decl.resolved_target();
+                        resolved.package == target.0
+                            && Some(resolved.module.as_str()) == target.1.as_deref()
+                    }
+            })
+            .min_by(|left, right| {
+                (left.span.file.as_str(), left.span.start.offset)
+                    .cmp(&(right.span.file.as_str(), right.span.start.offset))
+            })
+    }
+
     pub(crate) fn module_value_dependency_candidates_in_owner(
         &self,
         segments: &[String],
@@ -503,7 +617,7 @@ impl TypeEnvironment {
                 name.clone(),
             );
             let exposure = self.materialize_bare_module_value_exposure(&key)?;
-            if exposure.function_collision {
+            if !exposure.function_candidates.is_empty() {
                 return None;
             }
             let identity = if exposure.active.len() == 1 {
@@ -613,7 +727,8 @@ impl TypeEnvironment {
             exposure
         };
         record_bare_module_value_result_selection();
-        if exposure.active.len() > 1 || (exposure.function_collision && !exposure.active.is_empty())
+        if exposure.active.len() > 1
+            || (!exposure.function_candidates.is_empty() && !exposure.active.is_empty())
         {
             return ModuleValueLookup::Ambiguous;
         }
@@ -636,7 +751,7 @@ impl TypeEnvironment {
         let mut exposure = BareModuleValueExposure {
             candidates: BTreeSet::new(),
             active: BTreeSet::new(),
-            function_collision: false,
+            function_candidates: BTreeSet::new(),
         };
         record_bare_module_value_selection();
         if let Some(exports) = self.bare_module_value_exports.get(&key.2) {
@@ -660,12 +775,16 @@ impl TypeEnvironment {
             if exports.len() <= targets.len() {
                 for target in exports {
                     record_bare_module_value_candidate_target_check();
-                    exposure.function_collision |= targets.contains(target);
+                    if targets.contains(target) {
+                        exposure.function_candidates.insert(target.clone());
+                    }
                 }
             } else {
                 for target in targets {
                     record_bare_module_value_candidate_target_check();
-                    exposure.function_collision |= exports.contains(target);
+                    if exports.contains(target) {
+                        exposure.function_candidates.insert(target.clone());
+                    }
                 }
             }
         }
@@ -712,7 +831,7 @@ impl TypeEnvironment {
         };
         let use_decl = match selection {
             QualifiedModuleValueImportSelection::Unique(use_decl) => use_decl,
-            QualifiedModuleValueImportSelection::Ambiguous => {
+            QualifiedModuleValueImportSelection::Ambiguous(_) => {
                 return ModuleValueLookup::Ambiguous;
             }
         };

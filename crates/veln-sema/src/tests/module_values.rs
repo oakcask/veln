@@ -32,6 +32,18 @@ fn module_with_value_chain(count: usize) -> SurfaceModule {
     lower_surface_ast(&parsed.tree)
 }
 
+fn module_with_value_ring(count: usize) -> SurfaceModule {
+    let source = SourceFile::new(
+        "ring.veln",
+        (0..count)
+            .map(|index| format!("let value_{index}: Int = value_{}\n", (index + 1) % count))
+            .collect::<String>(),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    lower_surface_ast(&parsed.tree)
+}
+
 fn module_with_imported_invalidation_chain(count: usize) -> SurfaceModule {
     let mut merged = SurfaceModule {
         module: None,
@@ -616,6 +628,56 @@ fn imported_module_value_invalidation_work_is_adjacent_linear() {
             <= smaller.peak_retained_availability_identities * 2,
         "{smaller:#?} -> {larger:#?}"
     );
+}
+
+#[test]
+fn module_value_cycle_component_storage_is_adjacent_linear() {
+    fn work_for(count: usize) -> crate::analysis::ModuleValueAvailabilityWork {
+        let module = module_with_value_ring(count);
+        reset_module_value_availability_work();
+        let diagnostics = analyze_surface_module(&module);
+        let work = take_module_value_availability_work();
+
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "value.module_initializer_cycle")
+                .count(),
+            1,
+            "{diagnostics:#?}"
+        );
+        assert_eq!(work.retained_cyclic_component_identities, count * 2);
+        work
+    }
+
+    let smaller = work_for(256);
+    let larger = work_for(512);
+    assert_eq!(
+        larger.retained_cyclic_component_identities,
+        smaller.retained_cyclic_component_identities * 2,
+        "{smaller:#?} -> {larger:#?}"
+    );
+}
+
+#[test]
+#[ignore = "supporting wall-clock evidence; deterministic cycle storage is asserted separately"]
+fn module_value_cycle_component_storage_reports_adjacent_size_timings() {
+    for count in [512, 1_024, 2_048] {
+        let module = module_with_value_ring(count);
+        let started = std::time::Instant::now();
+        let diagnostics = analyze_surface_module(&module);
+        let elapsed = started.elapsed();
+
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "value.module_initializer_cycle")
+                .count(),
+            1,
+            "{diagnostics:#?}"
+        );
+        eprintln!("module value cycle: {count} declarations in {elapsed:?}");
+    }
 }
 
 #[test]

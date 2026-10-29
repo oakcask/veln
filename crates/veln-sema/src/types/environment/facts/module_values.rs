@@ -98,7 +98,25 @@ fn qualified_import_selection(
         ));
     }
 
-    Some((key, QualifiedModuleValueImportSelection::Ambiguous))
+    let mut selected = selected;
+    selected.sort_by_key(|use_decl| {
+        let target = use_decl.resolved_target();
+        (
+            target.package,
+            target.module,
+            use_decl.span.file.clone(),
+            use_decl.span.start.offset,
+        )
+    });
+    selected.dedup_by(|left, right| {
+        let left = left.resolved_target();
+        let right = right.resolved_target();
+        left.package == right.package && left.module == right.module
+    });
+    Some((
+        key,
+        QualifiedModuleValueImportSelection::Ambiguous(selected),
+    ))
 }
 
 pub(in crate::types::environment) fn public_module_value_identities(

@@ -22,7 +22,7 @@ impl<'a> FunctionChecker<'a> {
             ModuleValueLookup::Available(value) => return value.ty.clone(),
             ModuleValueLookup::Unavailable => return Type::Unknown,
             ModuleValueLookup::Ambiguous => {
-                return self.ambiguous_function_value(&segments.join("::"), expr);
+                return self.ambiguous_module_value(segments, expr);
             }
             ModuleValueLookup::Missing => {}
         }
@@ -156,6 +156,70 @@ impl<'a> FunctionChecker<'a> {
         Type::Unknown
     }
 
+    fn ambiguous_module_value(&mut self, segments: &[String], expr: &Expr) -> Type {
+        let symbol = segments.join("::");
+        let mut diagnostic = Diagnostic::new(
+            "name.ambiguous",
+            Severity::Error,
+            DiagnosticKind::Name,
+            format!("ambiguous value `{symbol}`"),
+            Some(expr.span.clone()),
+            JsonValue::object([
+                ("phase", JsonValue::string("name")),
+                ("node_id", JsonValue::string(expr.node_id.display("name"))),
+                ("symbol", JsonValue::string(&symbol)),
+                ("namespace", JsonValue::string("value")),
+                ("resolution_status", JsonValue::string("ambiguous")),
+            ]),
+        );
+        for candidate in self.environment.module_value_ambiguity_candidates(
+            segments,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
+            use crate::types::ModuleValueAmbiguityCandidateKind;
+
+            let package = candidate.package_name.as_deref().unwrap_or("<current>");
+            let package_origin = candidate.package_name.as_deref().map_or_else(
+                || "the current package".to_string(),
+                |package| format!("package `{package}`"),
+            );
+            let (candidate_kind, message) = match candidate.kind {
+                ModuleValueAmbiguityCandidateKind::ModuleValue => (
+                    "module_value",
+                    format!(
+                        "Module `{}` from {package_origin} exports module value `{symbol}`; use `{}::{symbol}` to select it.",
+                        candidate.module_name, candidate.alias
+                    ),
+                ),
+                ModuleValueAmbiguityCandidateKind::Function => (
+                    "function",
+                    format!(
+                        "Module `{}` from {package_origin} exports function `{symbol}`; use `{}::{symbol}` to select it.",
+                        candidate.module_name, candidate.alias
+                    ),
+                ),
+                ModuleValueAmbiguityCandidateKind::ImportTarget => (
+                    "import_target",
+                    format!(
+                        "Import `{}` from package `{package}` can select `{symbol}`; give this import a distinct alias to select that package.",
+                        candidate.alias
+                    ),
+                ),
+            };
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("import_candidate")),
+                ("candidate_kind", JsonValue::string(candidate_kind)),
+                ("package", JsonValue::string(package)),
+                ("module", JsonValue::string(&candidate.module_name)),
+                ("message", JsonValue::string(message)),
+                ("span", span_json(&candidate.span)),
+            ]));
+        }
+        self.diagnostics.push(diagnostic);
+        Type::Unknown
+    }
+
     fn infer_recovered_bare_name(&mut self, name: &str, expr: &Expr) -> Type {
         if let Some(function) = self.environment.local_function_value_recovery_in_owner(
             name,
@@ -280,7 +344,7 @@ impl<'a> FunctionChecker<'a> {
             }
             ModuleValueLookup::Unavailable => {}
             ModuleValueLookup::Ambiguous => {
-                self.ambiguous_function_value(&segments.join("::"), callee);
+                self.ambiguous_module_value(segments, callee);
             }
             ModuleValueLookup::Missing => return None,
         }

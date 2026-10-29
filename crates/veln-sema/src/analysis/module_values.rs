@@ -48,6 +48,7 @@ pub(crate) struct ModuleValueAvailabilityWork {
     pub(crate) availability_updates: usize,
     pub(crate) peak_pending_owners: usize,
     pub(crate) peak_retained_availability_identities: usize,
+    pub(crate) retained_cyclic_component_identities: usize,
 }
 
 #[cfg(test)]
@@ -65,6 +66,7 @@ thread_local! {
             availability_updates: 0,
             peak_pending_owners: 0,
             peak_retained_availability_identities: 0,
+            retained_cyclic_component_identities: 0,
         }) };
 }
 

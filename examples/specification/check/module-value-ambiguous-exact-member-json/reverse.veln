@@ -4,3 +4,7 @@ use shared from "one/pkg"
 let reverse_answer: Int = shared::answer
 let reverse_hidden: Int = shared::hidden
 let reverse_broken: Int = shared::broken
+
+fn reverse_call() -> Int
+	shared::answer()
+end

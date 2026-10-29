@@ -155,7 +155,20 @@ public function or alias still makes the bare name ambiguous. A same-module
 function or alias collision continues to withhold its module value after an
 imported dependency causes that module's availability to be checked again; its
 importers emit neither a derivative ambiguity nor `type.not_callable` for the
-withheld value. The checked
+withheld value.
+When module-value lookup reports `name.ambiguous`, each contributing import has
+one `import_candidate` related entry at the import declaration. Entries are
+ordered by resolved package, module, and candidate kind rather than source or
+import order. A bare collision identifies whether each candidate is a module
+value or function and gives its qualifying alias. A qualified exact-path
+collision identifies every package-distinct selected import before member
+visibility or availability is considered, so private, missing, and unavailable
+members retain the same complete package-origin context. The package, resolved
+module, candidate kind, message, and span remain present in JSON; human output
+renders the same package-disambiguating messages. The checked imported-lookup
+and exact-member ambiguity cases cover value reads, call targets, reversed
+imports, and mixed function/module-value candidates.
+The checked
 invalid-import exposure
 [`human`](../../examples/specification/check/module-value-invalid-import-exposure-human/)
 and

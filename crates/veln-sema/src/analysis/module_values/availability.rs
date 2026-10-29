@@ -14,6 +14,23 @@ pub(super) struct StabilizedAvailability {
     pub(super) recurrent_diagnostics: Vec<veln_diagnostics::Diagnostic>,
 }
 
+struct CyclicDependencyComponents {
+    component_by_identity: HashMap<ModuleValueIdentity, usize>,
+    components: Vec<BTreeSet<ModuleValueIdentity>>,
+}
+
+impl CyclicDependencyComponents {
+    fn get(&self, identity: &ModuleValueIdentity) -> Option<&BTreeSet<ModuleValueIdentity>> {
+        self.component_by_identity
+            .get(identity)
+            .and_then(|index| self.components.get(*index))
+    }
+
+    fn retained_identity_count(&self) -> usize {
+        self.component_by_identity.len() + self.components.iter().map(BTreeSet::len).sum::<usize>()
+    }
+}
+
 pub(super) fn stabilize_module_value_availability(
     module: &SurfaceModule,
     environment: &mut TypeEnvironment,
@@ -27,6 +44,7 @@ pub(super) fn stabilize_module_value_availability(
     let mut recurrently_unavailable = BTreeSet::new();
     let mut recurrent_diagnostics = Vec::new();
     let cyclic_components = cyclic_dependency_components(module, reverse_dependencies);
+    record_retained_cyclic_component_identities(cyclic_components.retained_identity_count());
     record_retained_history_insertions(ever_unavailable.len());
     let colliding = colliding_module_value_identities(module);
     let value_indices = module_value_indices(module, &colliding);
@@ -124,7 +142,7 @@ pub(super) fn stabilize_module_value_availability(
 fn cyclic_dependency_components(
     module: &SurfaceModule,
     reverse_dependencies: &ReverseDependencies,
-) -> HashMap<ModuleValueIdentity, BTreeSet<ModuleValueIdentity>> {
+) -> CyclicDependencyComponents {
     let identities = module
         .module_values
         .iter()
@@ -153,7 +171,8 @@ fn cyclic_dependency_components(
         }
     }
 
-    let mut result = HashMap::new();
+    let mut component_by_identity = HashMap::new();
+    let mut components = Vec::new();
     for component in super::strongly_connected_index_components(&graph) {
         let cyclic = component.len() > 1
             || component
@@ -166,11 +185,16 @@ fn cyclic_dependency_components(
             .into_iter()
             .filter_map(|index| identities[index].clone())
             .collect::<BTreeSet<_>>();
+        let component_index = components.len();
         for identity in &identities {
-            result.insert(identity.clone(), identities.clone());
+            component_by_identity.insert(identity.clone(), component_index);
         }
+        components.push(identities);
     }
-    result
+    CyclicDependencyComponents {
+        component_by_identity,
+        components,
+    }
 }
 
 pub(super) fn apply_availability_changes(
@@ -257,6 +281,16 @@ fn record_peak_availability_work(
             .max(unavailable.len() + ever_unavailable.len());
     });
 }
+
+#[cfg(test)]
+fn record_retained_cyclic_component_identities(count: usize) {
+    super::update_module_value_availability_work(|work| {
+        work.retained_cyclic_component_identities = count;
+    });
+}
+
+#[cfg(not(test))]
+fn record_retained_cyclic_component_identities(_count: usize) {}
 
 #[cfg(not(test))]
 fn record_peak_availability_work(

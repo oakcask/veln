@@ -13,6 +13,134 @@ format = "empty"
 path = "status"
 equals = "error"
 
+[[json_assert]]
+path = "diagnostics.12.related"
+length = 2
+
+[[json_assert]]
+path = "diagnostics.12.related.0.candidate_kind"
+equals = "module_value"
+
+[[json_assert]]
+path = "diagnostics.12.related.0.module"
+equals = "alpha"
+
+[[json_assert]]
+path = "diagnostics.12.related.0.message"
+equals = "Module `alpha` from the current package exports module value `shared`; use `alpha::shared` to select it."
+
+[[json_assert]]
+path = "diagnostics.12.related.0.span.start.line"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.12.related.1.candidate_kind"
+equals = "function"
+
+[[json_assert]]
+path = "diagnostics.12.related.1.module"
+equals = "beta"
+
+[[json_assert]]
+path = "diagnostics.12.related.1.message"
+equals = "Module `beta` from the current package exports function `shared`; use `beta::shared` to select it."
+
+[[json_assert]]
+path = "diagnostics.12.related.1.span.start.line"
+equals = 4
+
+[[json_assert]]
+path = "diagnostics.13.message"
+equals = "ambiguous value `shared`"
+
+[[json_assert]]
+path = "diagnostics.13.span.start.line"
+equals = 21
+
+[[json_assert]]
+path = "diagnostics.13.related"
+length = 2
+
+[[json_assert]]
+path = "diagnostics.13.related.0.candidate_kind"
+equals = "module_value"
+
+[[json_assert]]
+path = "diagnostics.13.related.0.span.start.line"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.13.related.1.candidate_kind"
+equals = "function"
+
+[[json_assert]]
+path = "diagnostics.13.related.1.span.start.line"
+equals = 4
+
+[[json_assert]]
+path = "diagnostics.16.related"
+length = 2
+
+[[json_assert]]
+path = "diagnostics.16.related.0.candidate_kind"
+equals = "module_value"
+
+[[json_assert]]
+path = "diagnostics.16.related.0.module"
+equals = "alpha"
+
+[[json_assert]]
+path = "diagnostics.16.related.0.span.start.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.16.related.1.candidate_kind"
+equals = "function"
+
+[[json_assert]]
+path = "diagnostics.16.related.1.module"
+equals = "beta"
+
+[[json_assert]]
+path = "diagnostics.16.related.1.span.start.line"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.17.message"
+equals = "ambiguous value `shared`"
+
+[[json_assert]]
+path = "diagnostics.17.span.start.line"
+equals = 9
+
+[[json_assert]]
+path = "diagnostics.17.related"
+length = 2
+
+[[json_assert]]
+path = "diagnostics.17.related.0.candidate_kind"
+equals = "module_value"
+
+[[json_assert]]
+path = "diagnostics.17.related.0.message"
+equals = "Module `alpha` from the current package exports module value `shared`; use `alpha::shared` to select it."
+
+[[json_assert]]
+path = "diagnostics.17.related.0.span.start.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.17.related.1.candidate_kind"
+equals = "function"
+
+[[json_assert]]
+path = "diagnostics.17.related.1.message"
+equals = "Module `beta` from the current package exports function `shared`; use `beta::shared` to select it."
+
+[[json_assert]]
+path = "diagnostics.17.related.1.span.start.line"
+equals = 1
+
 [[diagnostics]]
 id = "name.ambiguous"
 severity = "error"

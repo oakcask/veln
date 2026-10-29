@@ -770,6 +770,12 @@ of one, and the peak retained-identity count has no fixed allowance. Separate
 recheck lookups by the number of dependency edges plus one. Doubling the chain
 allows at most twice the recheck lookups plus two; doubling only unrelated
 declarations allows at most one additional recheck lookup.
+Same-module cycle storage uses a separate adjacent-size semantic workload. It
+compares rings of 256 and 512 declarations after complete analysis, requires
+one deterministic cycle diagnostic at each size, and counts every identity
+retained by the cyclic-component index and component membership. The retained
+count is exactly twice the declaration count, so doubling the ring doubles
+retained membership instead of duplicating the complete component per member.
 When a failed imported declaration is removed from an ambiguous initializer
 lookup, the remaining valid declaration supplies the initializer type. A
 dependent module value whose initializer then satisfies its annotation becomes

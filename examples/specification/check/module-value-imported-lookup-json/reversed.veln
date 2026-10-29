@@ -4,3 +4,7 @@ use alpha
 fn imported_collision_reversed() -> Int
 	shared
 end
+
+fn imported_call_collision_reversed() -> Int
+	shared()
+end

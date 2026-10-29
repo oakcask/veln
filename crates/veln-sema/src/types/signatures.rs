@@ -25,6 +25,21 @@ pub(crate) enum ModuleValueLookup<'a> {
     Missing,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum ModuleValueAmbiguityCandidateKind {
+    ModuleValue,
+    Function,
+    ImportTarget,
+}
+
+pub(crate) struct ModuleValueAmbiguityCandidate {
+    pub(crate) kind: ModuleValueAmbiguityCandidateKind,
+    pub(crate) package_name: Option<String>,
+    pub(crate) module_name: String,
+    pub(crate) alias: String,
+    pub(crate) span: SourceSpan,
+}
+
 #[derive(Clone)]
 pub(crate) struct EffectSignature {
     pub(crate) name: String,
