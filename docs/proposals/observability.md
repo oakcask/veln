@@ -133,14 +133,14 @@ schemas supply expected outcomes independently of their implementation.
 
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |
-| O17 | Concurrent submissions, invalid input, full queue, and cardinality rejection | FIFO accepted sequence with specified gaps; invalid/full do not transform attributes; cardinality precedes queue admission without rollback. | Companion controlled schedules and schema-checked captures. |
+| O17 | Concurrent submission interleavings plus the sequence-gap, attribute, and cardinality matrix | FIFO accepted sequence with specified gaps; concurrent invalid/full outcomes do not transform attributes; cardinality precedes queue admission without rollback. | Companion controlled schedules and schema-checked captures. |
 | O18 | Record write or flush rejection, exception, and counter saturation | One attempt and one failed increment per record; later records proceed; maximum counter does not overflow; application result unchanged. | Companion failure schedules and saturation cases. |
 | O19 | Concurrent shutdown and emission races closure | One drain and at most one summary; concurrent callers share the report; losing submission is `Closed` without state changes. | Companion barrier-controlled transitions. |
 | O20 | Enabled, disabled, rejected, and exceptional diagnostic destinations | Use the implemented enabled-accepted ordering as the control; report disabled without output; contain rejection or exception as one rejected summary outcome; do not change export health or the application's ordinary result. | Companion destination schedules and schema checks. |
 | O21 | Interruption with queued work and an unresolved host call | Prompt interrupted report after call-start revocation; unsettled records counted once; no new record/summary calls. | Companion cancellation schedule. |
 | O22 | In-flight record or summary completes after interrupted return | Late bytes are permitted; frozen report, counters, and call count remain unchanged. | Companion late-completion schedule. |
 | O23 | Interruption before summary, during summary, and after closed | `NotAttempted`, unconfirmed `Rejected`, and unchanged completed report respectively. | Companion state-boundary schedules. |
-| O24 | Exporter crosses handler scope and is shared with child task | Creating provider retained; outer handler restored; independent exporter state remains separate. | Scoped Veln companion tests; backend case only for independently identified provider/cleanup integration. |
+| O24 | Exporter is shared with a child task or constructed independently inside nested handler scopes | Use the implemented direct-worker provider retention as the control; restore the outer handler after an inner scope exits, and keep independently constructed exporter state separate. | Scoped Veln companion tests; backend case only for independently identified provider/cleanup integration. |
 
 Use the [test placement policy](../reference/toolchain-test-harness.md) for API
 coverage under `crates/veln-stdlib/veln/`. Run companion tests through the

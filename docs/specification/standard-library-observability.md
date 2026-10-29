@@ -524,12 +524,13 @@ After the queue becomes idle, each later submission can wake the same worker
 without retaining drain stack frames from earlier idle-to-wake cycles. Worker
 stack use therefore does not grow with the number of completed idle cycles.
 
-The first normal `shutdown_buffered` call closes admission, so later
-submissions return `Closed`. Shutdown waits until every accepted record has one
-completed destination attempt. With an enabled diagnostic destination that
-accepts the write, it then attempts one final exporter-health summary and
-reports `SummaryAccepted`. The summary attempt follows every record attempt,
-including when the record and diagnostic destinations identify the same output.
+Normal `shutdown_buffered` closes admission. After it returns, later submissions
+return `Closed`. Shutdown waits until every accepted record has one completed
+destination attempt. With an enabled diagnostic destination that accepts the
+write, it then attempts one final exporter-health summary and reports
+`SummaryAccepted`. The summary attempt follows every record attempt, including
+when the record and diagnostic destinations identify the same output. The
+admission result at the concurrent shutdown transition remains planned work.
 
 For that enabled accepted destination, normal shutdown freezes and returns
 `BufferedShutdownReport(Completed, health, SummaryAccepted)`. Later shutdown
