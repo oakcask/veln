@@ -1004,7 +1004,7 @@ fn assert_module_value_gate_diagnostics(lowered: &LoweredSurfaceModule) {
         vec![veln_diagnostics::JsonValue::object([(
             "message",
             veln_diagnostics::JsonValue::string(
-                "The declaration is semantically checked, but checked-core lowering and code generation do not support module values yet.",
+                "The declaration is preserved in checked core and typed IR, but runtime materialization and code generation do not support module values yet.",
             ),
         )])]
     );
