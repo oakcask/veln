@@ -10,6 +10,15 @@ pub(crate) struct ModuleValueSignature {
     pub(crate) available: bool,
 }
 
+pub(crate) type ModuleValueIdentity = (Option<String>, Option<String>, String);
+
+pub(crate) type BareModuleValueExposureIdentity = (Option<String>, Option<String>, String);
+
+pub(crate) enum ModuleValueDependency {
+    Identity(ModuleValueIdentity),
+    BareExposure(BareModuleValueExposureIdentity),
+}
+
 #[derive(Clone, Copy)]
 pub(crate) enum ModuleValueIndex {
     Unique(usize),
@@ -19,7 +28,23 @@ pub(crate) enum ModuleValueIndex {
 pub(crate) enum ModuleValueLookup<'a> {
     Available(&'a ModuleValueSignature),
     Unavailable,
+    Ambiguous,
     Missing,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum ModuleValueAmbiguityCandidateKind {
+    ModuleValue,
+    Function,
+    ImportTarget,
+}
+
+pub(crate) struct ModuleValueAmbiguityCandidate {
+    pub(crate) kind: ModuleValueAmbiguityCandidateKind,
+    pub(crate) package_name: Option<String>,
+    pub(crate) module_name: String,
+    pub(crate) alias: String,
+    pub(crate) span: SourceSpan,
 }
 
 #[derive(Clone)]

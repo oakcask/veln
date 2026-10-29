@@ -1,0 +1,13 @@
+use values
+
+fn answer() -> Int
+	7
+end
+
+fn callback() -> fn() -> Int
+	answer
+end
+
+fn call() -> Int
+	answer()
+end

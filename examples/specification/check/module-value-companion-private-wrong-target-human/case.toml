@@ -1,0 +1,9 @@
+command = ["check", "other.test.veln", "math.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[name.unresolved]: unresolved value `math::secret`", "module value declaration `wrong_target` is not executable"]
+
+[stderr]
+format = "empty"

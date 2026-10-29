@@ -145,8 +145,8 @@ paths, repository and homepage URLs, tool metadata, unknown manifest fields,
 and environment-derived values. A direct successful `PackageDocResult` has no
 declaration or lookup URI for a module immutable value. The `veln doc` command
 runs project analysis before package-documentation generation. It reports any
-finite-data initializer, annotation, or same-module dependency diagnostics for
-a selected module immutable value, together with
+finite-data initializer, annotation-visibility, imported-lookup, or same-module
+dependency diagnostics for selected module immutable values, together with
 `module.value_not_executable` for every such declaration. These diagnostics
 block generation before the command can publish the declaration.
 

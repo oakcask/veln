@@ -1,0 +1,5 @@
+use shared as first from "one/pkg"
+use shared as second from "two/pkg"
+
+let from_first: Int = first::answer
+let from_second: Int = second::answer

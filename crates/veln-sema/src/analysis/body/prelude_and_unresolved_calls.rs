@@ -308,7 +308,7 @@ impl<'a> FunctionChecker<'a> {
                 self.environment.adts.constructor(
                     &corrected,
                     self.function.module_name.as_deref(),
-                    &self.environment.uses,
+                    &self.resolution_uses,
                 ),
                 ConstructorLookup::Found(_)
             )
@@ -357,7 +357,7 @@ impl<'a> FunctionChecker<'a> {
             self.environment.adts.constructor(
                 &corrected,
                 self.function.module_name.as_deref(),
-                &self.environment.uses,
+                &self.resolution_uses,
             ),
             ConstructorLookup::Found(_)
         ) || self
@@ -380,7 +380,7 @@ impl<'a> FunctionChecker<'a> {
                 self.environment.adts.constructor(
                     constructor,
                     self.function.module_name.as_deref(),
-                    &self.environment.uses,
+                    &self.resolution_uses,
                 ),
                 ConstructorLookup::Found(_)
             )

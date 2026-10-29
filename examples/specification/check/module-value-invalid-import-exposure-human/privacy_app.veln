@@ -1,0 +1,6 @@
+use privacy_functions
+use privacy_values
+
+let selected: Int = quarantined
+let selected_alias: Int = quarantined_alias
+let published_collision: Int = published

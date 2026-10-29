@@ -1,0 +1,9 @@
+use late_owner
+
+fn read_selected() -> Int
+	selected
+end
+
+fn read_healthy() -> Int
+	healthy
+end

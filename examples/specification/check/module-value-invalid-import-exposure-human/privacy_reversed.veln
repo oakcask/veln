@@ -1,0 +1,5 @@
+use privacy_values
+use privacy_functions
+
+let selected: Int = quarantined
+let selected_alias: Int = quarantined_alias

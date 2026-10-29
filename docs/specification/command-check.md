@@ -49,9 +49,29 @@ A parse-clean module immutable value declaration produces
 `module.value_not_executable`, so `check` does not report success for a source
 that contains one. Before applying this checked-core gate, analysis validates
 every initializer against its written annotation, resolves acyclic same-module
-references including forward references, and reports unsupported initializer
-forms and cyclic components. Invalid declarations and their dependents do not
-provide later semantic facts. This gate still prevents lowering or publication. The
+references including forward references, resolves eligible imported references
+with package-aware identity and visibility, and reports unsupported initializer
+forms and same-module cyclic components. Public annotations cannot expose
+private types or variant refinements. Invalid declarations and their dependents
+within the same-module dependency graph do not provide later semantic facts.
+Imported references in another module value initializer use each imported
+declaration's final availability. Bare and qualified initializer reads
+therefore use the same final import exposure in every source and import order.
+When an imported declaration becomes unavailable, that unavailability can
+continue through initializer reads that depend on it. Unrelated declarations
+retain their semantic facts. This propagation preserves same-module function
+and function-alias collisions. An imported function or alias whose public
+signature is withheld does not collide with an available imported module value;
+an available public callable still does. An exact companion may read a private
+value from its explicitly imported target inside an initializer; an ordinary
+source or wrong-target companion reports the read as unresolved. The result is
+independent of source and import order and of reusable standard-library
+analysis.
+This propagation is an availability/recheck relation. It does not add an
+initializer dependency-graph edge.
+Cross-module references do not yet create dependency-graph edges or
+cross-module cycle diagnostics. This gate still prevents lowering or
+publication. The
 [source-surface specification](source-surface.md#module-immutable-value-declarations)
 defines the declaration boundary, and the
 [diagnostic specification](diagnostics-json.md#diagnostic-families) defines

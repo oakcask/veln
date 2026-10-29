@@ -1,0 +1,2 @@
+pub let shared: Int = 1
+pub let shared: Int = 2

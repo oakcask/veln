@@ -1,0 +1,10 @@
+command = ["check", "math.test.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["math.test.veln:2:25: error[name.unresolved]: unresolved value `math::secret`", "math.veln:1:13: error[name.unresolved]: unresolved type `Missing`"]
+not_contains = ["math.test.veln:5:3: error[type.mismatch]: expected `String`, but found `Int`"]
+
+[stderr]
+format = "empty"

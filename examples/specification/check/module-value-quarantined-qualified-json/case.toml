@@ -1,0 +1,14 @@
+command = ["check", "--json", "app.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["name.duplicate", "duplicate import name `values`", "duplicate import alias name `shared`", "name.unresolved", "unresolved value `values::answer`", "unresolved value `shared::answer`"]
+not_contains = ["name.ambiguous"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

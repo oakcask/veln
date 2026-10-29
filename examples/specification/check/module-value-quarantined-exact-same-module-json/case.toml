@@ -1,0 +1,14 @@
+command = ["check", "--json", "values.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["name.duplicate", "duplicate import name `values`", "name.unresolved", "unresolved value `values::answer`"]
+not_contains = ["name.ambiguous", "type.mismatch"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

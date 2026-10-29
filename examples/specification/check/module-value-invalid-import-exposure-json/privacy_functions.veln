@@ -1,0 +1,13 @@
+pub type State
+	Hidden
+end
+
+pub fn quarantined(value: State::Hidden) -> Int
+	1
+end
+
+pub fn quarantined_alias = quarantined
+
+pub fn published() -> Int
+	4
+end

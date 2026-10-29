@@ -217,6 +217,10 @@ pub(super) fn merge_surface_parts(parts: &mut SurfaceParts, additions: &SurfaceP
         .extend(additions.module.schemas.clone());
     parts
         .module
+        .module_values
+        .extend(additions.module.module_values.clone());
+    parts
+        .module
         .functions
         .extend(additions.module.functions.clone());
     parts

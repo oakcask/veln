@@ -121,6 +121,12 @@ pub(crate) fn import_classification(module: &SurfaceModule) -> Rc<ImportClassifi
         .unwrap_or_else(|| Rc::new(NormalUseGroups::collect(module)))
 }
 
+pub(crate) fn blocked_exact_import_paths(
+    module: &SurfaceModule,
+) -> HashSet<(ResolvedImportOwner, String)> {
+    import_classification(module).blocked_exact_paths.clone()
+}
+
 impl ImportClassification {
     fn index(&self, use_decl: &UseDecl) -> Option<usize> {
         self.indices

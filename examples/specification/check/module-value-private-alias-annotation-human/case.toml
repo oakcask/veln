@@ -1,0 +1,15 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "error[type.public_annotation_private]: public module value annotation exposes private type `main::Secret`",
+  "Private type `main::Secret` is declared here.",
+  "Public module value `direct` exposes this type.",
+  "Public module value `nested` exposes this type.",
+]
+not_contains = ["public module value annotation exposes private type `main::Public`"]
+
+[stderr]
+format = "empty"

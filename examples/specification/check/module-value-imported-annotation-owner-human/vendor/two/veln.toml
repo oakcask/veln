@@ -1,0 +1,5 @@
+[package]
+name = "two/pkg"
+
+[lib]
+exports = ["states.veln", "shared.veln"]

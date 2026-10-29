@@ -1,0 +1,8 @@
+use recheck_bad
+
+pub fn durable() -> Int
+	1
+end
+
+pub let durable: Int = 2
+pub let recheck: Int = recheck_bad::bad

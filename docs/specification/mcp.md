@@ -384,9 +384,12 @@ including span-less `toolchain.invalid_symbol_case` entries with diagnostic
 kind `toolchain` and details for `provider`, `name`, `name_class`, and
 `required_initial`.
 For a project containing a module immutable value, `check_project` preserves
-finite-data initializer, annotation, dependency-cycle, and non-callable-use
-diagnostics from shared semantic analysis. It also preserves the
+finite-data initializer, annotation-visibility, imported-lookup,
+same-module dependency-cycle, and non-callable-use diagnostics from shared
+semantic analysis. It also preserves the
 `module.value_not_executable` diagnostic emitted for every such declaration.
+Imported-lookup ambiguity related entries preserve the candidate kind,
+resolved package and module, explanatory message, and import span.
 For `type.variant_refinement_unknown`, `check_project` preserves the closed
 `base_type` and `variant` details. Its related entries preserve
 `resolved_identity` for the resolved ADT and each visible variant, and

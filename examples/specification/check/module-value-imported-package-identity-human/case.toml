@@ -1,0 +1,10 @@
+command = ["check", "app.veln", "reverse.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["app.veln:11:2: error[type.mismatch]: expected `Int`, but found `OneValue`", "app.veln:14:2: error[type.mismatch]: expected `Int`, but found `TwoValue`", "reverse.veln:11:2: error[type.mismatch]: expected `Int`, but found `OneValue`", "reverse.veln:14:2: error[type.mismatch]: expected `Int`, but found `TwoValue`", "public module value annotation exposes private type `one/pkg::shared::Secret`", "public module value annotation exposes private type `two/pkg::shared::Secret`", "public refinement exposes private variant `one/pkg::shared::State::Hidden`", "public refinement exposes private variant `two/pkg::shared::State::Hidden`", "Private type `one/pkg::shared::Secret` is declared here.", "Private type `two/pkg::shared::Secret` is declared here.", "Public module value `named` exposes this type.", "Public module value `refined` exposes this refinement."]
+not_contains = ["expected `OneValue`", "expected `TwoValue`", "name.unresolved", "name.ambiguous"]
+
+[stderr]
+format = "empty"

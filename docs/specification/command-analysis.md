@@ -27,9 +27,18 @@ Selection, output, execution, and write policy remain command specific.
 
 During shared semantic analysis, every parse-clean module immutable value is
 checked against its written annotation and the finite-data initializer rules.
-Same-module references are resolved before function bodies are checked, while
-invalid declarations and their dependents are withheld from later semantic
-facts. Initializer or dependency failures are reported together with
+Same-module and eligible imported references are resolved before function
+bodies are checked. Imported selection retains package-aware declaration
+identity and visibility, including public annotation boundaries. Invalid
+declarations and their same-module dependents are withheld from later semantic
+facts. When imported availability changes, that unavailability propagates only
+through module-value initializers that depend on the changed declaration;
+unrelated declarations retain their semantic facts. This propagation preserves
+same-module function and function-alias collisions. Imported bare selection
+considers only functions and aliases that remain publicly available, so a
+signature-visibility failure cannot hide a valid module value. The same boundary
+applies when analysis reuses a prepared standard-library environment.
+Initializer or same-module dependency failures are reported together with
 `module.value_not_executable` for each declaration. The latter error keeps the
 shared pipeline from producing checked core or typed IR for that selection.
 Parsing and formatting remain available as specified by the
@@ -47,8 +56,10 @@ define those recovery boundaries. Other eligible sources in the same project
 can still proceed to semantic analysis.
 
 Shared semantic analysis keeps unambiguous type and constructor identities for
-recovery, but it does not publish a public function or ADT whose signature
-exposes an inaccessible variant refinement. Publication quarantine propagates
+recovery. It rejects an inaccessible named type in a public module value
+annotation. It also rejects an inaccessible variant refinement in a public
+module value annotation, public function signature, or public ADT payload.
+Publication quarantine for functions and ADTs propagates
 through public signature dependencies, including transparent type aliases and
 recursive ADT dependency cycles. A dependent ordinary named-type reference
 does not duplicate the causal privacy diagnostic. The pipeline also

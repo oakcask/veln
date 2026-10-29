@@ -1,0 +1,23 @@
+command = ["check", "--json", "math.test.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["name.unresolved", "math::secret", "math.test.veln", "Missing"]
+not_contains = ["expected `String`, but found `Int`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "name.unresolved"
+message = "unresolved value `math::secret`"
+
+[diagnostics.span]
+file = "math.test.veln"
+line = 2
+column = 25

@@ -6,8 +6,14 @@ use super::*;
 
 use crate::type_syntax::parse_type_or_unknown;
 
+mod module_values;
 mod quarantine;
 
+use module_values::finish_module_value_facts;
+pub(super) use module_values::{
+    bare_module_value_indexes, exact_module_value_import_paths, public_module_value_identities,
+    qualified_module_value_import_index,
+};
 use quarantine::{
     quarantine_invalid_variant_refinement_declaration_types,
     quarantine_invalid_variant_refinement_function_types,
@@ -28,6 +34,18 @@ impl<T: Clone> BaseFacts for Vec<T> {
 impl<K: Clone + Ord, V: Clone> BaseFacts for BTreeMap<K, V> {
     fn extend_with(&mut self, base: &Self) {
         self.extend(base.clone());
+    }
+}
+
+impl<K: Clone + Eq + std::hash::Hash, V: Clone> BaseFacts for HashMap<K, V> {
+    fn extend_with(&mut self, base: &Self) {
+        self.extend(base.clone());
+    }
+}
+
+impl<T: Clone + Eq + std::hash::Hash> BaseFacts for HashSet<T> {
+    fn extend_with(&mut self, base: &Self) {
+        self.extend(base.iter().cloned());
     }
 }
 
@@ -53,7 +71,9 @@ struct SymbolFacts {
     type_symbols: Vec<NamedSymbol>,
     uses: Vec<UseDecl>,
     quarantined_uses: Vec<UseDecl>,
+    blocked_exact_import_paths: HashSet<QualifiedModuleValueKey>,
     companion_function_access_targets: BTreeMap<String, String>,
+    companion_module_value_access_targets: HashMap<ResolvedImportOwner, ResolvedImportOwner>,
     companion_schema_access_targets: BTreeMap<String, String>,
 }
 
@@ -152,8 +172,22 @@ fn initial_environment(
     symbols: SymbolFacts,
 ) -> TypeEnvironment {
     TypeEnvironment {
-        module_values: Vec::new(),
-        module_values_by_identity: HashMap::new(),
+        module_values: base
+            .map(|base| base.module_values.clone())
+            .unwrap_or_default(),
+        module_values_by_identity: base
+            .map(|base| base.module_values_by_identity.clone())
+            .unwrap_or_default(),
+        bare_module_value_exports: HashMap::new(),
+        bare_function_exports: HashMap::new(),
+        bare_module_value_import_targets: HashMap::new(),
+        module_value_import_owners: HashMap::new(),
+        representative_bare_module_value_imports: HashMap::new(),
+        bare_module_value_cache: Arc::new(std::sync::RwLock::new(HashMap::new())),
+        qualified_module_value_imports: HashMap::new(),
+        exact_module_value_imports: exact_module_value_import_paths(&symbols.uses),
+        blocked_exact_module_value_imports: symbols.blocked_exact_import_paths,
+        public_module_value_identities: HashSet::new(),
         functions: callables.functions,
         functions_by_name: HashMap::new(),
         unpublished_functions: base
@@ -172,6 +206,7 @@ fn initial_environment(
         invalid_names: module.invalid_names.clone(),
         adts: declarations.adts,
         companion_function_access_targets: symbols.companion_function_access_targets,
+        companion_module_value_access_targets: symbols.companion_module_value_access_targets,
         companion_schema_access_targets: symbols.companion_schema_access_targets,
         companion_effect_access_targets: declarations.companion_effect_access_targets,
     }
@@ -196,43 +231,6 @@ fn finish_function_facts(module: &SurfaceModule, environment: &mut TypeEnvironme
         });
     environment.functions.extend(aliases);
     environment.functions_by_name = function_name_index(&environment.functions);
-}
-
-fn finish_module_value_facts(module: &SurfaceModule, environment: &mut TypeEnvironment) {
-    environment.module_values = module
-        .module_values
-        .iter()
-        .filter(|value| value.name.is_some())
-        .map(|value| ModuleValueSignature {
-            declaration: value.clone(),
-            ty: parse_type_or_unknown(Some(&value.annotation)),
-            available: true,
-        })
-        .collect();
-    let module_value_types = environment
-        .module_values
-        .iter()
-        .map(|value| {
-            environment.canonicalize_type_annotation_in_owner(
-                value.ty.clone(),
-                value.declaration.module_name.as_deref(),
-                value.declaration.package_name.as_deref(),
-            )
-        })
-        .collect::<Vec<_>>();
-    for (value, ty) in environment.module_values.iter_mut().zip(module_value_types) {
-        value.ty = ty;
-    }
-    for (index, value) in environment.module_values.iter().enumerate() {
-        if let Some(name) = &value.declaration.name {
-            let identity = (value.declaration.module_name.clone(), name.clone());
-            environment
-                .module_values_by_identity
-                .entry(identity)
-                .and_modify(|entry| *entry = ModuleValueIndex::Collision)
-                .or_insert(ModuleValueIndex::Unique(index));
-        }
-    }
 }
 
 fn install_recovery_facts(module: &SurfaceModule, environment: &mut TypeEnvironment) {
@@ -563,10 +561,20 @@ fn symbol_facts(
         &mut quarantined_uses,
         base.map(|base| &base.quarantined_uses),
     );
+    let mut blocked_exact_import_paths = crate::name_recovery::blocked_exact_import_paths(module);
+    extend_with_base_facts(
+        &mut blocked_exact_import_paths,
+        base.map(|base| &base.blocked_exact_module_value_imports),
+    );
     let mut companion_function_access_targets = companion_function_access_targets(module);
     extend_with_base_facts(
         &mut companion_function_access_targets,
         base.map(|base| &base.companion_function_access_targets),
+    );
+    let mut companion_module_value_access_targets = companion_module_value_access_targets(module);
+    extend_with_base_facts(
+        &mut companion_module_value_access_targets,
+        base.map(|base| &base.companion_module_value_access_targets),
     );
     let mut companion_schema_access_targets = companion_access_targets(module);
     extend_with_base_facts(
@@ -578,7 +586,9 @@ fn symbol_facts(
         type_symbols,
         uses,
         quarantined_uses,
+        blocked_exact_import_paths,
         companion_function_access_targets,
+        companion_module_value_access_targets,
         companion_schema_access_targets,
     }
 }

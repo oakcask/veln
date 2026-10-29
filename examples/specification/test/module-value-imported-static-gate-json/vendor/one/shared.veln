@@ -1,0 +1,11 @@
+pub type OneValue
+	pub One
+end
+
+pub let answer: OneValue = One
+
+type Secret
+	pub Value
+end
+
+pub let named: Secret = Value

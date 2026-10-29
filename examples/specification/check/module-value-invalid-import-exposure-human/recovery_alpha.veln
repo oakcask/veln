@@ -1,0 +1,3 @@
+use recovery_bad
+
+pub let shared: Int = recovery_bad::broken

@@ -48,8 +48,9 @@ The following behavior is fixed for the implemented slice:
 - Human diagnostics keep the primary message focused on the failed fact at the
   reported span; causes, provenance, and repair hints belong in related notes.
 - Typed module `let` declarations have a fixed parsing, formatting, and
-  same-module semantic-analysis surface for finite immutable data. `veln fmt`
-  accepts a valid declaration. After initializer and dependency checking,
+  package-aware same-module and imported semantic-analysis surface for finite
+  immutable data. `veln fmt` accepts a valid declaration. After initializer
+  and same-module dependency checking,
   `veln check`, `veln run`, `veln test`, and `veln doc` report
   `module.value_not_executable` before checked-core, typed-IR, runtime, or
   package-documentation use. See

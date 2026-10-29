@@ -123,14 +123,17 @@ blockers prevent execution.
 
 Module immutable value declarations do not reach checked core or typed IR.
 Shared semantic analysis checks their written annotations, finite-data
-initializers, and same-module dependencies. It then emits
+initializers, eligible imported references, package-aware visibility, and
+same-module dependencies. It then emits
 `module.value_not_executable` for every declaration, which blocks execution
 before code generation. Parsing, formatting, and semantic checking for the
 declaration do not create a runtime value or initialization phase.
 
-A variant-refinement visibility failure anywhere in a public function
-parameter or result, or in a public variant payload of a public source ADT, is
-also a checked-core and typed-IR blocker. This applies when the written base
+A named-type visibility failure in a public module value annotation is also a
+checked-core and typed-IR blocker. The same applies to a variant-refinement
+visibility failure in a public module value annotation, public function
+parameter or result, or public variant payload of a public source ADT. This
+applies when the written base
 names the terminal ADT directly or resolves to it through a finite transparent
 type-alias chain. The
 failed function publishes no callable signature, and the failed ADT publishes

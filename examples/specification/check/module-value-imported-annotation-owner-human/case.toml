@@ -1,0 +1,10 @@
+command = ["check", "app.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["public module value annotation exposes private type `one/pkg::states::Secret`", "public module value annotation exposes private type `two/pkg::states::Secret`", "public refinement exposes private variant `one/pkg::states::State::Hidden`", "public refinement exposes private variant `two/pkg::states::State::Hidden`", "Private type `one/pkg::states::Secret` is declared here.", "Private type `two/pkg::states::Secret` is declared here.", "Public module value `private_named` exposes this type.", "Public module value `private_variant` exposes this refinement."]
+not_contains = ["type.invalid_annotation", "unresolved type `states::State::Ready`", "name.ambiguous"]
+
+[stderr]
+format = "empty"

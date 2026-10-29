@@ -80,6 +80,49 @@ diagnostics. An unbound row tail reports `effect.row_unbound`, and an unknown
 effect label reports `effect.unknown`. Their details identify the boundary as
 `module_value_type`.
 
+A public module value annotation that recursively names a private type reports
+`type.public_annotation_private` at the written type occurrence. Its closed
+details contain `boundary: "public_module_value"`, the declaration `name`,
+`written_type`, and `resolved_type`. Related entries identify the
+`private_type_declaration` when available and then the
+`public_module_value_boundary`. The checked
+[`human`](../../examples/specification/check/module-value-public-annotation-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-public-annotation-visibility-json/)
+cases fix the rendered and structured forms.
+A private type alias produces this diagnostic even when its terminal target is
+public. In that case, `resolved_type` and the `private_type_declaration` related
+entry identify the written alias declaration. Nested aggregate occurrences use
+the same rule. The checked private-alias
+[`human`](../../examples/specification/check/module-value-private-alias-annotation-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-private-alias-annotation-json/)
+cases fix the direct and nested forms.
+Annotation resolution uses the imports of the module that declares the value.
+It retains the selected type's package and module identity when producing
+private-declaration context. An exact written import path takes precedence over
+a same-spelled type in the declaration owner's module. The imported type's
+identity therefore controls whether the annotation is public; a bare type name
+continues to select the owner's type. If the annotation does not resolve from
+that owner, the checker instead reports `name.unresolved` at the written type.
+An equal type spelling in the consuming package or another package does not
+change that diagnostic into `type.public_annotation_private` or supply
+private-declaration context. The checked imported-owner
+[`human`](../../examples/specification/check/module-value-imported-annotation-owner-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-imported-annotation-owner-json/)
+cases cover package-distinct imports and their private declaration identities.
+The checked owner-package fallback
+[`human`](../../examples/specification/check/module-value-owner-package-fallback-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-owner-package-fallback-json/)
+cases cover this diagnostic boundary. The checked exact-import collision
+[`human`](../../examples/specification/check/module-value-exact-import-owner-collision-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-exact-import-owner-collision-json/)
+cases cover the same-spelled owner boundary and the absence of derivative
+unresolved or ambiguity diagnostics.
+
 An available module value selected as a call target reports
 `type.not_callable` at that target. Its details identify `call_target` as the
 failed constraint and `module_value` as the selected non-callable kind. Related
@@ -87,6 +130,73 @@ context identifies the selected declaration. An unavailable same-module
 identity still reserves its name, but a call through it does not emit
 `type.not_callable`, select declaration context, or fall through to another
 callable. Diagnostics from independently checked call arguments remain.
+An unavailable imported module value exposes neither a bare nor a qualified
+name. With no other eligible declaration, either read reports
+`name.unresolved`. For a bare name or a qualified path that selects one target
+module, a valid imported value with the same name remains selectable without
+`name.ambiguous`, and a valid imported function remains callable without
+`name.ambiguous` or `type.not_callable`. These results also apply when a module
+value initializer contains the read. If a failed imported candidate initially
+makes that initializer ambiguous, removing the failed candidate selects the
+valid namesake. A dependent declaration that then satisfies its annotation is
+available to importers, so their reads produce ordinary type results rather
+than derivative unresolved or ambiguous diagnostics. If a declaration in a
+cyclic candidate-dependency component recovers and then fails again, the
+checker keeps every declaration in that component unavailable. It retains the
+diagnostics from the recurring failure even though the final quarantined state
+can no longer reproduce them. Reads from rejected declarations remain
+unresolved, while declarations outside the component retain independently
+valid facts. An intrinsic failure that remains continuously unavailable does
+not reject otherwise valid declarations in its candidate component and does
+not add recurring-failure diagnostics. Duplicate declarations, invalid-cased
+declarations, and
+same-module initializer cycles do not recover when imported availability
+changes. Conversely, a public
+function or function alias withheld by a signature-visibility failure does not
+make a same-named imported module value ambiguous or unresolved. An available
+public function or alias still makes the bare name ambiguous. A same-module
+function or alias collision continues to withhold its module value after an
+imported dependency causes that module's availability to be checked again; its
+importers emit neither a derivative ambiguity nor `type.not_callable` for the
+withheld value.
+When module-value lookup reports `name.ambiguous`, each contributing import has
+one `import_candidate` related entry at the import declaration. Entries are
+ordered by resolved package, module, and candidate kind rather than source or
+import order. A bare collision identifies whether each candidate is a module
+value or function and gives its qualifying alias. A qualified exact-path
+collision identifies every package-distinct selected import before member
+visibility or availability is considered, so private, missing, and unavailable
+members retain the same complete package-origin context. The package, resolved
+module, candidate kind, message, and span remain present in JSON; human output
+renders the same package-disambiguating messages. The checked imported-lookup
+and exact-member ambiguity cases cover value reads, call targets, reversed
+imports, and mixed function/module-value candidates.
+The checked
+invalid-import exposure
+[`human`](../../examples/specification/check/module-value-invalid-import-exposure-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-invalid-import-exposure-json/)
+cases cover bare and qualified initializer reads, published and withheld
+function collisions, owner rechecks, valid-namesake selection in both import
+orders, and recurrent diagnostics from a rejected cyclic component.
+An exact test companion that explicitly imports its target may read an
+available private module value without `name.unresolved`. An unavailable
+private value remains unresolved, and a module value that depends on that read
+remains unpublished. The same read from an ordinary source or a companion for
+another target also reports `name.unresolved`.
+The checked companion initializer
+[`human`](../../examples/specification/check/module-value-companion-private-access-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-companion-private-access-json/)
+cases cover access. The unavailable-target
+[`human`](../../examples/specification/check/module-value-companion-private-unavailable-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-companion-private-unavailable-json/)
+cases cover invalid-target and dependent suppression, while the wrong-target
+[`human`](../../examples/specification/check/module-value-companion-private-wrong-target-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-companion-private-wrong-target-json/)
+cases cover rejection.
 Explicit type arguments on the call target preserve both outcomes, and the
 primary span covers the complete type-applied callee. The checked typed-call
 cases cover the selected declaration, details, related context, primary span,
@@ -338,8 +448,9 @@ and
 [`JSON`](../../examples/specification/check/adt-variant-refinement-unknown-companion-json/)
 cases fix the target-private variant projection and its related spans.
 
-A variant refinement anywhere in a public function parameter or result, or in
-a payload of a public variant of a public source ADT, reports
+A variant refinement anywhere in a public function parameter or result, a
+public module value annotation, or a payload of a public variant of a public
+source ADT reports
 `type.variant_refinement_private` when its uniquely resolved terminal ADT is
 private or a selected variant is private. The written base can name the ADT
 directly or resolve through a finite local or imported type-alias chain. The
@@ -352,9 +463,11 @@ the final variant segment. A record-field failure selects the complete written
 refinement or refinement union at that field. The closed details contain
 exactly `written_type`,
 `base_type`, `variant`, `boundary`, and `exposure_path`. `boundary` is
-`public_parameter`, `public_result`, or `public_adt_payload`.
+`public_parameter`, `public_result`, `public_module_value`, or
+`public_adt_payload`.
 `exposure_path` starts with the boundary object. A parameter path contains
 `kind: "parameter"` and its `name`; a result path contains `kind: "result"`.
+A module-value path contains `kind: "module_value"` and its `name`.
 Each traversed field then contributes `kind: "record_field"` and its `name`.
 Named arguments and function positions contribute `type_argument` with a
 zero-based `index`, `function_parameter` with a zero-based `index`, or
@@ -371,8 +484,9 @@ occurrence. In every position, `written_type` retains the source-written
 refinement. Related entries identify each `type_alias_declaration` from
 outermost to innermost, then the
 `private_type_declaration` or `private_variant_declaration`, and then the
-`public_parameter_boundary`, `public_result_boundary`, or
-`public_adt_payload_boundary`. A private declaration entry uses the declaration
+`public_parameter_boundary`, `public_result_boundary`,
+`public_module_value_boundary`, or `public_adt_payload_boundary`. A private
+declaration entry uses the declaration
 span from the selected ADT descriptor, including its generic arity. Another
 same-module ADT with the same type and variant names but a different arity does
 not supply that span. A union reports distinct inaccessible exposure paths in
@@ -904,6 +1018,14 @@ and recovery behavior.
 Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
 `occurrence`, `name`, `name_class`, `required_initial`, and
 `observed_initial`. Qualified written paths add zero-based `segment_index`.
+If a qualified constructor pattern has an invalid-cased module or type segment,
+that pattern does not establish constructor coverage through final-segment
+recovery. The match retains an independently provable
+`type.match_non_exhaustive` diagnostic. The checked
+[`human`](../../examples/specification/check/identifier-casing-qualified-use-paths-human/)
+and
+[`JSON`](../../examples/specification/check/identifier-casing-qualified-use-paths-json/)
+cases cover invalid module, type, and constructor segments.
 Source-derived module paths use `origin: "source_path"`,
 `occurrence: "path_segment"`, `source_path`, `source_kind`, `segment`, and
 `segment_index`; `source_kind` is `regular`, `export`, `companion`,
@@ -940,6 +1062,32 @@ This ordering follows source order even when the invalid spelling is later;
 the independent `name.invalid_case` record is retained.
 Parser diagnostics precede casing diagnostics for one import; reserved and
 duplicate facts follow casing, while target-resolution facts stay independent.
+When duplicate targets or colliding qualifiers quarantine every import for a
+qualified module-value path, the duplicate diagnostics remain and the read
+reports `name.unresolved`. It does not report `name.ambiguous`, because a
+quarantined import is not a lookup candidate. The checked
+[`human`](../../examples/specification/check/module-value-quarantined-qualified-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-quarantined-qualified-json/)
+cases fix this boundary for an implicit qualifier and an explicit alias.
+When eligible imports from distinct package origins have the same exact
+written path, a qualified module-value read instead reports `name.ambiguous`.
+The checker selects no target module before member lookup, so member presence,
+visibility, or declaration availability cannot change the diagnostic to
+`name.unresolved` or select one declaration. The result is independent of
+import order. The checked
+[`human`](../../examples/specification/check/module-value-ambiguous-exact-member-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-ambiguous-exact-member-json/)
+cases cover public, private, and unavailable members in both orders.
+If the quarantined exact path equals the importing module's own spelling, the
+same duplicate and unresolved diagnostics apply. The checker does not resolve
+the qualified read to the same-module value, and it does not add
+`name.ambiguous` or `type.mismatch`. The checked
+[`human`](../../examples/specification/check/module-value-quarantined-exact-same-module-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-quarantined-exact-same-module-json/)
+cases cover both import orders.
 When correcting an invalid target
 segment or alias uniquely selects one public export in the import's target
 package, the casing diagnostic remains and the recovered member does not add

@@ -1,0 +1,94 @@
+# The selected tests use imported module values only as semantic inputs and
+# stdio::println only as an execution sentinel. Distinct package/module/name
+# declarations, annotation visibility, and the module-value execution gate must
+# block every case before user code or the JVM backend starts.
+command = ["test", "--json"]
+source_errors = "expected"
+exit = 1
+
+[tools]
+java = "fake-success"
+
+[env]
+JAVA_MARKER = "java-started"
+
+[stdout]
+format = "json"
+contains = ["expected `Int`, but found `OneValue`", "expected `Int`, but found `TwoValue`", "type.public_annotation_private", "one/pkg::shared::Secret", "module.value_not_executable"]
+not_contains = ["forbidden", "name.unresolved", "name.ambiguous"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "blocked"
+
+[[json_assert]]
+path = "summary.total"
+equals = 2
+
+[[json_assert]]
+path = "summary.blocked"
+equals = 2
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "blocked"
+
+[[json_assert]]
+path = "cases.0.reason"
+equals = "static_gate"
+
+[[json_assert]]
+path = "cases.0.events"
+equals = []
+
+[[json_assert]]
+path = "cases.1.status"
+equals = "blocked"
+
+[[json_assert]]
+path = "cases.1.reason"
+equals = "static_gate"
+
+[[json_assert]]
+path = "cases.1.events"
+equals = []
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `OneValue`"
+[diagnostics.span]
+file = "module_values_test.veln"
+line = 10
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `TwoValue`"
+[diagnostics.span]
+file = "module_values_test.veln"
+line = 16
+
+[[diagnostics]]
+id = "type.public_annotation_private"
+severity = "error"
+kind = "type"
+message = "public module value annotation exposes private type `one/pkg::shared::Secret`"
+
+[[diagnostics]]
+id = "module.value_not_executable"
+severity = "error"
+message = "module value declaration `named` is not executable"
+
+[[file_assert]]
+path = ".veln-harness-cache/jvm"
+missing = true
+
+[[file_assert]]
+path = "java-started"
+missing = true

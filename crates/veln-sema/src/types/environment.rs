@@ -12,6 +12,308 @@ type FunctionPublicationKey = (
     usize,
 );
 
+type BareModuleValueKey = (Option<String>, Option<String>, String);
+type ModuleValueOwner = (Option<String>, Option<String>);
+type ModuleValueTarget = (Option<String>, Option<String>);
+type ModuleValueImportKey = (ModuleValueOwner, ModuleValueTarget);
+type QualifiedModuleValueKey = (veln_ast::ResolvedImportOwner, String);
+
+#[derive(Clone, Debug)]
+enum QualifiedModuleValueImportSelection {
+    Unique(Box<UseDecl>),
+    Ambiguous(Vec<UseDecl>),
+}
+
+#[derive(Debug)]
+struct BareModuleValueExposure {
+    candidates: BTreeSet<ModuleValueIdentity>,
+    active: BTreeSet<ModuleValueIdentity>,
+    function_candidates: BTreeSet<ModuleValueTarget>,
+}
+
+impl Clone for BareModuleValueExposure {
+    fn clone(&self) -> Self {
+        record_bare_module_value_exposure_identity_copies(
+            self.candidates.len() + self.active.len() + self.function_candidates.len(),
+        );
+        Self {
+            candidates: self.candidates.clone(),
+            active: self.active.clone(),
+            function_candidates: self.function_candidates.clone(),
+        }
+    }
+}
+
+enum BareModuleValueSelection {
+    Missing,
+    Ambiguous,
+    Available(ModuleValueIdentity),
+}
+
+#[cfg(test)]
+thread_local! {
+    static BARE_MODULE_VALUE_EXPOSURE_WORK: std::cell::Cell<BareModuleValueExposureWork> =
+        const { std::cell::Cell::new(BareModuleValueExposureWork::ZERO) };
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct BareModuleValueExposureWork {
+    pub(crate) index_entries: usize,
+    pub(crate) materialized_exposures: usize,
+    pub(crate) reverse_index_entries: usize,
+    pub(crate) candidate_target_checks: usize,
+    pub(crate) cache_probes: usize,
+    pub(crate) cache_entries: usize,
+    pub(crate) selections: usize,
+    pub(crate) result_selections: usize,
+    pub(crate) exposure_identity_copies: usize,
+}
+
+#[cfg(test)]
+impl BareModuleValueExposureWork {
+    const ZERO: Self = Self {
+        index_entries: 0,
+        materialized_exposures: 0,
+        reverse_index_entries: 0,
+        candidate_target_checks: 0,
+        cache_probes: 0,
+        cache_entries: 0,
+        selections: 0,
+        result_selections: 0,
+        exposure_identity_copies: 0,
+    };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_bare_module_value_exposure_work() {
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| work.set(BareModuleValueExposureWork::ZERO));
+}
+
+#[cfg(test)]
+pub(crate) fn take_bare_module_value_exposure_work() -> BareModuleValueExposureWork {
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| work.replace(BareModuleValueExposureWork::ZERO))
+}
+
+fn record_bare_module_value_materialized_exposure() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.materialized_exposures += 1;
+        work.set(value);
+    });
+}
+
+fn record_bare_module_value_index_entry() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.index_entries += 1;
+        work.set(value);
+    });
+}
+
+fn record_bare_module_value_candidate_target_check() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.candidate_target_checks += 1;
+        work.set(value);
+    });
+}
+
+fn record_bare_module_value_selection() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.selections += 1;
+        work.set(value);
+    });
+}
+
+fn record_bare_module_value_cache_probe() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.cache_probes += 1;
+        work.set(value);
+    });
+}
+
+fn record_bare_module_value_result_selection() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.result_selections += 1;
+        work.set(value);
+    });
+}
+
+fn record_bare_module_value_exposure_identity_copies(count: usize) {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.exposure_identity_copies += count;
+        work.set(value);
+    });
+    #[cfg(not(test))]
+    let _ = count;
+}
+
+fn record_bare_module_value_reverse_index_entry() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.reverse_index_entries += 1;
+        work.set(value);
+    });
+}
+
+fn record_bare_module_value_cache_entry() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.cache_entries += 1;
+        work.set(value);
+    });
+}
+
+#[cfg(test)]
+thread_local! {
+    static MODULE_VALUE_AMBIGUITY_PROVENANCE_WORK:
+        std::cell::Cell<ModuleValueAmbiguityProvenanceWork> =
+        const { std::cell::Cell::new(ModuleValueAmbiguityProvenanceWork::ZERO) };
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct ModuleValueAmbiguityProvenanceWork {
+    pub(crate) index_construction_visits: usize,
+    pub(crate) candidate_provenance_visits: usize,
+}
+
+#[cfg(test)]
+impl ModuleValueAmbiguityProvenanceWork {
+    const ZERO: Self = Self {
+        index_construction_visits: 0,
+        candidate_provenance_visits: 0,
+    };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_module_value_ambiguity_provenance_work() {
+    MODULE_VALUE_AMBIGUITY_PROVENANCE_WORK
+        .with(|work| work.set(ModuleValueAmbiguityProvenanceWork::ZERO));
+}
+
+#[cfg(test)]
+pub(crate) fn take_module_value_ambiguity_provenance_work() -> ModuleValueAmbiguityProvenanceWork {
+    MODULE_VALUE_AMBIGUITY_PROVENANCE_WORK
+        .with(|work| work.replace(ModuleValueAmbiguityProvenanceWork::ZERO))
+}
+
+fn record_module_value_ambiguity_provenance_index_visit() {
+    #[cfg(test)]
+    MODULE_VALUE_AMBIGUITY_PROVENANCE_WORK.with(|work| {
+        let mut value = work.get();
+        value.index_construction_visits += 1;
+        work.set(value);
+    });
+}
+
+fn record_module_value_ambiguity_candidate_provenance_visit() {
+    #[cfg(test)]
+    MODULE_VALUE_AMBIGUITY_PROVENANCE_WORK.with(|work| {
+        let mut value = work.get();
+        value.candidate_provenance_visits += 1;
+        work.set(value);
+    });
+}
+
+#[cfg(test)]
+thread_local! {
+    static QUALIFIED_MODULE_VALUE_IMPORT_WORK: std::cell::Cell<QualifiedModuleValueImportWork> = const { std::cell::Cell::new(QualifiedModuleValueImportWork::ZERO) };
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct QualifiedModuleValueImportWork {
+    pub(crate) index_build: usize,
+    pub(crate) target_classification: usize,
+    pub(crate) member_materialization: usize,
+    pub(crate) same_owner_blocking: usize,
+    pub(crate) selection: usize,
+    pub(crate) visibility: usize,
+}
+
+#[cfg(test)]
+impl QualifiedModuleValueImportWork {
+    const ZERO: Self = Self {
+        index_build: 0,
+        target_classification: 0,
+        member_materialization: 0,
+        same_owner_blocking: 0,
+        selection: 0,
+        visibility: 0,
+    };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_qualified_module_value_import_work() {
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| work.set(QualifiedModuleValueImportWork::ZERO));
+}
+
+#[cfg(test)]
+pub(crate) fn take_qualified_module_value_import_work() -> QualifiedModuleValueImportWork {
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK
+        .with(|work| work.replace(QualifiedModuleValueImportWork::ZERO))
+}
+
+fn record_qualified_module_value_import_build_work() {
+    #[cfg(test)]
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| {
+        let mut value = work.get();
+        value.index_build += 1;
+        work.set(value);
+    });
+}
+
+fn record_qualified_module_value_target_classification_work() {
+    #[cfg(test)]
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| {
+        let mut value = work.get();
+        value.target_classification += 1;
+        work.set(value);
+    });
+}
+
+fn record_qualified_module_value_same_owner_work() {
+    #[cfg(test)]
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| {
+        let mut value = work.get();
+        value.same_owner_blocking += 1;
+        work.set(value);
+    });
+}
+
+fn record_qualified_module_value_selection_work() {
+    #[cfg(test)]
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| {
+        let mut value = work.get();
+        value.selection += 1;
+        work.set(value);
+    });
+}
+
+fn record_qualified_module_value_visibility_work() {
+    #[cfg(test)]
+    QUALIFIED_MODULE_VALUE_IMPORT_WORK.with(|work| {
+        let mut value = work.get();
+        value.visibility += 1;
+        work.set(value);
+    });
+}
+
 fn function_publication_key(function: &FunctionSignature) -> FunctionPublicationKey {
     (
         function.package_name.clone(),
@@ -94,7 +396,19 @@ mod standard_subset;
 #[derive(Clone)]
 pub(crate) struct TypeEnvironment {
     module_values: Vec<ModuleValueSignature>,
-    module_values_by_identity: HashMap<(Option<String>, String), ModuleValueIndex>,
+    module_values_by_identity: HashMap<ModuleValueIdentity, ModuleValueIndex>,
+    bare_module_value_exports: HashMap<String, BTreeMap<ModuleValueTarget, ModuleValueIdentity>>,
+    bare_function_exports: HashMap<String, BTreeSet<ModuleValueTarget>>,
+    bare_module_value_import_targets: HashMap<ModuleValueOwner, BTreeSet<ModuleValueTarget>>,
+    module_value_import_owners: HashMap<ModuleValueTarget, BTreeSet<ModuleValueOwner>>,
+    representative_bare_module_value_imports: HashMap<ModuleValueImportKey, UseDecl>,
+    bare_module_value_cache:
+        Arc<std::sync::RwLock<HashMap<BareModuleValueKey, BareModuleValueExposure>>>,
+    qualified_module_value_imports:
+        HashMap<QualifiedModuleValueKey, QualifiedModuleValueImportSelection>,
+    exact_module_value_imports: HashSet<QualifiedModuleValueKey>,
+    blocked_exact_module_value_imports: HashSet<QualifiedModuleValueKey>,
+    public_module_value_identities: HashSet<ModuleValueIdentity>,
     functions: Vec<FunctionSignature>,
     functions_by_name: HashMap<String, Vec<usize>>,
     unpublished_functions: HashSet<FunctionPublicationKey>,
@@ -111,6 +425,7 @@ pub(crate) struct TypeEnvironment {
     invalid_names: Vec<InvalidName>,
     pub(crate) adts: AdtRegistry,
     companion_function_access_targets: BTreeMap<String, String>,
+    companion_module_value_access_targets: HashMap<ResolvedImportOwner, ResolvedImportOwner>,
     companion_schema_access_targets: BTreeMap<String, String>,
     companion_effect_access_targets: BTreeMap<String, CompanionAccessTarget>,
 }
@@ -125,105 +440,589 @@ pub(crate) struct VariantRefinementBaseFailure {
 }
 
 impl TypeEnvironment {
-    pub(crate) fn quarantine_module_values(
-        &mut self,
-        invalid: &BTreeSet<(Option<String>, String)>,
-    ) {
+    pub(crate) fn quarantine_module_values(&mut self, invalid: &BTreeSet<ModuleValueIdentity>) {
+        crate::analysis::record_module_value_exposure_rebuild(
+            self.module_values.len() + self.uses.len(),
+        );
         for value in &mut self.module_values {
             value.available = value.declaration.name.as_ref().is_some_and(|name| {
-                !invalid.contains(&(value.declaration.module_name.clone(), name.clone()))
+                !invalid.contains(&(
+                    value.declaration.package_name.clone(),
+                    value.declaration.module_name.clone(),
+                    name.clone(),
+                ))
             });
         }
+        self.rebuild_module_value_exposures();
     }
 
-    pub(crate) fn module_value_path(
+    pub(crate) fn set_module_value_availability(
+        &mut self,
+        identity: &ModuleValueIdentity,
+        available: bool,
+    ) -> BTreeSet<ModuleValueOwner> {
+        let Some(ModuleValueIndex::Unique(index)) = self.module_values_by_identity.get(identity)
+        else {
+            return BTreeSet::new();
+        };
+        let value = &mut self.module_values[*index];
+        if value.available == available {
+            return BTreeSet::new();
+        }
+        value.available = available;
+        crate::analysis::record_module_value_availability_update();
+        if value.declaration.visibility == Visibility::Public {
+            if available {
+                self.public_module_value_identities.insert(identity.clone());
+            } else {
+                self.public_module_value_identities.remove(identity);
+            }
+        }
+        self.bare_module_value_cache = Arc::new(std::sync::RwLock::new(HashMap::new()));
+        self.module_value_import_owners
+            .get(&(identity.0.clone(), identity.1.clone()))
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    fn rebuild_module_value_exposures(&mut self) {
+        self.public_module_value_identities =
+            facts::public_module_value_identities(&self.module_values);
+        self.qualified_module_value_imports =
+            facts::qualified_module_value_import_index(&self.uses);
+        let indexes = facts::bare_module_value_indexes(
+            &self.module_values,
+            &self.functions,
+            &self.unpublished_functions,
+            &self.uses,
+        );
+        self.bare_module_value_exports = indexes.module_values;
+        self.bare_function_exports = indexes.functions;
+        self.bare_module_value_import_targets = indexes.targets_by_owner;
+        self.module_value_import_owners = indexes.owners_by_target;
+        self.representative_bare_module_value_imports = indexes.representative_imports;
+        self.bare_module_value_cache = Arc::new(std::sync::RwLock::new(HashMap::new()));
+    }
+
+    pub(crate) fn module_value_path_in_owner(
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> ModuleValueLookup<'_> {
         let Some((name, _)) = segments.split_last() else {
             return ModuleValueLookup::Missing;
         };
-        if !self.same_module_value_path_matches(segments, current_module) {
+        if let Some(value) =
+            self.same_owner_module_value(segments, name, current_module, current_package)
+        {
+            return value;
+        }
+
+        if segments.len() == 1 {
+            return self.bare_module_value_in_owner(name, current_module, current_package);
+        }
+
+        self.qualified_module_value_in_owner(segments, name, current_module, current_package)
+    }
+
+    pub(crate) fn module_value_ambiguity_candidates(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Vec<ModuleValueAmbiguityCandidate> {
+        let Some((name, _)) = segments.split_last() else {
+            return Vec::new();
+        };
+        if segments.len() > 1 {
+            let owner = ResolvedImportOwner {
+                package: current_package.map(str::to_owned),
+                module: current_module.map(str::to_owned),
+            };
+            let module_path = segments[..segments.len() - 1].join("::");
+            let Some(QualifiedModuleValueImportSelection::Ambiguous(imports)) = self
+                .qualified_module_value_imports
+                .get(&(owner, module_path))
+            else {
+                return Vec::new();
+            };
+            return imports
+                .iter()
+                .map(|use_decl| {
+                    let target = use_decl.resolved_target();
+                    ModuleValueAmbiguityCandidate {
+                        kind: ModuleValueAmbiguityCandidateKind::ImportTarget,
+                        package_name: target.package,
+                        module_name: target.module,
+                        alias: if use_decl.alias.is_empty() {
+                            use_decl.written_name.clone()
+                        } else {
+                            use_decl.alias.clone()
+                        },
+                        span: use_decl.span.clone(),
+                    }
+                })
+                .collect();
+        }
+
+        let owner = (
+            current_package.map(str::to_owned),
+            current_module.map(str::to_owned),
+        );
+        let key = (owner.0.clone(), owner.1.clone(), name.clone());
+        let Some(exposure) = self.materialize_bare_module_value_exposure(&key) else {
+            return Vec::new();
+        };
+        let mut candidates = Vec::new();
+        for identity in exposure.active {
+            let target = (identity.0, identity.1);
+            if let Some(use_decl) = self.ambiguity_import_for_target(&owner, &target) {
+                candidates.push(ModuleValueAmbiguityCandidate {
+                    kind: ModuleValueAmbiguityCandidateKind::ModuleValue,
+                    package_name: target.0,
+                    module_name: target.1.unwrap_or_default(),
+                    alias: use_decl.alias.clone(),
+                    span: use_decl.span.clone(),
+                });
+            }
+        }
+        for target in exposure.function_candidates {
+            if let Some(use_decl) = self.ambiguity_import_for_target(&owner, &target) {
+                candidates.push(ModuleValueAmbiguityCandidate {
+                    kind: ModuleValueAmbiguityCandidateKind::Function,
+                    package_name: target.0,
+                    module_name: target.1.unwrap_or_default(),
+                    alias: use_decl.alias.clone(),
+                    span: use_decl.span.clone(),
+                });
+            }
+        }
+        candidates.sort_by(|left, right| {
+            (
+                &left.package_name,
+                &left.module_name,
+                left.kind,
+                &left.alias,
+                left.span.start.offset,
+            )
+                .cmp(&(
+                    &right.package_name,
+                    &right.module_name,
+                    right.kind,
+                    &right.alias,
+                    right.span.start.offset,
+                ))
+        });
+        candidates
+    }
+
+    fn ambiguity_import_for_target(
+        &self,
+        owner: &ModuleValueOwner,
+        target: &ModuleValueTarget,
+    ) -> Option<&UseDecl> {
+        record_module_value_ambiguity_candidate_provenance_visit();
+        self.representative_bare_module_value_imports
+            .get(&(owner.clone(), target.clone()))
+    }
+
+    pub(crate) fn module_value_dependency_in_owner(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<ModuleValueDependency> {
+        if let [name] = segments
+            && self
+                .same_owner_module_value(segments, name, current_module, current_package)
+                .is_none()
+            && !self.functions_named(name).any(|function| {
+                function.module_name.as_deref() == current_module
+                    && function.package_name.as_deref() == current_package
+            })
+        {
+            let owner = (
+                current_package.map(str::to_owned),
+                current_module.map(str::to_owned),
+            );
+            if self.bare_module_value_import_targets.contains_key(&owner) {
+                return Some(ModuleValueDependency::BareExposure((
+                    owner.0,
+                    owner.1,
+                    name.clone(),
+                )));
+            }
+        }
+        self.module_value_dependency_identity_in_owner(segments, current_module, current_package)
+            .map(ModuleValueDependency::Identity)
+    }
+
+    pub(crate) fn module_value_candidates_for_bare_exposure(
+        &self,
+        key: &BareModuleValueExposureIdentity,
+    ) -> BTreeSet<ModuleValueIdentity> {
+        // Include unavailable and ambiguous candidates: either transition can
+        // change the declaration selected by the logical exposure.
+        self.materialize_bare_module_value_exposure(key)
+            .map(|exposure| exposure.candidates)
+            .unwrap_or_default()
+    }
+
+    fn module_value_dependency_identity_in_owner(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<ModuleValueIdentity> {
+        let (name, _) = segments.split_last()?;
+        if self.same_module_value_path_matches_in_owner(segments, current_module, current_package) {
+            let identity = (
+                current_package.map(str::to_owned),
+                current_module.map(str::to_owned),
+                name.clone(),
+            );
+            match self.module_values_by_identity.get(&identity) {
+                Some(ModuleValueIndex::Unique(_)) => return Some(identity),
+                Some(ModuleValueIndex::Collision) => return None,
+                None => {}
+            }
+        }
+        if segments.len() == 1 {
+            if self.functions_named(name).any(|function| {
+                function.module_name.as_deref() == current_module
+                    && function.package_name.as_deref() == current_package
+            }) {
+                return None;
+            }
+            let key = (
+                current_package.map(str::to_owned),
+                current_module.map(str::to_owned),
+                name.clone(),
+            );
+            let exposure = self.materialize_bare_module_value_exposure(&key)?;
+            if !exposure.function_candidates.is_empty() {
+                return None;
+            }
+            let identity = if exposure.active.len() == 1 {
+                exposure.active.into_iter().next()
+            } else if exposure.active.is_empty() && exposure.candidates.len() == 1 {
+                exposure.candidates.into_iter().next()
+            } else {
+                None
+            };
+            return identity.filter(|identity| {
+                matches!(
+                    self.module_values_by_identity.get(identity),
+                    Some(ModuleValueIndex::Unique(_))
+                )
+            });
+        }
+
+        let module_path = segments[..segments.len() - 1].join("::");
+        let owner = veln_ast::ResolvedImportOwner {
+            package: current_package.map(str::to_owned),
+            module: current_module.map(str::to_owned),
+        };
+        let key = (owner, module_path);
+        if self.blocked_exact_module_value_imports.contains(&key)
+            && !self.exact_module_value_imports.contains(&key)
+        {
+            return None;
+        }
+        let QualifiedModuleValueImportSelection::Unique(use_decl) =
+            self.qualified_module_value_imports.get(&key)?
+        else {
+            return None;
+        };
+        let identity = (
+            use_decl.resolved_target().package,
+            Some(use_decl.name.clone()),
+            name.clone(),
+        );
+        let ModuleValueIndex::Unique(index) = self.module_values_by_identity.get(&identity)? else {
+            return None;
+        };
+        let value = &self.module_values[*index];
+        (value.declaration.visibility == Visibility::Public
+            || self.companion_private_module_value_access_allowed(
+                use_decl,
+                current_module,
+                current_package,
+            ))
+        .then_some(identity)
+    }
+
+    fn same_owner_module_value<'a>(
+        &'a self,
+        segments: &[String],
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<ModuleValueLookup<'a>> {
+        self.same_module_value_path_matches_in_owner(segments, current_module, current_package)
+            .then(|| {
+                self.module_values_by_identity.get(&(
+                    current_package.map(str::to_owned),
+                    current_module.map(str::to_owned),
+                    name.to_owned(),
+                ))
+            })
+            .flatten()
+            .map(|index| self.module_value_at_index(*index))
+    }
+
+    fn bare_module_value_in_owner(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> ModuleValueLookup<'_> {
+        if self.functions_named(name).any(|function| {
+            function.module_name.as_deref() == current_module
+                && function.package_name.as_deref() == current_package
+        }) {
             return ModuleValueLookup::Missing;
         }
-        match self
-            .module_values_by_identity
-            .get(&(current_module.map(str::to_owned), name.clone()))
+        let key = (
+            current_package.map(str::to_owned),
+            current_module.map(str::to_owned),
+            name.to_owned(),
+        );
+        record_bare_module_value_cache_probe();
+        let cached_selection = {
+            let cache = self
+                .bare_module_value_cache
+                .read()
+                .expect("bare module value cache read");
+            cache.get(&key).map(Self::select_bare_module_value_exposure)
+        };
+        let selection = if let Some(selection) = cached_selection {
+            selection
+        } else {
+            let Some(exposure) = self.materialize_bare_module_value_exposure(&key) else {
+                record_bare_module_value_result_selection();
+                return ModuleValueLookup::Missing;
+            };
+            let selection = Self::select_bare_module_value_exposure(&exposure);
+            record_bare_module_value_cache_entry();
+            self.bare_module_value_cache
+                .write()
+                .expect("bare module value cache write")
+                .insert(key, exposure);
+            selection
+        };
+        record_bare_module_value_result_selection();
+        match selection {
+            BareModuleValueSelection::Missing => ModuleValueLookup::Missing,
+            BareModuleValueSelection::Ambiguous => ModuleValueLookup::Ambiguous,
+            BareModuleValueSelection::Available(identity) => self
+                .module_values_by_identity
+                .get(&identity)
+                .map_or(ModuleValueLookup::Missing, |index| {
+                    self.module_value_at_index(*index)
+                }),
+        }
+    }
+
+    fn select_bare_module_value_exposure(
+        exposure: &BareModuleValueExposure,
+    ) -> BareModuleValueSelection {
+        if exposure.active.len() > 1
+            || (!exposure.function_candidates.is_empty() && !exposure.active.is_empty())
         {
-            Some(ModuleValueIndex::Unique(index)) => {
-                let value = &self.module_values[*index];
+            BareModuleValueSelection::Ambiguous
+        } else if let Some(identity) = exposure.active.first() {
+            BareModuleValueSelection::Available(identity.clone())
+        } else {
+            BareModuleValueSelection::Missing
+        }
+    }
+
+    fn materialize_bare_module_value_exposure(
+        &self,
+        key: &BareModuleValueKey,
+    ) -> Option<BareModuleValueExposure> {
+        let owner = (key.0.clone(), key.1.clone());
+        let targets = self.bare_module_value_import_targets.get(&owner)?;
+        let mut exposure = BareModuleValueExposure {
+            candidates: BTreeSet::new(),
+            active: BTreeSet::new(),
+            function_candidates: BTreeSet::new(),
+        };
+        record_bare_module_value_selection();
+        if let Some(exports) = self.bare_module_value_exports.get(&key.2) {
+            if exports.len() <= targets.len() {
+                for (target, identity) in exports {
+                    record_bare_module_value_candidate_target_check();
+                    if targets.contains(target) {
+                        self.add_bare_module_value_candidate(&mut exposure, identity);
+                    }
+                }
+            } else {
+                for target in targets {
+                    record_bare_module_value_candidate_target_check();
+                    if let Some(identity) = exports.get(target) {
+                        self.add_bare_module_value_candidate(&mut exposure, identity);
+                    }
+                }
+            }
+        }
+        if let Some(exports) = self.bare_function_exports.get(&key.2) {
+            if exports.len() <= targets.len() {
+                for target in exports {
+                    record_bare_module_value_candidate_target_check();
+                    if targets.contains(target) {
+                        exposure.function_candidates.insert(target.clone());
+                    }
+                }
+            } else {
+                for target in targets {
+                    record_bare_module_value_candidate_target_check();
+                    if exports.contains(target) {
+                        exposure.function_candidates.insert(target.clone());
+                    }
+                }
+            }
+        }
+        (!exposure.candidates.is_empty()).then_some(exposure)
+    }
+
+    fn add_bare_module_value_candidate(
+        &self,
+        exposure: &mut BareModuleValueExposure,
+        identity: &ModuleValueIdentity,
+    ) {
+        record_bare_module_value_materialized_exposure();
+        exposure.candidates.insert(identity.clone());
+        if self.public_module_value_identities.contains(identity) {
+            exposure.active.insert(identity.clone());
+        }
+    }
+
+    fn qualified_module_value_in_owner(
+        &self,
+        segments: &[String],
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> ModuleValueLookup<'_> {
+        let module_path = segments[..segments.len() - 1].join("::");
+        let owner = veln_ast::ResolvedImportOwner {
+            package: current_package.map(str::to_string),
+            module: current_module.map(str::to_string),
+        };
+        let key = (owner, module_path);
+        record_qualified_module_value_selection_work();
+        let exact_path_is_blocked = self.blocked_exact_module_value_imports.contains(&key);
+        record_qualified_module_value_selection_work();
+        let selection = self.qualified_module_value_imports.get(&key);
+        if exact_path_is_blocked && !self.exact_module_value_imports.contains(&key) {
+            return ModuleValueLookup::Missing;
+        }
+        // A blocked exact path with selectable package-distinct exact targets remains
+        // ambiguous. Without one, return above instead of using an implicit or local
+        // fallback.
+        let Some(selection) = selection else {
+            return ModuleValueLookup::Missing;
+        };
+        let use_decl = match selection {
+            QualifiedModuleValueImportSelection::Unique(use_decl) => use_decl,
+            QualifiedModuleValueImportSelection::Ambiguous(_) => {
+                return ModuleValueLookup::Ambiguous;
+            }
+        };
+        record_qualified_module_value_selection_work();
+        let Some(index) = self.visible_module_value_index_for_use(
+            use_decl,
+            name,
+            current_module,
+            current_package,
+        ) else {
+            return ModuleValueLookup::Missing;
+        };
+        self.module_value_at_index(index)
+    }
+
+    fn visible_module_value_index_for_use(
+        &self,
+        use_decl: &UseDecl,
+        name: &str,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<ModuleValueIndex> {
+        let identity = (
+            use_decl.resolved_target().package,
+            Some(use_decl.name.clone()),
+            name.to_owned(),
+        );
+        let index = *self.module_values_by_identity.get(&identity)?;
+        let private_access = self.companion_private_module_value_access_allowed(
+            use_decl,
+            current_module,
+            current_package,
+        );
+        record_qualified_module_value_visibility_work();
+        let available = match index {
+            ModuleValueIndex::Unique(index) => self.module_values[index].available,
+            ModuleValueIndex::Collision => false,
+        };
+        let visible = available
+            && (self.public_module_value_identities.contains(&identity) || private_access);
+        visible.then_some(index)
+    }
+
+    fn module_value_at_index(&self, index: ModuleValueIndex) -> ModuleValueLookup<'_> {
+        match index {
+            ModuleValueIndex::Unique(index) => {
+                let value = &self.module_values[index];
                 if value.available {
                     ModuleValueLookup::Available(value)
                 } else {
                     ModuleValueLookup::Unavailable
                 }
             }
-            Some(ModuleValueIndex::Collision) => ModuleValueLookup::Unavailable,
-            None => ModuleValueLookup::Missing,
+            ModuleValueIndex::Collision => ModuleValueLookup::Unavailable,
         }
+    }
+
+    fn companion_private_module_value_access_allowed(
+        &self,
+        use_decl: &UseDecl,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        let current_owner = ResolvedImportOwner {
+            package: current_package.map(str::to_owned),
+            module: current_module.map(str::to_owned),
+        };
+        let resolved_target = use_decl.resolved_target();
+        let imported_target = ResolvedImportOwner {
+            package: resolved_target.package,
+            module: Some(resolved_target.module),
+        };
+        self.companion_module_value_access_targets
+            .get(&current_owner)
+            .is_some_and(|allowed_target| allowed_target == &imported_target)
     }
 
     pub(crate) fn resolves_available_module_value_alias_target(
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> bool {
-        let Some((name, qualifier)) = segments.split_last() else {
-            return false;
-        };
-        let imported = !qualifier.is_empty();
-        let module_identity = if !imported {
-            Some(current_module.map(str::to_owned))
-        } else {
-            let module_path = qualifier.join("::");
-            let mut candidates = self
-                .uses
-                .iter()
-                .filter(|use_decl| {
-                    crate::name_recovery::use_decl_matches_exact_import_path(
-                        use_decl,
-                        &module_path,
-                        current_module,
-                    )
-                })
-                .map(|use_decl| use_decl.name.clone())
-                .collect::<BTreeSet<_>>();
-            if candidates.is_empty() {
-                candidates = self
-                    .uses
-                    .iter()
-                    .filter(|use_decl| {
-                        crate::name_recovery::use_decl_matches_implicit_import_alias(
-                            use_decl,
-                            &module_path,
-                            current_module,
-                        )
-                    })
-                    .map(|use_decl| use_decl.name.clone())
-                    .collect();
-            }
-            (candidates.len() == 1)
-                .then(|| Some(candidates.into_iter().next().expect("one import target")))
-        };
-        let Some(module_name) = module_identity else {
-            return false;
-        };
-        let Some(ModuleValueIndex::Unique(index)) = self
-            .module_values_by_identity
-            .get(&(module_name, name.clone()))
-        else {
-            return false;
-        };
-        let value = &self.module_values[*index];
-        value.available
-            && (!imported || value.declaration.visibility == veln_ast::Visibility::Public)
+        matches!(
+            self.module_value_path_in_owner(segments, current_module, current_package),
+            ModuleValueLookup::Available(_)
+        )
     }
 
-    pub(crate) fn same_module_value_path_matches(
+    pub(crate) fn same_module_value_path_matches_in_owner(
         &self,
         segments: &[String],
         current_module: Option<&str>,
+        current_package: Option<&str>,
     ) -> bool {
         let Some((_, qualifier)) = segments.split_last() else {
             return false;
@@ -235,13 +1034,17 @@ impl TypeEnvironment {
             return false;
         };
         let qualifier = qualifier.join("::");
-        if self.uses.iter().any(|use_decl| {
-            crate::name_recovery::use_decl_matches_exact_import_path(
-                use_decl,
-                &qualifier,
-                current_module,
-            )
-        }) {
+        record_qualified_module_value_same_owner_work();
+        let key = (
+            veln_ast::ResolvedImportOwner {
+                package: current_package.map(str::to_string),
+                module: current_module.map(str::to_string),
+            },
+            qualifier.clone(),
+        );
+        if self.blocked_exact_module_value_imports.contains(&key)
+            || self.exact_module_value_imports.contains(&key)
+        {
             return false;
         }
         qualifier == module

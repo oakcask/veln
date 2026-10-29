@@ -1,0 +1,26 @@
+use values
+use aliases as config
+use alpha
+use beta
+use alpha::exact
+use beta::exact
+
+let bare: Int = answer
+let qualified: Int = values::answer
+let aliased: Int = config::setting
+
+fn alias_bare_is_hidden() -> Int
+	setting
+end
+
+fn imported_collision() -> Int
+	shared
+end
+
+fn imported_call_collision() -> Int
+	shared()
+end
+
+fn exact_path_does_not_fall_back() -> Int
+	alpha::exact::target
+end

@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The veln run command selection, execution gate, entry argument, runtime diagnostic, stdout, or JSON behavior changes.
+update-when: The veln run command selection, analysis or execution gate, entry argument, runtime diagnostic, stdout, or JSON behavior changes.
 specification-coverage: usage=#run-command; behavior=#analysis-and-execution-gates; limits=#limits
 ---
 
@@ -49,7 +49,9 @@ cannot replace the JVM launch target.
 
 A module immutable value declaration in the selected analysis is semantically
 checked before backend launch. Invalid finite-data initializers, annotation
-mismatches, and dependency cycles report their semantic diagnostics. Every
+mismatches, public visibility failures, imported lookup failures, and
+same-module dependency cycles report their semantic diagnostics. Imported
+lookup retains package-aware declaration identity. Every
 declaration also produces `module.value_not_executable`, so even a valid
 initializer cannot supply a value to the selected program.
 

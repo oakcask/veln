@@ -1,0 +1,8 @@
+use values from "dep/pkg"
+
+pub let accepted: values::Secret = 0
+pub let local_control: Secret = 0
+
+type Secret
+	Owner
+end

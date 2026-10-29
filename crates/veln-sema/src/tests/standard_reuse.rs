@@ -248,6 +248,55 @@ fn reusable_standard_environment_uses_only_loaded_standard_modules() {
 }
 
 #[test]
+fn reusable_standard_subset_excludes_unpublished_functions_from_value_collisions() {
+    let _guard = standard_reuse_test_lock();
+    let standard = merge_modules(vec![
+        module_with_identity(
+            "functions.veln",
+            concat!(
+                "pub type State\n",
+                "  Hidden\n",
+                "end\n",
+                "pub fn shared(value: State::Hidden) -> Int\n",
+                "  1\n",
+                "end\n",
+                "pub fn aliased = shared\n",
+            ),
+            "std::functions",
+        ),
+        module_with_identity(
+            "values.veln",
+            concat!("pub let shared: Int = 2\n", "pub let aliased: Int = 3\n",),
+            "std::values",
+        ),
+        module_with_identity(
+            "consumer.veln",
+            "use std::functions\nuse std::values\n",
+            "std::consumer",
+        ),
+        extra_standard_module(),
+    ]);
+    let reusable = prepare_reusable_standard_surface_module_environment(&standard)
+        .with_current_identity_for_test();
+    let selected_modules = ["std::functions", "std::values", "std::consumer"]
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+    let environment = reusable.environment_for_modules_for_test(&selected_modules);
+
+    for name in ["shared", "aliased"] {
+        assert!(matches!(
+            environment.module_value_path_in_owner(
+                &[name.to_string()],
+                Some("std::consumer"),
+                Some(veln_stdlib::PACKAGE_NAME),
+            ),
+            crate::types::ModuleValueLookup::Available(_)
+        ));
+    }
+}
+
+#[test]
 fn reusable_standard_environment_does_not_expose_unloaded_standard_functions() {
     let _guard = standard_reuse_test_lock();
     let reusable =

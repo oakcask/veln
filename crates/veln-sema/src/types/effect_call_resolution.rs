@@ -199,6 +199,28 @@ pub(crate) fn companion_access_targets(module: &SurfaceModule) -> BTreeMap<Strin
     )
 }
 
+pub(super) fn companion_module_value_access_targets(
+    module: &SurfaceModule,
+) -> HashMap<ResolvedImportOwner, ResolvedImportOwner> {
+    module
+        .uses
+        .iter()
+        .filter_map(|use_decl| {
+            let (_, target_module) = companion_access_target(
+                use_decl.span.file.as_str(),
+                use_decl.module_name.as_deref(),
+            )?;
+            Some((
+                use_decl.resolved_owner(),
+                ResolvedImportOwner {
+                    package: use_decl.importing_package.clone(),
+                    module: Some(target_module),
+                },
+            ))
+        })
+        .collect()
+}
+
 pub(super) fn companion_access_target_infos(
     module: &SurfaceModule,
 ) -> BTreeMap<String, CompanionAccessTarget> {

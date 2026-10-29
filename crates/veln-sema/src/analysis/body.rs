@@ -223,7 +223,9 @@ fn literal_or_unit_pattern_is_compatible(pattern: &Pattern, expected: &Type) -> 
 pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) function: &'a Function,
     pub(super) environment: &'a TypeEnvironment,
+    pub(super) resolution_uses: Vec<veln_ast::UseDecl>,
     pub(super) supports_callsite_modifier: bool,
+    pub(super) annotation_owner_prevalidated: bool,
     pub(super) declaration_types_are_quarantined: bool,
     pub(super) bindings: Vec<Binding>,
     binding_positions: HashMap<String, Vec<usize>>,
@@ -392,6 +394,16 @@ fn match_pattern_coverage(
                     .adts
                     .descriptor_for_type_prefer_module(scrutinee_type, current_module)
                     .and_then(|descriptor| {
+                        let quarantined = environment
+                            .quarantined_explicit_import_constructor_for_descriptor_in_owner(
+                                name,
+                                descriptor,
+                                current_module,
+                                current_package,
+                            );
+                        if invalid_qualified_constructor_base(name) && quarantined.is_none() {
+                            return None;
+                        }
                         environment
                             .adts
                             .constructor_for_descriptor(
@@ -400,15 +412,7 @@ fn match_pattern_coverage(
                                 current_module,
                                 &environment.uses,
                             )
-                            .or_else(|| {
-                                environment
-                                    .quarantined_explicit_import_constructor_for_descriptor_in_owner(
-                                        name,
-                                        descriptor,
-                                        current_module,
-                                        current_package,
-                                    )
-                            })
+                            .or(quarantined)
                             .map(|constructor| constructor.variant.coverage_case.clone())
                     }),
                 MatchDomain::Bool => None,
@@ -466,6 +470,63 @@ fn quarantined_constructor_arity_diagnostic(
     )
 }
 
+fn declaration_types_are_quarantined(
+    function: &Function,
+    environment: &TypeEnvironment,
+    annotation_owner_prevalidated: bool,
+) -> bool {
+    if annotation_owner_prevalidated {
+        let owner_paths_are_resolved = |paths: &[veln_ast::TypePathSegments]| {
+            paths.iter().all(|path| {
+                environment.annotation_type_path_is_resolved_in_owner(
+                    &path.segments.join("::"),
+                    path.type_argument_count,
+                    function.module_name.as_deref(),
+                    function.package_name.as_deref(),
+                )
+            })
+        };
+        return !owner_paths_are_resolved(&function.return_type_paths)
+            || (function.kind == FunctionKind::Function
+                && function
+                    .params
+                    .iter()
+                    .any(|param| !owner_paths_are_resolved(&param.ty_paths)));
+    }
+
+    annotation_has_unavailable_refinement_identity(
+        &function.return_type_refinements,
+        &function.return_type_paths,
+        function.module_name.as_deref(),
+        environment,
+        &[],
+    ) || (function.kind == FunctionKind::Function
+        && function.params.iter().any(|param| {
+            annotation_has_unavailable_refinement_identity(
+                &param.ty_refinements,
+                &param.ty_paths,
+                function.module_name.as_deref(),
+                environment,
+                &[],
+            )
+        }))
+}
+
+fn resolution_uses_for_function(
+    function: &Function,
+    environment: &TypeEnvironment,
+) -> Vec<veln_ast::UseDecl> {
+    environment
+        .uses
+        .iter()
+        .filter(|use_decl| {
+            use_decl.module_name.as_deref() == function.module_name.as_deref()
+                && use_decl.importing_package.as_deref() == function.package_name.as_deref()
+        })
+        .cloned()
+        .collect()
+}
+
 impl<'a> FunctionChecker<'a> {
     pub(super) fn for_source_declaration(
         function: &'a Function,
@@ -476,6 +537,7 @@ impl<'a> FunctionChecker<'a> {
             function,
             environment,
             function.kind == FunctionKind::Function,
+            false,
             variant_diagnostics,
         )
     }
@@ -485,35 +547,31 @@ impl<'a> FunctionChecker<'a> {
         environment: &'a TypeEnvironment,
         variant_diagnostics: &'a mut VariantDiagnosticInterner,
     ) -> Self {
-        Self::new(function, environment, false, variant_diagnostics)
+        Self::new(
+            function,
+            environment,
+            false,
+            function.package_name.is_some(),
+            variant_diagnostics,
+        )
     }
 
     fn new(
         function: &'a Function,
         environment: &'a TypeEnvironment,
         supports_callsite_modifier: bool,
+        annotation_owner_prevalidated: bool,
         variant_diagnostics: &'a mut VariantDiagnosticInterner,
     ) -> Self {
-        let declaration_types_are_quarantined = annotation_has_unavailable_refinement_identity(
-            &function.return_type_refinements,
-            &function.return_type_paths,
-            function.module_name.as_deref(),
-            environment,
-            &[],
-        ) || (function.kind == FunctionKind::Function
-            && function.params.iter().any(|param| {
-                annotation_has_unavailable_refinement_identity(
-                    &param.ty_refinements,
-                    &param.ty_paths,
-                    function.module_name.as_deref(),
-                    environment,
-                    &[],
-                )
-            }));
+        let declaration_types_are_quarantined =
+            declaration_types_are_quarantined(function, environment, annotation_owner_prevalidated);
+        let resolution_uses = resolution_uses_for_function(function, environment);
         Self {
             function,
             environment,
+            resolution_uses,
             supports_callsite_modifier,
+            annotation_owner_prevalidated,
             declaration_types_are_quarantined,
             bindings: Vec::new(),
             binding_positions: HashMap::new(),

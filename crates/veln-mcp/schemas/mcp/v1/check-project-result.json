@@ -149,6 +149,12 @@
                     "package": {
                       "type": "string"
                     },
+                    "module": {
+                      "type": "string"
+                    },
+                    "candidate_kind": {
+                      "type": "string"
+                    },
                     "companion_path": {
                       "type": "string"
                     },

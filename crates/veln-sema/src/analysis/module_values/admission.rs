@@ -8,13 +8,35 @@ use crate::adt::registry::ConstructorLookup;
 use crate::adt::{descriptors::AdtConstructor, type_operations as adt};
 use crate::diagnostics::span_json;
 use crate::semantic_model::Type;
-use crate::types::{ModuleValueIndex, TypeEnvironment};
+use crate::types::{ModuleValueIdentity, ModuleValueIndex, ModuleValueLookup, TypeEnvironment};
 
 pub(super) fn check_admitted_expr(
     expr: &Expr,
     declaration: &veln_ast::ModuleValueDecl,
-    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
     environment: &TypeEnvironment,
+    expected: Option<&Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let resolution_uses = environment
+        .uses
+        .iter()
+        .filter(|use_decl| {
+            use_decl.module_name.as_deref() == declaration.module_name.as_deref()
+                && use_decl.importing_package.as_deref() == declaration.package_name.as_deref()
+        })
+        .cloned()
+        .collect();
+    let scope = AdmissionScope {
+        declaration,
+        environment,
+        resolution_uses,
+    };
+    check_admitted_expr_in_scope(expr, &scope, expected, diagnostics);
+}
+
+fn check_admitted_expr_in_scope(
+    expr: &Expr,
+    scope: &AdmissionScope<'_>,
     expected: Option<&Type>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
@@ -25,15 +47,13 @@ pub(super) fn check_admitted_expr(
         | ExprKind::Unit => {}
         ExprKind::Record(fields) => {
             if fields.is_empty() && expected.is_some_and(|ty| ty.dict_parts().is_some()) {
-                diagnostics.push(unsupported_diagnostic(expr, declaration));
+                diagnostics.push(unsupported_diagnostic(expr, scope.declaration));
                 return;
             }
             for field in fields {
-                check_admitted_expr(
+                check_admitted_expr_in_scope(
                     &field.expr,
-                    declaration,
-                    value_indices,
-                    environment,
+                    scope,
                     expected.and_then(|ty| ty.record_field(&field.name)),
                     diagnostics,
                 );
@@ -43,53 +63,48 @@ pub(super) fn check_admitted_expr(
             op: veln_ast::PrefixOp::Negate,
             expr: inner,
         } if matches!(inner.kind, ExprKind::IntLiteral(_)) => {}
-        ExprKind::NamePath { segments, .. } => check_admitted_name(
-            expr,
-            segments,
-            declaration,
-            value_indices,
-            environment,
-            diagnostics,
-        ),
+        ExprKind::NamePath { segments, .. } => {
+            check_admitted_name(expr, segments, scope, diagnostics)
+        }
         ExprKind::Call { callee, args } => {
-            let scope = AdmissionScope {
-                declaration,
-                value_indices,
-                environment,
-            };
-            check_admitted_call(expr, callee, args, &scope, expected, diagnostics);
+            check_admitted_call(expr, callee, args, scope, expected, diagnostics);
         }
         ExprKind::Missing => {}
-        _ => diagnostics.push(unsupported_diagnostic(expr, declaration)),
+        _ => diagnostics.push(unsupported_diagnostic(expr, scope.declaration)),
     }
 }
 
 fn check_admitted_name(
     expr: &Expr,
     segments: &[String],
-    declaration: &veln_ast::ModuleValueDecl,
-    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
-    environment: &TypeEnvironment,
+    scope: &AdmissionScope<'_>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let current_module = declaration.module_name.as_deref();
-    if module_value_index(value_indices, segments, current_module, environment).is_some()
-        || matches!(
-            environment
-                .adts
-                .nullary_constructor(segments, current_module, &environment.uses),
-            ConstructorLookup::Found(_)
-        )
-    {
+    let current_module = scope.declaration.module_name.as_deref();
+    if !matches!(
+        scope.environment.module_value_path_in_owner(
+            segments,
+            current_module,
+            scope.declaration.package_name.as_deref(),
+        ),
+        ModuleValueLookup::Missing
+    ) || matches!(
+        scope.environment.adts.nullary_constructor(
+            segments,
+            current_module,
+            &scope.resolution_uses
+        ),
+        ConstructorLookup::Found(_)
+    ) {
         return;
     }
     if known_function(
-        environment,
+        scope.environment,
         segments,
         current_module,
-        declaration.package_name.as_deref(),
+        scope.declaration.package_name.as_deref(),
     ) {
-        diagnostics.push(unsupported_diagnostic(expr, declaration));
+        diagnostics.push(unsupported_diagnostic(expr, scope.declaration));
     }
 }
 
@@ -105,6 +120,7 @@ fn check_admitted_call(
         scope.environment,
         callee,
         scope.declaration.module_name.as_deref(),
+        &scope.resolution_uses,
         expected,
     ) {
         found @ ConstructorCall::Found { .. } => {
@@ -117,13 +133,14 @@ fn check_admitted_call(
                 return;
             };
             let known_module_value = {
-                module_value_index(
-                    scope.value_indices,
-                    segments,
-                    scope.declaration.module_name.as_deref(),
-                    scope.environment,
+                !matches!(
+                    scope.environment.module_value_path_in_owner(
+                        segments,
+                        scope.declaration.module_name.as_deref(),
+                        scope.declaration.package_name.as_deref(),
+                    ),
+                    ModuleValueLookup::Missing
                 )
-                .is_some()
             };
             let known_function_call = known_function(
                 scope.environment,
@@ -142,8 +159,8 @@ fn check_admitted_call(
 
 struct AdmissionScope<'a> {
     declaration: &'a veln_ast::ModuleValueDecl,
-    value_indices: &'a HashMap<(Option<String>, String), ModuleValueIndex>,
     environment: &'a TypeEnvironment,
+    resolution_uses: Vec<veln_ast::UseDecl>,
 }
 
 fn check_constructor_arguments(
@@ -178,14 +195,7 @@ fn check_constructor_arguments(
             .or_else(|| {
                 adt::payload_type_with_resolved_args(constructor, index, |_| Type::Unknown)
             });
-        check_admitted_expr(
-            arg,
-            scope.declaration,
-            scope.value_indices,
-            scope.environment,
-            payload_expected.as_ref(),
-            diagnostics,
-        );
+        check_admitted_expr_in_scope(arg, scope, payload_expected.as_ref(), diagnostics);
     }
 }
 
@@ -195,21 +205,14 @@ fn check_admitted_arguments(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     for arg in args {
-        check_admitted_expr(
-            arg,
-            scope.declaration,
-            scope.value_indices,
-            scope.environment,
-            None,
-            diagnostics,
-        );
+        check_admitted_expr_in_scope(arg, scope, None, diagnostics);
     }
 }
 
 pub(super) fn collect_dependencies(
     expr: &Expr,
-    current_module: Option<&str>,
-    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
+    declaration: &veln_ast::ModuleValueDecl,
+    value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &TypeEnvironment,
     bindings: &mut Vec<String>,
     dependencies: &mut Vec<Dependency>,
@@ -217,8 +220,13 @@ pub(super) fn collect_dependencies(
 ) {
     if let ExprKind::NamePath { segments, .. } = &expr.kind
         && !matches!(segments.as_slice(), [name] if bindings.iter().rev().any(|binding| binding == name))
-        && let Some(target) =
-            module_value_index(value_indices, segments, current_module, environment)
+        && let Some(target) = module_value_index(
+            value_indices,
+            segments,
+            declaration.module_name.as_deref(),
+            declaration.package_name.as_deref(),
+            environment,
+        )
     {
         match target {
             ModuleValueIndex::Unique(target) => dependencies.push(Dependency {
@@ -232,7 +240,7 @@ pub(super) fn collect_dependencies(
         ExprKind::Match { scrutinee, arms } => {
             collect_dependencies(
                 scrutinee,
-                current_module,
+                declaration,
                 value_indices,
                 environment,
                 bindings,
@@ -245,7 +253,7 @@ pub(super) fn collect_dependencies(
                     .for_each_binding(&mut |name| bindings.push(name.to_string()));
                 collect_dependencies(
                     &arm.expr,
-                    current_module,
+                    declaration,
                     value_indices,
                     environment,
                     bindings,
@@ -259,7 +267,7 @@ pub(super) fn collect_dependencies(
             let binding_count = bindings.len();
             collect_body_dependencies(
                 body,
-                current_module,
+                declaration,
                 value_indices,
                 environment,
                 bindings,
@@ -271,7 +279,7 @@ pub(super) fn collect_dependencies(
         _ => expr.for_each_child(&mut |child| {
             collect_dependencies(
                 child,
-                current_module,
+                declaration,
                 value_indices,
                 environment,
                 bindings,
@@ -284,8 +292,8 @@ pub(super) fn collect_dependencies(
 
 fn collect_body_dependencies(
     body: &[BodyLine],
-    current_module: Option<&str>,
-    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
+    declaration: &veln_ast::ModuleValueDecl,
+    value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &TypeEnvironment,
     bindings: &mut Vec<String>,
     dependencies: &mut Vec<Dependency>,
@@ -296,7 +304,7 @@ fn collect_body_dependencies(
             BodyLineKind::Let { pattern, expr, .. } => {
                 collect_dependencies(
                     expr,
-                    current_module,
+                    declaration,
                     value_indices,
                     environment,
                     bindings,
@@ -307,7 +315,7 @@ fn collect_body_dependencies(
             }
             BodyLineKind::Expr { expr } => collect_dependencies(
                 expr,
-                current_module,
+                declaration,
                 value_indices,
                 environment,
                 bindings,
@@ -318,7 +326,7 @@ fn collect_body_dependencies(
                 let binding_count = bindings.len();
                 collect_body_dependencies(
                     body,
-                    current_module,
+                    declaration,
                     value_indices,
                     environment,
                     bindings,
@@ -332,15 +340,22 @@ fn collect_body_dependencies(
 }
 
 fn module_value_index(
-    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
+    value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     segments: &[String],
     current_module: Option<&str>,
+    current_package: Option<&str>,
     environment: &TypeEnvironment,
 ) -> Option<ModuleValueIndex> {
     let (name, _) = segments.split_last()?;
     environment
-        .same_module_value_path_matches(segments, current_module)
-        .then(|| value_indices.get(&(current_module.map(str::to_owned), name.clone())))
+        .same_module_value_path_matches_in_owner(segments, current_module, current_package)
+        .then(|| {
+            value_indices.get(&(
+                current_package.map(str::to_owned),
+                current_module.map(str::to_owned),
+                name.clone(),
+            ))
+        })
         .flatten()
         .copied()
 }
@@ -376,6 +391,7 @@ fn constructor_call<'a>(
     environment: &'a TypeEnvironment,
     callee: &Expr,
     current_module: Option<&str>,
+    resolution_uses: &[veln_ast::UseDecl],
     expected: Option<&Type>,
 ) -> ConstructorCall<'a> {
     let Some((segments, _)) = callee.callee_name_path_and_type_args() else {
@@ -394,13 +410,13 @@ fn constructor_call<'a>(
                 segments,
                 descriptor,
                 current_module,
-                &environment.uses,
+                resolution_uses,
             )
         });
     match contextual.map(ConstructorLookup::Found).unwrap_or_else(|| {
         environment
             .adts
-            .constructor(segments, current_module, &environment.uses)
+            .constructor(segments, current_module, resolution_uses)
     }) {
         ConstructorLookup::Found(constructor) => ConstructorCall::Found {
             constructor,
@@ -479,7 +495,7 @@ fn unsupported_diagnostic(expr: &Expr, declaration: &veln_ast::ModuleValueDecl) 
         (
             "message",
             JsonValue::string(
-                "Use literals, records, ADT constructors, or same-module module values.",
+                "Use literals, records, ADT constructors, or eligible same-module or imported module values.",
             ),
         ),
     ]));

@@ -635,7 +635,7 @@ fn imported_descriptor_candidates(
     uses: &[UseDecl],
 ) -> ImportedDescriptorCandidates {
     let mut owners_by_imported_module =
-        HashMap::<(Option<String>, String), BTreeSet<Option<String>>>::new();
+        HashMap::<(Option<String>, String), HashSet<ResolvedImportOwner>>::new();
     for use_decl in uses {
         if !crate::name_recovery::use_decl_contributes_bare_exports(use_decl) {
             continue;
@@ -647,7 +647,7 @@ fn imported_descriptor_candidates(
                 (target.package, target.module)
             })
             .or_default()
-            .insert(use_decl.module_name.clone());
+            .insert(use_decl.resolved_owner());
     }
 
     let mut any_arity = HashMap::new();

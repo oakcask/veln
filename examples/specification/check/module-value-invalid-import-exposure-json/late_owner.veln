@@ -1,0 +1,5 @@
+use late_beta
+use late_alpha
+
+pub let selected: Int = shared
+pub let healthy: Int = 3

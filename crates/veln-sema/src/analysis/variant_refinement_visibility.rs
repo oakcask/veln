@@ -1,7 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use veln_ast::{
-    Function, Param, RecordFieldPath, TypeDecl, TypePathSegments, TypeVariantDecl,
+    Function, ModuleValueDecl, Param, RecordFieldPath, TypeDecl, TypePathSegments, TypeVariantDecl,
     TypeVariantField, VariantRefinementType, Visibility,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
@@ -29,6 +29,7 @@ pub(crate) fn check_public_variant_refinement_visibility(
             ),
             PublicBoundary::Parameter { function, param },
             function.module_name.as_deref(),
+            function.package_name.as_deref(),
             environment,
             &mut diagnostics,
         );
@@ -45,6 +46,31 @@ pub(crate) fn check_public_variant_refinement_visibility(
             span: function.return_type_span.as_ref(),
         },
         function.module_name.as_deref(),
+        function.package_name.as_deref(),
+        environment,
+        &mut diagnostics,
+    );
+    diagnostics
+}
+
+pub(crate) fn check_public_module_value_refinement_visibility(
+    declaration: &ModuleValueDecl,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
+    if declaration.visibility != Visibility::Public {
+        return Vec::new();
+    }
+    let mut diagnostics = Vec::new();
+    collect_root_exposures(
+        RootAnnotation::new(
+            Some(&declaration.annotation_span),
+            Some(&declaration.annotation),
+            &declaration.annotation_refinements,
+            &declaration.annotation_paths,
+        ),
+        PublicBoundary::ModuleValue { declaration },
+        declaration.module_name.as_deref(),
+        declaration.package_name.as_deref(),
         environment,
         &mut diagnostics,
     );
@@ -78,6 +104,7 @@ pub(crate) fn check_public_adt_variant_refinement_visibility(
                     field,
                 },
                 declaration.module_name.as_deref(),
+                declaration.package_name.as_deref(),
                 environment,
                 &mut diagnostics,
             );
@@ -105,6 +132,7 @@ pub(crate) fn adt_has_private_variant_refinement_exposure(
                         &field.ty_paths,
                     ),
                     declaration.module_name.as_deref(),
+                    declaration.package_name.as_deref(),
                     environment,
                 )
                 .next()
@@ -133,10 +161,11 @@ pub(crate) fn adt_publication_dependency_identities(
             )
         })
         .filter_map(|candidate| {
-            let written_descriptor = environment.variant_refinement_descriptor_identity(
+            let written_descriptor = environment.variant_refinement_descriptor_identity_in_owner(
                 &candidate.written_base,
                 candidate.type_argument_count,
                 declaration.module_name.as_deref(),
+                declaration.package_name.as_deref(),
             )?;
             let descriptor = environment
                 .adts
@@ -158,9 +187,12 @@ pub(crate) fn adt_publication_dependency_identities(
         .flat_map(|variant| &variant.fields)
         .flat_map(|field| &field.ty_paths)
     {
-        if let Some(identity) =
-            named_type_dependency_identity(path, declaration.module_name.as_deref(), environment)
-        {
+        if let Some(identity) = named_type_dependency_identity(
+            path,
+            declaration.module_name.as_deref(),
+            declaration.package_name.as_deref(),
+            environment,
+        ) {
             dependencies.insert(identity);
         }
     }
@@ -170,17 +202,16 @@ pub(crate) fn adt_publication_dependency_identities(
 fn named_type_dependency_identity(
     path: &TypePathSegments,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     environment: &TypeEnvironment,
 ) -> Option<String> {
     let name = path.segments.join("::");
-    let written = environment
-        .adts
-        .descriptor_for_type_path_including_quarantined(
-            &name,
-            path.type_argument_count,
-            current_module,
-            &environment.uses,
-        )?;
+    let written = environment.annotation_type_descriptor_in_owner(
+        &name,
+        path.type_argument_count,
+        current_module,
+        current_package,
+    )?;
     let terminal = environment
         .adts
         .terminal_descriptor_for_alias(written)
@@ -200,14 +231,12 @@ pub(crate) fn function_depends_on_quarantined_adt(
             .chain(function.return_type_paths.iter())
             .filter_map(|path| {
                 let name = path.segments.join("::");
-                environment
-                    .adts
-                    .descriptor_for_type_path_including_quarantined(
-                        &name,
-                        path.type_argument_count,
-                        function.module_name.as_deref(),
-                        &environment.uses,
-                    )
+                environment.annotation_type_descriptor_in_owner(
+                    &name,
+                    path.type_argument_count,
+                    function.module_name.as_deref(),
+                    function.package_name.as_deref(),
+                )
             })
             .any(|descriptor| environment.adts.descriptor_is_quarantined(descriptor))
 }
@@ -225,7 +254,12 @@ pub(crate) fn function_publication_dependency_identities(
         .flat_map(|param| &param.ty_paths)
         .chain(function.return_type_paths.iter())
         .filter_map(|path| {
-            named_type_dependency_identity(path, function.module_name.as_deref(), environment)
+            named_type_dependency_identity(
+                path,
+                function.module_name.as_deref(),
+                function.package_name.as_deref(),
+                environment,
+            )
         })
         .collect()
 }
@@ -244,6 +278,7 @@ pub(crate) fn function_has_private_variant_refinement_exposure(
                     &param.ty_paths,
                 ),
                 function.module_name.as_deref(),
+                function.package_name.as_deref(),
                 environment,
             )
             .next()
@@ -256,6 +291,7 @@ pub(crate) fn function_has_private_variant_refinement_exposure(
                 &function.return_type_paths,
             ),
             function.module_name.as_deref(),
+            function.package_name.as_deref(),
             environment,
         )
         .next()
@@ -266,10 +302,11 @@ fn collect_root_exposures(
     annotation: RootAnnotation<'_>,
     boundary: PublicBoundary<'_>,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     environment: &TypeEnvironment,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    for exposure in root_exposures(annotation, current_module, environment) {
+    for exposure in root_exposures(annotation, current_module, current_package, environment) {
         diagnostics.push(exposure.diagnostic(boundary));
     }
 }
@@ -277,6 +314,7 @@ fn collect_root_exposures(
 fn root_exposures<'a>(
     annotation: RootAnnotation<'a>,
     current_module: Option<&'a str>,
+    current_package: Option<&'a str>,
     environment: &'a TypeEnvironment,
 ) -> std::vec::IntoIter<PrivateExposure<'a>> {
     let Some(annotation_span) = annotation.span else {
@@ -289,7 +327,9 @@ fn root_exposures<'a>(
         annotation.paths,
     )
     .into_iter()
-    .filter_map(|candidate| private_exposure(candidate, current_module, environment))
+    .filter_map(|candidate| {
+        private_exposure(candidate, current_module, current_package, environment)
+    })
     .collect::<Vec<_>>();
     let mut seen = HashSet::new();
     exposures.retain(|exposure| {
@@ -1180,13 +1220,15 @@ impl RecordFieldPathRef {
 fn private_exposure<'a>(
     candidate: RefinementExposureCandidate,
     current_module: Option<&'a str>,
+    current_package: Option<&'a str>,
     environment: &'a TypeEnvironment,
 ) -> Option<PrivateExposure<'a>> {
     record_visibility_work(1);
-    let written_descriptor = environment.variant_refinement_descriptor_identity(
+    let written_descriptor = environment.variant_refinement_descriptor_identity_in_owner(
         &candidate.written_base,
         candidate.type_argument_count,
         current_module,
+        current_package,
     )?;
     let descriptor = environment
         .adts
@@ -1208,8 +1250,13 @@ fn private_exposure<'a>(
         .adts
         .type_alias_exposure_path(written_descriptor);
     record_visibility_work(1);
-    let alternative_identity =
-        refinement_alternative_identity(&candidate, &variant.name, current_module, environment);
+    let alternative_identity = refinement_alternative_identity(
+        &candidate,
+        &variant.name,
+        current_module,
+        current_package,
+        environment,
+    );
     Some(PrivateExposure {
         written_type: candidate.written_type,
         base_span: candidate.base_span,
@@ -1259,6 +1306,7 @@ fn refinement_alternative_identity(
     candidate: &RefinementExposureCandidate,
     resolved_variant: &str,
     current_module: Option<&str>,
+    current_package: Option<&str>,
     environment: &TypeEnvironment,
 ) -> RefinementAlternativeIdentity {
     let parsed_arguments = candidate.type_arguments.as_ref().and_then(|arguments| {
@@ -1279,9 +1327,11 @@ fn refinement_alternative_identity(
         let args = args
             .into_iter()
             .map(|argument| {
-                canonical_type_identity(
-                    environment.canonicalize_type_annotation(argument, current_module),
-                )
+                canonical_type_identity(environment.canonicalize_type_annotation_in_owner(
+                    argument,
+                    current_module,
+                    current_package,
+                ))
             })
             .collect::<Option<Vec<_>>>();
         if let Some(args) = args {
@@ -1732,6 +1782,9 @@ enum PublicBoundary<'a> {
         function: &'a Function,
         span: Option<&'a SourceSpan>,
     },
+    ModuleValue {
+        declaration: &'a ModuleValueDecl,
+    },
     AdtPayload {
         declaration: &'a TypeDecl,
         variant: &'a TypeVariantDecl,
@@ -1744,6 +1797,7 @@ impl<'a> PublicBoundary<'a> {
         match self {
             Self::Parameter { .. } => "public_parameter",
             Self::Result { .. } => "public_result",
+            Self::ModuleValue { .. } => "public_module_value",
             Self::AdtPayload { .. } => "public_adt_payload",
         }
     }
@@ -1771,6 +1825,13 @@ impl<'a> PublicBoundary<'a> {
                 ("name", JsonValue::string(param.name.clone())),
             ]),
             Self::Result { .. } => JsonValue::object([("kind", JsonValue::string("result"))]),
+            Self::ModuleValue { declaration } => JsonValue::object([
+                ("kind", JsonValue::string("module_value")),
+                (
+                    "name",
+                    JsonValue::string(declaration.name.clone().unwrap_or_default()),
+                ),
+            ]),
             Self::AdtPayload {
                 declaration,
                 variant,
@@ -1794,6 +1855,7 @@ impl<'a> PublicBoundary<'a> {
         match self {
             Self::Parameter { .. } => "public_parameter_boundary",
             Self::Result { .. } => "public_result_boundary",
+            Self::ModuleValue { .. } => "public_module_value_boundary",
             Self::AdtPayload { .. } => "public_adt_payload_boundary",
         }
     }
@@ -1809,6 +1871,10 @@ impl<'a> PublicBoundary<'a> {
                 let function_name = function.name.as_deref().unwrap_or("<invalid>");
                 format!("Public result of function `{function_name}` exposes this refinement.")
             }
+            Self::ModuleValue { declaration } => format!(
+                "Public module value `{}` exposes this refinement.",
+                declaration.name.as_deref().unwrap_or("<invalid>")
+            ),
             Self::AdtPayload {
                 declaration,
                 variant,
@@ -1829,6 +1895,7 @@ impl<'a> PublicBoundary<'a> {
                 span: Some(span), ..
             } => span,
             Self::Result { function, .. } => &function.span,
+            Self::ModuleValue { declaration } => &declaration.annotation_span,
             Self::AdtPayload { field, .. } => &field.span,
         }
     }

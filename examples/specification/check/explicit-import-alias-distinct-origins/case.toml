@@ -17,4 +17,4 @@ length = 1
 
 [[json_assert]]
 path = "diagnostics.0.id"
-equals = "name.unresolved"
+equals = "name.ambiguous"

@@ -1,0 +1,15 @@
+use shared as first from "one/pkg"
+use shared as second from "two/pkg"
+
+fn first_matches() -> first::OneValue
+	first::answer
+end
+fn second_matches() -> second::TwoValue
+	second::answer
+end
+fn first_identity() -> Int
+	first::answer
+end
+fn second_identity() -> Int
+	second::answer
+end

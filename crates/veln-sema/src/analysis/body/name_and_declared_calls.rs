@@ -14,12 +14,16 @@ impl<'a> FunctionChecker<'a> {
         {
             return ty;
         }
-        match self
-            .environment
-            .module_value_path(segments, self.function.module_name.as_deref())
-        {
+        match self.environment.module_value_path_in_owner(
+            segments,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
             ModuleValueLookup::Available(value) => return value.ty.clone(),
             ModuleValueLookup::Unavailable => return Type::Unknown,
+            ModuleValueLookup::Ambiguous => {
+                return self.ambiguous_module_value(segments, expr);
+            }
             ModuleValueLookup::Missing => {}
         }
         if segments.len() == 1
@@ -30,7 +34,7 @@ impl<'a> FunctionChecker<'a> {
         match self.environment.adts.nullary_constructor(
             segments,
             self.function.module_name.as_deref(),
-            &self.environment.uses,
+            &self.resolution_uses,
         ) {
             ConstructorLookup::Found(constructor) => {
                 self.infer_nullary_constructor_name(segments, expr, expected, constructor)
@@ -70,7 +74,7 @@ impl<'a> FunctionChecker<'a> {
                     segments,
                     descriptor,
                     self.function.module_name.as_deref(),
-                    &self.environment.uses,
+                    &self.resolution_uses,
                 )
             })
             .filter(|constructor| constructor.variant.payload_fields.is_empty())?;
@@ -149,6 +153,70 @@ impl<'a> FunctionChecker<'a> {
             name,
             "value",
         );
+        Type::Unknown
+    }
+
+    fn ambiguous_module_value(&mut self, segments: &[String], expr: &Expr) -> Type {
+        let symbol = segments.join("::");
+        let mut diagnostic = Diagnostic::new(
+            "name.ambiguous",
+            Severity::Error,
+            DiagnosticKind::Name,
+            format!("ambiguous value `{symbol}`"),
+            Some(expr.span.clone()),
+            JsonValue::object([
+                ("phase", JsonValue::string("name")),
+                ("node_id", JsonValue::string(expr.node_id.display("name"))),
+                ("symbol", JsonValue::string(&symbol)),
+                ("namespace", JsonValue::string("value")),
+                ("resolution_status", JsonValue::string("ambiguous")),
+            ]),
+        );
+        for candidate in self.environment.module_value_ambiguity_candidates(
+            segments,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
+            use crate::types::ModuleValueAmbiguityCandidateKind;
+
+            let package = candidate.package_name.as_deref().unwrap_or("<current>");
+            let package_origin = candidate.package_name.as_deref().map_or_else(
+                || "the current package".to_string(),
+                |package| format!("package `{package}`"),
+            );
+            let (candidate_kind, message) = match candidate.kind {
+                ModuleValueAmbiguityCandidateKind::ModuleValue => (
+                    "module_value",
+                    format!(
+                        "Module `{}` from {package_origin} exports module value `{symbol}`; use `{}::{symbol}` to select it.",
+                        candidate.module_name, candidate.alias
+                    ),
+                ),
+                ModuleValueAmbiguityCandidateKind::Function => (
+                    "function",
+                    format!(
+                        "Module `{}` from {package_origin} exports function `{symbol}`; use `{}::{symbol}` to select it.",
+                        candidate.module_name, candidate.alias
+                    ),
+                ),
+                ModuleValueAmbiguityCandidateKind::ImportTarget => (
+                    "import_target",
+                    format!(
+                        "Import `{}` from package `{package}` can select `{symbol}`; give this import a distinct alias to select that package.",
+                        candidate.alias
+                    ),
+                ),
+            };
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("import_candidate")),
+                ("candidate_kind", JsonValue::string(candidate_kind)),
+                ("package", JsonValue::string(package)),
+                ("module", JsonValue::string(&candidate.module_name)),
+                ("message", JsonValue::string(message)),
+                ("span", span_json(&candidate.span)),
+            ]));
+        }
+        self.diagnostics.push(diagnostic);
         Type::Unknown
     }
 
@@ -261,52 +329,29 @@ impl<'a> FunctionChecker<'a> {
     }
 
     fn infer_module_value_call(&mut self, callee: &Expr, args: &[Expr]) -> Option<Type> {
-        if let Some(segments) = callee.callee_name_path()
-            && !matches!(segments, [name] if self.visible_binding_index(name).is_some())
-        {
-            let value = match self
-                .environment
-                .module_value_path(segments, self.function.module_name.as_deref())
-            {
-                ModuleValueLookup::Available(value) => value,
-                ModuleValueLookup::Unavailable => {
-                    for arg in args {
-                        self.infer_expr(arg, None);
-                    }
-                    return Some(Type::Unknown);
-                }
-                ModuleValueLookup::Missing => return None,
-            };
-            let name = value.declaration.name.as_deref().unwrap_or("<missing>");
-            let mut diagnostic = Diagnostic::new(
-                "type.not_callable",
-                Severity::Error,
-                DiagnosticKind::Type,
-                format!("module value `{name}` is not callable"),
-                Some(callee.span.clone()),
-                JsonValue::object([
-                    ("phase", JsonValue::string("type_check")),
-                    ("node_id", JsonValue::string(callee.node_id.display("name"))),
-                    ("constraint", JsonValue::string("call_target")),
-                    ("actual", JsonValue::string("module_value")),
-                    ("name", JsonValue::string(name)),
-                ]),
-            );
-            diagnostic.related.push(JsonValue::object([
-                ("kind", JsonValue::string("module_value_declaration")),
-                (
-                    "message",
-                    JsonValue::string(format!("Module value `{name}` is declared here.")),
-                ),
-                ("span", span_json(&value.declaration.span)),
-            ]));
-            self.diagnostics.push(diagnostic);
-            for arg in args {
-                self.infer_expr(arg, None);
-            }
-            return Some(Type::Unknown);
+        let segments = callee.callee_name_path()?;
+        if matches!(segments, [name] if self.visible_binding_index(name).is_some()) {
+            return None;
         }
-        None
+        match self.environment.module_value_path_in_owner(
+            segments,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
+            ModuleValueLookup::Available(value) => {
+                self.diagnostics
+                    .push(module_value_not_callable_diagnostic(value, callee));
+            }
+            ModuleValueLookup::Unavailable => {}
+            ModuleValueLookup::Ambiguous => {
+                self.ambiguous_module_value(segments, callee);
+            }
+            ModuleValueLookup::Missing => return None,
+        }
+        for arg in args {
+            self.infer_expr(arg, None);
+        }
+        Some(Type::Unknown)
     }
 
     pub(super) fn infer_local_callable_call(
@@ -369,7 +414,7 @@ impl<'a> FunctionChecker<'a> {
             match self.environment.adts.constructor(
                 segments,
                 self.function.module_name.as_deref(),
-                &self.environment.uses,
+                &self.resolution_uses,
             ) {
                 ConstructorLookup::Found(constructor)
                     if !constructor.variant.payload_fields.is_empty() =>
@@ -418,7 +463,7 @@ impl<'a> FunctionChecker<'a> {
                     segments,
                     descriptor,
                     self.function.module_name.as_deref(),
-                    &self.environment.uses,
+                    &self.resolution_uses,
                 )
             })
             .filter(|constructor| !constructor.variant.payload_fields.is_empty())?;
@@ -598,4 +643,34 @@ impl<'a> FunctionChecker<'a> {
         }
         row_substitutions
     }
+}
+
+fn module_value_not_callable_diagnostic(
+    value: &crate::types::ModuleValueSignature,
+    callee: &Expr,
+) -> Diagnostic {
+    let name = value.declaration.name.as_deref().unwrap_or("<missing>");
+    let mut diagnostic = Diagnostic::new(
+        "type.not_callable",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!("module value `{name}` is not callable"),
+        Some(callee.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("type_check")),
+            ("node_id", JsonValue::string(callee.node_id.display("name"))),
+            ("constraint", JsonValue::string("call_target")),
+            ("actual", JsonValue::string("module_value")),
+            ("name", JsonValue::string(name)),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("module_value_declaration")),
+        (
+            "message",
+            JsonValue::string(format!("Module value `{name}` is declared here.")),
+        ),
+        ("span", span_json(&value.declaration.span)),
+    ]));
+    diagnostic
 }

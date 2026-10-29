@@ -512,6 +512,14 @@ fn check_project_result_schema_closes_diagnostics_summary_and_analysis_modes() {
                 "resolved_identity": "example/state::State",
                 "variant": "Ready",
                 "span": span()
+            },
+            {
+                "kind": "import_candidate",
+                "candidate_kind": "module_value",
+                "message": "Module `values` from package `example/pkg` exports module value `answer`.",
+                "package": "example/pkg",
+                "module": "example/pkg::values",
+                "span": span()
             }
         ],
         "details": {"expected": "Int"}
@@ -579,6 +587,16 @@ fn check_project_result_schema_closes_diagnostics_summary_and_analysis_modes() {
     let mut invalid_related_variant = project_success.clone();
     invalid_related_variant["diagnostics"][0]["related"][5]["variant"] = serde_json::json!(1);
     assert!(!tool.accepts_result(&invalid_related_variant));
+
+    let mut invalid_related_candidate_kind = project_success.clone();
+    invalid_related_candidate_kind["diagnostics"][0]["related"][6]["candidate_kind"] =
+        serde_json::json!(1);
+    assert!(!tool.accepts_result(&invalid_related_candidate_kind));
+
+    let mut invalid_related_candidate_module = project_success.clone();
+    invalid_related_candidate_module["diagnostics"][0]["related"][6]["module"] =
+        serde_json::json!(1);
+    assert!(!tool.accepts_result(&invalid_related_candidate_module));
 
     let mut invalid_summary = project_success;
     invalid_summary["summary"]["by_kind"]["type"] = serde_json::json!("one");

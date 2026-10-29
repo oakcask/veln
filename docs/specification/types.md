@@ -669,8 +669,17 @@ Every typed module `let` initializer is checked against its written closed
 annotation, even when the declaration is unused. The admitted initializer
 language contains integer, Boolean, string, and unit literals; negative integer
 literals; records whose fields are admitted; visible nullary and payload ADT
-constructors whose payloads are admitted; and same-module module value
-references. Parentheses preserve admission. Float literals, collection
+constructors whose payloads are admitted; and eligible same-module or imported
+module value references. Imported references use the ordinary import exposure,
+qualifier, package identity, and visibility rules, including exact-companion
+access to a private target. Annotation type lookup uses the package and module
+that own the module value. An exact written import path in the annotation takes
+precedence over a same-spelled type in the owning module and retains the
+imported package identity. Without that exact import selection, a same-spelled
+type in another package cannot close the annotation or replace the selected
+type or refinement visibility identity.
+Parentheses preserve admission. Float literals,
+collection
 literals, functions and ordinary calls, other operators, field access, control
 flow, effects, handlers, and holes are not admitted.
 An ordinary call whose callee is not a name path is rejected at the complete
@@ -686,7 +695,20 @@ order. An acyclic forward reference has the target's written annotation. Each
 cyclic component is rejected once at a deterministic reference that closes
 the cycle. An invalid declaration and every declaration that depends on it are
 withheld from later semantic facts; unrelated valid declarations remain
-available for checking function bodies. The checked
+available for checking function bodies. A module value initializer resolves
+imported declarations according to their final availability. A bare or
+uniquely targeted qualified reference can therefore select a valid imported
+namesake even when another imported namesake is invalid, independent of source
+and import order. Equal exact paths from distinct package origins remain
+ambiguous before availability is considered and select no namesake.
+It can also select a valid imported value when a same-named imported function
+or function alias is withheld by its public-signature visibility failure. A
+published function or alias with that name remains a collision. Rechecking an
+owner after an imported dependency becomes unavailable does not restore a
+module value that collides with a same-module function or alias.
+With no valid candidate, the initializer reference remains unresolved.
+Cross-module initializer references do not yet form dependency edges, so
+cross-module cycles are not rejected by this dependency check. The checked
 [`module-value initializer failure`](../../examples/specification/check/module-value-initializer-unsupported-human/)
 and
 [`cycle human`](../../examples/specification/check/module-value-initializer-cycle-human/)
@@ -697,9 +719,113 @@ case covers the structured related kinds and machine-readable spans. The checked
 [`admitted initializer JSON`](../../examples/specification/check/module-value-admitted-json/)
 case verifies that representative finite-data declarations reach only the
 checked-core execution gate. The checked
+[`invalid imported exposure human`](../../examples/specification/check/module-value-invalid-import-exposure-human/)
+and
+[`invalid imported exposure JSON`](../../examples/specification/check/module-value-invalid-import-exposure-json/)
+cases cover bare and qualified initializer references after imported
+availability settles, including function publication and owner-recheck
+boundaries. The checked
+[`imported annotation owner human`](../../examples/specification/check/module-value-imported-annotation-owner-human/)
+and
+[`imported annotation owner JSON`](../../examples/specification/check/module-value-imported-annotation-owner-json/)
+cases cover annotations and constructors selected from a sibling module in the
+declaration's package, including recursive and rejected private exposure. The checked
+[`exact import owner collision human`](../../examples/specification/check/module-value-exact-import-owner-collision-human/)
+and
+[`exact import owner collision JSON`](../../examples/specification/check/module-value-exact-import-owner-collision-json/)
+cases cover an exact annotation import whose module spelling matches the
+declaration owner's module. The checked
+[`companion initializer access human`](../../examples/specification/check/module-value-companion-private-access-human/),
+[`companion initializer access JSON`](../../examples/specification/check/module-value-companion-private-access-json/),
+[`unavailable companion target human`](../../examples/specification/check/module-value-companion-private-unavailable-human/),
+[`unavailable companion target JSON`](../../examples/specification/check/module-value-companion-private-unavailable-json/),
+[`wrong-target companion human`](../../examples/specification/check/module-value-companion-private-wrong-target-human/),
+and
+[`wrong-target companion JSON`](../../examples/specification/check/module-value-companion-private-wrong-target-json/)
+cases cover the exact-target private-value boundary, including the requirement
+that the private target be available before a dependent can be published. The
+checked
 [`open annotation failure`](../../examples/specification/check/module-value-open-annotation-human/)
 case verifies that an undeclared type parameter cannot escape through a module
 value annotation.
+
+Bare imported-value exposure uses deterministic construction and lookup checks.
+The construction workload varies 32 and 64 exported names independently from
+32 and 64 importing modules. Reverse-index entries grow with imports and do not
+grow when only the number of exports doubles. Construction materializes no
+per-name exposure. The first lookup of one imported name materializes and
+caches one exposure; repeating that lookup performs neither operation, and a
+different name materializes and caches one more exposure. Distinct-name
+workloads compare 64 and 128 imports for both ordinary lookup and initializer
+dependency discovery. They count index construction, candidate-target checks,
+materialization, cache work, and selection; each applicable count doubles when
+the workload doubles. Misses and availability-driven cache replacement are
+counted separately.
+
+Availability stabilization has deterministic scaling checks over imported
+module-value invalidation chains and fan-out. They count semantic visits,
+reverse-dependency entries, dependent-declaration recheck lookups,
+retained-history insertions, identity-sized availability-state steps,
+stabilization waves, availability updates, and peak pending and retained
+identities. Increasing a chain workload from 64 to 128 keeps each checked
+count at no more than twice its smaller-workload value plus four operations;
+retained-history insertions, stabilization waves, and availability updates use
+an allowance of one, and the peak retained-identity count has no fixed
+allowance. Each workload also bounds state steps by four times the declaration
+count plus four and waves between half the declaration count and the
+declaration count plus one. Separate
+32 and 64 chain-and-fan-out workloads bound dependency-index entries and
+recheck lookups by the number of dependency edges plus one. Doubling the chain
+allows at most twice the recheck lookups plus two; doubling only unrelated
+declarations allows at most one additional recheck lookup.
+These availability/recheck relations propagate semantic invalidation. They are
+not initializer dependency-graph edges and do not reject cross-module
+initializer cycles.
+Same-module cycle storage uses a separate adjacent-size semantic workload. It
+compares rings of 256 and 512 declarations after complete analysis, requires
+one deterministic cycle diagnostic at each size, and counts every identity
+retained by the cyclic-component index and component membership. The retained
+count is exactly twice the declaration count, so doubling the ring doubles
+retained membership instead of duplicating the complete component per member.
+When a failed imported declaration is removed from an ambiguous initializer
+lookup, the remaining valid declaration supplies the initializer type. A
+dependent module value whose initializer then satisfies its annotation becomes
+available to its importers. Duplicate declarations, invalid-cased declarations,
+and same-module initializer cycles do not recover through this process. The
+checked invalid-import exposure cases cover recovery and retained package
+identity in both source and import orders.
+If recovery inside a cyclic availability candidate-dependency component causes
+a previously failed declaration to fail again, analysis rejects that complete
+component as non-convergent. Its declarations remain unavailable and cannot
+republish their dependents. This availability component is not an initializer
+cycle. A declaration that remains unavailable because of its own intrinsic
+failure has not recovered and does not reject otherwise valid declarations in
+the component. Declarations outside the rejected component retain their
+independently valid facts. The stabilization workload bounds every declaration
+recheck, availability-state step, wave, and availability update without a
+retry limit or retained global-state history.
+
+A public module value annotation is a public type boundary. Every recursively
+named type in generic arguments, function positions, records, and unions must
+resolve to a public type. A private named type reports
+`type.public_annotation_private`. A private type alias is itself an exposed
+private type even when its terminal target is public; the diagnostic identifies
+the written alias declaration rather than replacing it with the terminal type.
+This rule applies at the top level and inside aggregate annotations. Every
+refinement in the same recursive
+positions must use a public base and public selected variant; violations report
+`type.variant_refinement_private`. The initializer may construct a private
+variant when the written annotation exposes only its public base type. The
+checked
+[`human`](../../examples/specification/check/module-value-public-annotation-visibility-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-public-annotation-visibility-json/)
+cases cover rejected named types and refinements plus the allowed base-only
+annotation. The checked private-alias
+[`human`](../../examples/specification/check/module-value-private-alias-annotation-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-private-alias-annotation-json/)
+cases cover direct and nested alias exposure.
 
 ### Result propagation
 
@@ -1471,5 +1597,9 @@ inventing an arithmetic rewrite.
 - Import-selected package identity and namesake ADT compatibility:
   `crates/veln-sema/src/tests/declarations_and_names/import_aliases.rs` and
   `crates/veln-sema/src/tests/import_package_identity.rs`.
+- Module-value annotation ownership and visibility across same-spelled package
+  modules: `crates/veln-sema/src/tests/import_package_identity.rs`.
+- Imported module-value availability propagation and its deterministic work
+  counters: `crates/veln-sema/src/tests/module_values.rs`.
 - Parser coverage: `crates/veln-syntax/src/tests/calls_and_generics.rs`,
   `literals_and_numbers.rs`, and `patterns_and_control_flow.rs`.

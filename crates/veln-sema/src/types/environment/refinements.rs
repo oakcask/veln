@@ -2,6 +2,97 @@ use super::*;
 use crate::types::type_case_recovery::recover_type_case;
 
 impl TypeEnvironment {
+    pub(crate) fn annotation_type_descriptor_in_owner(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<&crate::adt::descriptors::AdtDescriptor> {
+        self.adts
+            .descriptor_for_type_path_including_quarantined_in_owner(
+                name,
+                args_len,
+                current_module,
+                current_package,
+                &self.uses,
+            )
+    }
+
+    pub(crate) fn annotation_type_path_is_resolved_in_owner(
+        &self,
+        name: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> bool {
+        crate::type_syntax::builtin_type_syntax_arity(name).is_some_and(|arity| arity == args_len)
+            || self
+                .annotation_type_descriptor_in_owner(
+                    name,
+                    args_len,
+                    current_module,
+                    current_package,
+                )
+                .is_some()
+            || name.rsplit_once("::").is_some_and(|(base, variant)| {
+                self.annotation_type_descriptor_in_owner(
+                    base,
+                    args_len,
+                    current_module,
+                    current_package,
+                )
+                .and_then(|descriptor| {
+                    self.variant_refinement_variant_identity(descriptor, variant)
+                })
+                .is_some()
+            })
+    }
+
+    pub(crate) fn variant_refinement_descriptor_identity_in_owner(
+        &self,
+        base: &str,
+        args_len: usize,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+    ) -> Option<&crate::adt::descriptors::AdtDescriptor> {
+        if let Some(descriptor) = self.adts.unique_descriptor_for_type_path_in_owner(
+            base,
+            args_len,
+            current_module,
+            current_package,
+            &self.uses,
+        ) {
+            return Some(descriptor);
+        }
+        if self
+            .annotation_type_descriptor_in_owner(base, args_len, current_module, current_package)
+            .is_some()
+        {
+            return None;
+        }
+        if let Some(descriptor) = self
+            .adts
+            .unique_descriptor_for_type_path_any_arity_in_owner(
+                base,
+                current_module,
+                current_package,
+                &self.uses,
+            )
+        {
+            return Some(descriptor);
+        }
+
+        let recovered = recover_type_case(base)?;
+        self.adts
+            .unique_descriptor_for_type_path_any_arity_in_owner(
+                &recovered,
+                current_module,
+                current_package,
+                &self.uses,
+            )
+    }
+
     pub(crate) fn canonicalize_type_annotation(
         &self,
         ty: Type,
@@ -671,11 +762,6 @@ impl TypeEnvironment {
             return None;
         }
         crate::type_syntax::builtin_type_syntax_arity(&recovered)
-    }
-
-    pub(crate) fn type_path_is_resolved(&self, name: &str, current_module: Option<&str>) -> bool {
-        self.resolved_type_path_arity(name, current_module)
-            .is_some()
     }
 
     fn is_variant_refinement_candidate(&self, ty: &Type, current_module: Option<&str>) -> bool {

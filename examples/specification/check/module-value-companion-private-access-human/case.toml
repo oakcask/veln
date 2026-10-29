@@ -1,0 +1,10 @@
+command = ["check", "math.test.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["module value declaration `secret` is not executable", "module value declaration `observed` is not executable"]
+not_contains = ["name.unresolved", "math::secret` is private"]
+
+[stderr]
+format = "empty"

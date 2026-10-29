@@ -1,0 +1,12 @@
+pub type State
+	Hidden
+end
+
+pub type Public
+	pub Value(value: State::Hidden)
+end
+
+pub type Secret = Public
+
+pub let direct: Secret = Value(Hidden)
+pub let nested: {field: Secret} = {field: Value(Hidden)}

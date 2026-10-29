@@ -1,0 +1,9 @@
+use recheck_owner
+
+fn bare() -> Int
+	durable()
+end
+
+fn qualified() -> Int
+	recheck_owner::durable()
+end

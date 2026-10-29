@@ -1,0 +1,11 @@
+command = ["check", "app.veln"]
+exit = 0
+source_errors = "expected"
+
+[stdout]
+format = "text"
+contains = ["ok"]
+not_contains = ["name.ambiguous", "name.unresolved", "type.not_callable", "type.mismatch"]
+
+[stderr]
+format = "empty"

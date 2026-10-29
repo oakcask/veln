@@ -1,0 +1,6 @@
+use math
+pub let observed: Int = math::secret
+
+fn read_observed() -> String
+  observed
+end

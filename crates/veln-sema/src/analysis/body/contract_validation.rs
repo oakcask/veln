@@ -475,13 +475,14 @@ impl<'a> FunctionChecker<'a> {
         origin_message: &'static str,
     ) -> Option<ExpectedType> {
         let (refinements, paths) = structure;
-        let invalid_refinement = super::super::annotation_has_unavailable_refinement_identity(
-            refinements,
-            paths,
-            self.function.module_name.as_deref(),
-            self.environment,
-            &[],
-        );
+        let invalid_refinement = !self.annotation_owner_prevalidated
+            && super::super::annotation_has_unavailable_refinement_identity(
+                refinements,
+                paths,
+                self.function.module_name.as_deref(),
+                self.environment,
+                &[],
+            );
         if invalid_refinement {
             for (failed_annotation, error, failure_span) in
                 super::super::independent_annotation_errors(
@@ -500,12 +501,13 @@ impl<'a> FunctionChecker<'a> {
             }
             return None;
         }
-        if let Some(error) = self
-            .environment
-            .recovered_variant_refinement_annotation_error(
-                paths,
-                self.function.module_name.as_deref(),
-            )
+        if !self.annotation_owner_prevalidated
+            && let Some(error) = self
+                .environment
+                .recovered_variant_refinement_annotation_error(
+                    paths,
+                    self.function.module_name.as_deref(),
+                )
         {
             self.push_invalid_type_annotation(
                 annotation,
@@ -517,9 +519,11 @@ impl<'a> FunctionChecker<'a> {
         }
         match parse_type_annotation(annotation) {
             Ok(ty) => {
-                if let Some(error) = self
-                    .environment
-                    .variant_refinement_annotation_error(&ty, self.function.module_name.as_deref())
+                if !self.annotation_owner_prevalidated
+                    && let Some(error) = self.environment.variant_refinement_annotation_error(
+                        &ty,
+                        self.function.module_name.as_deref(),
+                    )
                 {
                     self.push_invalid_type_annotation(
                         annotation,

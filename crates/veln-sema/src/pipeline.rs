@@ -154,6 +154,16 @@ pub(crate) fn analyze_surface_module_with_base_for_test(
 }
 
 #[cfg(test)]
+pub(crate) fn analyze_surface_module_with_environment_for_test(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
+    crate::name_recovery::with_import_classification(module, || {
+        analyze_surface_module_with_environment(module, environment, true)
+    })
+}
+
+#[cfg(test)]
 pub(crate) fn check_project_surface_module_with_base_for_test(
     module: &SurfaceModule,
     base: &TypeEnvironment,
@@ -424,7 +434,6 @@ fn check_module_declarations(
     let mut diagnostics = Vec::new();
 
     let module_value_analysis = check_module_values(module, environment, variant_diagnostics);
-    environment.quarantine_module_values(&module_value_analysis.invalid);
     diagnostics.extend(module_value_analysis.diagnostics);
     diagnostics.extend(
         module

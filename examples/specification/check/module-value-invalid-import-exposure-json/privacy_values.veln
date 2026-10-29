@@ -1,0 +1,3 @@
+pub let quarantined: Int = 2
+pub let quarantined_alias: Int = 3
+pub let published: Int = 4

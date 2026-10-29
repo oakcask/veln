@@ -36,8 +36,9 @@ pub(crate) struct AdtRegistry {
     qualified_import_modules: HashMap<(ResolvedImportOwner, String), QualifiedImportModules>,
     qualified_import_recovery_modules:
         HashMap<(ResolvedImportOwner, String), Vec<QualifiedRecoveryModules>>,
-    imported_descriptors_by_type: HashMap<(Option<String>, String), Option<usize>>,
-    imported_descriptors_by_type_arity: HashMap<(Option<String>, String, usize), Option<usize>>,
+    imported_descriptors_by_type: HashMap<(ResolvedImportOwner, String), Option<usize>>,
+    imported_descriptors_by_type_arity:
+        HashMap<(ResolvedImportOwner, String, usize), Option<usize>>,
     quarantined_type_identities: HashSet<String>,
     source_import_indexes_ready: bool,
     source_import_count: usize,
@@ -65,8 +66,8 @@ struct QualifiedRecoveryModules {
 
 #[derive(Debug, Default)]
 struct ImportedDescriptorCandidates {
-    any_arity: HashMap<(Option<String>, String), Option<usize>>,
-    exact_arity: HashMap<(Option<String>, String, usize), Option<usize>>,
+    any_arity: HashMap<(ResolvedImportOwner, String), Option<usize>>,
+    exact_arity: HashMap<(ResolvedImportOwner, String, usize), Option<usize>>,
 }
 
 fn import_owner_for_module(

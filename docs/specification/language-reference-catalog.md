@@ -49,9 +49,10 @@ name-resolution specifications.
 The `declarations-aliases` topic projects `TypeDecl` with zero or more
 `TypeVariant` entries, so the published grammar admits a named type declaration
 with no constructors. It also projects typed module `let` declarations and
-states their finite-data initializer checking, same-module lookup, and
-non-executable boundary. The selected formatter example demonstrates the
-accepted private and public forms without presenting them as runtime values.
+states their finite-data initializer checking, same-module and imported lookup,
+package-aware visibility, and non-executable boundary. The selected formatter
+example demonstrates the accepted private and public forms without presenting
+them as runtime values.
 The `types-inference-constructors` topic includes the executable productions
 for variant-refinement type text. Every alternative requires an uppercase
 final segment. A non-generic alternative also requires an uppercase base leaf.
@@ -63,10 +64,11 @@ complete record and function assignment, aggregate and control-flow joins,
 stable match-path narrowing, runtime erasure,
 transitive alias-qualified identity and presentation, complete-domain alias
 reconciliation, generic payload propagation across alias-qualified constructor
-and pattern boundaries, recursive public-signature and public-ADT-payload
-visibility, transitive publication quarantine, focused mixed-union base
-failure, invalid-signature quarantine, and the
-qualified-value limit.
+and pattern boundaries, recursive visibility at public-signature, public
+module-value-annotation, and public-ADT-payload boundaries, including private
+named types in public module value annotations, transitive publication
+quarantine, focused mixed-union base failure, invalid-signature quarantine,
+and the qualified-value limit.
 The selected examples demonstrate refined call typing, complete structural
 assignment, control-flow result joins, alias-qualified identity and
 presentation, generic alias boundaries, structural visibility, and publication

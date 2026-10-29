@@ -164,6 +164,14 @@ IR. The doctest case is then reported with `status: "blocked"` and
 to contract, ensure, and result failures. There is no test JSON expectation
 record for arbitrary panics, raw stderr matching, or process exit status.
 
+When selected analysis contains a module immutable value, the run-level
+`diagnostics` array includes its initializer, annotation-visibility, imported
+lookup, and same-module dependency diagnostics. Imported lookup retains
+package-aware declaration identity. The array also includes
+`module.value_not_executable` for every module-value declaration. Every
+selected case is then reported with `status: "blocked"` and
+`reason: "static_gate"`; no worker starts and no case records a runtime event.
+
 Doctest expected-output mismatches are reported as failed cases with
 `reason: "expected_output"` and `failure.kind: "output"`. The failure details
 use `kind: "output"` and include:
@@ -277,7 +285,11 @@ The command implementation and scheduler are in
 contract. The
 [`callsite-generated-origin-runtime`](../../examples/specification/test/callsite-generated-origin-runtime/)
 executable specification case verifies doctest origin mapping through this JSON
-command boundary.
+command boundary. The
+[`module-value-imported-static-gate-json`](../../examples/specification/test/module-value-imported-static-gate-json/)
+case verifies package-aware imported value typing, annotation visibility, the
+module-value execution blocker, blocked case records, empty event lists, and
+the absence of Java startup.
 
 ## Usage and limits
 

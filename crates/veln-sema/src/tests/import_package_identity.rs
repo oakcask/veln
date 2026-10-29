@@ -1,6 +1,6 @@
 use super::support::*;
 use crate::semantic_model::Type;
-use crate::types::{HandlerPathResolution, TypeEnvironment, UserEffectPathResolution};
+use crate::types::TypeEnvironment;
 
 fn source_module(path: &str, text: &str, package: Option<&str>, name: &str) -> SurfaceModule {
     let source = SourceFile::new(path, text);
@@ -22,6 +22,7 @@ fn source_module(path: &str, text: &str, package: Option<&str>, name: &str) -> S
 
 fn extend(module: &mut SurfaceModule, other: SurfaceModule) {
     module.uses.extend(other.uses);
+    module.module_values.extend(other.module_values);
     module.functions.extend(other.functions);
     module.effects.extend(other.effects);
     module.handlers.extend(other.handlers);
@@ -36,6 +37,9 @@ fn set_declaration_module_name(module: &mut SurfaceModule, name: &str) {
     }
     for function in &mut module.functions {
         function.module_name = Some(name.to_string());
+    }
+    for value in &mut module.module_values {
+        value.module_name = Some(name.to_string());
     }
     for effect in &mut module.effects {
         effect.module_name = Some(name.to_string());
@@ -54,210 +58,430 @@ fn set_declaration_module_name(module: &mut SurfaceModule, name: &str) {
     }
 }
 
+fn same_spelled_module_values_fixture(
+    source_order: [usize; 3],
+    reverse_imports: bool,
+    reverse_declarations: bool,
+) -> SurfaceModule {
+    let imports = [
+        "use shared as first from \"selected/pkg\"\n",
+        "use shared as second from \"namesake/pkg\"\n",
+    ];
+    let imports = if reverse_imports {
+        format!("{}{}", imports[1], imports[0])
+    } else {
+        imports.concat()
+    };
+    let mut app = source_module(
+        "app.veln",
+        &format!(
+            "{imports}fn first_value() -> first::Marker\n  first::answer\nend\n\
+             fn second_value() -> second::Marker\n  second::answer\nend\n"
+        ),
+        Some("owner/pkg"),
+        "app",
+    );
+    for use_decl in &mut app.uses {
+        use_decl.name = "shared".to_string();
+    }
+    let declarations = concat!(
+        "pub type Marker\n  pub Value\nend\n",
+        "pub let answer: Marker = Value\n",
+        "pub let distraction: Int = 2\n",
+    );
+    let mut selected = source_module(
+        "selected/shared.veln",
+        declarations,
+        Some("selected/pkg"),
+        "shared",
+    );
+    let mut namesake = source_module(
+        "namesake/shared.veln",
+        declarations,
+        Some("namesake/pkg"),
+        "shared",
+    );
+    set_declaration_module_name(&mut selected, "shared");
+    set_declaration_module_name(&mut namesake, "shared");
+    if reverse_declarations {
+        selected.module_values.reverse();
+        namesake.module_values.reverse();
+    }
+    let sources = [app, selected, namesake];
+    let mut merged = sources[source_order[0]].clone();
+    for index in source_order.into_iter().skip(1) {
+        extend(&mut merged, sources[index].clone());
+    }
+    merged
+}
+
+fn module_value_for_alias<'a>(
+    environment: &'a TypeEnvironment,
+    alias: &str,
+) -> &'a crate::types::ModuleValueSignature {
+    match environment.module_value_path_in_owner(
+        &[alias.to_string(), "answer".to_string()],
+        Some("owner/pkg::app"),
+        Some("owner/pkg"),
+    ) {
+        crate::types::ModuleValueLookup::Available(value) => value,
+        _ => panic!("expected {alias} package value"),
+    }
+}
+
 #[test]
-fn quarantined_type_and_constructor_recovery_match_only_the_selected_package() {
-    for (include_selected, include_namesake, expected) in
-        [(true, false, 1), (false, true, 0), (true, true, 1)]
-    {
-        let mut module = source_module(
-            "app.veln",
-            "use math as HTTP from \"selected/pkg\"\n",
-            None,
-            "app",
-        );
-        module.uses[0].name = "selected/pkg::math".to_string();
-        let declaration = concat!("pub type Payload\n", "  pub Data(Int)\n", "end\n",);
-        if include_selected {
-            extend(
-                &mut module,
-                source_module(
-                    "selected/math.veln",
-                    declaration,
-                    Some("selected/pkg"),
-                    "math",
-                ),
-            );
+fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
+    for source_order in [
+        [0, 1, 2],
+        [0, 2, 1],
+        [1, 0, 2],
+        [1, 2, 0],
+        [2, 0, 1],
+        [2, 1, 0],
+    ] {
+        for reverse_imports in [false, true] {
+            for reverse_declarations in [false, true] {
+                let app = same_spelled_module_values_fixture(
+                    source_order,
+                    reverse_imports,
+                    reverse_declarations,
+                );
+                let context = format!(
+                    "source_order={source_order:?}, reverse_imports={reverse_imports}, \
+                     reverse_declarations={reverse_declarations}"
+                );
+                let diagnostics = analyze_surface_module(&app);
+                assert!(
+                    diagnostics.iter().all(|diagnostic| {
+                        !matches!(
+                            diagnostic.id.as_str(),
+                            "name.unresolved" | "name.ambiguous" | "name.duplicate"
+                        )
+                    }),
+                    "{context}: {diagnostics:#?}"
+                );
+
+                let environment = TypeEnvironment::from_module(&app);
+                for (alias, package) in [("first", "selected/pkg"), ("second", "namesake/pkg")] {
+                    let value = module_value_for_alias(&environment, alias);
+                    assert_eq!(
+                        (
+                            value.declaration.package_name.as_deref(),
+                            value.declaration.module_name.as_deref(),
+                            value.declaration.name.as_deref(),
+                        ),
+                        (Some(package), Some("shared"), Some("answer")),
+                        "alias={alias}, {context}"
+                    );
+                    assert!(
+                        matches!(
+                            &value.ty,
+                            Type::Named { identity, .. }
+                                if identity == &format!("{package}::shared::Marker")
+                        ),
+                        "alias={alias}, {context}: {:?}",
+                        value.ty
+                    );
+                }
+            }
         }
-        if include_namesake {
-            extend(
-                &mut module,
-                source_module("other/math.veln", declaration, Some("other/pkg"), "math"),
-            );
+    }
+}
+
+#[test]
+fn public_module_value_visibility_uses_complete_package_and_module_owner() {
+    let declarations = concat!(
+        "use helper\n",
+        "type Secret\n",
+        "  pub Value\n",
+        "end\n",
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub let named: Secret = Value\n",
+        "pub let refined: State::Hidden = Hidden\n",
+    );
+
+    for reverse in [false, true] {
+        let one = source_module("one/shared.veln", declarations, Some("one/pkg"), "shared");
+        let two = source_module("two/shared.veln", declarations, Some("two/pkg"), "shared");
+        let mut module = if reverse { two.clone() } else { one.clone() };
+        if reverse {
+            extend(&mut module, one);
+        } else {
+            extend(&mut module, two);
         }
-        let environment = TypeEnvironment::from_module(&module);
-        let type_path = "HTTP::Payload";
-        let constructor_path = [
-            "HTTP".to_string(),
-            "Payload".to_string(),
-            "Data".to_string(),
-        ];
+
+        let diagnostics = analyze_surface_module(&module);
+
         assert_eq!(
-            environment.quarantined_import_type_recovery_candidate_count_in_owner(
-                type_path,
-                Some("app"),
-                None,
-                0,
-            ),
-            expected,
-            "selected={include_selected}, namesake={include_namesake}",
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.public_annotation_private")
+                .count(),
+            2,
+            "reverse={reverse}: {diagnostics:#?}"
         );
         assert_eq!(
-            environment.quarantined_import_constructor_recovery_candidate_count_in_owner(
-                &constructor_path,
-                Some("app"),
-                None,
-                Some(1),
-            ),
-            expected,
-            "selected={include_selected}, namesake={include_namesake}",
-        );
-        assert_eq!(
-            environment
-                .quarantined_explicit_import_constructor_in_owner(
-                    &constructor_path,
-                    Some("app"),
-                    None,
-                )
-                .is_some(),
-            include_selected,
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+                .count(),
+            2,
+            "reverse={reverse}: {diagnostics:#?}"
         );
         assert!(
-            environment
-                .uses
+            diagnostics
                 .iter()
-                .all(|use_decl| use_decl.alias != "HTTP"),
-            "the invalid alias must remain quarantined",
+                .all(|diagnostic| diagnostic.id != "name.unresolved"),
+            "reverse={reverse}: {diagnostics:#?}"
         );
     }
 }
 
 #[test]
-fn dependency_owned_quarantine_recovery_selects_only_public_targets_in_the_imported_package() {
-    let path = ["HTTP".to_string(), "target".to_string()];
-    let effect_path = ["HTTP".to_string(), "Ask".to_string()];
-    let handler_path = ["HTTP".to_string(), "answer".to_string()];
-    for (case, selected_declarations, expected) in [
-        (
-            "public",
-            concat!(
-                "pub fn target() -> Int\n  1\nend\n",
-                "pub effect Ask\n  value() -> Int\nend\n",
-                "pub handler answer() for Ask\n  value() => 1\nend\n",
-            ),
-            true,
-        ),
-        ("missing", "pub fn unrelated() -> Int\n  1\nend\n", false),
-        (
-            "private",
-            concat!(
-                "fn target() -> Int\n  1\nend\n",
-                "effect Ask\n  value() -> Int\nend\n",
-                "handler answer() for Ask\n  value() => 1\nend\n",
-            ),
-            false,
-        ),
-        (
-            "wrong kind",
-            concat!(
-                "pub type target\n  Value\nend\n",
-                "pub type Ask\n  Value\nend\n",
-                "pub type answer\n  Value\nend\n",
-            ),
-            false,
-        ),
-    ] {
-        for reverse in [false, true] {
-            let mut module = source_module(
-                "owner/app.veln",
-                "use math as HTTP from \"selected/pkg\"\n",
-                None,
-                "app",
-            );
-            module.uses[0].importing_package = Some("owner/pkg".to_string());
-            module.uses[0].name = "selected/pkg::math".to_string();
-            let selected = source_module(
-                "selected/math.veln",
-                selected_declarations,
-                Some("selected/pkg"),
-                "math",
-            );
-            let namesake = source_module(
-                "namesake/math.veln",
-                concat!(
-                    "pub fn target() -> Int\n  2\nend\n",
-                    "pub effect Ask\n  value() -> Int\nend\n",
-                    "pub handler answer() for Ask\n  value() => 2\nend\n",
-                ),
-                Some("namesake/pkg"),
-                "math",
-            );
-            for declarations in if reverse {
-                [namesake, selected]
-            } else {
-                [selected, namesake]
-            } {
-                extend(&mut module, declarations);
-            }
+fn dependency_owned_module_value_annotations_use_imported_sibling_types() {
+    let states = concat!(
+        "type Secret\n",
+        "  pub Value\n",
+        "end\n",
+        "pub type State\n",
+        "  pub Ready\n",
+        "  Hidden\n",
+        "end\n",
+    );
+    let shared = concat!(
+        "use states\n",
+        "pub let ready: states::State::Ready = states::State::Ready\n",
+        "pub let nested: {state: states::State::Ready} = {state: states::State::Ready}\n",
+        "pub let private_named: {secret: states::Secret} = 0\n",
+        "pub let private_variant: Option<states::State::Hidden> = 0\n",
+    );
 
-            let quarantined = crate::name_recovery::quarantined_use_decls(&module);
-            assert_eq!(quarantined.len(), 1, "case={case}: {quarantined:#?}");
+    for reverse in [false, true] {
+        let mut one_states = source_module("one/states.veln", states, Some("one/pkg"), "states");
+        let mut one_shared = source_module("one/shared.veln", shared, Some("one/pkg"), "shared");
+        let mut two_states = source_module("two/states.veln", states, Some("two/pkg"), "states");
+        let mut two_shared = source_module("two/shared.veln", shared, Some("two/pkg"), "shared");
+        set_declaration_module_name(&mut one_states, "states");
+        set_declaration_module_name(&mut one_shared, "shared");
+        set_declaration_module_name(&mut two_states, "states");
+        set_declaration_module_name(&mut two_shared, "shared");
+        assert!(one_shared.types.is_empty());
+        assert!(two_shared.types.is_empty());
 
-            let environment = TypeEnvironment::from_module(&module);
-            assert_eq!(
-                environment.quarantined_import_call_recovery_candidate_count(
-                    &path,
-                    Some("app"),
-                    Some("owner/pkg"),
-                    0,
-                ),
-                usize::from(expected),
-                "case={case}, reverse={reverse}, target={:?}, functions={:?}",
-                quarantined[0].resolved_target(),
-                module
-                    .functions
+        let ordered = if reverse {
+            [two_shared, one_states, two_states, one_shared]
+        } else {
+            [one_shared, two_states, one_states, two_shared]
+        };
+        let mut module = ordered[0].clone();
+        for other in ordered.into_iter().skip(1) {
+            extend(&mut module, other);
+        }
+
+        let diagnostics = analyze_surface_module(&module);
+        assert!(
+            diagnostics.iter().all(|diagnostic| {
+                diagnostic.id != "type.invalid_annotation"
+                    && !(diagnostic.id == "name.unresolved"
+                        && diagnostic.message.contains("State::Ready"))
+            }),
+            "reverse={reverse}: {diagnostics:#?}"
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.public_annotation_private")
+                .count(),
+            2,
+            "reverse={reverse}: {diagnostics:#?}"
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
+                .count(),
+            2,
+            "reverse={reverse}: {diagnostics:#?}"
+        );
+        for package in ["one/pkg::states", "two/pkg::states"] {
+            assert!(
+                diagnostics
                     .iter()
-                    .map(|function| (
-                        function.package_name.as_deref(),
-                        function.module_name.as_deref(),
-                        function.name.as_deref(),
-                    ))
-                    .collect::<Vec<_>>(),
-            );
-            assert_eq!(
-                environment.quarantined_import_value_recovery_candidate_count(
-                    &path,
-                    Some("app"),
-                    Some("owner/pkg"),
-                ),
-                usize::from(expected),
-                "case={case}, reverse={reverse}",
-            );
-            assert_eq!(
-                matches!(
-                    environment.resolve_user_effect_path_in_owner(
-                        &effect_path,
-                        Some("app"),
-                        Some("owner/pkg"),
-                    ),
-                    UserEffectPathResolution::QuarantinedImportTarget
-                ),
-                expected,
-                "case={case}, reverse={reverse}",
-            );
-            assert_eq!(
-                matches!(
-                    environment.handler_path_in_owner(
-                        &handler_path,
-                        Some("app"),
-                        Some("owner/pkg"),
-                    ),
-                    HandlerPathResolution::QuarantinedImportTarget
-                ),
-                expected,
-                "case={case}, reverse={reverse}",
+                    .any(|diagnostic| format!("{diagnostic:?}").contains(package)),
+                "missing provenance for {package}: {diagnostics:#?}"
             );
         }
     }
+}
+
+#[test]
+fn module_value_annotation_does_not_fall_back_to_a_namesake_package() {
+    for reverse in [false, true] {
+        let one = source_module(
+            "one/shared.veln",
+            "type Secret\n  Value\nend\n",
+            Some("one/pkg"),
+            "shared",
+        );
+        let two = source_module(
+            "two/shared.veln",
+            "pub let leaked: Secret = 0\n",
+            Some("two/pkg"),
+            "shared",
+        );
+        let mut module = if reverse { two.clone() } else { one.clone() };
+        if reverse {
+            extend(&mut module, one);
+        } else {
+            extend(&mut module, two);
+        }
+
+        let diagnostics = analyze_surface_module(&module);
+
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "name.unresolved"
+                    && diagnostic.message == "unresolved type `Secret`"
+            }),
+            "reverse={reverse}: {diagnostics:#?}"
+        );
+        assert!(
+            diagnostics.iter().all(|diagnostic| {
+                diagnostic.id != "type.public_annotation_private"
+                    && !diagnostic.message.contains("one/pkg::shared::Secret")
+                    && diagnostic
+                        .related
+                        .iter()
+                        .all(|related| !format!("{related:?}").contains("one/pkg::shared::Secret"))
+            }),
+            "reverse={reverse}: {diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
+fn exact_import_matching_owner_module_selects_dependency_annotation_identity() {
+    for dependency_first in [false, true] {
+        let mut owner = source_module(
+            "owner/values.veln",
+            concat!(
+                "use values from \"dep/pkg\"\n",
+                "type Secret\n",
+                "  Owner\n",
+                "end\n",
+                "pub let selected: values::Secret = 0\n",
+                "pub let rejected: Secret = 0\n",
+            ),
+            Some("owner/pkg"),
+            "values",
+        );
+        let mut dependency = source_module(
+            "dep/values.veln",
+            "pub type Secret\n  pub Dependency\nend\n",
+            Some("dep/pkg"),
+            "values",
+        );
+        set_declaration_module_name(&mut owner, "values");
+        set_declaration_module_name(&mut dependency, "values");
+        let mut project = if dependency_first {
+            dependency.clone()
+        } else {
+            owner.clone()
+        };
+        if dependency_first {
+            extend(&mut project, owner);
+        } else {
+            extend(&mut project, dependency);
+        }
+
+        let diagnostics = analyze_surface_module(&project);
+        let visibility = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.public_annotation_private")
+            .collect::<Vec<_>>();
+        assert_eq!(
+            visibility.len(),
+            1,
+            "dependency_first={dependency_first}: {diagnostics:#?}"
+        );
+        assert!(
+            visibility[0].message.contains("owner/pkg::values::Secret"),
+            "dependency_first={dependency_first}: {diagnostics:#?}"
+        );
+
+        let environment = TypeEnvironment::from_module(&project);
+        let selected = match environment.module_value_path_in_owner(
+            &["selected".to_string()],
+            Some("values"),
+            Some("owner/pkg"),
+        ) {
+            crate::types::ModuleValueLookup::Available(value) => value,
+            _ => panic!("expected selected owner value"),
+        };
+        let rejected = match environment.module_value_path_in_owner(
+            &["rejected".to_string()],
+            Some("values"),
+            Some("owner/pkg"),
+        ) {
+            crate::types::ModuleValueLookup::Available(value) => value,
+            _ => panic!("expected rejected owner value"),
+        };
+        assert!(matches!(
+            &selected.ty,
+            Type::Named { identity, .. } if identity == "dep/pkg::values::Secret"
+        ));
+        assert!(matches!(
+            &rejected.ty,
+            Type::Named { identity, .. } if identity == "owner/pkg::values::Secret"
+        ));
+        assert_ne!(selected.ty, rejected.ty);
+    }
+}
+
+#[test]
+fn same_qualified_module_value_path_from_distinct_packages_is_ambiguous() {
+    let mut app = source_module(
+        "app.veln",
+        concat!(
+            "use shared from \"one/pkg\"\n",
+            "use shared from \"two/pkg\"\n",
+            "fn read() -> Int\n  shared::answer\nend\n",
+        ),
+        Some("owner/pkg"),
+        "app",
+    );
+    app.uses[0].name = "shared".to_string();
+    app.uses[1].name = "shared".to_string();
+    set_declaration_module_name(&mut app, "app");
+    let mut one = source_module(
+        "one/shared.veln",
+        "pub let answer: Int = 1\n",
+        Some("one/pkg"),
+        "shared",
+    );
+    set_declaration_module_name(&mut one, "shared");
+    extend(&mut app, one);
+    let mut two = source_module(
+        "two/shared.veln",
+        "pub let answer: Int = 1\n",
+        Some("two/pkg"),
+        "shared",
+    );
+    set_declaration_module_name(&mut two, "shared");
+    extend(&mut app, two);
+
+    let diagnostics = analyze_surface_module(&app);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.ambiguous")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]
@@ -312,79 +536,6 @@ fn public_alias_diagnostics_match_only_the_selected_package() {
                 .is_some(),
             include_selected,
         );
-    }
-}
-
-#[test]
-fn dependency_owned_schema_quarantine_uses_only_the_selected_package() {
-    for (case, selected_declarations, recovers) in [
-        ("public", "pub schema Packet\n  value: Int\nend\n", true),
-        ("missing", "pub schema Other\n  value: Int\nend\n", false),
-        ("private", "schema Packet\n  value: Int\nend\n", false),
-        ("wrong kind", "pub fn Packet() -> Int\n  1\nend\n", false),
-    ] {
-        for reverse in [false, true] {
-            let mut module = source_module(
-                "owner/app.veln",
-                concat!(
-                    "use math as HTTP from \"selected/pkg\"\n",
-                    "pub schema AliasPacket = HTTP::Packet\n",
-                    "schema Host\n  nested: HTTP::Packet\nend\n",
-                ),
-                Some("owner/pkg"),
-                "app",
-            );
-            module.uses[0].name = "selected/pkg::math".to_string();
-            let selected = source_module(
-                "selected/math.veln",
-                selected_declarations,
-                Some("selected/pkg"),
-                "math",
-            );
-            let namesake = source_module(
-                "namesake/math.veln",
-                "pub schema Packet\n  value: Int\nend\n",
-                Some("namesake/pkg"),
-                "math",
-            );
-            for declarations in if reverse {
-                [namesake, selected]
-            } else {
-                [selected, namesake]
-            } {
-                extend(&mut module, declarations);
-            }
-
-            let diagnostics = analyze_surface_module(&module);
-            let carrier_failures = diagnostics
-                .iter()
-                .filter(|diagnostic| {
-                    diagnostic.id != "name.invalid_case" && diagnostic.id != "name.invalid_import"
-                })
-                .collect::<Vec<_>>();
-            assert_eq!(
-                carrier_failures.is_empty(),
-                recovers,
-                "case={case}, reverse={reverse}: {diagnostics:#?}",
-            );
-            if !recovers {
-                assert!(
-                    carrier_failures.iter().any(|diagnostic| {
-                        matches!(
-                            diagnostic.id.as_str(),
-                            "name.unresolved" | "name.visibility" | "name.alias_kind"
-                        )
-                    }),
-                    "public alias failure missing for case={case}: {diagnostics:#?}",
-                );
-                assert!(
-                    carrier_failures
-                        .iter()
-                        .any(|diagnostic| diagnostic.id == "schema.composition_reference"),
-                    "composition failure missing for case={case}: {diagnostics:#?}",
-                );
-            }
-        }
     }
 }
 
@@ -494,140 +645,6 @@ fn each_effect_alias_excludes_the_other_package_from_inference_and_discharge() {
     }
 }
 
-#[test]
-fn each_schema_alias_selects_only_its_package_helper_and_lowered_target() {
-    for (alias, field, selected, excluded) in [
-        (
-            "local",
-            "local_value",
-            "workspace::std::shared::Packet",
-            "std::shared::Packet",
-        ),
-        (
-            "remote",
-            "remote_value",
-            "std::shared::Packet",
-            "workspace::std::shared::Packet",
-        ),
-    ] {
-        for reverse in [false, true] {
-            let mut module = source_module(
-                "app.veln",
-                &format!(
-                    "use std::shared as local\nuse shared as remote from \"std\"\n\
-                 pub fn encode_one(value: {{{field}: Int}}) -> Result<ByteChunk, EncodeError>\n\
-                   encode {alias}::AliasPacket from value\nend\n",
-                ),
-                None,
-                "app",
-            );
-            module.uses[1].name = "std::shared".to_string();
-            let local = source_module(
-                "workspace/shared.veln",
-                "pub schema Packet\n  format binary\n  local_value: UInt8\nend\npub schema AliasPacket = Packet\n",
-                None,
-                "std::shared",
-            );
-            let remote = source_module(
-                "standard/shared.veln",
-                "pub schema Packet\n  format binary\n  remote_value: UInt8\nend\npub schema AliasPacket = Packet\n",
-                Some("std"),
-                "shared",
-            );
-            for other in if reverse {
-                [remote, local]
-            } else {
-                [local, remote]
-            } {
-                extend(&mut module, other);
-            }
-            let environment = TypeEnvironment::from_module(&module);
-            let helper = environment
-                .schema_encode_signature_in_owner(
-                    &[alias.to_string(), "AliasPacket".to_string()],
-                    Some("app"),
-                    None,
-                )
-                .unwrap();
-            assert_eq!(
-                helper.params,
-                vec![Type::Record(vec![(field.to_string(), Type::int())])]
-            );
-            assert_eq!(helper.target_name, format!("schema-encode:{selected}"));
-            assert_ne!(helper.target_name, format!("schema-encode:{excluded}"));
-            let lowered = lower_checked_surface_module(&module);
-            assert!(
-                lowered.diagnostics.is_empty(),
-                "alias={alias}, reverse={reverse}, {:#?}",
-                lowered.diagnostics
-            );
-            let encoded = lowered
-                .core
-                .as_ref()
-                .unwrap()
-                .functions
-                .iter()
-                .find(|function| function.name == "encode_one")
-                .unwrap();
-            assert!(format!("{encoded:?}").contains(&format!("SchemaEncode(\"{selected}\")")));
-            assert!(!format!("{encoded:?}").contains(&format!("SchemaEncode(\"{excluded}\")")));
-        }
-    }
-}
-
-#[test]
-fn each_private_handler_alias_infers_only_its_package_clause_dependencies() {
-    for (alias, expected, excluded) in [("local", "stdio", "db"), ("remote", "db", "stdio")] {
-        let mut module = source_module(
-            "app.veln",
-            &format!(
-                "use std::shared as local\nuse shared as remote from \"std\"\nfn main() -> Int\n  {alias}::handled()\nend\n",
-            ),
-            None,
-            "app",
-        );
-        module.uses[1].name = "std::shared".to_string();
-        for (package, effect) in [(None, "stdio"), (Some("std"), "db")] {
-            let text = format!(
-                "pub effect Ask\n  value() -> Int\nend\nfn helper() -> Int effects [{effect}]\n  1\nend\n\
-                               pub fn read() -> Int effects [Ask]\n  perform Ask::value()\nend\n\
-                               handler answer() for Ask\n  value() => helper()\nend\n\
-                               pub fn handled() -> Int effects [{effect}]\n  handle read() with answer()\nend\n"
-            );
-            extend(
-                &mut module,
-                source_module(
-                    if package.is_some() {
-                        "std/shared.veln"
-                    } else {
-                        "local/shared.veln"
-                    },
-                    &text,
-                    package,
-                    if package.is_some() {
-                        "shared"
-                    } else {
-                        "std::shared"
-                    },
-                ),
-            );
-        }
-        // Access from each declaration owner also proves that same-module private handler lookup keeps its package.
-        let environment = TypeEnvironment::from_module(&module);
-        let owner_package = if alias == "remote" { Some("std") } else { None };
-        let HandlerPathResolution::Found(handler) = environment.handler_path_in_owner(
-            &["answer".to_string()],
-            Some("std::shared"),
-            owner_package,
-        ) else {
-            panic!("handler should resolve")
-        };
-        let signature = environment
-            .function_path_in_owner(&["main".to_string()], Some("app"), None)
-            .unwrap();
-        assert_eq!(signature.effects, vec![expected.to_string()]);
-        assert_eq!(handler.effects, vec![expected.to_string()]);
-        assert!(!handler.effects.iter().any(|effect| effect == excluded));
-    }
-}
+mod package_scoped_helpers;
+mod quarantine_recovery;
 mod schema_type_identity;

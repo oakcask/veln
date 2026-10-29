@@ -1,5 +1,14 @@
 use super::*;
 
+mod indexed_imports;
+mod owner_lookup;
+mod recovery_helpers;
+
+use recovery_helpers::{
+    fallback_recovery_modules, is_single_initial_recovery, merge_recovered_identity,
+    normalized_qualified_path, normalized_qualified_segments,
+};
+
 impl AdtRegistry {
     pub(crate) fn descriptor_for_type_path_including_quarantined(
         &self,
@@ -87,9 +96,10 @@ impl AdtRegistry {
     ) -> Option<Option<&AdtDescriptor>> {
         if self.source_import_indexes_ready {
             crate::adt::lookup_validation::record_import_path_comparison();
+            let owner = import_owner_for_module(uses, current_module)?;
             return Some(
                 self.imported_descriptors_by_type
-                    .get(&(current_module.map(str::to_string), name.to_string()))
+                    .get(&(owner, name.to_string()))
                     .copied()
                     .flatten()
                     .map(|index| self.descriptor_lookup_candidate(index)),
@@ -176,57 +186,16 @@ impl AdtRegistry {
             self.qualified_import_modules
                 .get(&(owner.clone(), module_path.to_string()))
         });
-        let mut fallback;
+        let fallback;
         let modules = if let Some(indexed) = indexed {
             indexed
         } else if self.source_import_count != uses.len() {
-            fallback = QualifiedImportModules::default();
-            for use_decl in uses {
-                crate::adt::lookup_validation::record_import_path_comparison();
-                if crate::name_recovery::use_decl_matches_exact_import_path(
-                    use_decl,
-                    module_path,
-                    current_module,
-                ) {
-                    fallback.exact.insert({
-                        let target = use_decl.resolved_target();
-                        (target.package, target.module)
-                    });
-                }
-                crate::adt::lookup_validation::record_import_path_comparison();
-                if crate::name_recovery::use_decl_matches_implicit_import_alias(
-                    use_decl,
-                    module_path,
-                    current_module,
-                ) {
-                    fallback.implicit.insert({
-                        let target = use_decl.resolved_target();
-                        (target.package, target.module)
-                    });
-                }
-            }
+            fallback = fallback_exact_import_modules(module_path, current_module, uses);
             &fallback
         } else {
             return None;
         };
-        let candidates = if modules.exact.is_empty() {
-            &modules.implicit
-        } else {
-            &modules.exact
-        };
-        let mut candidates = candidates.iter();
-        let (package, module) = candidates.next()?;
-        if candidates.next().is_some() {
-            return Some(QualifiedSourceIdentity::Ambiguous);
-        }
-        if !self.source_identity_exists(package.as_deref(), Some(module), type_name) {
-            return None;
-        }
-        Some(QualifiedSourceIdentity::Source((
-            package.clone(),
-            Some(module.clone()),
-            type_name.to_string(),
-        )))
+        self.source_identity_from_import_modules(type_name, modules)
     }
 
     fn source_identity_exists(
@@ -523,108 +492,31 @@ impl AdtRegistry {
     }
 }
 
-fn normalized_qualified_segments(segments: &[String]) -> String {
-    let byte_len =
-        segments.iter().map(String::len).sum::<usize>() + segments.len().saturating_sub(1) * 2;
-    let mut normalized = String::with_capacity(byte_len);
-    for (index, segment) in segments.iter().enumerate() {
-        if index > 0 {
-            normalized.push_str("::");
-        }
-        if let Some(first) = segment.as_bytes().first().copied() {
-            if first.is_ascii() {
-                normalized.push((first as char).to_ascii_lowercase());
-                normalized.push_str(&segment[1..]);
-            } else {
-                normalized.push_str(segment);
-            }
-        }
-    }
-    normalized
-}
-
-fn normalized_qualified_path(path: &str) -> String {
-    normalized_qualified_segments(&path.split("::").map(str::to_string).collect::<Vec<_>>())
-}
-
-fn is_single_initial_recovery(written: &[String], actual: &str) -> bool {
-    let mut actual = actual.split("::");
-    let mut recoveries = 0;
-    for written in written {
-        let Some(actual) = actual.next() else {
-            return false;
-        };
-        if written == actual {
-            continue;
-        }
-        let Some(written_first) = written.as_bytes().first().copied() else {
-            return false;
-        };
-        let Some(actual_first) = actual.as_bytes().first().copied() else {
-            return false;
-        };
-        if !written_first.is_ascii_uppercase()
-            || actual_first != written_first.to_ascii_lowercase()
-            || written.get(1..) != actual.get(1..)
-        {
-            return false;
-        }
-        recoveries += 1;
-    }
-    actual.next().is_none() && recoveries == 1
-}
-
-fn fallback_recovery_modules(
-    qualifiers: &[String],
+fn fallback_exact_import_modules(
+    module_path: &str,
     current_module: Option<&str>,
     uses: &[UseDecl],
-) -> BTreeMap<String, QualifiedImportModules> {
-    let mut candidates = BTreeMap::<String, QualifiedImportModules>::new();
+) -> QualifiedImportModules {
+    let mut modules = QualifiedImportModules::default();
     for use_decl in uses {
-        for path in crate::name_recovery::use_decl_exact_paths(use_decl) {
-            crate::adt::lookup_validation::record_qualified_path_work(path.len());
-            if is_single_initial_recovery(qualifiers, &path) {
-                candidates.entry(path).or_default().exact.insert({
-                    let target = use_decl.resolved_target();
-                    (target.package, target.module)
-                });
-            }
+        crate::adt::lookup_validation::record_import_path_comparison();
+        if crate::name_recovery::use_decl_matches_exact_import_path(
+            use_decl,
+            module_path,
+            current_module,
+        ) {
+            let target = use_decl.resolved_target();
+            modules.exact.insert((target.package, target.module));
         }
-        crate::adt::lookup_validation::record_qualified_path_work(use_decl.alias.len());
-        if is_single_initial_recovery(qualifiers, &use_decl.alias)
-            && crate::name_recovery::use_decl_matches_implicit_import_alias(
-                use_decl,
-                &use_decl.alias,
-                current_module,
-            )
-        {
-            candidates
-                .entry(use_decl.alias.clone())
-                .or_default()
-                .implicit
-                .insert({
-                    let target = use_decl.resolved_target();
-                    (target.package, target.module)
-                });
+        crate::adt::lookup_validation::record_import_path_comparison();
+        if crate::name_recovery::use_decl_matches_implicit_import_alias(
+            use_decl,
+            module_path,
+            current_module,
+        ) {
+            let target = use_decl.resolved_target();
+            modules.implicit.insert((target.package, target.module));
         }
     }
-    candidates
-}
-
-fn merge_recovered_identity(
-    selected: &mut Option<QualifiedSourceIdentity>,
-    identity: Option<QualifiedSourceIdentity>,
-) -> bool {
-    let Some(identity) = identity else {
-        return false;
-    };
-    if identity == QualifiedSourceIdentity::Ambiguous
-        || selected
-            .as_ref()
-            .is_some_and(|selected| selected != &identity)
-    {
-        return true;
-    }
-    *selected = Some(identity);
-    false
+    modules
 }

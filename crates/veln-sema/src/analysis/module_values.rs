@@ -1,19 +1,25 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
-use veln_ast::{
-    BodyLine, BodyLineKind, Function, FunctionKind, NameClass, NameOccurrence, PublicAliasKind,
-    SurfaceModule, Visibility,
-};
+use veln_ast::{BodyLine, BodyLineKind, Function, FunctionKind, SurfaceModule, Visibility};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
 use super::{FunctionChecker, VariantDiagnosticInterner, check_type_effect_labels};
 use crate::diagnostics::span_json;
+use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_annotation;
-use crate::types::{ModuleValueIndex, TypeEnvironment};
+use crate::types::{ModuleValueIdentity, ModuleValueIndex, TypeEnvironment};
 
 mod admission;
+mod availability;
+mod indexing;
+mod visibility;
 
 use admission::{check_admitted_expr, collect_dependencies};
+use indexing::{
+    colliding_module_value_identities, initially_invalid_values,
+    invalid_cased_module_value_identities, module_value_indices,
+};
+use visibility::public_named_type_diagnostics;
 
 #[derive(Clone)]
 pub(super) struct Dependency {
@@ -23,8 +29,91 @@ pub(super) struct Dependency {
 
 pub(crate) struct ModuleValueAnalysis {
     pub(crate) diagnostics: Vec<Diagnostic>,
-    pub(crate) invalid: BTreeSet<(Option<String>, String)>,
+    pub(crate) invalid: BTreeSet<ModuleValueIdentity>,
+    // Collisions, invalid casing, and same-module cycles cannot recover when
+    // imported candidates change. Other failures are rechecked at each change.
+    intrinsic_invalid: BTreeSet<ModuleValueIdentity>,
 }
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct ModuleValueAvailabilityWork {
+    pub(crate) semantic_visits: usize,
+    pub(crate) owner_index_entries: usize,
+    pub(crate) owner_recheck_lookups: usize,
+    pub(crate) dependency_index_entries: usize,
+    pub(crate) peak_retained_dependency_state: usize,
+    pub(crate) declaration_recheck_lookups: usize,
+    pub(crate) retained_history_insertions: usize,
+    // Identity-sized availability comparisons, copies, and traversals. Full
+    // snapshot work must add one step per identity so adjacent-size tests see it.
+    pub(crate) availability_state_steps: usize,
+    pub(crate) availability_waves: usize,
+    pub(crate) full_exposure_rebuild_entries: usize,
+    pub(crate) availability_updates: usize,
+    pub(crate) peak_pending_owners: usize,
+    pub(crate) peak_retained_availability_identities: usize,
+    pub(crate) retained_cyclic_component_identities: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    static MODULE_VALUE_AVAILABILITY_WORK:
+        std::cell::Cell<ModuleValueAvailabilityWork> =
+        const { std::cell::Cell::new(ModuleValueAvailabilityWork {
+            semantic_visits: 0,
+            owner_index_entries: 0,
+            owner_recheck_lookups: 0,
+            dependency_index_entries: 0,
+            peak_retained_dependency_state: 0,
+            declaration_recheck_lookups: 0,
+            retained_history_insertions: 0,
+            availability_state_steps: 0,
+            availability_waves: 0,
+            full_exposure_rebuild_entries: 0,
+            availability_updates: 0,
+            peak_pending_owners: 0,
+            peak_retained_availability_identities: 0,
+            retained_cyclic_component_identities: 0,
+        }) };
+}
+
+#[cfg(test)]
+fn update_module_value_availability_work(update: impl FnOnce(&mut ModuleValueAvailabilityWork)) {
+    MODULE_VALUE_AVAILABILITY_WORK.set({
+        let mut work = MODULE_VALUE_AVAILABILITY_WORK.get();
+        update(&mut work);
+        work
+    });
+}
+
+#[cfg(test)]
+pub(crate) fn reset_module_value_availability_work() {
+    MODULE_VALUE_AVAILABILITY_WORK.set(ModuleValueAvailabilityWork::default());
+}
+
+#[cfg(test)]
+pub(crate) fn take_module_value_availability_work() -> ModuleValueAvailabilityWork {
+    MODULE_VALUE_AVAILABILITY_WORK.replace(ModuleValueAvailabilityWork::default())
+}
+
+#[cfg(test)]
+pub(crate) fn record_module_value_exposure_rebuild(entries: usize) {
+    update_module_value_availability_work(|work| {
+        work.full_exposure_rebuild_entries += entries;
+    });
+}
+
+#[cfg(not(test))]
+pub(crate) fn record_module_value_exposure_rebuild(_entries: usize) {}
+
+#[cfg(test)]
+pub(crate) fn record_module_value_availability_update() {
+    update_module_value_availability_work(|work| work.availability_updates += 1);
+}
+
+#[cfg(not(test))]
+pub(crate) fn record_module_value_availability_update() {}
 
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -69,16 +158,69 @@ pub(crate) fn check_module_values(
     environment: &mut TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
 ) -> ModuleValueAnalysis {
+    let colliding_identities = colliding_module_value_identities(module);
+    let mut unavailable = colliding_identities.clone();
+    unavailable.extend(invalid_cased_module_value_identities(module));
+    environment.quarantine_module_values(&unavailable);
+
+    let initial =
+        check_module_values_once(module, environment, variant_diagnostics, &BTreeSet::new());
+    let reverse_dependencies = availability::reverse_dependencies(module, environment);
+    let mut pending_owners = BTreeSet::new();
+    availability::apply_availability_changes(
+        &mut unavailable,
+        &initial.invalid,
+        environment,
+        &mut pending_owners,
+    );
+    let stabilized = availability::stabilize_module_value_availability(
+        module,
+        environment,
+        variant_diagnostics,
+        unavailable,
+        pending_owners,
+        &reverse_dependencies,
+        &initial.intrinsic_invalid,
+    );
+
+    let mut final_analysis = check_module_values_once(
+        module,
+        environment,
+        variant_diagnostics,
+        &stabilized.rejected,
+    );
+    for diagnostic in stabilized.recurrent_diagnostics {
+        let duplicate = final_analysis.diagnostics.iter().any(|existing| {
+            existing.id == diagnostic.id
+                && existing.span == diagnostic.span
+                && existing.message.as_str() == diagnostic.message.as_str()
+        });
+        if !duplicate {
+            final_analysis.diagnostics.push(diagnostic);
+        }
+    }
+    debug_assert_eq!(stabilized.unavailable, final_analysis.invalid);
+    final_analysis
+}
+
+fn check_module_values_once(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    variant_diagnostics: &mut VariantDiagnosticInterner,
+    forced_invalid: &BTreeSet<ModuleValueIdentity>,
+) -> ModuleValueAnalysis {
     let mut diagnostics = Vec::new();
     let mut dependencies = vec![Vec::new(); module.module_values.len()];
     let colliding_identities = colliding_module_value_identities(module);
-    let mut initially_invalid = colliding_identities.clone();
-    initially_invalid.extend(invalid_cased_module_value_identities(module));
-    environment.quarantine_module_values(&initially_invalid);
-    let mut invalid = initially_invalid_values(module, &initially_invalid);
+    let mut intrinsic_invalid = colliding_identities.clone();
+    intrinsic_invalid.extend(invalid_cased_module_value_identities(module));
+    intrinsic_invalid.extend(forced_invalid.iter().cloned());
+    let mut invalid = initially_invalid_values(module, &intrinsic_invalid);
     let value_indices = module_value_indices(module, &colliding_identities);
 
     for (index, value) in module.module_values.iter().enumerate() {
+        #[cfg(test)]
+        update_module_value_availability_work(|work| work.semantic_visits += 1);
         invalid[index] |= check_module_value(
             value,
             index,
@@ -94,10 +236,19 @@ pub(crate) fn check_module_values(
     diagnostics.extend(cycle_diagnostics);
     for index in cyclic {
         invalid[index] = true;
+        let value = &module.module_values[index];
+        if let Some(name) = &value.name {
+            intrinsic_invalid.insert((
+                value.package_name.clone(),
+                value.module_name.clone(),
+                name.clone(),
+            ));
+        }
     }
     propagate_invalid_dependencies(&dependencies, &mut invalid);
     ModuleValueAnalysis {
         diagnostics,
+        intrinsic_invalid,
         invalid: module
             .module_values
             .iter()
@@ -105,6 +256,7 @@ pub(crate) fn check_module_values(
             .filter(|(index, value)| invalid[*index] && value.name.is_some())
             .map(|(_, value)| {
                 (
+                    value.package_name.clone(),
                     value.module_name.clone(),
                     value.name.clone().expect("filtered module value name"),
                 )
@@ -113,94 +265,17 @@ pub(crate) fn check_module_values(
     }
 }
 
-fn initially_invalid_values(
-    module: &SurfaceModule,
-    colliding_identities: &BTreeSet<(Option<String>, String)>,
-) -> Vec<bool> {
-    module
-        .module_values
-        .iter()
-        .map(|value| {
-            value.name.as_ref().is_some_and(|name| {
-                colliding_identities.contains(&(value.module_name.clone(), name.clone()))
-            })
-        })
-        .collect()
-}
-
-fn module_value_indices(
-    module: &SurfaceModule,
-    colliding_identities: &BTreeSet<(Option<String>, String)>,
-) -> HashMap<(Option<String>, String), ModuleValueIndex> {
-    let mut indices = HashMap::new();
-    for (index, value) in module.module_values.iter().enumerate() {
-        if let Some(name) = &value.name {
-            let identity = (value.module_name.clone(), name.clone());
-            let indexed = if colliding_identities.contains(&identity) {
-                ModuleValueIndex::Collision
-            } else {
-                ModuleValueIndex::Unique(index)
-            };
-            indices.entry(identity).or_insert(indexed);
-        }
-    }
-    indices
-}
-
-fn invalid_cased_module_value_identities(
-    module: &SurfaceModule,
-) -> BTreeSet<(Option<String>, String)> {
-    let invalid_declaration_spans = module
-        .invalid_names
-        .iter()
-        .filter(|invalid| {
-            invalid.class == NameClass::ValueBinding
-                && invalid.occurrence == NameOccurrence::Declaration
-        })
-        .map(|invalid| {
-            (
-                invalid.span.file.clone(),
-                invalid.span.start.offset,
-                invalid.span.end.offset,
-            )
-        })
-        .collect::<BTreeSet<_>>();
-    module
-        .module_values
-        .iter()
-        .filter_map(|value| {
-            let name = value.name.as_ref()?;
-            let name_span = value.name_span.as_ref()?;
-            invalid_declaration_spans
-                .contains(&(
-                    name_span.file.clone(),
-                    name_span.start.offset,
-                    name_span.end.offset,
-                ))
-                .then(|| (value.module_name.clone(), name.clone()))
-        })
-        .collect()
-}
-
-fn check_module_value(
+pub(super) fn check_module_value(
     value: &veln_ast::ModuleValueDecl,
     index: usize,
-    value_indices: &HashMap<(Option<String>, String), ModuleValueIndex>,
+    value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
     dependencies: &mut Vec<Dependency>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> bool {
-    let mut has_invalid_dependency = false;
-    collect_dependencies(
-        &value.initializer,
-        value.module_name.as_deref(),
-        value_indices,
-        environment,
-        &mut Vec::new(),
-        dependencies,
-        &mut has_invalid_dependency,
-    );
+    let has_invalid_dependency =
+        collect_value_dependencies(value, value_indices, environment, dependencies);
     let diagnostic_start = diagnostics.len();
     let parsed_annotation = parse_type_annotation(&value.annotation).ok();
     let expected = parsed_annotation.clone().map(|ty| {
@@ -210,12 +285,55 @@ fn check_module_value(
             value.package_name.as_deref(),
         )
     });
-    check_admitted_expr(
+    append_module_value_diagnostics(
+        value,
+        index,
+        environment,
+        variant_diagnostics,
+        expected.as_ref(),
+        diagnostics,
+    );
+
+    let annotation_is_closed =
+        annotation_is_closed(value, environment, parsed_annotation.is_some());
+    if !annotation_is_closed {
+        push_unresolved_annotation_paths(value, environment, diagnostic_start, diagnostics);
+    }
+    diagnostics.len() != diagnostic_start || !annotation_is_closed || has_invalid_dependency
+}
+
+fn collect_value_dependencies(
+    value: &veln_ast::ModuleValueDecl,
+    value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
+    environment: &TypeEnvironment,
+    dependencies: &mut Vec<Dependency>,
+) -> bool {
+    let mut has_invalid_dependency = false;
+    collect_dependencies(
         &value.initializer,
         value,
         value_indices,
         environment,
-        expected.as_ref(),
+        &mut Vec::new(),
+        dependencies,
+        &mut has_invalid_dependency,
+    );
+    has_invalid_dependency
+}
+
+fn append_module_value_diagnostics(
+    value: &veln_ast::ModuleValueDecl,
+    index: usize,
+    environment: &TypeEnvironment,
+    variant_diagnostics: &mut VariantDiagnosticInterner,
+    expected: Option<&Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    check_admitted_expr(
+        &value.initializer,
+        value,
+        environment,
+        expected,
         diagnostics,
     );
 
@@ -231,18 +349,27 @@ fn check_module_value(
         FunctionChecker::for_synthetic_declaration(&synthetic, environment, variant_diagnostics);
     checker.check_body();
     diagnostics.append(&mut checker.diagnostics);
+    diagnostics.extend(super::check_public_module_value_refinement_visibility(
+        value,
+        environment,
+    ));
+    diagnostics.extend(public_named_type_diagnostics(value, environment));
+}
 
-    let annotation_is_closed = parsed_annotation.is_some_and(|annotation| {
-        environment.type_annotation_is_fully_resolved(
-            &annotation,
-            value.module_name.as_deref(),
-            &[],
-        )
-    });
-    if !annotation_is_closed {
-        push_unresolved_annotation_paths(value, environment, diagnostic_start, diagnostics);
-    }
-    diagnostics.len() != diagnostic_start || !annotation_is_closed || has_invalid_dependency
+fn annotation_is_closed(
+    value: &veln_ast::ModuleValueDecl,
+    environment: &TypeEnvironment,
+    annotation_was_parsed: bool,
+) -> bool {
+    annotation_was_parsed
+        && value.annotation_paths.iter().all(|path| {
+            environment.annotation_type_path_is_resolved_in_owner(
+                &path.segments.join("::"),
+                path.type_argument_count,
+                value.module_name.as_deref(),
+                value.package_name.as_deref(),
+            )
+        })
 }
 
 fn synthetic_module_value_function(value: &veln_ast::ModuleValueDecl, index: usize) -> Function {
@@ -297,39 +424,6 @@ fn propagate_invalid_dependencies(dependencies: &[Vec<Dependency>], invalid: &mu
     }
 }
 
-fn colliding_module_value_identities(module: &SurfaceModule) -> BTreeSet<(Option<String>, String)> {
-    let mut counts = HashMap::<(Option<String>, String), usize>::new();
-    for function in &module.functions {
-        if let Some(name) = &function.name {
-            *counts
-                .entry((function.module_name.clone(), name.clone()))
-                .or_default() += 1;
-        }
-    }
-    for alias in module
-        .aliases
-        .iter()
-        .filter(|alias| alias.kind == PublicAliasKind::Function)
-    {
-        if let Some(name) = &alias.name {
-            *counts
-                .entry((alias.module_name.clone(), name.clone()))
-                .or_default() += 1;
-        }
-    }
-    for value in &module.module_values {
-        if let Some(name) = &value.name {
-            *counts
-                .entry((value.module_name.clone(), name.clone()))
-                .or_default() += 1;
-        }
-    }
-    counts
-        .into_iter()
-        .filter_map(|(identity, count)| (count > 1).then_some(identity))
-        .collect()
-}
-
 fn push_unresolved_annotation_paths(
     declaration: &veln_ast::ModuleValueDecl,
     environment: &TypeEnvironment,
@@ -350,8 +444,12 @@ fn push_unresolved_annotation_paths(
         let symbol = path.segments.join("::");
         #[cfg(test)]
         record_module_value_annotation_dedup_work(|work| work.path_lookups += 1);
-        if environment.type_path_is_resolved(&symbol, declaration.module_name.as_deref())
-            || unresolved_spans.contains(&span_identity(&path.application_span))
+        if environment.annotation_type_path_is_resolved_in_owner(
+            &symbol,
+            path.type_argument_count,
+            declaration.module_name.as_deref(),
+            declaration.package_name.as_deref(),
+        ) || unresolved_spans.contains(&span_identity(&path.application_span))
         {
             continue;
         }
@@ -581,9 +679,10 @@ fn sorted_component_edges(
     edges
 }
 
-fn value_key(module: &SurfaceModule, index: usize) -> (String, String, String, usize) {
+fn value_key(module: &SurfaceModule, index: usize) -> (String, String, String, String, usize) {
     let value = &module.module_values[index];
     (
+        value.package_name.clone().unwrap_or_default(),
         value.module_name.clone().unwrap_or_default(),
         value.name.clone().unwrap_or_default(),
         value.span.file.as_str().to_string(),
@@ -592,6 +691,14 @@ fn value_key(module: &SurfaceModule, index: usize) -> (String, String, String, u
 }
 
 fn strongly_connected_components(dependencies: &[Vec<Dependency>]) -> Vec<Vec<usize>> {
+    let targets = dependencies
+        .iter()
+        .map(|edges| edges.iter().map(|edge| edge.target).collect::<Vec<_>>())
+        .collect::<Vec<_>>();
+    strongly_connected_index_components(&targets)
+}
+
+pub(super) fn strongly_connected_index_components(dependencies: &[Vec<usize>]) -> Vec<Vec<usize>> {
     let count = dependencies.len();
     let mut visited = vec![false; count];
     let mut finished = Vec::with_capacity(count);
@@ -602,11 +709,11 @@ fn strongly_connected_components(dependencies: &[Vec<Dependency>]) -> Vec<Vec<us
         visited[root] = true;
         let mut stack = vec![(root, 0)];
         while let Some((node, edge_index)) = stack.last_mut() {
-            if let Some(edge) = dependencies[*node].get(*edge_index) {
+            if let Some(target) = dependencies[*node].get(*edge_index) {
                 *edge_index += 1;
-                if !visited[edge.target] {
-                    visited[edge.target] = true;
-                    stack.push((edge.target, 0));
+                if !visited[*target] {
+                    visited[*target] = true;
+                    stack.push((*target, 0));
                 }
             } else {
                 finished.push(*node);
@@ -617,8 +724,8 @@ fn strongly_connected_components(dependencies: &[Vec<Dependency>]) -> Vec<Vec<us
 
     let mut reverse = vec![Vec::new(); count];
     for (source, edges) in dependencies.iter().enumerate() {
-        for edge in edges {
-            reverse[edge.target].push(source);
+        for target in edges {
+            reverse[*target].push(source);
         }
     }
     visited.fill(false);

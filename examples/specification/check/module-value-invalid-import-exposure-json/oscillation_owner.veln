@@ -1,0 +1,14 @@
+use oscillation_b
+use oscillation_c
+pub let selected: Int = unstable
+pub let local: Int = selected
+pub let independent: Int = 4
+fn read_survivor() -> String
+  unstable
+end
+fn read_selected() -> Int
+  selected
+end
+fn read_local() -> Int
+  local
+end

@@ -1,0 +1,3 @@
+pub let other: Int = 4
+let hidden: Int = 5
+pub let broken: Missing = 6

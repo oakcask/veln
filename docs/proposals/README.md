@@ -20,11 +20,10 @@ also states it.
   payloads, composed format-neutral schemas, predicates, and ordinary decoder
   functions, extending the implemented direct-field operation:
   [schema-runtime-refinement-validation.md](schema-runtime-refinement-validation.md).
-- With current typed module `let` source syntax and formatting as implemented
-  prerequisites and same-module semantic analysis implemented, add imported
-  lookup, cross-module stable identity and dependency validation,
-  visibility, execution, documentation publication, and language-service
-  navigation:
+- With typed module `let` syntax, same-module analysis, imported lookup,
+  package-aware stable identity, and visibility implemented, add cross-module
+  dependency validation, execution, documentation publication, and
+  language-service navigation:
   [module-immutable-values.md](module-immutable-values.md).
 - Generic named-type variance, bounded inference, and variance metadata:
   [generic-and-function-variance.md](generic-and-function-variance.md).
@@ -33,9 +32,9 @@ also states it.
 
 ## Blocked
 
-- Qualified immutable-value match refinement depends on imported module-value
-  lookup, cross-module visibility, and execution semantics beyond the
-  implemented finite-data analysis and same-module declaration identity:
+- Qualified immutable-value match refinement depends on module-value execution
+  semantics beyond the implemented finite-data analysis, imported lookup,
+  package-aware declaration identity, and visibility:
   [qualified-value-match-refinement.md](qualified-value-match-refinement.md).
 
 ## Design In Progress

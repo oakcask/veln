@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "text"
-contains = ["error[value.module_initializer_unsupported]: module value initializer expression is not immutable data construction", "Module value `defaults` is declared here.", "note: Use literals, records, ADT constructors, or same-module module values.", "error[module.value_not_executable]: module value declaration `defaults` is not executable"]
+contains = ["error[value.module_initializer_unsupported]: module value initializer expression is not immutable data construction", "Module value `defaults` is declared here.", "note: Use literals, records, ADT constructors, or eligible same-module or imported module values.", "error[module.value_not_executable]: module value declaration `defaults` is not executable"]
 
 [stderr]
 format = "empty"

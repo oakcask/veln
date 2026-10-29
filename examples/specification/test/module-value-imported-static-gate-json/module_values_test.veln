@@ -1,0 +1,18 @@
+use shared as first from "one/pkg"
+use shared as second from "two/pkg"
+
+fn needs_int(value: Int) -> Int
+	value
+end
+
+test first_package_value() -> () effects [stdio]
+	stdio::println("forbidden")
+	needs_int(first::answer)
+	()
+end
+
+test second_package_value() -> () effects [stdio]
+	stdio::println("forbidden")
+	needs_int(second::answer)
+	()
+end

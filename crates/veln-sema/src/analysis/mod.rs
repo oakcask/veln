@@ -82,10 +82,15 @@ pub(crate) use boundary::{
     check_schema_type_references, check_test_declaration_boundary, check_type_effect_labels,
 };
 pub(crate) use handlers::check_handler_declarations;
-pub(crate) use module_values::check_module_values;
 #[cfg(test)]
 pub(crate) use module_values::{
-    reset_module_value_annotation_dedup_work, take_module_value_annotation_dedup_work,
+    ModuleValueAvailabilityWork, reset_module_value_annotation_dedup_work,
+    reset_module_value_availability_work, take_module_value_annotation_dedup_work,
+    take_module_value_availability_work,
+};
+pub(crate) use module_values::{
+    check_module_values, record_module_value_availability_update,
+    record_module_value_exposure_rebuild,
 };
 #[cfg(test)]
 pub(crate) use variant_refinement_bases::{
@@ -99,7 +104,8 @@ pub(crate) use variant_refinement_bases::{
 };
 pub(crate) use variant_refinement_visibility::{
     adt_has_private_variant_refinement_exposure, adt_publication_dependency_identities,
-    check_public_adt_variant_refinement_visibility, check_public_variant_refinement_visibility,
+    check_public_adt_variant_refinement_visibility,
+    check_public_module_value_refinement_visibility, check_public_variant_refinement_visibility,
     function_depends_on_quarantined_adt, function_has_private_variant_refinement_exposure,
     function_publication_dependency_identities,
 };

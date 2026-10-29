@@ -1,0 +1,8 @@
+use alpha
+use beta
+
+let selected: Int = beta::shared
+
+fn read() -> Int
+	selected
+end

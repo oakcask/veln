@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The veln doc command selection, generated documentation output, manifest metadata, or source-error gate changes.
+update-when: The veln doc command selection, generated documentation output, manifest metadata, source-analysis gate, or write gate changes.
 specification-coverage: usage=#doc-command; behavior=#metadata-and-generated-content; limits=#limits
 ---
 
@@ -61,7 +61,8 @@ Errors in excluded companions or excluded sources do not block the selected
 document.
 
 A selected module immutable value declaration is checked using the shared
-finite-data initializer, annotation, and dependency rules. It also produces
+finite-data initializer, annotation, imported lookup, package-aware visibility,
+and same-module dependency rules. It also produces
 `module.value_not_executable`, so it blocks document generation even when that
 semantic checking succeeds. The command does not publish the declaration's
 name, annotation, or initializer while package-documentation publication
@@ -69,9 +70,11 @@ remains unimplemented.
 
 Variant-refinement errors remain semantic diagnostics when recovery retains a
 type or constructor identity. Such an error produces no generated document.
-A private refinement in any structural position of a public function parameter
-or result, or in a public variant payload of a public source ADT, therefore
-blocks the complete document. Publication quarantine also blocks the document
+A private named type in a public module value annotation, or a private
+refinement in any structural position of a public module value annotation,
+public function parameter or result, or public variant payload of a public
+source ADT therefore blocks the complete document.
+Publication quarantine also blocks the document
 when an ordinary named type in a public signature depends on an ADT rejected
 for such an exposure. The ordinary dependency does not add another privacy
 diagnostic; the causal `type.variant_refinement_private` diagnostic remains the

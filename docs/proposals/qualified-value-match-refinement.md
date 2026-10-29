@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Module immutable-value declarations, imported declaration identity, qualified stable-value match refinement, or their planned evidence change.
+update-when: Module immutable-value declaration identity, imported lookup, visibility, execution, qualified stable-value match refinement, or their planned evidence changes.
 ---
 
 # Qualified Immutable-Value Match Refinement
@@ -8,10 +8,9 @@ update-when: Module immutable-value declarations, imported declaration identity,
 Extend stable-value match refinement to qualified references to module immutable
 data. This proposal depends on
 [Module Immutable Values](module-immutable-values.md). It becomes selectable
-only after imported lookup, cross-module visibility, and execution are
-implemented. Typed module `let` declarations already support parsing,
-formatting, finite-data checking, and same-module references, but they do not
-produce runtime values or resolve through imports.
+only after module-value execution is implemented. Imported lookup and
+visibility are now implemented. Typed module `let` declarations still do not
+produce runtime values.
 
 ## Contract
 
@@ -24,7 +23,7 @@ declaration is a module immutable data value.
 | --- | --- |
 | Qualified module data value matched against an admitted constructor | References to the same declaration in that arm have the intersected finite variant domain. |
 | Two import paths or aliases resolve to the same value declaration | Both references share the arm's feasible domain; package and declaration identity determine equality. |
-| Identical spelling resolves to values in different packages | Refinement of one does not narrow the other. |
+| Distinct unambiguous aliases or paths select same-spelled values in different packages | Refinement of one does not narrow the other. An ambiguous exact path supplies no declaration identity to refine. |
 | Record-field path rooted in a module data value | Apply the current immutable-root field-path rules to that declaration identity. |
 | Local binding shadows the module value's bare name | Narrow only the resolved declaration; a qualified module reference continues to identify its module value. |
 | Qualified constructor, function reference, call, indexing, or other computation | Repeated spelling does not establish stable-value identity. Existing constructor and function typing still applies independently. |
@@ -54,11 +53,11 @@ page and its catalog entry.
 The current [type specification](../specification/types.md#module-immutable-value-initializers)
 defines finite-data initializer typing, and the current
 [name-resolution specification](../specification/name-resolution.md#namespaces-and-use-roles)
-defines same-module lookup and declaration identity. Imported lookup,
-visibility, and execution remain in the
+defines same-module and imported lookup, package-aware declaration identity,
+and visibility. Execution remains in the
 [module immutable data completion proposal](module-immutable-values.md).
-Those remaining boundaries explain why a same-module declaration and a
-qualified constructor are both insufficient evidence for this extension.
+That remaining boundary explains why a same-module declaration and a qualified
+constructor are both insufficient evidence for this extension.
 
 The existing [stable-value rules](../specification/types.md#inference-rules)
 provide the semantic model to extend. This proposal chooses declaration

@@ -89,7 +89,11 @@ diagnostic for that earlier origin. If the repeated target and colliding
 qualifier refer to different earlier imports, the checker preserves both
 diagnostics and both related origins. The same written path from distinct
 package origins is ambiguous in its exact form but remains available through
-distinct aliases.
+distinct aliases. A qualified module-value read through that ambiguous exact
+form reports `name.ambiguous` before member lookup. A member that exists in
+only one target, is private in one target, or is unavailable because its
+declaration failed does not select the other target. Import order does not
+change that result.
 Import selection chooses the module before member lookup. A selected module
 that lacks the requested member does not redirect lookup to a different module
 whose alias or implicit qualifier has the same spelling.
@@ -139,6 +143,11 @@ an alias does not expose a private package declaration, extend exact companion
 access, or make an import transitive. Public function, type, and schema aliases
 may select an explicit import in their own declaring module, but the local
 import qualifier does not become part of the published identity.
+For a qualified type annotation, an exact written import path is selected
+before a same-spelled current-module path. The selected type therefore retains
+the imported package identity even when the import target and the importing
+module have the same module spelling. An unqualified type name continues to
+select the current module's declaration.
 
 Every import retains both its written target package and the package that owns
 the importing source. An explicit `from` package determines target origin;
@@ -194,8 +203,10 @@ selection representation that preserves the observable exact-path,
 ambiguity, blocking, qualifier, and reachability rules.
 
 A typed module `let` enters the declaring module's value namespace with the
-identity of its module and declared name. Its written annotation supplies the
-reference type. A same-module reference can use the bare name, the complete
+identity of its package, module, and declared name. Its written annotation
+supplies the reference type. Same-spelled declarations in different packages
+or modules remain distinct even when their initializer data is equal. A
+same-module reference can use the bare name, the complete
 declaring module path, or the declaring module path's final segment as its only
 qualifier. Any longer qualifier must equal the complete declaring module path;
 an added prefix does not resolve. An exact written import that matches a
@@ -215,8 +226,145 @@ that identity has no type fact, and a call does not select a declaration, emit
 Call arguments are still checked independently. A selected available module
 value used as a call target reports `type.not_callable` with that declaration's
 context and does not fall through to callable lookup. Only a missing identity
-continues through ordinary value or call resolution. Imported lookup and
-visibility for module values are not implemented.
+continues through ordinary value or call resolution.
+
+An eligible written import or the implicit prelude exposes public module
+values through the same bare and qualified paths as public functions. An
+explicit import alias is qualified-only. Exact written paths take precedence
+over local import qualifiers, and an ambiguous qualifier or exact path does
+not fall back. Two
+distinct imported values with the same bare name are ambiguous. An imported
+function and imported module value with the same bare name are also ambiguous.
+This collision requires an available public function or public function alias.
+A function or alias withheld because its public signature exposes an
+inaccessible type or refinement does not hide or make ambiguous an otherwise
+available imported module value. This result is the same when analysis uses a
+reusable standard-library environment.
+An imported module value that is unavailable after semantic checking exposes
+no bare or qualified name. It does not make a valid imported namesake
+ambiguous, and it does not collide with a valid imported function. With no
+other eligible declaration, a reference to its name is unresolved. These rules
+also apply inside another module value's initializer. The initializer reference
+uses the imported declarations' final availability, so source and import order
+do not change whether a valid namesake remains selectable.
+If one imported candidate becomes unavailable after semantic checking, an
+initializer that was ambiguous between that candidate and a valid namesake is
+checked against the remaining candidate. The dependent module value becomes
+available when that check succeeds, and its importers observe its written
+annotation type. This recovery is independent of source and import order.
+If a cyclic availability candidate-dependency component has no result that is
+stable when every affected declaration observes the same preceding state,
+analysis rejects every declaration in that component after recovery repeats.
+An intrinsic declaration failure that remains continuously unavailable is not
+a recovery repeat. It does not reject otherwise valid declarations in the
+candidate component.
+This relation propagates semantic availability and does not create an
+initializer dependency-graph edge or a cross-module initializer-cycle
+diagnostic. It includes competing fixed points that would otherwise depend on
+publishing one declaration before checking another. Rejected declarations
+remain unavailable, their dependents are not republished, and independent
+valid candidates remain selectable. Source order and import order do not
+change the rejected component, diagnostics, or remaining selection.
+Duplicate declarations, invalid-cased declarations, and same-module
+initializer cycles remain unavailable when imported availability changes.
+A same-module function or function alias that collides with a module value
+keeps that module-value identity unavailable when imported availability changes
+cause its owner to be checked again. An importer cannot expose that value by
+triggering a later availability update.
+An import quarantined by a duplicate target or colliding qualifier contributes
+no qualified module-value candidate. A read through that import reports
+`name.unresolved`, not `name.ambiguous`, even when another quarantined import
+uses the same written path or qualifier. Source and import order do not change
+that result.
+A same-module function or module-value declaration is selected before imports;
+an invalid local module value still does not expose an imported fallback. A
+selected imported module value used as a call target does not fall through to
+an imported function. Imported private values are unresolved except when an
+exact test companion imports its target module and the private declaration is
+available. Companion permission does not expose an invalid declaration or
+publish a dependent value that reads it. Companion access is target-specific,
+package-local, and non-transitive. It applies to value reads in function bodies
+and module-value initializers. The checked cases cover
+[`imported lookup JSON`](../../examples/specification/check/module-value-imported-lookup-json/),
+[`local function precedence`](../../examples/specification/check/module-value-local-function-precedence-human/),
+[`package identity human`](../../examples/specification/check/module-value-imported-package-identity-human/),
+[`package identity JSON`](../../examples/specification/check/module-value-imported-package-identity-json/),
+[`ambiguous exact member human`](../../examples/specification/check/module-value-ambiguous-exact-member-human/),
+[`ambiguous exact member JSON`](../../examples/specification/check/module-value-ambiguous-exact-member-json/),
+[`imported annotation owner human`](../../examples/specification/check/module-value-imported-annotation-owner-human/),
+[`imported annotation owner JSON`](../../examples/specification/check/module-value-imported-annotation-owner-json/),
+[`invalid imported exposure human`](../../examples/specification/check/module-value-invalid-import-exposure-human/),
+[`invalid imported exposure JSON`](../../examples/specification/check/module-value-invalid-import-exposure-json/),
+[`owner-package fallback human`](../../examples/specification/check/module-value-owner-package-fallback-human/),
+[`owner-package fallback JSON`](../../examples/specification/check/module-value-owner-package-fallback-json/),
+[`companion function-body access`](../../examples/specification/check/module-value-companion-private-human/),
+[`companion initializer access human`](../../examples/specification/check/module-value-companion-private-access-human/),
+[`companion initializer access JSON`](../../examples/specification/check/module-value-companion-private-access-json/),
+[`unavailable companion target human`](../../examples/specification/check/module-value-companion-private-unavailable-human/),
+[`unavailable companion target JSON`](../../examples/specification/check/module-value-companion-private-unavailable-json/),
+[`wrong-target companion human`](../../examples/specification/check/module-value-companion-private-wrong-target-human/),
+[`wrong-target companion JSON`](../../examples/specification/check/module-value-companion-private-wrong-target-json/),
+[`exact import owner collision human`](../../examples/specification/check/module-value-exact-import-owner-collision-human/),
+[`exact import owner collision JSON`](../../examples/specification/check/module-value-exact-import-owner-collision-json/),
+[`private rejection`](../../examples/specification/check/module-value-private-import-human/),
+[`quarantined qualified human`](../../examples/specification/check/module-value-quarantined-qualified-human/),
+and
+[`quarantined qualified JSON`](../../examples/specification/check/module-value-quarantined-qualified-json/).
+The checked
+[`same-module exact quarantine human`](../../examples/specification/check/module-value-quarantined-exact-same-module-human/)
+and
+[`same-module exact quarantine JSON`](../../examples/specification/check/module-value-quarantined-exact-same-module-json/)
+cases also cover an exact path that equals the importing module's own spelling.
+
+Qualified module-value import selection has deterministic scaling checks. One
+workload compares 64 and 128 distinct imports and performs one qualified read
+per import. Another uses 64 and 128 package-distinct imports with the same
+written path and checks both a visible and a missing member. It compares one
+read with one read per import, so import-index construction grows with the
+imports while same-owner blocking, selection, and visibility work grows only
+with the reads. The ambiguous-target workload measures target classification
+and selection before any member availability or visibility work.
+The metric counts index entries, target classification, same-owner blocking
+probes, selection probes, and visibility probes. Each field may grow at most
+twice the smaller workload plus a fixed
+allowance of eight construction operations. A separate workload runs complete
+semantic analysis for 64, 128, and 256 imported named annotations. For each
+adjacent pair, import path comparisons may grow by at most twice the smaller
+count plus 16, and qualified-path byte work may grow by at most three times the
+smaller count. These checks count operations and bytes instead of elapsed time.
+
+Bare module-value lookup indexes public exports by name and imported target.
+Deterministic workloads compare 64 and 128 distinct imports with the same
+number of distinct bare names, both for ordinary reads and for initializer
+dependency discovery. The metric counts export-index and reverse-index
+construction, candidate-target checks including misses, exposure
+materialization, cache probes and insertions, index selection, and final result
+selection. Every applicable field for 128 imports is exactly twice its
+64-import value; cache-only fields remain zero for dependency discovery. A
+separate cached same-name workload compares 16 and 32 retained candidates
+across 24 and 48 repeated reads. Each cached read performs one cache probe and
+one final-result selection. It performs no candidate-target check, exposure
+materialization, cache insertion, index selection, or retained-exposure
+identity copy. An eight-candidate availability-transition workload checks that
+cached missing, available, and ambiguous selections update while retaining
+every dependency candidate.
+Another workload combines 32 and 64 same-named imported candidates with the
+same number of dependent initializers. It runs every source-order and
+import-order combination and requires identical work measurements and name
+resolution results. Dependency-index entries are bounded by twice the workload
+size plus two, peak retained dependency state by eight times the workload size
+plus eight, semantic visits by six times the workload size plus 16, and
+declaration rechecks by twice the workload size plus eight. For retained state,
+semantic visits, and declaration rechecks, doubling the workload may grow the
+measured work by at most twice the smaller measurement plus 16. This keeps
+candidate fanout and dependent fanout additive instead of retaining one
+candidate entry per dependent.
+Ambiguity diagnostics use one representative contributing import indexed by
+importing owner and resolved target. Deterministic workloads compare 64 and
+128 same-named candidates and repeat the ambiguous read four times. Index
+construction visits grow with imports and do not repeat per read. Candidate
+provenance visits grow with the related entries emitted for each read, without
+scanning the complete import set for each candidate.
 
 A public function alias cannot select an available module value. A bare alias
 target selects an available value in the alias's module. A qualified alias
@@ -224,8 +372,7 @@ target selects an available public value only when a valid written import
 identifies one module. Either selection reports `name.kind_mismatch` with
 `expected_kind: "function"` and `actual_kind: "module_value"`. A missing,
 ambiguous, invalid, quarantined, private imported, or otherwise unavailable
-target continues to report `name.unresolved`. This alias-target classification
-does not make imported module values available to expressions or calls.
+target continues to report `name.unresolved`.
 Checked human and JSON command cases cover the same-module and written-import
 forms.
 
@@ -668,7 +815,10 @@ uppercase and resolving the resulting path through ordinary case-sensitive
 constructor lookup. A different constructor spelling that remains unresolved
 after that initial-only repair is not treated as covered. Nested pattern
 bindings and the match-arm body are still checked. An independently provable
-constructor-pattern type mismatch is not suppressed by this recovery rule.
+constructor-pattern type mismatch is not suppressed by this recovery rule. An
+invalid-cased module or type segment in the constructor base does not establish
+coverage through the final-segment recovery rule. The match therefore retains
+an independently provable missing-case diagnostic for that constructor.
 
 Compiler-provided symbols that participate in source lookup are specified by
 [source-less-lookup.md](source-less-lookup.md). Embedded Veln prelude sources
@@ -851,5 +1001,8 @@ not become fallback targets.
 - Module-value function-alias diagnostics:
   `examples/specification/check/module-value-function-alias-kind-human/` and
   `examples/specification/check/module-value-function-alias-kind-json/`.
+- Stable module-value declaration identity across bare and qualified paths:
+  `bare_and_qualified_paths_select_the_same_module_value_declaration` in
+  `crates/veln-sema/src/tests/module_values.rs`.
 - Casing and source-path diagnostics: `crates/veln-sema/src/pipeline/identifier_casing/`.
 - Source-less descriptors and lookup routes: [source-less-lookup.md](source-less-lookup.md).

@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The veln test command selection, parallel execution, source-error gate, runtime failure, or output behavior changes.
+update-when: The veln test command selection, parallel execution, static-analysis gate, runtime failure, or output behavior changes.
 specification-coverage: usage=#test-command; behavior=#selection-and-jobs; limits=#limits
 ---
 
@@ -93,7 +93,9 @@ blocked with reason `static_gate` in JSON. Reachable `begin` and `defer` forms
 produce typed IR and execute; their cleanup behavior is specified by the
 [execution boundary](execution.md#runtime-readiness-and-host-boundaries).
 A module immutable value declaration in the selected analysis first reports
-any finite-data initializer, annotation, or dependency diagnostic. Every such
+any finite-data initializer, annotation, public visibility, imported lookup,
+or same-module dependency diagnostic. Imported lookup retains package-aware
+declaration identity. Every such
 declaration also produces the static diagnostic
 `module.value_not_executable`, and no test worker starts.
 Variant-refinement errors in the selected analysis are static diagnostics,
@@ -145,7 +147,10 @@ The machine-facing case fields are specified in [test-json.md](test-json.md).
 The
 [`callsite-generated-origin-runtime`](../../examples/specification/test/callsite-generated-origin-runtime/)
 case checks the doctest coordinate mapping through `veln test --json` and the
-JVM backend.
+JVM backend. The
+[`module-value-imported-static-gate-json`](../../examples/specification/test/module-value-imported-static-gate-json/)
+case checks package-distinct imported module-value diagnostics and confirms
+that the static gate starts neither a worker nor the JVM backend.
 Variant-refinement selection and recovery are checked by the
 `examples/specification/test/adt-variant-refinement-command-selection/`,
 `adt-variant-refinement-command-recovery-human/`, and

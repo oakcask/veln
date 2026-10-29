@@ -349,7 +349,11 @@ pub(super) fn check_function_alias_target(
     module_name: Option<&str>,
     environment: &TypeEnvironment,
 ) -> Option<Diagnostic> {
-    if environment.resolves_available_module_value_alias_target(&alias.target, module_name) {
+    if environment.resolves_available_module_value_alias_target(
+        &alias.target,
+        module_name,
+        alias.package_name.as_deref(),
+    ) {
         Some(alias_kind_mismatch_diagnostic(
             alias,
             "function",
