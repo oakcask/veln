@@ -2934,9 +2934,14 @@ fn public_module_value_visibility_recurses_through_annotation_shapes() {
             "pub type Box<T>\n",
             "  pub Box(value: T)\n",
             "end\n",
+            "pub type Choice<T>\n",
+            "  pub Left\n",
+            "  pub Right\n",
+            "end\n",
             "pub let named_generic: Box<Secret> = 0\n",
             "pub let named_function: fn(Secret) -> Secret = 0\n",
             "pub let named_record: {field: Secret} = 0\n",
+            "pub let named_union: Choice<Int>::Left | Choice<Secret>::Right = 0\n",
             "pub let refined_generic: Box<State::Hidden> = 0\n",
             "pub let refined_function: fn(State::Hidden) -> State::Hidden = 0\n",
             "pub let refined_record: {field: State::Hidden} = 0\n",
@@ -2949,14 +2954,26 @@ fn public_module_value_visibility_recurses_through_annotation_shapes() {
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(
-        diagnostics
-            .iter()
-            .filter(|diagnostic| diagnostic.id == "type.public_annotation_private")
-            .count(),
-        3,
-        "{diagnostics:#?}"
-    );
+    let private_named_types = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.public_annotation_private")
+        .collect::<Vec<_>>();
+    assert_eq!(private_named_types.len(), 4, "{diagnostics:#?}");
+    let union_private_type = private_named_types
+        .iter()
+        .find(|diagnostic| {
+            let detail = |field: &str| {
+                diagnostic.details.as_object().and_then(|entries| {
+                    entries
+                        .iter()
+                        .find(|(entry, _)| entry == field)
+                        .and_then(|(_, value)| value.as_text())
+                })
+            };
+            detail("name") == Some("named_union") && detail("written_type") == Some("Secret")
+        })
+        .expect("private named type in the later union alternative");
+    assert_diagnostic_span(union_private_type, 18, 49, 18, 55);
     let refinements = diagnostics
         .iter()
         .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
