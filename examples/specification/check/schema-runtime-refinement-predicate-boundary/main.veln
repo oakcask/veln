@@ -1,0 +1,37 @@
+# Runtime refinement validation requires every reachable composed schema to be predicate-free.
+type State
+	Connected
+	Closed
+end
+
+schema Refined
+	state: State::Connected
+end
+
+schema FieldPredicate
+	value: Int where true
+end
+
+schema Intermediate
+	nested: FieldPredicate
+end
+
+schema FieldPredicateSibling
+	refined: Refined
+	blocked: FieldPredicate
+end
+
+schema NestedFieldPredicateSibling
+	blocked: Intermediate
+	refined: Refined
+end
+
+fn reject_field_predicate(value: {refined: {state: State}, blocked: {value: Int}}, base: ByteOffset) -> ()
+	validate FieldPredicateSibling from value at base
+	()
+end
+
+fn reject_nested_field_predicate(value: {blocked: {nested: {value: Int}}, refined: {state: State}}, base: ByteOffset) -> ()
+	validate NestedFieldPredicateSibling from value at base
+	()
+end

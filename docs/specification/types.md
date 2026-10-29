@@ -1470,8 +1470,10 @@ scalar remains a static mismatch. Other supported field types that contain no
 refinement remain unchanged in both records, including containers, anonymous
 records, and composed format-neutral schemas. Refinement erasure and traversal
 inside those shapes, source-ADT payloads, or recursive values remain proposal
-work. A predicate or binary schema on the required composition path remains a
-static failure, as do
+work. Every reachable composed schema must be format-neutral and predicate-free,
+including composed branches that contain no refinement. A field `where` clause,
+schema `validate` clause, or binary schema anywhere in that graph makes the
+operation a static failure, as do
 qualified-value control-flow refinement and the provider-dependent
 unavailable-descriptor diagnostic.
 This behavior does not add variance for named generic constructors, generic
