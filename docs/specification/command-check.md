@@ -51,9 +51,10 @@ that contains one. Before applying this checked-core gate, analysis validates
 every initializer against its written annotation, resolves acyclic same-module
 references including forward references, resolves eligible imported references
 with package-aware identity and visibility, and reports unsupported initializer
-forms and same-module cyclic components. Public annotations cannot expose
-private types or variant refinements. Invalid declarations and their dependents
-within the same-module dependency graph do not provide later semantic facts.
+forms and cyclic components across package sources. Public annotations cannot
+expose private types or variant refinements. Invalid declarations and their
+dependents within the package-wide dependency graph do not provide later
+semantic facts.
 Imported references in another module value initializer use each imported
 declaration's final availability. Bare and qualified initializer reads
 therefore use the same final import exposure in every source and import order.
@@ -69,7 +70,7 @@ independent of source and import order and of reusable standard-library
 analysis.
 This propagation is an availability/recheck relation. It does not add an
 initializer dependency-graph edge.
-Cross-module references do not yet create dependency-graph edges or
+Selected cross-module references create dependency-graph edges and can produce
 cross-module cycle diagnostics. This gate still prevents lowering or
 publication. The
 [source-surface specification](source-surface.md#module-immutable-value-declarations)

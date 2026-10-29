@@ -802,7 +802,7 @@ When a failed imported declaration is removed from an ambiguous initializer
 lookup, the remaining valid declaration supplies the initializer type. A
 dependent module value whose initializer then satisfies its annotation becomes
 available to its importers. Duplicate declarations, invalid-cased declarations,
-and same-module initializer cycles do not recover through this process. The
+and initializer cycles do not recover through this process. The
 checked invalid-import exposure cases cover recovery and retained package
 identity in both source and import orders.
 If recovery inside a cyclic availability candidate-dependency component causes
