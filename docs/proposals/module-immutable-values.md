@@ -22,8 +22,11 @@ cycle rejection. The current
 [name-resolution specification](../specification/name-resolution.md#namespaces-and-use-roles)
 defines package-aware declaration identity, same-module and imported lookup,
 forward lookup, local shadowing, visibility, and the shared
-function/module-value namespace. The current compiler deliberately retains
-`module.value_not_executable` after those checks.
+function/module-value namespace. The current
+[execution specification](../specification/execution.md#runtime-readiness-and-host-boundaries)
+defines checked-core and typed-IR preservation and the remaining runtime gate.
+The compiler deliberately retains `module.value_not_executable` after those
+checks.
 
 This proposal now owns only:
 
