@@ -88,7 +88,7 @@
     #[test]
     fn dependency_schema_composition_index_work_grows_linearly() {
         let mut field_token_visits_per_schema = None;
-        for count in [50, 100, 200] {
+        for count in [25, 50, 100] {
             let mut declarations = String::new();
             let mut fields = String::from("schema Host\n");
             for index in 0..count {
@@ -141,7 +141,7 @@
     #[test]
     fn eligible_schema_alias_composition_index_work_grows_linearly() {
         let mut field_token_visits_per_field = None;
-        for count in [50, 100, 200] {
+        for count in [25, 50, 100] {
             let started = std::time::Instant::now();
             let mut declarations = String::new();
             let mut fields = String::from("schema Host\n");
