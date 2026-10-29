@@ -1434,33 +1434,81 @@ fn contextual_empty_dictionaries_are_not_admitted_as_empty_records() {
 
 #[test]
 fn qualified_same_module_values_resolve_across_declaring_sources() {
-    let module = merged_modules_with_identities(vec![
-        (
+    for reverse_sources in [false, true] {
+        let consumers = (
             "app::config",
             SourceFile::new(
-                "first.veln",
+                "consumers.veln",
                 concat!(
                     "let bare: Int = later\n",
                     "let leaf: Int = config::later\n",
                     "let complete: Int = app::config::later\n",
                 ),
             ),
-        ),
-        (
+        );
+        let selected = (
             "app::config",
             SourceFile::new("later.veln", "let later: Int = 2\n"),
-        ),
-    ]);
+        );
+        let sources = if reverse_sources {
+            vec![selected, consumers]
+        } else {
+            vec![consumers, selected]
+        };
+        let module = merged_modules_with_identities(sources);
 
-    let diagnostics = analyze_surface_module(&module);
+        let lowered = lower_checked_surface_module(&module);
 
-    assert!(
-        diagnostics.iter().all(|diagnostic| {
-            diagnostic.id == "module.value_not_executable"
-                || diagnostic.severity != veln_diagnostics::Severity::Error
-        }),
-        "{diagnostics:#?}"
-    );
+        assert!(
+            lowered.diagnostics.iter().all(|diagnostic| {
+                diagnostic.id == "module.value_not_executable"
+                    || diagnostic.severity != veln_diagnostics::Severity::Error
+            }),
+            "reverse_sources={reverse_sources}: {:#?}",
+            lowered.diagnostics
+        );
+        let core = lowered.core.expect("same-module values should reach core");
+        let ir = lowered.ir.expect("same-module values should reach IR");
+        let selected_identity = veln_core::CoreModuleValueIdentity {
+            package: None,
+            module: Some("app::config".to_string()),
+            name: "later".to_string(),
+        };
+
+        for name in ["bare", "leaf", "complete"] {
+            let consumer_identity = veln_core::CoreModuleValueIdentity {
+                package: None,
+                module: Some("app::config".to_string()),
+                name: name.to_string(),
+            };
+            let declaration = core
+                .module_values
+                .iter()
+                .find(|declaration| declaration.identity == consumer_identity)
+                .expect("core consumer declaration");
+            assert!(
+                matches!(
+                    &declaration.initializer.kind,
+                    veln_core::CoreExprKind::ModuleValue(identity)
+                        if identity == &selected_identity
+                ),
+                "name={name}, reverse_sources={reverse_sources}: {declaration:#?}"
+            );
+            let declaration = ir
+                .module_values
+                .iter()
+                .find(|declaration| declaration.identity == consumer_identity)
+                .expect("IR consumer declaration");
+            assert!(
+                matches!(
+                    &declaration.initializer.kind,
+                    veln_ir::IrExprKind::ModuleValue(identity)
+                        if identity == &selected_identity
+                ),
+                "name={name}, reverse_sources={reverse_sources}: {declaration:#?}"
+            );
+        }
+    }
 }
 
 #[test]
