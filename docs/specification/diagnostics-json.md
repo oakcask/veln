@@ -140,9 +140,15 @@ value initializer contains the read. If a failed imported candidate initially
 makes that initializer ambiguous, removing the failed candidate selects the
 valid namesake. A dependent declaration that then satisfies its annotation is
 available to importers, so their reads produce ordinary type results rather
-than derivative unresolved or ambiguous diagnostics. Duplicate declarations,
-invalid-cased declarations, and same-module initializer cycles do not recover
-when imported availability changes. Conversely, a public
+than derivative unresolved or ambiguous diagnostics. If a declaration in a
+cyclic candidate-dependency component recovers and then fails again, the
+checker keeps every declaration in that component unavailable. It retains the
+diagnostics from the recurring failure even though the final quarantined state
+can no longer reproduce them. Reads from rejected declarations remain
+unresolved, while declarations outside the component retain independently
+valid facts. Duplicate declarations, invalid-cased declarations, and
+same-module initializer cycles do not recover when imported availability
+changes. Conversely, a public
 function or function alias withheld by a signature-visibility failure does not
 make a same-named imported module value ambiguous or unresolved. An available
 public function or alias still makes the bare name ambiguous. A same-module
@@ -155,8 +161,8 @@ invalid-import exposure
 and
 [`JSON`](../../examples/specification/check/module-value-invalid-import-exposure-json/)
 cases cover bare and qualified initializer reads, published and withheld
-function collisions, owner rechecks, and valid-namesake selection in both
-import orders.
+function collisions, owner rechecks, valid-namesake selection in both import
+orders, and recurrent diagnostics from a rejected cyclic component.
 An exact test companion that explicitly imports its target may read the
 target's private module value without `name.unresolved`. The same read from an
 ordinary source or a companion for another target reports `name.unresolved`.
