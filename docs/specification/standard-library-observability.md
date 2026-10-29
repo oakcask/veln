@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The standard-library Observe effect, observation handlers, JSON Lines schema, export destinations, exporter health, scoped span helpers, explicit task, channel-value, fan-in, or carrier context propagation, structured logging, named domain events, or observation data model changes.
+update-when: The standard-library Observe effect, observation handlers, JSON Lines schema, export destinations, direct buffered exporter construction, capacity, admission, draining, shutdown, or reports, exporter health, scoped span helpers, explicit task, channel-value, fan-in, or carrier context propagation, structured logging, named domain events, or observation data model changes.
 specification-coverage: usage=#usage; behavior=#behavior; limits=#limits
 ---
 

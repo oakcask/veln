@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The buffered observation-export capacity, admission outcomes, failure accounting, shutdown state machine, summary ordering, or interruption contract changes.
+update-when: The buffered observation handler, span operations, metric-cardinality ordering, concurrent submission, provider ownership, failure accounting, shutdown state machine, summary outcomes, or interruption contract changes.
 ---
 
 # Buffered Observation Export Lifecycle
