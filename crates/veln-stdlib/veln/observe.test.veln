@@ -541,20 +541,23 @@ fn buffered_settled(value: Option<()>) -> Bool
 end
 
 test buffered_shutdown_drains_in_order_then_freezes_completed_report() -> Result<(), String> effects [time, concurrency]
-	let lines = observe_test_support_test::export_lines(5)
-	let release = channel::bounded<()>(3)
-	let constructed = handle new_buffered_for_test(3, observe::DiagnosticStandardError) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
+	let lines = observe_test_support_test::export_lines(6)
+	let release = channel::bounded<()>(4)
+	let constructed = handle new_buffered_for_test(4, observe::DiagnosticStandardError) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let log_result = handle observe::buffered_export_observation(exporter, buffered_log("first")) with observe_test_support_test::clock(0)
 			let event_result = handle observe::buffered_export_observation(exporter, observe::Event(observe::EventRecord("second", list_nil(), None, callsite_location()))) with observe_test_support_test::clock(0)
-			let metric_result = handle observe::buffered_export_observation(exporter, observe::CounterIncrement(observe::CounterIncrementRecord("third", 3, list_nil(), None, callsite_location()))) with observe_test_support_test::clock(0)
+			let counter_result = handle observe::buffered_export_observation(exporter, observe::CounterIncrement(observe::CounterIncrementRecord("third", 3, list_nil(), None, callsite_location()))) with observe_test_support_test::clock(0)
+			let histogram_result = handle observe::buffered_export_observation(exporter, observe::HistogramSample(observe::HistogramSampleRecord("fourth", 4, list_nil(), None, callsite_location()))) with observe_test_support_test::clock(0)
 			let shutdown: Task<BufferedShutdownReport> = task::spawn_with(shutdown_buffered_task, exporter)
 			let first = channel::recv(lines.rx)
 			let _ = channel::send(release.tx, ())
 			let second = channel::recv(lines.rx)
 			let _ = channel::send(release.tx, ())
 			let third = channel::recv(lines.rx)
+			let _ = channel::send(release.tx, ())
+			let fourth = channel::recv(lines.rx)
 			let _ = channel::send(release.tx, ())
 			let summary = channel::recv(lines.rx)
 			match task::join(shutdown)
@@ -565,8 +568,9 @@ test buffered_shutdown_drains_in_order_then_freezes_completed_report() -> Result
 					let no_more: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
 					match log_result
 						observe::Accepted => match event_result
-							observe::Accepted => match metric_result
-								observe::Accepted => if buffered_lines_are_ordered(first, second, third, summary)
+							observe::Accepted => match counter_result
+								observe::Accepted => match histogram_result
+									observe::Accepted => if buffered_lines_are_ordered(first, second, third, fourth, summary)
 									match report
 										observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => match repeated
 											observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => match late
@@ -586,7 +590,9 @@ test buffered_shutdown_drains_in_order_then_freezes_completed_report() -> Result
 								else
 									Err("buffered shutdown changed destination or summary order")
 								end
-								_ => Err("buffered metric was not accepted")
+									_ => Err("buffered histogram was not accepted")
+								end
+								_ => Err("buffered counter was not accepted")
 							end
 							_ => Err("buffered event was not accepted")
 						end
@@ -600,12 +606,15 @@ test buffered_shutdown_drains_in_order_then_freezes_completed_report() -> Result
 	end
 end
 
-fn buffered_lines_are_ordered(first: Option<String>, second: Option<String>, third: Option<String>, summary: Option<String>) -> Bool
+fn buffered_lines_are_ordered(first: Option<String>, second: Option<String>, third: Option<String>, fourth: Option<String>, summary: Option<String>) -> Bool
 	match first
 		Some(first_line) => match second
 			Some(second_line) => match third
-				Some(third_line) => match summary
-					Some(summary_line) => buffered_contains(first_line, "\"sequence\":1,") and buffered_contains(first_line, "\"message\":\"first\"") and buffered_contains(second_line, "\"sequence\":2,") and buffered_contains(second_line, "\"name\":\"second\"") and buffered_contains(third_line, "\"sequence\":3,") and buffered_contains(third_line, "\"name\":\"third\"") and buffered_contains(summary_line, "diagnostic:stderr:{\"schema_version\":1,\"kind\":\"exporter_health\"")
+				Some(third_line) => match fourth
+					Some(fourth_line) => match summary
+						Some(summary_line) => buffered_contains(first_line, "\"sequence\":1,") and buffered_contains(first_line, "\"message\":\"first\"") and buffered_contains(second_line, "\"sequence\":2,") and buffered_contains(second_line, "\"name\":\"second\"") and buffered_contains(third_line, "\"sequence\":3,") and buffered_contains(third_line, "\"kind\":\"counter\"") and buffered_contains(third_line, "\"name\":\"third\"") and buffered_contains(fourth_line, "\"sequence\":4,") and buffered_contains(fourth_line, "\"kind\":\"histogram\"") and buffered_contains(fourth_line, "\"name\":\"fourth\"") and buffered_contains(summary_line, "diagnostic:stderr:{\"schema_version\":1,\"kind\":\"exporter_health\"")
+						None => false
+					end
 					None => false
 				end
 				None => false
