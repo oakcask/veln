@@ -727,7 +727,15 @@ and
 [`reordered JSON`](../../examples/specification/check/module-value-cross-module-cycle-json-reordered/)
 cases cover imported dependency edges, multi-hop transitive quarantine,
 unrelated facts, and invariant cycle locations after source and import
-reordering. The checked
+reordering. The checked bare-import cycle
+[`human`](../../examples/specification/check/module-value-bare-imported-cycle-human/),
+[`reordered human`](../../examples/specification/check/module-value-bare-imported-cycle-human-reordered/),
+[`JSON`](../../examples/specification/check/module-value-bare-imported-cycle-json/),
+and
+[`reordered JSON`](../../examples/specification/check/module-value-bare-imported-cycle-json-reordered/)
+cases cover the same invariant diagnostic contract when ordinary import
+exposure selects the dependency without a qualifier, including in the presence
+of an aliased namesake from another package. The checked
 [`admitted initializer JSON`](../../examples/specification/check/module-value-admitted-json/)
 case verifies that representative finite-data declarations reach only the
 checked-core execution gate. The checked

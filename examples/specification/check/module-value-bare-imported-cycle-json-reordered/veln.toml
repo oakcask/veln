@@ -1,0 +1,5 @@
+[package]
+name = "cycle/pkg"
+
+[dependencies."namesake/pkg"]
+path = "vendor/namesake"

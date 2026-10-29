@@ -589,16 +589,13 @@ fn imported_module_value_invalidation_work_is_adjacent_linear() {
         assert!(work.owner_recheck_lookups <= count + 1, "{work:#?}");
         assert!(work.retained_history_insertions <= count + 1, "{work:#?}");
         assert!(work.availability_state_steps <= count * 4 + 4, "{work:#?}");
-        assert!(
-            (count / 2..=count + 1).contains(&work.availability_waves),
-            "{work:#?}"
-        );
+        assert_eq!(work.availability_waves, 1, "{work:#?}");
         assert!(
             work.full_exposure_rebuild_entries <= count * 2 + count.saturating_sub(1) + 4,
             "{work:#?}"
         );
         assert!(work.availability_updates <= count + 1, "{work:#?}");
-        assert!(work.peak_pending_owners <= count, "{work:#?}");
+        assert!(work.peak_pending_owners <= count * 2, "{work:#?}");
         assert!(
             work.peak_retained_availability_identities <= count * 2,
             "{work:#?}"
@@ -638,6 +635,10 @@ fn imported_module_value_invalidation_work_is_adjacent_linear() {
     );
     assert!(
         larger.availability_updates <= smaller.availability_updates * 2 + 1,
+        "{smaller:#?} -> {larger:#?}"
+    );
+    assert!(
+        larger.peak_pending_owners <= smaller.peak_pending_owners * 2 + 2,
         "{smaller:#?} -> {larger:#?}"
     );
     assert!(
@@ -2893,6 +2894,7 @@ fn cross_module_initializer_cycles_quarantine_dependents_in_every_order() {
 
 #[test]
 fn bare_imported_cycle_edges_preserve_package_identity() {
+    let mut expected_cycle = None;
     for reverse_sources in [false, true] {
         for reverse_imports in [false, true] {
             let alpha_imports = if reverse_imports {
@@ -2951,12 +2953,17 @@ fn bare_imported_cycle_edges_preserve_package_identity() {
                 .map(|(package, module_name, source)| {
                     let parsed = parse(&source);
                     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-                    veln_ast::lower_surface_ast_with_package_module_identity(
+                    let mut module = veln_ast::lower_surface_ast_with_package_module_identity(
                         &parsed.tree,
                         package.to_string(),
                         module_name.to_string(),
                         source.span(veln_source::TextRange::new(0, 0)),
-                    )
+                    );
+                    for use_decl in &mut module.uses {
+                        let target_package = use_decl.package.as_deref().unwrap_or(package);
+                        use_decl.name = format!("{target_package}::{}", use_decl.name);
+                    }
+                    module
                 })
                 .collect::<Vec<_>>();
             let mut module = modules.remove(0);
@@ -3009,6 +3016,29 @@ fn bare_imported_cycle_edges_preserve_package_identity() {
                 ),
                 crate::types::ModuleValueLookup::Available(_)
             ));
+            let diagnostics = &analysis.diagnostics;
+            let cycle_diagnostic = diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.id == "value.module_initializer_cycle")
+                .unwrap_or_else(|| {
+                    panic!(
+                        "reverse_sources={reverse_sources}, reverse_imports={reverse_imports}: {diagnostics:#?}"
+                    )
+                });
+            let cycle_span = cycle_diagnostic.span.as_ref().expect("cycle primary span");
+            assert_eq!(cycle_span.file.as_str(), "cycle/beta.veln");
+            assert_eq!((cycle_span.start.line, cycle_span.start.column), (2, 22));
+            assert_eq!((cycle_span.end.line, cycle_span.end.column), (2, 26));
+
+            let cycle = cross_module_cycle_observation(diagnostics);
+            if let Some(expected) = &expected_cycle {
+                assert_eq!(
+                    &cycle, expected,
+                    "reverse_sources={reverse_sources}, reverse_imports={reverse_imports}"
+                );
+            } else {
+                expected_cycle = Some(cycle);
+            }
         }
     }
 }

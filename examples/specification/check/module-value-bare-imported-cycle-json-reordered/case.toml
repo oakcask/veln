@@ -1,0 +1,14 @@
+command = ["check", "--json", "consumer.veln", "beta.veln", "alpha.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["value.module_initializer_cycle", "module value reference `left` closes an initializer cycle", "cycle_declaration", "cycle_reference", "expected `String`, but found `Bool`"]
+not_contains = ["name.ambiguous", "unresolved value `healthy`", "expected `String`, but found `Int`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "diagnostics.3"
+equals_json_file = "case-text/cycle-diagnostic.json"
