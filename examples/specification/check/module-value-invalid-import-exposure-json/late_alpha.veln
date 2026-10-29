@@ -1,0 +1,3 @@
+use late_bad
+
+pub let shared: Int = late_bad::bad

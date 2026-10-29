@@ -151,6 +151,7 @@ pub(crate) fn check_module_values(
     environment.quarantine_module_values(&unavailable);
 
     let initial = check_module_values_once(module, environment, variant_diagnostics);
+    let reverse_dependencies = availability::reverse_dependencies(module, environment);
     let mut pending_owners = BTreeSet::new();
     availability::apply_availability_changes(
         &mut unavailable,
@@ -158,15 +159,41 @@ pub(crate) fn check_module_values(
         environment,
         &mut pending_owners,
     );
-    let unavailable = availability::stabilize_module_value_availability(
+    let mut unavailable = availability::stabilize_module_value_availability(
         module,
         environment,
         variant_diagnostics,
         unavailable,
         pending_owners,
+        &reverse_dependencies,
     );
 
     let mut final_analysis = check_module_values_once(module, environment, variant_diagnostics);
+    if !unavailable.is_superset(&final_analysis.invalid) {
+        let mut next_unavailable = unavailable.clone();
+        next_unavailable.extend(final_analysis.invalid.iter().cloned());
+        let mut pending_dependencies = BTreeSet::new();
+        availability::apply_availability_changes(
+            &mut unavailable,
+            &next_unavailable,
+            environment,
+            &mut pending_dependencies,
+        );
+        unavailable = availability::stabilize_module_value_availability(
+            module,
+            environment,
+            variant_diagnostics,
+            unavailable,
+            pending_dependencies,
+            &reverse_dependencies,
+        );
+        final_analysis = check_module_values_once(module, environment, variant_diagnostics);
+        debug_assert!(
+            unavailable.is_superset(&final_analysis.invalid),
+            "unavailable={unavailable:#?}, final_invalid={:#?}",
+            final_analysis.invalid,
+        );
+    }
     final_analysis.invalid.extend(unavailable);
     final_analysis
 }

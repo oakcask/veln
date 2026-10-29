@@ -3,8 +3,8 @@ exit = 1
 
 [stdout]
 format = "text"
-contains = ["unresolved type `Missing`", "unresolved type `MissingAfterRecheck`", "unresolved value `shared`", "unresolved value `alpha::shared`", "ambiguous value `published`", "public refinement exposes private variant `privacy_functions::State::Hidden`"]
-not_contains = ["ambiguous value `shared`", "ambiguous value `alpha::shared`", "ambiguous value `quarantined`", "ambiguous value `quarantined_alias`", "ambiguous value `durable`", "unresolved value `quarantined`", "unresolved value `quarantined_alias`", "unresolved value `durable`", "module value `shared` is not callable", "module value `durable` is not callable"]
+contains = ["unresolved type `Missing`", "unresolved type `MissingAfterRecheck`", "unresolved type `MissingLate`", "unresolved value `shared`", "unresolved value `alpha::shared`", "unresolved value `selected`", "ambiguous value `published`", "public refinement exposes private variant `privacy_functions::State::Hidden`"]
+not_contains = ["ambiguous value `shared`", "ambiguous value `alpha::shared`", "ambiguous value `selected`", "ambiguous value `quarantined`", "ambiguous value `quarantined_alias`", "ambiguous value `durable`", "unresolved value `healthy`", "unresolved value `quarantined`", "unresolved value `quarantined_alias`", "unresolved value `durable`", "module value `shared` is not callable", "module value `durable` is not callable"]
 
 [stderr]
 format = "empty"

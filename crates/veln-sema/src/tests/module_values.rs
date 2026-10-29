@@ -2154,6 +2154,111 @@ fn module_value_initializers_observe_final_imported_availability_in_every_order(
 }
 
 #[test]
+fn delayed_bare_import_invalidation_quarantines_dependents_in_every_order() {
+    for reverse_sources in [false, true] {
+        for reverse_imports in [false, true] {
+            let owner_imports = if reverse_imports {
+                "use beta\nuse alpha\n"
+            } else {
+                "use alpha\nuse beta\n"
+            };
+            let mut sources = vec![
+                (
+                    "bad",
+                    SourceFile::new("bad.veln", "pub let broken: Missing = 0\n"),
+                ),
+                (
+                    "alpha",
+                    SourceFile::new("alpha.veln", "use bad\npub let shared: Int = bad::broken\n"),
+                ),
+                (
+                    "beta",
+                    SourceFile::new(
+                        "beta.veln",
+                        "pub let shared: Int = 1\npub let shared: Int = 2\n",
+                    ),
+                ),
+                (
+                    "owner",
+                    SourceFile::new(
+                        "owner.veln",
+                        format!(
+                            "{owner_imports}pub let selected: Int = shared\npub let healthy: Int = 3\n"
+                        ),
+                    ),
+                ),
+                (
+                    "consumer",
+                    SourceFile::new(
+                        "consumer.veln",
+                        concat!(
+                            "use owner\n",
+                            "fn read_selected() -> Int\n",
+                            "  selected\n",
+                            "end\n",
+                            "fn read_healthy() -> Int\n",
+                            "  healthy\n",
+                            "end\n",
+                        ),
+                    ),
+                ),
+            ];
+            if reverse_sources {
+                sources.reverse();
+            }
+            let module = merged_modules_with_identities(sources);
+            let mut environment = crate::types::TypeEnvironment::from_module(&module);
+            let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
+            let analysis = crate::analysis::check_module_values(
+                &module,
+                &mut environment,
+                &mut variant_diagnostics,
+            );
+            let selected = (None, Some("owner".to_string()), "selected".to_string());
+
+            assert!(
+                analysis.invalid.contains(&selected),
+                "reverse_sources={reverse_sources}, reverse_imports={reverse_imports}: {:#?}",
+                analysis.invalid
+            );
+            assert!(matches!(
+                environment.module_value_path_in_owner(
+                    &["selected".to_string()],
+                    Some("consumer"),
+                    None,
+                ),
+                crate::types::ModuleValueLookup::Missing
+            ));
+            assert!(matches!(
+                environment.module_value_path_in_owner(
+                    &["healthy".to_string()],
+                    Some("consumer"),
+                    None,
+                ),
+                crate::types::ModuleValueLookup::Available(_)
+            ));
+
+            let diagnostics = analyze_surface_module(&module);
+            assert!(
+                diagnostics.iter().any(|diagnostic| {
+                    diagnostic.id == "name.unresolved"
+                        && diagnostic.message == "unresolved value `selected`"
+                }),
+                "reverse_sources={reverse_sources}, reverse_imports={reverse_imports}: {diagnostics:#?}"
+            );
+            assert!(
+                diagnostics.iter().all(|diagnostic| {
+                    diagnostic.id != "name.ambiguous"
+                        && !(diagnostic.id == "name.unresolved"
+                            && diagnostic.message.contains("healthy"))
+                }),
+                "reverse_sources={reverse_sources}, reverse_imports={reverse_imports}: {diagnostics:#?}"
+            );
+        }
+    }
+}
+
+#[test]
 fn cross_module_initializer_cycles_remain_outside_dependency_quarantine() {
     let module = merged_modules_with_identities(vec![
         (

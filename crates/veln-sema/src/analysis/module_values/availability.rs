@@ -6,7 +6,7 @@ use super::{check_module_value, colliding_module_value_identities, module_value_
 use crate::analysis::VariantDiagnosticInterner;
 use crate::types::{ModuleValueIdentity, TypeEnvironment};
 
-type ReverseDependencies = HashMap<ModuleValueIdentity, Vec<usize>>;
+pub(super) type ReverseDependencies = HashMap<ModuleValueIdentity, Vec<usize>>;
 
 pub(super) fn stabilize_module_value_availability(
     module: &SurfaceModule,
@@ -14,10 +14,10 @@ pub(super) fn stabilize_module_value_availability(
     variant_diagnostics: &mut VariantDiagnosticInterner,
     mut unavailable: BTreeSet<ModuleValueIdentity>,
     mut pending_dependencies: BTreeSet<ModuleValueIdentity>,
+    reverse_dependencies: &ReverseDependencies,
 ) -> BTreeSet<ModuleValueIdentity> {
     let mut ever_unavailable = unavailable.clone();
     record_retained_history_insertions(ever_unavailable.len());
-    let reverse_dependencies = reverse_dependencies(module, environment);
     let colliding = colliding_module_value_identities(module);
     let value_indices = module_value_indices(module, &colliding);
     record_peak_availability_work(&pending_dependencies, &unavailable, &ever_unavailable);
@@ -87,7 +87,7 @@ pub(super) fn apply_availability_changes(
     current.clone_from(next);
 }
 
-fn reverse_dependencies(
+pub(super) fn reverse_dependencies(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> ReverseDependencies {

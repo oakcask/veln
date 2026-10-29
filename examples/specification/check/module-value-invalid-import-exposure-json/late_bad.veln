@@ -1,0 +1,1 @@
+pub let bad: MissingLate = 0

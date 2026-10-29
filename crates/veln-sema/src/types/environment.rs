@@ -414,11 +414,11 @@ impl TypeEnvironment {
                 current_module.map(str::to_owned),
                 name.clone(),
             );
-            return matches!(
-                self.module_values_by_identity.get(&identity),
-                Some(ModuleValueIndex::Unique(_))
-            )
-            .then_some(identity);
+            match self.module_values_by_identity.get(&identity) {
+                Some(ModuleValueIndex::Unique(_)) => return Some(identity),
+                Some(ModuleValueIndex::Collision) => return None,
+                None => {}
+            }
         }
         if segments.len() == 1 {
             if self.functions_named(name).any(|function| {
@@ -433,10 +433,17 @@ impl TypeEnvironment {
                 name.clone(),
             );
             let exposure = self.materialize_bare_module_value_exposure(&key)?;
-            if exposure.candidates.len() != 1 || exposure.function_collision {
+            if exposure.function_collision {
                 return None;
             }
-            return exposure.candidates.into_iter().next().filter(|identity| {
+            let identity = if exposure.active.len() == 1 {
+                exposure.active.into_iter().next()
+            } else if exposure.active.is_empty() && exposure.candidates.len() == 1 {
+                exposure.candidates.into_iter().next()
+            } else {
+                None
+            };
+            return identity.filter(|identity| {
                 matches!(
                     self.module_values_by_identity.get(identity),
                     Some(ModuleValueIndex::Unique(_))
