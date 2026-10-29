@@ -9,7 +9,8 @@ Extend stable-value match refinement to qualified references to module immutable
 data. This proposal depends on
 [Module Immutable Values](module-immutable-values.md). It becomes selectable
 only after module-value execution is implemented. Imported lookup and
-visibility are now implemented. Typed module `let` declarations still do not
+visibility are now implemented. Checked core and typed IR preserve declaration
+and reference identity, but typed module `let` declarations still do not
 produce runtime values.
 
 ## Contract
@@ -54,7 +55,10 @@ The current [type specification](../specification/types.md#module-immutable-valu
 defines finite-data initializer typing, and the current
 [name-resolution specification](../specification/name-resolution.md#namespaces-and-use-roles)
 defines same-module and imported lookup, package-aware declaration identity,
-and visibility. Execution remains in the
+and visibility. The current
+[execution specification](../specification/execution.md#runtime-readiness-and-host-boundaries)
+defines checked-core and typed-IR identity preservation. Runtime
+materialization remains in the
 [module immutable data completion proposal](module-immutable-values.md).
 That remaining boundary explains why a same-module declaration and a qualified
 constructor are both insufficient evidence for this extension.

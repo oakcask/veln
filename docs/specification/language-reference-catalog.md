@@ -51,8 +51,9 @@ The `declarations-aliases` topic projects `TypeDecl` with zero or more
 with no constructors. It also projects typed module `let` declarations and
 states their finite-data initializer checking, same-module and imported lookup,
 package-aware visibility, dependency-cycle validation across package sources,
-and non-executable boundary. The selected formatter example demonstrates the
-accepted private and public forms without presenting them as runtime values.
+checked-core and typed-IR identity preservation, and non-executable runtime
+boundary. The selected formatter example demonstrates the accepted private and
+public forms without presenting them as runtime values.
 The `types-inference-constructors` topic includes the executable productions
 for variant-refinement type text. Every alternative requires an uppercase
 final segment. A non-generic alternative also requires an uppercase base leaf.
