@@ -237,8 +237,9 @@ including source-path-derived module segment diagnostics at the zero-width
 source-start range specified by [name-resolution.md](name-resolution.md).
 Workspace project analysis and document-scoped analysis both check parse-clean
 module immutable value declarations using the finite-data initializer,
-annotation-visibility, imported-lookup, package-identity, and same-module
-dependency rules. They publish any resulting semantic diagnostics and also
+annotation-visibility, imported-lookup, package-identity, and selected
+same-module or imported dependency rules across package sources. They publish
+any resulting semantic diagnostics and also
 publish `module.value_not_executable` for every declaration. The latter
 diagnostic prevents checked core and typed IR. Neither language-service path
 exposes module values through definition, references, rename, completion, or

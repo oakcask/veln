@@ -80,7 +80,7 @@ pub(crate) fn topic_descriptors() -> Vec<Descriptor> {
             ],
             body: &[
                 "The descriptor selects the executable item productions for source declarations.",
-                "A typed module `let` declaration has the form `[pub] let name: Type = initializer`. Parsing, formatting, syntax trees, and lowered ASTs preserve it. Semantic analysis checks the written annotation, finite-data initializer, same-module and imported references, package-aware visibility, and same-module dependency cycles. Cross-module dependency validation, checked-core lowering, and code generation remain unavailable. Every declaration reports `module.value_not_executable`.",
+                "A typed module `let` declaration has the form `[pub] let name: Type = initializer`. Parsing, formatting, syntax trees, and lowered ASTs preserve it. Semantic analysis checks the written annotation, finite-data initializer, same-module and imported references, package-aware visibility, and dependency cycles across package sources. Checked-core lowering and code generation remain unavailable. Every declaration reports `module.value_not_executable`.",
                 "The selected example exercises public member alias re-exports in a checked case.",
                 "The formatter example exercises accepted private and public typed module `let` declarations.",
             ],
