@@ -51,6 +51,175 @@ fn recovery_module(
     merged_modules_with_identities(sources)
 }
 
+fn same_name_candidate_fanout_module(
+    candidate_count: usize,
+    dependent_count: usize,
+    reverse_sources: bool,
+    reverse_imports: bool,
+) -> SurfaceModule {
+    let candidate_indices = if reverse_imports {
+        (0..candidate_count).rev().collect::<Vec<_>>()
+    } else {
+        (0..candidate_count).collect::<Vec<_>>()
+    };
+    let imports = candidate_indices
+        .iter()
+        .map(|index| format!("use candidate_{index}\n"))
+        .collect::<String>();
+    let dependents = (0..dependent_count)
+        .map(|index| format!("pub let dependent_{index}: Int = shared\n"))
+        .collect::<String>();
+    let mut sources = (0..candidate_count)
+        .map(|index| {
+            let annotation = if index == 0 {
+                "Int".to_string()
+            } else {
+                format!("Missing{index}")
+            };
+            (
+                format!("candidate_{index}"),
+                SourceFile::new(
+                    format!("candidate_{index}.veln"),
+                    format!("pub let shared: {annotation} = {index}\n"),
+                ),
+            )
+        })
+        .collect::<Vec<_>>();
+    sources.push((
+        "owner".to_string(),
+        SourceFile::new("owner.veln", format!("{imports}{dependents}")),
+    ));
+    if reverse_sources {
+        sources.reverse();
+    }
+    let sources = sources
+        .iter()
+        .map(|(module, source)| (module.as_str(), source.clone()))
+        .collect();
+    merged_modules_with_identities(sources)
+}
+
+#[test]
+fn same_name_imported_candidate_fanout_is_adjacent_linear_in_every_order() {
+    let mut measurements = Vec::new();
+    for reverse_sources in [false, true] {
+        for reverse_imports in [false, true] {
+            let mut order_measurements = Vec::new();
+            for count in [32, 64] {
+                let module = same_name_candidate_fanout_module(
+                    count,
+                    count,
+                    reverse_sources,
+                    reverse_imports,
+                );
+                let mut environment = crate::types::TypeEnvironment::from_module(&module);
+                let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
+                let analysis = crate::analysis::check_module_values(
+                    &module,
+                    &mut environment,
+                    &mut variant_diagnostics,
+                );
+                assert_eq!(analysis.invalid.len(), count - 1, "{:#?}", analysis.invalid);
+                assert!(analysis.invalid.iter().all(|identity| {
+                    identity.1.as_deref().is_some_and(|module| {
+                        module.starts_with("candidate_") && module != "candidate_0"
+                    }) && identity.2 == "shared"
+                }));
+                let crate::types::ModuleValueLookup::Available(selected) = environment
+                    .module_value_path_in_owner(&["shared".to_string()], Some("owner"), None)
+                else {
+                    panic!("valid namesake must be selected")
+                };
+                assert_eq!(
+                    selected.declaration.module_name.as_deref(),
+                    Some("candidate_0")
+                );
+                for index in 0..count {
+                    assert!(matches!(
+                        environment.module_value_path_in_owner(
+                            &[format!("dependent_{index}")],
+                            Some("owner"),
+                            None,
+                        ),
+                        crate::types::ModuleValueLookup::Available(_)
+                    ));
+                }
+                assert!(
+                    analysis
+                        .diagnostics
+                        .iter()
+                        .all(|diagnostic| diagnostic.id != "name.ambiguous"),
+                    "{:#?}",
+                    analysis.diagnostics
+                );
+
+                reset_module_value_availability_work();
+                let diagnostics = analyze_surface_module(&module);
+                let work = take_module_value_availability_work();
+                assert!(
+                    diagnostics
+                        .iter()
+                        .all(|diagnostic| diagnostic.id != "name.ambiguous"),
+                    "{diagnostics:#?}"
+                );
+                assert!(work.dependency_index_entries <= count * 2 + 2, "{work:#?}");
+                assert!(
+                    work.peak_retained_dependency_state <= count * 8 + 8,
+                    "{work:#?}"
+                );
+                assert!(work.semantic_visits <= count * 6 + 16, "{work:#?}");
+                assert!(
+                    work.declaration_recheck_lookups <= count * 2 + 8,
+                    "{work:#?}"
+                );
+                order_measurements.push(work);
+            }
+            let [smaller, larger] = order_measurements.as_slice() else {
+                unreachable!()
+            };
+            assert!(
+                larger.peak_retained_dependency_state
+                    <= smaller.peak_retained_dependency_state * 2 + 16,
+                "{smaller:#?} -> {larger:#?}"
+            );
+            assert!(
+                larger.semantic_visits <= smaller.semantic_visits * 2 + 16,
+                "{smaller:#?} -> {larger:#?}"
+            );
+            assert!(
+                larger.declaration_recheck_lookups <= smaller.declaration_recheck_lookups * 2 + 16,
+                "{smaller:#?} -> {larger:#?}"
+            );
+            measurements.push(order_measurements);
+        }
+    }
+    assert!(
+        measurements.windows(2).all(|pair| pair[0] == pair[1]),
+        "{measurements:#?}"
+    );
+}
+
+#[test]
+#[ignore = "supporting wall-clock evidence; deterministic fanout work is asserted separately"]
+fn same_name_imported_candidate_fanout_reports_adjacent_size_timings() {
+    for count in [128, 256] {
+        let module = same_name_candidate_fanout_module(count, count, false, false);
+        let started = std::time::Instant::now();
+        let diagnostics = analyze_surface_module(&module);
+        let elapsed = started.elapsed();
+
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "name.ambiguous"),
+            "{diagnostics:#?}"
+        );
+        eprintln!(
+            "same-name imported module value fanout: {count} candidates and {count} dependents in {elapsed:?}"
+        );
+    }
+}
+
 #[test]
 fn ambiguous_initializers_recover_after_delayed_invalidation_in_every_order() {
     for reverse_sources in [false, true] {
@@ -156,7 +325,7 @@ fn availability_recovery_rechecks_only_candidate_dependents() {
             work.semantic_visits <= module.module_values.len() * 2 + 12,
             "{work:#?}"
         );
-        assert!(work.dependency_index_entries <= 6, "{work:#?}");
+        assert!(work.dependency_index_entries <= 8, "{work:#?}");
         assert!(work.declaration_recheck_lookups <= 12, "{work:#?}");
         measurements.push(work);
     }

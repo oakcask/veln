@@ -12,6 +12,13 @@ pub(crate) struct ModuleValueSignature {
 
 pub(crate) type ModuleValueIdentity = (Option<String>, Option<String>, String);
 
+pub(crate) type BareModuleValueExposureIdentity = (Option<String>, Option<String>, String);
+
+pub(crate) enum ModuleValueDependency {
+    Identity(ModuleValueIdentity),
+    BareExposure(BareModuleValueExposureIdentity),
+}
+
 #[derive(Clone, Copy)]
 pub(crate) enum ModuleValueIndex {
     Unique(usize),

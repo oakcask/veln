@@ -693,13 +693,14 @@ fn imported_invalidation_rechecks_only_dependent_declarations() {
 
         let declaration_count = chain_count * 2 + unrelated_value_count;
         let dependency_edges = chain_count.saturating_sub(1) + chain_count;
+        let compressed_dependency_entries = dependency_edges + chain_count;
         assert!(diagnostics.len() >= chain_count * 2, "{diagnostics:#?}");
         assert!(
             work.semantic_visits <= declaration_count * 2 + dependency_edges + 4,
             "{work:#?}"
         );
         assert!(
-            work.dependency_index_entries <= dependency_edges + 1,
+            work.dependency_index_entries <= compressed_dependency_entries + 1,
             "{work:#?}"
         );
         assert!(
@@ -1734,13 +1735,14 @@ fn bare_imported_module_value_lookup_work_is_bounded_per_reference() {
         crate::types::reset_bare_module_value_exposure_work();
         let environment = crate::types::TypeEnvironment::from_module(&module);
         for index in 0..count {
+            let Some(crate::types::ModuleValueDependency::BareExposure(exposure)) = environment
+                .module_value_dependency_in_owner(&[format!("value_{index}")], Some("app"), None)
+            else {
+                panic!("expected bare imported dependency")
+            };
             assert_eq!(
                 environment
-                    .module_value_dependency_candidates_in_owner(
-                        &[format!("value_{index}")],
-                        Some("app"),
-                        None,
-                    )
+                    .module_value_candidates_for_bare_exposure(&exposure)
                     .len(),
                 1
             );
@@ -1824,13 +1826,14 @@ fn bare_module_value_index_counts_misses_and_refreshes_availability() {
         environment.module_value_path_in_owner(&["shared".to_string()], Some("owner"), None),
         crate::types::ModuleValueLookup::Available(_)
     ));
+    let Some(crate::types::ModuleValueDependency::BareExposure(exposure)) =
+        environment.module_value_dependency_in_owner(&["shared".to_string()], Some("owner"), None)
+    else {
+        panic!("expected bare imported dependency")
+    };
     assert_eq!(
         environment
-            .module_value_dependency_candidates_in_owner(
-                &["shared".to_string()],
-                Some("owner"),
-                None,
-            )
+            .module_value_candidates_for_bare_exposure(&exposure)
             .len(),
         2
     );

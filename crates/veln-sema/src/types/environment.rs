@@ -553,12 +553,12 @@ impl TypeEnvironment {
             })
     }
 
-    pub(crate) fn module_value_dependency_candidates_in_owner(
+    pub(crate) fn module_value_dependency_in_owner(
         &self,
         segments: &[String],
         current_module: Option<&str>,
         current_package: Option<&str>,
-    ) -> Vec<ModuleValueIdentity> {
+    ) -> Option<ModuleValueDependency> {
         if let [name] = segments
             && self
                 .same_owner_module_value(segments, name, current_module, current_package)
@@ -568,21 +568,31 @@ impl TypeEnvironment {
                     && function.package_name.as_deref() == current_package
             })
         {
-            let key = (
+            let owner = (
                 current_package.map(str::to_owned),
                 current_module.map(str::to_owned),
-                name.clone(),
             );
-            // Retain every candidate, including currently unavailable and ambiguous
-            // candidates: either transition can change the selected declaration.
-            return self
-                .materialize_bare_module_value_exposure(&key)
-                .map(|exposure| exposure.candidates.into_iter().collect())
-                .unwrap_or_default();
+            if self.bare_module_value_import_targets.contains_key(&owner) {
+                return Some(ModuleValueDependency::BareExposure((
+                    owner.0,
+                    owner.1,
+                    name.clone(),
+                )));
+            }
         }
         self.module_value_dependency_identity_in_owner(segments, current_module, current_package)
-            .into_iter()
-            .collect()
+            .map(ModuleValueDependency::Identity)
+    }
+
+    pub(crate) fn module_value_candidates_for_bare_exposure(
+        &self,
+        key: &BareModuleValueExposureIdentity,
+    ) -> BTreeSet<ModuleValueIdentity> {
+        // Include unavailable and ambiguous candidates: either transition can
+        // change the declaration selected by the logical exposure.
+        self.materialize_bare_module_value_exposure(key)
+            .map(|exposure| exposure.candidates)
+            .unwrap_or_default()
     }
 
     fn module_value_dependency_identity_in_owner(
