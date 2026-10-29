@@ -40,6 +40,12 @@ mod expression_lowering;
 mod function_lowering;
 mod module_value_lowering;
 
+#[cfg(test)]
+pub(crate) use module_value_lowering::{
+    ModuleValueImportPreparationWork, reset_module_value_import_preparation_work,
+    take_module_value_import_preparation_work,
+};
+
 #[derive(Clone)]
 struct CoreBinding {
     name: String,

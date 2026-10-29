@@ -236,6 +236,58 @@ fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
 }
 
 #[test]
+fn module_value_constructor_lowering_keeps_package_distinct_owner_imports() {
+    let states = concat!("pub type State\n", "  pub Ready\n", "end\n");
+    let shared = concat!("use states\n", "let selected: states::State = Ready\n",);
+    let mut one_states = source_module("one/states.veln", states, Some("one/pkg"), "states");
+    let mut one_shared = source_module("one/shared.veln", shared, Some("one/pkg"), "shared");
+    let mut two_states = source_module("two/states.veln", states, Some("two/pkg"), "states");
+    let mut two_shared = source_module("two/shared.veln", shared, Some("two/pkg"), "shared");
+    set_declaration_module_name(&mut one_states, "states");
+    set_declaration_module_name(&mut one_shared, "shared");
+    set_declaration_module_name(&mut two_states, "states");
+    set_declaration_module_name(&mut two_shared, "shared");
+
+    let mut module = one_shared;
+    for other in [two_states, one_states, two_shared] {
+        extend(&mut module, other);
+    }
+    let lowered = lower_checked_surface_module(&module);
+    assert!(
+        lowered.diagnostics.iter().all(|diagnostic| {
+            diagnostic.id == "module.value_not_executable"
+                || diagnostic.severity != veln_diagnostics::Severity::Error
+        }),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    let core = lowered
+        .core
+        .expect("constructors should reach checked core");
+    let ir = lowered.ir.expect("constructors should reach typed IR");
+    for package in ["one/pkg", "two/pkg"] {
+        let declaration = core
+            .module_values
+            .iter()
+            .find(|value| value.identity.package.as_deref() == Some(package))
+            .expect("package-owned core module value");
+        assert!(matches!(
+            declaration.initializer.kind,
+            veln_core::CoreExprKind::AdtVariant { ref payloads, .. } if payloads.is_empty()
+        ));
+        let declaration = ir
+            .module_values
+            .iter()
+            .find(|value| value.identity.package.as_deref() == Some(package))
+            .expect("package-owned IR module value");
+        assert!(matches!(
+            declaration.initializer.kind,
+            veln_ir::IrExprKind::AdtVariant { ref payloads, .. } if payloads.is_empty()
+        ));
+    }
+}
+
+#[test]
 fn public_module_value_visibility_uses_complete_package_and_module_owner() {
     let declarations = concat!(
         "use helper\n",

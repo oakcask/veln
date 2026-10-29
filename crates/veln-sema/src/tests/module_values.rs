@@ -14,6 +14,56 @@ fn module_with_values(count: usize) -> SurfaceModule {
     lower_surface_ast(&parsed.tree)
 }
 
+fn module_with_literal_values_and_imports(
+    value_count: usize,
+    import_count: usize,
+) -> SurfaceModule {
+    let mut merged = SurfaceModule {
+        module: None,
+        uses: Vec::new(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        types: Vec::new(),
+        module_values: Vec::new(),
+        functions: Vec::new(),
+        invalid_names: Vec::new(),
+    };
+    for owner_index in 0..3 {
+        let imports = (0..import_count)
+            .filter(|index| index % 3 == owner_index)
+            .map(|index| format!("use dependency_{index}\n"))
+            .collect::<String>();
+        let values = if owner_index < 2 {
+            (0..value_count)
+                .filter(|index| index % 2 == owner_index)
+                .map(|index| format!("let value_{index}: Int = {index}\n"))
+                .collect::<String>()
+        } else {
+            String::new()
+        };
+        let source = SourceFile::new(
+            format!("owner_{owner_index}/shared.veln"),
+            format!("{imports}{values}"),
+        );
+        let module = veln_ast::lower_surface_ast_with_package_module_identity(
+            &parse(&source).tree,
+            format!("owner_{owner_index}/pkg"),
+            if owner_index < 2 {
+                "shared".to_string()
+            } else {
+                "unrelated".to_string()
+            },
+            source.span(veln_source::TextRange::new(0, 0)),
+        );
+        merged.module = module.module.clone();
+        merged.uses.extend(module.uses);
+        merged.module_values.extend(module.module_values);
+    }
+    merged
+}
+
 fn module_with_value_chain(count: usize) -> SurfaceModule {
     let source = SourceFile::new(
         "main.veln",
@@ -771,6 +821,70 @@ fn module_value_gate_work_grows_linearly_with_declarations() {
     let work_n = work_for(N);
     let work_2n = work_for(2 * N);
     assert_eq!(work_2n.total(), 2 * work_n.total());
+}
+
+#[test]
+fn module_value_lowering_import_preparation_is_additive_in_values_and_imports() {
+    fn work_for(
+        value_count: usize,
+        import_count: usize,
+    ) -> crate::lowering::ModuleValueImportPreparationWork {
+        let module = module_with_literal_values_and_imports(value_count, import_count);
+        assert_eq!(module.module_values.len(), value_count);
+        assert_eq!(module.uses.len(), import_count);
+        let diagnostics = analyze_surface_module(&module);
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "module.value_not_executable")
+                .count(),
+            value_count,
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics.iter().all(|diagnostic| {
+                diagnostic.id == "module.value_not_executable"
+                    || diagnostic.severity != veln_diagnostics::Severity::Error
+            }),
+            "{diagnostics:#?}"
+        );
+
+        crate::lowering::reset_module_value_import_preparation_work();
+        let lowered = lower_analyzed_surface_module(&module, diagnostics);
+        let work = crate::lowering::take_module_value_import_preparation_work();
+
+        let core = lowered
+            .core
+            .expect("literal values should reach checked core");
+        let ir = lowered.ir.expect("literal values should reach typed IR");
+        assert_eq!(core.module_values.len(), value_count);
+        assert_eq!(ir.module_values.len(), value_count);
+        assert!(core.module_values.iter().any(|value| {
+            value.identity.package.as_deref() == Some("owner_0/pkg")
+                && value.identity.module.as_deref() == Some("owner_0/pkg::shared")
+        }));
+        assert!(core.module_values.iter().any(|value| {
+            value.identity.package.as_deref() == Some("owner_1/pkg")
+                && value.identity.module.as_deref() == Some("owner_1/pkg::shared")
+        }));
+        assert_eq!(work.scanned_imports, import_count, "{work:#?}");
+        assert_eq!(work.retained_import_clones, import_count, "{work:#?}");
+        assert_eq!(work.owner_lookups, value_count, "{work:#?}");
+        work
+    }
+
+    const N: usize = 32;
+    let base = work_for(N, N);
+    let more_values = work_for(2 * N, N);
+    let more_imports = work_for(N, 2 * N);
+    let both = work_for(2 * N, 2 * N);
+
+    assert_eq!(more_values.total() - base.total(), N);
+    assert_eq!(more_imports.total() - base.total(), 2 * N);
+    assert_eq!(
+        both.total(),
+        more_values.total() + more_imports.total() - base.total()
+    );
 }
 
 #[test]

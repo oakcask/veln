@@ -1,31 +1,91 @@
 use super::*;
 use crate::types::ModuleValueLookup;
+use std::collections::HashMap;
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct ModuleValueImportPreparationWork {
+    pub(crate) scanned_imports: usize,
+    pub(crate) retained_import_clones: usize,
+    pub(crate) owner_lookups: usize,
+}
+
+#[cfg(test)]
+impl ModuleValueImportPreparationWork {
+    pub(crate) fn total(self) -> usize {
+        self.scanned_imports + self.retained_import_clones + self.owner_lookups
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    static MODULE_VALUE_IMPORT_PREPARATION_WORK: std::cell::Cell<ModuleValueImportPreparationWork> =
+        const { std::cell::Cell::new(ModuleValueImportPreparationWork {
+            scanned_imports: 0,
+            retained_import_clones: 0,
+            owner_lookups: 0,
+        }) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_module_value_import_preparation_work() {
+    MODULE_VALUE_IMPORT_PREPARATION_WORK.set(ModuleValueImportPreparationWork::default());
+}
+
+#[cfg(test)]
+pub(crate) fn take_module_value_import_preparation_work() -> ModuleValueImportPreparationWork {
+    MODULE_VALUE_IMPORT_PREPARATION_WORK.replace(ModuleValueImportPreparationWork::default())
+}
+
+fn record_prepared_import() {
+    #[cfg(test)]
+    MODULE_VALUE_IMPORT_PREPARATION_WORK.set({
+        let mut work = MODULE_VALUE_IMPORT_PREPARATION_WORK.get();
+        work.scanned_imports += 1;
+        work.retained_import_clones += 1;
+        work
+    });
+}
+
+fn record_owner_lookup() {
+    #[cfg(test)]
+    MODULE_VALUE_IMPORT_PREPARATION_WORK.set({
+        let mut work = MODULE_VALUE_IMPORT_PREPARATION_WORK.get();
+        work.owner_lookups += 1;
+        work
+    });
+}
 
 pub(super) fn lower_module_values(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> Vec<CoreModuleValueDecl> {
+    let mut uses_by_owner = HashMap::<veln_ast::ResolvedImportOwner, Vec<veln_ast::UseDecl>>::new();
+    for use_decl in &environment.uses {
+        record_prepared_import();
+        uses_by_owner
+            .entry(use_decl.resolved_owner())
+            .or_default()
+            .push(use_decl.clone());
+    }
+
     module
         .module_values
         .iter()
         .filter_map(|declaration| {
             let name = declaration.name.as_ref()?;
+            record_owner_lookup();
+            let owner = veln_ast::ResolvedImportOwner {
+                package: declaration.package_name.clone(),
+                module: declaration.module_name.clone(),
+            };
+            let uses = uses_by_owner.get(&owner).map(Vec::as_slice).unwrap_or(&[]);
             let ty = environment.canonicalize_type_annotation_in_owner(
                 parse_type_or_unknown(Some(&declaration.annotation)),
                 declaration.module_name.as_deref(),
                 declaration.package_name.as_deref(),
             );
             let expected = core_type(&ty);
-            let uses = environment
-                .uses
-                .iter()
-                .filter(|use_decl| {
-                    use_decl.module_name.as_deref() == declaration.module_name.as_deref()
-                        && use_decl.importing_package.as_deref()
-                            == declaration.package_name.as_deref()
-                })
-                .cloned()
-                .collect::<Vec<_>>();
             Some(CoreModuleValueDecl {
                 node_id: declaration.node_id,
                 identity: CoreModuleValueIdentity {
@@ -51,7 +111,7 @@ pub(super) fn lower_module_values(
 struct ModuleValueLowerer<'a> {
     declaration: &'a veln_ast::ModuleValueDecl,
     environment: &'a TypeEnvironment,
-    uses: Vec<veln_ast::UseDecl>,
+    uses: &'a [veln_ast::UseDecl],
 }
 
 impl ModuleValueLowerer<'_> {
@@ -141,7 +201,7 @@ impl ModuleValueLowerer<'_> {
             segments,
             expected,
             self.declaration.module_name.as_deref(),
-            &self.uses,
+            self.uses,
             ConstructorShape::Nullary,
         ) {
             ConstructorLookup::Found(constructor) => CoreExpr {
@@ -176,7 +236,7 @@ impl ModuleValueLowerer<'_> {
                 segments,
                 expected,
                 self.declaration.module_name.as_deref(),
-                &self.uses,
+                self.uses,
                 ConstructorShape::Payload,
             )
         else {
