@@ -38,12 +38,13 @@ Cardinality rejection emits no record and consumes no sequence. A metric that
 passes cardinality admission and is then rejected as full retains its admitted
 series facts.
 
-The remaining failure work must contain destination exceptions, continue with
-later records, saturate health counters, and leave the handled application
-result unchanged. An accepted record keeps its admission-time observation,
-context, timestamp, sequence, resource, scope, transformations, and health
-facts. A failed or interrupted host attempt can have committed a byte prefix,
-so `failed_exports` is accounting rather than proof of byte loss.
+The remaining failure work must contain destination rejection and exceptions,
+continue with later records, saturate health counters, and leave the handled
+application result unchanged. An accepted record keeps its admission-time
+observation, context, timestamp, sequence, resource, scope, transformations,
+and health facts. A rejected, failed, or interrupted host attempt can have
+committed a byte prefix, so `failed_exports` is accounting rather than proof of
+byte loss.
 
 ## Shutdown State Machine
 
@@ -123,9 +124,9 @@ schemas supply expected outcomes independently of their implementation.
 | Case | Input or transition | Required observation | Planned evidence |
 | --- | --- | --- | --- |
 | O17 | Concurrent handler submissions and cardinality rejection | FIFO accepted sequence with specified gaps; cardinality precedes queue admission without rollback; invalid/full outcomes retain the direct API's accounting rules. | Companion controlled schedules and schema-checked captures. |
-| O18 | Record write or flush exception and counter saturation | One failed increment per exceptional record; later records proceed; maximum counter does not overflow; application result unchanged. | Companion failure schedules and saturation cases. |
+| O18 | Record write or flush rejection, exception, and counter saturation | One failed increment per rejected or exceptional record; later records proceed; maximum counter does not overflow; application result unchanged. | Companion failure schedules and saturation cases. |
 | O19 | Concurrent shutdown and emission races closure | One drain and at most one summary; concurrent callers share the report; losing submission is `Closed` without state changes. | Companion barrier-controlled transitions. |
-| O20 | Diagnostic destination exception | Contain the exception as one rejected summary outcome; do not change export health or the application's ordinary result. | Companion failure schedule and schema checks. |
+| O20 | Enabled, disabled, rejected, and exceptional diagnostic destinations | Use the implemented enabled-accepted ordering as the control; report disabled without output; contain rejection or exception as one rejected summary outcome; do not change export health or the application's ordinary result. | Companion destination schedules and schema checks. |
 | O21 | Interruption with queued work and an unresolved host call | Prompt interrupted report after call-start revocation; unsettled records counted once; no new record/summary calls. | Companion cancellation schedule. |
 | O22 | In-flight record or summary completes after interrupted return | Late bytes are permitted; frozen report, counters, and call count remain unchanged. | Companion late-completion schedule. |
 | O23 | Interruption before summary, during summary, and after closed | `NotAttempted`, unconfirmed `Rejected`, and unchanged completed report respectively. | Companion state-boundary schedules. |

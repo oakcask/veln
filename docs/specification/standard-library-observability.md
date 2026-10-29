@@ -517,23 +517,20 @@ I/O nor adds attribute-transformation totals. A valid record below capacity is
 captured and accepted without waiting for its destination attempt. Accepted
 records use their admission order for sequence allocation and destination
 attempts. The exporter makes one destination attempt at a time, releases the
-record's slot only after that attempt completes, and increments
-`failed_exports` once when the destination rejects the attempt. Direct metric
-submission does not apply metric-cardinality admission.
+record's slot only after that attempt completes, and preserves that order while
+draining. Direct metric submission does not apply metric-cardinality admission.
 
 The first normal `shutdown_buffered` call closes admission, so later
 submissions return `Closed` without changing sequence, health, or pending work.
 Shutdown waits until every accepted record has one completed destination
-attempt. It then attempts one final exporter-health summary when diagnostics
-are enabled. The summary attempt follows every record attempt, including when
-the record and diagnostic destinations identify the same output. A disabled
-diagnostic destination produces `SummaryDisabled`; an accepted or rejected
-summary produces `SummaryAccepted` or `SummaryRejected`. Summary rejection
-does not increment `failed_exports`.
+attempt. With an enabled diagnostic destination that accepts the write, it then
+attempts one final exporter-health summary and reports `SummaryAccepted`. The
+summary attempt follows every record attempt, including when the record and
+diagnostic destinations identify the same output.
 
-Normal shutdown freezes and returns
-`BufferedShutdownReport(Completed, health, summary)`. Later shutdown calls
-return the same report without another record or summary attempt.
+For that enabled accepted destination, normal shutdown freezes and returns
+`BufferedShutdownReport(Completed, health, SummaryAccepted)`. Later shutdown
+calls return the same report without another record or summary attempt.
 `buffered_exporter_health` is non-consuming and returns that frozen health after
 completion. The worker retains the scoped observation-destination provider
 active at construction, even if submission and shutdown occur after that scope
@@ -695,8 +692,8 @@ process or machine termination can prevent it from running.
   schema-invalid export rejection, portable hostile-source replacement, and
   preservation of package, nested logical module, and package-relative file
   identity.
-- Direct buffered constructor, capacity, admission, ordered drain, final
-  summary, completed-report, and repeated-shutdown coverage is in
+- Direct buffered constructor, capacity, admission, ordered drain, enabled
+  accepted final summary, completed-report, and repeated-shutdown coverage is in
   `observe.test.veln`, with scoped destination support in
   [`observe_test_support_test.veln`](../../crates/veln-stdlib/veln/observe_test_support_test.veln).
 - Production index boundary coverage:

@@ -371,6 +371,21 @@ fn new_buffered_for_test(capacity: Int, diagnostic_destination: DiagnosticDestin
 	)
 end
 
+fn new_buffered_for_test_with_settlement(capacity: Int, diagnostic_destination: DiagnosticDestination, settled: Sender<()>) -> BufferedJsonLinesConstruction effects [concurrency]
+	observe::new_buffered_json_lines_with_settlement_hook_for_test(
+		observe::Resource("svc", list_nil()),
+		observe::InstrumentationScope("scope", "1"),
+		10,
+		observe::ExporterLimits(8, 64, 4, list_nil()),
+		observe::StandardError,
+		diagnostic_destination,
+		"buffered",
+		capacity,
+		observe_test_support_test::signal_buffered_settlement,
+		settled,
+	)
+end
+
 fn buffered_log(message: String) -> Observation callsite
 	observe::Log(observe::LogRecord("log", observe::Info, message, list_nil(), None, callsite))
 end
@@ -396,6 +411,23 @@ test buffered_constructor_rejects_non_positive_capacity_without_destination_effe
 			_ => Err("negative buffered capacity was accepted")
 		end
 		_ => Err("zero buffered capacity was accepted")
+	end
+end
+
+test buffered_constructor_accepts_positive_capacity_above_backend_channel_limit_and_performs_no_destination_io() -> Result<(), String> effects [concurrency]
+	let lines = observe_test_support_test::export_lines(1)
+	let constructed = handle new_buffered_for_test(2147483648, observe::DiagnosticStandardError) with observe_test_support_test::exporter(lines.tx, true)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			match channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
+				Some(_) => Err("large logical buffered capacity performed destination I/O during construction")
+				None => begin
+					let _ = observe::shutdown_buffered(exporter)
+					Ok(())
+				end
+			end
+		end
+		observe::InvalidCapacity(_) => Err("positive logical buffered capacity above the backend channel limit was rejected")
 	end
 end
 
@@ -433,7 +465,8 @@ end
 test buffered_capacity_counts_in_flight_and_releases_after_completion() -> Result<(), String> effects [time, concurrency]
 	let lines = observe_test_support_test::export_lines(5)
 	let release = channel::bounded<()>(2)
-	let constructed = handle new_buffered_for_test(1, observe::DiagnosticStandardError) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
+	let settled = channel::bounded<()>(2)
+	let constructed = handle new_buffered_for_test_with_settlement(1, observe::DiagnosticStandardError, settled.tx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let first = handle observe::buffered_export_observation(exporter, buffered_log("first")) with observe_test_support_test::clock(0)
@@ -442,31 +475,34 @@ test buffered_capacity_counts_in_flight_and_releases_after_completion() -> Resul
 					let second = handle observe::buffered_export_observation(exporter, buffered_log("full")) with observe_test_support_test::clock(0)
 					let full_health = observe::buffered_exporter_health(exporter)
 					let _ = channel::send(release.tx, ())
-					let wait = channel::bounded<()>(1)
-					let _ = channel::select_many_timeout(list_cons(wait.rx, list_nil()), 25)
-					let outstanding = observe::buffered_outstanding_for_test(exporter)
-					let third = handle observe::buffered_export_observation(exporter, buffered_log("after")) with observe_test_support_test::clock(0)
-					let _ = channel::send(release.tx, ())
-					let report = observe::shutdown_buffered(exporter)
-					match first
-						observe::Accepted => match second
-							observe::Full => match full_health
-								observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match third
-									observe::Accepted => match report
-						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => if outstanding == 0 and buffered_contains(first_line, "\"message\":\"first\"")
-											Ok(())
-										else
-											Err("buffered capacity slot or first record changed")
-										end
-										_ => Err("buffered shutdown report did not retain the full rejection")
+					match channel::recv(settled.rx)
+						Some(_) => begin
+							let outstanding = observe::buffered_outstanding_for_test(exporter)
+							let third = handle observe::buffered_export_observation(exporter, buffered_log("after")) with observe_test_support_test::clock(0)
+							let _ = channel::send(release.tx, ())
+							let report = observe::shutdown_buffered(exporter)
+							match first
+								observe::Accepted => match second
+									observe::Full => match full_health
+										observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match third
+											observe::Accepted => match report
+												observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => if outstanding == 0 and buffered_contains(first_line, "\"message\":\"first\"")
+													Ok(())
+												else
+													Err("buffered capacity slot or first record changed")
+												end
+												_ => Err("buffered shutdown report did not retain the full rejection")
+											end
+											_ => Err("buffered capacity did not admit after destination completion")
 									end
-									_ => Err("buffered capacity did not admit after destination completion")
+										_ => Err("buffered full admission did not increment failed exports once")
 								end
-								_ => Err("buffered full admission did not increment failed exports once")
+									_ => Err("buffered capacity one did not report Full")
 							end
-							_ => Err("buffered capacity one did not report Full")
+								_ => Err("first buffered record was not accepted")
+							end
 						end
-						_ => Err("first buffered record was not accepted")
+						None => Err("buffered settlement signal closed before slot release")
 					end
 				end
 				None => Err("accepted buffered record did not start its destination attempt")
