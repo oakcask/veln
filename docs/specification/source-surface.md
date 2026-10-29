@@ -472,9 +472,10 @@ with its base ADT, and `base_offset` must be `ByteOffset`. The result is
 `Result<SchemaRecord, DecodeError>` with the refinements retained. A supported
 validation schema has at least one reachable such field. It and every reachable
 composed schema have no field-local or schema-level predicate. Other supported
-fields may contain unrefined containers, anonymous records, and composed
-format-neutral schemas. Runtime validation preserves those field values without
-traversing them, but static eligibility inspects every reachable composed schema.
+fields may contain unrefined containers and anonymous records, which runtime
+validation preserves without traversing. Composed branches without refinements
+are also preserved, but they still participate in the recursive static
+eligibility check.
 Refinement erasure inside anonymous records, containers,
 source-ADT payloads, or recursive values is not eligible. Binary schemas are
 also not eligible. The value and offset

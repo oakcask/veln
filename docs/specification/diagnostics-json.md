@@ -1145,7 +1145,9 @@ Static failures for `validate Schema from value at offset` use
 `reason` such as `unresolved_schema`, `wrong_kind`, `ambiguous_target`, or
 `private_schema`; a resolved wrong-kind diagnostic also supplies
 `resolved_kind`. The primary span covers the written schema path without the
-`validate` keyword or either operand. A missing path in
+`validate` keyword or either operand. `unresolved_schema` also reports an
+ineligible reachable composition graph, including a predicate or binary schema
+on a branch without refinements. A missing path in
 `validate from value at offset` instead uses
 `parse.schema_validate_expression` with `schema path` as its expected input.
 The checked
@@ -1153,6 +1155,8 @@ The checked
 and
 [`schema-runtime-validation-targets-json`](../../examples/specification/check/schema-runtime-validation-targets-json/)
 cases fix the target spans, messages, stable reasons, and JSON fields. The
+[`schema-runtime-refinement-predicate-boundary`](../../examples/specification/check/schema-runtime-refinement-predicate-boundary/)
+case fixes the reachable-composition eligibility boundary. The
 rejected
 [`schema-runtime-validation-missing-path`](source-surface-fixtures/rejected/schema-runtime-validation-missing-path.veln)
 fixture fixes the missing-path parse boundary. Runtime constructor rejection

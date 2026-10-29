@@ -8,8 +8,9 @@ update-when: Recursive schema runtime validation, predicate ordering, decoder co
 Extend the implemented `validate MemberPath from Expr at Expr` operation beyond
 direct record fields and recursively composed format-neutral schema fields.
 Current behavior validates singleton and finite-set source-ADT refinements at
-those positions in a predicate-free schema. The current source, typing,
-execution, and diagnostic contracts are specified in
+those positions. Every schema in the reachable composition graph must be
+format-neutral and predicate-free, including branches without refinements. The
+current source, typing, execution, and diagnostic contracts are specified in
 [source surface](../specification/source-surface.md#schema-operations),
 [types](../specification/types.md#inference-rules),
 [execution](../specification/execution.md#schema-execution), and
@@ -57,10 +58,10 @@ containing field's `where` predicate. Field predicates would retain declaration
 order, followed by the containing schema-level `validate` predicate. Predicate
 failure would use `schema.validation_failed` at the field path or schema root.
 
-JSON Pointer paths would extend the implemented schema and direct-field tokens
-with collection indices, dictionary keys, constructor names, and named or
-positional payload segments. Tokens would keep the implemented `~0` and `~1`
-escaping.
+JSON Pointer paths would extend the implemented schema and composed field-path
+tokens with collection indices, dictionary keys, constructor names, and named
+or positional payload segments. Tokens would keep the implemented `~0` and
+`~1` escaping.
 
 ## Ordinary Decoder Composition
 
