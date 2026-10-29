@@ -62,7 +62,7 @@ document.
 
 A selected module immutable value declaration is checked using the shared
 finite-data initializer, annotation, imported lookup, package-aware visibility,
-and same-module dependency rules. It also produces
+and package-wide dependency rules. It also produces
 `module.value_not_executable`, so it blocks document generation even when that
 semantic checking succeeds. The command does not publish the declaration's
 name, annotation, or initializer while package-documentation publication
