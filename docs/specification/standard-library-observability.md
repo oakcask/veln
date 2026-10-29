@@ -13,9 +13,10 @@ handler, explicit channel-value context attachment, explicit fan-in parent and
 link selection, explicit carrier context propagation, and call-site-aware
 structured log helpers for four severities, named domain events, counter
 increments, histogram samples, and a configured production metric-cardinality
-policy with bounded health reporting. It also provides a synchronous JSON
-Lines handler with configured resource identity, scope identity, attribute
-limits, destinations, and exporter health.
+policy with bounded health reporting. It provides a synchronous JSON Lines
+handler with configured resource identity, scope identity, attribute limits,
+destinations, and exporter health, plus a direct bounded buffered exporter with
+explicit admission, health inspection, and shutdown operations.
 Programs choose a lexical handler for the effect; the library does not select
 an exporter implicitly.
 
@@ -642,9 +643,9 @@ and external telemetry-protocol adapters are not available. Buffered
 shutdown interruption, late host-call completion, and configured destination
 failure schedules are not available. The synchronous and buffered exporters
 have no retry or durable-audit guarantee.
-Its identity bound counts series rather than the bytes in their names and
-attributes. The standalone cardinality handler does not retain or export
-accepted observations. The no-op handler does not record,
+The production metric-cardinality identity bound counts series rather than the
+bytes in their names and attributes. The standalone cardinality handler does
+not retain or export accepted observations. The no-op handler does not record,
 enrich, buffer, export, or report observations. `trace::in_span` currently
 accepts only a body returning `Result<(), String>`, while forwarding that
 body's effect row; it does not define rescue or exception recovery.
