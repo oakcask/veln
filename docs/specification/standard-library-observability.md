@@ -510,23 +510,21 @@ completes, including the record currently in flight. It does not bound record
 bytes.
 
 An open exporter returns `Accepted`, `Full`, or `InvalidRecord` from
-`buffered_export_observation`. Validation precedes the capacity check. An
-invalid record and a valid record submitted at capacity each increment
-`failed_exports` once and consume a sequence, but neither performs destination
-I/O nor adds attribute-transformation totals. A valid record below capacity is
-captured and accepted without waiting for its destination attempt. Accepted
-records use their admission order for sequence allocation and destination
-attempts. The exporter makes one destination attempt at a time, releases the
-record's slot only after that attempt completes, and preserves that order while
-draining. Direct metric submission does not apply metric-cardinality admission.
+`buffered_export_observation`. An invalid record and a valid record submitted at
+capacity each increment `failed_exports` once without performing destination
+I/O. A valid record below capacity is captured and accepted without waiting for
+its destination attempt. Accepted records use their admission order for
+sequence allocation and destination attempts. The exporter makes one
+destination attempt at a time, releases the record's slot only after that
+attempt completes, and preserves that order while draining. Direct metric
+submission does not apply metric-cardinality admission.
 
 The first normal `shutdown_buffered` call closes admission, so later
-submissions return `Closed` without changing sequence, health, or pending work.
-Shutdown waits until every accepted record has one completed destination
-attempt. With an enabled diagnostic destination that accepts the write, it then
-attempts one final exporter-health summary and reports `SummaryAccepted`. The
-summary attempt follows every record attempt, including when the record and
-diagnostic destinations identify the same output.
+submissions return `Closed`. Shutdown waits until every accepted record has one
+completed destination attempt. With an enabled diagnostic destination that
+accepts the write, it then attempts one final exporter-health summary and
+reports `SummaryAccepted`. The summary attempt follows every record attempt,
+including when the record and diagnostic destinations identify the same output.
 
 For that enabled accepted destination, normal shutdown freezes and returns
 `BufferedShutdownReport(Completed, health, SummaryAccepted)`. Later shutdown

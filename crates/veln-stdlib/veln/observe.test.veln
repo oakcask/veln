@@ -533,6 +533,7 @@ test buffered_shutdown_drains_in_order_then_freezes_completed_report() -> Result
 				Ok(report) => begin
 					let repeated = observe::shutdown_buffered(exporter)
 					let late = handle observe::buffered_export_observation(exporter, buffered_log("late")) with observe_test_support_test::clock(0)
+					let frozen_health = observe::buffered_exporter_health(exporter)
 					let no_more: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
 					match log_result
 						observe::Accepted => match event_result
@@ -542,7 +543,10 @@ test buffered_shutdown_drains_in_order_then_freezes_completed_report() -> Result
 										observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => match repeated
 											observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => match late
 												observe::Closed => match no_more
-													None => Ok(())
+													None => match frozen_health
+														observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => Ok(())
+														_ => Err("buffered health did not return the frozen completed health")
+													end
 													Some(_) => Err("repeated buffered shutdown emitted another summary")
 												end
 												_ => Err("buffered exporter admitted a record after shutdown")
