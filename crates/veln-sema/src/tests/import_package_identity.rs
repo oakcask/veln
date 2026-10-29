@@ -183,6 +183,53 @@ fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
                         value.ty
                     );
                 }
+
+                let lowered = lower_checked_surface_module(&app);
+                let core = lowered.core.expect("package identities should reach core");
+                let ir = lowered.ir.expect("package identities should reach IR");
+                for (function_name, package) in [
+                    ("first_value", "selected/pkg"),
+                    ("second_value", "namesake/pkg"),
+                ] {
+                    let function = core
+                        .functions
+                        .iter()
+                        .find(|function| function.name.ends_with(function_name))
+                        .expect("core function");
+                    assert!(
+                        matches!(
+                            function.body.last().map(|statement| &statement.kind),
+                            Some(veln_core::CoreStmtKind::Return {
+                                expr: veln_core::CoreExpr {
+                                    kind: veln_core::CoreExprKind::ModuleValue(identity),
+                                    ..
+                                }
+                            }) if identity.package.as_deref() == Some(package)
+                                && identity.module.as_deref() == Some("shared")
+                                && identity.name == "answer"
+                        ),
+                        "{function_name}, {context}: {function:#?}"
+                    );
+                    let function = ir
+                        .functions
+                        .iter()
+                        .find(|function| function.name.ends_with(function_name))
+                        .expect("IR function");
+                    assert!(
+                        matches!(
+                            function.body.last().map(|statement| &statement.kind),
+                            Some(veln_ir::IrStmtKind::Return {
+                                value: veln_ir::IrExpr {
+                                    kind: veln_ir::IrExprKind::ModuleValue(identity),
+                                    ..
+                                }
+                            }) if identity.package.as_deref() == Some(package)
+                                && identity.module.as_deref() == Some("shared")
+                                && identity.name == "answer"
+                        ),
+                        "{function_name}, {context}: {function:#?}"
+                    );
+                }
             }
         }
     }

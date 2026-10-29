@@ -634,6 +634,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     pub(super) fn emit_expr(&mut self, code: &mut MethodCode, expr: &IrExpr) {
         match &expr.kind {
             IrExprKind::Local(name) => self.emit_local(code, name),
+            IrExprKind::ModuleValue(_) => {
+                unreachable!("module values must be blocked before JVM lowering")
+            }
             IrExprKind::BoolLiteral(value) => self.emit_bool_literal(code, *value),
             IrExprKind::StringLiteral(value) => self.emit_string_literal(code, value),
             IrExprKind::IntLiteral(value) => self.emit_int_literal(code, value),

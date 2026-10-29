@@ -30,6 +30,7 @@ fn blocked_readiness_returns_first_blocker_before_lowering_body() {
             ..function_shell(surface)
         }],
         effects: Vec::new(),
+        module_values: Vec::new(),
         readiness: CoreReadiness::Blocked(vec![first.clone(), second]),
     };
 

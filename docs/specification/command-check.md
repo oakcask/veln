@@ -47,7 +47,7 @@ boundary.
 
 A parse-clean module immutable value declaration produces
 `module.value_not_executable`, so `check` does not report success for a source
-that contains one. Before applying this checked-core gate, analysis validates
+that contains one. Before applying this command execution gate, analysis validates
 every initializer against its written annotation, resolves acyclic same-module
 references including forward references, resolves eligible imported references
 with package-aware identity and visibility, and reports unsupported initializer
@@ -71,8 +71,9 @@ analysis.
 This propagation is an availability/recheck relation. It does not add an
 initializer dependency-graph edge.
 Selected cross-module references create dependency-graph edges and can produce
-cross-module cycle diagnostics. This gate still prevents lowering or
-publication. The
+cross-module cycle diagnostics. This gate still prevents backend
+materialization, command success, and publication, while retaining accepted
+declarations and references in checked core and typed IR. The
 [source-surface specification](source-surface.md#module-immutable-value-declarations)
 defines the declaration boundary, and the
 [diagnostic specification](diagnostics-json.md#diagnostic-families) defines

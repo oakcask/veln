@@ -7,7 +7,26 @@ use crate::{CoreReadiness, CoreType};
 pub struct CheckedProgram {
     pub functions: Vec<CoreFunction>,
     pub effects: Vec<CoreEffectDecl>,
+    pub module_values: Vec<CoreModuleValueDecl>,
     pub readiness: CoreReadiness,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct CoreModuleValueIdentity {
+    pub package: Option<String>,
+    pub module: Option<String>,
+    pub name: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CoreModuleValueDecl {
+    pub node_id: NodeId,
+    pub identity: CoreModuleValueIdentity,
+    pub annotation: String,
+    pub ty: CoreType,
+    pub visibility: Visibility,
+    pub initializer: CoreExpr,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -154,6 +173,7 @@ pub enum CoreExprKind {
         label: Option<String>,
     },
     Local(String),
+    ModuleValue(CoreModuleValueIdentity),
     BoolLiteral(bool),
     StringLiteral(String),
     IntLiteral(String),

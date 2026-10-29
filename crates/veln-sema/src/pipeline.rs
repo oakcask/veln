@@ -481,7 +481,7 @@ fn module_value_not_executable_diagnostic(value: &veln_ast::ModuleValueDecl) -> 
     diagnostic.related.push(JsonValue::object([(
         "message",
         JsonValue::string(
-            "The declaration is semantically checked, but checked-core lowering and code generation do not support module values yet.",
+            "The declaration is semantically checked, but runtime materialization and code generation do not support module values yet.",
         ),
     )]));
     diagnostic
@@ -789,10 +789,7 @@ fn lower_analyzed_surface_module_with_environment(
     let mut diagnostics = enforce_module_value_lowering_gate(module, diagnostics);
     let unpublished_declarations =
         unpublished_public_declarations(module, environment, &diagnostics);
-    if diagnostics
-        .iter()
-        .any(|diagnostic| diagnostic.severity == Severity::Error)
-    {
+    if diagnostics.iter().any(blocks_core_lowering) {
         return LoweredSurfaceModule {
             diagnostics,
             core: None,
@@ -811,10 +808,7 @@ fn lower_analyzed_surface_module_with_environment(
         }
     };
     diagnostics.extend(lowered_core.diagnostics);
-    let ir = if diagnostics
-        .iter()
-        .any(|diagnostic| diagnostic.severity == Severity::Error)
-    {
+    let ir = if diagnostics.iter().any(blocks_core_lowering) {
         None
     } else {
         lower_checked_core(&lowered_core.program)
@@ -831,4 +825,8 @@ fn lower_analyzed_surface_module_with_environment(
         ir,
         unpublished_declarations,
     }
+}
+
+fn blocks_core_lowering(diagnostic: &Diagnostic) -> bool {
+    diagnostic.severity == Severity::Error && diagnostic.id != "module.value_not_executable"
 }

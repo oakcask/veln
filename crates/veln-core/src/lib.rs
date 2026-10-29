@@ -8,8 +8,8 @@ pub use model::{
     CheckedProgram, ContractObligationStatus, CoreCallTarget, CoreCallbackTarget,
     CoreCleanupRegion, CoreContract, CoreContractCall, CoreDeferredBlock, CoreDeferredCapture,
     CoreDictEntry, CoreEffectDecl, CoreEffectOperationDecl, CoreExpr, CoreExprKind, CoreFunction,
-    CoreHandlerProvider, CoreMatchArm, CoreParam, CorePattern, CorePatternField, CorePatternKind,
-    CoreRecordField, CoreStmt, CoreStmtKind,
+    CoreHandlerProvider, CoreMatchArm, CoreModuleValueDecl, CoreModuleValueIdentity, CoreParam,
+    CorePattern, CorePatternField, CorePatternKind, CoreRecordField, CoreStmt, CoreStmtKind,
 };
 pub use readiness::{CoreBlocker, CoreReadiness};
 pub use types::CoreType;

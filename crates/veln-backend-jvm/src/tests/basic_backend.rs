@@ -1,6 +1,37 @@
 use super::*;
 
 #[test]
+#[should_panic(expected = "module values must be rejected before JVM backend lowering")]
+fn backend_rejects_module_values_before_classfile_generation() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "let answer: Int = 42\n",
+            "pub fn main() -> Int\n",
+            "  answer\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast_with_module_identity(
+        &parsed.tree,
+        "main".to_string(),
+        source.span(TextRange::at(0)),
+    );
+    let lowered = lower_checked_surface_module(&module);
+    assert!(
+        lowered
+            .diagnostics
+            .iter()
+            .any(|diagnostic| { diagnostic.id == "module.value_not_executable" })
+    );
+    let ir = lowered.ir.expect("execution gate should retain typed IR");
+
+    generate_classfiles_with_entry(&ir, "main");
+}
+
+#[test]
 fn explicit_aliases_execute_only_the_selected_package_function_and_handler() {
     // Exercise package selection and JVM linkage for same-spelled declarations.
     let root = temp_dir("explicit-alias-package-identity");

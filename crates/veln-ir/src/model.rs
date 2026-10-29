@@ -1,11 +1,23 @@
 use veln_ast::{BinaryOp, ContractKind, NodeId, PredicateRemainder, PrefixOp, Visibility};
-use veln_core::{ContractObligationStatus, CoreContractCall, CoreType};
+use veln_core::{ContractObligationStatus, CoreContractCall, CoreModuleValueIdentity, CoreType};
 use veln_source::SourceSpan;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TypedProgram {
     pub functions: Vec<IrFunction>,
     pub schema_decoders: Vec<IrSchemaDecodeSpec>,
+    pub module_values: Vec<IrModuleValueDecl>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct IrModuleValueDecl {
+    pub node_id: NodeId,
+    pub identity: CoreModuleValueIdentity,
+    pub annotation: String,
+    pub ty: CoreType,
+    pub visibility: Visibility,
+    pub initializer: IrExpr,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -203,6 +215,7 @@ pub struct IrExpr {
 #[derive(Clone, Debug, PartialEq)]
 pub enum IrExprKind {
     Local(String),
+    ModuleValue(CoreModuleValueIdentity),
     BoolLiteral(bool),
     StringLiteral(String),
     IntLiteral(String),

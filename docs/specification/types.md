@@ -737,8 +737,8 @@ cases cover the same invariant diagnostic contract when ordinary import
 exposure selects the dependency without a qualifier, including in the presence
 of an aliased namesake from another package. The checked
 [`admitted initializer JSON`](../../examples/specification/check/module-value-admitted-json/)
-case verifies that representative finite-data declarations reach only the
-checked-core execution gate. The checked
+case verifies that representative finite-data declarations receive only the
+non-executable diagnostic after initializer checking. The checked
 [`invalid imported exposure human`](../../examples/specification/check/module-value-invalid-import-exposure-human/)
 and
 [`invalid imported exposure JSON`](../../examples/specification/check/module-value-invalid-import-exposure-json/)

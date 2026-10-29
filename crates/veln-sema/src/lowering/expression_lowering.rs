@@ -1,4 +1,6 @@
+use super::module_value_lowering::module_value_identity;
 use super::*;
+use crate::types::ModuleValueLookup;
 
 impl<'a> CoreLowerer<'a> {
     pub(super) fn lower_expr(&mut self, expr: &Expr, expected: Option<&CoreType>) -> CoreExpr {
@@ -406,6 +408,18 @@ impl<'a> CoreLowerer<'a> {
             return local;
         }
 
+        if let ModuleValueLookup::Available(value) = self.environment.module_value_path_in_owner(
+            &[name.to_string()],
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
+            return self.core_expr(
+                expr,
+                core_type(&value.ty),
+                CoreExprKind::ModuleValue(module_value_identity(&value.declaration)),
+            );
+        }
+
         match self.environment.unqualified_function_in_owner(
             name,
             self.function.module_name.as_deref(),
@@ -448,7 +462,17 @@ impl<'a> CoreLowerer<'a> {
     }
 
     pub(super) fn lower_qualified_name(&mut self, expr: &Expr, segments: &[String]) -> CoreExpr {
-        if let Some(function) = self.environment.function_path_for_value_in_owner(
+        if let ModuleValueLookup::Available(value) = self.environment.module_value_path_in_owner(
+            segments,
+            self.function.module_name.as_deref(),
+            self.function.package_name.as_deref(),
+        ) {
+            self.core_expr(
+                expr,
+                core_type(&value.ty),
+                CoreExprKind::ModuleValue(module_value_identity(&value.declaration)),
+            )
+        } else if let Some(function) = self.environment.function_path_for_value_in_owner(
             segments,
             self.function.module_name.as_deref(),
             self.function.package_name.as_deref(),

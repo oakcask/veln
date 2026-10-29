@@ -4,6 +4,6 @@ main.veln:2:17: error[value.module_initializer_cycle]: module value reference `a
   note: main.veln:1:18: Module value `alpha` depends on `beta` here.
   note: main.veln:2:17: Module value `beta` depends on `alpha` here.
 main.veln:1:1: error[module.value_not_executable]: module value declaration `alpha` is not executable
-  note: The declaration is semantically checked, but checked-core lowering and code generation do not support module values yet.
+  note: The declaration is semantically checked, but runtime materialization and code generation do not support module values yet.
 main.veln:2:1: error[module.value_not_executable]: module value declaration `beta` is not executable
-  note: The declaration is semantically checked, but checked-core lowering and code generation do not support module values yet.
+  note: The declaration is semantically checked, but runtime materialization and code generation do not support module values yet.

@@ -1,6 +1,48 @@
 use super::*;
 
 #[test]
+fn lower_module_value_preserves_declaration_and_reference_identity() {
+    let module = lower_source(concat!("fn main() -> ()\n", "  ()\n", "end\n",));
+    let surface = main_function(&module);
+    let expr = expr_line(&surface.body[0]);
+    let identity = CoreModuleValueIdentity {
+        package: Some("example/pkg".to_string()),
+        module: Some("config".to_string()),
+        name: "answer".to_string(),
+    };
+    let mut program = complete_program(Vec::new());
+    program.module_values.push(CoreModuleValueDecl {
+        node_id: surface.node_id,
+        identity: identity.clone(),
+        annotation: "Int".to_string(),
+        ty: CoreType::int(),
+        visibility: Visibility::Public,
+        initializer: core_expr(
+            expr,
+            CoreType::int(),
+            CoreExprKind::ModuleValue(identity.clone()),
+        ),
+        span: surface.span.clone(),
+    });
+
+    let ir = lower_checked_core(&program).expect("module value should lower");
+    let declaration = &ir.module_values[0];
+    assert_eq!(declaration.node_id, surface.node_id);
+    assert_eq!(declaration.identity, identity);
+    assert_eq!(declaration.annotation, "Int");
+    assert_eq!(declaration.ty, CoreType::int());
+    assert_eq!(declaration.visibility, Visibility::Public);
+    assert_eq!(declaration.span, surface.span);
+    assert_eq!(declaration.initializer.node_id, expr.node_id);
+    assert_eq!(declaration.initializer.ty, CoreType::int());
+    assert_eq!(declaration.initializer.span, expr.span);
+    assert!(matches!(
+        &declaration.initializer.kind,
+        IrExprKind::ModuleValue(reference) if reference == &identity
+    ));
+}
+
+#[test]
 fn lower_callback_boundary_preserves_runtime_target_and_callsite() {
     let module = lower_source(concat!("fn main() -> ()\n", "  ()\n", "end\n",));
     let callsite = expr_line(&main_function(&module).body[0]);

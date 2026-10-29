@@ -7,8 +7,8 @@ use veln_core::{
 use crate::{
     IrCallTarget, IrCallbackTarget, IrCleanupRegion, IrContract, IrDeferredBlock,
     IrDeferredCapture, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm,
-    IrParam, IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrStmt, IrStmtKind,
-    TypedProgram,
+    IrModuleValueDecl, IrParam, IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrStmt,
+    IrStmtKind, TypedProgram,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -35,6 +35,21 @@ pub fn lower_checked_core(program: &CheckedProgram) -> Result<TypedProgram, IrLo
     Ok(TypedProgram {
         functions,
         schema_decoders: Vec::new(),
+        module_values: program
+            .module_values
+            .iter()
+            .map(|declaration| {
+                Ok(IrModuleValueDecl {
+                    node_id: declaration.node_id,
+                    identity: declaration.identity.clone(),
+                    annotation: declaration.annotation.clone(),
+                    ty: declaration.ty.clone(),
+                    visibility: declaration.visibility,
+                    initializer: lower_expr(&declaration.initializer)?,
+                    span: declaration.span.clone(),
+                })
+            })
+            .collect::<Result<Vec<_>, IrLowerError>>()?,
     })
 }
 
@@ -165,6 +180,7 @@ fn lower_blocked_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerErro
 fn lower_scalar_expr(expr: &CoreExpr) -> Option<IrExprKind> {
     match &expr.kind {
         CoreExprKind::Local(name) => Some(IrExprKind::Local(name.clone())),
+        CoreExprKind::ModuleValue(identity) => Some(IrExprKind::ModuleValue(identity.clone())),
         CoreExprKind::BoolLiteral(value) => Some(IrExprKind::BoolLiteral(*value)),
         CoreExprKind::StringLiteral(value) => Some(IrExprKind::StringLiteral(value.clone())),
         CoreExprKind::IntLiteral(value) => Some(IrExprKind::IntLiteral(value.clone())),

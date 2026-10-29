@@ -511,8 +511,8 @@ fn module_value_gate_reports_adjacent_size_timings() {
         let lowered = lower_analyzed_surface_module(&module, diagnostics);
         let elapsed = started.elapsed();
 
-        assert!(lowered.core.is_none());
-        assert!(lowered.ir.is_none());
+        assert_eq!(lowered.core.as_ref().unwrap().module_values.len(), count);
+        assert_eq!(lowered.ir.as_ref().unwrap().module_values.len(), count);
         eprintln!("module value gate: {count} declarations in {elapsed:?}");
     }
 }
@@ -758,8 +758,8 @@ fn module_value_gate_work_grows_linearly_with_declarations() {
         let lowered = lower_analyzed_surface_module(&module, diagnostics);
         let work = take_module_value_gate_work();
 
-        assert!(lowered.core.is_none());
-        assert!(lowered.ir.is_none());
+        assert_eq!(lowered.core.as_ref().unwrap().module_values.len(), count);
+        assert_eq!(lowered.ir.as_ref().unwrap().module_values.len(), count);
         assert_eq!(work.indexed_values, count, "{work:#?}");
         assert_eq!(work.scanned_diagnostics, count, "{work:#?}");
         assert_eq!(work.span_index_lookups, count, "{work:#?}");
@@ -802,7 +802,7 @@ fn module_value_annotation_dedup_work_grows_linearly_with_failures() {
 }
 
 #[test]
-fn module_values_block_checked_core_and_typed_ir_at_the_shared_boundary() {
+fn module_values_retain_checked_core_and_typed_ir_behind_the_execution_gate() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -875,15 +875,22 @@ fn assert_module_value_gate_diagnostics(lowered: &LoweredSurfaceModule) {
         vec![veln_diagnostics::JsonValue::object([(
             "message",
             veln_diagnostics::JsonValue::string(
-                "The declaration is semantically checked, but checked-core lowering and code generation do not support module values yet.",
+                "The declaration is semantically checked, but runtime materialization and code generation do not support module values yet.",
             ),
         )])]
     );
     assert_diagnostic_span(diagnostic, 1, 1, 2, 1);
     assert_diagnostic_span(diagnostics[1], 2, 1, 3, 1);
     assert_diagnostic_span(diagnostics[2], 3, 1, 4, 1);
-    assert!(lowered.core.is_none());
-    assert!(lowered.ir.is_none());
+    let core = lowered
+        .core
+        .as_ref()
+        .expect("gate should retain checked core");
+    let ir = lowered.ir.as_ref().expect("gate should retain typed IR");
+    assert_eq!(core.module_values.len(), 3);
+    assert_eq!(ir.module_values.len(), 3);
+    assert_eq!(core.module_values[0].identity.name, "answer");
+    assert_eq!(ir.module_values[0].identity, core.module_values[0].identity);
 }
 
 fn assert_incomplete_diagnostics_are_completed(lowered: &LoweredSurfaceModule) {
@@ -896,8 +903,8 @@ fn assert_incomplete_diagnostics_are_completed(lowered: &LoweredSurfaceModule) {
         3
     );
     assert_eq!(lowered.diagnostics[0].id, "caller.unrelated");
-    assert!(lowered.core.is_none());
-    assert!(lowered.ir.is_none());
+    assert_eq!(lowered.core.as_ref().unwrap().module_values.len(), 3);
+    assert_eq!(lowered.ir.as_ref().unwrap().module_values.len(), 3);
 }
 
 fn assert_colliding_gate_diagnostics_are_replaced(module: &SurfaceModule, unrelated: Diagnostic) {
@@ -955,8 +962,24 @@ fn assert_colliding_gate_diagnostics_are_replaced(module: &SurfaceModule, unrela
             .count(),
         1
     );
-    assert!(lowered_with_colliding_warning.core.is_none());
-    assert!(lowered_with_colliding_warning.ir.is_none());
+    assert_eq!(
+        lowered_with_colliding_warning
+            .core
+            .as_ref()
+            .unwrap()
+            .module_values
+            .len(),
+        3
+    );
+    assert_eq!(
+        lowered_with_colliding_warning
+            .ir
+            .as_ref()
+            .unwrap()
+            .module_values
+            .len(),
+        3
+    );
 }
 
 #[test]
@@ -996,6 +1019,75 @@ fn module_value_initializers_accept_finite_data_and_forward_references() {
         }),
         "{diagnostics:#?}"
     );
+
+    let lowered = lower_checked_surface_module(&module);
+    let core = lowered
+        .core
+        .expect("accepted values should retain checked core");
+    let ir = lowered.ir.expect("accepted values should retain typed IR");
+    assert_eq!(core.module_values.len(), 2);
+    assert_eq!(ir.module_values.len(), 2);
+    assert_eq!(
+        core.module_values[0].annotation,
+        "{ state : State, attempts : Int }"
+    );
+    assert_eq!(
+        ir.module_values[0].annotation,
+        core.module_values[0].annotation
+    );
+    let veln_core::CoreExprKind::Record(fields) = &core.module_values[0].initializer.kind else {
+        panic!("expected record initializer");
+    };
+    assert!(matches!(
+        &fields[0].expr.kind,
+        veln_core::CoreExprKind::ModuleValue(identity)
+            if identity.name == "initial"
+    ));
+    assert!(matches!(
+        &fields[1].expr.kind,
+        veln_core::CoreExprKind::Prefix {
+            op: veln_ast::PrefixOp::Negate,
+            ..
+        }
+    ));
+    assert!(matches!(
+        &core.module_values[1].initializer.kind,
+        veln_core::CoreExprKind::AdtVariant { name, payloads }
+            if name == &["State".to_string(), "Active".to_string()]
+                && matches!(payloads.as_slice(), [veln_core::CoreExpr { kind: veln_core::CoreExprKind::IntLiteral(value), .. }] if value == "3")
+    ));
+    assert_eq!(ir.module_values[0].identity, core.module_values[0].identity);
+    assert_eq!(ir.module_values[0].ty, core.module_values[0].ty);
+    assert_eq!(
+        ir.module_values[0].visibility,
+        core.module_values[0].visibility
+    );
+    assert_eq!(ir.module_values[0].span, core.module_values[0].span);
+    assert!(matches!(
+        &ir.module_values[0].initializer.kind,
+        veln_ir::IrExprKind::Record(fields)
+            if matches!(&fields[0].value.kind, veln_ir::IrExprKind::ModuleValue(identity) if identity.name == "initial")
+    ));
+    assert!(matches!(
+        core.functions[0].body.last().map(|statement| &statement.kind),
+        Some(veln_core::CoreStmtKind::Return {
+            expr: veln_core::CoreExpr {
+                kind: veln_core::CoreExprKind::FieldAccess { base, field },
+                ..
+            }
+        }) if field == "attempts"
+            && matches!(&base.kind, veln_core::CoreExprKind::ModuleValue(identity) if identity.name == "defaults")
+    ));
+    assert!(matches!(
+        ir.functions[0].body.last().map(|statement| &statement.kind),
+        Some(veln_ir::IrStmtKind::Return {
+            value: veln_ir::IrExpr {
+                kind: veln_ir::IrExprKind::FieldAccess { base, field },
+                ..
+            }
+        }) if field == "attempts"
+            && matches!(&base.kind, veln_ir::IrExprKind::ModuleValue(identity) if identity.name == "defaults")
+    ));
 }
 
 #[test]
@@ -1037,6 +1129,69 @@ fn module_value_initializers_accept_the_complete_finite_data_surface() {
             .all(|diagnostic| diagnostic.id == "module.value_not_executable"),
         "{diagnostics:#?}"
     );
+
+    let lowered = lower_checked_surface_module(&module);
+    let core = lowered.core.expect("finite initializers should reach core");
+    let ir = lowered.ir.expect("finite initializers should reach IR");
+    assert_eq!(core.module_values.len(), module.module_values.len());
+    assert_eq!(ir.module_values.len(), module.module_values.len());
+    let core_value = |name: &str| {
+        core.module_values
+            .iter()
+            .find(|declaration| declaration.identity.name == name)
+            .expect("core module value")
+    };
+    let ir_value = |name: &str| {
+        ir.module_values
+            .iter()
+            .find(|declaration| declaration.identity.name == name)
+            .expect("IR module value")
+    };
+    assert!(matches!(
+        core_value("boolean").initializer.kind,
+        veln_core::CoreExprKind::BoolLiteral(true)
+    ));
+    assert!(matches!(
+        core_value("text").initializer.kind,
+        veln_core::CoreExprKind::StringLiteral(_)
+    ));
+    assert!(matches!(
+        core_value("nothing").initializer.kind,
+        veln_core::CoreExprKind::Unit
+    ));
+    assert!(
+        matches!(core_value("grouped").initializer.kind, veln_core::CoreExprKind::ModuleValue(ref identity) if identity.name == "boolean")
+    );
+    assert!(
+        matches!(core_value("idle").initializer.kind, veln_core::CoreExprKind::AdtVariant { ref payloads, .. } if payloads.is_empty())
+    );
+    assert!(
+        matches!(core_value("active").initializer.kind, veln_core::CoreExprKind::AdtVariant { ref payloads, .. } if payloads.len() == 1)
+    );
+    assert!(matches!(
+        core_value("optional").initializer.kind,
+        veln_core::CoreExprKind::OptionSome(_)
+    ));
+    assert!(matches!(
+        core_value("outcome").initializer.kind,
+        veln_core::CoreExprKind::ResultOk(_)
+    ));
+    assert!(matches!(
+        core_value("items").initializer.kind,
+        veln_core::CoreExprKind::ListCons { .. }
+    ));
+    assert!(matches!(
+        core_value("nested").initializer.kind,
+        veln_core::CoreExprKind::Record(_)
+    ));
+    assert!(matches!(
+        ir_value("optional").initializer.kind,
+        veln_ir::IrExprKind::OptionSome(_)
+    ));
+    assert!(matches!(
+        ir_value("items").initializer.kind,
+        veln_ir::IrExprKind::ListCons { .. }
+    ));
 }
 
 #[test]
@@ -1351,6 +1506,74 @@ fn bare_and_qualified_paths_select_the_same_module_value_declaration() {
     };
 
     assert!(std::ptr::eq(bare, qualified));
+}
+
+#[test]
+fn imported_module_value_spellings_retain_the_selected_identity_in_core_and_ir() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "values",
+            SourceFile::new("values.veln", "pub let answer: Int = 42\n"),
+        ),
+        (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use values\n",
+                    "let bare: Int = answer\n",
+                    "let qualified: Int = values::answer\n",
+                ),
+            ),
+        ),
+        (
+            "aliased",
+            SourceFile::new(
+                "aliased.veln",
+                concat!(
+                    "use values as config\n",
+                    "let aliased: Int = config::answer\n",
+                ),
+            ),
+        ),
+    ]);
+
+    let lowered = lower_checked_surface_module(&module);
+    assert!(
+        lowered.diagnostics.iter().all(|diagnostic| {
+            diagnostic.id == "module.value_not_executable"
+                || diagnostic.severity != veln_diagnostics::Severity::Error
+        }),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    let core = lowered.core.expect("imported values should reach core");
+    let ir = lowered.ir.expect("imported values should reach IR");
+    let expected = veln_core::CoreModuleValueIdentity {
+        package: None,
+        module: Some("values".to_string()),
+        name: "answer".to_string(),
+    };
+    for name in ["bare", "qualified", "aliased"] {
+        let declaration = core
+            .module_values
+            .iter()
+            .find(|declaration| declaration.identity.name == name)
+            .expect("consumer declaration");
+        assert!(matches!(
+            &declaration.initializer.kind,
+            veln_core::CoreExprKind::ModuleValue(identity) if identity == &expected
+        ));
+        let declaration = ir
+            .module_values
+            .iter()
+            .find(|declaration| declaration.identity.name == name)
+            .expect("IR consumer declaration");
+        assert!(matches!(
+            &declaration.initializer.kind,
+            veln_ir::IrExprKind::ModuleValue(identity) if identity == &expected
+        ));
+    }
 }
 
 #[test]

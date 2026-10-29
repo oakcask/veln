@@ -240,7 +240,7 @@ Every parse-clean module immutable value declaration also reports
 kind `module` and severity `error`. Its `details` object contains
 `phase: "module"`, `field: "module_value"`, and the declaration's `name`.
 One related note says that the declaration is semantically checked while
-checked-core lowering and code generation remain unavailable. This diagnostic
+runtime materialization and code generation remain unavailable. This diagnostic
 prevents `veln check` success; the
 [source-surface specification](source-surface.md#module-immutable-value-declarations)
 defines the accepted declaration syntax and current implementation boundary.
