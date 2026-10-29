@@ -363,8 +363,13 @@ fn bare_module_value_exposure_construction_is_additive_and_lookup_is_lazy() {
         crate::types::reset_bare_module_value_exposure_work();
         let _environment = crate::types::TypeEnvironment::from_module(&module);
         let work = crate::types::take_bare_module_value_exposure_work();
+        assert!(work.index_entries >= exports, "{work:#?}");
         assert_eq!(work.materialized_exposures, 0, "{work:#?}");
+        assert_eq!(work.candidate_target_checks, 0, "{work:#?}");
+        assert_eq!(work.cache_probes, 0, "{work:#?}");
         assert_eq!(work.cache_entries, 0, "{work:#?}");
+        assert_eq!(work.selections, 0, "{work:#?}");
+        assert_eq!(work.result_selections, 0, "{work:#?}");
         assert!(
             work.reverse_index_entries >= importers * 2
                 && work.reverse_index_entries <= importers * 8,
@@ -381,6 +386,7 @@ fn bare_module_value_exposure_construction_is_additive_and_lookup_is_lazy() {
         more_exports.reverse_index_entries,
         base.reverse_index_entries
     );
+    assert_eq!(more_exports.index_entries, base.index_entries * 2);
     assert_eq!(
         more_importers.reverse_index_entries,
         base.reverse_index_entries * 2
@@ -399,7 +405,11 @@ fn bare_module_value_exposure_construction_is_additive_and_lookup_is_lazy() {
     ));
     let first = crate::types::take_bare_module_value_exposure_work();
     assert_eq!(first.materialized_exposures, 1, "{first:#?}");
+    assert_eq!(first.candidate_target_checks, 1, "{first:#?}");
+    assert_eq!(first.cache_probes, 1, "{first:#?}");
     assert_eq!(first.cache_entries, 1, "{first:#?}");
+    assert_eq!(first.selections, 1, "{first:#?}");
+    assert_eq!(first.result_selections, 1, "{first:#?}");
     assert!(
         first.reverse_index_entries >= 128 && first.reverse_index_entries <= 512,
         "{first:#?}"
@@ -412,7 +422,11 @@ fn bare_module_value_exposure_construction_is_additive_and_lookup_is_lazy() {
     ));
     let cached = crate::types::take_bare_module_value_exposure_work();
     assert_eq!(cached.materialized_exposures, 0, "{cached:#?}");
+    assert_eq!(cached.candidate_target_checks, 0, "{cached:#?}");
+    assert_eq!(cached.cache_probes, 1, "{cached:#?}");
     assert_eq!(cached.cache_entries, 0, "{cached:#?}");
+    assert_eq!(cached.selections, 0, "{cached:#?}");
+    assert_eq!(cached.result_selections, 1, "{cached:#?}");
 
     assert!(matches!(
         environment.module_value_path_in_owner(&["value_1".to_string()], Some("owner_0"), None,),
@@ -420,7 +434,11 @@ fn bare_module_value_exposure_construction_is_additive_and_lookup_is_lazy() {
     ));
     let second = crate::types::take_bare_module_value_exposure_work();
     assert_eq!(second.materialized_exposures, 1, "{second:#?}");
+    assert_eq!(second.candidate_target_checks, 1, "{second:#?}");
+    assert_eq!(second.cache_probes, 1, "{second:#?}");
     assert_eq!(second.cache_entries, 1, "{second:#?}");
+    assert_eq!(second.selections, 1, "{second:#?}");
+    assert_eq!(second.result_selections, 1, "{second:#?}");
 }
 
 #[test]
@@ -1632,10 +1650,10 @@ fn imported_module_value_call_target_does_not_fall_through_to_imported_function(
 
 #[test]
 fn bare_imported_module_value_lookup_work_is_bounded_per_reference() {
-    fn work_for(count: usize) -> usize {
+    fn lookup_work_for(count: usize) -> crate::types::BareModuleValueExposureWork {
         let module = module_with_bare_imported_values(count);
+        crate::types::reset_bare_module_value_exposure_work();
         let environment = crate::types::TypeEnvironment::from_module(&module);
-        crate::types::reset_bare_module_value_lookup_work();
         for index in 0..count {
             assert!(matches!(
                 environment.module_value_path_in_owner(
@@ -1646,11 +1664,129 @@ fn bare_imported_module_value_lookup_work_is_bounded_per_reference() {
                 crate::types::ModuleValueLookup::Available(_)
             ));
         }
-        crate::types::take_bare_module_value_lookup_work()
+        crate::types::take_bare_module_value_exposure_work()
     }
 
-    assert_eq!(work_for(64), 64);
-    assert_eq!(work_for(128), 128);
+    fn dependency_work_for(count: usize) -> crate::types::BareModuleValueExposureWork {
+        let module = module_with_bare_imported_values(count);
+        crate::types::reset_bare_module_value_exposure_work();
+        let environment = crate::types::TypeEnvironment::from_module(&module);
+        for index in 0..count {
+            assert_eq!(
+                environment
+                    .module_value_dependency_candidates_in_owner(
+                        &[format!("value_{index}")],
+                        Some("app"),
+                        None,
+                    )
+                    .len(),
+                1
+            );
+        }
+        crate::types::take_bare_module_value_exposure_work()
+    }
+
+    for measure in [lookup_work_for, dependency_work_for] {
+        let smaller = measure(64);
+        let larger = measure(128);
+        assert!(smaller.index_entries >= 64, "{smaller:#?}");
+        assert!(smaller.reverse_index_entries >= 128, "{smaller:#?}");
+        assert_eq!(smaller.candidate_target_checks, 64, "{smaller:#?}");
+        assert_eq!(smaller.materialized_exposures, 64, "{smaller:#?}");
+        assert_eq!(smaller.selections, 64, "{smaller:#?}");
+        assert_eq!(larger.index_entries, smaller.index_entries * 2);
+        assert_eq!(
+            larger.reverse_index_entries,
+            smaller.reverse_index_entries * 2
+        );
+        assert_eq!(
+            larger.candidate_target_checks,
+            smaller.candidate_target_checks * 2
+        );
+        assert_eq!(
+            larger.materialized_exposures,
+            smaller.materialized_exposures * 2
+        );
+        assert_eq!(larger.selections, smaller.selections * 2);
+        assert_eq!(larger.cache_probes, smaller.cache_probes * 2);
+        assert_eq!(larger.cache_entries, smaller.cache_entries * 2);
+        assert_eq!(larger.result_selections, smaller.result_selections * 2);
+    }
+}
+
+#[test]
+fn bare_module_value_index_counts_misses_and_refreshes_availability() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "alpha",
+            SourceFile::new("alpha.veln", "pub let shared: Int = 1\n"),
+        ),
+        (
+            "beta",
+            SourceFile::new("beta.veln", "pub let shared: Int = 2\n"),
+        ),
+        (
+            "unused",
+            SourceFile::new("unused.veln", "pub let absent: Int = 3\n"),
+        ),
+        (
+            "owner",
+            SourceFile::new("owner.veln", "use alpha\nuse beta\n"),
+        ),
+    ]);
+    let mut environment = crate::types::TypeEnvironment::from_module(&module);
+    crate::types::reset_bare_module_value_exposure_work();
+
+    assert!(matches!(
+        environment.module_value_path_in_owner(&["absent".to_string()], Some("owner"), None),
+        crate::types::ModuleValueLookup::Missing
+    ));
+    let miss = crate::types::take_bare_module_value_exposure_work();
+    assert_eq!(miss.candidate_target_checks, 1, "{miss:#?}");
+    assert_eq!(miss.cache_probes, 1, "{miss:#?}");
+    assert_eq!(miss.selections, 1, "{miss:#?}");
+    assert_eq!(miss.result_selections, 1, "{miss:#?}");
+
+    crate::types::reset_bare_module_value_exposure_work();
+    assert!(matches!(
+        environment.module_value_path_in_owner(&["shared".to_string()], Some("owner"), None),
+        crate::types::ModuleValueLookup::Ambiguous
+    ));
+    let alpha = (None, Some("alpha".to_string()), "shared".to_string());
+    assert!(
+        !environment
+            .set_module_value_availability(&alpha, false)
+            .is_empty()
+    );
+    assert!(matches!(
+        environment.module_value_path_in_owner(&["shared".to_string()], Some("owner"), None),
+        crate::types::ModuleValueLookup::Available(_)
+    ));
+    assert_eq!(
+        environment
+            .module_value_dependency_candidates_in_owner(
+                &["shared".to_string()],
+                Some("owner"),
+                None,
+            )
+            .len(),
+        2
+    );
+    assert!(
+        !environment
+            .set_module_value_availability(&alpha, true)
+            .is_empty()
+    );
+    assert!(matches!(
+        environment.module_value_path_in_owner(&["shared".to_string()], Some("owner"), None),
+        crate::types::ModuleValueLookup::Ambiguous
+    ));
+    let refreshed = crate::types::take_bare_module_value_exposure_work();
+    assert_eq!(refreshed.cache_probes, 3, "{refreshed:#?}");
+    assert_eq!(refreshed.cache_entries, 3, "{refreshed:#?}");
+    assert_eq!(refreshed.selections, 4, "{refreshed:#?}");
+    assert_eq!(refreshed.result_selections, 3, "{refreshed:#?}");
+    assert_eq!(refreshed.candidate_target_checks, 8, "{refreshed:#?}");
 }
 
 #[test]

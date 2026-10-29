@@ -179,7 +179,7 @@ fn initial_environment(
             .map(|base| base.module_values_by_identity.clone())
             .unwrap_or_default(),
         bare_module_value_exports: HashMap::new(),
-        bare_function_exports: HashSet::new(),
+        bare_function_exports: HashMap::new(),
         bare_module_value_import_targets: HashMap::new(),
         module_value_import_owners: HashMap::new(),
         bare_module_value_cache: Arc::new(std::sync::RwLock::new(HashMap::new())),

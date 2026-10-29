@@ -8,6 +8,12 @@ use crate::types::{ModuleValueIdentity, TypeEnvironment};
 
 pub(super) type ReverseDependencies = HashMap<ModuleValueIdentity, Vec<usize>>;
 
+pub(super) struct StabilizedAvailability {
+    pub(super) unavailable: BTreeSet<ModuleValueIdentity>,
+    pub(super) rejected: BTreeSet<ModuleValueIdentity>,
+    pub(super) recurrent_diagnostics: Vec<veln_diagnostics::Diagnostic>,
+}
+
 pub(super) fn stabilize_module_value_availability(
     module: &SurfaceModule,
     environment: &mut TypeEnvironment,
@@ -16,8 +22,11 @@ pub(super) fn stabilize_module_value_availability(
     mut pending_dependencies: BTreeSet<ModuleValueIdentity>,
     reverse_dependencies: &ReverseDependencies,
     intrinsic_invalid: &BTreeSet<ModuleValueIdentity>,
-) -> BTreeSet<ModuleValueIdentity> {
+) -> StabilizedAvailability {
     let mut ever_unavailable = unavailable.clone();
+    let mut recurrently_unavailable = BTreeSet::new();
+    let mut recurrent_diagnostics = Vec::new();
+    let cyclic_components = cyclic_dependency_components(module, reverse_dependencies);
     record_retained_history_insertions(ever_unavailable.len());
     let colliding = colliding_module_value_identities(module);
     let value_indices = module_value_indices(module, &colliding);
@@ -39,7 +48,8 @@ pub(super) fn stabilize_module_value_availability(
             }) else {
                 continue;
             };
-            if intrinsic_invalid.contains(&identity) {
+            if intrinsic_invalid.contains(&identity) || recurrently_unavailable.contains(&identity)
+            {
                 continue;
             }
             let mut dependencies = Vec::new();
@@ -71,6 +81,26 @@ pub(super) fn stabilize_module_value_availability(
                 continue;
             }
             if invalid {
+                // A declaration that fails, recovers, and then fails again can
+                // participate in a lookup graph with no Boolean fixed point.
+                // Quarantine that recurring failure locally. Each declaration
+                // can therefore recover once, while a non-convergent component
+                // has a finite number of state transitions.
+                if ever_unavailable.contains(&identity)
+                    && let Some(component) = cyclic_components.get(&identity)
+                {
+                    recurrent_diagnostics.extend(diagnostics);
+                    for rejected in component {
+                        recurrently_unavailable.insert(rejected.clone());
+                        unavailable.insert(rejected.clone());
+                        if ever_unavailable.insert(rejected.clone()) {
+                            record_retained_history_insertions(1);
+                        }
+                        let _ = environment.set_module_value_availability(rejected, false);
+                        pending_dependencies.insert(rejected.clone());
+                    }
+                    continue;
+                }
                 unavailable.insert(identity.clone());
                 if ever_unavailable.insert(identity.clone()) {
                     record_retained_history_insertions(1);
@@ -84,7 +114,63 @@ pub(super) fn stabilize_module_value_availability(
         record_peak_availability_work(&pending_dependencies, &unavailable, &ever_unavailable);
     }
 
-    unavailable
+    StabilizedAvailability {
+        unavailable,
+        rejected: recurrently_unavailable,
+        recurrent_diagnostics,
+    }
+}
+
+fn cyclic_dependency_components(
+    module: &SurfaceModule,
+    reverse_dependencies: &ReverseDependencies,
+) -> HashMap<ModuleValueIdentity, BTreeSet<ModuleValueIdentity>> {
+    let identities = module
+        .module_values
+        .iter()
+        .map(|value| {
+            value.name.as_ref().map(|name| {
+                (
+                    value.package_name.clone(),
+                    value.module_name.clone(),
+                    name.clone(),
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+    let indices = identities
+        .iter()
+        .enumerate()
+        .filter_map(|(index, identity)| Some((identity.clone()?, index)))
+        .collect::<HashMap<_, _>>();
+    let mut graph = vec![Vec::new(); module.module_values.len()];
+    for (dependency, dependents) in reverse_dependencies {
+        let Some(source) = indices.get(dependency) else {
+            continue;
+        };
+        for index in dependents {
+            graph[*source].push(*index);
+        }
+    }
+
+    let mut result = HashMap::new();
+    for component in super::strongly_connected_index_components(&graph) {
+        let cyclic = component.len() > 1
+            || component
+                .first()
+                .is_some_and(|index| graph[*index].contains(index));
+        if !cyclic {
+            continue;
+        }
+        let identities = component
+            .into_iter()
+            .filter_map(|index| identities[index].clone())
+            .collect::<BTreeSet<_>>();
+        for identity in &identities {
+            result.insert(identity.clone(), identities.clone());
+        }
+    }
+    result
 }
 
 pub(super) fn apply_availability_changes(

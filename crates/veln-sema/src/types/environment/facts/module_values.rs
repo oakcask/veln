@@ -170,8 +170,8 @@ fn index_new_module_value_identities(environment: &mut TypeEnvironment, first_ne
 
 pub(in crate::types::environment) struct BareModuleValueIndexes {
     pub(in crate::types::environment) module_values:
-        HashMap<ModuleValueExportKey, ModuleValueIdentity>,
-    pub(in crate::types::environment) functions: HashSet<ModuleValueExportKey>,
+        HashMap<String, BTreeMap<ModuleValueTarget, ModuleValueIdentity>>,
+    pub(in crate::types::environment) functions: HashMap<String, BTreeSet<ModuleValueTarget>>,
     pub(in crate::types::environment) targets_by_owner:
         HashMap<ModuleValueOwner, BTreeSet<ModuleValueTarget>>,
     pub(in crate::types::environment) owners_by_target:
@@ -208,38 +208,44 @@ pub(in crate::types::environment) fn bare_module_value_indexes(
         }
     }
 
-    let module_values = module_values
+    let mut module_values_by_name =
+        HashMap::<String, BTreeMap<ModuleValueTarget, ModuleValueIdentity>>::new();
+    for value in module_values
         .iter()
         .filter(|value| value.declaration.visibility == Visibility::Public)
-        .filter_map(|value| {
-            let module = value.declaration.module_name.clone()?;
-            let name = value.declaration.name.clone()?;
-            let identity = (
-                value.declaration.package_name.clone(),
-                Some(module.clone()),
-                name.clone(),
-            );
-            Some((
-                (value.declaration.package_name.clone(), Some(module), name),
-                identity,
-            ))
-        })
-        .collect();
-    let functions = functions
+    {
+        let Some(module) = value.declaration.module_name.clone() else {
+            continue;
+        };
+        let Some(name) = value.declaration.name.clone() else {
+            continue;
+        };
+        let target = (value.declaration.package_name.clone(), Some(module));
+        let identity = (target.0.clone(), target.1.clone(), name.clone());
+        record_bare_module_value_index_entry();
+        module_values_by_name
+            .entry(name)
+            .or_default()
+            .insert(target, identity);
+    }
+    let mut function_targets_by_name = HashMap::<String, BTreeSet<ModuleValueTarget>>::new();
+    for function in functions
         .iter()
         .filter(|function| function.visibility == Visibility::Public)
         .filter(|function| !unpublished_functions.contains(&function_publication_key(function)))
-        .filter_map(|function| {
-            Some((
-                function.package_name.clone(),
-                Some(function.module_name.clone()?),
-                function.name.clone(),
-            ))
-        })
-        .collect();
+    {
+        let Some(module) = function.module_name.clone() else {
+            continue;
+        };
+        record_bare_module_value_index_entry();
+        function_targets_by_name
+            .entry(function.name.clone())
+            .or_default()
+            .insert((function.package_name.clone(), Some(module)));
+    }
     BareModuleValueIndexes {
-        module_values,
-        functions,
+        module_values: module_values_by_name,
+        functions: function_targets_by_name,
         targets_by_owner,
         owners_by_target,
     }

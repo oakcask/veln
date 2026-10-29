@@ -751,7 +751,12 @@ The construction workload varies 32 and 64 exported names independently from
 grow when only the number of exports doubles. Construction materializes no
 per-name exposure. The first lookup of one imported name materializes and
 caches one exposure; repeating that lookup performs neither operation, and a
-different name materializes and caches one more exposure.
+different name materializes and caches one more exposure. Distinct-name
+workloads compare 64 and 128 imports for both ordinary lookup and initializer
+dependency discovery. They count index construction, candidate-target checks,
+materialization, cache work, and selection; each applicable count doubles when
+the workload doubles. Misses and availability-driven cache replacement are
+counted separately.
 
 Availability stabilization has deterministic scaling checks over imported
 module-value invalidation chains and fan-out. They count semantic visits,
@@ -772,6 +777,12 @@ available to its importers. Duplicate declarations, invalid-cased declarations,
 and same-module initializer cycles do not recover through this process. The
 checked invalid-import exposure cases cover recovery and retained package
 identity in both source and import orders.
+If recovery inside a cyclic candidate-dependency component causes a previously
+failed declaration to fail again, analysis rejects that complete component as
+non-convergent. Its declarations remain unavailable and cannot republish their
+dependents. Declarations outside the component retain their independently
+valid facts. The stabilization workload bounds every declaration recheck and
+availability update without a retry limit or retained global-state history.
 
 A public module value annotation is a public type boundary. Every recursively
 named type in generic arguments, function positions, records, and unions must

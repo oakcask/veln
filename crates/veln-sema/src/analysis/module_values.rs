@@ -153,7 +153,8 @@ pub(crate) fn check_module_values(
     unavailable.extend(invalid_cased_module_value_identities(module));
     environment.quarantine_module_values(&unavailable);
 
-    let initial = check_module_values_once(module, environment, variant_diagnostics);
+    let initial =
+        check_module_values_once(module, environment, variant_diagnostics, &BTreeSet::new());
     let reverse_dependencies = availability::reverse_dependencies(module, environment);
     let mut pending_owners = BTreeSet::new();
     availability::apply_availability_changes(
@@ -162,7 +163,7 @@ pub(crate) fn check_module_values(
         environment,
         &mut pending_owners,
     );
-    let unavailable = availability::stabilize_module_value_availability(
+    let stabilized = availability::stabilize_module_value_availability(
         module,
         environment,
         variant_diagnostics,
@@ -172,8 +173,23 @@ pub(crate) fn check_module_values(
         &initial.intrinsic_invalid,
     );
 
-    let final_analysis = check_module_values_once(module, environment, variant_diagnostics);
-    debug_assert_eq!(unavailable, final_analysis.invalid);
+    let mut final_analysis = check_module_values_once(
+        module,
+        environment,
+        variant_diagnostics,
+        &stabilized.rejected,
+    );
+    for diagnostic in stabilized.recurrent_diagnostics {
+        let duplicate = final_analysis.diagnostics.iter().any(|existing| {
+            existing.id == diagnostic.id
+                && existing.span == diagnostic.span
+                && existing.message.as_str() == diagnostic.message.as_str()
+        });
+        if !duplicate {
+            final_analysis.diagnostics.push(diagnostic);
+        }
+    }
+    debug_assert_eq!(stabilized.unavailable, final_analysis.invalid);
     final_analysis
 }
 
@@ -181,12 +197,14 @@ fn check_module_values_once(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
+    forced_invalid: &BTreeSet<ModuleValueIdentity>,
 ) -> ModuleValueAnalysis {
     let mut diagnostics = Vec::new();
     let mut dependencies = vec![Vec::new(); module.module_values.len()];
     let colliding_identities = colliding_module_value_identities(module);
     let mut intrinsic_invalid = colliding_identities.clone();
     intrinsic_invalid.extend(invalid_cased_module_value_identities(module));
+    intrinsic_invalid.extend(forced_invalid.iter().cloned());
     let mut invalid = initially_invalid_values(module, &intrinsic_invalid);
     let value_indices = module_value_indices(module, &colliding_identities);
 
@@ -663,6 +681,14 @@ fn value_key(module: &SurfaceModule, index: usize) -> (String, String, String, S
 }
 
 fn strongly_connected_components(dependencies: &[Vec<Dependency>]) -> Vec<Vec<usize>> {
+    let targets = dependencies
+        .iter()
+        .map(|edges| edges.iter().map(|edge| edge.target).collect::<Vec<_>>())
+        .collect::<Vec<_>>();
+    strongly_connected_index_components(&targets)
+}
+
+pub(super) fn strongly_connected_index_components(dependencies: &[Vec<usize>]) -> Vec<Vec<usize>> {
     let count = dependencies.len();
     let mut visited = vec![false; count];
     let mut finished = Vec::with_capacity(count);
@@ -673,11 +699,11 @@ fn strongly_connected_components(dependencies: &[Vec<Dependency>]) -> Vec<Vec<us
         visited[root] = true;
         let mut stack = vec![(root, 0)];
         while let Some((node, edge_index)) = stack.last_mut() {
-            if let Some(edge) = dependencies[*node].get(*edge_index) {
+            if let Some(target) = dependencies[*node].get(*edge_index) {
                 *edge_index += 1;
-                if !visited[edge.target] {
-                    visited[edge.target] = true;
-                    stack.push((edge.target, 0));
+                if !visited[*target] {
+                    visited[*target] = true;
+                    stack.push((*target, 0));
                 }
             } else {
                 finished.push(*node);
@@ -688,8 +714,8 @@ fn strongly_connected_components(dependencies: &[Vec<Dependency>]) -> Vec<Vec<us
 
     let mut reverse = vec![Vec::new(); count];
     for (source, edges) in dependencies.iter().enumerate() {
-        for edge in edges {
-            reverse[edge.target].push(source);
+        for target in edges {
+            reverse[*target].push(source);
         }
     }
     visited.fill(false);

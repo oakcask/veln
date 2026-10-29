@@ -15,7 +15,6 @@ type FunctionPublicationKey = (
 type BareModuleValueKey = (Option<String>, Option<String>, String);
 type ModuleValueOwner = (Option<String>, Option<String>);
 type ModuleValueTarget = (Option<String>, Option<String>);
-type ModuleValueExportKey = (Option<String>, Option<String>, String);
 type QualifiedModuleValueKey = (veln_ast::ResolvedImportOwner, String);
 
 #[derive(Clone, Debug)]
@@ -40,17 +39,27 @@ thread_local! {
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct BareModuleValueExposureWork {
+    pub(crate) index_entries: usize,
     pub(crate) materialized_exposures: usize,
     pub(crate) reverse_index_entries: usize,
+    pub(crate) candidate_target_checks: usize,
+    pub(crate) cache_probes: usize,
     pub(crate) cache_entries: usize,
+    pub(crate) selections: usize,
+    pub(crate) result_selections: usize,
 }
 
 #[cfg(test)]
 impl BareModuleValueExposureWork {
     const ZERO: Self = Self {
+        index_entries: 0,
         materialized_exposures: 0,
         reverse_index_entries: 0,
+        candidate_target_checks: 0,
+        cache_probes: 0,
         cache_entries: 0,
+        selections: 0,
+        result_selections: 0,
     };
 }
 
@@ -69,6 +78,51 @@ fn record_bare_module_value_materialized_exposure() {
     BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
         let mut value = work.get();
         value.materialized_exposures += 1;
+        work.set(value);
+    });
+}
+
+fn record_bare_module_value_index_entry() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.index_entries += 1;
+        work.set(value);
+    });
+}
+
+fn record_bare_module_value_candidate_target_check() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.candidate_target_checks += 1;
+        work.set(value);
+    });
+}
+
+fn record_bare_module_value_selection() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.selections += 1;
+        work.set(value);
+    });
+}
+
+fn record_bare_module_value_cache_probe() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.cache_probes += 1;
+        work.set(value);
+    });
+}
+
+fn record_bare_module_value_result_selection() {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.result_selections += 1;
         work.set(value);
     });
 }
@@ -93,7 +147,6 @@ fn record_bare_module_value_cache_entry() {
 
 #[cfg(test)]
 thread_local! {
-    static BARE_MODULE_VALUE_LOOKUP_WORK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     static QUALIFIED_MODULE_VALUE_IMPORT_WORK: std::cell::Cell<QualifiedModuleValueImportWork> = const { std::cell::Cell::new(QualifiedModuleValueImportWork::ZERO) };
 }
 
@@ -118,16 +171,6 @@ impl QualifiedModuleValueImportWork {
         selection: 0,
         visibility: 0,
     };
-}
-
-#[cfg(test)]
-pub(crate) fn reset_bare_module_value_lookup_work() {
-    BARE_MODULE_VALUE_LOOKUP_WORK.with(|work| work.set(0));
-}
-
-#[cfg(test)]
-pub(crate) fn take_bare_module_value_lookup_work() -> usize {
-    BARE_MODULE_VALUE_LOOKUP_WORK.with(|work| work.replace(0))
 }
 
 #[cfg(test)]
@@ -184,11 +227,6 @@ fn record_qualified_module_value_visibility_work() {
         value.visibility += 1;
         work.set(value);
     });
-}
-
-fn record_bare_module_value_lookup_work() {
-    #[cfg(test)]
-    BARE_MODULE_VALUE_LOOKUP_WORK.with(|work| work.set(work.get() + 1));
 }
 
 fn function_publication_key(function: &FunctionSignature) -> FunctionPublicationKey {
@@ -274,8 +312,8 @@ mod standard_subset;
 pub(crate) struct TypeEnvironment {
     module_values: Vec<ModuleValueSignature>,
     module_values_by_identity: HashMap<ModuleValueIdentity, ModuleValueIndex>,
-    bare_module_value_exports: HashMap<ModuleValueExportKey, ModuleValueIdentity>,
-    bare_function_exports: HashSet<ModuleValueExportKey>,
+    bare_module_value_exports: HashMap<String, BTreeMap<ModuleValueTarget, ModuleValueIdentity>>,
+    bare_function_exports: HashMap<String, BTreeSet<ModuleValueTarget>>,
     bare_module_value_import_targets: HashMap<ModuleValueOwner, BTreeSet<ModuleValueTarget>>,
     module_value_import_owners: HashMap<ModuleValueTarget, BTreeSet<ModuleValueOwner>>,
     bare_module_value_cache:
@@ -542,7 +580,6 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         current_package: Option<&str>,
     ) -> ModuleValueLookup<'_> {
-        record_bare_module_value_lookup_work();
         if self.functions_named(name).any(|function| {
             function.module_name.as_deref() == current_module
                 && function.package_name.as_deref() == current_package
@@ -554,6 +591,7 @@ impl TypeEnvironment {
             current_module.map(str::to_owned),
             name.to_owned(),
         );
+        record_bare_module_value_cache_probe();
         let exposure = if let Some(exposure) = self
             .bare_module_value_cache
             .read()
@@ -564,6 +602,7 @@ impl TypeEnvironment {
         } else {
             let exposure = self.materialize_bare_module_value_exposure(&key);
             let Some(exposure) = exposure else {
+                record_bare_module_value_result_selection();
                 return ModuleValueLookup::Missing;
             };
             record_bare_module_value_cache_entry();
@@ -573,6 +612,7 @@ impl TypeEnvironment {
                 .insert(key, exposure.clone());
             exposure
         };
+        record_bare_module_value_result_selection();
         if exposure.active.len() > 1 || (exposure.function_collision && !exposure.active.is_empty())
         {
             return ModuleValueLookup::Ambiguous;
@@ -598,18 +638,50 @@ impl TypeEnvironment {
             active: BTreeSet::new(),
             function_collision: false,
         };
-        for target in targets {
-            let export_key = (target.0.clone(), target.1.clone(), key.2.clone());
-            if let Some(identity) = self.bare_module_value_exports.get(&export_key) {
-                record_bare_module_value_materialized_exposure();
-                exposure.candidates.insert(identity.clone());
-                if self.public_module_value_identities.contains(identity) {
-                    exposure.active.insert(identity.clone());
+        record_bare_module_value_selection();
+        if let Some(exports) = self.bare_module_value_exports.get(&key.2) {
+            if exports.len() <= targets.len() {
+                for (target, identity) in exports {
+                    record_bare_module_value_candidate_target_check();
+                    if targets.contains(target) {
+                        self.add_bare_module_value_candidate(&mut exposure, identity);
+                    }
+                }
+            } else {
+                for target in targets {
+                    record_bare_module_value_candidate_target_check();
+                    if let Some(identity) = exports.get(target) {
+                        self.add_bare_module_value_candidate(&mut exposure, identity);
+                    }
                 }
             }
-            exposure.function_collision |= self.bare_function_exports.contains(&export_key);
+        }
+        if let Some(exports) = self.bare_function_exports.get(&key.2) {
+            if exports.len() <= targets.len() {
+                for target in exports {
+                    record_bare_module_value_candidate_target_check();
+                    exposure.function_collision |= targets.contains(target);
+                }
+            } else {
+                for target in targets {
+                    record_bare_module_value_candidate_target_check();
+                    exposure.function_collision |= exports.contains(target);
+                }
+            }
         }
         (!exposure.candidates.is_empty()).then_some(exposure)
+    }
+
+    fn add_bare_module_value_candidate(
+        &self,
+        exposure: &mut BareModuleValueExposure,
+        identity: &ModuleValueIdentity,
+    ) {
+        record_bare_module_value_materialized_exposure();
+        exposure.candidates.insert(identity.clone());
+        if self.public_module_value_identities.contains(identity) {
+            exposure.active.insert(identity.clone());
+        }
     }
 
     fn qualified_module_value_in_owner(

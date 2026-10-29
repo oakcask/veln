@@ -252,6 +252,12 @@ initializer that was ambiguous between that candidate and a valid namesake is
 checked against the remaining candidate. The dependent module value becomes
 available when that check succeeds, and its importers observe its written
 annotation type. This recovery is independent of source and import order.
+If a cyclic candidate-dependency component has no stable availability result,
+analysis rejects every declaration in that component after a recovered
+declaration fails again. Rejected declarations remain unavailable, their
+dependents are not republished, and independent valid candidates remain
+selectable. Source order and import order do not change the rejected component
+or the remaining selection.
 Duplicate declarations, invalid-cased declarations, and same-module
 initializer cycles remain unavailable when imported availability changes.
 A same-module function or function alias that collides with a module value
@@ -315,6 +321,17 @@ semantic analysis for 64, 128, and 256 imported named annotations. For each
 adjacent pair, import path comparisons may grow by at most twice the smaller
 count plus 16, and qualified-path byte work may grow by at most three times the
 smaller count. These checks count operations and bytes instead of elapsed time.
+
+Bare module-value lookup indexes public exports by name and imported target.
+Deterministic workloads compare 64 and 128 distinct imports with the same
+number of distinct bare names, both for ordinary reads and for initializer
+dependency discovery. The metric counts export-index and reverse-index
+construction, candidate-target checks including misses, exposure
+materialization, cache probes and insertions, index selection, and final result
+selection. Every applicable field for 128 imports is exactly twice its
+64-import value; cache-only fields remain zero for dependency discovery. A
+separate repeated-name workload checks cache reuse, and an availability-change
+workload checks cache invalidation while retaining every dependency candidate.
 
 A public function alias cannot select an available module value. A bare alias
 target selects an available value in the alias's module. A qualified alias

@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use super::*;
 
 fn recovery_module(
@@ -33,6 +35,13 @@ fn recovery_module(
                 format!(
                     "{imports}pub let selected: Int = shared\npub let local: Int = selected\n{unrelated}"
                 ),
+            ),
+        ),
+        (
+            "consumer",
+            SourceFile::new(
+                "consumer.veln",
+                "use owner\npub let observed: Int = selected\npub let independent: Int = 4\n",
             ),
         ),
         (
@@ -164,4 +173,115 @@ fn availability_recovery_rechecks_only_candidate_dependents() {
             .all(|pair| pair[0].declaration_recheck_lookups == pair[1].declaration_recheck_lookups),
         "{measurements:#?}"
     );
+}
+
+fn non_convergent_lookup_module(reverse_sources: bool, reverse_imports: bool) -> SurfaceModule {
+    let owner_imports = if reverse_imports {
+        "use c\nuse b\n"
+    } else {
+        "use b\nuse c\n"
+    };
+    let mut sources = vec![
+        (
+            "b",
+            SourceFile::new(
+                "b.veln",
+                "use owner\npub let shared: Int = owner::selected\n",
+            ),
+        ),
+        ("c", SourceFile::new("c.veln", "pub let shared: Int = 1\n")),
+        (
+            "owner",
+            SourceFile::new(
+                "owner.veln",
+                format!(
+                    "{owner_imports}pub let selected: Int = shared\npub let local: Int = selected\npub let independent: Int = 4\n"
+                ),
+            ),
+        ),
+    ];
+    if reverse_sources {
+        sources.reverse();
+    }
+    merged_modules_with_identities(sources)
+}
+
+#[test]
+fn non_convergent_imported_lookup_is_rejected_in_every_order() {
+    let identity = |module: &str, name: &str| (None, Some(module.to_string()), name.to_string());
+    let expected_invalid = [
+        identity("b", "shared"),
+        identity("owner", "local"),
+        identity("owner", "selected"),
+    ]
+    .into_iter()
+    .collect::<BTreeSet<_>>();
+    let mut baseline_diagnostics = None;
+
+    for reverse_sources in [false, true] {
+        for reverse_imports in [false, true] {
+            let module = non_convergent_lookup_module(reverse_sources, reverse_imports);
+            let mut environment = crate::types::TypeEnvironment::from_module(&module);
+            let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
+            reset_module_value_availability_work();
+            let analysis = crate::analysis::check_module_values(
+                &module,
+                &mut environment,
+                &mut variant_diagnostics,
+            );
+            let work = take_module_value_availability_work();
+
+            assert_eq!(analysis.invalid, expected_invalid);
+            assert!(work.declaration_recheck_lookups <= 12, "{work:#?}");
+            assert!(work.availability_updates <= 10, "{work:#?}");
+            assert!(matches!(
+                environment.module_value_path_in_owner(
+                    &["selected".to_string()],
+                    Some("owner"),
+                    None,
+                ),
+                crate::types::ModuleValueLookup::Unavailable
+            ));
+            let crate::types::ModuleValueLookup::Available(selected) = environment
+                .module_value_path_in_owner(&["shared".to_string()], Some("owner"), None)
+            else {
+                panic!("independent valid candidate must remain selected")
+            };
+            assert_eq!(selected.declaration.module_name.as_deref(), Some("c"));
+            assert!(matches!(
+                environment
+                    .module_value_path_in_owner(&["local".to_string()], Some("owner"), None,),
+                crate::types::ModuleValueLookup::Unavailable
+            ));
+            assert!(matches!(
+                environment.module_value_path_in_owner(
+                    &["independent".to_string()],
+                    Some("owner"),
+                    None,
+                ),
+                crate::types::ModuleValueLookup::Available(_)
+            ));
+
+            let mut diagnostics = analysis
+                .diagnostics
+                .iter()
+                .map(|diagnostic| {
+                    (
+                        diagnostic.id.clone(),
+                        diagnostic.message.as_str().to_string(),
+                        diagnostic
+                            .span
+                            .as_ref()
+                            .map(|span| (span.file.as_str().to_string(), span.start.offset)),
+                    )
+                })
+                .collect::<Vec<_>>();
+            diagnostics.sort();
+            if let Some(baseline) = &baseline_diagnostics {
+                assert_eq!(&diagnostics, baseline);
+            } else {
+                baseline_diagnostics = Some(diagnostics);
+            }
+        }
+    }
 }
