@@ -365,35 +365,54 @@ fn bare_imported_module_value_lookup_reports_adjacent_size_timings() {
     }
 }
 
+fn bare_module_value_exposure_construction_work(
+    exports: usize,
+    importers: usize,
+) -> crate::types::BareModuleValueExposureWork {
+    let module = module_with_public_exports_and_importers(exports, importers);
+    crate::types::reset_bare_module_value_exposure_work();
+    let _environment = crate::types::TypeEnvironment::from_module(&module);
+    let work = crate::types::take_bare_module_value_exposure_work();
+    assert!(work.index_entries >= exports, "{work:#?}");
+    assert_eq!(work.materialized_exposures, 0, "{work:#?}");
+    assert_eq!(work.candidate_target_checks, 0, "{work:#?}");
+    assert_eq!(work.cache_probes, 0, "{work:#?}");
+    assert_eq!(work.cache_entries, 0, "{work:#?}");
+    assert_eq!(work.selections, 0, "{work:#?}");
+    assert_eq!(work.result_selections, 0, "{work:#?}");
+    assert!(
+        work.reverse_index_entries >= importers * 2 && work.reverse_index_entries <= importers * 8,
+        "{work:#?}"
+    );
+    work
+}
+
+fn assert_materialized_bare_module_value_exposure_work(
+    work: &crate::types::BareModuleValueExposureWork,
+) {
+    assert_eq!(work.materialized_exposures, 1, "{work:#?}");
+    assert_eq!(work.candidate_target_checks, 1, "{work:#?}");
+    assert_eq!(work.cache_probes, 1, "{work:#?}");
+    assert_eq!(work.cache_entries, 1, "{work:#?}");
+    assert_eq!(work.selections, 1, "{work:#?}");
+    assert_eq!(work.result_selections, 1, "{work:#?}");
+}
+
+fn assert_cached_bare_module_value_exposure_work(work: &crate::types::BareModuleValueExposureWork) {
+    assert_eq!(work.materialized_exposures, 0, "{work:#?}");
+    assert_eq!(work.candidate_target_checks, 0, "{work:#?}");
+    assert_eq!(work.cache_probes, 1, "{work:#?}");
+    assert_eq!(work.cache_entries, 0, "{work:#?}");
+    assert_eq!(work.selections, 0, "{work:#?}");
+    assert_eq!(work.result_selections, 1, "{work:#?}");
+}
+
 #[test]
 fn bare_module_value_exposure_construction_is_additive_and_lookup_is_lazy() {
-    fn construction_work(
-        exports: usize,
-        importers: usize,
-    ) -> crate::types::BareModuleValueExposureWork {
-        let module = module_with_public_exports_and_importers(exports, importers);
-        crate::types::reset_bare_module_value_exposure_work();
-        let _environment = crate::types::TypeEnvironment::from_module(&module);
-        let work = crate::types::take_bare_module_value_exposure_work();
-        assert!(work.index_entries >= exports, "{work:#?}");
-        assert_eq!(work.materialized_exposures, 0, "{work:#?}");
-        assert_eq!(work.candidate_target_checks, 0, "{work:#?}");
-        assert_eq!(work.cache_probes, 0, "{work:#?}");
-        assert_eq!(work.cache_entries, 0, "{work:#?}");
-        assert_eq!(work.selections, 0, "{work:#?}");
-        assert_eq!(work.result_selections, 0, "{work:#?}");
-        assert!(
-            work.reverse_index_entries >= importers * 2
-                && work.reverse_index_entries <= importers * 8,
-            "{work:#?}"
-        );
-        work
-    }
-
-    let base = construction_work(32, 32);
-    let more_exports = construction_work(64, 32);
-    let more_importers = construction_work(32, 64);
-    let both = construction_work(64, 64);
+    let base = bare_module_value_exposure_construction_work(32, 32);
+    let more_exports = bare_module_value_exposure_construction_work(64, 32);
+    let more_importers = bare_module_value_exposure_construction_work(32, 64);
+    let both = bare_module_value_exposure_construction_work(64, 64);
     assert_eq!(
         more_exports.reverse_index_entries,
         base.reverse_index_entries
@@ -416,12 +435,7 @@ fn bare_module_value_exposure_construction_is_additive_and_lookup_is_lazy() {
         crate::types::ModuleValueLookup::Available(_)
     ));
     let first = crate::types::take_bare_module_value_exposure_work();
-    assert_eq!(first.materialized_exposures, 1, "{first:#?}");
-    assert_eq!(first.candidate_target_checks, 1, "{first:#?}");
-    assert_eq!(first.cache_probes, 1, "{first:#?}");
-    assert_eq!(first.cache_entries, 1, "{first:#?}");
-    assert_eq!(first.selections, 1, "{first:#?}");
-    assert_eq!(first.result_selections, 1, "{first:#?}");
+    assert_materialized_bare_module_value_exposure_work(&first);
     assert!(
         first.reverse_index_entries >= 128 && first.reverse_index_entries <= 512,
         "{first:#?}"
@@ -433,24 +447,14 @@ fn bare_module_value_exposure_construction_is_additive_and_lookup_is_lazy() {
         crate::types::ModuleValueLookup::Available(_)
     ));
     let cached = crate::types::take_bare_module_value_exposure_work();
-    assert_eq!(cached.materialized_exposures, 0, "{cached:#?}");
-    assert_eq!(cached.candidate_target_checks, 0, "{cached:#?}");
-    assert_eq!(cached.cache_probes, 1, "{cached:#?}");
-    assert_eq!(cached.cache_entries, 0, "{cached:#?}");
-    assert_eq!(cached.selections, 0, "{cached:#?}");
-    assert_eq!(cached.result_selections, 1, "{cached:#?}");
+    assert_cached_bare_module_value_exposure_work(&cached);
 
     assert!(matches!(
         environment.module_value_path_in_owner(&["value_1".to_string()], Some("owner_0"), None,),
         crate::types::ModuleValueLookup::Available(_)
     ));
     let second = crate::types::take_bare_module_value_exposure_work();
-    assert_eq!(second.materialized_exposures, 1, "{second:#?}");
-    assert_eq!(second.candidate_target_checks, 1, "{second:#?}");
-    assert_eq!(second.cache_probes, 1, "{second:#?}");
-    assert_eq!(second.cache_entries, 1, "{second:#?}");
-    assert_eq!(second.selections, 1, "{second:#?}");
-    assert_eq!(second.result_selections, 1, "{second:#?}");
+    assert_materialized_bare_module_value_exposure_work(&second);
 }
 
 #[test]
@@ -2694,67 +2698,170 @@ fn delayed_bare_import_invalidation_quarantines_dependents_in_every_order() {
     }
 }
 
+fn cross_module_cycle_sources(
+    reverse_sources: bool,
+    reverse_imports: bool,
+) -> Vec<(&'static str, SourceFile)> {
+    let alpha_imports = if reverse_imports {
+        "use gamma\nuse beta\n"
+    } else {
+        "use beta\nuse gamma\n"
+    };
+    let mut sources = vec![
+        (
+            "alpha",
+            SourceFile::new(
+                "alpha.veln",
+                format!(
+                    "{alpha_imports}pub let left: Int = beta::right\npub let healthy: Bool = gamma::ready\n"
+                ),
+            ),
+        ),
+        (
+            "beta",
+            SourceFile::new("beta.veln", "use alpha\npub let right: Int = alpha::left\n"),
+        ),
+        (
+            "gamma",
+            SourceFile::new("gamma.veln", "pub let ready: Bool = true\n"),
+        ),
+        (
+            "consumer",
+            SourceFile::new(
+                "consumer.veln",
+                concat!(
+                    "use alpha\n",
+                    "pub let blocked: Int = alpha::left\n",
+                    "fn reads_blocked() -> Int\n",
+                    "  blocked\n",
+                    "end\n",
+                    "fn reads_healthy() -> String\n",
+                    "  healthy\n",
+                    "end\n",
+                ),
+            ),
+        ),
+        (
+            "downstream",
+            SourceFile::new(
+                "downstream.veln",
+                concat!(
+                    "use consumer\n",
+                    "pub let twice_blocked: Int = consumer::blocked\n",
+                    "fn reads_twice_blocked() -> Bool\n",
+                    "  twice_blocked\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ];
+    if reverse_sources {
+        sources.reverse();
+    }
+    sources
+}
+
+fn assert_cross_module_cycle_quarantine(
+    invalid: &std::collections::BTreeSet<(Option<String>, Option<String>, String)>,
+    environment: &crate::types::TypeEnvironment,
+    reverse_sources: bool,
+    reverse_imports: bool,
+) {
+    for identity in [
+        (None, Some("alpha".to_string()), "left".to_string()),
+        (None, Some("beta".to_string()), "right".to_string()),
+        (None, Some("consumer".to_string()), "blocked".to_string()),
+        (
+            None,
+            Some("downstream".to_string()),
+            "twice_blocked".to_string(),
+        ),
+    ] {
+        assert!(
+            invalid.contains(&identity),
+            "reverse_sources={reverse_sources}, reverse_imports={reverse_imports}: {invalid:#?}"
+        );
+    }
+    assert!(matches!(
+        environment.module_value_path_in_owner(&["healthy".to_string()], Some("consumer"), None,),
+        crate::types::ModuleValueLookup::Available(_)
+    ));
+    assert!(matches!(
+        environment.module_value_path_in_owner(&["blocked".to_string()], Some("consumer"), None,),
+        crate::types::ModuleValueLookup::Unavailable
+    ));
+    assert!(matches!(
+        environment.module_value_path_in_owner(
+            &["twice_blocked".to_string()],
+            Some("downstream"),
+            None,
+        ),
+        crate::types::ModuleValueLookup::Unavailable
+    ));
+}
+
+fn cross_module_cycle_observation(diagnostics: &[Diagnostic]) -> veln_diagnostics::JsonValue {
+    let cycles = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "value.module_initializer_cycle")
+        .collect::<Vec<_>>();
+
+    assert_eq!(cycles.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        cycles[0].message.as_str(),
+        "module value reference `left` closes an initializer cycle"
+    );
+    assert_eq!(invariants::cycle_detail(cycles[0], "name"), "right");
+    assert_eq!(invariants::cycle_detail(cycles[0], "target"), "left");
+    assert_eq!(
+        invariants::cycle_related_messages(cycles[0]),
+        vec![
+            "Module value `left` participates in this initializer cycle.",
+            "Module value `right` participates in this initializer cycle.",
+            "Module value `left` depends on `right` here.",
+            "Module value `right` depends on `left` here.",
+        ]
+    );
+    veln_diagnostics::JsonValue::object([
+        (
+            "span",
+            cycles[0]
+                .span
+                .as_ref()
+                .map(crate::diagnostics::span_json)
+                .unwrap_or(veln_diagnostics::JsonValue::Null),
+        ),
+        ("details", cycles[0].details.clone()),
+        (
+            "related",
+            veln_diagnostics::JsonValue::array(cycles[0].related.clone()),
+        ),
+    ])
+}
+
+fn assert_cross_module_cycle_semantic_diagnostics(diagnostics: &[Diagnostic]) {
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.mismatch"
+            && diagnostic.message == "expected `String`, but found `Bool`"
+    }));
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id != "name.ambiguous"
+            && !(diagnostic.id == "type.mismatch"
+                && diagnostic.span.as_ref().is_some_and(|span| {
+                    span.file.as_str() == "consumer.veln" && span.start.line == 4
+                }))
+            && !(diagnostic.id == "type.mismatch"
+                && diagnostic.message == "expected `Bool`, but found `Int`")
+            && !(diagnostic.id == "name.unresolved" && diagnostic.message.contains("healthy"))
+    }));
+}
+
 #[test]
 fn cross_module_initializer_cycles_quarantine_dependents_in_every_order() {
     let mut expected_cycle = None;
     for reverse_sources in [false, true] {
         for reverse_imports in [false, true] {
-            let alpha_imports = if reverse_imports {
-                "use gamma\nuse beta\n"
-            } else {
-                "use beta\nuse gamma\n"
-            };
-            let mut sources = vec![
-                (
-                    "alpha",
-                    SourceFile::new(
-                        "alpha.veln",
-                        format!(
-                            "{alpha_imports}pub let left: Int = beta::right\npub let healthy: Bool = gamma::ready\n"
-                        ),
-                    ),
-                ),
-                (
-                    "beta",
-                    SourceFile::new("beta.veln", "use alpha\npub let right: Int = alpha::left\n"),
-                ),
-                (
-                    "gamma",
-                    SourceFile::new("gamma.veln", "pub let ready: Bool = true\n"),
-                ),
-                (
-                    "consumer",
-                    SourceFile::new(
-                        "consumer.veln",
-                        concat!(
-                            "use alpha\n",
-                            "pub let blocked: Int = alpha::left\n",
-                            "fn reads_blocked() -> Int\n",
-                            "  blocked\n",
-                            "end\n",
-                            "fn reads_healthy() -> String\n",
-                            "  healthy\n",
-                            "end\n",
-                        ),
-                    ),
-                ),
-                (
-                    "downstream",
-                    SourceFile::new(
-                        "downstream.veln",
-                        concat!(
-                            "use consumer\n",
-                            "pub let twice_blocked: Int = consumer::blocked\n",
-                            "fn reads_twice_blocked() -> Bool\n",
-                            "  twice_blocked\n",
-                            "end\n",
-                        ),
-                    ),
-                ),
-            ];
-            if reverse_sources {
-                sources.reverse();
-            }
+            let sources = cross_module_cycle_sources(reverse_sources, reverse_imports);
             let module = merged_modules_with_identities(sources);
             let mut environment = crate::types::TypeEnvironment::from_module(&module);
             let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
@@ -2763,83 +2870,14 @@ fn cross_module_initializer_cycles_quarantine_dependents_in_every_order() {
                 &mut environment,
                 &mut variant_diagnostics,
             );
-            for identity in [
-                (None, Some("alpha".to_string()), "left".to_string()),
-                (None, Some("beta".to_string()), "right".to_string()),
-                (None, Some("consumer".to_string()), "blocked".to_string()),
-                (
-                    None,
-                    Some("downstream".to_string()),
-                    "twice_blocked".to_string(),
-                ),
-            ] {
-                assert!(
-                    analysis.invalid.contains(&identity),
-                    "reverse_sources={reverse_sources}, reverse_imports={reverse_imports}: {:#?}",
-                    analysis.invalid
-                );
-            }
-            assert!(matches!(
-                environment.module_value_path_in_owner(
-                    &["healthy".to_string()],
-                    Some("consumer"),
-                    None,
-                ),
-                crate::types::ModuleValueLookup::Available(_)
-            ));
-            assert!(matches!(
-                environment.module_value_path_in_owner(
-                    &["blocked".to_string()],
-                    Some("consumer"),
-                    None,
-                ),
-                crate::types::ModuleValueLookup::Unavailable
-            ));
-            assert!(matches!(
-                environment.module_value_path_in_owner(
-                    &["twice_blocked".to_string()],
-                    Some("downstream"),
-                    None,
-                ),
-                crate::types::ModuleValueLookup::Unavailable
-            ));
+            assert_cross_module_cycle_quarantine(
+                &analysis.invalid,
+                &environment,
+                reverse_sources,
+                reverse_imports,
+            );
             let diagnostics = analyze_surface_module(&module);
-            let cycles = diagnostics
-                .iter()
-                .filter(|diagnostic| diagnostic.id == "value.module_initializer_cycle")
-                .collect::<Vec<_>>();
-
-            assert_eq!(cycles.len(), 1, "{diagnostics:#?}");
-            assert_eq!(
-                cycles[0].message.as_str(),
-                "module value reference `left` closes an initializer cycle"
-            );
-            assert_eq!(invariants::cycle_detail(cycles[0], "name"), "right");
-            assert_eq!(invariants::cycle_detail(cycles[0], "target"), "left");
-            assert_eq!(
-                invariants::cycle_related_messages(cycles[0]),
-                vec![
-                    "Module value `left` participates in this initializer cycle.",
-                    "Module value `right` participates in this initializer cycle.",
-                    "Module value `left` depends on `right` here.",
-                    "Module value `right` depends on `left` here.",
-                ]
-            );
-            let cycle = veln_diagnostics::JsonValue::object([
-                (
-                    "span",
-                    cycles[0]
-                        .span
-                        .as_ref()
-                        .map(crate::diagnostics::span_json)
-                        .unwrap_or(veln_diagnostics::JsonValue::Null),
-                ),
-                ("details", cycles[0].details.clone()),
-                (
-                    "related",
-                    veln_diagnostics::JsonValue::array(cycles[0].related.clone()),
-                ),
-            ]);
+            let cycle = cross_module_cycle_observation(&diagnostics);
             if let Some(expected) = &expected_cycle {
                 assert_eq!(
                     &cycle, expected,
@@ -2848,21 +2886,7 @@ fn cross_module_initializer_cycles_quarantine_dependents_in_every_order() {
             } else {
                 expected_cycle = Some(cycle);
             }
-            assert!(diagnostics.iter().any(|diagnostic| {
-                diagnostic.id == "type.mismatch"
-                    && diagnostic.message == "expected `String`, but found `Bool`"
-            }));
-            assert!(diagnostics.iter().all(|diagnostic| {
-                diagnostic.id != "name.ambiguous"
-                    && !(diagnostic.id == "type.mismatch"
-                        && diagnostic.span.as_ref().is_some_and(|span| {
-                            span.file.as_str() == "consumer.veln" && span.start.line == 4
-                        }))
-                    && !(diagnostic.id == "type.mismatch"
-                        && diagnostic.message == "expected `Bool`, but found `Int`")
-                    && !(diagnostic.id == "name.unresolved"
-                        && diagnostic.message.contains("healthy"))
-            }));
+            assert_cross_module_cycle_semantic_diagnostics(&diagnostics);
         }
     }
 }
