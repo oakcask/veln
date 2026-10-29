@@ -142,6 +142,9 @@ Shared semantic analysis still emits `module.value_not_executable` for every
 declaration. The diagnostic blocks runtime materialization, code generation,
 and command success. Parsing, formatting, semantic checking, and internal
 representation do not create a runtime value or initialization phase.
+The JVM backend requires the typed program's module-value declaration set to
+be empty. It rejects a nonempty set before classfile generation, so retaining a
+declaration in typed IR does not make that declaration executable.
 
 A named-type visibility failure in a public module value annotation is also a
 checked-core and typed-IR blocker. The same applies to a variant-refinement
