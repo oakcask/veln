@@ -24,11 +24,30 @@ enum QualifiedModuleValueImportSelection {
     Ambiguous(Vec<UseDecl>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct BareModuleValueExposure {
     candidates: BTreeSet<ModuleValueIdentity>,
     active: BTreeSet<ModuleValueIdentity>,
     function_candidates: BTreeSet<ModuleValueTarget>,
+}
+
+impl Clone for BareModuleValueExposure {
+    fn clone(&self) -> Self {
+        record_bare_module_value_exposure_identity_copies(
+            self.candidates.len() + self.active.len() + self.function_candidates.len(),
+        );
+        Self {
+            candidates: self.candidates.clone(),
+            active: self.active.clone(),
+            function_candidates: self.function_candidates.clone(),
+        }
+    }
+}
+
+enum BareModuleValueSelection {
+    Missing,
+    Ambiguous,
+    Available(ModuleValueIdentity),
 }
 
 #[cfg(test)]
@@ -48,6 +67,7 @@ pub(crate) struct BareModuleValueExposureWork {
     pub(crate) cache_entries: usize,
     pub(crate) selections: usize,
     pub(crate) result_selections: usize,
+    pub(crate) exposure_identity_copies: usize,
 }
 
 #[cfg(test)]
@@ -61,6 +81,7 @@ impl BareModuleValueExposureWork {
         cache_entries: 0,
         selections: 0,
         result_selections: 0,
+        exposure_identity_copies: 0,
     };
 }
 
@@ -126,6 +147,17 @@ fn record_bare_module_value_result_selection() {
         value.result_selections += 1;
         work.set(value);
     });
+}
+
+fn record_bare_module_value_exposure_identity_copies(count: usize) {
+    #[cfg(test)]
+    BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
+        let mut value = work.get();
+        value.exposure_identity_copies += count;
+        work.set(value);
+    });
+    #[cfg(not(test))]
+    let _ = count;
 }
 
 fn record_bare_module_value_reverse_index_entry() {
@@ -758,40 +790,53 @@ impl TypeEnvironment {
             name.to_owned(),
         );
         record_bare_module_value_cache_probe();
-        let exposure = if let Some(exposure) = self
-            .bare_module_value_cache
-            .read()
-            .expect("bare module value cache read")
-            .get(&key)
-        {
-            exposure.clone()
+        let cached_selection = {
+            let cache = self
+                .bare_module_value_cache
+                .read()
+                .expect("bare module value cache read");
+            cache.get(&key).map(Self::select_bare_module_value_exposure)
+        };
+        let selection = if let Some(selection) = cached_selection {
+            selection
         } else {
-            let exposure = self.materialize_bare_module_value_exposure(&key);
-            let Some(exposure) = exposure else {
+            let Some(exposure) = self.materialize_bare_module_value_exposure(&key) else {
                 record_bare_module_value_result_selection();
                 return ModuleValueLookup::Missing;
             };
+            let selection = Self::select_bare_module_value_exposure(&exposure);
             record_bare_module_value_cache_entry();
             self.bare_module_value_cache
                 .write()
                 .expect("bare module value cache write")
-                .insert(key, exposure.clone());
-            exposure
+                .insert(key, exposure);
+            selection
         };
         record_bare_module_value_result_selection();
+        match selection {
+            BareModuleValueSelection::Missing => ModuleValueLookup::Missing,
+            BareModuleValueSelection::Ambiguous => ModuleValueLookup::Ambiguous,
+            BareModuleValueSelection::Available(identity) => self
+                .module_values_by_identity
+                .get(&identity)
+                .map_or(ModuleValueLookup::Missing, |index| {
+                    self.module_value_at_index(*index)
+                }),
+        }
+    }
+
+    fn select_bare_module_value_exposure(
+        exposure: &BareModuleValueExposure,
+    ) -> BareModuleValueSelection {
         if exposure.active.len() > 1
             || (!exposure.function_candidates.is_empty() && !exposure.active.is_empty())
         {
-            return ModuleValueLookup::Ambiguous;
+            BareModuleValueSelection::Ambiguous
+        } else if let Some(identity) = exposure.active.first() {
+            BareModuleValueSelection::Available(identity.clone())
+        } else {
+            BareModuleValueSelection::Missing
         }
-        let Some(identity) = exposure.active.first() else {
-            return ModuleValueLookup::Missing;
-        };
-        self.module_values_by_identity
-            .get(identity)
-            .map_or(ModuleValueLookup::Missing, |index| {
-                self.module_value_at_index(*index)
-            })
     }
 
     fn materialize_bare_module_value_exposure(

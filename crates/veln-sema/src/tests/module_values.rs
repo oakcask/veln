@@ -1877,6 +1877,141 @@ fn bare_imported_module_value_lookup_work_is_bounded_per_reference() {
 }
 
 #[test]
+fn cached_bare_lookup_does_not_copy_retained_same_name_candidates() {
+    fn lookup_work_for(
+        candidate_count: usize,
+        reference_count: usize,
+    ) -> crate::types::BareModuleValueExposureWork {
+        let module = module_with_bare_module_value_ambiguity(candidate_count, 0);
+        let mut environment = crate::types::TypeEnvironment::from_module(&module);
+        for index in 1..candidate_count {
+            let identity = (None, Some(format!("values_{index}")), "shared".to_string());
+            assert!(
+                !environment
+                    .set_module_value_availability(&identity, false)
+                    .is_empty()
+            );
+        }
+        assert!(matches!(
+            environment.module_value_path_in_owner(&["shared".to_string()], Some("app"), None),
+            crate::types::ModuleValueLookup::Available(_)
+        ));
+        let Some(crate::types::ModuleValueDependency::BareExposure(exposure)) = environment
+            .module_value_dependency_in_owner(&["shared".to_string()], Some("app"), None)
+        else {
+            panic!("expected bare imported dependency")
+        };
+        assert_eq!(
+            environment
+                .module_value_candidates_for_bare_exposure(&exposure)
+                .len(),
+            candidate_count
+        );
+
+        crate::types::reset_bare_module_value_exposure_work();
+        for _ in 0..reference_count {
+            assert!(matches!(
+                environment.module_value_path_in_owner(&["shared".to_string()], Some("app"), None,),
+                crate::types::ModuleValueLookup::Available(_)
+            ));
+        }
+        let work = crate::types::take_bare_module_value_exposure_work();
+        assert_eq!(work.cache_probes, reference_count, "{work:#?}");
+        assert_eq!(work.result_selections, reference_count, "{work:#?}");
+        assert_eq!(work.materialized_exposures, 0, "{work:#?}");
+        assert_eq!(work.selections, 0, "{work:#?}");
+        work
+    }
+
+    let base = lookup_work_for(16, 24);
+    let more_candidates = lookup_work_for(32, 24);
+    let more_references = lookup_work_for(16, 48);
+    let both = lookup_work_for(32, 48);
+    for work in [base, more_candidates, more_references, both] {
+        assert_eq!(work.exposure_identity_copies, 0, "{work:#?}");
+        assert_eq!(work.candidate_target_checks, 0, "{work:#?}");
+        assert_eq!(work.cache_entries, 0, "{work:#?}");
+    }
+    assert_eq!(more_candidates.cache_probes, base.cache_probes);
+    assert_eq!(more_candidates.result_selections, base.result_selections);
+    assert_eq!(more_references.cache_probes, base.cache_probes * 2);
+    assert_eq!(
+        more_references.result_selections,
+        base.result_selections * 2
+    );
+    assert_eq!(both.cache_probes, more_references.cache_probes);
+    assert_eq!(both.result_selections, more_references.result_selections);
+    assert!(
+        both.exposure_identity_copies + base.exposure_identity_copies
+            <= more_candidates.exposure_identity_copies + more_references.exposure_identity_copies,
+        "{base:#?}; {more_candidates:#?}; {more_references:#?}; {both:#?}"
+    );
+}
+
+#[test]
+fn cached_bare_lookup_retains_candidates_across_availability_transitions() {
+    let candidate_count = 8;
+    let module = module_with_bare_module_value_ambiguity(candidate_count, 0);
+    let mut environment = crate::types::TypeEnvironment::from_module(&module);
+    let identity = |index| (None, Some(format!("values_{index}")), "shared".to_string());
+    for index in 0..candidate_count {
+        assert!(
+            !environment
+                .set_module_value_availability(&identity(index), false)
+                .is_empty()
+        );
+    }
+    assert!(matches!(
+        environment.module_value_path_in_owner(&["shared".to_string()], Some("app"), None),
+        crate::types::ModuleValueLookup::Missing
+    ));
+    crate::types::reset_bare_module_value_exposure_work();
+    assert!(matches!(
+        environment.module_value_path_in_owner(&["shared".to_string()], Some("app"), None),
+        crate::types::ModuleValueLookup::Missing
+    ));
+    let cached_missing = crate::types::take_bare_module_value_exposure_work();
+    assert_eq!(
+        cached_missing.exposure_identity_copies, 0,
+        "{cached_missing:#?}"
+    );
+    assert_eq!(
+        cached_missing.candidate_target_checks, 0,
+        "{cached_missing:#?}"
+    );
+
+    assert!(
+        !environment
+            .set_module_value_availability(&identity(0), true)
+            .is_empty()
+    );
+    assert!(matches!(
+        environment.module_value_path_in_owner(&["shared".to_string()], Some("app"), None),
+        crate::types::ModuleValueLookup::Available(_)
+    ));
+    assert!(
+        !environment
+            .set_module_value_availability(&identity(1), true)
+            .is_empty()
+    );
+    assert!(matches!(
+        environment.module_value_path_in_owner(&["shared".to_string()], Some("app"), None),
+        crate::types::ModuleValueLookup::Ambiguous
+    ));
+    let Some(crate::types::ModuleValueDependency::BareExposure(exposure)) =
+        environment.module_value_dependency_in_owner(&["shared".to_string()], Some("app"), None)
+    else {
+        panic!("expected bare imported dependency")
+    };
+    assert_eq!(
+        environment
+            .module_value_candidates_for_bare_exposure(&exposure)
+            .len(),
+        candidate_count
+    );
+}
+
+#[test]
 fn bare_module_value_index_counts_misses_and_refreshes_availability() {
     let module = merged_modules_with_identities(vec![
         (
