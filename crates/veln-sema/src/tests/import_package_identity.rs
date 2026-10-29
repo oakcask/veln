@@ -76,7 +76,9 @@ fn same_spelled_module_values_fixture(
         "app.veln",
         &format!(
             "{imports}fn first_value() -> first::Marker\n  first::answer\nend\n\
-             fn second_value() -> second::Marker\n  second::answer\nend\n"
+             fn second_value() -> second::Marker\n  second::answer\nend\n\
+             fn first_equal_value() -> Int\n  first::distraction\nend\n\
+             fn second_equal_value() -> Int\n  second::distraction\nend\n"
         ),
         Some("owner/pkg"),
         "app",
@@ -118,9 +120,10 @@ fn same_spelled_module_values_fixture(
 fn module_value_for_alias<'a>(
     environment: &'a TypeEnvironment,
     alias: &str,
+    name: &str,
 ) -> &'a crate::types::ModuleValueSignature {
     match environment.module_value_path_in_owner(
-        &[alias.to_string(), "answer".to_string()],
+        &[alias.to_string(), name.to_string()],
         Some("owner/pkg::app"),
         Some("owner/pkg"),
     ) {
@@ -162,34 +165,45 @@ fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
                 );
 
                 let environment = TypeEnvironment::from_module(&app);
-                for (alias, package) in [("first", "selected/pkg"), ("second", "namesake/pkg")] {
-                    let value = module_value_for_alias(&environment, alias);
+                for (alias, package, name) in [
+                    ("first", "selected/pkg", "answer"),
+                    ("second", "namesake/pkg", "answer"),
+                    ("first", "selected/pkg", "distraction"),
+                    ("second", "namesake/pkg", "distraction"),
+                ] {
+                    let value = module_value_for_alias(&environment, alias, name);
                     assert_eq!(
                         (
                             value.declaration.package_name.as_deref(),
                             value.declaration.module_name.as_deref(),
                             value.declaration.name.as_deref(),
                         ),
-                        (Some(package), Some("shared"), Some("answer")),
-                        "alias={alias}, {context}"
+                        (Some(package), Some("shared"), Some(name)),
+                        "alias={alias}, name={name}, {context}"
                     );
-                    assert!(
-                        matches!(
-                            &value.ty,
-                            Type::Named { identity, .. }
-                                if identity == &format!("{package}::shared::Marker")
-                        ),
-                        "alias={alias}, {context}: {:?}",
-                        value.ty
-                    );
+                    if name == "answer" {
+                        assert!(
+                            matches!(
+                                &value.ty,
+                                Type::Named { identity, .. }
+                                    if identity == &format!("{package}::shared::Marker")
+                            ),
+                            "alias={alias}, {context}: {:?}",
+                            value.ty
+                        );
+                    } else {
+                        assert_eq!(value.ty, Type::int(), "alias={alias}, {context}");
+                    }
                 }
 
                 let lowered = lower_checked_surface_module(&app);
                 let core = lowered.core.expect("package identities should reach core");
                 let ir = lowered.ir.expect("package identities should reach IR");
-                for (function_name, package) in [
-                    ("first_value", "selected/pkg"),
-                    ("second_value", "namesake/pkg"),
+                for (function_name, package, value_name) in [
+                    ("first_value", "selected/pkg", "answer"),
+                    ("second_value", "namesake/pkg", "answer"),
+                    ("first_equal_value", "selected/pkg", "distraction"),
+                    ("second_equal_value", "namesake/pkg", "distraction"),
                 ] {
                     let function = core
                         .functions
@@ -206,7 +220,7 @@ fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
                                 }
                             }) if identity.package.as_deref() == Some(package)
                                 && identity.module.as_deref() == Some("shared")
-                                && identity.name == "answer"
+                                && identity.name == value_name
                         ),
                         "{function_name}, {context}: {function:#?}"
                     );
@@ -225,7 +239,7 @@ fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
                                 }
                             }) if identity.package.as_deref() == Some(package)
                                 && identity.module.as_deref() == Some("shared")
-                                && identity.name == "answer"
+                                && identity.name == value_name
                         ),
                         "{function_name}, {context}: {function:#?}"
                     );

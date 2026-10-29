@@ -1238,6 +1238,7 @@ fn module_value_initializers_accept_the_complete_finite_data_surface() {
             "let outcome: Result<Int, String> = Ok(later)\n",
             "let items: List<Int> = Cons(later, Nil)\n",
             "let nested: { state: State, data: { optional: Option<Int>, items: List<Int> } } = { state: Active(later), data: { optional: Some(later), items: Cons(later, Nil) } }\n",
+            "let projected: { kept: Int } = { kept: later, extra: { flag: true }, inferred: Some({ flag: true }) }\n",
             "let later: Int = 3\n",
         ),
     );
@@ -1316,6 +1317,33 @@ fn assert_core_finite_module_value_initializers(core: &veln_core::CheckedProgram
         core_module_value(core, "nested").initializer.kind,
         veln_core::CoreExprKind::Record(_)
     ));
+    let veln_core::CoreExprKind::Record(fields) =
+        &core_module_value(core, "projected").initializer.kind
+    else {
+        panic!("expected projected record initializer");
+    };
+    assert_eq!(
+        fields[1].expr.ty,
+        veln_core::CoreType::Record(vec![("flag".to_string(), veln_core::CoreType::bool(),)])
+    );
+    assert_eq!(
+        fields[2].expr.ty,
+        veln_core::CoreType::named(
+            "Option",
+            vec![veln_core::CoreType::Record(vec![(
+                "flag".to_string(),
+                veln_core::CoreType::bool(),
+            )])],
+        )
+    );
+    assert!(matches!(
+        &fields[2].expr.kind,
+        veln_core::CoreExprKind::OptionSome(payload)
+            if payload.ty == veln_core::CoreType::Record(vec![(
+                "flag".to_string(),
+                veln_core::CoreType::bool(),
+            )])
+    ));
 }
 
 fn ir_module_value<'a>(
@@ -1337,6 +1365,24 @@ fn assert_ir_finite_module_value_initializers(ir: &veln_ir::TypedProgram) {
         ir_module_value(ir, "items").initializer.kind,
         veln_ir::IrExprKind::ListCons { .. }
     ));
+    let veln_ir::IrExprKind::Record(fields) = &ir_module_value(ir, "projected").initializer.kind
+    else {
+        panic!("expected projected record initializer");
+    };
+    assert_eq!(
+        fields[1].value.ty,
+        veln_core::CoreType::Record(vec![("flag".to_string(), veln_core::CoreType::bool(),)])
+    );
+    assert_eq!(
+        fields[2].value.ty,
+        veln_core::CoreType::named(
+            "Option",
+            vec![veln_core::CoreType::Record(vec![(
+                "flag".to_string(),
+                veln_core::CoreType::bool(),
+            )])],
+        )
+    );
 }
 
 #[test]

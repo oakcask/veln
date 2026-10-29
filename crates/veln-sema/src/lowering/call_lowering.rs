@@ -1,12 +1,12 @@
 use super::*;
 
-enum ConstructorTypeContext<'a> {
+pub(super) enum ConstructorTypeContext<'a> {
     Expected(&'a CoreType),
     Inferred(Vec<CoreType>),
 }
 
 impl<'a> ConstructorTypeContext<'a> {
-    fn new(expected: Option<&'a CoreType>, constructor: AdtConstructor<'_>) -> Self {
+    pub(super) fn new(expected: Option<&'a CoreType>, constructor: AdtConstructor<'_>) -> Self {
         match expected {
             Some(expected) if unification::adt_args(expected, constructor.descriptor).is_some() => {
                 Self::Expected(expected)
@@ -18,7 +18,7 @@ impl<'a> ConstructorTypeContext<'a> {
         }
     }
 
-    fn payload_type(&self, constructor: AdtConstructor<'_>, index: usize) -> CoreType {
+    pub(super) fn payload_type(&self, constructor: AdtConstructor<'_>, index: usize) -> CoreType {
         let resolved = match self {
             Self::Expected(expected) => adt::core_payload_type(expected, constructor, index),
             Self::Inferred(args) => adt::core_payload_type_with_args(constructor, args, index),
@@ -26,7 +26,7 @@ impl<'a> ConstructorTypeContext<'a> {
         resolved.unwrap_or(CoreType::Unknown)
     }
 
-    fn observe_payload(
+    pub(super) fn observe_payload(
         &mut self,
         constructor: AdtConstructor<'_>,
         index: usize,
@@ -37,7 +37,7 @@ impl<'a> ConstructorTypeContext<'a> {
         }
     }
 
-    fn into_constructed_type(self, constructor: AdtConstructor<'_>) -> CoreType {
+    pub(super) fn into_constructed_type(self, constructor: AdtConstructor<'_>) -> CoreType {
         match self {
             Self::Expected(expected) => expected.clone(),
             Self::Inferred(args) => adt::core_constructed_type_from_args(constructor, &args),

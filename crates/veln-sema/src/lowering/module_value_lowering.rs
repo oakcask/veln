@@ -1,3 +1,4 @@
+use super::call_lowering::ConstructorTypeContext;
 use super::*;
 use crate::types::ModuleValueLookup;
 use std::collections::HashMap;
@@ -185,7 +186,8 @@ impl ModuleValueLowerer<'_> {
         fields: &[veln_ast::RecordField],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
-        let lowered = fields
+        let expected = expected.filter(|ty| !matches!(ty, CoreType::Unknown));
+        let lowered: Vec<CoreRecordField> = fields
             .iter()
             .map(|field| CoreRecordField {
                 node_id: field.node_id,
@@ -197,9 +199,14 @@ impl ModuleValueLowerer<'_> {
                 span: field.span.clone(),
             })
             .collect();
-        let ty = expected
-            .cloned()
-            .unwrap_or_else(|| CoreType::Record(Vec::new()));
+        let ty = expected.cloned().unwrap_or_else(|| {
+            CoreType::Record(
+                lowered
+                    .iter()
+                    .map(|field| (field.name.clone(), field.expr.ty.clone()))
+                    .collect(),
+            )
+        });
         self.lowered(expr, ty, CoreExprKind::Record(lowered))
     }
 
@@ -267,21 +274,20 @@ impl ModuleValueLowerer<'_> {
         else {
             return self.missing(expr, expected);
         };
+        let mut type_context = ConstructorTypeContext::new(expected, constructor);
         let payloads = args
             .iter()
             .enumerate()
             .map(|(index, arg)| {
-                let payload_type = expected
-                    .and_then(|ty| adt::core_payload_type(ty, constructor, index))
-                    .unwrap_or(CoreType::Unknown);
-                self.lower_expr(arg, Some(&payload_type))
+                let payload_type = type_context.payload_type(constructor, index);
+                let lowered = self.lower_expr(arg, Some(&payload_type));
+                type_context.observe_payload(constructor, index, &lowered.ty);
+                lowered
             })
             .collect();
         CoreExpr {
             node_id: expr.node_id,
-            ty: expected
-                .cloned()
-                .unwrap_or_else(|| adt::core_constructed_type(constructor, &[])),
+            ty: type_context.into_constructed_type(constructor),
             kind: core_payload_constructor_kind(constructor, payloads),
             span: expr.span.clone(),
         }
