@@ -15,8 +15,10 @@ diagnostics.
 ## Scope
 
 The current [type specification](../specification/types.md#module-immutable-value-initializers)
-defines initializer admission, annotation checking, the same-module dependency
-graph, and same-module cycle rejection. The current
+defines initializer admission, annotation checking, the package-aware
+declaration identity and dependency graph formed by selected same-module and
+imported references across package sources, and same-module and cross-module
+cycle rejection. The current
 [name-resolution specification](../specification/name-resolution.md#namespaces-and-use-roles)
 defines package-aware declaration identity, same-module and imported lookup,
 forward lookup, local shadowing, visibility, and the shared
@@ -33,7 +35,7 @@ Qualified match refinement remains a separate dependent proposal. General
 effectful module initialization and mutable global variables remain outside
 this proposal.
 
-## Remaining Execution And Publication
+## Remaining Execution, Publication, And Navigation
 
 Every accepted reference must produce the same immutable finite data. Source,
 import, and first-use order must not change the value. There is no effectful
