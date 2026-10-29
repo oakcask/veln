@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Module immutable-value cross-module dependencies, execution, documentation publication, language-service navigation, or their planned verification change.
+update-when: Module immutable-value imported lookup, package-aware declaration identity, visibility, cross-module dependencies, execution, documentation publication, language-service navigation, or their planned verification changes.
 ---
 
 # Module Immutable Data Value Completion

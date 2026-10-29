@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Module immutable-value declarations, imported declaration identity, qualified stable-value match refinement, or their planned evidence change.
+update-when: Module immutable-value declaration identity, imported lookup, visibility, execution, qualified stable-value match refinement, or their planned evidence changes.
 ---
 
 # Qualified Immutable-Value Match Refinement

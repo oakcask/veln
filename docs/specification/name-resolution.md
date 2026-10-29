@@ -332,6 +332,17 @@ selection. Every applicable field for 128 imports is exactly twice its
 64-import value; cache-only fields remain zero for dependency discovery. A
 separate repeated-name workload checks cache reuse, and an availability-change
 workload checks cache invalidation while retaining every dependency candidate.
+Another workload combines 32 and 64 same-named imported candidates with the
+same number of dependent initializers. It runs every source-order and
+import-order combination and requires identical work measurements and name
+resolution results. Dependency-index entries are bounded by twice the workload
+size plus two, peak retained dependency state by eight times the workload size
+plus eight, semantic visits by six times the workload size plus 16, and
+declaration rechecks by twice the workload size plus eight. For retained state,
+semantic visits, and declaration rechecks, doubling the workload may grow the
+measured work by at most twice the smaller measurement plus 16. This keeps
+candidate fanout and dependent fanout additive instead of retaining one
+candidate entry per dependent.
 
 A public function alias cannot select an available module value. A bare alias
 target selects an available value in the alias's module. A qualified alias
