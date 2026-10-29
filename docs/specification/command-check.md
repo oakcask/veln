@@ -67,6 +67,8 @@ value from its explicitly imported target inside an initializer; an ordinary
 source or wrong-target companion reports the read as unresolved. The result is
 independent of source and import order and of reusable standard-library
 analysis.
+This propagation is an availability/recheck relation. It does not add an
+initializer dependency-graph edge.
 Cross-module references do not yet create dependency-graph edges or
 cross-module cycle diagnostics. This gate still prevents lowering or
 publication. The

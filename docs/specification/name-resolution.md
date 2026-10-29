@@ -252,14 +252,16 @@ initializer that was ambiguous between that candidate and a valid namesake is
 checked against the remaining candidate. The dependent module value becomes
 available when that check succeeds, and its importers observe its written
 annotation type. This recovery is independent of source and import order.
-If a cyclic candidate-dependency component has no availability result that is
+If a cyclic availability candidate-dependency component has no result that is
 stable when every affected declaration observes the same preceding state,
 analysis rejects every declaration in that component after recovery repeats.
-This includes competing fixed points that would otherwise depend on publishing
-one declaration before checking another. Rejected declarations remain
-unavailable, their dependents are not republished, and independent valid
-candidates remain selectable. Source order and import order do not change the
-rejected component, diagnostics, or remaining selection.
+This relation propagates semantic availability and does not create an
+initializer dependency-graph edge or a cross-module initializer-cycle
+diagnostic. It includes competing fixed points that would otherwise depend on
+publishing one declaration before checking another. Rejected declarations
+remain unavailable, their dependents are not republished, and independent
+valid candidates remain selectable. Source order and import order do not
+change the rejected component, diagnostics, or remaining selection.
 Duplicate declarations, invalid-cased declarations, and same-module
 initializer cycles remain unavailable when imported availability changes.
 A same-module function or function alias that collides with a module value
@@ -991,5 +993,8 @@ not become fallback targets.
 - Module-value function-alias diagnostics:
   `examples/specification/check/module-value-function-alias-kind-human/` and
   `examples/specification/check/module-value-function-alias-kind-json/`.
+- Stable module-value declaration identity across bare and qualified paths:
+  `bare_and_qualified_paths_select_the_same_module_value_declaration` in
+  `crates/veln-sema/src/tests/module_values.rs`.
 - Casing and source-path diagnostics: `crates/veln-sema/src/pipeline/identifier_casing/`.
 - Source-less descriptors and lookup routes: [source-less-lookup.md](source-less-lookup.md).

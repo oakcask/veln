@@ -774,6 +774,9 @@ of one, and the peak retained-identity count has no fixed allowance. Separate
 recheck lookups by the number of dependency edges plus one. Doubling the chain
 allows at most twice the recheck lookups plus two; doubling only unrelated
 declarations allows at most one additional recheck lookup.
+These availability/recheck relations propagate semantic invalidation. They are
+not initializer dependency-graph edges and do not reject cross-module
+initializer cycles.
 Same-module cycle storage uses a separate adjacent-size semantic workload. It
 compares rings of 256 and 512 declarations after complete analysis, requires
 one deterministic cycle diagnostic at each size, and counts every identity
@@ -787,11 +790,12 @@ available to its importers. Duplicate declarations, invalid-cased declarations,
 and same-module initializer cycles do not recover through this process. The
 checked invalid-import exposure cases cover recovery and retained package
 identity in both source and import orders.
-If recovery inside a cyclic candidate-dependency component causes a previously
-failed declaration to fail again, analysis rejects that complete component as
-non-convergent. Its declarations remain unavailable and cannot republish their
-dependents. Declarations outside the component retain their independently
-valid facts. The stabilization workload bounds every declaration recheck and
+If recovery inside a cyclic availability candidate-dependency component causes
+a previously failed declaration to fail again, analysis rejects that complete
+component as non-convergent. Its declarations remain unavailable and cannot
+republish their dependents. This availability component is not an initializer
+cycle. Declarations outside the component retain their independently valid
+facts. The stabilization workload bounds every declaration recheck and
 availability update without a retry limit or retained global-state history.
 
 A public module value annotation is a public type boundary. Every recursively

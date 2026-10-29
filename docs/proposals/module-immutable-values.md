@@ -14,8 +14,8 @@ same-module dependency validation, visibility, and initializer diagnostics.
 ## Scope
 
 The current [type specification](../specification/types.md#module-immutable-value-initializers)
-defines initializer admission, annotation checking, dependency graphs, and
-cycle rejection. The current
+defines initializer admission, annotation checking, the same-module dependency
+graph, and same-module cycle rejection. The current
 [name-resolution specification](../specification/name-resolution.md#namespaces-and-use-roles)
 defines package-aware declaration identity, same-module and imported lookup,
 forward lookup, local shadowing, visibility, and the shared
