@@ -41,14 +41,7 @@ fn recovery_module(
             "consumer",
             SourceFile::new(
                 "consumer.veln",
-                "use owner\npub let observed: Int = selected\npub let independent: Int = 4\n",
-            ),
-        ),
-        (
-            "consumer",
-            SourceFile::new(
-                "consumer.veln",
-                "use owner\npub let observed: Int = selected\nfn read_selected() -> String\n  selected\nend\nfn read_observed() -> String\n  observed\nend\nfn read_local() -> String\n  local\nend\n",
+                "use owner\npub let observed: Int = selected\npub let independent: Int = 4\nfn read_selected() -> String\n  selected\nend\nfn read_observed() -> String\n  observed\nend\nfn read_local() -> String\n  local\nend\n",
             ),
         ),
     ];
