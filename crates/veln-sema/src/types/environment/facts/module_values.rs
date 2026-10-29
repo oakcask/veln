@@ -198,28 +198,61 @@ pub(in crate::types::environment) struct BareModuleValueIndexes {
         HashMap<ModuleValueImportKey, UseDecl>,
 }
 
+#[derive(Default)]
+struct BareModuleValueImportIndexes {
+    targets_by_owner: HashMap<ModuleValueOwner, BTreeSet<ModuleValueTarget>>,
+    owners_by_target: HashMap<ModuleValueTarget, BTreeSet<ModuleValueOwner>>,
+    representative_imports: HashMap<ModuleValueImportKey, UseDecl>,
+}
+
 pub(in crate::types::environment) fn bare_module_value_indexes(
     module_values: &[ModuleValueSignature],
     functions: &[FunctionSignature],
     unpublished_functions: &HashSet<FunctionPublicationKey>,
     uses: &[UseDecl],
 ) -> BareModuleValueIndexes {
-    let mut targets_by_owner = HashMap::<ModuleValueOwner, BTreeSet<ModuleValueTarget>>::new();
-    let mut owners_by_target = HashMap::<ModuleValueTarget, BTreeSet<ModuleValueOwner>>::new();
-    let mut representative_imports = HashMap::<ModuleValueImportKey, UseDecl>::new();
+    let imports = bare_module_value_import_indexes(uses);
+    BareModuleValueIndexes {
+        module_values: public_module_values_by_name(module_values),
+        functions: published_functions_by_name(functions, unpublished_functions),
+        targets_by_owner: imports.targets_by_owner,
+        owners_by_target: imports.owners_by_target,
+        representative_imports: imports.representative_imports,
+    }
+}
+
+fn bare_module_value_import_indexes(uses: &[UseDecl]) -> BareModuleValueImportIndexes {
+    let mut indexes = BareModuleValueImportIndexes::default();
     for use_decl in uses
         .iter()
         .filter(|use_decl| crate::name_recovery::use_decl_contributes_bare_exports(use_decl))
     {
         record_module_value_ambiguity_provenance_index_visit();
-        let target = use_decl.resolved_target();
-        let target = (target.package, Some(target.module));
+        indexes.insert(use_decl);
+    }
+    indexes
+}
+
+impl BareModuleValueImportIndexes {
+    fn insert(&mut self, use_decl: &UseDecl) {
+        let resolved_target = use_decl.resolved_target();
+        let target = (resolved_target.package, Some(resolved_target.module));
         let owner = (
             use_decl.importing_package.clone(),
             use_decl.module_name.clone(),
         );
-        representative_imports
-            .entry((owner.clone(), target.clone()))
+        self.update_representative(owner.clone(), target.clone(), use_decl);
+        self.index_owner_target(owner, target);
+    }
+
+    fn update_representative(
+        &mut self,
+        owner: ModuleValueOwner,
+        target: ModuleValueTarget,
+        use_decl: &UseDecl,
+    ) {
+        self.representative_imports
+            .entry((owner, target))
             .and_modify(|representative| {
                 if (use_decl.span.file.as_str(), use_decl.span.start.offset)
                     < (
@@ -231,18 +264,31 @@ pub(in crate::types::environment) fn bare_module_value_indexes(
                 }
             })
             .or_insert_with(|| use_decl.clone());
-        if targets_by_owner
+    }
+
+    fn index_owner_target(&mut self, owner: ModuleValueOwner, target: ModuleValueTarget) {
+        if self
+            .targets_by_owner
             .entry(owner.clone())
             .or_default()
             .insert(target.clone())
         {
             record_bare_module_value_reverse_index_entry();
         }
-        if owners_by_target.entry(target).or_default().insert(owner) {
+        if self
+            .owners_by_target
+            .entry(target)
+            .or_default()
+            .insert(owner)
+        {
             record_bare_module_value_reverse_index_entry();
         }
     }
+}
 
+fn public_module_values_by_name(
+    module_values: &[ModuleValueSignature],
+) -> HashMap<String, BTreeMap<ModuleValueTarget, ModuleValueIdentity>> {
     let mut module_values_by_name =
         HashMap::<String, BTreeMap<ModuleValueTarget, ModuleValueIdentity>>::new();
     for value in module_values
@@ -263,6 +309,13 @@ pub(in crate::types::environment) fn bare_module_value_indexes(
             .or_default()
             .insert(target, identity);
     }
+    module_values_by_name
+}
+
+fn published_functions_by_name(
+    functions: &[FunctionSignature],
+    unpublished_functions: &HashSet<FunctionPublicationKey>,
+) -> HashMap<String, BTreeSet<ModuleValueTarget>> {
     let mut function_targets_by_name = HashMap::<String, BTreeSet<ModuleValueTarget>>::new();
     for function in functions
         .iter()
@@ -278,11 +331,5 @@ pub(in crate::types::environment) fn bare_module_value_indexes(
             .or_default()
             .insert((function.package_name.clone(), Some(module)));
     }
-    BareModuleValueIndexes {
-        module_values: module_values_by_name,
-        functions: function_targets_by_name,
-        targets_by_owner,
-        owners_by_target,
-        representative_imports,
-    }
+    function_targets_by_name
 }
