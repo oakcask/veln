@@ -1,0 +1,5 @@
+use consumer
+pub let twice_blocked: Int = consumer::blocked
+fn reads_twice_blocked() -> Bool
+	twice_blocked
+end

@@ -2738,6 +2738,19 @@ fn cross_module_initializer_cycles_quarantine_dependents_in_every_order() {
                         ),
                     ),
                 ),
+                (
+                    "downstream",
+                    SourceFile::new(
+                        "downstream.veln",
+                        concat!(
+                            "use consumer\n",
+                            "pub let twice_blocked: Int = consumer::blocked\n",
+                            "fn reads_twice_blocked() -> Bool\n",
+                            "  twice_blocked\n",
+                            "end\n",
+                        ),
+                    ),
+                ),
             ];
             if reverse_sources {
                 sources.reverse();
@@ -2754,6 +2767,11 @@ fn cross_module_initializer_cycles_quarantine_dependents_in_every_order() {
                 (None, Some("alpha".to_string()), "left".to_string()),
                 (None, Some("beta".to_string()), "right".to_string()),
                 (None, Some("consumer".to_string()), "blocked".to_string()),
+                (
+                    None,
+                    Some("downstream".to_string()),
+                    "twice_blocked".to_string(),
+                ),
             ] {
                 assert!(
                     analysis.invalid.contains(&identity),
@@ -2773,6 +2791,14 @@ fn cross_module_initializer_cycles_quarantine_dependents_in_every_order() {
                 environment.module_value_path_in_owner(
                     &["blocked".to_string()],
                     Some("consumer"),
+                    None,
+                ),
+                crate::types::ModuleValueLookup::Unavailable
+            ));
+            assert!(matches!(
+                environment.module_value_path_in_owner(
+                    &["twice_blocked".to_string()],
+                    Some("downstream"),
                     None,
                 ),
                 crate::types::ModuleValueLookup::Unavailable
@@ -2832,6 +2858,8 @@ fn cross_module_initializer_cycles_quarantine_dependents_in_every_order() {
                         && diagnostic.span.as_ref().is_some_and(|span| {
                             span.file.as_str() == "consumer.veln" && span.start.line == 4
                         }))
+                    && !(diagnostic.id == "type.mismatch"
+                        && diagnostic.message == "expected `Bool`, but found `Int`")
                     && !(diagnostic.id == "name.unresolved"
                         && diagnostic.message.contains("healthy"))
             }));
