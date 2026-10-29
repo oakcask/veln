@@ -6,6 +6,28 @@ use super::*;
 
 use crate::type_syntax::parse_type_or_unknown;
 
+#[cfg(test)]
+thread_local! {
+    static RECOVERY_FACT_DECLARATION_VISITS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(super) fn reset_recovery_fact_declaration_visits() {
+    RECOVERY_FACT_DECLARATION_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(super) fn take_recovery_fact_declaration_visits() -> usize {
+    RECOVERY_FACT_DECLARATION_VISITS.replace(0)
+}
+
+fn record_recovery_fact_declaration_visits(count: usize) {
+    #[cfg(test)]
+    RECOVERY_FACT_DECLARATION_VISITS.set(RECOVERY_FACT_DECLARATION_VISITS.get() + count);
+    #[cfg(not(test))]
+    let _ = count;
+}
+
 mod module_values;
 mod quarantine;
 
@@ -242,9 +264,36 @@ fn install_recovery_facts(module: &SurfaceModule, environment: &mut TypeEnvironm
 }
 
 fn recovery_facts(module: &SurfaceModule, environment: &TypeEnvironment) -> RecoveryFacts {
-    let mut facts = function_recovery_facts(module, environment);
-    facts.constructors = constructor_recovery_facts(module);
-    facts.import_constructors = import_constructor_recovery_facts(module);
+    let invalid_function_declaration = module.invalid_names.iter().any(|invalid| {
+        invalid.class == veln_ast::NameClass::Function
+            && invalid.occurrence == veln_ast::NameOccurrence::Declaration
+    });
+    let invalid_type_declaration = module.invalid_names.iter().any(|invalid| {
+        matches!(
+            invalid.class,
+            veln_ast::NameClass::Type | veln_ast::NameClass::Constructor
+        ) && invalid.occurrence == veln_ast::NameOccurrence::Declaration
+    });
+    let invalid_module_path = module.invalid_names.iter().any(|invalid| {
+        invalid.class == veln_ast::NameClass::Module
+            && matches!(
+                invalid.occurrence,
+                veln_ast::NameOccurrence::Declaration | veln_ast::NameOccurrence::PathSegment
+            )
+    });
+    let mut facts = RecoveryFacts::default();
+    if invalid_function_declaration {
+        record_recovery_fact_declaration_visits(module.functions.len() + module.aliases.len());
+        facts = function_recovery_facts(module, environment);
+    }
+    if invalid_type_declaration {
+        record_recovery_fact_declaration_visits(module.types.len());
+        facts.constructors = constructor_recovery_facts(module);
+    }
+    if invalid_module_path {
+        record_recovery_fact_declaration_visits(module.uses.len() + module.types.len());
+        facts.import_constructors = import_constructor_recovery_facts(module);
+    }
     facts
 }
 

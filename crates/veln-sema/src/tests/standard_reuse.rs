@@ -536,8 +536,14 @@ fn embedded_reusable_standard_environment_detects_current_identity() {
 fn embedded_reusable_standard_environment_has_current_identity_and_reuses_application_facts() {
     let _guard = standard_reuse_test_lock();
     crate::standard_reuse_counters::reset();
+    crate::types::reset_recovery_fact_declaration_visits();
     let standard = crate::types::embedded_standard_surface_module();
     let reusable = prepare_current_reusable_standard_surface_module_environment(&standard);
+    assert_eq!(
+        crate::types::take_recovery_fact_declaration_visits(),
+        0,
+        "valid embedded standard declarations must bypass recovery-fact scans"
+    );
     assert!(reusable.has_current_identity_for_test());
     assert_eq!(
         crate::standard_reuse_counters::embedded_standard_lowered_decodes(),

@@ -388,6 +388,16 @@ impl<'a> TypeParameterIdentityContext<'a> {
 
 mod effect_handlers;
 mod facts;
+
+#[cfg(test)]
+pub(crate) fn reset_recovery_fact_declaration_visits() {
+    facts::reset_recovery_fact_declaration_visits();
+}
+
+#[cfg(test)]
+pub(crate) fn take_recovery_fact_declaration_visits() -> usize {
+    facts::take_recovery_fact_declaration_visits()
+}
 mod quarantined_imports;
 mod refinement_case_recovery;
 mod refinements;
