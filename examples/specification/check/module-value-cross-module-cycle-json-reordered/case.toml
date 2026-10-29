@@ -1,0 +1,65 @@
+command = ["check", "--json", "consumer.veln", "gamma.veln", "beta.veln", "alpha.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["value.module_initializer_cycle", "module value reference `left` closes an initializer cycle", "cycle_declaration", "cycle_reference", "expected `String`, but found `Bool`"]
+not_contains = ["name.ambiguous", "expected `String`, but found `Int`"]
+
+[stderr]
+format = "empty"
+
+[[diagnostics]]
+id = "value.module_initializer_cycle"
+severity = "error"
+kind = "type"
+message = "module value reference `left` closes an initializer cycle"
+
+[diagnostics.span]
+file = "beta.veln"
+line = 2
+column = 22
+
+[[json_assert]]
+path = "diagnostics.3.details.name"
+equals = "right"
+
+[[json_assert]]
+path = "diagnostics.3.details.target"
+equals = "left"
+
+[[json_assert]]
+path = "diagnostics.3.related"
+length = 4
+
+[[json_assert]]
+path = "diagnostics.3.related.0.span.file"
+equals = "alpha.veln"
+
+[[json_assert]]
+path = "diagnostics.3.related.0.span.start.line"
+equals = 3
+
+[[json_assert]]
+path = "diagnostics.3.related.1.span.file"
+equals = "beta.veln"
+
+[[json_assert]]
+path = "diagnostics.3.related.1.span.start.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.3.related.2.span.file"
+equals = "alpha.veln"
+
+[[json_assert]]
+path = "diagnostics.3.related.2.span.start.column"
+equals = 21
+
+[[json_assert]]
+path = "diagnostics.3.related.3.span.file"
+equals = "beta.veln"
+
+[[json_assert]]
+path = "diagnostics.3.related.3.span.start.column"
+equals = 22

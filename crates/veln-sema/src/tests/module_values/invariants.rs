@@ -218,7 +218,7 @@ fn cycle_facts(text: &str) -> (String, String, Vec<String>) {
     )
 }
 
-fn cycle_detail(cycle: &Diagnostic, name: &str) -> String {
+pub(super) fn cycle_detail(cycle: &Diagnostic, name: &str) -> String {
     cycle
         .details
         .as_object()
@@ -232,7 +232,7 @@ fn cycle_detail(cycle: &Diagnostic, name: &str) -> String {
         .to_string()
 }
 
-fn cycle_related_messages(cycle: &Diagnostic) -> Vec<String> {
+pub(super) fn cycle_related_messages(cycle: &Diagnostic) -> Vec<String> {
     cycle
         .related
         .iter()

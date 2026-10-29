@@ -1,0 +1,4 @@
+use beta
+use gamma
+pub let left: Int = beta::right
+pub let healthy: Bool = gamma::ready

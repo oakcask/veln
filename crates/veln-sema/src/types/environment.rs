@@ -679,7 +679,7 @@ impl TypeEnvironment {
             .unwrap_or_default()
     }
 
-    fn module_value_dependency_identity_in_owner(
+    pub(crate) fn module_value_dependency_identity_in_owner(
         &self,
         segments: &[String],
         current_module: Option<&str>,

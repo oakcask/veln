@@ -2695,29 +2695,148 @@ fn delayed_bare_import_invalidation_quarantines_dependents_in_every_order() {
 }
 
 #[test]
-fn cross_module_initializer_cycles_remain_outside_dependency_quarantine() {
-    let module = merged_modules_with_identities(vec![
-        (
-            "alpha",
-            SourceFile::new("alpha.veln", "use beta\npub let left: Int = right\n"),
-        ),
-        (
-            "beta",
-            SourceFile::new("beta.veln", "use alpha\npub let right: Int = left\n"),
-        ),
-    ]);
+fn cross_module_initializer_cycles_quarantine_dependents_in_every_order() {
+    let mut expected_cycle = None;
+    for reverse_sources in [false, true] {
+        for reverse_imports in [false, true] {
+            let alpha_imports = if reverse_imports {
+                "use gamma\nuse beta\n"
+            } else {
+                "use beta\nuse gamma\n"
+            };
+            let mut sources = vec![
+                (
+                    "alpha",
+                    SourceFile::new(
+                        "alpha.veln",
+                        format!(
+                            "{alpha_imports}pub let left: Int = beta::right\npub let healthy: Bool = gamma::ready\n"
+                        ),
+                    ),
+                ),
+                (
+                    "beta",
+                    SourceFile::new("beta.veln", "use alpha\npub let right: Int = alpha::left\n"),
+                ),
+                (
+                    "gamma",
+                    SourceFile::new("gamma.veln", "pub let ready: Bool = true\n"),
+                ),
+                (
+                    "consumer",
+                    SourceFile::new(
+                        "consumer.veln",
+                        concat!(
+                            "use alpha\n",
+                            "pub let blocked: Int = alpha::left\n",
+                            "fn reads_blocked() -> Int\n",
+                            "  blocked\n",
+                            "end\n",
+                            "fn reads_healthy() -> String\n",
+                            "  healthy\n",
+                            "end\n",
+                        ),
+                    ),
+                ),
+            ];
+            if reverse_sources {
+                sources.reverse();
+            }
+            let module = merged_modules_with_identities(sources);
+            let mut environment = crate::types::TypeEnvironment::from_module(&module);
+            let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
+            let analysis = crate::analysis::check_module_values(
+                &module,
+                &mut environment,
+                &mut variant_diagnostics,
+            );
+            for identity in [
+                (None, Some("alpha".to_string()), "left".to_string()),
+                (None, Some("beta".to_string()), "right".to_string()),
+                (None, Some("consumer".to_string()), "blocked".to_string()),
+            ] {
+                assert!(
+                    analysis.invalid.contains(&identity),
+                    "reverse_sources={reverse_sources}, reverse_imports={reverse_imports}: {:#?}",
+                    analysis.invalid
+                );
+            }
+            assert!(matches!(
+                environment.module_value_path_in_owner(
+                    &["healthy".to_string()],
+                    Some("consumer"),
+                    None,
+                ),
+                crate::types::ModuleValueLookup::Available(_)
+            ));
+            assert!(matches!(
+                environment.module_value_path_in_owner(
+                    &["blocked".to_string()],
+                    Some("consumer"),
+                    None,
+                ),
+                crate::types::ModuleValueLookup::Unavailable
+            ));
+            let diagnostics = analyze_surface_module(&module);
+            let cycles = diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "value.module_initializer_cycle")
+                .collect::<Vec<_>>();
 
-    let diagnostics = analyze_surface_module(&module);
-
-    assert!(
-        diagnostics.iter().all(|diagnostic| {
-            !matches!(
-                diagnostic.id.as_str(),
-                "name.unresolved" | "name.ambiguous" | "value.module_initializer_cycle"
-            )
-        }),
-        "{diagnostics:#?}"
-    );
+            assert_eq!(cycles.len(), 1, "{diagnostics:#?}");
+            assert_eq!(
+                cycles[0].message.as_str(),
+                "module value reference `left` closes an initializer cycle"
+            );
+            assert_eq!(invariants::cycle_detail(cycles[0], "name"), "right");
+            assert_eq!(invariants::cycle_detail(cycles[0], "target"), "left");
+            assert_eq!(
+                invariants::cycle_related_messages(cycles[0]),
+                vec![
+                    "Module value `left` participates in this initializer cycle.",
+                    "Module value `right` participates in this initializer cycle.",
+                    "Module value `left` depends on `right` here.",
+                    "Module value `right` depends on `left` here.",
+                ]
+            );
+            let cycle = veln_diagnostics::JsonValue::object([
+                (
+                    "span",
+                    cycles[0]
+                        .span
+                        .as_ref()
+                        .map(crate::diagnostics::span_json)
+                        .unwrap_or(veln_diagnostics::JsonValue::Null),
+                ),
+                ("details", cycles[0].details.clone()),
+                (
+                    "related",
+                    veln_diagnostics::JsonValue::array(cycles[0].related.clone()),
+                ),
+            ]);
+            if let Some(expected) = &expected_cycle {
+                assert_eq!(
+                    &cycle, expected,
+                    "reverse_sources={reverse_sources}, reverse_imports={reverse_imports}"
+                );
+            } else {
+                expected_cycle = Some(cycle);
+            }
+            assert!(diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "type.mismatch"
+                    && diagnostic.message == "expected `String`, but found `Bool`"
+            }));
+            assert!(diagnostics.iter().all(|diagnostic| {
+                diagnostic.id != "name.ambiguous"
+                    && !(diagnostic.id == "type.mismatch"
+                        && diagnostic.span.as_ref().is_some_and(|span| {
+                            span.file.as_str() == "consumer.veln" && span.start.line == 4
+                        }))
+                    && !(diagnostic.id == "name.unresolved"
+                        && diagnostic.message.contains("healthy"))
+            }));
+        }
+    }
 }
 
 #[test]
