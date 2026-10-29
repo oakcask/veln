@@ -176,14 +176,20 @@ and
 cases cover bare and qualified initializer reads, published and withheld
 function collisions, owner rechecks, valid-namesake selection in both import
 orders, and recurrent diagnostics from a rejected cyclic component.
-An exact test companion that explicitly imports its target may read the
-target's private module value without `name.unresolved`. The same read from an
-ordinary source or a companion for another target reports `name.unresolved`.
+An exact test companion that explicitly imports its target may read an
+available private module value without `name.unresolved`. An unavailable
+private value remains unresolved, and a module value that depends on that read
+remains unpublished. The same read from an ordinary source or a companion for
+another target also reports `name.unresolved`.
 The checked companion initializer
 [`human`](../../examples/specification/check/module-value-companion-private-access-human/)
 and
 [`JSON`](../../examples/specification/check/module-value-companion-private-access-json/)
-cases cover access, while the wrong-target
+cases cover access. The unavailable-target
+[`human`](../../examples/specification/check/module-value-companion-private-unavailable-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-companion-private-unavailable-json/)
+cases cover invalid-target and dependent suppression, while the wrong-target
 [`human`](../../examples/specification/check/module-value-companion-private-wrong-target-human/)
 and
 [`JSON`](../../examples/specification/check/module-value-companion-private-wrong-target-json/)

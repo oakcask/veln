@@ -737,10 +737,14 @@ cases cover an exact annotation import whose module spelling matches the
 declaration owner's module. The checked
 [`companion initializer access human`](../../examples/specification/check/module-value-companion-private-access-human/),
 [`companion initializer access JSON`](../../examples/specification/check/module-value-companion-private-access-json/),
+[`unavailable companion target human`](../../examples/specification/check/module-value-companion-private-unavailable-human/),
+[`unavailable companion target JSON`](../../examples/specification/check/module-value-companion-private-unavailable-json/),
 [`wrong-target companion human`](../../examples/specification/check/module-value-companion-private-wrong-target-human/),
 and
 [`wrong-target companion JSON`](../../examples/specification/check/module-value-companion-private-wrong-target-json/)
-cases cover the exact-target private-value boundary. The checked
+cases cover the exact-target private-value boundary, including the requirement
+that the private target be available before a dependent can be published. The
+checked
 [`open annotation failure`](../../examples/specification/check/module-value-open-annotation-human/)
 case verifies that an undeclared type parameter cannot escape through a module
 value annotation.

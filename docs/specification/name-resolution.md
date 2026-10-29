@@ -252,12 +252,14 @@ initializer that was ambiguous between that candidate and a valid namesake is
 checked against the remaining candidate. The dependent module value becomes
 available when that check succeeds, and its importers observe its written
 annotation type. This recovery is independent of source and import order.
-If a cyclic candidate-dependency component has no stable availability result,
-analysis rejects every declaration in that component after a recovered
-declaration fails again. Rejected declarations remain unavailable, their
-dependents are not republished, and independent valid candidates remain
-selectable. Source order and import order do not change the rejected component
-or the remaining selection.
+If a cyclic candidate-dependency component has no availability result that is
+stable when every affected declaration observes the same preceding state,
+analysis rejects every declaration in that component after recovery repeats.
+This includes competing fixed points that would otherwise depend on publishing
+one declaration before checking another. Rejected declarations remain
+unavailable, their dependents are not republished, and independent valid
+candidates remain selectable. Source order and import order do not change the
+rejected component, diagnostics, or remaining selection.
 Duplicate declarations, invalid-cased declarations, and same-module
 initializer cycles remain unavailable when imported availability changes.
 A same-module function or function alias that collides with a module value
@@ -273,9 +275,11 @@ A same-module function or module-value declaration is selected before imports;
 an invalid local module value still does not expose an imported fallback. A
 selected imported module value used as a call target does not fall through to
 an imported function. Imported private values are unresolved except when an
-exact test companion imports its target module. Companion access is
-target-specific, package-local, and non-transitive. It applies to value reads
-in function bodies and module-value initializers. The checked cases cover
+exact test companion imports its target module and the private declaration is
+available. Companion permission does not expose an invalid declaration or
+publish a dependent value that reads it. Companion access is target-specific,
+package-local, and non-transitive. It applies to value reads in function bodies
+and module-value initializers. The checked cases cover
 [`imported lookup JSON`](../../examples/specification/check/module-value-imported-lookup-json/),
 [`local function precedence`](../../examples/specification/check/module-value-local-function-precedence-human/),
 [`package identity human`](../../examples/specification/check/module-value-imported-package-identity-human/),
@@ -291,6 +295,8 @@ in function bodies and module-value initializers. The checked cases cover
 [`companion function-body access`](../../examples/specification/check/module-value-companion-private-human/),
 [`companion initializer access human`](../../examples/specification/check/module-value-companion-private-access-human/),
 [`companion initializer access JSON`](../../examples/specification/check/module-value-companion-private-access-json/),
+[`unavailable companion target human`](../../examples/specification/check/module-value-companion-private-unavailable-human/),
+[`unavailable companion target JSON`](../../examples/specification/check/module-value-companion-private-unavailable-json/),
 [`wrong-target companion human`](../../examples/specification/check/module-value-companion-private-wrong-target-human/),
 [`wrong-target companion JSON`](../../examples/specification/check/module-value-companion-private-wrong-target-json/),
 [`exact import owner collision human`](../../examples/specification/check/module-value-exact-import-owner-collision-human/),
@@ -343,6 +349,12 @@ semantic visits, and declaration rechecks, doubling the workload may grow the
 measured work by at most twice the smaller measurement plus 16. This keeps
 candidate fanout and dependent fanout additive instead of retaining one
 candidate entry per dependent.
+Ambiguity diagnostics use one representative contributing import indexed by
+importing owner and resolved target. Deterministic workloads compare 64 and
+128 same-named candidates and repeat the ambiguous read four times. Index
+construction visits grow with imports and do not repeat per read. Candidate
+provenance visits grow with the related entries emitted for each read, without
+scanning the complete import set for each candidate.
 
 A public function alias cannot select an available module value. A bare alias
 target selects an available value in the alias's module. A qualified alias

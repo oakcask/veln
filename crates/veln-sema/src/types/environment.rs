@@ -15,6 +15,7 @@ type FunctionPublicationKey = (
 type BareModuleValueKey = (Option<String>, Option<String>, String);
 type ModuleValueOwner = (Option<String>, Option<String>);
 type ModuleValueTarget = (Option<String>, Option<String>);
+type ModuleValueImportKey = (ModuleValueOwner, ModuleValueTarget);
 type QualifiedModuleValueKey = (veln_ast::ResolvedImportOwner, String);
 
 #[derive(Clone, Debug)]
@@ -141,6 +142,58 @@ fn record_bare_module_value_cache_entry() {
     BARE_MODULE_VALUE_EXPOSURE_WORK.with(|work| {
         let mut value = work.get();
         value.cache_entries += 1;
+        work.set(value);
+    });
+}
+
+#[cfg(test)]
+thread_local! {
+    static MODULE_VALUE_AMBIGUITY_PROVENANCE_WORK:
+        std::cell::Cell<ModuleValueAmbiguityProvenanceWork> =
+        const { std::cell::Cell::new(ModuleValueAmbiguityProvenanceWork::ZERO) };
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct ModuleValueAmbiguityProvenanceWork {
+    pub(crate) index_construction_visits: usize,
+    pub(crate) candidate_provenance_visits: usize,
+}
+
+#[cfg(test)]
+impl ModuleValueAmbiguityProvenanceWork {
+    const ZERO: Self = Self {
+        index_construction_visits: 0,
+        candidate_provenance_visits: 0,
+    };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_module_value_ambiguity_provenance_work() {
+    MODULE_VALUE_AMBIGUITY_PROVENANCE_WORK
+        .with(|work| work.set(ModuleValueAmbiguityProvenanceWork::ZERO));
+}
+
+#[cfg(test)]
+pub(crate) fn take_module_value_ambiguity_provenance_work() -> ModuleValueAmbiguityProvenanceWork {
+    MODULE_VALUE_AMBIGUITY_PROVENANCE_WORK
+        .with(|work| work.replace(ModuleValueAmbiguityProvenanceWork::ZERO))
+}
+
+fn record_module_value_ambiguity_provenance_index_visit() {
+    #[cfg(test)]
+    MODULE_VALUE_AMBIGUITY_PROVENANCE_WORK.with(|work| {
+        let mut value = work.get();
+        value.index_construction_visits += 1;
+        work.set(value);
+    });
+}
+
+fn record_module_value_ambiguity_candidate_provenance_visit() {
+    #[cfg(test)]
+    MODULE_VALUE_AMBIGUITY_PROVENANCE_WORK.with(|work| {
+        let mut value = work.get();
+        value.candidate_provenance_visits += 1;
         work.set(value);
     });
 }
@@ -316,6 +369,7 @@ pub(crate) struct TypeEnvironment {
     bare_function_exports: HashMap<String, BTreeSet<ModuleValueTarget>>,
     bare_module_value_import_targets: HashMap<ModuleValueOwner, BTreeSet<ModuleValueTarget>>,
     module_value_import_owners: HashMap<ModuleValueTarget, BTreeSet<ModuleValueOwner>>,
+    representative_bare_module_value_imports: HashMap<ModuleValueImportKey, UseDecl>,
     bare_module_value_cache:
         Arc<std::sync::RwLock<HashMap<BareModuleValueKey, BareModuleValueExposure>>>,
     qualified_module_value_imports:
@@ -414,6 +468,7 @@ impl TypeEnvironment {
         self.bare_function_exports = indexes.functions;
         self.bare_module_value_import_targets = indexes.targets_by_owner;
         self.module_value_import_owners = indexes.owners_by_target;
+        self.representative_bare_module_value_imports = indexes.representative_imports;
         self.bare_module_value_cache = Arc::new(std::sync::RwLock::new(HashMap::new()));
     }
 
@@ -535,22 +590,9 @@ impl TypeEnvironment {
         owner: &ModuleValueOwner,
         target: &ModuleValueTarget,
     ) -> Option<&UseDecl> {
-        self.uses
-            .iter()
-            .filter(|use_decl| {
-                crate::name_recovery::use_decl_contributes_bare_exports(use_decl)
-                    && use_decl.importing_package == owner.0
-                    && use_decl.module_name == owner.1
-                    && {
-                        let resolved = use_decl.resolved_target();
-                        resolved.package == target.0
-                            && Some(resolved.module.as_str()) == target.1.as_deref()
-                    }
-            })
-            .min_by(|left, right| {
-                (left.span.file.as_str(), left.span.start.offset)
-                    .cmp(&(right.span.file.as_str(), right.span.start.offset))
-            })
+        record_module_value_ambiguity_candidate_provenance_visit();
+        self.representative_bare_module_value_imports
+            .get(&(owner.clone(), target.clone()))
     }
 
     pub(crate) fn module_value_dependency_in_owner(
@@ -876,7 +918,12 @@ impl TypeEnvironment {
             current_package,
         );
         record_qualified_module_value_visibility_work();
-        let visible = self.public_module_value_identities.contains(&identity) || private_access;
+        let available = match index {
+            ModuleValueIndex::Unique(index) => self.module_values[index].available,
+            ModuleValueIndex::Collision => false,
+        };
+        let visible = available
+            && (self.public_module_value_identities.contains(&identity) || private_access);
         visible.then_some(index)
     }
 

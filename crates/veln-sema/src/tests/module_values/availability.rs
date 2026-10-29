@@ -447,3 +447,137 @@ fn non_convergent_imported_lookup_is_rejected_in_every_order() {
         }
     }
 }
+
+fn competing_fixed_points_module(
+    source_order: [usize; 4],
+    reverse_a_imports: bool,
+    reverse_b_imports: bool,
+) -> SurfaceModule {
+    let a_imports = if reverse_a_imports {
+        "use cb\nuse b\n"
+    } else {
+        "use b\nuse cb\n"
+    };
+    let b_imports = if reverse_b_imports {
+        "use ca\nuse a\n"
+    } else {
+        "use a\nuse ca\n"
+    };
+    let sources = [
+        (
+            "a",
+            SourceFile::new(
+                "a.veln",
+                format!("{a_imports}pub let a_value: Int = b_value\n"),
+            ),
+        ),
+        (
+            "b",
+            SourceFile::new(
+                "b.veln",
+                format!("{b_imports}pub let b_value: Int = a_value\n"),
+            ),
+        ),
+        (
+            "ca",
+            SourceFile::new("ca.veln", "pub let a_value: Int = 1\n"),
+        ),
+        (
+            "cb",
+            SourceFile::new("cb.veln", "pub let b_value: Int = 1\n"),
+        ),
+    ];
+    merged_modules_with_identities(
+        source_order
+            .into_iter()
+            .map(|index| (sources[index].0, sources[index].1.clone()))
+            .collect(),
+    )
+}
+
+#[test]
+fn competing_imported_fixed_points_reject_the_same_identities_in_every_permutation() {
+    let identity = |module: &str, name: &str| (None, Some(module.to_string()), name.to_string());
+    let expected_invalid = [identity("a", "a_value"), identity("b", "b_value")]
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    let mut baseline_diagnostics = None;
+
+    for first in 0..4 {
+        for second in 0..4 {
+            for third in 0..4 {
+                for fourth in 0..4 {
+                    let source_order = [first, second, third, fourth];
+                    if source_order.iter().copied().collect::<BTreeSet<_>>().len() != 4 {
+                        continue;
+                    }
+                    for reverse_a_imports in [false, true] {
+                        for reverse_b_imports in [false, true] {
+                            let module = competing_fixed_points_module(
+                                source_order,
+                                reverse_a_imports,
+                                reverse_b_imports,
+                            );
+                            let mut environment =
+                                crate::types::TypeEnvironment::from_module(&module);
+                            let mut variant_diagnostics =
+                                crate::analysis::VariantDiagnosticInterner::default();
+                            let analysis = crate::analysis::check_module_values(
+                                &module,
+                                &mut environment,
+                                &mut variant_diagnostics,
+                            );
+
+                            assert_eq!(analysis.invalid, expected_invalid, "{source_order:?}");
+                            for (module_name, value_name, available) in [
+                                ("a", "a_value", false),
+                                ("b", "b_value", false),
+                                ("ca", "a_value", true),
+                                ("cb", "b_value", true),
+                            ] {
+                                let lookup = environment.module_value_path_in_owner(
+                                    &[value_name.to_string()],
+                                    Some(module_name),
+                                    None,
+                                );
+                                assert_eq!(
+                                    matches!(lookup, crate::types::ModuleValueLookup::Available(_)),
+                                    available,
+                                    "{source_order:?}: unexpected availability for {module_name}::{value_name}"
+                                );
+                            }
+
+                            let mut diagnostics = analysis
+                                .diagnostics
+                                .iter()
+                                .map(|diagnostic| {
+                                    (
+                                        diagnostic.id.clone(),
+                                        diagnostic.message.as_str().to_string(),
+                                        diagnostic.span.as_ref().map(|span| {
+                                            (span.file.as_str().to_string(), span.start.offset)
+                                        }),
+                                    )
+                                })
+                                .collect::<Vec<_>>();
+                            diagnostics.sort();
+                            assert_eq!(
+                                diagnostics
+                                    .iter()
+                                    .filter(|(id, _, _)| id == "name.ambiguous")
+                                    .count(),
+                                2,
+                                "{diagnostics:#?}"
+                            );
+                            if let Some(baseline) = &baseline_diagnostics {
+                                assert_eq!(&diagnostics, baseline, "{source_order:?}");
+                            } else {
+                                baseline_diagnostics = Some(diagnostics);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -182,6 +182,7 @@ fn initial_environment(
         bare_function_exports: HashMap::new(),
         bare_module_value_import_targets: HashMap::new(),
         module_value_import_owners: HashMap::new(),
+        representative_bare_module_value_imports: HashMap::new(),
         bare_module_value_cache: Arc::new(std::sync::RwLock::new(HashMap::new())),
         qualified_module_value_imports: HashMap::new(),
         exact_module_value_imports: exact_module_value_import_paths(&symbols.uses),

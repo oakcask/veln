@@ -194,6 +194,8 @@ pub(in crate::types::environment) struct BareModuleValueIndexes {
         HashMap<ModuleValueOwner, BTreeSet<ModuleValueTarget>>,
     pub(in crate::types::environment) owners_by_target:
         HashMap<ModuleValueTarget, BTreeSet<ModuleValueOwner>>,
+    pub(in crate::types::environment) representative_imports:
+        HashMap<ModuleValueImportKey, UseDecl>,
 }
 
 pub(in crate::types::environment) fn bare_module_value_indexes(
@@ -204,16 +206,31 @@ pub(in crate::types::environment) fn bare_module_value_indexes(
 ) -> BareModuleValueIndexes {
     let mut targets_by_owner = HashMap::<ModuleValueOwner, BTreeSet<ModuleValueTarget>>::new();
     let mut owners_by_target = HashMap::<ModuleValueTarget, BTreeSet<ModuleValueOwner>>::new();
+    let mut representative_imports = HashMap::<ModuleValueImportKey, UseDecl>::new();
     for use_decl in uses
         .iter()
         .filter(|use_decl| crate::name_recovery::use_decl_contributes_bare_exports(use_decl))
     {
+        record_module_value_ambiguity_provenance_index_visit();
         let target = use_decl.resolved_target();
         let target = (target.package, Some(target.module));
         let owner = (
             use_decl.importing_package.clone(),
             use_decl.module_name.clone(),
         );
+        representative_imports
+            .entry((owner.clone(), target.clone()))
+            .and_modify(|representative| {
+                if (use_decl.span.file.as_str(), use_decl.span.start.offset)
+                    < (
+                        representative.span.file.as_str(),
+                        representative.span.start.offset,
+                    )
+                {
+                    *representative = use_decl.clone();
+                }
+            })
+            .or_insert_with(|| use_decl.clone());
         if targets_by_owner
             .entry(owner.clone())
             .or_default()
@@ -266,5 +283,6 @@ pub(in crate::types::environment) fn bare_module_value_indexes(
         functions: function_targets_by_name,
         targets_by_owner,
         owners_by_target,
+        representative_imports,
     }
 }

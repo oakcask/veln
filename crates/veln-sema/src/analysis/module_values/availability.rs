@@ -94,6 +94,7 @@ pub(super) fn stabilize_module_value_availability(
                 dirty_declarations.extend(dependents.iter().copied());
             }
         }
+        let mut evaluations = Vec::new();
         for index in dirty_declarations {
             record_declaration_recheck_lookup();
             let value = &module.module_values[index];
@@ -135,42 +136,60 @@ pub(super) fn stabilize_module_value_availability(
                     ))
                 })
             });
-            if invalid == unavailable.contains(&identity) {
+            evaluations.push((identity, invalid, diagnostics));
+        }
+
+        // All declarations in one dirty wave are checked against the same
+        // availability snapshot. Publishing a result while later declarations
+        // are still being checked would make a competing fixed point depend on
+        // their source indices.
+        let mut newly_rejected = BTreeSet::new();
+        for (identity, invalid, _) in &evaluations {
+            if *invalid
+                && ever_unavailable.contains(identity)
+                && let Some(component) = cyclic_components.get(identity)
+            {
+                newly_rejected.extend(component.iter().cloned());
+            }
+        }
+        for (identity, invalid, diagnostics) in &evaluations {
+            if *invalid && newly_rejected.contains(identity) {
+                recurrent_diagnostics.extend(diagnostics.iter().cloned());
+            }
+        }
+
+        let previous_unavailable = unavailable.clone();
+        for (identity, invalid, _) in evaluations {
+            if newly_rejected.contains(&identity) {
                 continue;
             }
             if invalid {
-                // A declaration that fails, recovers, and then fails again can
-                // participate in a lookup graph with no Boolean fixed point.
-                // Quarantine that recurring failure locally. Each declaration
-                // can therefore recover once, while a non-convergent component
-                // has a finite number of state transitions.
-                if ever_unavailable.contains(&identity)
-                    && let Some(component) = cyclic_components.get(&identity)
-                {
-                    recurrent_diagnostics.extend(diagnostics);
-                    for rejected in component {
-                        recurrently_unavailable.insert(rejected.clone());
-                        unavailable.insert(rejected.clone());
-                        if ever_unavailable.insert(rejected.clone()) {
-                            record_retained_history_insertions(1);
-                        }
-                        queue_availability_change(
-                            rejected,
-                            false,
-                            environment,
-                            &mut pending_dependencies,
-                        );
-                    }
-                    continue;
-                }
                 unavailable.insert(identity.clone());
-                if ever_unavailable.insert(identity.clone()) {
+                if ever_unavailable.insert(identity) {
                     record_retained_history_insertions(1);
                 }
             } else {
                 unavailable.remove(&identity);
             }
-            queue_availability_change(&identity, !invalid, environment, &mut pending_dependencies);
+        }
+        for identity in newly_rejected {
+            recurrently_unavailable.insert(identity.clone());
+            unavailable.insert(identity.clone());
+            if ever_unavailable.insert(identity) {
+                record_retained_history_insertions(1);
+            }
+        }
+        for identity in previous_unavailable
+            .symmetric_difference(&unavailable)
+            .cloned()
+            .collect::<Vec<_>>()
+        {
+            queue_availability_change(
+                &identity,
+                !unavailable.contains(&identity),
+                environment,
+                &mut pending_dependencies,
+            );
         }
         record_peak_availability_work(&pending_dependencies, &unavailable, &ever_unavailable);
     }

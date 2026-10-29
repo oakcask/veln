@@ -1633,6 +1633,91 @@ fn imported_module_value_ambiguity_includes_function_data_collisions() {
     }
 }
 
+fn module_with_bare_module_value_ambiguity(
+    import_count: usize,
+    read_count: usize,
+) -> SurfaceModule {
+    let mut merged = SurfaceModule {
+        module: None,
+        uses: Vec::new(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        types: Vec::new(),
+        module_values: Vec::new(),
+        functions: Vec::new(),
+        invalid_names: Vec::new(),
+    };
+    for index in 0..import_count {
+        let module_name = format!("values_{index}");
+        let source = SourceFile::new(format!("values_{index}.veln"), "pub let shared: Int = 1\n");
+        let module = veln_ast::lower_surface_ast_with_module_identity(
+            &parse(&source).tree,
+            module_name,
+            source.span(veln_source::TextRange::new(0, 0)),
+        );
+        merged.module_values.extend(module.module_values);
+    }
+    let imports = (0..import_count)
+        .map(|index| format!("use values_{index}\n"))
+        .collect::<String>();
+    let reads = (0..read_count)
+        .map(|index| format!("fn read_{index}() -> Int\n  shared\nend\n"))
+        .collect::<String>();
+    let source = SourceFile::new("app.veln", format!("{imports}{reads}"));
+    let app = veln_ast::lower_surface_ast_with_module_identity(
+        &parse(&source).tree,
+        "app".to_string(),
+        source.span(veln_source::TextRange::new(0, 0)),
+    );
+    merged.module = app.module;
+    merged.uses.extend(app.uses);
+    merged.functions.extend(app.functions);
+    merged
+}
+
+#[test]
+fn bare_module_value_ambiguity_provenance_work_is_linear_and_shared_across_reads() {
+    fn measure(
+        import_count: usize,
+        read_count: usize,
+    ) -> crate::types::ModuleValueAmbiguityProvenanceWork {
+        let module = module_with_bare_module_value_ambiguity(import_count, read_count);
+        crate::types::reset_module_value_ambiguity_provenance_work();
+        let diagnostics = analyze_surface_module(&module);
+        let ambiguities = diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.ambiguous")
+            .collect::<Vec<_>>();
+        assert_eq!(ambiguities.len(), read_count, "{diagnostics:#?}");
+        assert!(
+            ambiguities
+                .iter()
+                .all(|diagnostic| diagnostic.related.len() == import_count),
+            "{diagnostics:#?}"
+        );
+        crate::types::take_module_value_ambiguity_provenance_work()
+    }
+
+    let smaller = measure(64, 1);
+    let larger = measure(128, 1);
+    let repeated = measure(128, 4);
+
+    assert!(smaller.index_construction_visits >= 64, "{smaller:#?}");
+    assert_eq!(
+        larger.index_construction_visits,
+        smaller.index_construction_visits * 2
+    );
+    assert_eq!(smaller.candidate_provenance_visits, 64, "{smaller:#?}");
+    assert_eq!(larger.candidate_provenance_visits, 128, "{larger:#?}");
+    assert_eq!(
+        repeated.index_construction_visits, larger.index_construction_visits,
+        "index construction must not repeat for each ambiguous read"
+    );
+    assert_eq!(repeated.candidate_provenance_visits, 128 * 4);
+}
+
 #[test]
 fn same_owner_function_shadows_bare_imported_module_value_in_value_and_call_positions() {
     let module = merged_modules_with_identities(vec![
@@ -2575,6 +2660,72 @@ fn exact_companion_module_value_can_read_private_module_values_but_other_sources
         diagnostics.iter().all(|diagnostic| {
             diagnostic.span.as_ref().is_none_or(|span| {
                 span.file.as_str() != "math.test.veln" || diagnostic.id != "name.unresolved"
+            })
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn exact_companion_cannot_read_an_unavailable_private_module_value() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "math",
+            SourceFile::new("math.veln", "let secret: Missing = 0\n"),
+        ),
+        (
+            "math.test",
+            SourceFile::new(
+                "math.test.veln",
+                concat!(
+                    "use math\n",
+                    "pub let observed: Int = math::secret\n",
+                    "fn read_observed() -> String\n",
+                    "  observed\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+    let mut environment = crate::types::TypeEnvironment::from_module(&module);
+    let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
+    let analysis =
+        crate::analysis::check_module_values(&module, &mut environment, &mut variant_diagnostics);
+
+    assert_eq!(
+        analysis.invalid,
+        [
+            (None, Some("math".to_string()), "secret".to_string()),
+            (None, Some("math.test".to_string()), "observed".to_string(),),
+        ]
+        .into_iter()
+        .collect(),
+    );
+    assert!(matches!(
+        environment.module_value_path_in_owner(
+            &["math".to_string(), "secret".to_string()],
+            Some("math.test"),
+            None,
+        ),
+        crate::types::ModuleValueLookup::Missing
+    ));
+    assert!(matches!(
+        environment.module_value_path_in_owner(&["observed".to_string()], Some("math.test"), None,),
+        crate::types::ModuleValueLookup::Unavailable
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved value `math::secret`"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.span.as_ref().is_none_or(|span| {
+                span.file.as_str() != "math.test.veln" || diagnostic.id != "type.mismatch"
             })
         }),
         "{diagnostics:#?}"

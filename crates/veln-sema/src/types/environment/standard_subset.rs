@@ -40,6 +40,7 @@ impl TypeEnvironment {
             bare_function_exports: bare_indexes.functions,
             bare_module_value_import_targets: bare_indexes.targets_by_owner,
             module_value_import_owners: bare_indexes.owners_by_target,
+            representative_bare_module_value_imports: bare_indexes.representative_imports,
             bare_module_value_cache: Arc::new(std::sync::RwLock::new(HashMap::new())),
             qualified_module_value_imports,
             exact_module_value_imports,
