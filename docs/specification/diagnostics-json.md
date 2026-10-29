@@ -90,6 +90,14 @@ details contain `boundary: "public_module_value"`, the declaration `name`,
 and
 [`JSON`](../../examples/specification/check/module-value-public-annotation-visibility-json/)
 cases fix the rendered and structured forms.
+A private type alias produces this diagnostic even when its terminal target is
+public. In that case, `resolved_type` and the `private_type_declaration` related
+entry identify the written alias declaration. Nested aggregate occurrences use
+the same rule. The checked private-alias
+[`human`](../../examples/specification/check/module-value-private-alias-annotation-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-private-alias-annotation-json/)
+cases fix the direct and nested forms.
 Annotation resolution uses the imports of the module that declares the value.
 It retains the selected type's package and module identity when producing
 private-declaration context. An exact written import path takes precedence over
@@ -128,7 +136,13 @@ name. With no other eligible declaration, either read reports
 module, a valid imported value with the same name remains selectable without
 `name.ambiguous`, and a valid imported function remains callable without
 `name.ambiguous` or `type.not_callable`. These results also apply when a module
-value initializer contains the read. Conversely, a public
+value initializer contains the read. If a failed imported candidate initially
+makes that initializer ambiguous, removing the failed candidate selects the
+valid namesake. A dependent declaration that then satisfies its annotation is
+available to importers, so their reads produce ordinary type results rather
+than derivative unresolved or ambiguous diagnostics. Duplicate declarations,
+invalid-cased declarations, and same-module initializer cycles do not recover
+when imported availability changes. Conversely, a public
 function or function alias withheld by a signature-visibility failure does not
 make a same-named imported module value ambiguous or unresolved. An available
 public function or alias still makes the bare name ambiguous. A same-module

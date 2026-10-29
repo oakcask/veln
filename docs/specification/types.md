@@ -765,11 +765,22 @@ of one, and the peak retained-identity count has no fixed allowance. Separate
 recheck lookups by the number of dependency edges plus one. Doubling the chain
 allows at most twice the recheck lookups plus two; doubling only unrelated
 declarations allows at most one additional recheck lookup.
+When a failed imported declaration is removed from an ambiguous initializer
+lookup, the remaining valid declaration supplies the initializer type. A
+dependent module value whose initializer then satisfies its annotation becomes
+available to its importers. Duplicate declarations, invalid-cased declarations,
+and same-module initializer cycles do not recover through this process. The
+checked invalid-import exposure cases cover recovery and retained package
+identity in both source and import orders.
 
 A public module value annotation is a public type boundary. Every recursively
 named type in generic arguments, function positions, records, and unions must
 resolve to a public type. A private named type reports
-`type.public_annotation_private`. Every refinement in the same recursive
+`type.public_annotation_private`. A private type alias is itself an exposed
+private type even when its terminal target is public; the diagnostic identifies
+the written alias declaration rather than replacing it with the terminal type.
+This rule applies at the top level and inside aggregate annotations. Every
+refinement in the same recursive
 positions must use a public base and public selected variant; violations report
 `type.variant_refinement_private`. The initializer may construct a private
 variant when the written annotation exposes only its public base type. The
@@ -778,7 +789,11 @@ checked
 and
 [`JSON`](../../examples/specification/check/module-value-public-annotation-visibility-json/)
 cases cover rejected named types and refinements plus the allowed base-only
-annotation.
+annotation. The checked private-alias
+[`human`](../../examples/specification/check/module-value-private-alias-annotation-human/)
+and
+[`JSON`](../../examples/specification/check/module-value-private-alias-annotation-json/)
+cases cover direct and nested alias exposure.
 
 ### Result propagation
 

@@ -247,6 +247,13 @@ other eligible declaration, a reference to its name is unresolved. These rules
 also apply inside another module value's initializer. The initializer reference
 uses the imported declarations' final availability, so source and import order
 do not change whether a valid namesake remains selectable.
+If one imported candidate becomes unavailable after semantic checking, an
+initializer that was ambiguous between that candidate and a valid namesake is
+checked against the remaining candidate. The dependent module value becomes
+available when that check succeeds, and its importers observe its written
+annotation type. This recovery is independent of source and import order.
+Duplicate declarations, invalid-cased declarations, and same-module
+initializer cycles remain unavailable when imported availability changes.
 A same-module function or function alias that collides with a module value
 keeps that module-value identity unavailable when imported availability changes
 cause its owner to be checked again. An importer cannot expose that value by
