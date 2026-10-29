@@ -1,6 +1,6 @@
 api.veln:3:1: error[module.value_not_executable]: module value declaration `local` is not executable
-  note: The declaration is semantically checked, but runtime materialization and code generation do not support module values yet.
+  note: The declaration is semantically checked, but checked-core lowering and code generation do not support module values yet.
 values.veln:1:1: error[module.value_not_executable]: module value declaration `shared` is not executable
-  note: The declaration is semantically checked, but runtime materialization and code generation do not support module values yet.
+  note: The declaration is semantically checked, but checked-core lowering and code generation do not support module values yet.
 api.veln:5:1: error[name.kind_mismatch]: public alias target `local` is a module value, not a function
 api.veln:6:1: error[name.kind_mismatch]: public alias target `values::shared` is a module value, not a function

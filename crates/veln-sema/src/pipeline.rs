@@ -481,7 +481,7 @@ fn module_value_not_executable_diagnostic(value: &veln_ast::ModuleValueDecl) -> 
     diagnostic.related.push(JsonValue::object([(
         "message",
         JsonValue::string(
-            "The declaration is semantically checked, but runtime materialization and code generation do not support module values yet.",
+            "The declaration is semantically checked, but checked-core lowering and code generation do not support module values yet.",
         ),
     )]));
     diagnostic
