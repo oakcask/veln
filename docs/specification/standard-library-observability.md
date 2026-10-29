@@ -516,7 +516,9 @@ I/O. A valid record below capacity is captured and accepted without waiting for
 its destination attempt. Accepted records use their admission order for
 sequence allocation and destination attempts. The exporter makes one
 destination attempt at a time, releases the record's slot only after that
-attempt completes, and preserves that order while draining. Direct metric
+attempt completes, and preserves that order while draining. A record accepted
+while the preceding destination attempt settles is drained without requiring
+another submission or a shutdown call to wake the worker. Direct metric
 submission does not apply metric-cardinality admission.
 
 The first normal `shutdown_buffered` call closes admission, so later
@@ -694,6 +696,10 @@ process or machine termination can prevent it from running.
   accepted final summary, completed-report, and repeated-shutdown coverage is in
   `observe.test.veln`, with scoped destination support in
   [`observe_test_support_test.veln`](../../crates/veln-stdlib/veln/observe_test_support_test.veln).
+  The
+  [`observability-buffered-json-lines-host-boundary`](../../examples/specification/run/observability-buffered-json-lines-host-boundary/)
+  case checks ordered worker drain and the final summary through the real JVM
+  file destination.
 - Production index boundary coverage:
   [`effect_boundary_policy.rs`](../../crates/veln-backend-jvm/src/tests/effect_boundary_policy.rs)
   checks bounded indexed state and the absence of owner tasks, while
