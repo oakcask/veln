@@ -45,6 +45,10 @@ pub(crate) struct ModuleValueAvailabilityWork {
     pub(crate) peak_retained_dependency_state: usize,
     pub(crate) declaration_recheck_lookups: usize,
     pub(crate) retained_history_insertions: usize,
+    // Identity-sized availability comparisons, copies, and traversals. Full
+    // snapshot work must add one step per identity so adjacent-size tests see it.
+    pub(crate) availability_state_steps: usize,
+    pub(crate) availability_waves: usize,
     pub(crate) full_exposure_rebuild_entries: usize,
     pub(crate) availability_updates: usize,
     pub(crate) peak_pending_owners: usize,
@@ -64,6 +68,8 @@ thread_local! {
             peak_retained_dependency_state: 0,
             declaration_recheck_lookups: 0,
             retained_history_insertions: 0,
+            availability_state_steps: 0,
+            availability_waves: 0,
             full_exposure_rebuild_entries: 0,
             availability_updates: 0,
             peak_pending_owners: 0,

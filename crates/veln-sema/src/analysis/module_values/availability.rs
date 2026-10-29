@@ -78,6 +78,7 @@ pub(super) fn stabilize_module_value_availability(
     record_peak_availability_work(&pending_dependencies, &unavailable, &ever_unavailable);
 
     while !pending_dependencies.is_empty() {
+        record_availability_wave();
         let changes = std::mem::take(&mut pending_dependencies);
         let mut dirty_declarations = BTreeSet::new();
         for changed in changes {
@@ -145,8 +146,10 @@ pub(super) fn stabilize_module_value_availability(
         // their source indices.
         let mut newly_rejected = BTreeSet::new();
         for (identity, invalid, _) in &evaluations {
+            record_availability_state_steps(1);
             if *invalid
                 && ever_unavailable.contains(identity)
+                && !unavailable.contains(identity)
                 && let Some(component) = cyclic_components.get(identity)
             {
                 newly_rejected.extend(component.iter().cloned());
@@ -158,32 +161,36 @@ pub(super) fn stabilize_module_value_availability(
             }
         }
 
-        let previous_unavailable = unavailable.clone();
+        let mut changed_identities = BTreeSet::new();
         for (identity, invalid, _) in evaluations {
             if newly_rejected.contains(&identity) {
                 continue;
             }
-            if invalid {
-                unavailable.insert(identity.clone());
-                if ever_unavailable.insert(identity) {
+            record_availability_state_steps(1);
+            let changed = if invalid {
+                let changed = unavailable.insert(identity.clone());
+                if ever_unavailable.insert(identity.clone()) {
                     record_retained_history_insertions(1);
                 }
+                changed
             } else {
-                unavailable.remove(&identity);
+                unavailable.remove(&identity)
+            };
+            if changed {
+                changed_identities.insert(identity);
             }
         }
         for identity in newly_rejected {
             recurrently_unavailable.insert(identity.clone());
-            unavailable.insert(identity.clone());
+            record_availability_state_steps(1);
+            if unavailable.insert(identity.clone()) {
+                changed_identities.insert(identity.clone());
+            }
             if ever_unavailable.insert(identity) {
                 record_retained_history_insertions(1);
             }
         }
-        for identity in previous_unavailable
-            .symmetric_difference(&unavailable)
-            .cloned()
-            .collect::<Vec<_>>()
-        {
+        for identity in changed_identities {
             queue_availability_change(
                 &identity,
                 !unavailable.contains(&identity),
@@ -465,3 +472,23 @@ fn record_retained_history_insertions(count: usize) {
 
 #[cfg(not(test))]
 fn record_retained_history_insertions(_count: usize) {}
+
+#[cfg(test)]
+fn record_availability_state_steps(count: usize) {
+    super::update_module_value_availability_work(|work| {
+        work.availability_state_steps += count;
+    });
+}
+
+#[cfg(not(test))]
+fn record_availability_state_steps(_count: usize) {}
+
+#[cfg(test)]
+fn record_availability_wave() {
+    super::update_module_value_availability_work(|work| {
+        work.availability_waves += 1;
+    });
+}
+
+#[cfg(not(test))]
+fn record_availability_wave() {}

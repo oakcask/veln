@@ -495,6 +495,100 @@ fn competing_fixed_points_module(
     )
 }
 
+fn intrinsic_failure_in_cyclic_candidate_component(
+    source_order: [usize; 3],
+    reverse_imports: bool,
+) -> SurfaceModule {
+    let b_imports = if reverse_imports {
+        "use ca\nuse a\n"
+    } else {
+        "use a\nuse ca\n"
+    };
+    let sources = [
+        (
+            "a",
+            SourceFile::new("a.veln", "use b\npub let a_value: Missing = b_value\n"),
+        ),
+        (
+            "b",
+            SourceFile::new(
+                "b.veln",
+                format!("{b_imports}pub let b_value: Int = a_value\n"),
+            ),
+        ),
+        (
+            "ca",
+            SourceFile::new("ca.veln", "pub let a_value: Int = 1\n"),
+        ),
+    ];
+    merged_modules_with_identities(
+        source_order
+            .into_iter()
+            .map(|index| (sources[index].0, sources[index].1.clone()))
+            .collect(),
+    )
+}
+
+#[test]
+fn unchanged_intrinsic_failure_does_not_reject_its_cyclic_candidate_component() {
+    let identity = |module: &str, name: &str| (None, Some(module.to_string()), name.to_string());
+    let expected_invalid = [identity("a", "a_value")]
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+
+    for first in 0..3 {
+        for second in 0..3 {
+            for third in 0..3 {
+                let source_order = [first, second, third];
+                if source_order.iter().copied().collect::<BTreeSet<_>>().len() != 3 {
+                    continue;
+                }
+                for reverse_imports in [false, true] {
+                    let module = intrinsic_failure_in_cyclic_candidate_component(
+                        source_order,
+                        reverse_imports,
+                    );
+                    let mut environment = crate::types::TypeEnvironment::from_module(&module);
+                    let mut variant_diagnostics =
+                        crate::analysis::VariantDiagnosticInterner::default();
+                    let analysis = crate::analysis::check_module_values(
+                        &module,
+                        &mut environment,
+                        &mut variant_diagnostics,
+                    );
+
+                    assert_eq!(analysis.invalid, expected_invalid, "{source_order:?}");
+                    for (module_name, value_name, available) in [
+                        ("a", "a_value", false),
+                        ("b", "b_value", true),
+                        ("ca", "a_value", true),
+                    ] {
+                        let lookup = environment.module_value_path_in_owner(
+                            &[value_name.to_string()],
+                            Some(module_name),
+                            None,
+                        );
+                        assert_eq!(
+                            matches!(lookup, crate::types::ModuleValueLookup::Available(_)),
+                            available,
+                            "unexpected availability for {module_name}::{value_name}"
+                        );
+                    }
+                    assert_eq!(analysis.diagnostics.len(), 2, "{:#?}", analysis.diagnostics);
+                    assert!(analysis.diagnostics.iter().any(|diagnostic| {
+                        diagnostic.id == "name.unresolved"
+                            && diagnostic.message == "unresolved type `Missing`"
+                    }));
+                    assert!(analysis.diagnostics.iter().any(|diagnostic| {
+                        diagnostic.id == "type.mismatch"
+                            && diagnostic.message == "expected `Missing`, but found `Int`"
+                    }));
+                }
+            }
+        }
+    }
+}
+
 #[test]
 fn competing_imported_fixed_points_reject_the_same_identities_in_every_permutation() {
     let identity = |module: &str, name: &str| (None, Some(module.to_string()), name.to_string());

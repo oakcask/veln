@@ -1,0 +1,5 @@
+pub type TwoValue
+	pub Two
+end
+
+pub let answer: TwoValue = Two

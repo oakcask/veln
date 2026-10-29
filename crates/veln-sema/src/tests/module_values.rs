@@ -584,6 +584,11 @@ fn imported_module_value_invalidation_work_is_adjacent_linear() {
         assert!(work.owner_index_entries <= count * 2 + 2, "{work:#?}");
         assert!(work.owner_recheck_lookups <= count + 1, "{work:#?}");
         assert!(work.retained_history_insertions <= count + 1, "{work:#?}");
+        assert!(work.availability_state_steps <= count * 4 + 4, "{work:#?}");
+        assert!(
+            (count / 2..=count + 1).contains(&work.availability_waves),
+            "{work:#?}"
+        );
         assert!(
             work.full_exposure_rebuild_entries <= count * 2 + count.saturating_sub(1) + 4,
             "{work:#?}"
@@ -617,6 +622,14 @@ fn imported_module_value_invalidation_work_is_adjacent_linear() {
     );
     assert!(
         larger.retained_history_insertions <= smaller.retained_history_insertions * 2 + 1,
+        "{smaller:#?} -> {larger:#?}"
+    );
+    assert!(
+        larger.availability_state_steps <= smaller.availability_state_steps * 2 + 4,
+        "{smaller:#?} -> {larger:#?}"
+    );
+    assert!(
+        larger.availability_waves <= smaller.availability_waves * 2 + 1,
         "{smaller:#?} -> {larger:#?}"
     );
     assert!(
