@@ -520,6 +520,9 @@ attempt completes, and preserves that order while draining. A record accepted
 while the preceding destination attempt settles is drained without requiring
 another submission or a shutdown call to wake the worker. Direct metric
 submission does not apply metric-cardinality admission.
+After the queue becomes idle, each later submission can wake the same worker
+without retaining drain stack frames from earlier idle-to-wake cycles. Worker
+stack use therefore does not grow with the number of completed idle cycles.
 
 The first normal `shutdown_buffered` call closes admission, so later
 submissions return `Closed`. Shutdown waits until every accepted record has one
@@ -692,9 +695,10 @@ process or machine termination can prevent it from running.
   schema-invalid export rejection, portable hostile-source replacement, and
   preservation of package, nested logical module, and package-relative file
   identity.
-- Direct buffered constructor, capacity, admission, ordered drain, enabled
-  accepted final summary, completed-report, and repeated-shutdown coverage is in
-  `observe.test.veln`, with scoped destination support in
+- Direct buffered constructor, capacity, admission, ordered drain, repeated
+  idle-to-wake stack use, enabled accepted final summary, completed-report, and
+  repeated-shutdown coverage is in `observe.test.veln`, with scoped destination
+  support in
   [`observe_test_support_test.veln`](../../crates/veln-stdlib/veln/observe_test_support_test.veln).
   The
   [`observability-buffered-json-lines-host-boundary`](../../examples/specification/run/observability-buffered-json-lines-host-boundary/)
