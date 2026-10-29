@@ -285,7 +285,11 @@ The command implementation and scheduler are in
 contract. The
 [`callsite-generated-origin-runtime`](../../examples/specification/test/callsite-generated-origin-runtime/)
 executable specification case verifies doctest origin mapping through this JSON
-command boundary.
+command boundary. The
+[`module-value-imported-static-gate-json`](../../examples/specification/test/module-value-imported-static-gate-json/)
+case verifies package-aware imported value typing, annotation visibility, the
+module-value execution blocker, blocked case records, empty event lists, and
+the absence of Java startup.
 
 ## Usage and limits
 

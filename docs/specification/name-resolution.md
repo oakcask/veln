@@ -255,6 +255,9 @@ annotation type. This recovery is independent of source and import order.
 If a cyclic availability candidate-dependency component has no result that is
 stable when every affected declaration observes the same preceding state,
 analysis rejects every declaration in that component after recovery repeats.
+An intrinsic declaration failure that remains continuously unavailable is not
+a recovery repeat. It does not reject otherwise valid declarations in the
+candidate component.
 This relation propagates semantic availability and does not create an
 initializer dependency-graph edge or a cross-module initializer-cycle
 diagnostic. It includes competing fixed points that would otherwise depend on

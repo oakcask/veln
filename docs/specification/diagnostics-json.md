@@ -146,7 +146,10 @@ checker keeps every declaration in that component unavailable. It retains the
 diagnostics from the recurring failure even though the final quarantined state
 can no longer reproduce them. Reads from rejected declarations remain
 unresolved, while declarations outside the component retain independently
-valid facts. Duplicate declarations, invalid-cased declarations, and
+valid facts. An intrinsic failure that remains continuously unavailable does
+not reject otherwise valid declarations in its candidate component and does
+not add recurring-failure diagnostics. Duplicate declarations, invalid-cased
+declarations, and
 same-module initializer cycles do not recover when imported availability
 changes. Conversely, a public
 function or function alias withheld by a signature-visibility failure does not

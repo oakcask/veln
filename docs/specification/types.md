@@ -765,11 +765,15 @@ counted separately.
 Availability stabilization has deterministic scaling checks over imported
 module-value invalidation chains and fan-out. They count semantic visits,
 reverse-dependency entries, dependent-declaration recheck lookups,
-retained-history insertions, availability updates, and peak pending and
-retained identities. Increasing a chain workload from 64 to 128 keeps each
-checked count at no more than twice its smaller-workload value plus four
-operations; retained-history and availability-update counts use an allowance
-of one, and the peak retained-identity count has no fixed allowance. Separate
+retained-history insertions, identity-sized availability-state steps,
+stabilization waves, availability updates, and peak pending and retained
+identities. Increasing a chain workload from 64 to 128 keeps each checked
+count at no more than twice its smaller-workload value plus four operations;
+retained-history insertions, stabilization waves, and availability updates use
+an allowance of one, and the peak retained-identity count has no fixed
+allowance. Each workload also bounds state steps by four times the declaration
+count plus four and waves between half the declaration count and the
+declaration count plus one. Separate
 32 and 64 chain-and-fan-out workloads bound dependency-index entries and
 recheck lookups by the number of dependency edges plus one. Doubling the chain
 allows at most twice the recheck lookups plus two; doubling only unrelated
@@ -794,9 +798,12 @@ If recovery inside a cyclic availability candidate-dependency component causes
 a previously failed declaration to fail again, analysis rejects that complete
 component as non-convergent. Its declarations remain unavailable and cannot
 republish their dependents. This availability component is not an initializer
-cycle. Declarations outside the component retain their independently valid
-facts. The stabilization workload bounds every declaration recheck and
-availability update without a retry limit or retained global-state history.
+cycle. A declaration that remains unavailable because of its own intrinsic
+failure has not recovered and does not reject otherwise valid declarations in
+the component. Declarations outside the rejected component retain their
+independently valid facts. The stabilization workload bounds every declaration
+recheck, availability-state step, wave, and availability update without a
+retry limit or retained global-state history.
 
 A public module value annotation is a public type boundary. Every recursively
 named type in generic arguments, function positions, records, and unions must
