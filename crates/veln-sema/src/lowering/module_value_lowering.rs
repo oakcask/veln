@@ -60,6 +60,18 @@ pub(super) fn lower_module_values(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> Vec<CoreModuleValueDecl> {
+    let uses_by_owner = prepare_uses_by_owner(environment);
+
+    module
+        .module_values
+        .iter()
+        .filter_map(|declaration| lower_module_value(declaration, environment, &uses_by_owner))
+        .collect()
+}
+
+fn prepare_uses_by_owner(
+    environment: &TypeEnvironment,
+) -> HashMap<veln_ast::ResolvedImportOwner, Vec<veln_ast::UseDecl>> {
     let mut uses_by_owner = HashMap::<veln_ast::ResolvedImportOwner, Vec<veln_ast::UseDecl>>::new();
     for use_decl in &environment.uses {
         record_prepared_import();
@@ -68,44 +80,45 @@ pub(super) fn lower_module_values(
             .or_default()
             .push(use_decl.clone());
     }
+    uses_by_owner
+}
 
-    module
-        .module_values
-        .iter()
-        .filter_map(|declaration| {
-            let name = declaration.name.as_ref()?;
-            record_owner_lookup();
-            let owner = veln_ast::ResolvedImportOwner {
-                package: declaration.package_name.clone(),
-                module: declaration.module_name.clone(),
-            };
-            let uses = uses_by_owner.get(&owner).map(Vec::as_slice).unwrap_or(&[]);
-            let ty = environment.canonicalize_type_annotation_in_owner(
-                parse_type_or_unknown(Some(&declaration.annotation)),
-                declaration.module_name.as_deref(),
-                declaration.package_name.as_deref(),
-            );
-            let expected = core_type(&ty);
-            Some(CoreModuleValueDecl {
-                node_id: declaration.node_id,
-                identity: CoreModuleValueIdentity {
-                    package: declaration.package_name.clone(),
-                    module: declaration.module_name.clone(),
-                    name: name.clone(),
-                },
-                annotation: declaration.annotation.clone(),
-                ty: expected.clone(),
-                visibility: declaration.visibility,
-                initializer: ModuleValueLowerer {
-                    declaration,
-                    environment,
-                    uses,
-                }
-                .lower_expr(&declaration.initializer, Some(&expected)),
-                span: declaration.span.clone(),
-            })
-        })
-        .collect()
+fn lower_module_value(
+    declaration: &veln_ast::ModuleValueDecl,
+    environment: &TypeEnvironment,
+    uses_by_owner: &HashMap<veln_ast::ResolvedImportOwner, Vec<veln_ast::UseDecl>>,
+) -> Option<CoreModuleValueDecl> {
+    let name = declaration.name.as_ref()?;
+    record_owner_lookup();
+    let owner = veln_ast::ResolvedImportOwner {
+        package: declaration.package_name.clone(),
+        module: declaration.module_name.clone(),
+    };
+    let uses = uses_by_owner.get(&owner).map(Vec::as_slice).unwrap_or(&[]);
+    let ty = environment.canonicalize_type_annotation_in_owner(
+        parse_type_or_unknown(Some(&declaration.annotation)),
+        declaration.module_name.as_deref(),
+        declaration.package_name.as_deref(),
+    );
+    let expected = core_type(&ty);
+    Some(CoreModuleValueDecl {
+        node_id: declaration.node_id,
+        identity: CoreModuleValueIdentity {
+            package: declaration.package_name.clone(),
+            module: declaration.module_name.clone(),
+            name: name.clone(),
+        },
+        annotation: declaration.annotation.clone(),
+        ty: expected.clone(),
+        visibility: declaration.visibility,
+        initializer: ModuleValueLowerer {
+            declaration,
+            environment,
+            uses,
+        }
+        .lower_expr(&declaration.initializer, Some(&expected)),
+        span: declaration.span.clone(),
+    })
 }
 
 struct ModuleValueLowerer<'a> {
@@ -116,66 +129,78 @@ struct ModuleValueLowerer<'a> {
 
 impl ModuleValueLowerer<'_> {
     fn lower_expr(&self, expr: &Expr, expected: Option<&CoreType>) -> CoreExpr {
-        let (ty, kind) = match &expr.kind {
-            ExprKind::StringLiteral(value) => (
+        match &expr.kind {
+            ExprKind::StringLiteral(value) => self.lowered(
+                expr,
                 CoreType::string(),
                 CoreExprKind::StringLiteral(value.clone()),
             ),
-            ExprKind::IntLiteral(value) => {
-                let value = parse_integer_literal(value)
-                    .map(|literal| literal.value.to_string())
-                    .unwrap_or_else(|_| value.clone());
-                (CoreType::int(), CoreExprKind::IntLiteral(value))
+            ExprKind::IntLiteral(value) => self.lower_int_literal(expr, value),
+            ExprKind::BoolLiteral(value) => {
+                self.lowered(expr, CoreType::bool(), CoreExprKind::BoolLiteral(*value))
             }
-            ExprKind::BoolLiteral(value) => (CoreType::bool(), CoreExprKind::BoolLiteral(*value)),
-            ExprKind::Unit => (CoreType::unit(), CoreExprKind::Unit),
+            ExprKind::Unit => self.lowered(expr, CoreType::unit(), CoreExprKind::Unit),
             ExprKind::Prefix {
                 op: veln_ast::PrefixOp::Negate,
                 expr: inner,
-            } => (
-                CoreType::int(),
-                CoreExprKind::Prefix {
-                    op: veln_ast::PrefixOp::Negate,
-                    expr: Box::new(self.lower_expr(inner, Some(&CoreType::int()))),
-                },
-            ),
-            ExprKind::Record(fields) => {
-                let lowered = fields
-                    .iter()
-                    .map(|field| CoreRecordField {
-                        node_id: field.node_id,
-                        name: field.name.clone(),
-                        expr: self.lower_expr(
-                            &field.expr,
-                            expected.and_then(|ty| ty.record_field(&field.name)),
-                        ),
-                        span: field.span.clone(),
-                    })
-                    .collect();
-                (
-                    expected
-                        .cloned()
-                        .unwrap_or_else(|| CoreType::Record(Vec::new())),
-                    CoreExprKind::Record(lowered),
-                )
-            }
-            ExprKind::NamePath { segments, .. } => {
-                return self.lower_name(expr, segments, expected);
-            }
-            ExprKind::Call { callee, args } => {
-                return self.lower_constructor(expr, callee, args, expected);
-            }
-            _ => (
-                expected.cloned().unwrap_or(CoreType::Unknown),
-                CoreExprKind::Missing,
-            ),
-        };
+            } => self.lower_negation(expr, inner),
+            ExprKind::Record(fields) => self.lower_record(expr, fields, expected),
+            ExprKind::NamePath { segments, .. } => self.lower_name(expr, segments, expected),
+            ExprKind::Call { callee, args } => self.lower_constructor(expr, callee, args, expected),
+            _ => self.missing(expr, expected),
+        }
+    }
+
+    fn lowered(&self, expr: &Expr, ty: CoreType, kind: CoreExprKind) -> CoreExpr {
         CoreExpr {
             node_id: expr.node_id,
             ty,
             kind,
             span: expr.span.clone(),
         }
+    }
+
+    fn lower_int_literal(&self, expr: &Expr, value: &str) -> CoreExpr {
+        let value = parse_integer_literal(value)
+            .map(|literal| literal.value.to_string())
+            .unwrap_or_else(|_| value.to_string());
+        self.lowered(expr, CoreType::int(), CoreExprKind::IntLiteral(value))
+    }
+
+    fn lower_negation(&self, expr: &Expr, inner: &Expr) -> CoreExpr {
+        let inner = self.lower_expr(inner, Some(&CoreType::int()));
+        self.lowered(
+            expr,
+            CoreType::int(),
+            CoreExprKind::Prefix {
+                op: veln_ast::PrefixOp::Negate,
+                expr: Box::new(inner),
+            },
+        )
+    }
+
+    fn lower_record(
+        &self,
+        expr: &Expr,
+        fields: &[veln_ast::RecordField],
+        expected: Option<&CoreType>,
+    ) -> CoreExpr {
+        let lowered = fields
+            .iter()
+            .map(|field| CoreRecordField {
+                node_id: field.node_id,
+                name: field.name.clone(),
+                expr: self.lower_expr(
+                    &field.expr,
+                    expected.and_then(|ty| ty.record_field(&field.name)),
+                ),
+                span: field.span.clone(),
+            })
+            .collect();
+        let ty = expected
+            .cloned()
+            .unwrap_or_else(|| CoreType::Record(Vec::new()));
+        self.lowered(expr, ty, CoreExprKind::Record(lowered))
     }
 
     fn lower_name(

@@ -31,37 +31,52 @@ fn module_with_literal_values_and_imports(
         invalid_names: Vec::new(),
     };
     for owner_index in 0..3 {
-        let imports = (0..import_count)
-            .filter(|index| index % 3 == owner_index)
-            .map(|index| format!("use dependency_{index}\n"))
-            .collect::<String>();
-        let values = if owner_index < 2 {
-            (0..value_count)
-                .filter(|index| index % 2 == owner_index)
-                .map(|index| format!("let value_{index}: Int = {index}\n"))
-                .collect::<String>()
-        } else {
-            String::new()
-        };
-        let source = SourceFile::new(
-            format!("owner_{owner_index}/shared.veln"),
-            format!("{imports}{values}"),
-        );
-        let module = veln_ast::lower_surface_ast_with_package_module_identity(
-            &parse(&source).tree,
-            format!("owner_{owner_index}/pkg"),
-            if owner_index < 2 {
-                "shared".to_string()
-            } else {
-                "unrelated".to_string()
-            },
-            source.span(veln_source::TextRange::new(0, 0)),
-        );
+        let module = literal_value_owner_module(owner_index, value_count, import_count);
         merged.module = module.module.clone();
         merged.uses.extend(module.uses);
         merged.module_values.extend(module.module_values);
     }
     merged
+}
+
+fn literal_value_owner_module(
+    owner_index: usize,
+    value_count: usize,
+    import_count: usize,
+) -> SurfaceModule {
+    let imports = (0..import_count)
+        .filter(|index| index % 3 == owner_index)
+        .map(|index| format!("use dependency_{index}\n"))
+        .collect::<String>();
+    let values = literal_values_for_owner(owner_index, value_count);
+    let source = SourceFile::new(
+        format!("owner_{owner_index}/shared.veln"),
+        format!("{imports}{values}"),
+    );
+    veln_ast::lower_surface_ast_with_package_module_identity(
+        &parse(&source).tree,
+        format!("owner_{owner_index}/pkg"),
+        literal_value_owner_module_name(owner_index).to_string(),
+        source.span(veln_source::TextRange::new(0, 0)),
+    )
+}
+
+fn literal_values_for_owner(owner_index: usize, value_count: usize) -> String {
+    if owner_index >= 2 {
+        return String::new();
+    }
+    (0..value_count)
+        .filter(|index| index % 2 == owner_index)
+        .map(|index| format!("let value_{index}: Int = {index}\n"))
+        .collect()
+}
+
+fn literal_value_owner_module_name(owner_index: usize) -> &'static str {
+    if owner_index < 2 {
+        "shared"
+    } else {
+        "unrelated"
+    }
 }
 
 fn module_with_value_chain(count: usize) -> SurfaceModule {
@@ -1249,61 +1264,77 @@ fn module_value_initializers_accept_the_complete_finite_data_surface() {
     let ir = lowered.ir.expect("finite initializers should reach IR");
     assert_eq!(core.module_values.len(), module.module_values.len());
     assert_eq!(ir.module_values.len(), module.module_values.len());
-    let core_value = |name: &str| {
-        core.module_values
-            .iter()
-            .find(|declaration| declaration.identity.name == name)
-            .expect("core module value")
-    };
-    let ir_value = |name: &str| {
-        ir.module_values
-            .iter()
-            .find(|declaration| declaration.identity.name == name)
-            .expect("IR module value")
-    };
+    assert_core_finite_module_value_initializers(&core);
+    assert_ir_finite_module_value_initializers(&ir);
+}
+
+fn core_module_value<'a>(
+    core: &'a veln_core::CheckedProgram,
+    name: &str,
+) -> &'a veln_core::CoreModuleValueDecl {
+    core.module_values
+        .iter()
+        .find(|declaration| declaration.identity.name == name)
+        .expect("core module value")
+}
+
+fn assert_core_finite_module_value_initializers(core: &veln_core::CheckedProgram) {
     assert!(matches!(
-        core_value("boolean").initializer.kind,
+        core_module_value(core, "boolean").initializer.kind,
         veln_core::CoreExprKind::BoolLiteral(true)
     ));
     assert!(matches!(
-        core_value("text").initializer.kind,
+        core_module_value(core, "text").initializer.kind,
         veln_core::CoreExprKind::StringLiteral(_)
     ));
     assert!(matches!(
-        core_value("nothing").initializer.kind,
+        core_module_value(core, "nothing").initializer.kind,
         veln_core::CoreExprKind::Unit
     ));
     assert!(
-        matches!(core_value("grouped").initializer.kind, veln_core::CoreExprKind::ModuleValue(ref identity) if identity.name == "boolean")
+        matches!(core_module_value(core, "grouped").initializer.kind, veln_core::CoreExprKind::ModuleValue(ref identity) if identity.name == "boolean")
     );
     assert!(
-        matches!(core_value("idle").initializer.kind, veln_core::CoreExprKind::AdtVariant { ref payloads, .. } if payloads.is_empty())
+        matches!(core_module_value(core, "idle").initializer.kind, veln_core::CoreExprKind::AdtVariant { ref payloads, .. } if payloads.is_empty())
     );
     assert!(
-        matches!(core_value("active").initializer.kind, veln_core::CoreExprKind::AdtVariant { ref payloads, .. } if payloads.len() == 1)
+        matches!(core_module_value(core, "active").initializer.kind, veln_core::CoreExprKind::AdtVariant { ref payloads, .. } if payloads.len() == 1)
     );
     assert!(matches!(
-        core_value("optional").initializer.kind,
+        core_module_value(core, "optional").initializer.kind,
         veln_core::CoreExprKind::OptionSome(_)
     ));
     assert!(matches!(
-        core_value("outcome").initializer.kind,
+        core_module_value(core, "outcome").initializer.kind,
         veln_core::CoreExprKind::ResultOk(_)
     ));
     assert!(matches!(
-        core_value("items").initializer.kind,
+        core_module_value(core, "items").initializer.kind,
         veln_core::CoreExprKind::ListCons { .. }
     ));
     assert!(matches!(
-        core_value("nested").initializer.kind,
+        core_module_value(core, "nested").initializer.kind,
         veln_core::CoreExprKind::Record(_)
     ));
+}
+
+fn ir_module_value<'a>(
+    ir: &'a veln_ir::TypedProgram,
+    name: &str,
+) -> &'a veln_ir::IrModuleValueDecl {
+    ir.module_values
+        .iter()
+        .find(|declaration| declaration.identity.name == name)
+        .expect("IR module value")
+}
+
+fn assert_ir_finite_module_value_initializers(ir: &veln_ir::TypedProgram) {
     assert!(matches!(
-        ir_value("optional").initializer.kind,
+        ir_module_value(ir, "optional").initializer.kind,
         veln_ir::IrExprKind::OptionSome(_)
     ));
     assert!(matches!(
-        ir_value("items").initializer.kind,
+        ir_module_value(ir, "items").initializer.kind,
         veln_ir::IrExprKind::ListCons { .. }
     ));
 }

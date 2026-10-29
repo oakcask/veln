@@ -26,9 +26,17 @@ fn lower_module_value_preserves_declaration_and_reference_identity() {
     });
 
     let ir = lower_checked_core(&program).expect("module value should lower");
-    let declaration = &ir.module_values[0];
+    assert_lowered_module_value(&ir.module_values[0], surface, expr, &identity);
+}
+
+fn assert_lowered_module_value(
+    declaration: &IrModuleValueDecl,
+    surface: &Function,
+    expr: &Expr,
+    identity: &CoreModuleValueIdentity,
+) {
     assert_eq!(declaration.node_id, surface.node_id);
-    assert_eq!(declaration.identity, identity);
+    assert_eq!(&declaration.identity, identity);
     assert_eq!(declaration.annotation, "Int");
     assert_eq!(declaration.ty, CoreType::int());
     assert_eq!(declaration.visibility, Visibility::Public);
@@ -38,7 +46,7 @@ fn lower_module_value_preserves_declaration_and_reference_identity() {
     assert_eq!(declaration.initializer.span, expr.span);
     assert!(matches!(
         &declaration.initializer.kind,
-        IrExprKind::ModuleValue(reference) if reference == &identity
+        IrExprKind::ModuleValue(reference) if reference == identity
     ));
 }
 
