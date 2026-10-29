@@ -1467,10 +1467,11 @@ requirements, schema visibility, nominal identity, and generic arguments. The re
 Contextual typing applies the erased record to `value` and requires
 `ByteOffset` for `offset`; an unrelated ADT, generic argument, record shape, or
 scalar remains a static mismatch. Other supported field types that contain no
-refinement remain unchanged in both records, including containers and anonymous
-records. Refinement erasure and traversal inside those shapes, source-ADT
-payloads, or recursive values remain proposal work. A predicate or binary
-schema on the required composition path remains a static failure, as do
+refinement remain unchanged in both records, including containers, anonymous
+records, and composed format-neutral schemas. Refinement erasure and traversal
+inside those shapes, source-ADT payloads, or recursive values remain proposal
+work. A predicate or binary schema on the required composition path remains a
+static failure, as do
 qualified-value control-flow refinement and the provider-dependent
 unavailable-descriptor diagnostic.
 This behavior does not add variance for named generic constructors, generic

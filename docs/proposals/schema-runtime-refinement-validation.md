@@ -6,16 +6,17 @@ update-when: Recursive schema runtime validation, predicate ordering, decoder co
 # Recursive Runtime Refinement Validation Through Schemas
 
 Extend the implemented `validate MemberPath from Expr at Expr` operation beyond
-direct record fields. Current behavior validates singleton and finite-set
-source-ADT refinements written directly as fields of a predicate-free,
-format-neutral schema. The current source, typing, execution, and diagnostic
-contracts are specified in
+direct record fields and recursively composed format-neutral schema fields.
+Current behavior validates singleton and finite-set source-ADT refinements at
+those positions in a predicate-free schema. The current source, typing,
+execution, and diagnostic contracts are specified in
 [source surface](../specification/source-surface.md#schema-operations),
 [types](../specification/types.md#inference-rules),
 [execution](../specification/execution.md#schema-execution), and
 [diagnostics](../specification/diagnostics-json.md#diagnostic-families).
 
-This proposal retains only the unimplemented recursive and composition work.
+This proposal retains only unimplemented recursive-value traversal, predicate
+ordering, and ordinary decoder composition work.
 
 ## Proposed Extension
 
@@ -85,7 +86,7 @@ change no wire bytes, and would not weaken
 | --- | --- |
 | Recursive typing | Nested record, generic source-ADT payload, option, result, list, vector, and dictionary erasure; wrong identities and generic arguments remain rejected. |
 | Runtime traversal | Admitted and excluded constructors at every recursive position, including repeated recursive values. |
-| Ordering and paths | Multiple failures, dictionary insertion permutations, escaped keys, payload segments, and composed terminal-schema roots. |
+| Ordering and paths | Multiple failures, dictionary insertion permutations, escaped keys, and recursive payload segments. |
 | Predicates | Refinements precede predicates; child, field, and schema predicates follow the specified order. |
 | External decoder | A real ordinary Veln byte decoder covers success, excluded variants, malformed tags and payloads, truncation, readiness, consumed counts, and unchanged bytes. |
 | Failure preservation | Inputs and earlier successful values remain usable; no trap, partial refined value, or hidden decoder invocation occurs. |
