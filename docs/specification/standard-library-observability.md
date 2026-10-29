@@ -179,6 +179,17 @@ span handle. `observe::finish_export_span` writes a finish record for a span
 returned by `observe::start_export_span`. The `observe::json_lines` handler
 combines these lower-level operations and is the ordinary installation route.
 
+For direct buffered export, call `observe::new_buffered_json_lines` with the
+same resource, scope, metric limit, exporter limits, destinations, and identity
+prefix as the explicit synchronous constructor, followed by a positive record
+capacity. Match `BufferedJsonLines(exporter)` or
+`InvalidCapacity(capacity)`. Submit log, event, counter, and histogram records
+with `observe::buffered_export_observation`, inspect a non-consuming snapshot
+with `observe::buffered_exporter_health`, and call
+`observe::shutdown_buffered` after all producers finish. The buffered exporter
+has no implicit scope-exit shutdown; a program can register the explicit call
+with `defer` when its cleanup path consumes the report.
+
 Use `traced::spawn(context, body)` to start a child task whose callback needs
 an explicit `observe::TraceContext`. The callback accepts that context as its
 only argument and returns `Result<(), String>`. Its effect row is forwarded:
@@ -489,6 +500,44 @@ span representations are accepted as a no-op. Each direct start, finish, or
 observation export uses the same sequence, destination, attribute-limit, and
 failure-health rules as handler-driven export.
 
+### Direct buffered JSON Lines export
+
+`new_buffered_json_lines` rejects zero and negative capacity before it starts a
+worker or performs destination I/O. Every positive `Int` is a valid logical
+record bound. Capacity counts accepted records until their destination attempt
+completes, including the record currently in flight. It does not bound record
+bytes.
+
+An open exporter returns `Accepted`, `Full`, or `InvalidRecord` from
+`buffered_export_observation`. Validation precedes the capacity check. An
+invalid record and a valid record submitted at capacity each increment
+`failed_exports` once and consume a sequence, but neither performs destination
+I/O nor adds attribute-transformation totals. A valid record below capacity is
+captured and accepted without waiting for its destination attempt. Accepted
+records use their admission order for sequence allocation and destination
+attempts. The exporter makes one destination attempt at a time, releases the
+record's slot only after that attempt completes, and increments
+`failed_exports` once when the destination rejects the attempt. Direct metric
+submission does not apply metric-cardinality admission.
+
+The first normal `shutdown_buffered` call closes admission, so later
+submissions return `Closed` without changing sequence, health, or pending work.
+Shutdown waits until every accepted record has one completed destination
+attempt. It then attempts one final exporter-health summary when diagnostics
+are enabled. The summary attempt follows every record attempt, including when
+the record and diagnostic destinations identify the same output. A disabled
+diagnostic destination produces `SummaryDisabled`; an accepted or rejected
+summary produces `SummaryAccepted` or `SummaryRejected`. Summary rejection
+does not increment `failed_exports`.
+
+Normal shutdown freezes and returns
+`BufferedShutdownReport(Completed, health, summary)`. Later shutdown calls
+return the same report without another record or summary attempt.
+`buffered_exporter_health` is non-consuming and returns that frozen health after
+completion. The worker retains the scoped observation-destination provider
+active at construction, even if submission and shutdown occur after that scope
+exits.
+
 ### Span lifecycle and recording
 
 A root span receives a trace identity and a span identity from its recording.
@@ -587,9 +636,12 @@ ambient. Raw task and channel operations remain unchanged.
 
 ## Limits
 
-Metric query APIs, asynchronous metric callbacks, buffered export, automatic
-shutdown flushing, and external telemetry-protocol adapters are not
-available. The synchronous exporter has no retry or durable-audit guarantee.
+Metric query APIs, asynchronous metric callbacks, automatic shutdown flushing,
+and external telemetry-protocol adapters are not available. Buffered
+`Observe` handling, buffered span start and finish, concurrent shutdown,
+shutdown interruption, late host-call completion, and configured destination
+failure schedules are not available. The synchronous and buffered exporters
+have no retry or durable-audit guarantee.
 Its identity bound counts series rather than the bytes in their names and
 attributes. The standalone cardinality handler does not retain or export
 accepted observations. The no-op handler does not record,
@@ -642,6 +694,10 @@ process or machine termination can prevent it from running.
   schema-invalid export rejection, portable hostile-source replacement, and
   preservation of package, nested logical module, and package-relative file
   identity.
+- Direct buffered constructor, capacity, admission, ordered drain, final
+  summary, completed-report, and repeated-shutdown coverage is in
+  `observe.test.veln`, with scoped destination support in
+  [`observe_test_support_test.veln`](../../crates/veln-stdlib/veln/observe_test_support_test.veln).
 - Production index boundary coverage:
   [`effect_boundary_policy.rs`](../../crates/veln-backend-jvm/src/tests/effect_boundary_policy.rs)
   checks bounded indexed state and the absence of owner tasks, while

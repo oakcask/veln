@@ -87,12 +87,58 @@ type ExporterState
 	ExporterState(next_sequence: Int, next_identity: Int, failed_exports: Int, dropped_attributes: Int, truncated_attributes: Int, redacted_attributes: Int)
 end
 
+type BufferedExportWork
+	BufferedExportWork(line: String, dropped_attributes: Int, truncated_attributes: Int, redacted_attributes: Int)
+end
+
+type BufferedLifecycle
+	BufferedOpen
+	BufferedClosing
+	BufferedClosed(report: BufferedShutdownReport)
+end
+
+type BufferedExporterState
+	BufferedExporterState(next_sequence: Int, failed_exports: Int, dropped_attributes: Int, truncated_attributes: Int, redacted_attributes: Int, outstanding: Int, lifecycle: BufferedLifecycle)
+end
+
 pub type JsonLinesExporter
 	JsonLinesExporter(resource: Resource, scope: InstrumentationScope, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, production: Production, state: { tx : Sender<ExporterState>, rx : Receiver<ExporterState> })
 end
 
 pub type ExporterHealth
 	pub ExporterHealth(failed_exports: Int, dropped_attributes: Int, truncated_attributes: Int, redacted_attributes: Int, cardinality: ProductionHealth)
+end
+
+pub type BufferedAdmissionOutcome
+	pub Accepted
+	pub Full
+	pub Closed
+	pub InvalidRecord
+end
+
+pub type BufferedSummaryOutcome
+	pub SummaryAccepted
+	pub SummaryRejected
+	pub SummaryDisabled
+	pub SummaryNotAttempted
+end
+
+pub type BufferedShutdownState
+	pub Completed
+	pub Interrupted
+end
+
+pub type BufferedShutdownReport
+	pub BufferedShutdownReport(state: BufferedShutdownState, health: ExporterHealth, summary: BufferedSummaryOutcome)
+end
+
+pub type BufferedJsonLinesExporter
+	BufferedJsonLinesExporter(capacity: Int, resource: Resource, scope: InstrumentationScope, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, production: Production, state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, work: Sender<BufferedExportWork>, worker: Task<()>)
+end
+
+pub type BufferedJsonLinesConstruction
+	pub BufferedJsonLines(exporter: BufferedJsonLinesExporter)
+	pub InvalidCapacity(capacity: Int)
 end
 
 pub type AttributeValue
@@ -225,6 +271,21 @@ pub fn new_json_lines_default(resource: Resource, scope: InstrumentationScope, m
 	new_json_lines(resource, scope, metric_series_limit, limits, StandardError, NoDiagnosticDestination, identity_prefix)
 end
 
+pub fn new_buffered_json_lines(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int) -> BufferedJsonLinesConstruction effects [concurrency]
+	if capacity <= 0
+		InvalidCapacity(capacity)
+	else
+		begin
+			let production = new_production(metric_series_limit)
+			let state = channel::bounded<BufferedExporterState>(1)
+			let _ = channel::send(state.tx, BufferedExporterState(1, 0, 0, 0, 0, 0, BufferedOpen))
+			let work = channel::bounded<BufferedExportWork>(capacity)
+			let worker = task::spawn_with<(), { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, work : Receiver<BufferedExportWork>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production }>(run_buffered_export_worker, { state: state, work: work.rx, destination: destination, diagnostic_destination: diagnostic_destination, production: production })
+			BufferedJsonLines(BufferedJsonLinesExporter(capacity, resource, scope, normalize_exporter_limits(limits), destination, diagnostic_destination, production, state, work.tx, worker))
+		end
+	end
+end
+
 pub handler json_lines(exporter: JsonLinesExporter) for Observe effects [time, concurrency]
 	start_span(request) => start_export_span(exporter, request)
 	emit(record) => match exporter
@@ -257,11 +318,17 @@ end
 pub fn report_exporter_health(exporter: JsonLinesExporter) -> Bool effects [concurrency]
 	match exporter
 		JsonLinesExporter(_, _, _, _, diagnostic_destination, _, _, _) => match exporter_health(exporter)
-			ExporterHealth(failed, dropped, truncated, redacted, ProductionHealth(series, admitted, cardinality_dropped)) => begin
-				let line = string::concat(string::concat(string::concat(string::concat(string::concat(string::concat(string::concat(string::concat(string::concat("{\"schema_version\":1,\"kind\":\"exporter_health\",\"failed_exports\":", int_to_string(failed)), ",\"dropped_attributes\":"), int_to_string(dropped)), ",\"truncated_attributes\":"), int_to_string(truncated)), ",\"redacted_attributes\":"), int_to_string(redacted)), ",\"metric_series\":"), int_to_string(series))
-				let metrics = string::concat(string::concat(string::concat(string::concat(line, ",\"admitted_metric_observations\":"), int_to_string(admitted)), ",\"dropped_metric_observations\":"), int_to_string(cardinality_dropped))
-				prelude_builtin::observation_export_write(diagnostic_destination, string::concat(metrics, "}\n"), true)
-			end
+			health => prelude_builtin::observation_export_write(diagnostic_destination, exporter_health_line(health), true)
+		end
+	end
+end
+
+fn exporter_health_line(health: ExporterHealth) -> String
+	match health
+		ExporterHealth(failed, dropped, truncated, redacted, ProductionHealth(series, admitted, cardinality_dropped)) => begin
+			let line = string::concat(string::concat(string::concat(string::concat(string::concat(string::concat(string::concat(string::concat(string::concat("{\"schema_version\":1,\"kind\":\"exporter_health\",\"failed_exports\":", int_to_string(failed)), ",\"dropped_attributes\":"), int_to_string(dropped)), ",\"truncated_attributes\":"), int_to_string(truncated)), ",\"redacted_attributes\":"), int_to_string(redacted)), ",\"metric_series\":"), int_to_string(series))
+			let metrics = string::concat(string::concat(string::concat(string::concat(line, ",\"admitted_metric_observations\":"), int_to_string(admitted)), ",\"dropped_metric_observations\":"), int_to_string(cardinality_dropped))
+			string::concat(metrics, "}\n")
 		end
 	end
 end
@@ -615,11 +682,224 @@ pub fn finish_export_span(exporter: JsonLinesExporter, request: SpanFinish) -> (
 end
 
 pub fn export_observation(exporter: JsonLinesExporter, record: Observation) -> () effects [time, concurrency]
+	export_payload(exporter, observation_export_payload(record))
+end
+
+fn observation_export_payload(record: Observation) -> ExportPayload
 	match record
-		Log(value) => export_payload(exporter, ExportLog(value))
-		Event(value) => export_payload(exporter, ExportEvent(value))
-		CounterIncrement(value) => export_payload(exporter, ExportCounter(value))
-		HistogramSample(value) => export_payload(exporter, ExportHistogram(value))
+		Log(value) => ExportLog(value)
+		Event(value) => ExportEvent(value)
+		CounterIncrement(value) => ExportCounter(value)
+		HistogramSample(value) => ExportHistogram(value)
+	end
+end
+
+pub fn buffered_export_observation(exporter: BufferedJsonLinesExporter, record: Observation) -> BufferedAdmissionOutcome effects [time, concurrency]
+	match exporter
+		BufferedJsonLinesExporter(capacity, resource, scope, limits, _, _, production, state, work, _) => match channel::recv(state.rx)
+			Some(current) => begin
+				let committed = channel::bounded<()>(1)
+				defer
+					restore_uncommitted_buffered_state(state.tx, current, committed.rx)
+				end
+				match current
+					BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, BufferedOpen) => begin
+						let wall_time = time::wall_time()
+						let cardinality = production_health(production)
+						match cardinality
+							ProductionHealth(_, admitted_metrics, dropped_metrics) => begin
+								let encoded: { valid : Bool, line : String, dropped : Int, truncated : Int, redacted : Int } = prelude_builtin::observation_json_line(observation_export_payload(record), wall_time, sequence, resource, scope, limits, failed, admitted_metrics, dropped_metrics)
+								if not encoded.valid
+									begin
+										commit_buffered_state(state.tx, BufferedExporterState(bounded_increment(sequence), bounded_increment(failed), dropped, truncated, redacted, outstanding, BufferedOpen), committed.tx)
+										InvalidRecord
+									end
+								else if outstanding >= capacity
+									begin
+										commit_buffered_state(state.tx, BufferedExporterState(bounded_increment(sequence), bounded_increment(failed), dropped, truncated, redacted, outstanding, BufferedOpen), committed.tx)
+										Full
+									end
+								else
+									begin
+										let _ = channel::send(work, BufferedExportWork(encoded.line, encoded.dropped, encoded.truncated, encoded.redacted))
+										commit_buffered_state(state.tx, BufferedExporterState(bounded_increment(sequence), failed, bounded_add(dropped, encoded.dropped), bounded_add(truncated, encoded.truncated), bounded_add(redacted, encoded.redacted), outstanding + 1, BufferedOpen), committed.tx)
+										Accepted
+									end
+								end
+							end
+						end
+					end
+					BufferedExporterState(_, _, _, _, _, _, _) => begin
+						commit_buffered_state(state.tx, current, committed.tx)
+						Closed
+					end
+				end
+			end
+			None => Closed
+		end
+	end
+end
+
+pub fn buffered_exporter_health(exporter: BufferedJsonLinesExporter) -> ExporterHealth effects [concurrency]
+	match exporter
+		BufferedJsonLinesExporter(_, _, _, _, _, _, production, state, _, _) => match channel::recv(state.rx)
+			Some(current) => begin
+				let committed = channel::bounded<()>(1)
+				defer
+					restore_uncommitted_buffered_state(state.tx, current, committed.rx)
+				end
+				let health = match current
+					BufferedExporterState(_, _, _, _, _, _, BufferedClosed(BufferedShutdownReport(_, frozen, _))) => frozen
+					BufferedExporterState(_, failed, dropped, truncated, redacted, _, _) => ExporterHealth(failed, dropped, truncated, redacted, production_health(production))
+				end
+				commit_buffered_state(state.tx, current, committed.tx)
+				health
+			end
+			None => ExporterHealth(0, 0, 0, 0, ProductionHealth(0, 0, 0))
+		end
+	end
+end
+
+pub fn shutdown_buffered(exporter: BufferedJsonLinesExporter) -> BufferedShutdownReport effects [concurrency]
+	match exporter
+		BufferedJsonLinesExporter(_, _, _, _, _, _, production, state, work, worker) => match begin_buffered_shutdown(state)
+			Some(report) => report
+			None => begin
+				channel::close(work)
+				let _ = task::join(worker)
+				read_buffered_shutdown_report(state, production)
+			end
+		end
+	end
+end
+
+fn begin_buffered_shutdown(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }) -> Option<BufferedShutdownReport> effects [concurrency]
+	match channel::recv(state.rx)
+		Some(current) => begin
+			let committed = channel::bounded<()>(1)
+			defer
+				restore_uncommitted_buffered_state(state.tx, current, committed.rx)
+			end
+			match current
+				BufferedExporterState(_, _, _, _, _, _, BufferedClosed(report)) => begin
+					commit_buffered_state(state.tx, current, committed.tx)
+					Some(report)
+				end
+				BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, BufferedOpen) => begin
+					commit_buffered_state(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, BufferedClosing), committed.tx)
+					None
+				end
+				BufferedExporterState(_, _, _, _, _, _, BufferedClosing) => begin
+					commit_buffered_state(state.tx, current, committed.tx)
+					None
+				end
+			end
+		end
+		None => None
+	end
+end
+
+fn read_buffered_shutdown_report(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, production: Production) -> BufferedShutdownReport effects [concurrency]
+	match channel::recv(state.rx)
+		Some(current) => begin
+			let committed = channel::bounded<()>(1)
+			defer
+				restore_uncommitted_buffered_state(state.tx, current, committed.rx)
+			end
+			let report = match current
+				BufferedExporterState(_, _, _, _, _, _, BufferedClosed(frozen)) => frozen
+				BufferedExporterState(_, failed, dropped, truncated, redacted, _, _) => BufferedShutdownReport(Interrupted, ExporterHealth(failed, dropped, truncated, redacted, production_health(production)), SummaryNotAttempted)
+			end
+			commit_buffered_state(state.tx, current, committed.tx)
+			report
+		end
+		None => BufferedShutdownReport(Interrupted, ExporterHealth(0, 0, 0, 0, ProductionHealth(0, 0, 0)), SummaryNotAttempted)
+	end
+end
+
+fn run_buffered_export_worker(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, work : Receiver<BufferedExportWork>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production }) -> () effects [concurrency]
+	match channel::recv(context.work)
+		Some(BufferedExportWork(line, _, _, _)) => begin
+			let written = prelude_builtin::observation_export_write(context.destination, line, false)
+			settle_buffered_export(context.state, written)
+			run_buffered_export_worker(context)
+		end
+		None => complete_buffered_export(context.state, context.diagnostic_destination, context.production)
+	end
+end
+
+fn settle_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, written: Bool) -> () effects [concurrency]
+	match channel::recv(state.rx)
+		Some(BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, lifecycle)) => begin
+			let next_failed = if written
+				failed
+			else
+				bounded_increment(failed)
+			end
+			let _ = channel::send(state.tx, BufferedExporterState(sequence, next_failed, dropped, truncated, redacted, outstanding - 1, lifecycle))
+			()
+		end
+		None => ()
+	end
+end
+
+fn complete_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, diagnostic_destination: DiagnosticDestination, production: Production) -> () effects [concurrency]
+	match channel::recv(state.rx)
+		Some(BufferedExporterState(sequence, failed, dropped, truncated, redacted, _, lifecycle)) => match lifecycle
+			BufferedClosed(_) => begin
+				let _ = channel::send(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, lifecycle))
+				()
+			end
+			_ => begin
+				let health = ExporterHealth(failed, dropped, truncated, redacted, production_health(production))
+				let summary = buffered_summary_outcome(diagnostic_destination, health)
+				let report = BufferedShutdownReport(Completed, health, summary)
+				let _ = channel::send(state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, 0, BufferedClosed(report)))
+				()
+			end
+		end
+		None => ()
+	end
+end
+
+fn buffered_summary_outcome(destination: DiagnosticDestination, health: ExporterHealth) -> BufferedSummaryOutcome effects [concurrency]
+	match destination
+		NoDiagnosticDestination => SummaryDisabled
+		_ => if prelude_builtin::observation_export_write(destination, exporter_health_line(health), true)
+			SummaryAccepted
+		else
+			SummaryRejected
+		end
+	end
+end
+
+fn commit_buffered_state(state: Sender<BufferedExporterState>, next: BufferedExporterState, committed: Sender<()>) -> () effects [concurrency]
+	let _ = channel::send(committed, ())
+	let _ = channel::send(state, next)
+	()
+end
+
+fn restore_uncommitted_buffered_state(state: Sender<BufferedExporterState>, original: BufferedExporterState, committed: Receiver<()>) -> () effects [concurrency]
+	match channel::select_many_timeout(list_cons(committed, list_nil()), 0)
+		Some(_) => ()
+		None => begin
+			let _ = channel::send(state, original)
+			()
+		end
+	end
+end
+
+fn buffered_outstanding_for_test(exporter: BufferedJsonLinesExporter) -> Int effects [concurrency]
+	match exporter
+		BufferedJsonLinesExporter(_, _, _, _, _, _, _, state, _, _) => match channel::recv(state.rx)
+			Some(current) => match current
+				BufferedExporterState(_, _, _, _, _, outstanding, _) => begin
+					let _ = channel::send(state.tx, current)
+					outstanding
+				end
+			end
+			None => 0
+		end
 	end
 end
 

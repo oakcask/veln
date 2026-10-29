@@ -357,3 +357,200 @@ end
 test cancellation_during_write_restores_exporter_state() -> Result<(), String> effects [time, concurrency]
 	observe_export_test_support_test::cancellation_during_write_restores_exporter_state()
 end
+
+fn new_buffered_for_test(capacity: Int, diagnostic_destination: DiagnosticDestination) -> BufferedJsonLinesConstruction effects [concurrency]
+	observe::new_buffered_json_lines(
+		observe::Resource("checkout", list_nil()),
+		observe::InstrumentationScope("checkout.web", "1"),
+		4,
+		observe::ExporterLimits(8, 64, 2, list_nil()),
+		observe::StandardError,
+		diagnostic_destination,
+		"buffered",
+		capacity,
+	)
+end
+
+fn buffered_log(message: String) -> Observation callsite
+	observe::Log(observe::LogRecord("log", observe::Info, message, list_nil(), None, callsite))
+end
+
+fn shutdown_buffered_task(exporter: BufferedJsonLinesExporter) -> BufferedShutdownReport effects [concurrency]
+	observe::shutdown_buffered(exporter)
+end
+
+test buffered_constructor_rejects_non_positive_capacity_without_destination_effects() -> Result<(), String> effects [concurrency]
+	let lines = observe_test_support_test::export_lines(1)
+	let zero = handle new_buffered_for_test(0, observe::DiagnosticStandardError) with observe_test_support_test::exporter(lines.tx, true)
+	let negative = handle new_buffered_for_test(-7, observe::DiagnosticStandardError) with observe_test_support_test::exporter(lines.tx, true)
+	match zero
+		observe::InvalidCapacity(0) => match negative
+			observe::InvalidCapacity(value) => if value == -7
+				match channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
+					None => Ok(())
+					Some(_) => Err("invalid buffered capacity performed destination I/O")
+				end
+			else
+				Err("negative buffered capacity changed its reported value")
+			end
+			_ => Err("negative buffered capacity was accepted")
+		end
+		_ => Err("zero buffered capacity was accepted")
+	end
+end
+
+test buffered_invalid_record_reports_outcome_without_record_destination_attempt() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(2)
+	let constructed = handle new_buffered_for_test(1, observe::DiagnosticStandardError) with observe_test_support_test::exporter(lines.tx, true)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let invalid = observe::Log(observe::LogRecord("log", observe::Info, "invalid", list_nil(), Some(observe::TraceContext("", "span", true)), callsite_location()))
+			let outcome = handle observe::buffered_export_observation(exporter, invalid) with observe_test_support_test::clock(0)
+			let before_shutdown: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
+			let report = observe::shutdown_buffered(exporter)
+			match outcome
+				observe::InvalidRecord => match before_shutdown
+					None => match report
+						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => match channel::recv(lines.rx)
+							Some(summary) => if buffered_contains(summary, "diagnostic:stderr:{\"schema_version\":1,\"kind\":\"exporter_health\"")
+								Ok(())
+							else
+								Err("invalid buffered record changed the final summary destination")
+							end
+							None => Err("invalid buffered record shutdown emitted no summary")
+						end
+						_ => Err("invalid buffered record changed completed health")
+					end
+					Some(_) => Err("invalid buffered record reached the record destination")
+				end
+				_ => Err("invalid buffered record did not return InvalidRecord")
+			end
+		end
+		_ => Err("positive buffered capacity was rejected")
+	end
+end
+
+test buffered_capacity_counts_in_flight_and_releases_after_completion() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(5)
+	let release = channel::bounded<()>(2)
+	let constructed = handle new_buffered_for_test(1, observe::DiagnosticStandardError) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let first = handle observe::buffered_export_observation(exporter, buffered_log("first")) with observe_test_support_test::clock(0)
+			match channel::recv(lines.rx)
+				Some(first_line) => begin
+					let second = handle observe::buffered_export_observation(exporter, buffered_log("full")) with observe_test_support_test::clock(0)
+					let full_health = observe::buffered_exporter_health(exporter)
+					let _ = channel::send(release.tx, ())
+					let wait = channel::bounded<()>(1)
+					let _ = channel::select_many_timeout(list_cons(wait.rx, list_nil()), 25)
+					let outstanding = observe::buffered_outstanding_for_test(exporter)
+					let third = handle observe::buffered_export_observation(exporter, buffered_log("after")) with observe_test_support_test::clock(0)
+					let _ = channel::send(release.tx, ())
+					let report = observe::shutdown_buffered(exporter)
+					match first
+						observe::Accepted => match second
+							observe::Full => match full_health
+								observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match third
+									observe::Accepted => match report
+						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => if outstanding == 0 and buffered_contains(first_line, "\"message\":\"first\"")
+											Ok(())
+										else
+											Err("buffered capacity slot or first record changed")
+										end
+										_ => Err("buffered shutdown report did not retain the full rejection")
+									end
+									_ => Err("buffered capacity did not admit after destination completion")
+								end
+								_ => Err("buffered full admission did not increment failed exports once")
+							end
+							_ => Err("buffered capacity one did not report Full")
+						end
+						_ => Err("first buffered record was not accepted")
+					end
+				end
+				None => Err("accepted buffered record did not start its destination attempt")
+			end
+		end
+		_ => Err("positive buffered capacity was rejected")
+	end
+end
+
+test buffered_shutdown_drains_in_order_then_freezes_completed_report() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(5)
+	let release = channel::bounded<()>(3)
+	let constructed = handle new_buffered_for_test(3, observe::DiagnosticStandardError) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
+	match constructed
+		observe::BufferedJsonLines(exporter) => begin
+			let log_result = handle observe::buffered_export_observation(exporter, buffered_log("first")) with observe_test_support_test::clock(0)
+			let event_result = handle observe::buffered_export_observation(exporter, observe::Event(observe::EventRecord("second", list_nil(), None, callsite_location()))) with observe_test_support_test::clock(0)
+			let metric_result = handle observe::buffered_export_observation(exporter, observe::CounterIncrement(observe::CounterIncrementRecord("third", 3, list_nil(), None, callsite_location()))) with observe_test_support_test::clock(0)
+			let shutdown: Task<BufferedShutdownReport> = task::spawn_with(shutdown_buffered_task, exporter)
+			let first = channel::recv(lines.rx)
+			let _ = channel::send(release.tx, ())
+			let second = channel::recv(lines.rx)
+			let _ = channel::send(release.tx, ())
+			let third = channel::recv(lines.rx)
+			let _ = channel::send(release.tx, ())
+			let summary = channel::recv(lines.rx)
+			match task::join(shutdown)
+				Ok(report) => begin
+					let repeated = observe::shutdown_buffered(exporter)
+					let late = handle observe::buffered_export_observation(exporter, buffered_log("late")) with observe_test_support_test::clock(0)
+					let no_more: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
+					match log_result
+						observe::Accepted => match event_result
+							observe::Accepted => match metric_result
+								observe::Accepted => if buffered_lines_are_ordered(first, second, third, summary)
+									match report
+										observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => match repeated
+											observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => match late
+												observe::Closed => match no_more
+													None => Ok(())
+													Some(_) => Err("repeated buffered shutdown emitted another summary")
+												end
+												_ => Err("buffered exporter admitted a record after shutdown")
+											end
+											_ => Err("repeated buffered shutdown did not return the frozen report")
+										end
+										_ => Err("buffered shutdown did not return its completed report")
+									end
+								else
+									Err("buffered shutdown changed destination or summary order")
+								end
+								_ => Err("buffered metric was not accepted")
+							end
+							_ => Err("buffered event was not accepted")
+						end
+						_ => Err("buffered log was not accepted")
+					end
+				end
+				Err(_) => Err("buffered shutdown task failed")
+			end
+		end
+		_ => Err("positive buffered capacity was rejected")
+	end
+end
+
+fn buffered_lines_are_ordered(first: Option<String>, second: Option<String>, third: Option<String>, summary: Option<String>) -> Bool
+	match first
+		Some(first_line) => match second
+			Some(second_line) => match third
+				Some(third_line) => match summary
+					Some(summary_line) => buffered_contains(first_line, "\"sequence\":1,") and buffered_contains(first_line, "\"message\":\"first\"") and buffered_contains(second_line, "\"sequence\":2,") and buffered_contains(second_line, "\"name\":\"second\"") and buffered_contains(third_line, "\"sequence\":3,") and buffered_contains(third_line, "\"name\":\"third\"") and buffered_contains(summary_line, "diagnostic:stderr:{\"schema_version\":1,\"kind\":\"exporter_health\"")
+					None => false
+				end
+				None => false
+			end
+			None => false
+		end
+		None => false
+	end
+end
+
+fn buffered_contains(text: String, fragment: String) -> Bool
+	match string_split_once(text, fragment)
+		Some(_) => true
+		None => false
+	end
+end
