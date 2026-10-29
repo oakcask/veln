@@ -341,8 +341,13 @@ construction, candidate-target checks including misses, exposure
 materialization, cache probes and insertions, index selection, and final result
 selection. Every applicable field for 128 imports is exactly twice its
 64-import value; cache-only fields remain zero for dependency discovery. A
-separate repeated-name workload checks cache reuse, and an availability-change
-workload checks cache invalidation while retaining every dependency candidate.
+separate cached same-name workload compares 16 and 32 retained candidates
+across 24 and 48 repeated reads. Each cached read performs one cache probe and
+one final-result selection. It performs no candidate-target check, exposure
+materialization, cache insertion, index selection, or retained-exposure
+identity copy. An eight-candidate availability-transition workload checks that
+cached missing, available, and ambiguous selections update while retaining
+every dependency candidate.
 Another workload combines 32 and 64 same-named imported candidates with the
 same number of dependent initializers. It runs every source-order and
 import-order combination and requires identical work measurements and name
