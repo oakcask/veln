@@ -317,6 +317,15 @@ The checked
 and
 [`same-module exact quarantine JSON`](../../examples/specification/check/module-value-quarantined-exact-same-module-json/)
 cases also cover an exact path that equals the importing module's own spelling.
+The checked bare-import cycle
+[`human`](../../examples/specification/check/module-value-bare-imported-cycle-human/),
+[`reordered human`](../../examples/specification/check/module-value-bare-imported-cycle-human-reordered/),
+[`JSON`](../../examples/specification/check/module-value-bare-imported-cycle-json/),
+and
+[`reordered JSON`](../../examples/specification/check/module-value-bare-imported-cycle-json-reordered/)
+cases cover dependency selection through an ordinary import while an aliased
+package-distinct namesake remains independently selectable. They also keep both
+selections invariant under source and import reordering.
 
 Qualified module-value import selection has deterministic scaling checks. One
 workload compares 64 and 128 distinct imports and performs one qualified read

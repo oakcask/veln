@@ -83,7 +83,14 @@ and
 cases additionally fix transitive quarantine and the same locations after
 source and import reordering. The quarantine suppresses diagnostics that would
 otherwise arise from direct and multi-hop dependents reading unavailable
-module values.
+module values. The checked bare-import cycle
+[`human`](../../examples/specification/check/module-value-bare-imported-cycle-human/),
+[`reordered human`](../../examples/specification/check/module-value-bare-imported-cycle-human-reordered/),
+[`JSON`](../../examples/specification/check/module-value-bare-imported-cycle-json/),
+and
+[`reordered JSON`](../../examples/specification/check/module-value-bare-imported-cycle-json-reordered/)
+cases fix the same primary and related locations when ordinary import exposure
+selects an edge and an aliased package-distinct namesake remains healthy.
 
 A function type in a module value annotation uses the ordinary effect-list
 diagnostics. An unbound row tail reports `effect.row_unbound`, and an unknown
