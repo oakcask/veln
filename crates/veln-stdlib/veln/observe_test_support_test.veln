@@ -75,8 +75,8 @@ pub handler controlled_record_exporter(lines: Sender<String>, release: Receiver<
 	identity(kind, sequence) => string::concat(string::concat(string::concat("controlled-", kind), "-"), int_to_string(sequence))
 end
 
-pub fn signal_buffered_settlement(settled: Sender<()>, resume: Receiver<()>) -> () effects [concurrency]
-	let _ = channel::send(settled, ())
+pub fn signal_buffered_idle(idle: Sender<()>, resume: Receiver<()>) -> () effects [concurrency]
+	let _ = channel::send(idle, ())
 	let _ = channel::recv(resume)
 	()
 end

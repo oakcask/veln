@@ -91,9 +91,9 @@ type BufferedExportWork
 	BufferedExportWork(line: String, dropped_attributes: Int, truncated_attributes: Int, redacted_attributes: Int)
 end
 
-type BufferedSettlementHook
-	NoBufferedSettlementHook
-	TestBufferedSettlementHook(callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], settled: Sender<()>, resume: Receiver<()>)
+type BufferedIdleHook
+	NoBufferedIdleHook
+	TestBufferedIdleHook(callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], idle: Sender<()>, resume: Receiver<()>)
 end
 
 type BufferedLifecycle
@@ -277,14 +277,14 @@ pub fn new_json_lines_default(resource: Resource, scope: InstrumentationScope, m
 end
 
 pub fn new_buffered_json_lines(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int) -> BufferedJsonLinesConstruction effects [concurrency]
-	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, NoBufferedSettlementHook)
+	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, NoBufferedIdleHook)
 end
 
-fn new_buffered_json_lines_with_settlement_hook_for_test(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], settled: Sender<()>, resume: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
-	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, TestBufferedSettlementHook(callback, settled, resume))
+fn new_buffered_json_lines_with_idle_hook_for_test(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, callback: fn(Sender<()>, Receiver<()>) -> () effects [concurrency], idle: Sender<()>, resume: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
+	start_buffered_json_lines(resource, scope, metric_series_limit, limits, destination, diagnostic_destination, identity_prefix, capacity, TestBufferedIdleHook(callback, idle, resume))
 end
 
-fn start_buffered_json_lines(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, settlement_hook: BufferedSettlementHook) -> BufferedJsonLinesConstruction effects [concurrency]
+fn start_buffered_json_lines(resource: Resource, scope: InstrumentationScope, metric_series_limit: Int, limits: ExporterLimits, destination: ExportDestination, diagnostic_destination: DiagnosticDestination, identity_prefix: String, capacity: Int, idle_hook: BufferedIdleHook) -> BufferedJsonLinesConstruction effects [concurrency]
 	if capacity <= 0
 		InvalidCapacity(capacity)
 	else
@@ -293,7 +293,7 @@ fn start_buffered_json_lines(resource: Resource, scope: InstrumentationScope, me
 			let state = channel::bounded<BufferedExporterState>(1)
 			let _ = channel::send(state.tx, BufferedExporterState(1, 0, 0, 0, 0, 0, list_nil(), false, BufferedOpen))
 			let ready = channel::bounded<()>(1)
-			let worker = task::spawn_with<(), { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, settlement_hook : BufferedSettlementHook }>(run_buffered_export_worker, { state: state, ready: ready.rx, destination: destination, diagnostic_destination: diagnostic_destination, production: production, settlement_hook: settlement_hook })
+			let worker = task::spawn_with<(), { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook }>(run_buffered_export_worker, { state: state, ready: ready.rx, destination: destination, diagnostic_destination: diagnostic_destination, production: production, idle_hook: idle_hook })
 			BufferedJsonLines(BufferedJsonLinesExporter(capacity, resource, scope, normalize_exporter_limits(limits), destination, diagnostic_destination, production, state, ready.tx, worker))
 		end
 	end
@@ -845,14 +845,18 @@ fn read_buffered_shutdown_report(state: { tx : Sender<BufferedExporterState>, rx
 	end
 end
 
-fn run_buffered_export_worker(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, settlement_hook : BufferedSettlementHook }) -> () effects [concurrency]
+fn run_buffered_export_worker(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook }) -> () effects [concurrency]
 	match channel::recv(context.ready)
-		Some(_) => drain_buffered_exports(context)
+		Some(_) => if drain_buffered_exports(context)
+			run_buffered_export_worker(context)
+		else
+			()
+		end
 		None => ()
 	end
 end
 
-fn drain_buffered_exports(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, settlement_hook : BufferedSettlementHook }) -> () effects [concurrency]
+fn drain_buffered_exports(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook }) -> Bool effects [concurrency]
 	match channel::recv(context.state.rx)
 		Some(BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, _, lifecycle)) => match queued
 			Cons(_, _) => begin
@@ -865,35 +869,37 @@ fn drain_buffered_exports(context: { state : { tx : Sender<BufferedExporterState
 				match lifecycle
 					BufferedOpen => begin
 						let _ = channel::send(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, false, lifecycle))
-						run_buffered_export_worker(context)
+						notify_buffered_idle(context.idle_hook)
+						true
 					end
 					BufferedClosing => begin
 						let _ = channel::send(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, true, lifecycle))
 						complete_buffered_export(context.state, context.diagnostic_destination, context.production)
+						false
 					end
 					BufferedClosed(_) => begin
 						let _ = channel::send(context.state.tx, BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, false, lifecycle))
-						()
+						false
 					end
 				end
 			end
 		end
-		None => ()
+		None => false
 	end
 end
 
-fn export_buffered_batch(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, settlement_hook : BufferedSettlementHook }, work: List<BufferedExportWork>) -> () effects [concurrency]
+fn export_buffered_batch(context: { state : { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, ready : Receiver<()>, destination : ExportDestination, diagnostic_destination : DiagnosticDestination, production : Production, idle_hook : BufferedIdleHook }, work: List<BufferedExportWork>) -> () effects [concurrency]
 	match work
 		Cons(BufferedExportWork(line, _, _, _), tail) => begin
 			let written = prelude_builtin::observation_export_write(context.destination, line, false)
-			settle_buffered_export(context.state, written, context.settlement_hook)
+			settle_buffered_export(context.state, written)
 			export_buffered_batch(context, tail)
 		end
 		Nil => ()
 	end
 end
 
-fn settle_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, written: Bool, settlement_hook: BufferedSettlementHook) -> () effects [concurrency]
+fn settle_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Receiver<BufferedExporterState> }, written: Bool) -> () effects [concurrency]
 	match channel::recv(state.rx)
 		Some(BufferedExporterState(sequence, failed, dropped, truncated, redacted, outstanding, queued, worker_active, lifecycle)) => begin
 			let next_failed = if written
@@ -902,17 +908,16 @@ fn settle_buffered_export(state: { tx : Sender<BufferedExporterState>, rx : Rece
 				bounded_increment(failed)
 			end
 			let _ = channel::send(state.tx, BufferedExporterState(sequence, next_failed, dropped, truncated, redacted, outstanding - 1, queued, worker_active, lifecycle))
-			notify_buffered_settlement(settlement_hook)
 			()
 		end
 		None => ()
 	end
 end
 
-fn notify_buffered_settlement(hook: BufferedSettlementHook) -> () effects [concurrency]
+fn notify_buffered_idle(hook: BufferedIdleHook) -> () effects [concurrency]
 	match hook
-		NoBufferedSettlementHook => ()
-		TestBufferedSettlementHook(callback, settled, resume) => callback(settled, resume)
+		NoBufferedIdleHook => ()
+		TestBufferedIdleHook(callback, idle, resume) => callback(idle, resume)
 	end
 end
 

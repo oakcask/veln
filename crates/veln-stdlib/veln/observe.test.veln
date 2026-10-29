@@ -371,8 +371,8 @@ fn new_buffered_for_test(capacity: Int, diagnostic_destination: DiagnosticDestin
 	)
 end
 
-fn new_buffered_for_test_with_settlement(capacity: Int, diagnostic_destination: DiagnosticDestination, settled: Sender<()>, resume: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
-	observe::new_buffered_json_lines_with_settlement_hook_for_test(
+fn new_buffered_for_test_with_idle_hook(capacity: Int, diagnostic_destination: DiagnosticDestination, idle: Sender<()>, resume: Receiver<()>) -> BufferedJsonLinesConstruction effects [concurrency]
+	observe::new_buffered_json_lines_with_idle_hook_for_test(
 		observe::Resource("svc", list_nil()),
 		observe::InstrumentationScope("scope", "1"),
 		10,
@@ -381,8 +381,8 @@ fn new_buffered_for_test_with_settlement(capacity: Int, diagnostic_destination: 
 		diagnostic_destination,
 		"buffered",
 		capacity,
-		observe_test_support_test::signal_buffered_settlement,
-		settled,
+		observe_test_support_test::signal_buffered_idle,
+		idle,
 		resume,
 	)
 end
@@ -466,9 +466,9 @@ end
 test buffered_capacity_counts_in_flight_and_releases_after_completion() -> Result<(), String> effects [time, concurrency]
 	let lines = observe_test_support_test::export_lines(7)
 	let release = channel::bounded<()>(3)
-	let settled = channel::bounded<()>(3)
+	let idle = channel::bounded<()>(3)
 	let resume = channel::bounded<()>(3)
-	let constructed = handle new_buffered_for_test_with_settlement(1, observe::DiagnosticStandardError, settled.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
+	let constructed = handle new_buffered_for_test_with_idle_hook(1, observe::DiagnosticStandardError, idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
 	match constructed
 		observe::BufferedJsonLines(exporter) => begin
 			let first = handle observe::buffered_export_observation(exporter, buffered_log("first")) with observe_test_support_test::clock(0)
@@ -477,19 +477,19 @@ test buffered_capacity_counts_in_flight_and_releases_after_completion() -> Resul
 					let second = handle observe::buffered_export_observation(exporter, buffered_log("full")) with observe_test_support_test::clock(0)
 					let full_health = observe::buffered_exporter_health(exporter)
 					let _ = channel::send(release.tx, ())
-					match channel::recv(settled.rx)
+					match channel::recv(idle.rx)
 						Some(_) => begin
 							let outstanding = observe::buffered_outstanding_for_test(exporter)
 							let third = handle observe::buffered_export_observation(exporter, buffered_log("second")) with observe_test_support_test::clock(0)
 							let _ = channel::send(resume.tx, ())
 							let second_line = channel::recv(lines.rx)
 							let _ = channel::send(release.tx, ())
-							let second_settled = channel::recv(settled.rx)
+							let second_idle = channel::recv(idle.rx)
 							let fourth = handle observe::buffered_export_observation(exporter, buffered_log("third")) with observe_test_support_test::clock(0)
 							let _ = channel::send(resume.tx, ())
 							let third_line = channel::recv(lines.rx)
 							let _ = channel::send(release.tx, ())
-							let third_settled = channel::recv(settled.rx)
+							let third_idle = channel::recv(idle.rx)
 							let _ = channel::send(resume.tx, ())
 							let report = observe::shutdown_buffered(exporter)
 							match first
@@ -498,7 +498,7 @@ test buffered_capacity_counts_in_flight_and_releases_after_completion() -> Resul
 										observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => match third
 											observe::Accepted => match fourth
 												observe::Accepted => match report
-													observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => if outstanding == 0 and buffered_contains(first_line, "\"message\":\"first\"") and buffered_line_contains(second_line, "\"message\":\"second\"") and buffered_line_contains(third_line, "\"message\":\"third\"") and buffered_settled(second_settled) and buffered_settled(third_settled)
+													observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(1, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => if outstanding == 0 and buffered_contains(first_line, "\"message\":\"first\"") and buffered_line_contains(second_line, "\"message\":\"second\"") and buffered_line_contains(third_line, "\"message\":\"third\"") and buffered_idle(second_idle) and buffered_idle(third_idle)
 														Ok(())
 													else
 														Err("buffered repeated slot release or destination order changed")
@@ -516,7 +516,7 @@ test buffered_capacity_counts_in_flight_and_releases_after_completion() -> Resul
 								_ => Err("first buffered record was not accepted")
 							end
 						end
-						None => Err("buffered settlement signal closed before slot release")
+						None => Err("buffered idle signal closed before slot release")
 					end
 				end
 				None => Err("accepted buffered record did not start its destination attempt")
@@ -533,10 +533,81 @@ fn buffered_line_contains(line: Option<String>, fragment: String) -> Bool
 	end
 end
 
-fn buffered_settled(value: Option<()>) -> Bool
+fn buffered_idle(value: Option<()>) -> Bool
 	match value
 		Some(_) => true
 		None => false
+	end
+end
+
+fn exercise_buffered_idle_cycles(exporter: BufferedJsonLinesExporter, lines: Receiver<String>, release: Sender<()>, idle: Receiver<()>, resume: Sender<()>, remaining: Int) -> Result<(), String> effects [time, concurrency]
+	match channel::recv(lines)
+		Some(_) => begin
+			let _ = channel::send(release, ())
+			match channel::recv(idle)
+				Some(_) => if observe::buffered_outstanding_for_test(exporter) == 0
+					if remaining <= 1
+						begin
+							let _ = channel::send(resume, ())
+							Ok(())
+						end
+					else
+						match handle observe::buffered_export_observation(exporter, buffered_log("idle-cycle")) with observe_test_support_test::clock(0)
+							observe::Accepted => begin
+								let _ = channel::send(resume, ())
+								exercise_buffered_idle_cycles(exporter, lines, release, idle, resume, remaining - 1)
+							end
+							_ => Err("buffered exporter rejected a record after reaching idle")
+						end
+					end
+				else
+					Err("buffered exporter reached idle with an outstanding record")
+				end
+				None => Err("buffered idle signal closed during repeated wake cycles")
+			end
+		end
+		None => Err("buffered destination closed during repeated wake cycles")
+	end
+end
+
+test buffered_worker_is_stack_bounded_across_repeated_idle_wake_cycles() -> Result<(), String> effects [time, concurrency]
+	let lines = observe_test_support_test::export_lines(2)
+	let release = channel::bounded<()>(1)
+	let idle = channel::bounded<()>(1)
+	let resume = channel::bounded<()>(1)
+	let constructed = handle new_buffered_for_test_with_idle_hook(1, observe::DiagnosticStandardError, idle.tx, resume.rx) with observe_test_support_test::controlled_record_exporter(lines.tx, release.rx)
+	match constructed
+		observe::BufferedJsonLines(exporter) => match handle observe::buffered_export_observation(exporter, buffered_log("idle-cycle")) with observe_test_support_test::clock(0)
+			observe::Accepted => match exercise_buffered_idle_cycles(exporter, lines.rx, release.tx, idle.rx, resume.tx, 1001)
+				Ok(_) => begin
+					let report = observe::shutdown_buffered(exporter)
+					let summary = channel::recv(lines.rx)
+					let repeated = observe::shutdown_buffered(exporter)
+					let frozen_health = observe::buffered_exporter_health(exporter)
+					let no_more: Option<{ index : Int, value : String }> = channel::select_many_timeout(list_cons(lines.rx, list_nil()), 0)
+					match report
+						observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => match repeated
+							observe::BufferedShutdownReport(observe::Completed, observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)), observe::SummaryAccepted) => match frozen_health
+								observe::ExporterHealth(0, 0, 0, 0, observe::ProductionHealth(0, 0, 0)) => if buffered_line_contains(summary, "\"kind\":\"exporter_health\"")
+									match no_more
+										None => Ok(())
+										Some(_) => Err("repeated shutdown after idle cycles emitted another summary")
+									end
+								else
+									Err("idle-cycle shutdown did not emit the final health summary")
+								end
+								_ => Err("idle-cycle shutdown did not freeze exporter health")
+							end
+							_ => Err("later idle-cycle shutdown did not return the frozen report")
+						end
+						_ => Err("normal shutdown after idle cycles did not complete")
+					end
+				end
+				Err(error) => Err(error)
+			end
+			_ => Err("buffered exporter rejected the first idle-cycle record")
+		end
+		_ => Err("positive buffered capacity was rejected")
 	end
 end
 
