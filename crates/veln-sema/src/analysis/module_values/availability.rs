@@ -309,7 +309,22 @@ fn cyclic_dependency_components(
     module: &SurfaceModule,
     reverse_dependencies: &ReverseDependencies,
 ) -> CyclicDependencyComponents {
-    let identities = module
+    let identities = module_value_identities(module);
+    let indices = identities
+        .iter()
+        .enumerate()
+        .filter_map(|(index, identity)| Some((identity.clone()?, index)))
+        .collect::<HashMap<_, _>>();
+    let graph = cyclic_dependency_graph(module, reverse_dependencies, &indices);
+    let retained_graph_state = graph.len() + graph.iter().map(Vec::len).sum::<usize>();
+    record_peak_retained_dependency_state(
+        reverse_dependencies.retained_entry_count() + retained_graph_state,
+    );
+    collect_cyclic_dependency_components(&graph, &identities)
+}
+
+fn module_value_identities(module: &SurfaceModule) -> Vec<Option<ModuleValueIdentity>> {
+    module
         .module_values
         .iter()
         .map(|value| {
@@ -321,12 +336,14 @@ fn cyclic_dependency_components(
                 )
             })
         })
-        .collect::<Vec<_>>();
-    let indices = identities
-        .iter()
-        .enumerate()
-        .filter_map(|(index, identity)| Some((identity.clone()?, index)))
-        .collect::<HashMap<_, _>>();
+        .collect()
+}
+
+fn cyclic_dependency_graph(
+    module: &SurfaceModule,
+    reverse_dependencies: &ReverseDependencies,
+    indices: &HashMap<ModuleValueIdentity, usize>,
+) -> Vec<Vec<usize>> {
     let mut graph = vec![Vec::new(); module.module_values.len()];
     for (dependency, dependents) in &reverse_dependencies.identities {
         let Some(source) = indices.get(dependency) else {
@@ -345,14 +362,16 @@ fn cyclic_dependency_components(
             }
         }
     }
-    let retained_graph_state = graph.len() + graph.iter().map(Vec::len).sum::<usize>();
-    record_peak_retained_dependency_state(
-        reverse_dependencies.retained_entry_count() + retained_graph_state,
-    );
+    graph
+}
 
+fn collect_cyclic_dependency_components(
+    graph: &[Vec<usize>],
+    identities: &[Option<ModuleValueIdentity>],
+) -> CyclicDependencyComponents {
     let mut component_by_identity = HashMap::new();
     let mut components = Vec::new();
-    for component in super::strongly_connected_index_components(&graph) {
+    for component in super::strongly_connected_index_components(graph) {
         let cyclic = component.len() > 1
             || component
                 .first()
