@@ -86,8 +86,8 @@ The `schemas` topic selects explicit decode, encode, and runtime-validation
 expression productions in addition to schema declarations and fields. The
 runtime-validation production is `validate MemberPath from Expr at Expr`; the
 current source, type, execution, and diagnostic specifications own its
-resolution, result, failure, record and standard-container traversal
-boundaries, and remaining unsupported source-ADT and recursive-value limits.
+resolution, result, failure, record, standard-container, and acyclic source-ADT
+payload traversal boundaries, plus the remaining recursive-value limit.
 The expressions-and-patterns topic identifies lexical cleanup forms as a
 static, tooling, and executable surface. Its body states that checked core,
 typed IR, and the JVM backend preserve registration-time captures and run
