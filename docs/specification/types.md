@@ -1485,10 +1485,11 @@ recurses through anonymous records and composed format-neutral schema fields
 and through `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and
 `Dict<String, T>`. It preserves field requirements, schema visibility, nominal
 container identity, and every generic argument position. Container and
-dictionary-key recognition uses the resolved standard type identity; a
-same-spelled source ADT does not satisfy that boundary. A dictionary on a
-refinement path with any key type other than the standard `String` is
-ineligible. The result is
+dictionary-key recognition requires a resolved declaration owned by the
+toolchain standard package. A same-spelled source ADT does not satisfy that
+boundary, including one declared by an application-owned module named
+`std::prelude`. A dictionary on a refinement path with any key type other than
+the standard `String` is ineligible. The result is
 `Result<SchemaRecord, DecodeError>` and retains the written refinements.
 Contextual typing applies the erased record to `value` and requires
 `ByteOffset` for `offset`; an unrelated ADT, generic argument, record shape, or
