@@ -470,6 +470,9 @@ anonymous record fields, or fields of recursively composed format-neutral
 schemas. These positions may pass through `Option<T>`, `Result<T, E>`,
 `List<T>`, `Vec<T>`, and `Dict<String, T>` in any supported nesting. Each
 terminal position contains a singleton or finite-set source-ADT refinement.
+These container names and the dictionary key name resolve to the standard
+types. A source ADT with the same name is not a validation container or a
+string dictionary key.
 The value is checked against the schema-local record after recursively
 replacing each supported refinement with its base ADT while preserving every
 record shape, container identity, and generic argument position, and
