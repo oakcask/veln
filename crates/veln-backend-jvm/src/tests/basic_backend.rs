@@ -343,8 +343,10 @@ fn schema_refinement_validation_executes_source_adt_payload_plan() {
         "end\n",
         "pub fn main() -> Result<(), String> effects [stdio]\n",
         "  let offset = byte_offset(47)?\n",
+        "  let accepted: {item: Box<State>} = {item: Boxed(Connected)}\n",
         "  let rejected: {item: Box<State>} = {item: Boxed(Closed)}\n",
         "  let absent: {item: Box<State>} = {item: Empty}\n",
+        "  print_result(validate Packet from accepted at offset)\n",
         "  print_result(validate Packet from rejected at offset)\n",
         "  print_result(validate Packet from absent at offset)\n",
         "  Ok(())\n",
@@ -364,6 +366,7 @@ fn schema_refinement_validation_executes_source_adt_payload_plan() {
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         concat!(
+            "ok\n",
             "schema.variant_refinement_mismatch\n",
             "47\n",
             "/Packet/item/Boxed/0\n",
