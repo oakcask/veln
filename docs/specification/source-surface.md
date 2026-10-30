@@ -468,8 +468,8 @@ bare schema operation path. Generated helper names are implementation details.
 `validate SchemaName from value at base_offset` accepts a format-neutral schema
 whose refinement-bearing positions are record fields of that schema, nested
 anonymous record fields, or fields of recursively composed format-neutral
-schemas. A refinement-bearing position can also occur in a payload of an
-acyclic source ADT reached from one of those fields. These positions may pass
+schemas. A refinement-bearing position can also occur in a payload of a source
+ADT reached from one of those fields. These positions may pass
 through `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and
 `Dict<String, T>` in any supported nesting. Each terminal position contains a
 singleton or finite-set source-ADT refinement.
@@ -490,8 +490,9 @@ refinements are also preserved, but composed branches still participate in the
 recursive static eligibility check. A dictionary on a refinement path must use
 `String` keys. Every reachable source-ADT constructor and payload type must be
 visible from its use position and have a supported format-neutral shape. The
-source-ADT payload graph must be acyclic by declaration identity; direct,
-mutual, and generic-expanding recursion is not eligible. Binary schemas are
+source-ADT payload graph may use direct or mutual recursive edges when every
+edge preserves the instantiated type arguments. Generic-expanding recursion is
+not eligible because it has no finite validation shape. Binary schemas are
 also not eligible. The value and offset expressions are evaluated once, in
 that order. Schema-path lookup,
 public aliases, and exact-companion private access follow the decode and encode

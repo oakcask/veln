@@ -1,0 +1,31 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "schema.variant_refinement_mismatch"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 61
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = [{"kind":"schema","name":"Packet"},{"kind":"field","name":"item"},{"kind":"field","name":"Next"},{"kind":"field","name":"value"},{"kind":"field","name":"Next"},{"kind":"field","name":"value"},{"kind":"field","name":"Value"},{"kind":"field","name":"value"}]
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.reason"
+equals = "actual variant `Closed`; expected one of `Connected`"

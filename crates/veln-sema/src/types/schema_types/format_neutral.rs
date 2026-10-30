@@ -17,7 +17,7 @@ pub(crate) use refinement::{
     format_neutral_schema_encode_field_is_source_adt_candidate,
 };
 
-type RuntimeValidationMemoKey = (Option<String>, Option<String>, Type);
+type RuntimeValidationMemoKey = (String, Type);
 type RuntimeValidationMemo = HashMap<RuntimeValidationMemoKey, Option<(Type, bool)>>;
 
 pub(super) fn format_neutral_schema_decode_function_signature_for_schema(
@@ -146,7 +146,7 @@ fn format_neutral_runtime_validation_type(
     current_package: Option<&str>,
     adts: &AdtRegistry,
     ty: &Type,
-    adt_stack: &mut Vec<String>,
+    adt_stack: &mut Vec<(String, Type)>,
     completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, bool)> {
     match ty {
@@ -221,7 +221,7 @@ fn format_neutral_runtime_validation_record_type(
     current_package: Option<&str>,
     adts: &AdtRegistry,
     fields: &[(String, Type)],
-    adt_stack: &mut Vec<String>,
+    adt_stack: &mut Vec<(String, Type)>,
     completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, bool)> {
     let mut erased_fields = Vec::with_capacity(fields.len());
@@ -248,7 +248,7 @@ fn format_neutral_runtime_validation_named_type(
     current_package: Option<&str>,
     adts: &AdtRegistry,
     ty: &Type,
-    adt_stack: &mut Vec<String>,
+    adt_stack: &mut Vec<(String, Type)>,
     completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, bool)> {
     let Type::Named {
@@ -361,7 +361,7 @@ fn format_neutral_runtime_validation_source_adt_type(
     current_package: Option<&str>,
     adts: &AdtRegistry,
     ty: &Type,
-    adt_stack: &mut Vec<String>,
+    adt_stack: &mut Vec<(String, Type)>,
     completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, bool)> {
     let descriptor = format_neutral_schema_source_adt_descriptor(
@@ -390,39 +390,44 @@ fn format_neutral_runtime_validation_source_adt_type(
     {
         return None;
     }
-    let memo_key = (
-        current_module.map(str::to_owned),
-        current_package.map(str::to_owned),
-        ty.clone(),
-    );
-    let identity = descriptor.identity();
-    if adt_stack.contains(&identity) {
-        return None;
-    }
+    let memo_key = (descriptor.identity(), ty.clone());
     if let Some(completed) = completed_adts.get(&memo_key) {
         return completed.clone();
     }
-    adt_stack.push(identity);
+    let args = match ty {
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
+        _ => return None,
+    };
+    let mut erased_args = Vec::with_capacity(args.len());
+    for arg in args {
+        erased_args.push(
+            format_neutral_runtime_validation_type(
+                module,
+                current_module,
+                current_package,
+                adts,
+                arg,
+                adt_stack,
+                completed_adts,
+            )?
+            .0,
+        );
+    }
+    let erased = Type::resolved_named(
+        descriptor.type_name.clone(),
+        descriptor.identity(),
+        erased_args,
+    );
+    let identity = descriptor.identity();
+    if let Some((_, active_erased)) = adt_stack
+        .iter()
+        .rev()
+        .find(|(active_identity, _)| active_identity == &identity)
+    {
+        return (active_erased == &erased).then_some((erased, false));
+    }
+    adt_stack.push((identity, erased.clone()));
     let result = (|| {
-        let args = match ty {
-            Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
-            _ => return None,
-        };
-        let mut erased_args = Vec::with_capacity(args.len());
-        for arg in args {
-            erased_args.push(
-                format_neutral_runtime_validation_type(
-                    module,
-                    current_module,
-                    current_package,
-                    adts,
-                    arg,
-                    adt_stack,
-                    completed_adts,
-                )?
-                .0,
-            );
-        }
         let mut payload_has_refinement = false;
         for variant in &descriptor.variants {
             for index in 0..variant.payload_fields.len() {
@@ -447,11 +452,7 @@ fn format_neutral_runtime_validation_source_adt_type(
             }
         }
         Some((
-            Type::resolved_named(
-                descriptor.type_name.clone(),
-                descriptor.identity(),
-                erased_args,
-            ),
+            erased,
             matches!(ty, Type::VariantRefinement { .. }) || payload_has_refinement,
         ))
     })();

@@ -142,21 +142,13 @@ fn ir_schema_refinement_record_plan(
     fields: impl IntoIterator<Item = (String, IrSchemaRefinementPlan)>,
 ) -> Option<IrSchemaRefinementPlan> {
     let mut nodes = Vec::new();
-    let mut interned = HashMap::<IrSchemaRefinementPlanNode, usize>::new();
     let mut record_fields = Vec::new();
     for (name, plan) in fields {
-        let mut remapped = Vec::with_capacity(plan.nodes.len());
+        let start = nodes.len();
+        let remapped = (start..start + plan.nodes.len()).collect::<Vec<_>>();
         for node in plan.nodes {
             let node = remap_schema_refinement_node(node, &remapped);
-            let index = if let Some(index) = interned.get(&node) {
-                *index
-            } else {
-                let index = nodes.len();
-                interned.insert(node.clone(), index);
-                nodes.push(node);
-                index
-            };
-            remapped.push(index);
+            nodes.push(node);
         }
         record_fields.push(IrSchemaRefinementField {
             name,
@@ -387,13 +379,74 @@ fn ir_schema_refinement_plan(
         schema.package_name.as_deref(),
         ty,
     )?;
+    retain_refinement_reachable_edges(&mut builder.nodes, root)?;
     Some(IrSchemaRefinementPlan {
         root,
         nodes: builder.nodes,
     })
 }
 
-type SchemaRefinementMemoKey = (Option<String>, Option<String>, Type);
+fn retain_refinement_reachable_edges(
+    nodes: &mut [IrSchemaRefinementPlanNode],
+    root: usize,
+) -> Option<()> {
+    let mut reachable = nodes
+        .iter()
+        .map(|node| match node {
+            IrSchemaRefinementPlanNode::Variant(_) => true,
+            IrSchemaRefinementPlanNode::Adt {
+                expected_variants, ..
+            } => !expected_variants.is_empty(),
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+    loop {
+        let previous = reachable.clone();
+        for (index, node) in nodes.iter().enumerate() {
+            reachable[index] |= schema_refinement_child_nodes(node)
+                .into_iter()
+                .any(|child| previous[child]);
+        }
+        if reachable == previous {
+            break;
+        }
+    }
+    reachable[root].then_some(())?;
+    for node in nodes {
+        match node {
+            IrSchemaRefinementPlanNode::Adt { variants, .. } => {
+                for variant in variants {
+                    variant.payloads.retain(|payload| reachable[payload.plan]);
+                }
+            }
+            IrSchemaRefinementPlanNode::Record(fields) => {
+                fields.retain(|field| reachable[field.plan]);
+            }
+            _ => {}
+        }
+    }
+    Some(())
+}
+
+fn schema_refinement_child_nodes(node: &IrSchemaRefinementPlanNode) -> Vec<usize> {
+    match node {
+        IrSchemaRefinementPlanNode::Variant(_) => Vec::new(),
+        IrSchemaRefinementPlanNode::Adt { variants, .. } => variants
+            .iter()
+            .flat_map(|variant| variant.payloads.iter().map(|payload| payload.plan))
+            .collect(),
+        IrSchemaRefinementPlanNode::Record(fields) => {
+            fields.iter().map(|field| field.plan).collect()
+        }
+        IrSchemaRefinementPlanNode::Option(payload)
+        | IrSchemaRefinementPlanNode::List(payload)
+        | IrSchemaRefinementPlanNode::Vec(payload)
+        | IrSchemaRefinementPlanNode::Dict(payload) => vec![*payload],
+        IrSchemaRefinementPlanNode::Result { ok, err } => ok.iter().chain(err).copied().collect(),
+    }
+}
+
+type SchemaRefinementMemoKey = (String, Type);
 
 struct SourceAdtVariantPayloads {
     name: String,
@@ -411,7 +464,7 @@ struct SchemaRefinementPlanBuilder<'a> {
     adts: &'a AdtRegistry,
     nodes: Vec<IrSchemaRefinementPlanNode>,
     completed_adts: HashMap<SchemaRefinementMemoKey, Option<usize>>,
-    adt_stack: Vec<String>,
+    adt_stack: Vec<(String, Vec<Type>, usize)>,
 }
 
 impl SchemaRefinementPlanBuilder<'_> {
@@ -515,14 +568,19 @@ impl SchemaRefinementPlanBuilder<'_> {
             current_package,
             ty,
         )?;
-        let memo_key = (
-            current_module.map(str::to_owned),
-            current_package.map(str::to_owned),
-            ty.clone(),
-        );
+        let memo_key = (descriptor.identity(), ty.clone());
         let identity = descriptor.identity();
-        if self.adt_stack.contains(&identity) {
-            return None;
+        let args = match ty {
+            Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
+            _ => return None,
+        };
+        if let Some((_, active_args, node)) = self
+            .adt_stack
+            .iter()
+            .rev()
+            .find(|(active_identity, _, _)| active_identity == &identity)
+        {
+            return (active_args == args).then_some(*node);
         }
         if let Some(completed) = self.completed_adts.get(&memo_key) {
             return *completed;
@@ -530,20 +588,25 @@ impl SchemaRefinementPlanBuilder<'_> {
         let descriptor_module = descriptor.module_name.clone();
         let descriptor_package = descriptor.package_name.clone();
         let variant_payloads = source_adt_variant_payloads(self.module, descriptor, ty);
-        self.adt_stack.push(identity);
+        let node = self.push(IrSchemaRefinementPlanNode::Adt {
+            expected_variants: Vec::new(),
+            variants: Vec::new(),
+        });
+        self.adt_stack.push((identity, args.to_vec(), node));
         let variants = self.build_source_adt_variants(
             descriptor_module.as_deref(),
             descriptor_package.as_deref(),
             variant_payloads,
         );
         self.adt_stack.pop();
-        let plan = self.push_source_adt_plan(ty, variants);
+        let plan = self.fill_source_adt_plan(node, ty, variants);
         self.completed_adts.insert(memo_key, plan);
         plan
     }
 
-    fn push_source_adt_plan(
+    fn fill_source_adt_plan(
         &mut self,
+        node: usize,
         ty: &Type,
         variants: Vec<IrSchemaRefinementVariant>,
     ) -> Option<usize> {
@@ -553,14 +616,16 @@ impl SchemaRefinementPlanBuilder<'_> {
         };
         let has_payload_plan = variants.iter().any(|variant| !variant.payloads.is_empty());
         if has_payload_plan {
-            Some(self.push(IrSchemaRefinementPlanNode::Adt {
+            self.nodes[node] = IrSchemaRefinementPlanNode::Adt {
                 expected_variants,
                 variants,
-            }))
+            };
+            Some(node)
         } else if !expected_variants.is_empty() {
-            Some(self.push(IrSchemaRefinementPlanNode::Variant(
-                IrSchemaVariantRefinement { expected_variants },
-            )))
+            self.nodes[node] = IrSchemaRefinementPlanNode::Variant(IrSchemaVariantRefinement {
+                expected_variants,
+            });
+            Some(node)
         } else {
             None
         }

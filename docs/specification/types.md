@@ -1501,10 +1501,12 @@ scalar remains a static mismatch. Other supported field types that contain no
 refinement remain unchanged in both records, including containers, anonymous
 records, composed format-neutral schemas, and source-ADT payloads. Every
 reachable source-ADT constructor and payload type must be visible from its use
-position and must have a supported format-neutral shape. A source-ADT payload
-graph must be acyclic by declaration identity; direct, mutual, and
-generic-expanding recursion makes the validation operation a static failure.
-Runtime traversal of recursive values remains proposal work.
+position and must have a supported format-neutral shape. Direct and mutual
+recursive payload edges are eligible when they preserve the source ADT's
+nominal identity and exact instantiated generic arguments. Refinement erasure
+continues through those regular recursive edges. A recursive edge that changes
+the instantiated arguments, including generic-expanding recursion, makes the
+validation operation a static failure.
 Every reachable composed schema must be format-neutral
 and predicate-free, including composed branches that contain no refinement. A
 field `where` clause,
