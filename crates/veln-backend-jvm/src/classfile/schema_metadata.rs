@@ -39,6 +39,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrSchemaRefinementPlan::Variant(refinement) => {
                 self.emit_schema_variant_refinement_plan(code, refinement)
             }
+            IrSchemaRefinementPlan::Adt {
+                expected_variants,
+                variants,
+            } => self.emit_schema_adt_refinement_plan(code, expected_variants, variants),
             IrSchemaRefinementPlan::Record(fields) => {
                 self.emit_schema_record_refinement_plan(code, fields)
             }
@@ -85,6 +89,90 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 );
             }
             _ => unreachable!("variant refinement plan part"),
+        });
+    }
+
+    fn emit_schema_adt_refinement_plan(
+        &mut self,
+        code: &mut MethodCode,
+        expected_variants: &[String],
+        variants: &[veln_ir::IrSchemaRefinementVariant],
+    ) {
+        self.emit_object_array(code, 3, |this, code, part| match part {
+            0 => code.ldc_string("adt"),
+            1 => {
+                this.emit_object_array(code, expected_variants.len(), |_, code, index| {
+                    code.ldc_string(&expected_variants[index]);
+                });
+                code.invokestatic(
+                    &this.program.options.runtime_class,
+                    "list",
+                    "([Ljava/lang/Object;)Ljava/util/List;",
+                );
+            }
+            2 => {
+                this.emit_object_array(code, variants.len(), |this, code, index| {
+                    let variant = &variants[index];
+                    this.emit_object_array(
+                        code,
+                        2,
+                        |this, code, variant_part| match variant_part {
+                            0 => code.ldc_string(&variant.name),
+                            1 => {
+                                this.emit_object_array(
+                                    code,
+                                    variant.payloads.len(),
+                                    |this, code, payload_index| {
+                                        let payload = &variant.payloads[payload_index];
+                                        this.emit_object_array(
+                                            code,
+                                            3,
+                                            |this, code, payload_part| match payload_part {
+                                                0 => {
+                                                    code.push_i32(payload.index as i32);
+                                                    code.invokestatic(
+                                                        "java/lang/Integer",
+                                                        "valueOf",
+                                                        "(I)Ljava/lang/Integer;",
+                                                    );
+                                                }
+                                                1 => code.ldc_string(&payload.path_segment),
+                                                2 => this.emit_schema_refinement_plan(
+                                                    code,
+                                                    &payload.plan,
+                                                ),
+                                                _ => unreachable!("ADT payload plan part"),
+                                            },
+                                        );
+                                        code.invokestatic(
+                                            &this.program.options.runtime_class,
+                                            "list",
+                                            "([Ljava/lang/Object;)Ljava/util/List;",
+                                        );
+                                    },
+                                );
+                                code.invokestatic(
+                                    &this.program.options.runtime_class,
+                                    "list",
+                                    "([Ljava/lang/Object;)Ljava/util/List;",
+                                );
+                            }
+                            _ => unreachable!("ADT variant plan part"),
+                        },
+                    );
+                    code.invokestatic(
+                        &this.program.options.runtime_class,
+                        "list",
+                        "([Ljava/lang/Object;)Ljava/util/List;",
+                    );
+                });
+                code.invokestatic(
+                    &this.program.options.runtime_class,
+                    "list",
+                    "([Ljava/lang/Object;)Ljava/util/List;",
+                );
+            }
+            _ => unreachable!("ADT refinement plan part"),
         });
     }
 

@@ -295,6 +295,7 @@ impl AstBuilder {
                         .iter()
                         .map(|field| TypeVariantField {
                             node_id: self.alloc(),
+                            positional: field.positional,
                             name: field.name.clone(),
                             ty: field.ty.clone(),
                             ty_span: field.ty_span.clone(),

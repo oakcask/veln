@@ -444,7 +444,7 @@ impl<'a> Parser<'a> {
         let mut positional_index = 0usize;
         while !self.at(close) && !self.at(TokenKind::Eof) {
             let start = self.current().range;
-            let (name, ty, ty_span, ty_paths, ty_refinements) =
+            let (positional, name, ty, ty_span, ty_paths, ty_refinements) =
                 if matches!(self.current().kind, TokenKind::Ident | TokenKind::Callsite)
                     && self.peek_at(TokenKind::Colon)
                 {
@@ -457,6 +457,7 @@ impl<'a> Parser<'a> {
                         self.collect_type_paths_until("type_variant", &[TokenKind::Comma, close]);
                     let ty_end = self.previous().map_or(ty_start, |token| token.range);
                     (
+                        false,
                         name,
                         ty,
                         self.source.span(ty_start.cover(ty_end)),
@@ -475,6 +476,7 @@ impl<'a> Parser<'a> {
                     positional_index += 1;
                     let ty_end = self.previous().map_or(ty_start, |token| token.range);
                     (
+                        true,
                         name,
                         ty,
                         self.source.span(ty_start.cover(ty_end)),
@@ -484,6 +486,7 @@ impl<'a> Parser<'a> {
                 };
             let end = self.previous().map_or(start, |token| token.range);
             fields.push(TypeVariantField {
+                positional,
                 name,
                 ty,
                 ty_span,

@@ -9,9 +9,9 @@ pub use model::{
     IrDeferredCapture, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm,
     IrModuleValueDecl, IrParam, IrPattern, IrPatternField, IrPatternKind, IrRecordField,
     IrSchemaDecodeDispatch, IrSchemaDecodeDispatchCase, IrSchemaDecodeField, IrSchemaDecodeSpec,
-    IrSchemaRefinementField, IrSchemaRefinementPlan, IrSchemaRefinementValidationSpec,
-    IrSchemaRepeat, IrSchemaReservedBits, IrSchemaVariantRefinement, IrStmt, IrStmtKind,
-    TypedProgram,
+    IrSchemaRefinementField, IrSchemaRefinementPayload, IrSchemaRefinementPlan,
+    IrSchemaRefinementValidationSpec, IrSchemaRefinementVariant, IrSchemaRepeat,
+    IrSchemaReservedBits, IrSchemaVariantRefinement, IrStmt, IrStmtKind, TypedProgram,
 };
 pub use veln_core::{
     ContractObligationStatus, CoreContractCall, CoreModuleValueIdentity, CoreType,

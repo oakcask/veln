@@ -62,6 +62,10 @@ pub struct IrSchemaVariantRefinement {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum IrSchemaRefinementPlan {
     Variant(IrSchemaVariantRefinement),
+    Adt {
+        expected_variants: Vec<String>,
+        variants: Vec<IrSchemaRefinementVariant>,
+    },
     Record(Vec<IrSchemaRefinementField>),
     Option(Box<IrSchemaRefinementPlan>),
     Result {
@@ -71,6 +75,19 @@ pub enum IrSchemaRefinementPlan {
     List(Box<IrSchemaRefinementPlan>),
     Vec(Box<IrSchemaRefinementPlan>),
     Dict(Box<IrSchemaRefinementPlan>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IrSchemaRefinementVariant {
+    pub name: String,
+    pub payloads: Vec<IrSchemaRefinementPayload>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IrSchemaRefinementPayload {
+    pub index: usize,
+    pub path_segment: String,
+    pub plan: Box<IrSchemaRefinementPlan>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

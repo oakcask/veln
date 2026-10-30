@@ -22,6 +22,10 @@ pub struct CoreSchemaRefinementValidationSpec {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CoreSchemaRefinementPlan {
     Variant(Vec<String>),
+    Adt {
+        expected_variants: Vec<String>,
+        variants: Vec<CoreSchemaRefinementVariant>,
+    },
     Record(Vec<CoreSchemaRefinementField>),
     Option(Box<CoreSchemaRefinementPlan>),
     Result {
@@ -31,6 +35,19 @@ pub enum CoreSchemaRefinementPlan {
     List(Box<CoreSchemaRefinementPlan>),
     Vec(Box<CoreSchemaRefinementPlan>),
     Dict(Box<CoreSchemaRefinementPlan>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CoreSchemaRefinementVariant {
+    pub name: String,
+    pub payloads: Vec<CoreSchemaRefinementPayload>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CoreSchemaRefinementPayload {
+    pub index: usize,
+    pub path_segment: String,
+    pub plan: Box<CoreSchemaRefinementPlan>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

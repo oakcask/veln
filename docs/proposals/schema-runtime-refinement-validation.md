@@ -8,7 +8,8 @@ update-when: Recursive schema runtime validation, predicate ordering, decoder co
 Extend the implemented `validate MemberPath from Expr at Expr` operation beyond
 direct fields, nested anonymous record fields, recursively composed
 format-neutral schema fields, and the standard `Option`, `Result`, `List`,
-`Vec`, and string-keyed `Dict` containers. Current behavior validates
+`Vec`, and string-keyed `Dict` containers. Current behavior also traverses
+acyclic same-module and visible imported source-ADT payload graphs. It validates
 singleton and finite-set source-ADT refinements at those positions. Every
 schema in the reachable composition graph must be format-neutral and
 predicate-free, including branches without refinements. The current source,
@@ -18,9 +19,9 @@ typing, execution, and diagnostic contracts are specified in
 [execution](../specification/execution.md#schema-execution), and
 [diagnostics](../specification/diagnostics-json.md#diagnostic-families).
 
-This proposal retains only unimplemented source-ADT payload traversal,
-recursive-value traversal, predicate ordering, and ordinary decoder composition
-work.
+This proposal retains only unimplemented recursive-value traversal, predicate
+ordering, and ordinary decoder composition work. Acyclic source-ADT payload
+traversal is current behavior under the linked specification pages.
 
 ## Proposed Extension
 
@@ -33,8 +34,8 @@ validate ConnectedPacket from base_record at base_offset
 
 The value input remains the schema-local record with every refinement-bearing
 position replaced by its base ADT. The extension would derive that erased type
-through source-ADT payloads and recursive values in addition to the implemented
-record, composition, and standard-container traversal. It would preserve
+through recursive values in addition to the implemented record, composition,
+standard-container, and acyclic source-ADT payload traversal. It would preserve
 nominal identity, generic argument positions, visibility, and field
 requirements. Unsupported shapes and binary schemas would remain static
 failures.
@@ -49,7 +50,6 @@ recoverable `schema.variant_refinement_mismatch` and
 
 | Position | Proposed traversal |
 | --- | --- |
-| Source ADT | Check a refinement at the current position, then visit the actual constructor's payloads in declaration order. |
 | Recursive finite value | Validate every actual payload occurrence; repeated type identity does not suppress later values. |
 
 After every refinement-bearing position succeeds, validation would evaluate
@@ -58,10 +58,10 @@ containing field's `where` predicate. Field predicates would retain declaration
 order, followed by the containing schema-level `validate` predicate. Predicate
 failure would use `schema.validation_failed` at the field path or schema root.
 
-JSON Pointer paths would extend the implemented schema, composed field,
-collection-index, and dictionary-key tokens with constructor names and named or
-positional source-ADT payload segments. Tokens would keep the implemented
-`~0` and `~1` escaping.
+Recursive-value paths would reuse the implemented schema, composed field,
+collection-index, dictionary-key, source-ADT constructor, and named or
+positional payload tokens. Tokens would keep the implemented `~0` and `~1`
+escaping.
 
 ## Ordinary Decoder Composition
 
@@ -85,15 +85,15 @@ change no wire bytes, and would not weaken
 
 | Concern | Required evidence |
 | --- | --- |
-| Recursive typing | Generic source-ADT payload and recursive-value erasure; wrong identities and generic arguments remain rejected. |
+| Recursive typing | Recursive-value erasure through already supported source-ADT payloads; wrong identities and generic arguments remain rejected. |
 | Runtime traversal | Admitted and excluded constructors at every recursive position, including repeated recursive values. |
-| Ordering and paths | Source-ADT constructor payload order and recursive-value occurrence order, including constructor and payload path segments. |
+| Ordering and paths | Recursive-value occurrence order using the implemented source-ADT constructor and payload path segments. |
 | Predicates | Refinements precede predicates; child, field, and schema predicates follow the specified order. |
 | External decoder | A real ordinary Veln byte decoder covers success, excluded variants, malformed tags and payloads, truncation, readiness, consumed counts, and unchanged bytes. |
 | Failure preservation | Inputs and earlier successful values remain usable; no trap, partial refined value, or hidden decoder invocation occurs. |
 
-Use checked semantic and runtime examples for source-ADT and recursive-value
-traversal and a backend integration for representation and evaluation order. Any standard
+Use checked semantic and runtime examples for recursive-value traversal and a
+backend integration for representation and evaluation order. Any standard
 library helper added for decoder composition requires companion coverage under
 `crates/veln-stdlib/veln/`.
 

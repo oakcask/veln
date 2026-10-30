@@ -1,0 +1,26 @@
+# Positional source-ADT payloads use their declaration-order index in mismatch paths.
+
+pub type State
+	pub Connected
+	pub Closed
+end
+
+pub type Box<A>
+	pub Boxed(A)
+	pub Empty
+end
+
+schema Packet
+	item: Box<State::Connected>
+end
+
+fn validate_packet(value: {item: Box<State>}, offset: ByteOffset) -> Result<{item: Box<State::Connected>}, DecodeError>
+	validate Packet from value at offset
+end
+
+pub fn main() -> Result<{item: Box<State::Connected>}, DecodeError>
+	match byte_offset(47)
+		Ok(offset) => validate_packet({item: Boxed(Closed)}, offset)
+		Err(_) => main()
+	end
+end

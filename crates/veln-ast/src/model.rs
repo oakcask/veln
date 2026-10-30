@@ -375,6 +375,7 @@ pub struct TypeVariantDecl {
 #[derive(Clone, Debug)]
 pub struct TypeVariantField {
     pub node_id: NodeId,
+    pub positional: bool,
     pub name: String,
     pub ty: String,
     pub ty_span: SourceSpan,

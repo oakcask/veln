@@ -473,6 +473,212 @@ fn explicit_schema_validate_expression_carries_recursive_container_plan_through_
 }
 
 #[test]
+fn explicit_schema_validate_expression_erases_source_adt_payloads_and_carries_paths() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "type Box<A>\n",
+            "  Boxed(A)\n",
+            "  Named(value: A)\n",
+            "  Empty\n",
+            "end\n",
+            "schema Packet\n",
+            "  item: Box<State::Connected>\n",
+            "end\n",
+            "fn check(value: {item: Box<State>}, base: ByteOffset) -> Result<{item: Box<State::Connected>}, DecodeError>\n",
+            "  validate Packet from value at base\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+
+    let core = lowered.core.as_ref().expect("checked core");
+    let spec = core
+        .schema_refinement_validators
+        .iter()
+        .find(|spec| spec.schema_name == "Packet")
+        .expect("source ADT validation plan");
+    let CoreSchemaRefinementPlan::Record(fields) = &spec.plan else {
+        panic!("root plan should be a record");
+    };
+    let CoreSchemaRefinementPlan::Adt {
+        expected_variants,
+        variants,
+    } = &*fields[0].plan
+    else {
+        panic!("field plan should dispatch a source ADT");
+    };
+    assert!(expected_variants.is_empty());
+    assert_eq!(
+        variants
+            .iter()
+            .map(|variant| variant.name.as_str())
+            .collect::<Vec<_>>(),
+        ["Boxed", "Named", "Empty"]
+    );
+    assert_eq!(variants[0].payloads[0].index, 0);
+    assert_eq!(variants[0].payloads[0].path_segment, "0");
+    assert_eq!(variants[1].payloads[0].index, 0);
+    assert_eq!(variants[1].payloads[0].path_segment, "value");
+    assert!(variants[2].payloads.is_empty());
+    assert!(matches!(
+        &*variants[0].payloads[0].plan,
+        CoreSchemaRefinementPlan::Variant(expected) if expected == &["Connected"]
+    ));
+
+    let ir = lowered.ir.as_ref().expect("typed IR");
+    let spec = ir
+        .schema_refinement_validators
+        .iter()
+        .find(|spec| spec.schema_name == "Packet")
+        .expect("IR source ADT validation plan");
+    let IrSchemaRefinementPlan::Record(fields) = &spec.plan else {
+        panic!("IR root plan should be a record");
+    };
+    assert!(matches!(
+        &*fields[0].plan,
+        IrSchemaRefinementPlan::Adt { .. }
+    ));
+}
+
+#[test]
+fn explicit_schema_validate_expression_traverses_visible_imported_source_adts() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use api\n",
+            "schema Packet\n  item: api::Box<api::State::Connected>\nend\n",
+            "fn check(value: {item: api::Box<api::State>}, base: ByteOffset) -> Result<{item: api::Box<api::State::Connected>}, DecodeError>\n",
+            "  validate Packet from value at base\n",
+            "end\n",
+        ),
+    );
+    let api_source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod api\n",
+            "pub type State\n  pub Connected\n  pub Closed\nend\n",
+            "pub type Box<A>\n  pub Boxed(value: A)\n  pub Empty\nend\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let api = lower_surface_ast(&parse(&api_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: [app.types, api.types].concat(),
+        schemas: app.schemas,
+        module_values: Vec::new(),
+        functions: app.functions,
+        invalid_names: Vec::new(),
+    };
+    let lowered = lower_checked_surface_module(&module);
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let spec = lowered
+        .core
+        .as_ref()
+        .expect("checked core")
+        .schema_refinement_validators
+        .iter()
+        .find(|spec| spec.declaration_name == "Packet")
+        .expect("imported source ADT plan");
+    let CoreSchemaRefinementPlan::Record(fields) = &spec.plan else {
+        panic!("root plan should be a record");
+    };
+    assert!(matches!(
+        &*fields[0].plan,
+        CoreSchemaRefinementPlan::Adt { variants, .. }
+            if variants[0].payloads[0].path_segment == "value"
+    ));
+}
+
+#[test]
+fn explicit_schema_validate_expression_preserves_source_adt_identity_and_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "type OtherState\n  Connected\nend\n",
+            "type Box<A>\n  Boxed(A)\nend\n",
+            "type OtherBox<A>\n  Boxed(A)\nend\n",
+            "schema Packet\n  item: Box<State::Connected>\nend\n",
+            "fn wrong_identity(value: {item: OtherBox<State>}, base: ByteOffset) -> ()\n",
+            "  validate Packet from value at base\n  ()\nend\n",
+            "fn wrong_argument(value: {item: Box<OtherState>}, base: ByteOffset) -> ()\n",
+            "  validate Packet from value at base\n  ()\nend\n",
+        ),
+    );
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parse(&source).tree));
+    let mismatches = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
+        .collect::<Vec<_>>();
+    assert_eq!(mismatches.len(), 2, "{:#?}", lowered.diagnostics);
+    assert!(
+        mismatches
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("OtherBox"))
+    );
+    assert!(
+        mismatches
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("OtherState"))
+    );
+}
+
+#[test]
+fn explicit_schema_validate_expression_rejects_recursive_source_adt_graphs() {
+    for (declaration, field_type) in [
+        (
+            "type Node<A>\n  Next(value: Node<A>)\n  Value(value: A)\nend\n",
+            "Node<State::Connected>",
+        ),
+        (
+            "type Node<A>\n  Next(value: Node<Option<A>>)\n  Value(value: A)\nend\n",
+            "Node<State::Connected>",
+        ),
+        (
+            "type Node<A>\n  Next(value: Node<A>)\n  Value(value: A)\nend\n",
+            "Node<State>::Value",
+        ),
+        (
+            "type Node<A>\n  Next(value: Other<A>)\n  Value(value: A)\nend\ntype Other<A>\n  Back(value: Node<A>)\nend\n",
+            "Node<State::Connected>",
+        ),
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "type State\n  Connected\n  Closed\nend\n{declaration}schema Packet\n  item: {field_type}\nend\nfn check(value: {{item: Node<State>}}, base: ByteOffset) -> ()\n  validate Packet from value at base\n  ()\nend\n"
+            ),
+        );
+        let lowered = lower_checked_surface_module(&lower_surface_ast(&parse(&source).tree));
+        assert!(
+            lowered
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "schema.validate_expression"),
+            "recursive ADT should be rejected: {:#?}",
+            lowered.diagnostics
+        );
+        assert!(lowered.core.as_ref().is_none_or(|core| {
+            core.schema_refinement_validators
+                .iter()
+                .all(|spec| spec.schema_name != "Packet")
+        }));
+    }
+}
+
+#[test]
 fn explicit_schema_validate_expression_rejects_wrong_container_arguments() {
     let source = SourceFile::new(
         "main.veln",

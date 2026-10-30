@@ -163,6 +163,7 @@ pub enum TypeVariantFieldDelimiter {
 
 #[derive(Clone, Debug)]
 pub struct TypeVariantField {
+    pub positional: bool,
     pub name: String,
     pub ty: String,
     pub ty_span: SourceSpan,

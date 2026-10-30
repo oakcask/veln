@@ -2,15 +2,18 @@ use std::collections::BTreeMap;
 
 use veln_ast::{SchemaDecl, SchemaField, SurfaceModule};
 use veln_core::{
-    CoreSchemaRefinementField, CoreSchemaRefinementPlan, CoreSchemaRefinementValidationSpec,
+    CoreSchemaRefinementField, CoreSchemaRefinementPayload, CoreSchemaRefinementPlan,
+    CoreSchemaRefinementValidationSpec, CoreSchemaRefinementVariant,
 };
 use veln_ir::{
     IrSchemaDecodeDispatch, IrSchemaDecodeDispatchCase, IrSchemaDecodeField, IrSchemaDecodeSpec,
-    IrSchemaRefinementField, IrSchemaRefinementPlan, IrSchemaRepeat, IrSchemaReservedBits,
-    IrSchemaVariantRefinement,
+    IrSchemaRefinementField, IrSchemaRefinementPayload, IrSchemaRefinementPlan,
+    IrSchemaRefinementVariant, IrSchemaRepeat, IrSchemaReservedBits, IrSchemaVariantRefinement,
 };
 
+use crate::adt::descriptors::{AdtConstructor, AdtDescriptor};
 use crate::adt::registry::AdtRegistry;
+use crate::adt::type_operations as adt;
 use crate::schema::dispatch::{
     SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec,
     closed_dispatch_schema_primitive, extension_dispatch_schema_primitive,
@@ -27,7 +30,7 @@ use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_annotation;
 use crate::types::schema_types::{
     StandardRuntimeTypeKind, format_neutral_schema_encode_field_type_for_schema,
-    format_neutral_schema_field_type_for_schema,
+    format_neutral_schema_field_type_for_schema, format_neutral_schema_source_adt_descriptor,
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, resolved_standard_runtime_type_kind,
     schema_decode_function_name, schema_decode_value_type, schema_dispatch_has_recursive_payload,
@@ -93,6 +96,27 @@ fn core_schema_refinement_plan(plan: &IrSchemaRefinementPlan) -> CoreSchemaRefin
         IrSchemaRefinementPlan::Variant(refinement) => {
             CoreSchemaRefinementPlan::Variant(refinement.expected_variants.clone())
         }
+        IrSchemaRefinementPlan::Adt {
+            expected_variants,
+            variants,
+        } => CoreSchemaRefinementPlan::Adt {
+            expected_variants: expected_variants.clone(),
+            variants: variants
+                .iter()
+                .map(|variant| CoreSchemaRefinementVariant {
+                    name: variant.name.clone(),
+                    payloads: variant
+                        .payloads
+                        .iter()
+                        .map(|payload| CoreSchemaRefinementPayload {
+                            index: payload.index,
+                            path_segment: payload.path_segment.clone(),
+                            plan: Box::new(core_schema_refinement_plan(&payload.plan)),
+                        })
+                        .collect(),
+                })
+                .collect(),
+        },
         IrSchemaRefinementPlan::Record(fields) => CoreSchemaRefinementPlan::Record(
             fields
                 .iter()
@@ -271,6 +295,34 @@ fn ir_schema_refinement_plan(
     ty: &Type,
     adts: &AdtRegistry,
 ) -> Option<IrSchemaRefinementPlan> {
+    ir_schema_refinement_plan_inner(
+        module,
+        schema.module_name.as_deref(),
+        schema.package_name.as_deref(),
+        ty,
+        adts,
+        &mut Vec::new(),
+    )
+}
+
+fn ir_schema_refinement_plan_inner(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    ty: &Type,
+    adts: &AdtRegistry,
+    adt_stack: &mut Vec<String>,
+) -> Option<IrSchemaRefinementPlan> {
+    if let Some(plan) = ir_schema_source_adt_refinement_plan(
+        module,
+        current_module,
+        current_package,
+        ty,
+        adts,
+        adt_stack,
+    ) {
+        return Some(plan);
+    }
     if let Some(refinement) = ir_schema_variant_refinement(ty, adts) {
         return Some(IrSchemaRefinementPlan::Variant(refinement));
     }
@@ -279,67 +331,245 @@ fn ir_schema_refinement_plan(
             let fields = fields
                 .iter()
                 .filter_map(|(name, ty)| {
-                    ir_schema_refinement_plan(module, schema, ty, adts).map(|plan| {
-                        IrSchemaRefinementField {
-                            name: name.clone(),
-                            plan: Box::new(plan),
-                        }
+                    ir_schema_refinement_plan_inner(
+                        module,
+                        current_module,
+                        current_package,
+                        ty,
+                        adts,
+                        adt_stack,
+                    )
+                    .map(|plan| IrSchemaRefinementField {
+                        name: name.clone(),
+                        plan: Box::new(plan),
                     })
                 })
                 .collect::<Vec<_>>();
             (!fields.is_empty()).then_some(IrSchemaRefinementPlan::Record(fields))
         }
-        Type::Named { args, .. } => ir_schema_named_refinement_plan(module, schema, ty, args, adts),
+        Type::Named { args, .. } => ir_schema_named_refinement_plan(
+            module,
+            current_module,
+            current_package,
+            ty,
+            args,
+            adts,
+            adt_stack,
+        ),
         _ => None,
     }
 }
 
 fn ir_schema_named_refinement_plan(
     module: &SurfaceModule,
-    schema: &SchemaDecl,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
     ty: &Type,
     args: &[Type],
     adts: &AdtRegistry,
+    adt_stack: &mut Vec<String>,
 ) -> Option<IrSchemaRefinementPlan> {
-    let kind = resolved_standard_runtime_type_kind(
-        module,
-        schema.module_name.as_deref(),
-        schema.package_name.as_deref(),
-        adts,
-        ty,
-    )?;
+    let kind =
+        resolved_standard_runtime_type_kind(module, current_module, current_package, adts, ty)?;
     match kind {
-        StandardRuntimeTypeKind::Option => {
-            ir_schema_refinement_plan(module, schema, &args[0], adts)
-                .map(Box::new)
-                .map(IrSchemaRefinementPlan::Option)
-        }
+        StandardRuntimeTypeKind::Option => ir_schema_refinement_plan_inner(
+            module,
+            current_module,
+            current_package,
+            &args[0],
+            adts,
+            adt_stack,
+        )
+        .map(Box::new)
+        .map(IrSchemaRefinementPlan::Option),
         StandardRuntimeTypeKind::Result => {
-            let ok = ir_schema_refinement_plan(module, schema, &args[0], adts).map(Box::new);
-            let err = ir_schema_refinement_plan(module, schema, &args[1], adts).map(Box::new);
+            let ok = ir_schema_refinement_plan_inner(
+                module,
+                current_module,
+                current_package,
+                &args[0],
+                adts,
+                adt_stack,
+            )
+            .map(Box::new);
+            let err = ir_schema_refinement_plan_inner(
+                module,
+                current_module,
+                current_package,
+                &args[1],
+                adts,
+                adt_stack,
+            )
+            .map(Box::new);
             (ok.is_some() || err.is_some()).then_some(IrSchemaRefinementPlan::Result { ok, err })
         }
-        StandardRuntimeTypeKind::List => ir_schema_refinement_plan(module, schema, &args[0], adts)
-            .map(Box::new)
-            .map(IrSchemaRefinementPlan::List),
-        StandardRuntimeTypeKind::Vec => ir_schema_refinement_plan(module, schema, &args[0], adts)
-            .map(Box::new)
-            .map(IrSchemaRefinementPlan::Vec),
+        StandardRuntimeTypeKind::List => ir_schema_refinement_plan_inner(
+            module,
+            current_module,
+            current_package,
+            &args[0],
+            adts,
+            adt_stack,
+        )
+        .map(Box::new)
+        .map(IrSchemaRefinementPlan::List),
+        StandardRuntimeTypeKind::Vec => ir_schema_refinement_plan_inner(
+            module,
+            current_module,
+            current_package,
+            &args[0],
+            adts,
+            adt_stack,
+        )
+        .map(Box::new)
+        .map(IrSchemaRefinementPlan::Vec),
         StandardRuntimeTypeKind::Dict
             if resolved_standard_runtime_type_kind(
                 module,
-                schema.module_name.as_deref(),
-                schema.package_name.as_deref(),
+                current_module,
+                current_package,
                 adts,
                 &args[0],
             ) == Some(StandardRuntimeTypeKind::String) =>
         {
-            ir_schema_refinement_plan(module, schema, &args[1], adts)
-                .map(Box::new)
-                .map(IrSchemaRefinementPlan::Dict)
+            ir_schema_refinement_plan_inner(
+                module,
+                current_module,
+                current_package,
+                &args[1],
+                adts,
+                adt_stack,
+            )
+            .map(Box::new)
+            .map(IrSchemaRefinementPlan::Dict)
         }
         _ => None,
     }
+}
+
+fn ir_schema_source_adt_refinement_plan(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    ty: &Type,
+    adts: &AdtRegistry,
+    adt_stack: &mut Vec<String>,
+) -> Option<IrSchemaRefinementPlan> {
+    let descriptor = format_neutral_schema_source_adt_descriptor(
+        module,
+        current_module,
+        current_package,
+        adts,
+        ty,
+    )?;
+    if crate::types::schema_types::resolved_standard_runtime_type_kind(
+        module,
+        current_module,
+        current_package,
+        adts,
+        ty,
+    )
+    .is_some()
+        || !crate::types::schema_types::descriptor_has_source_declaration(adts, descriptor)
+    {
+        return None;
+    }
+    let identity = descriptor.identity();
+    if adt_stack.contains(&identity) {
+        return None;
+    }
+    adt_stack.push(identity);
+    let variants = descriptor
+        .variants
+        .iter()
+        .map(|variant| {
+            let payloads = variant
+                .payload_fields
+                .iter()
+                .enumerate()
+                .filter_map(|(index, field)| {
+                    let payload_ty = adt::payload_type(
+                        ty,
+                        AdtConstructor {
+                            descriptor,
+                            variant,
+                        },
+                        index,
+                    )?;
+                    ir_schema_refinement_plan_inner(
+                        module,
+                        descriptor.module_name.as_deref(),
+                        descriptor.package_name.as_deref(),
+                        &payload_ty,
+                        adts,
+                        adt_stack,
+                    )
+                    .map(|plan| IrSchemaRefinementPayload {
+                        index,
+                        path_segment: source_adt_payload_path_segment(
+                            module,
+                            descriptor,
+                            &variant.name,
+                            index,
+                            &field.name,
+                        ),
+                        plan: Box::new(plan),
+                    })
+                })
+                .collect();
+            IrSchemaRefinementVariant {
+                name: variant.name.clone(),
+                payloads,
+            }
+        })
+        .collect::<Vec<_>>();
+    adt_stack.pop();
+    let expected_variants = match ty {
+        Type::VariantRefinement { variants, .. } => variants.to_vec(),
+        _ => Vec::new(),
+    };
+    let has_payload_plan = variants.iter().any(|variant| !variant.payloads.is_empty());
+    if !has_payload_plan {
+        return (!expected_variants.is_empty()).then_some({
+            IrSchemaRefinementPlan::Variant(IrSchemaVariantRefinement { expected_variants })
+        });
+    }
+    Some(IrSchemaRefinementPlan::Adt {
+        expected_variants,
+        variants,
+    })
+}
+
+fn source_adt_payload_path_segment(
+    module: &SurfaceModule,
+    descriptor: &AdtDescriptor,
+    variant_name: &str,
+    index: usize,
+    fallback: &str,
+) -> String {
+    module
+        .types
+        .iter()
+        .find(|declaration| {
+            declaration.name.as_deref() == Some(descriptor.type_name.as_str())
+                && declaration.module_name == descriptor.module_name
+                && declaration.package_name == descriptor.package_name
+        })
+        .and_then(|declaration| {
+            declaration
+                .variants
+                .iter()
+                .find(|variant| variant.name.as_deref() == Some(variant_name))
+        })
+        .and_then(|variant| variant.fields.get(index))
+        .map(|field| {
+            if field.positional {
+                index.to_string()
+            } else {
+                field.name.clone()
+            }
+        })
+        .unwrap_or_else(|| fallback.to_string())
 }
 
 fn schema_decode_spec_inner_after_push(

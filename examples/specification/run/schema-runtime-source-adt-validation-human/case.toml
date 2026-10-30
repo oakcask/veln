@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[schema.variant_refinement_mismatch]: schema variant refinement mismatch at byte offset 47", "note: Variant mismatch reason: actual variant `Closed`; expected one of `Connected`.", "note: Field path: schema `Packet` / field `item` / field `Boxed` / field `value`."]

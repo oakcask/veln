@@ -305,6 +305,7 @@ impl Writer {
 
     fn type_variant_field(&mut self, value: &TypeVariantField) {
         self.node_id(value.node_id);
+        self.bool(value.positional);
         self.string(&value.name);
         self.string(&value.ty);
         self.span(&value.ty_span);

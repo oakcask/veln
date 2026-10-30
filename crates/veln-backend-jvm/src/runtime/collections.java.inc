@@ -125,6 +125,42 @@
                 (java.util.List<?>) plan.get(1)
             );
         }
+        if (kind.equals("adt")) {
+            java.util.List<?> expected = (java.util.List<?>) plan.get(1);
+            if (!expected.isEmpty()) {
+                Object failure = schemaVariantRefinementFailure(
+                    value,
+                    baseOffset,
+                    path,
+                    expected
+                );
+                if (failure != null) return failure;
+            }
+            Adt adtValue = (Adt) value;
+            String actual = adtLeafName(adtValue.name);
+            for (Object variantValue : (java.util.List<?>) plan.get(2)) {
+                java.util.List<?> variant = (java.util.List<?>) variantValue;
+                String variantName = asString(variant.get(0));
+                if (!actual.equals(variantName)) continue;
+                String constructorPath = path + "/" + jsonPointerToken(variantName);
+                for (Object payloadValue : (java.util.List<?>) variant.get(1)) {
+                    java.util.List<?> payload = (java.util.List<?>) payloadValue;
+                    int index = ((Number) payload.get(0)).intValue();
+                    String segment = asString(payload.get(1));
+                    Object failure = schemaRefinementPlanFailure(
+                        adtValue.payloads[index],
+                        baseOffset,
+                        constructorPath + "/" + jsonPointerToken(segment),
+                        (java.util.List<?>) payload.get(2)
+                    );
+                    if (failure != null) return failure;
+                }
+                return null;
+            }
+            throw new IllegalStateException(
+                "missing schema refinement plan for ADT constructor `" + actual + "`"
+            );
+        }
         if (kind.equals("record")) {
             for (Object fieldValue : (java.util.List<?>) plan.get(1)) {
                 java.util.List<?> field = (java.util.List<?>) fieldValue;

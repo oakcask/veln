@@ -8,8 +8,8 @@ use crate::{
     IrCallTarget, IrCallbackTarget, IrCleanupRegion, IrContract, IrDeferredBlock,
     IrDeferredCapture, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm,
     IrModuleValueDecl, IrParam, IrPattern, IrPatternField, IrPatternKind, IrRecordField,
-    IrSchemaRefinementField, IrSchemaRefinementPlan, IrSchemaRefinementValidationSpec, IrStmt,
-    IrStmtKind, TypedProgram,
+    IrSchemaRefinementField, IrSchemaRefinementPayload, IrSchemaRefinementPlan,
+    IrSchemaRefinementValidationSpec, IrSchemaRefinementVariant, IrStmt, IrStmtKind, TypedProgram,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -70,6 +70,27 @@ fn lower_schema_refinement_plan(plan: &CoreSchemaRefinementPlan) -> IrSchemaRefi
                 expected_variants: expected_variants.clone(),
             })
         }
+        CoreSchemaRefinementPlan::Adt {
+            expected_variants,
+            variants,
+        } => IrSchemaRefinementPlan::Adt {
+            expected_variants: expected_variants.clone(),
+            variants: variants
+                .iter()
+                .map(|variant| IrSchemaRefinementVariant {
+                    name: variant.name.clone(),
+                    payloads: variant
+                        .payloads
+                        .iter()
+                        .map(|payload| IrSchemaRefinementPayload {
+                            index: payload.index,
+                            path_segment: payload.path_segment.clone(),
+                            plan: Box::new(lower_schema_refinement_plan(&payload.plan)),
+                        })
+                        .collect(),
+                })
+                .collect(),
+        },
         CoreSchemaRefinementPlan::Record(fields) => IrSchemaRefinementPlan::Record(
             fields
                 .iter()
