@@ -400,14 +400,16 @@ install that production client boundary.
   same generated boundary as the aliased schema.
 - Explicit schema validation evaluates its erased base-record value once and
   then its `ByteOffset` once. Runtime checks follow field declaration order in
-  the selected schema and recursively in each composed format-neutral child.
-  Each direct refinement accepts constructors in its source-ADT declaration
+  the selected schema, recursively through anonymous records, and recursively
+  in each composed format-neutral child. Each refinement accepts constructors
+  in its source-ADT declaration
   order. Success returns the identical root record value in `Ok` with the
   recursively refined static type. The first excluded constructor returns
   `Err(DecodeErrorWithReason(...))` with
   `schema.variant_refinement_mismatch`, the exact supplied offset, and a JSON
   Pointer formed from the terminal schema declaration followed by every
-  containing field and the rejected direct field. Pointer tokens escape `~` as
+  containing composed or anonymous-record field and the rejected field.
+  Pointer tokens escape `~` as
   `~0` and `/` as `~1`; selecting a public alias does not replace the terminal
   declaration root. A negative supplied offset fails before field traversal
   with `schema.validation_offset_invalid` at the schema root. Validation
@@ -676,8 +678,8 @@ than degrading it to a generic rendered result value.
 - Cross-package function and handler selection through reachability, lowering,
   and JVM linkage, together with validation operand evaluation order, are
   checked in `crates/veln-backend-jvm/src/tests/basic_backend.rs`.
-- Direct and composed runtime refinement success and declaration-order failure are
-  checked by
+- Direct, anonymous-record, and composed runtime refinement success and
+  declaration-order failure are checked by
   [`schema-runtime-refinement-validation`](../../examples/specification/run/schema-runtime-refinement-validation/).
   Focused command projections are checked in
   [`human`](../../examples/specification/run/schema-runtime-refinement-validation-human/)

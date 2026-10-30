@@ -107,24 +107,9 @@ fn format_neutral_schema_runtime_validation_types_inner(
             has_refinement |= child_has_refinement;
             child_erased
         } else {
-            match &refined {
-                Type::VariantRefinement {
-                    name,
-                    identity,
-                    args,
-                    unresolved_alternatives,
-                    ..
-                } if unresolved_alternatives.is_empty()
-                    && args
-                        .iter()
-                        .all(|arg| !format_neutral_type_contains_refinement(arg)) =>
-                {
-                    has_refinement = true;
-                    Type::resolved_named(name.clone(), identity.clone(), args.clone())
-                }
-                _ if !format_neutral_type_contains_refinement(&refined) => refined.clone(),
-                _ => return None,
-            }
+            let (erased, field_has_refinement) = format_neutral_runtime_validation_type(&refined)?;
+            has_refinement |= field_has_refinement;
+            erased
         };
         erased_fields.push((field.name.clone(), erased));
         refined_fields.push((field.name.clone(), refined));
@@ -135,6 +120,40 @@ fn format_neutral_schema_runtime_validation_types_inner(
         Type::Record(refined_fields),
         has_refinement,
     ))
+}
+
+fn format_neutral_runtime_validation_type(ty: &Type) -> Option<(Type, bool)> {
+    match ty {
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            unresolved_alternatives,
+            ..
+        } if unresolved_alternatives.is_empty()
+            && args
+                .iter()
+                .all(|arg| !format_neutral_type_contains_refinement(arg)) =>
+        {
+            Some((
+                Type::resolved_named(name.clone(), identity.clone(), args.clone()),
+                true,
+            ))
+        }
+        Type::Record(fields) => {
+            let mut erased_fields = Vec::with_capacity(fields.len());
+            let mut has_refinement = false;
+            for (name, field_ty) in fields {
+                let (erased, field_has_refinement) =
+                    format_neutral_runtime_validation_type(field_ty)?;
+                erased_fields.push((name.clone(), erased));
+                has_refinement |= field_has_refinement;
+            }
+            Some((Type::Record(erased_fields), has_refinement))
+        }
+        _ if !format_neutral_type_contains_refinement(ty) => Some((ty.clone(), false)),
+        _ => None,
+    }
 }
 
 fn format_neutral_type_contains_refinement(ty: &Type) -> bool {

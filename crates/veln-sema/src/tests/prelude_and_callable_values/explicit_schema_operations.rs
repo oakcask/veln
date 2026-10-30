@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn explicit_schema_validate_expression_erases_direct_refinement_inputs() {
+fn explicit_schema_validate_expression_erases_direct_and_nested_record_refinement_inputs() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -16,10 +16,10 @@ fn explicit_schema_validate_expression_erases_direct_refinement_inputs() {
             "schema ConnectedPacket\n",
             "  state: State::Connected | State::Closing\n",
             "  states: List<State>\n",
-            "  nested: {state: State}\n",
+            "  nested: {state: State::Connected, detail: {phase: State::Closing}}\n",
             "  composed: UnrefinedPacket\n",
             "end\n",
-            "fn check(packet: {state: State, states: List<State>, nested: {state: State}, composed: {state: State}}, base: ByteOffset) -> Result<{state: State::Connected | State::Closing, states: List<State>, nested: {state: State}, composed: {state: State}}, DecodeError>\n",
+            "fn check(packet: {state: State, states: List<State>, nested: {state: State, detail: {phase: State}}, composed: {state: State}}, base: ByteOffset) -> Result<{state: State::Connected | State::Closing, states: List<State>, nested: {state: State::Connected, detail: {phase: State::Closing}}, composed: {state: State}}, DecodeError>\n",
             "  validate ConnectedPacket from packet at base\n",
             "end\n",
         ),
@@ -65,6 +65,75 @@ fn explicit_schema_validate_expression_erases_direct_refinement_inputs() {
         schema.fields[1..]
             .iter()
             .all(|field| field.variant_refinement.is_none())
+    );
+    let nested = schema.fields[2]
+        .payload_schema
+        .as_deref()
+        .expect("nested record validation metadata");
+    assert_eq!(
+        nested.fields[0]
+            .variant_refinement
+            .as_ref()
+            .map(|refinement| refinement.expected_variants.as_slice()),
+        Some(["Connected".to_string()].as_slice())
+    );
+    assert_eq!(
+        nested.fields[1]
+            .payload_schema
+            .as_deref()
+            .expect("recursive nested record validation metadata")
+            .fields[0]
+            .variant_refinement
+            .as_ref()
+            .map(|refinement| refinement.expected_variants.as_slice()),
+        Some(["Closing".to_string()].as_slice())
+    );
+}
+
+#[test]
+fn explicit_schema_validate_expression_checks_nested_record_identity_arguments_and_shape() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "type OtherState\n  Connected\nend\n",
+            "type Box<A>\n  Open(value: A)\n  Shut\nend\n",
+            "schema NestedPacket\n",
+            "  nested: {state: State::Connected, detail: {box: Box<Int>::Open}}\n",
+            "end\n",
+            "fn wrong_identity(value: {nested: {state: OtherState, detail: {box: Box<Int>}}}, base: ByteOffset) -> ()\n",
+            "  validate NestedPacket from value at base\n  ()\nend\n",
+            "fn wrong_generic(value: {nested: {state: State, detail: {box: Box<String>}}}, base: ByteOffset) -> ()\n",
+            "  validate NestedPacket from value at base\n  ()\nend\n",
+            "fn wrong_shape(value: {nested: {state: State, detail: {value: Int}}}, base: ByteOffset) -> ()\n",
+            "  validate NestedPacket from value at base\n  ()\nend\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+    let mismatches = lowered
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
+        .collect::<Vec<_>>();
+    assert_eq!(mismatches.len(), 3, "{:#?}", lowered.diagnostics);
+    for expected in ["OtherState", "Box<String>", "box"] {
+        assert!(
+            mismatches
+                .iter()
+                .any(|diagnostic| diagnostic.message.contains(expected)),
+            "missing mismatch for {expected}: {mismatches:#?}"
+        );
+    }
+    assert!(
+        lowered
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "schema.validate_expression"),
+        "nested record validation should be eligible: {:#?}",
+        lowered.diagnostics
     );
 }
 
@@ -303,18 +372,15 @@ fn explicit_schema_validate_expression_checks_erased_inputs_and_offset() {
 }
 
 #[test]
-fn explicit_schema_validate_expression_rejects_unsupported_refinement_shapes() {
+fn explicit_schema_validate_expression_rejects_unsupported_container_refinement_shapes() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
             "type State\n  Connected\n  Closed\nend\n",
-            "schema NestedPacket\n  direct: State::Connected\n  nested: {state: State::Connected}\nend\n",
             "schema ContainerPacket\n  direct: State::Connected\n  states: List<State::Connected>\nend\n",
             "schema PredicatePacket\n  direct: State::Connected where true\nend\n",
             "schema PredicateChild\n  state: State::Connected where true\nend\n",
             "schema ComposedPredicatePacket\n  child: PredicateChild\nend\n",
-            "fn nested(value: {direct: State, nested: {state: State}}, base: ByteOffset) -> ()\n",
-            "  validate NestedPacket from value at base\n  ()\nend\n",
             "fn container(value: {direct: State, states: List<State>}, base: ByteOffset) -> ()\n",
             "  validate ContainerPacket from value at base\n  ()\nend\n",
             "fn predicate(value: {direct: State}, base: ByteOffset) -> ()\n",
@@ -335,12 +401,11 @@ fn explicit_schema_validate_expression_rejects_unsupported_refinement_shapes() {
 
     assert_eq!(
         validation_diagnostics.len(),
-        4,
+        3,
         "{:#?}",
         lowered.diagnostics
     );
     for schema in [
-        "NestedPacket",
         "ContainerPacket",
         "PredicatePacket",
         "ComposedPredicatePacket",
