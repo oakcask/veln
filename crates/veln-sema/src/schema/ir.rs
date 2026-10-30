@@ -96,7 +96,13 @@ fn format_neutral_schema_decode_spec(
                     .flatten()
                     .filter(|target| target.format.is_none())
                     .and_then(|target| schema_decode_spec_inner(module, target, stack))
-                    .map(Box::new);
+                    .map(Box::new)
+                    .or_else(|| {
+                        field_ty
+                            .as_ref()
+                            .and_then(|ty| ir_schema_refinement_record_spec(ty, &adts))
+                            .map(Box::new)
+                    });
             Some(IrSchemaDecodeField {
                 predicate: field
                     .where_clause
@@ -116,6 +122,33 @@ fn format_neutral_schema_decode_spec(
         function_name: schema_decode_function_name(schema_name),
         fields,
         validation: ir_schema_validation(schema),
+    })
+}
+
+fn ir_schema_refinement_record_spec(ty: &Type, adts: &AdtRegistry) -> Option<IrSchemaDecodeSpec> {
+    let Type::Record(fields) = ty else {
+        return None;
+    };
+    let mut has_refinement = false;
+    let fields = fields
+        .iter()
+        .map(|(name, field_ty)| {
+            let variant_refinement = ir_schema_variant_refinement(field_ty, adts);
+            let payload_schema = ir_schema_refinement_record_spec(field_ty, adts).map(Box::new);
+            has_refinement |= variant_refinement.is_some() || payload_schema.is_some();
+            IrSchemaDecodeField {
+                variant_refinement,
+                payload_schema,
+                ..IrSchemaDecodeField::new(name.clone())
+            }
+        })
+        .collect();
+    has_refinement.then_some(IrSchemaDecodeSpec {
+        schema_name: String::new(),
+        declaration_name: String::new(),
+        function_name: String::new(),
+        fields,
+        validation: None,
     })
 }
 

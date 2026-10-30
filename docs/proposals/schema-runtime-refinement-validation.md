@@ -6,18 +6,20 @@ update-when: Recursive schema runtime validation, predicate ordering, decoder co
 # Recursive Runtime Refinement Validation Through Schemas
 
 Extend the implemented `validate MemberPath from Expr at Expr` operation beyond
-direct record fields and recursively composed format-neutral schema fields.
-Current behavior validates singleton and finite-set source-ADT refinements at
-those positions. Every schema in the reachable composition graph must be
-format-neutral and predicate-free, including branches without refinements. The
-current source, typing, execution, and diagnostic contracts are specified in
+direct fields, nested anonymous record fields, and recursively composed
+format-neutral schema fields. Current behavior validates singleton and
+finite-set source-ADT refinements at those positions. Every schema in the
+reachable composition graph must be format-neutral and predicate-free,
+including branches without refinements. The current source, typing, execution,
+and diagnostic contracts are specified in
 [source surface](../specification/source-surface.md#schema-operations),
 [types](../specification/types.md#inference-rules),
 [execution](../specification/execution.md#schema-execution), and
 [diagnostics](../specification/diagnostics-json.md#diagnostic-families).
 
-This proposal retains only unimplemented recursive-value traversal, predicate
-ordering, and ordinary decoder composition work.
+This proposal retains only unimplemented container and source-ADT payload
+traversal, recursive-value traversal, predicate ordering, and ordinary decoder
+composition work.
 
 ## Proposed Extension
 
@@ -30,10 +32,11 @@ validate ConnectedPacket from base_record at base_offset
 
 The value input remains the schema-local record with every refinement-bearing
 position replaced by its base ADT. The extension would derive that erased type
-recursively through anonymous records, source-ADT payloads, `Option`, `Result`,
-`List`, `Vec`, and `Dict<String, T>`. It would preserve nominal identity,
-generic argument positions, visibility, and field requirements. Unsupported
-shapes and binary schemas would remain static failures.
+through source-ADT payloads, `Option`, `Result`, `List`, `Vec`, and
+`Dict<String, T>`, in addition to the implemented anonymous-record traversal.
+It would preserve nominal identity, generic argument positions, visibility,
+and field requirements. Unsupported shapes and binary schemas would remain
+static failures.
 
 Runtime traversal would cover the same recursive positions. It would retain
 the current representation-preserving `Result<SchemaRecord, DecodeError>`
@@ -45,7 +48,6 @@ recoverable `schema.variant_refinement_mismatch` and
 
 | Position | Proposed traversal |
 | --- | --- |
-| Record | Visit fields in schema or declared payload-field order. |
 | Source ADT | Check a refinement at the current position, then visit the actual constructor's payloads in declaration order. |
 | `Option` and `Result` | Visit only the actual constructor's payload. |
 | `List` and `Vec` | Visit elements in increasing index order. |
@@ -85,7 +87,7 @@ change no wire bytes, and would not weaken
 
 | Concern | Required evidence |
 | --- | --- |
-| Recursive typing | Nested record, generic source-ADT payload, option, result, list, vector, and dictionary erasure; wrong identities and generic arguments remain rejected. |
+| Recursive typing | Generic source-ADT payload, option, result, list, vector, and dictionary erasure; wrong identities and generic arguments remain rejected. |
 | Runtime traversal | Admitted and excluded constructors at every recursive position, including repeated recursive values. |
 | Ordering and paths | Multiple failures, dictionary insertion permutations, escaped keys, and recursive payload segments. |
 | Predicates | Refinements precede predicates; child, field, and schema predicates follow the specified order. |

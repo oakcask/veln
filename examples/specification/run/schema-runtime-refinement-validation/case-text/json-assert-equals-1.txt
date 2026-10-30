@@ -18,3 +18,7 @@ schema.variant_refinement_mismatch
 19
 /ConnectedPacket/primary
 actual variant `Closed`; expected one of `Connected, Closing`
+schema.variant_refinement_mismatch
+23
+/ConnectedPacket/nested/detail/state
+actual variant `Closed`; expected one of `Connected`
