@@ -1,15 +1,16 @@
 use veln_ast::NodeId;
 use veln_core::{
     CheckedProgram, CoreBlocker, CoreCallTarget, CoreCallbackTarget, CoreExpr, CoreExprKind,
-    CoreReadiness, CoreSchemaRefinementPlan, CoreStmt, CoreStmtKind,
+    CoreReadiness, CoreSchemaRefinementPlan, CoreSchemaRefinementPlanNode, CoreStmt, CoreStmtKind,
 };
 
 use crate::{
     IrCallTarget, IrCallbackTarget, IrCleanupRegion, IrContract, IrDeferredBlock,
     IrDeferredCapture, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm,
     IrModuleValueDecl, IrParam, IrPattern, IrPatternField, IrPatternKind, IrRecordField,
-    IrSchemaRefinementField, IrSchemaRefinementPlan, IrSchemaRefinementValidationSpec, IrStmt,
-    IrStmtKind, TypedProgram,
+    IrSchemaRefinementField, IrSchemaRefinementPayload, IrSchemaRefinementPlan,
+    IrSchemaRefinementPlanNode, IrSchemaRefinementValidationSpec, IrSchemaRefinementVariant,
+    IrStmt, IrStmtKind, TypedProgram,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,43 +65,64 @@ pub fn lower_checked_core(program: &CheckedProgram) -> Result<TypedProgram, IrLo
 }
 
 fn lower_schema_refinement_plan(plan: &CoreSchemaRefinementPlan) -> IrSchemaRefinementPlan {
-    match plan {
-        CoreSchemaRefinementPlan::Variant(expected_variants) => {
-            IrSchemaRefinementPlan::Variant(crate::IrSchemaVariantRefinement {
-                expected_variants: expected_variants.clone(),
+    IrSchemaRefinementPlan {
+        root: plan.root,
+        nodes: plan
+            .nodes
+            .iter()
+            .map(|node| match node {
+                CoreSchemaRefinementPlanNode::Variant(expected_variants) => {
+                    IrSchemaRefinementPlanNode::Variant(crate::IrSchemaVariantRefinement {
+                        expected_variants: expected_variants.clone(),
+                    })
+                }
+                CoreSchemaRefinementPlanNode::Adt {
+                    expected_variants,
+                    variants,
+                } => IrSchemaRefinementPlanNode::Adt {
+                    expected_variants: expected_variants.clone(),
+                    variants: variants
+                        .iter()
+                        .map(|variant| IrSchemaRefinementVariant {
+                            name: variant.name.clone(),
+                            payloads: variant
+                                .payloads
+                                .iter()
+                                .map(|payload| IrSchemaRefinementPayload {
+                                    index: payload.index,
+                                    path_segment: payload.path_segment.clone(),
+                                    plan: payload.plan,
+                                })
+                                .collect(),
+                        })
+                        .collect(),
+                },
+                CoreSchemaRefinementPlanNode::Record(fields) => IrSchemaRefinementPlanNode::Record(
+                    fields
+                        .iter()
+                        .map(|field| IrSchemaRefinementField {
+                            name: field.name.clone(),
+                            plan: field.plan,
+                        })
+                        .collect(),
+                ),
+                CoreSchemaRefinementPlanNode::Option(payload) => {
+                    IrSchemaRefinementPlanNode::Option(*payload)
+                }
+                CoreSchemaRefinementPlanNode::Result { ok, err } => {
+                    IrSchemaRefinementPlanNode::Result { ok: *ok, err: *err }
+                }
+                CoreSchemaRefinementPlanNode::List(payload) => {
+                    IrSchemaRefinementPlanNode::List(*payload)
+                }
+                CoreSchemaRefinementPlanNode::Vec(payload) => {
+                    IrSchemaRefinementPlanNode::Vec(*payload)
+                }
+                CoreSchemaRefinementPlanNode::Dict(payload) => {
+                    IrSchemaRefinementPlanNode::Dict(*payload)
+                }
             })
-        }
-        CoreSchemaRefinementPlan::Record(fields) => IrSchemaRefinementPlan::Record(
-            fields
-                .iter()
-                .map(|field| IrSchemaRefinementField {
-                    name: field.name.clone(),
-                    plan: Box::new(lower_schema_refinement_plan(&field.plan)),
-                })
-                .collect(),
-        ),
-        CoreSchemaRefinementPlan::Option(payload) => {
-            IrSchemaRefinementPlan::Option(Box::new(lower_schema_refinement_plan(payload)))
-        }
-        CoreSchemaRefinementPlan::Result { ok, err } => IrSchemaRefinementPlan::Result {
-            ok: ok
-                .as_deref()
-                .map(lower_schema_refinement_plan)
-                .map(Box::new),
-            err: err
-                .as_deref()
-                .map(lower_schema_refinement_plan)
-                .map(Box::new),
-        },
-        CoreSchemaRefinementPlan::List(payload) => {
-            IrSchemaRefinementPlan::List(Box::new(lower_schema_refinement_plan(payload)))
-        }
-        CoreSchemaRefinementPlan::Vec(payload) => {
-            IrSchemaRefinementPlan::Vec(Box::new(lower_schema_refinement_plan(payload)))
-        }
-        CoreSchemaRefinementPlan::Dict(payload) => {
-            IrSchemaRefinementPlan::Dict(Box::new(lower_schema_refinement_plan(payload)))
-        }
+            .collect(),
     }
 }
 

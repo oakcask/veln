@@ -243,10 +243,11 @@ source spans. Encoding and decoding the lowered AST through its wire format
 preserves that structure and those spans.
 
 For each named or positional ADT payload field, the syntax tree and lowered
-AST preserve a type span that selects only the written type text. The complete
-field span remains separate. The current wire layout serializes both spans and
-rejects the preceding layout header instead of decoding bytes with the older
-field shape.
+AST preserve whether the source used a named field or a positional field and
+preserve a type span that selects only the written type text. The complete
+field span remains separate. The current wire layout serializes the field form
+and both spans. It rejects the preceding layout header instead of decoding
+bytes whose payload-field records lack the field-form marker.
 
 Type arguments belong before the final segment. Each side of `|` must be a
 complete structural alternative, and `|>` remains the pipeline token rather
@@ -467,17 +468,19 @@ bare schema operation path. Generated helper names are implementation details.
 `validate SchemaName from value at base_offset` accepts a format-neutral schema
 whose refinement-bearing positions are record fields of that schema, nested
 anonymous record fields, or fields of recursively composed format-neutral
-schemas. These positions may pass through `Option<T>`, `Result<T, E>`,
-`List<T>`, `Vec<T>`, and `Dict<String, T>` in any supported nesting. Each
-terminal position contains a singleton or finite-set source-ADT refinement.
+schemas. A refinement-bearing position can also occur in a payload of an
+acyclic source ADT reached from one of those fields. These positions may pass
+through `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and
+`Dict<String, T>` in any supported nesting. Each terminal position contains a
+singleton or finite-set source-ADT refinement.
 These container names and the dictionary key name must resolve to declarations
 owned by the toolchain standard package. A source ADT with the same name is not
 a validation container or a string dictionary key, including one declared by
 an application-owned module named `std::prelude`.
 The value is checked against the schema-local record after recursively
 replacing each supported refinement with its base ADT while preserving every
-record shape, container identity, and generic argument position, and
-`base_offset` must be `ByteOffset`. The result is
+record shape, container identity, source-ADT identity, and generic argument
+position, and `base_offset` must be `ByteOffset`. The result is
 `Result<SchemaRecord, DecodeError>` with the refinements retained. A supported
 validation schema has at least one reachable such field. It and every reachable
 composed schema have no field-local or schema-level predicate. Other supported
@@ -485,9 +488,12 @@ fields may contain unrefined containers, which runtime validation preserves
 without traversing. Composed branches and anonymous record branches without
 refinements are also preserved, but composed branches still participate in the
 recursive static eligibility check. A dictionary on a refinement path must use
-`String` keys. Refinement erasure inside arbitrary source-ADT payloads or
-recursive values is not eligible. Binary schemas are also not eligible. The value and offset
-expressions are evaluated once, in that order. Schema-path lookup,
+`String` keys. Every reachable source-ADT constructor and payload type must be
+visible from its use position and have a supported format-neutral shape. The
+source-ADT payload graph must be acyclic by declaration identity; direct,
+mutual, and generic-expanding recursion is not eligible. Binary schemas are
+also not eligible. The value and offset expressions are evaluated once, in
+that order. Schema-path lookup,
 public aliases, and exact-companion private access follow the decode and encode
 rules above. This expression use of `validate` is distinct from a schema-body
 validation predicate.

@@ -131,9 +131,10 @@ An excluded constructor returned by explicit schema runtime validation reports
 negative supplied offset reports `schema.validation_offset_invalid` before
 field traversal. Human mode identifies the failed fact and renders the terminal
 schema followed by every containing composed-schema or anonymous-record field,
-decimal list or vector index, and dictionary key before the rejected field. It
-renders decoded dictionary-key text and the mismatch or offset reason as
-related context.
+source-ADT constructor and named or zero-based positional payload, decimal list
+or vector index, and dictionary key before the rejected field. It renders
+decoded dictionary-key text and the mismatch or offset reason as related
+context.
 
 If `net::system()` returns a host socket failure from `listen` or `connect` and
 the selected entry returns that `Err`, human mode prints the stable transport

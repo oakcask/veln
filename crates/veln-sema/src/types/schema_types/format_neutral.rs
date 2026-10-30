@@ -1,5 +1,7 @@
 use super::*;
 
+use std::collections::HashMap;
+
 use crate::adt::descriptors::{AdtConstructor, AdtDescriptor, AdtVariantKind};
 use crate::adt::registry::AdtRegistry;
 use crate::adt::type_operations as adt;
@@ -14,6 +16,9 @@ pub(crate) use refinement::{
     format_neutral_schema_encode_field_contains_refinement,
     format_neutral_schema_encode_field_is_source_adt_candidate,
 };
+
+type RuntimeValidationMemoKey = (Option<String>, Option<String>, Type);
+type RuntimeValidationMemo = HashMap<RuntimeValidationMemoKey, Option<(Type, bool)>>;
 
 pub(super) fn format_neutral_schema_decode_function_signature_for_schema(
     module: &SurfaceModule,
@@ -48,11 +53,13 @@ pub(crate) fn format_neutral_schema_runtime_validation_types(
     schema: &SchemaDecl,
     adts: &AdtRegistry,
 ) -> Option<(Type, Type)> {
+    let mut completed_adts = HashMap::new();
     let (erased, refined, has_refinement) = format_neutral_schema_runtime_validation_types_inner(
         module,
         schema,
         adts,
         &mut Vec::new(),
+        &mut completed_adts,
     )?;
     has_refinement.then_some((erased, refined))
 }
@@ -62,6 +69,7 @@ fn format_neutral_schema_runtime_validation_types_inner(
     schema: &SchemaDecl,
     adts: &AdtRegistry,
     composition_stack: &mut Vec<(Option<String>, Option<String>, String)>,
+    completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, Type, bool)> {
     if schema.format.is_some()
         || !schema.validations.is_empty()
@@ -101,6 +109,7 @@ fn format_neutral_schema_runtime_validation_types_inner(
                     child,
                     adts,
                     composition_stack,
+                    completed_adts,
                 )?;
             if child_refined != refined {
                 return None;
@@ -114,6 +123,8 @@ fn format_neutral_schema_runtime_validation_types_inner(
                 schema.package_name.as_deref(),
                 adts,
                 &refined,
+                &mut Vec::new(),
+                completed_adts,
             )?;
             has_refinement |= field_has_refinement;
             erased
@@ -135,6 +146,8 @@ fn format_neutral_runtime_validation_type(
     current_package: Option<&str>,
     adts: &AdtRegistry,
     ty: &Type,
+    adt_stack: &mut Vec<String>,
+    completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, bool)> {
     match ty {
         Type::VariantRefinement {
@@ -143,15 +156,41 @@ fn format_neutral_runtime_validation_type(
             args,
             unresolved_alternatives,
             ..
-        } if unresolved_alternatives.is_empty()
-            && args
-                .iter()
-                .all(|arg| !format_neutral_type_contains_refinement(arg)) =>
-        {
-            Some((
-                Type::resolved_named(name.clone(), identity.clone(), args.clone()),
-                true,
-            ))
+        } if unresolved_alternatives.is_empty() => {
+            if format_neutral_runtime_validation_type_is_source_adt(
+                module,
+                current_module,
+                current_package,
+                adts,
+                ty,
+            ) {
+                return format_neutral_runtime_validation_source_adt_type(
+                    module,
+                    current_module,
+                    current_package,
+                    adts,
+                    ty,
+                    adt_stack,
+                    completed_adts,
+                );
+            }
+            if format_neutral_runtime_validation_type_is_inaccessible_source_adt(
+                module,
+                current_module,
+                current_package,
+                adts,
+                ty,
+            ) {
+                return None;
+            }
+            args.iter()
+                .all(|arg| !format_neutral_type_contains_refinement(arg))
+                .then(|| {
+                    (
+                        Type::resolved_named(name.clone(), identity.clone(), args.clone()),
+                        true,
+                    )
+                })
         }
         Type::Record(fields) => format_neutral_runtime_validation_record_type(
             module,
@@ -159,6 +198,8 @@ fn format_neutral_runtime_validation_type(
             current_package,
             adts,
             fields,
+            adt_stack,
+            completed_adts,
         ),
         Type::Named { .. } => format_neutral_runtime_validation_named_type(
             module,
@@ -166,6 +207,8 @@ fn format_neutral_runtime_validation_type(
             current_package,
             adts,
             ty,
+            adt_stack,
+            completed_adts,
         ),
         _ if !format_neutral_type_contains_refinement(ty) => Some((ty.clone(), false)),
         _ => None,
@@ -178,6 +221,8 @@ fn format_neutral_runtime_validation_record_type(
     current_package: Option<&str>,
     adts: &AdtRegistry,
     fields: &[(String, Type)],
+    adt_stack: &mut Vec<String>,
+    completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, bool)> {
     let mut erased_fields = Vec::with_capacity(fields.len());
     let mut has_refinement = false;
@@ -188,6 +233,8 @@ fn format_neutral_runtime_validation_record_type(
             current_package,
             adts,
             field_ty,
+            adt_stack,
+            completed_adts,
         )?;
         erased_fields.push((name.clone(), erased));
         has_refinement |= field_has_refinement;
@@ -201,6 +248,8 @@ fn format_neutral_runtime_validation_named_type(
     current_package: Option<&str>,
     adts: &AdtRegistry,
     ty: &Type,
+    adt_stack: &mut Vec<String>,
+    completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, bool)> {
     let Type::Named {
         name,
@@ -213,6 +262,32 @@ fn format_neutral_runtime_validation_named_type(
     let Some(kind) =
         resolved_standard_runtime_type_kind(module, current_module, current_package, adts, ty)
     else {
+        if format_neutral_runtime_validation_type_is_source_adt(
+            module,
+            current_module,
+            current_package,
+            adts,
+            ty,
+        ) {
+            return format_neutral_runtime_validation_source_adt_type(
+                module,
+                current_module,
+                current_package,
+                adts,
+                ty,
+                adt_stack,
+                completed_adts,
+            );
+        }
+        if format_neutral_runtime_validation_type_is_inaccessible_source_adt(
+            module,
+            current_module,
+            current_package,
+            adts,
+            ty,
+        ) {
+            return None;
+        }
         return (!format_neutral_type_contains_refinement(ty)).then(|| (ty.clone(), false));
     };
     if !kind.is_container() {
@@ -238,6 +313,8 @@ fn format_neutral_runtime_validation_named_type(
             current_package,
             adts,
             arg,
+            adt_stack,
+            completed_adts,
         )?;
         erased_args.push(erased);
         has_refinement |= arg_has_refinement;
@@ -246,6 +323,141 @@ fn format_neutral_runtime_validation_named_type(
         Type::resolved_named(name.clone(), identity.clone(), erased_args),
         has_refinement,
     ))
+}
+
+fn format_neutral_runtime_validation_type_is_source_adt(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    adts: &AdtRegistry,
+    ty: &Type,
+) -> bool {
+    format_neutral_schema_source_adt_descriptor(module, current_module, current_package, adts, ty)
+        .is_some_and(|descriptor| descriptor_has_source_declaration(adts, descriptor))
+}
+
+fn format_neutral_runtime_validation_type_is_inaccessible_source_adt(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    adts: &AdtRegistry,
+    ty: &Type,
+) -> bool {
+    adts.descriptor_for_type(ty)
+        .is_some_and(|descriptor| descriptor_has_source_declaration(adts, descriptor))
+        && format_neutral_schema_source_adt_descriptor(
+            module,
+            current_module,
+            current_package,
+            adts,
+            ty,
+        )
+        .is_none()
+}
+
+fn format_neutral_runtime_validation_source_adt_type(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    adts: &AdtRegistry,
+    ty: &Type,
+    adt_stack: &mut Vec<String>,
+    completed_adts: &mut RuntimeValidationMemo,
+) -> Option<(Type, bool)> {
+    let descriptor = format_neutral_schema_source_adt_descriptor(
+        module,
+        current_module,
+        current_package,
+        adts,
+        ty,
+    )?;
+    if !descriptor_has_source_declaration(adts, descriptor) {
+        return None;
+    }
+    if matches!(
+        descriptor.type_name.as_str(),
+        "Option" | "Result" | "List" | "Vec" | "Dict" | "String"
+    ) {
+        return None;
+    }
+    let descriptor_is_local = descriptor.module_name.as_deref() == current_module
+        && descriptor.package_name.as_deref() == current_package;
+    if !descriptor_is_local
+        && descriptor
+            .variants
+            .iter()
+            .any(|variant| variant.visibility != Visibility::Public)
+    {
+        return None;
+    }
+    let memo_key = (
+        current_module.map(str::to_owned),
+        current_package.map(str::to_owned),
+        ty.clone(),
+    );
+    let identity = descriptor.identity();
+    if adt_stack.contains(&identity) {
+        return None;
+    }
+    if let Some(completed) = completed_adts.get(&memo_key) {
+        return completed.clone();
+    }
+    adt_stack.push(identity);
+    let result = (|| {
+        let args = match ty {
+            Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
+            _ => return None,
+        };
+        let mut erased_args = Vec::with_capacity(args.len());
+        for arg in args {
+            erased_args.push(
+                format_neutral_runtime_validation_type(
+                    module,
+                    current_module,
+                    current_package,
+                    adts,
+                    arg,
+                    adt_stack,
+                    completed_adts,
+                )?
+                .0,
+            );
+        }
+        let mut payload_has_refinement = false;
+        for variant in &descriptor.variants {
+            for index in 0..variant.payload_fields.len() {
+                let payload_ty = adt::payload_type(
+                    ty,
+                    AdtConstructor {
+                        descriptor,
+                        variant,
+                    },
+                    index,
+                )?;
+                let (_, has_refinement) = format_neutral_runtime_validation_type(
+                    module,
+                    current_module,
+                    current_package,
+                    adts,
+                    &payload_ty,
+                    adt_stack,
+                    completed_adts,
+                )?;
+                payload_has_refinement |= has_refinement;
+            }
+        }
+        Some((
+            Type::resolved_named(
+                descriptor.type_name.clone(),
+                descriptor.identity(),
+                erased_args,
+            ),
+            matches!(ty, Type::VariantRefinement { .. }) || payload_has_refinement,
+        ))
+    })();
+    adt_stack.pop();
+    completed_adts.insert(memo_key, result.clone());
+    result
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1031,7 +1243,7 @@ fn format_neutral_schema_descriptor_type(ty: &Type, descriptor: &AdtDescriptor) 
     }
 }
 
-fn format_neutral_schema_source_adt_descriptor<'a>(
+pub(crate) fn format_neutral_schema_source_adt_descriptor<'a>(
     module: &SurfaceModule,
     current_module: Option<&str>,
     current_package: Option<&str>,
@@ -1130,7 +1342,10 @@ fn format_neutral_schema_imported_adt_descriptor<'a>(
     })
 }
 
-fn descriptor_has_source_declaration(adts: &AdtRegistry, descriptor: &AdtDescriptor) -> bool {
+pub(crate) fn descriptor_has_source_declaration(
+    adts: &AdtRegistry,
+    descriptor: &AdtDescriptor,
+) -> bool {
     adts.declaration_span(descriptor).is_some()
         || adts
             .terminal_descriptor_for_alias(descriptor)

@@ -388,6 +388,7 @@ public final class SchemaRefinementContainersHarness {
         System.out.println("container refinement traversal passed");
     }
 }
+
 "#,
         &program,
     );
@@ -399,6 +400,155 @@ public final class SchemaRefinementContainersHarness {
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "container refinement traversal passed\n"
+    );
+}
+
+#[test]
+fn jvm_runtime_schema_refinement_plan_visits_only_actual_source_adt_payloads() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        eprintln!("skipping source ADT refinement verification because a JDK is unavailable");
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-schema-refinement-source-adt",
+        "SchemaRefinementSourceAdtHarness.java",
+        r#"
+public final class SchemaRefinementSourceAdtHarness {
+    private static Object variant(String expected) {
+        return VelnRuntime.list("variant", VelnRuntime.list(expected));
+    }
+    private static Object payload(int index, String segment, Object plan) {
+        return VelnRuntime.list(Integer.valueOf(index), segment, plan);
+    }
+    private static Object sourceAdtPlan() {
+        return VelnRuntime.list(
+            "adt",
+            VelnRuntime.list(),
+            VelnRuntime.list(
+                VelnRuntime.list("Boxed", VelnRuntime.list(payload(0, "0", variant("Connected")))),
+                VelnRuntime.list("Named", VelnRuntime.list(payload(0, "a/b~c", variant("Connected")))),
+                VelnRuntime.list("Empty", VelnRuntime.list())
+            )
+        );
+    }
+    private static Object rootPlan() {
+        return VelnRuntime.list(
+            "record",
+            VelnRuntime.list(VelnRuntime.list("item", sourceAdtPlan()))
+        );
+    }
+    private static Object orderedPayloadPlan() {
+        return VelnRuntime.list(
+            Integer.valueOf(2),
+            VelnRuntime.list(
+                VelnRuntime.list("variant", VelnRuntime.list("Connected")),
+                VelnRuntime.list(
+                    "adt",
+                    VelnRuntime.list(),
+                    VelnRuntime.list(VelnRuntime.list(
+                        "Pair",
+                        VelnRuntime.list(
+                            VelnRuntime.list(Integer.valueOf(0), "first", Integer.valueOf(0)),
+                            VelnRuntime.list(Integer.valueOf(1), "second", Integer.valueOf(0))
+                        )
+                    ))
+                ),
+                VelnRuntime.list(
+                    "record",
+                    VelnRuntime.list(VelnRuntime.list("item", Integer.valueOf(1)))
+                )
+            )
+        );
+    }
+    private static Object nestedSourceAdtPlan() {
+        return VelnRuntime.list(
+            "record",
+            VelnRuntime.list(VelnRuntime.list(
+                "item",
+                VelnRuntime.list(
+                    "adt",
+                    VelnRuntime.list(),
+                    VelnRuntime.list(VelnRuntime.list(
+                        "Nested",
+                        VelnRuntime.list(payload(0, "child", sourceAdtPlan()))
+                    ))
+                )
+            ))
+        );
+    }
+    private static Object validateWithPlan(Object value, Object plan) {
+        return VelnRuntime.validateSchemaRefinementPlan(
+            VelnRuntime.record("item", value),
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(43) }),
+            "Packet",
+            plan
+        );
+    }
+    private static Object validate(Object value) {
+        return validateWithPlan(value, rootPlan());
+    }
+    public static void main(String[] args) {
+        Object connected = VelnRuntime.adt("State::Connected", new Object[] {});
+        Object closed = VelnRuntime.adt("State::Closed", new Object[] {});
+        Object accepted = VelnRuntime.record(
+            "item",
+            VelnRuntime.adt("Box::Boxed", new Object[] { connected })
+        );
+        Object acceptedResult = VelnRuntime.validateSchemaRefinementPlan(
+            accepted,
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(43) }),
+            "Packet",
+            rootPlan()
+        );
+        if (VelnRuntime.unwrapOk(acceptedResult) != accepted) {
+            throw new AssertionError("source ADT validation rebuilt the input");
+        }
+        validate(VelnRuntime.adt("Box::Empty", new Object[] {}));
+        System.out.println(validate(VelnRuntime.adt("Box::Boxed", new Object[] { closed })));
+        System.out.println(validate(VelnRuntime.adt("Box::Named", new Object[] { closed })));
+        System.out.println(validateWithPlan(
+            VelnRuntime.adt("Pair::Pair", new Object[] { connected, closed }),
+            orderedPayloadPlan()
+        ));
+        System.out.println(validateWithPlan(
+            VelnRuntime.adt(
+                "Outer::Nested",
+                new Object[] { VelnRuntime.adt("Box::Boxed", new Object[] { closed }) }
+            ),
+            nestedSourceAdtPlan()
+        ));
+        System.out.println("source ADT success preserved input identity");
+    }
+}
+"#,
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        concat!(
+            "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, ",
+            "ByteOffset(43), /Packet/item/Boxed/0, actual variant `Closed`; ",
+            "expected one of `Connected`))\n",
+            "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, ",
+            "ByteOffset(43), /Packet/item/Named/a~1b~0c, actual variant `Closed`; ",
+            "expected one of `Connected`))\n",
+            "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, ",
+            "ByteOffset(43), /Packet/item/Pair/second, actual variant `Closed`; ",
+            "expected one of `Connected`))\n",
+            "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, ",
+            "ByteOffset(43), /Packet/item/Nested/child/Boxed/0, actual variant `Closed`; ",
+            "expected one of `Connected`))\n",
+            "source ADT success preserved input identity\n"
+        )
     );
 }
 

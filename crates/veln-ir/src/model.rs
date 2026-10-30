@@ -17,6 +17,16 @@ pub struct IrSchemaRefinementValidationSpec {
     pub plan: IrSchemaRefinementPlan,
 }
 
+impl IrSchemaRefinementPlan {
+    pub fn root_node(&self) -> &IrSchemaRefinementPlanNode {
+        &self.nodes[self.root]
+    }
+
+    pub fn node(&self, index: usize) -> &IrSchemaRefinementPlanNode {
+        &self.nodes[index]
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct IrModuleValueDecl {
     pub node_id: NodeId,
@@ -54,29 +64,52 @@ pub struct IrSchemaDecodeField {
     pub refinement_plan: Option<Box<IrSchemaRefinementPlan>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IrSchemaVariantRefinement {
     pub expected_variants: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum IrSchemaRefinementPlan {
-    Variant(IrSchemaVariantRefinement),
-    Record(Vec<IrSchemaRefinementField>),
-    Option(Box<IrSchemaRefinementPlan>),
-    Result {
-        ok: Option<Box<IrSchemaRefinementPlan>>,
-        err: Option<Box<IrSchemaRefinementPlan>>,
-    },
-    List(Box<IrSchemaRefinementPlan>),
-    Vec(Box<IrSchemaRefinementPlan>),
-    Dict(Box<IrSchemaRefinementPlan>),
+pub struct IrSchemaRefinementPlan {
+    pub root: usize,
+    pub nodes: Vec<IrSchemaRefinementPlanNode>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum IrSchemaRefinementPlanNode {
+    Variant(IrSchemaVariantRefinement),
+    Adt {
+        expected_variants: Vec<String>,
+        variants: Vec<IrSchemaRefinementVariant>,
+    },
+    Record(Vec<IrSchemaRefinementField>),
+    Option(usize),
+    Result {
+        ok: Option<usize>,
+        err: Option<usize>,
+    },
+    List(usize),
+    Vec(usize),
+    Dict(usize),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct IrSchemaRefinementVariant {
+    pub name: String,
+    pub payloads: Vec<IrSchemaRefinementPayload>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct IrSchemaRefinementPayload {
+    pub index: usize,
+    pub path_segment: String,
+    pub plan: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IrSchemaRefinementField {
     pub name: String,
-    pub plan: Box<IrSchemaRefinementPlan>,
+    pub plan: usize,
 }
 
 impl IrSchemaDecodeField {

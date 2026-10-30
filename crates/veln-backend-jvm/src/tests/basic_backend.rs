@@ -325,6 +325,89 @@ fn schema_refinement_validation_preserves_values_and_reports_first_mismatch() {
 }
 
 #[test]
+fn schema_refinement_validation_executes_source_adt_payload_plan() {
+    let ir = lower_to_ir(concat!(
+        "type State\n  Connected\n  Closed\nend\n",
+        "type Box<A>\n  Boxed(A)\n  Empty\nend\n",
+        "schema Packet\n  item: Box<State::Connected>\nend\n",
+        "fn print_result(result: Result<{item: Box<State::Connected>}, DecodeError>) -> () effects [stdio]\n",
+        "  match result\n",
+        "    Ok(_) => stdio::println(\"ok\")\n",
+        "    Err(DecodeErrorWithReason(id, carried, path, _)) => begin\n",
+        "      stdio::println(id)\n",
+        "      stdio::println(int_to_string(byte_offset_to_int(carried)))\n",
+        "      stdio::println(path)\n",
+        "    end\n",
+        "    Err(_) => stdio::println(\"unexpected\")\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> Result<(), String> effects [stdio]\n",
+        "  let offset = byte_offset(47)?\n",
+        "  let accepted: {item: Box<State>} = {item: Boxed(Connected)}\n",
+        "  let rejected: {item: Box<State>} = {item: Boxed(Closed)}\n",
+        "  let absent: {item: Box<State>} = {item: Empty}\n",
+        "  print_result(validate Packet from accepted at offset)\n",
+        "  print_result(validate Packet from rejected at offset)\n",
+        "  print_result(validate Packet from absent at offset)\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("schema-refinement-source-adt", &program, &[])
+    else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        concat!(
+            "ok\n",
+            "schema.variant_refinement_mismatch\n",
+            "47\n",
+            "/Packet/item/Boxed/0\n",
+            "ok\n",
+        )
+    );
+}
+
+#[test]
+fn schema_refinement_diamond_metadata_growth_is_bounded_by_shared_plan_nodes() {
+    let n10 = schema_refinement_diamond_ir(10);
+    let n14 = schema_refinement_diamond_ir(14);
+    assert_eq!(n10.schema_refinement_validators[0].plan.nodes.len(), 13);
+    assert_eq!(n14.schema_refinement_validators[0].plan.nodes.len(), 17);
+
+    let n10_footprint = crate::classfile::function_code_footprint(&n10, "check");
+    let n14_footprint = crate::classfile::function_code_footprint(&n14, "check");
+    assert!(
+        n14_footprint < n10_footprint * 2,
+        "shared graph metadata should grow linearly: N10={n10_footprint}, N14={n14_footprint}"
+    );
+    generate_classfiles_with_entry(&n14, "main");
+}
+
+fn schema_refinement_diamond_ir(depth: usize) -> TypedProgram {
+    let mut source =
+        String::from("type State\n  Connected\n  Closed\nend\ntype N0<A>\n  Leaf(value: A)\nend\n");
+    for level in 1..=depth {
+        source.push_str(&format!(
+            "type N{level}<A>\n  Left(value: N{}<A>)\n  Right(value: N{}<A>)\nend\n",
+            level - 1,
+            level - 1,
+        ));
+    }
+    source.push_str(&format!(
+        "schema Packet\n  item: N{depth}<State::Connected>\nend\nfn check(value: {{item: N{depth}<State>}}, base: ByteOffset) -> Result<{{item: N{depth}<State::Connected>}}, DecodeError>\n  validate Packet from value at base\nend\npub fn main() -> ()\n  ()\nend\n"
+    ));
+    lower_to_ir(&source)
+}
+
+#[test]
 fn bytecode_backend_executes_signed_integer_remainder_endpoints() {
     let ir = lower_to_ir(concat!(
         "pub fn main() -> () effects [stdio]\n",

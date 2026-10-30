@@ -256,12 +256,14 @@ Format-neutral runtime refinement validation reports these result failures in
 
 | ID | Additional fields |
 | --- | --- |
-| `schema.variant_refinement_mismatch` | The exact supplied `byte_offset`, a `field_path` starting at the terminal schema declaration, passing through containing composed-schema or anonymous-record fields, decimal list or vector indices, and dictionary keys before the rejected field, plus `reason` naming the actual and admitted variants. |
+| `schema.variant_refinement_mismatch` | The exact supplied `byte_offset`, a `field_path` starting at the terminal schema declaration, passing through containing composed-schema or anonymous-record fields, source-ADT constructor and named or positional payload segments, decimal list or vector indices, and dictionary keys before the rejected field, plus `reason` naming the actual and admitted variants. |
 | `schema.validation_offset_invalid` | The exact negative supplied `byte_offset`, the terminal schema declaration root in `field_path`, and `reason` naming the rejected offset. |
 
 Both failures retain the supplied offset. Their paths do not start at a public
-alias used to reach the terminal schema. Container indices and dictionary keys
-use `field` segments whose `name` is the decimal index or decoded key. The
+alias used to reach the terminal schema. Source-ADT constructors and payloads
+use `field` segments; positional payload names are zero-based decimal indices.
+Container indices and dictionary keys also use `field` segments whose `name`
+is the decimal index or decoded key. The
 optional `field_path_display` retains the JSON Pointer spelling, where `~` is
 escaped as `~0` and `/` as `~1`.
 

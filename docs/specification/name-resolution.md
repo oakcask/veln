@@ -1015,5 +1015,8 @@ not become fallback targets.
 - Stable module-value declaration identity across bare and qualified paths:
   `bare_and_qualified_paths_select_the_same_module_value_declaration` in
   `crates/veln-sema/src/tests/module_values.rs`.
+- Module-value availability recovery, competing fixed-point rejection, and
+  source-order independence:
+  `crates/veln-sema/src/tests/module_values/availability.rs`.
 - Casing and source-path diagnostics: `crates/veln-sema/src/pipeline/identifier_casing/`.
 - Source-less descriptors and lookup routes: [source-less-lookup.md](source-less-lookup.md).

@@ -417,6 +417,7 @@ impl<'a> Reader<'a> {
     fn type_variant_field(&mut self) -> Result<TypeVariantField, String> {
         Ok(TypeVariantField {
             node_id: self.node_id()?,
+            positional: self.bool()?,
             name: self.string()?,
             ty: self.string()?,
             ty_span: self.span()?,

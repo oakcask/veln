@@ -495,6 +495,44 @@ fn competing_fixed_points_module(
     )
 }
 
+fn three_way_competing_fixed_points_module() -> SurfaceModule {
+    merged_modules_with_identities(vec![
+        (
+            "a",
+            SourceFile::new(
+                "a.veln",
+                "use b\nuse fallback_b\npub let a_value: Int = b_value\n",
+            ),
+        ),
+        (
+            "b",
+            SourceFile::new(
+                "b.veln",
+                "use c\nuse fallback_c\npub let b_value: Int = c_value\n",
+            ),
+        ),
+        (
+            "c",
+            SourceFile::new(
+                "c.veln",
+                "use a\nuse fallback_a\npub let c_value: Int = a_value\n",
+            ),
+        ),
+        (
+            "fallback_a",
+            SourceFile::new("fallback_a.veln", "pub let a_value: Int = 1\n"),
+        ),
+        (
+            "fallback_b",
+            SourceFile::new("fallback_b.veln", "pub let b_value: Int = 2\n"),
+        ),
+        (
+            "fallback_c",
+            SourceFile::new("fallback_c.veln", "pub let c_value: Int = 3\n"),
+        ),
+    ])
+}
+
 fn intrinsic_failure_in_cyclic_candidate_component(
     source_order: [usize; 3],
     reverse_imports: bool,
@@ -674,4 +712,49 @@ fn competing_imported_fixed_points_reject_the_same_identities_in_every_permutati
             }
         }
     }
+}
+
+#[test]
+fn three_way_competing_imported_fixed_point_rejects_the_complete_component() {
+    let module = three_way_competing_fixed_points_module();
+    let mut environment = crate::types::TypeEnvironment::from_module(&module);
+    let mut variant_diagnostics = crate::analysis::VariantDiagnosticInterner::default();
+    let analysis =
+        crate::analysis::check_module_values(&module, &mut environment, &mut variant_diagnostics);
+    let identity = |module: &str, name: &str| (None, Some(module.to_string()), name.to_string());
+
+    assert_eq!(
+        analysis.invalid,
+        [
+            identity("a", "a_value"),
+            identity("b", "b_value"),
+            identity("c", "c_value"),
+        ]
+        .into_iter()
+        .collect()
+    );
+    for (module_name, value_name) in [
+        ("fallback_a", "a_value"),
+        ("fallback_b", "b_value"),
+        ("fallback_c", "c_value"),
+    ] {
+        assert!(matches!(
+            environment.module_value_path_in_owner(
+                &[value_name.to_string()],
+                Some(module_name),
+                None,
+            ),
+            crate::types::ModuleValueLookup::Available(_)
+        ));
+    }
+    assert_eq!(
+        analysis
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.ambiguous")
+            .count(),
+        3,
+        "{:#?}",
+        analysis.diagnostics
+    );
 }

@@ -1483,8 +1483,12 @@ with singleton or finite-set refinement fields derives an input record by
 replacing each such refinement with its resolved base ADT. The derivation
 recurses through anonymous records and composed format-neutral schema fields
 and through `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and
-`Dict<String, T>`. It preserves field requirements, schema visibility, nominal
-container identity, and every generic argument position. Container and
+`Dict<String, T>`. The derivation also traverses same-module source ADTs and
+visible imported source ADTs. It instantiates each constructor payload with
+the written generic arguments and replaces refinements at reachable payload
+positions. It preserves source-ADT nominal identity and every generic argument
+position, so `Box<State::Connected>` derives `Box<State>` rather than an
+unrelated structural shape. Container and
 dictionary-key recognition requires a resolved declaration owned by the
 toolchain standard package. A same-spelled source ADT does not satisfy that
 boundary, including one declared by an application-owned module named
@@ -1495,8 +1499,12 @@ Contextual typing applies the erased record to `value` and requires
 `ByteOffset` for `offset`; an unrelated ADT, generic argument, record shape, or
 scalar remains a static mismatch. Other supported field types that contain no
 refinement remain unchanged in both records, including containers, anonymous
-records, and composed format-neutral schemas. Refinement erasure and traversal
-inside arbitrary source-ADT payloads or recursive values remain proposal work.
+records, composed format-neutral schemas, and source-ADT payloads. Every
+reachable source-ADT constructor and payload type must be visible from its use
+position and must have a supported format-neutral shape. A source-ADT payload
+graph must be acyclic by declaration identity; direct, mutual, and
+generic-expanding recursion makes the validation operation a static failure.
+Runtime traversal of recursive values remains proposal work.
 Every reachable composed schema must be format-neutral
 and predicate-free, including composed branches that contain no refinement. A
 field `where` clause,

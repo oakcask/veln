@@ -250,6 +250,7 @@ fn lowers_type_declarations_with_variant_fields() {
         "type List<A>\n",
         "  Nil\n",
         "  Cons(head: A, tail: List<A>)\n",
+        "  Value(A)\n",
         "end\n",
         "fn main() -> ()\n",
         "  ()\n",
@@ -260,7 +261,7 @@ fn lowers_type_declarations_with_variant_fields() {
     let list = &module.types[0];
     assert_eq!(list.name.as_deref(), Some("List"));
     assert_eq!(list.params, vec!["A"]);
-    assert_eq!(list.variants.len(), 2);
+    assert_eq!(list.variants.len(), 3);
     assert_eq!(list.variants[0].name.as_deref(), Some("Nil"));
     assert!(list.variants[0].fields.is_empty());
     assert_eq!(list.variants[1].name.as_deref(), Some("Cons"));
@@ -268,6 +269,10 @@ fn lowers_type_declarations_with_variant_fields() {
     assert_eq!(list.variants[1].fields[0].ty, "A");
     assert_eq!(list.variants[1].fields[1].name, "tail");
     assert_eq!(list.variants[1].fields[1].ty, "List<A>");
+    assert!(!list.variants[1].fields[0].positional);
+    assert!(!list.variants[1].fields[1].positional);
+    assert_eq!(list.variants[2].fields[0].name, "value");
+    assert!(list.variants[2].fields[0].positional);
 }
 
 #[test]

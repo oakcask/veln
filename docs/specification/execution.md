@@ -402,7 +402,12 @@ install that production client boundary.
   then its `ByteOffset` once. Runtime checks follow field declaration order in
   the selected schema, recursively through anonymous records, and recursively
   in each composed format-neutral child. `Option` and `Result` visit only the
-  actual constructor payload. Lists and vectors visit elements in increasing
+  actual constructor payload. A source ADT also visits only its actual
+  constructor. It visits that constructor's refinement-bearing payloads in
+  declaration order and skips absent payloads, including every payload of a
+  nullary constructor. The mismatch path appends the constructor name and then
+  either the declared payload field name or the zero-based positional payload
+  index. Lists and vectors visit elements in increasing
   index order. Dictionaries visit values in ascending lexicographic order of
   the keys' UTF-8 bytes. Nested and repeated container positions are all
   visited. Each refinement accepts constructors in its source-ADT declaration
@@ -412,13 +417,18 @@ install that production client boundary.
   `schema.variant_refinement_mismatch`, the exact supplied offset, and a JSON
   Pointer formed from the terminal schema declaration followed by every
   containing composed or anonymous-record field, decimal collection index, or
-  dictionary key and the rejected position. Pointer tokens escape `~` as
+  dictionary key, source-ADT constructor, named or positional payload, and the
+  rejected position. Pointer tokens escape `~` as
   `~0` and `/` as `~1`; selecting a public alias does not replace the terminal
   declaration root. A negative supplied offset fails before field traversal
   with `schema.validation_offset_invalid` at the schema root. Validation
   performs no byte I/O and does not invoke a schema decoder. The checked
   container traversal and ordering behavior is exercised by
   [`schema-runtime-refinement-validation-containers`](../../examples/specification/run/schema-runtime-refinement-validation-containers/).
+  Source-ADT traversal and human and JSON path projection are checked by
+  [`schema-runtime-source-adt-validation-human`](../../examples/specification/run/schema-runtime-source-adt-validation-human/)
+  and
+  [`schema-runtime-source-adt-validation-json`](../../examples/specification/run/schema-runtime-source-adt-validation-json/).
 - Compatibility generated binary schema decode helpers read fields in
   declaration order and return the schema-local visible record shape. They are
   retained for old fixtures and runtime adapter coverage, not as the public

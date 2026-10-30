@@ -9,7 +9,8 @@ pub use model::{
     IrDeferredCapture, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm,
     IrModuleValueDecl, IrParam, IrPattern, IrPatternField, IrPatternKind, IrRecordField,
     IrSchemaDecodeDispatch, IrSchemaDecodeDispatchCase, IrSchemaDecodeField, IrSchemaDecodeSpec,
-    IrSchemaRefinementField, IrSchemaRefinementPlan, IrSchemaRefinementValidationSpec,
+    IrSchemaRefinementField, IrSchemaRefinementPayload, IrSchemaRefinementPlan,
+    IrSchemaRefinementPlanNode, IrSchemaRefinementValidationSpec, IrSchemaRefinementVariant,
     IrSchemaRepeat, IrSchemaReservedBits, IrSchemaVariantRefinement, IrStmt, IrStmtKind,
     TypedProgram,
 };
