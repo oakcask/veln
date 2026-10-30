@@ -395,6 +395,17 @@ fn ir_schema_refinement_plan(
 
 type SchemaRefinementMemoKey = (Option<String>, Option<String>, Type);
 
+struct SourceAdtVariantPayloads {
+    name: String,
+    payloads: Vec<SourceAdtPayload>,
+}
+
+struct SourceAdtPayload {
+    index: usize,
+    path_segment: String,
+    ty: Type,
+}
+
 struct SchemaRefinementPlanBuilder<'a> {
     module: &'a SurfaceModule,
     adts: &'a AdtRegistry,
@@ -497,25 +508,13 @@ impl SchemaRefinementPlanBuilder<'_> {
         current_package: Option<&str>,
         ty: &Type,
     ) -> Option<usize> {
-        let descriptor = format_neutral_schema_source_adt_descriptor(
+        let descriptor = eligible_source_adt_descriptor(
             self.module,
+            self.adts,
             current_module,
             current_package,
-            self.adts,
             ty,
         )?;
-        if resolved_standard_runtime_type_kind(
-            self.module,
-            current_module,
-            current_package,
-            self.adts,
-            ty,
-        )
-        .is_some()
-            || !crate::types::schema_types::descriptor_has_source_declaration(self.adts, descriptor)
-        {
-            return None;
-        }
         let memo_key = (
             current_module.map(str::to_owned),
             current_package.map(str::to_owned),
@@ -528,55 +527,32 @@ impl SchemaRefinementPlanBuilder<'_> {
         if let Some(completed) = self.completed_adts.get(&memo_key) {
             return *completed;
         }
+        let descriptor_module = descriptor.module_name.clone();
+        let descriptor_package = descriptor.package_name.clone();
+        let variant_payloads = source_adt_variant_payloads(self.module, descriptor, ty);
         self.adt_stack.push(identity);
-        let variants = descriptor
-            .variants
-            .iter()
-            .map(|variant| {
-                let payloads = variant
-                    .payload_fields
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(index, field)| {
-                        let payload_ty = adt::payload_type(
-                            ty,
-                            AdtConstructor {
-                                descriptor,
-                                variant,
-                            },
-                            index,
-                        )?;
-                        self.build(
-                            descriptor.module_name.as_deref(),
-                            descriptor.package_name.as_deref(),
-                            &payload_ty,
-                        )
-                        .map(|plan| IrSchemaRefinementPayload {
-                            index,
-                            path_segment: source_adt_payload_path_segment(
-                                self.module,
-                                descriptor,
-                                &variant.name,
-                                index,
-                                &field.name,
-                            ),
-                            plan,
-                        })
-                    })
-                    .collect();
-                IrSchemaRefinementVariant {
-                    name: variant.name.clone(),
-                    payloads,
-                }
-            })
-            .collect::<Vec<_>>();
+        let variants = self.build_source_adt_variants(
+            descriptor_module.as_deref(),
+            descriptor_package.as_deref(),
+            variant_payloads,
+        );
         self.adt_stack.pop();
+        let plan = self.push_source_adt_plan(ty, variants);
+        self.completed_adts.insert(memo_key, plan);
+        plan
+    }
+
+    fn push_source_adt_plan(
+        &mut self,
+        ty: &Type,
+        variants: Vec<IrSchemaRefinementVariant>,
+    ) -> Option<usize> {
         let expected_variants = match ty {
             Type::VariantRefinement { variants, .. } => variants.to_vec(),
             _ => Vec::new(),
         };
         let has_payload_plan = variants.iter().any(|variant| !variant.payloads.is_empty());
-        let plan = if has_payload_plan {
+        if has_payload_plan {
             Some(self.push(IrSchemaRefinementPlanNode::Adt {
                 expected_variants,
                 variants,
@@ -587,10 +563,93 @@ impl SchemaRefinementPlanBuilder<'_> {
             )))
         } else {
             None
-        };
-        self.completed_adts.insert(memo_key, plan);
-        plan
+        }
     }
+
+    fn build_source_adt_variants(
+        &mut self,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+        variants: Vec<SourceAdtVariantPayloads>,
+    ) -> Vec<IrSchemaRefinementVariant> {
+        variants
+            .into_iter()
+            .map(|variant| IrSchemaRefinementVariant {
+                name: variant.name,
+                payloads: variant
+                    .payloads
+                    .into_iter()
+                    .filter_map(|payload| {
+                        self.build(current_module, current_package, &payload.ty)
+                            .map(|plan| IrSchemaRefinementPayload {
+                                index: payload.index,
+                                path_segment: payload.path_segment,
+                                plan,
+                            })
+                    })
+                    .collect(),
+            })
+            .collect()
+    }
+}
+
+fn eligible_source_adt_descriptor<'a>(
+    module: &SurfaceModule,
+    adts: &'a AdtRegistry,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    ty: &Type,
+) -> Option<&'a AdtDescriptor> {
+    let descriptor = format_neutral_schema_source_adt_descriptor(
+        module,
+        current_module,
+        current_package,
+        adts,
+        ty,
+    )?;
+    (resolved_standard_runtime_type_kind(module, current_module, current_package, adts, ty)
+        .is_none()
+        && crate::types::schema_types::descriptor_has_source_declaration(adts, descriptor))
+    .then_some(descriptor)
+}
+
+fn source_adt_variant_payloads(
+    module: &SurfaceModule,
+    descriptor: &AdtDescriptor,
+    ty: &Type,
+) -> Vec<SourceAdtVariantPayloads> {
+    descriptor
+        .variants
+        .iter()
+        .map(|variant| SourceAdtVariantPayloads {
+            name: variant.name.clone(),
+            payloads: variant
+                .payload_fields
+                .iter()
+                .enumerate()
+                .filter_map(|(index, field)| {
+                    Some(SourceAdtPayload {
+                        index,
+                        path_segment: source_adt_payload_path_segment(
+                            module,
+                            descriptor,
+                            &variant.name,
+                            index,
+                            &field.name,
+                        ),
+                        ty: adt::payload_type(
+                            ty,
+                            AdtConstructor {
+                                descriptor,
+                                variant,
+                            },
+                            index,
+                        )?,
+                    })
+                })
+                .collect(),
+        })
+        .collect()
 }
 
 fn source_adt_payload_path_segment(
