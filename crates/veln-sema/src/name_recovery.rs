@@ -663,49 +663,6 @@ impl ImportPathPrefixIndex {
             .or_insert(IndexedUseDecl::Unique(use_index));
     }
 
-    fn select_prefixes<'s>(
-        &self,
-        segments: impl IntoIterator<Item = &'s str>,
-    ) -> ImportPrefixSelection {
-        let mut node_index = 0;
-        let mut qualifier = None;
-        let mut exact_use = None;
-        for (index, segment) in segments.into_iter().enumerate() {
-            if index == 0 {
-                qualifier = self.qualifiers.get(segment).copied();
-            }
-            let Some(node) = self.nodes.get(node_index) else {
-                break;
-            };
-            let Some(next_index) = node.children.get(segment) else {
-                break;
-            };
-            node_index = *next_index;
-            if let Some(selection) = self.nodes[node_index].exact_use {
-                exact_use = Some((selection, index + 1));
-            }
-        }
-        match exact_use {
-            Some((IndexedUseDecl::Unique(index), consumed_segments)) => {
-                ImportPrefixSelection::Selected {
-                    index,
-                    explicit_alias: false,
-                    consumed_segments,
-                }
-            }
-            Some((IndexedUseDecl::Ambiguous, _)) => ImportPrefixSelection::Blocked,
-            None => match qualifier {
-                Some(IndexedUseDecl::Unique(index)) => ImportPrefixSelection::Selected {
-                    index,
-                    explicit_alias: true,
-                    consumed_segments: 1,
-                },
-                Some(IndexedUseDecl::Ambiguous) => ImportPrefixSelection::Blocked,
-                None => ImportPrefixSelection::Missing,
-            },
-        }
-    }
-
     fn select_each_prefix(&self, segments: &[&str]) -> Vec<ImportPrefixSelection> {
         let qualifier = segments
             .first()
@@ -777,24 +734,6 @@ impl<'a> NormalImportSelectionIndex<'a> {
             qualifiers,
             prefix_paths: build_prefix_paths.then_some(prefix_paths),
         }
-    }
-
-    pub(crate) fn select_import_prefixes<'s>(
-        &self,
-        segments: impl IntoIterator<Item = &'s str>,
-        current_module: Option<&str>,
-        current_package: Option<&str>,
-    ) -> ImportPrefixSelection {
-        let owner = ResolvedImportOwner {
-            package: current_package.map(str::to_string),
-            module: current_module.map(str::to_string),
-        };
-        self.prefix_paths
-            .as_ref()
-            .and_then(|paths| paths.get(&owner))
-            .map_or(ImportPrefixSelection::Missing, |paths| {
-                paths.select_prefixes(segments)
-            })
     }
 
     pub(crate) fn select_import_prefix_sequence(
