@@ -114,7 +114,6 @@ fn standard_type(spec: &StandardType) -> Option<Type> {
         StandardType::Unit => Some(Type::unit()),
         StandardType::Named(name) => Some(Type::named(*name, Vec::new())),
         StandardType::Vec(item) => Some(Type::vec(standard_type(item)?)),
-        StandardType::List(item) => Some(adt::list_type(standard_type(item)?)),
         StandardType::Option(value) => Some(adt::option_type(standard_type(value)?)),
         StandardType::Result(value, error) => Some(adt::result_type(
             standard_type(value)?,

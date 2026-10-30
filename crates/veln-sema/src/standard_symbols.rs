@@ -95,8 +95,6 @@ pub(crate) enum StandardType {
     Unit,
     Named(&'static str),
     Vec(&'static StandardType),
-    #[allow(dead_code)]
-    List(&'static StandardType),
     Option(&'static StandardType),
     Result(&'static StandardType, &'static StandardType),
     Record(&'static [(&'static str, StandardType)]),
