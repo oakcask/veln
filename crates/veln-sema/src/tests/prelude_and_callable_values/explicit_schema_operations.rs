@@ -920,26 +920,27 @@ fn explicit_schema_validate_expression_builds_finite_regular_recursive_source_ad
 }
 
 #[test]
-fn explicit_schema_validate_expression_rejects_expanding_generic_recursion() {
-    let source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "type State\n  Connected\n  Closed\nend\n",
-            "type Node<A>\n  Next(value: Node<Option<A>>)\n  Value(value: A)\nend\n",
-            "schema Packet\n  item: Node<State::Connected>\nend\n",
-            "fn check(value: {item: Node<State>}, base: ByteOffset) -> ()\n",
-            "  validate Packet from value at base\n  ()\nend\n",
-        ),
-    );
-    let lowered = lower_checked_surface_module(&lower_surface_ast(&parse(&source).tree));
-    assert!(
-        lowered
-            .diagnostics
-            .iter()
-            .any(|diagnostic| { diagnostic.id == "schema.validate_expression" }),
-        "{:#?}",
-        lowered.diagnostics
-    );
+fn explicit_schema_validate_expression_rejects_non_regular_recursion() {
+    for declaration in [
+        "type Node<A>\n  Next(value: Node<Option<A>>)\n  Value(value: A)\nend\n",
+        "type Node<A>\n  Next(value: Node<State>)\n  Value(value: A)\nend\n",
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "type State\n  Connected\n  Closed\nend\n{declaration}schema Packet\n  item: Node<State::Connected>\nend\nfn check(value: {{item: Node<State>}}, base: ByteOffset) -> ()\n  validate Packet from value at base\n  ()\nend\n"
+            ),
+        );
+        let lowered = lower_checked_surface_module(&lower_surface_ast(&parse(&source).tree));
+        assert!(
+            lowered
+                .diagnostics
+                .iter()
+                .any(|diagnostic| { diagnostic.id == "schema.validate_expression" }),
+            "{:#?}",
+            lowered.diagnostics
+        );
+    }
 }
 
 #[test]

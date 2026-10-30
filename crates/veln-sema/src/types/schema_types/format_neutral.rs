@@ -19,6 +19,7 @@ pub(crate) use refinement::{
 
 type RuntimeValidationMemoKey = (String, Type);
 type RuntimeValidationMemo = HashMap<RuntimeValidationMemoKey, Option<(Type, bool)>>;
+type RuntimeValidationAdtStack = Vec<(String, Vec<Type>, Type)>;
 
 pub(super) fn format_neutral_schema_decode_function_signature_for_schema(
     module: &SurfaceModule,
@@ -146,7 +147,7 @@ fn format_neutral_runtime_validation_type(
     current_package: Option<&str>,
     adts: &AdtRegistry,
     ty: &Type,
-    adt_stack: &mut Vec<(String, Type)>,
+    adt_stack: &mut RuntimeValidationAdtStack,
     completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, bool)> {
     match ty {
@@ -221,7 +222,7 @@ fn format_neutral_runtime_validation_record_type(
     current_package: Option<&str>,
     adts: &AdtRegistry,
     fields: &[(String, Type)],
-    adt_stack: &mut Vec<(String, Type)>,
+    adt_stack: &mut RuntimeValidationAdtStack,
     completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, bool)> {
     let mut erased_fields = Vec::with_capacity(fields.len());
@@ -248,7 +249,7 @@ fn format_neutral_runtime_validation_named_type(
     current_package: Option<&str>,
     adts: &AdtRegistry,
     ty: &Type,
-    adt_stack: &mut Vec<(String, Type)>,
+    adt_stack: &mut RuntimeValidationAdtStack,
     completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, bool)> {
     let Type::Named {
@@ -361,7 +362,7 @@ fn format_neutral_runtime_validation_source_adt_type(
     current_package: Option<&str>,
     adts: &AdtRegistry,
     ty: &Type,
-    adt_stack: &mut Vec<(String, Type)>,
+    adt_stack: &mut RuntimeValidationAdtStack,
     completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, bool)> {
     let descriptor = format_neutral_schema_source_adt_descriptor(
@@ -419,14 +420,14 @@ fn format_neutral_runtime_validation_source_adt_type(
         erased_args,
     );
     let identity = descriptor.identity();
-    if let Some((_, active_erased)) = adt_stack
+    if let Some((_, active_args, active_erased)) = adt_stack
         .iter()
         .rev()
-        .find(|(active_identity, _)| active_identity == &identity)
+        .find(|(active_identity, _, _)| active_identity == &identity)
     {
-        return (active_erased == &erased).then_some((erased, false));
+        return (active_args == args).then_some((active_erased.clone(), false));
     }
-    adt_stack.push((identity, erased.clone()));
+    adt_stack.push((identity, args.to_vec(), erased.clone()));
     let result = (|| {
         let mut payload_has_refinement = false;
         for variant in &descriptor.variants {
