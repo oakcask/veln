@@ -37,76 +37,25 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
 
         match plan {
             IrSchemaRefinementPlan::Variant(refinement) => {
-                self.emit_object_array(code, 2, |this, code, part| match part {
-                    0 => code.ldc_string("variant"),
-                    1 => {
-                        this.emit_object_array(
-                            code,
-                            refinement.expected_variants.len(),
-                            |_, code, index| code.ldc_string(&refinement.expected_variants[index]),
-                        );
-                        code.invokestatic(
-                            &this.program.options.runtime_class,
-                            "list",
-                            "([Ljava/lang/Object;)Ljava/util/List;",
-                        );
-                    }
-                    _ => unreachable!("variant refinement plan part"),
-                });
+                self.emit_schema_variant_refinement_plan(code, refinement)
             }
             IrSchemaRefinementPlan::Record(fields) => {
-                self.emit_object_array(code, 2, |this, code, part| match part {
-                    0 => code.ldc_string("record"),
-                    1 => {
-                        this.emit_object_array(code, fields.len(), |this, code, index| {
-                            this.emit_object_array(code, 2, |this, code, field_part| {
-                                match field_part {
-                                    0 => code.ldc_string(&fields[index].name),
-                                    1 => {
-                                        this.emit_schema_refinement_plan(code, &fields[index].plan)
-                                    }
-                                    _ => unreachable!("record refinement field part"),
-                                }
-                            });
-                            code.invokestatic(
-                                &this.program.options.runtime_class,
-                                "list",
-                                "([Ljava/lang/Object;)Ljava/util/List;",
-                            );
-                        });
-                        code.invokestatic(
-                            &this.program.options.runtime_class,
-                            "list",
-                            "([Ljava/lang/Object;)Ljava/util/List;",
-                        );
-                    }
-                    _ => unreachable!("record refinement plan part"),
-                });
+                self.emit_schema_record_refinement_plan(code, fields)
             }
-            IrSchemaRefinementPlan::Option(payload)
-            | IrSchemaRefinementPlan::List(payload)
-            | IrSchemaRefinementPlan::Vec(payload)
-            | IrSchemaRefinementPlan::Dict(payload) => {
-                let kind = match plan {
-                    IrSchemaRefinementPlan::Option(_) => "option",
-                    IrSchemaRefinementPlan::List(_) => "list",
-                    IrSchemaRefinementPlan::Vec(_) => "vec",
-                    IrSchemaRefinementPlan::Dict(_) => "dict",
-                    _ => unreachable!("single payload refinement plan"),
-                };
-                self.emit_object_array(code, 2, |this, code, part| match part {
-                    0 => code.ldc_string(kind),
-                    1 => this.emit_schema_refinement_plan(code, payload),
-                    _ => unreachable!("single payload refinement plan part"),
-                });
+            IrSchemaRefinementPlan::Option(payload) => {
+                self.emit_single_payload_schema_refinement_plan(code, "option", payload)
             }
             IrSchemaRefinementPlan::Result { ok, err } => {
-                self.emit_object_array(code, 3, |this, code, part| match part {
-                    0 => code.ldc_string("result"),
-                    1 => this.emit_optional_schema_refinement_plan(code, ok.as_deref()),
-                    2 => this.emit_optional_schema_refinement_plan(code, err.as_deref()),
-                    _ => unreachable!("result refinement plan part"),
-                });
+                self.emit_schema_result_refinement_plan(code, ok.as_deref(), err.as_deref())
+            }
+            IrSchemaRefinementPlan::List(payload) => {
+                self.emit_single_payload_schema_refinement_plan(code, "list", payload)
+            }
+            IrSchemaRefinementPlan::Vec(payload) => {
+                self.emit_single_payload_schema_refinement_plan(code, "vec", payload)
+            }
+            IrSchemaRefinementPlan::Dict(payload) => {
+                self.emit_single_payload_schema_refinement_plan(code, "dict", payload)
             }
         }
         code.invokestatic(
@@ -114,6 +63,86 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             "list",
             "([Ljava/lang/Object;)Ljava/util/List;",
         );
+    }
+
+    fn emit_schema_variant_refinement_plan(
+        &mut self,
+        code: &mut MethodCode,
+        refinement: &veln_ir::IrSchemaVariantRefinement,
+    ) {
+        self.emit_object_array(code, 2, |this, code, part| match part {
+            0 => code.ldc_string("variant"),
+            1 => {
+                this.emit_object_array(
+                    code,
+                    refinement.expected_variants.len(),
+                    |_, code, index| code.ldc_string(&refinement.expected_variants[index]),
+                );
+                code.invokestatic(
+                    &this.program.options.runtime_class,
+                    "list",
+                    "([Ljava/lang/Object;)Ljava/util/List;",
+                );
+            }
+            _ => unreachable!("variant refinement plan part"),
+        });
+    }
+
+    fn emit_schema_record_refinement_plan(
+        &mut self,
+        code: &mut MethodCode,
+        fields: &[veln_ir::IrSchemaRefinementField],
+    ) {
+        self.emit_object_array(code, 2, |this, code, part| match part {
+            0 => code.ldc_string("record"),
+            1 => {
+                this.emit_object_array(code, fields.len(), |this, code, index| {
+                    this.emit_object_array(code, 2, |this, code, field_part| match field_part {
+                        0 => code.ldc_string(&fields[index].name),
+                        1 => this.emit_schema_refinement_plan(code, &fields[index].plan),
+                        _ => unreachable!("record refinement field part"),
+                    });
+                    code.invokestatic(
+                        &this.program.options.runtime_class,
+                        "list",
+                        "([Ljava/lang/Object;)Ljava/util/List;",
+                    );
+                });
+                code.invokestatic(
+                    &this.program.options.runtime_class,
+                    "list",
+                    "([Ljava/lang/Object;)Ljava/util/List;",
+                );
+            }
+            _ => unreachable!("record refinement plan part"),
+        });
+    }
+
+    fn emit_single_payload_schema_refinement_plan(
+        &mut self,
+        code: &mut MethodCode,
+        kind: &str,
+        payload: &veln_ir::IrSchemaRefinementPlan,
+    ) {
+        self.emit_object_array(code, 2, |this, code, part| match part {
+            0 => code.ldc_string(kind),
+            1 => this.emit_schema_refinement_plan(code, payload),
+            _ => unreachable!("single payload refinement plan part"),
+        });
+    }
+
+    fn emit_schema_result_refinement_plan(
+        &mut self,
+        code: &mut MethodCode,
+        ok: Option<&veln_ir::IrSchemaRefinementPlan>,
+        err: Option<&veln_ir::IrSchemaRefinementPlan>,
+    ) {
+        self.emit_object_array(code, 3, |this, code, part| match part {
+            0 => code.ldc_string("result"),
+            1 => this.emit_optional_schema_refinement_plan(code, ok),
+            2 => this.emit_optional_schema_refinement_plan(code, err),
+            _ => unreachable!("result refinement plan part"),
+        });
     }
 
     fn emit_optional_schema_refinement_plan(
