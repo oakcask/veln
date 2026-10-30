@@ -162,6 +162,15 @@ fn format_neutral_runtime_validation_type(
                     adt_stack,
                 );
             }
+            if format_neutral_runtime_validation_type_is_inaccessible_source_adt(
+                module,
+                current_module,
+                current_package,
+                adts,
+                ty,
+            ) {
+                return None;
+            }
             args.iter()
                 .all(|arg| !format_neutral_type_contains_refinement(arg))
                 .then(|| {
@@ -252,6 +261,15 @@ fn format_neutral_runtime_validation_named_type(
                 adt_stack,
             );
         }
+        if format_neutral_runtime_validation_type_is_inaccessible_source_adt(
+            module,
+            current_module,
+            current_package,
+            adts,
+            ty,
+        ) {
+            return None;
+        }
         return (!format_neutral_type_contains_refinement(ty)).then(|| (ty.clone(), false));
     };
     if !kind.is_container() {
@@ -299,6 +317,25 @@ fn format_neutral_runtime_validation_type_is_source_adt(
         .is_some_and(|descriptor| descriptor_has_source_declaration(adts, descriptor))
 }
 
+fn format_neutral_runtime_validation_type_is_inaccessible_source_adt(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    adts: &AdtRegistry,
+    ty: &Type,
+) -> bool {
+    adts.descriptor_for_type(ty)
+        .is_some_and(|descriptor| descriptor_has_source_declaration(adts, descriptor))
+        && format_neutral_schema_source_adt_descriptor(
+            module,
+            current_module,
+            current_package,
+            adts,
+            ty,
+        )
+        .is_none()
+}
+
 fn format_neutral_runtime_validation_source_adt_type(
     module: &SurfaceModule,
     current_module: Option<&str>,
@@ -321,6 +358,16 @@ fn format_neutral_runtime_validation_source_adt_type(
         descriptor.type_name.as_str(),
         "Option" | "Result" | "List" | "Vec" | "Dict" | "String"
     ) {
+        return None;
+    }
+    let descriptor_is_local = descriptor.module_name.as_deref() == current_module
+        && descriptor.package_name.as_deref() == current_package;
+    if !descriptor_is_local
+        && descriptor
+            .variants
+            .iter()
+            .any(|variant| variant.visibility != Visibility::Public)
+    {
         return None;
     }
     let identity = descriptor.identity();
@@ -359,8 +406,8 @@ fn format_neutral_runtime_validation_source_adt_type(
             )?;
             let (_, has_refinement) = format_neutral_runtime_validation_type(
                 module,
-                descriptor.module_name.as_deref(),
-                descriptor.package_name.as_deref(),
+                current_module,
+                current_package,
                 adts,
                 &payload_ty,
                 adt_stack,

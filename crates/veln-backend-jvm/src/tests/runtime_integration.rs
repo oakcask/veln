@@ -441,13 +441,51 @@ public final class SchemaRefinementSourceAdtHarness {
             VelnRuntime.list(VelnRuntime.list("item", sourceAdtPlan()))
         );
     }
-    private static Object validate(Object value) {
+    private static Object orderedPayloadPlan() {
+        return VelnRuntime.list(
+            "record",
+            VelnRuntime.list(VelnRuntime.list(
+                "item",
+                VelnRuntime.list(
+                    "adt",
+                    VelnRuntime.list(),
+                    VelnRuntime.list(VelnRuntime.list(
+                        "Pair",
+                        VelnRuntime.list(
+                            payload(0, "first", variant("Connected")),
+                            payload(1, "second", variant("Connected"))
+                        )
+                    ))
+                )
+            ))
+        );
+    }
+    private static Object nestedSourceAdtPlan() {
+        return VelnRuntime.list(
+            "record",
+            VelnRuntime.list(VelnRuntime.list(
+                "item",
+                VelnRuntime.list(
+                    "adt",
+                    VelnRuntime.list(),
+                    VelnRuntime.list(VelnRuntime.list(
+                        "Nested",
+                        VelnRuntime.list(payload(0, "child", sourceAdtPlan()))
+                    ))
+                )
+            ))
+        );
+    }
+    private static Object validateWithPlan(Object value, Object plan) {
         return VelnRuntime.validateSchemaRefinementPlan(
             VelnRuntime.record("item", value),
             VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(43) }),
             "Packet",
-            rootPlan()
+            plan
         );
+    }
+    private static Object validate(Object value) {
+        return validateWithPlan(value, rootPlan());
     }
     public static void main(String[] args) {
         Object connected = VelnRuntime.adt("State::Connected", new Object[] {});
@@ -468,6 +506,17 @@ public final class SchemaRefinementSourceAdtHarness {
         validate(VelnRuntime.adt("Box::Empty", new Object[] {}));
         System.out.println(validate(VelnRuntime.adt("Box::Boxed", new Object[] { closed })));
         System.out.println(validate(VelnRuntime.adt("Box::Named", new Object[] { closed })));
+        System.out.println(validateWithPlan(
+            VelnRuntime.adt("Pair::Pair", new Object[] { closed, closed }),
+            orderedPayloadPlan()
+        ));
+        System.out.println(validateWithPlan(
+            VelnRuntime.adt(
+                "Outer::Nested",
+                new Object[] { VelnRuntime.adt("Box::Boxed", new Object[] { closed }) }
+            ),
+            nestedSourceAdtPlan()
+        ));
         System.out.println("source ADT success preserved input identity");
     }
 }
@@ -487,6 +536,12 @@ public final class SchemaRefinementSourceAdtHarness {
             "expected one of `Connected`))\n",
             "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, ",
             "ByteOffset(43), /Packet/item/Named/a~1b~0c, actual variant `Closed`; ",
+            "expected one of `Connected`))\n",
+            "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, ",
+            "ByteOffset(43), /Packet/item/Pair/first, actual variant `Closed`; ",
+            "expected one of `Connected`))\n",
+            "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, ",
+            "ByteOffset(43), /Packet/item/Nested/child/Boxed/0, actual variant `Closed`; ",
             "expected one of `Connected`))\n",
             "source ADT success preserved input identity\n"
         )

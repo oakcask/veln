@@ -546,6 +546,165 @@ fn explicit_schema_validate_expression_erases_source_adt_payloads_and_carries_pa
 }
 
 #[test]
+fn explicit_schema_validate_expression_plans_nested_source_adt_container_payloads() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "type Box<A>\n  Boxed(A)\nend\n",
+            "type Envelope<A>\n",
+            "  Packed(meta: {optional: Option<A>, outcome: Result<A, A>}, items: List<Vec<A>>, table: Dict<String, A>)\n",
+            "  Nested(child: Box<A>)\n",
+            "end\n",
+            "schema Packet\n",
+            "  item: Envelope<State::Connected>\n",
+            "end\n",
+            "fn check(value: {item: Envelope<State>}, base: ByteOffset) -> Result<{item: Envelope<State::Connected>}, DecodeError>\n",
+            "  validate Packet from value at base\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+
+    let spec = lowered
+        .core
+        .as_ref()
+        .expect("checked core")
+        .schema_refinement_validators
+        .iter()
+        .find(|spec| spec.schema_name == "Packet")
+        .expect("nested source ADT validation plan");
+    let CoreSchemaRefinementPlan::Record(fields) = &spec.plan else {
+        panic!("root plan should be a record");
+    };
+    let CoreSchemaRefinementPlan::Adt { variants, .. } = &*fields[0].plan else {
+        panic!("field plan should dispatch Envelope");
+    };
+    assert_eq!(
+        variants
+            .iter()
+            .map(|variant| variant.name.as_str())
+            .collect::<Vec<_>>(),
+        ["Packed", "Nested"]
+    );
+    assert_eq!(
+        variants[0]
+            .payloads
+            .iter()
+            .map(|payload| (payload.index, payload.path_segment.as_str()))
+            .collect::<Vec<_>>(),
+        [(0, "meta"), (1, "items"), (2, "table")]
+    );
+    let CoreSchemaRefinementPlan::Record(meta_fields) = &*variants[0].payloads[0].plan else {
+        panic!("metadata payload should retain its record plan");
+    };
+    assert!(matches!(
+        &*meta_fields[0].plan,
+        CoreSchemaRefinementPlan::Option(inner)
+            if matches!(&**inner, CoreSchemaRefinementPlan::Variant(_))
+    ));
+    assert!(matches!(
+        &*meta_fields[1].plan,
+        CoreSchemaRefinementPlan::Result { ok: Some(ok), err: Some(err) }
+            if matches!(&**ok, CoreSchemaRefinementPlan::Variant(_))
+                && matches!(&**err, CoreSchemaRefinementPlan::Variant(_))
+    ));
+    assert!(matches!(
+        &*variants[0].payloads[1].plan,
+        CoreSchemaRefinementPlan::List(list)
+            if matches!(&**list, CoreSchemaRefinementPlan::Vec(vec)
+                if matches!(&**vec, CoreSchemaRefinementPlan::Variant(_)))
+    ));
+    assert!(matches!(
+        &*variants[0].payloads[2].plan,
+        CoreSchemaRefinementPlan::Dict(inner)
+            if matches!(&**inner, CoreSchemaRefinementPlan::Variant(_))
+    ));
+    assert!(matches!(
+        &*variants[1].payloads[0].plan,
+        CoreSchemaRefinementPlan::Adt { variants, .. }
+            if matches!(&*variants[0].payloads[0].plan, CoreSchemaRefinementPlan::Variant(_))
+    ));
+}
+
+#[test]
+fn explicit_schema_validate_expression_rejects_hidden_and_unsupported_adt_payloads() {
+    let unsupported = SourceFile::new(
+        "unsupported.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "type Box<A>\n  Boxed(A)\n  Callback(fn(Int) -> String)\nend\n",
+            "schema Packet\n  item: Box<State::Connected>\nend\n",
+            "fn check(value: {item: Box<State>}, base: ByteOffset) -> ()\n",
+            "  validate Packet from value at base\n  ()\nend\n",
+        ),
+    );
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parse(&unsupported).tree));
+    assert!(
+        lowered
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "schema.validate_expression"),
+        "unsupported payload should reject validation: {:#?}",
+        lowered.diagnostics
+    );
+
+    let assert_import_rejected = |declaration: &str, boundary: &str| {
+        let app_source = SourceFile::new(
+            "app.veln",
+            concat!(
+                "mod app\n",
+                "use api\n",
+                "schema Packet\n  item: api::Box<api::State::Connected>\nend\n",
+                "fn check(value: {item: api::Box<api::State>}, base: ByteOffset) -> ()\n",
+                "  validate Packet from value at base\n  ()\nend\n",
+            ),
+        );
+        let api_source = SourceFile::new(
+            "api.veln",
+            format!("mod api\npub type State\n  pub Connected\n  pub Closed\nend\n{declaration}"),
+        );
+        let app = lower_surface_ast(&parse(&app_source).tree);
+        let api = lower_surface_ast(&parse(&api_source).tree);
+        let module = SurfaceModule {
+            module: app.module,
+            uses: app.uses,
+            aliases: Vec::new(),
+            effects: Vec::new(),
+            handlers: Vec::new(),
+            types: [app.types, api.types].concat(),
+            schemas: app.schemas,
+            module_values: Vec::new(),
+            functions: app.functions,
+            invalid_names: Vec::new(),
+        };
+        let lowered = lower_checked_surface_module(&module);
+        assert!(
+            lowered
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "schema.validate_expression"),
+            "{boundary} should reject validation: {:#?}",
+            lowered.diagnostics
+        );
+    };
+    assert_import_rejected(
+        "pub type Box<A>\n  pub Boxed(value: A)\n  Hidden(value: A)\nend\n",
+        "private imported constructor",
+    );
+    assert_import_rejected(
+        concat!(
+            "type Secret\n  Hidden\nend\n",
+            "pub type Box<A>\n  pub Boxed(value: A)\n  pub SecretBox(value: Secret)\nend\n",
+        ),
+        "private imported payload type",
+    );
+}
+
+#[test]
 fn explicit_schema_validate_expression_traverses_visible_imported_source_adts() {
     let app_source = SourceFile::new(
         "app.veln",
