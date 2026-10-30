@@ -920,41 +920,49 @@ fn explicit_schema_validate_expression_erases_outer_refinements_from_recursive_p
         "Node<State>::Next",
         "Node<State>::Next | Node<State>::Value",
     ] {
-        let source = SourceFile::new(
-            "main.veln",
-            format!(
-                "type State\n  Connected\n  Closed\nend\ntype Node<A>\n  Next(value: Node<A>)\n  Value(value: A)\n  Empty\nend\nschema Packet\n  item: {field_type}\nend\nfn check(value: {{item: Node<State>}}, base: ByteOffset) -> Result<{{item: {field_type}}}, DecodeError>\n  validate Packet from value at base\nend\n"
-            ),
-        );
-        let lowered = lower_checked_surface_module(&lower_surface_ast(&parse(&source).tree));
-        assert!(
-            lowered.diagnostics.is_empty(),
-            "{field_type}: {:#?}",
-            lowered.diagnostics
-        );
-        let plan = &lowered
-            .core
-            .as_ref()
-            .expect("checked core")
-            .schema_refinement_validators[0]
-            .plan;
-        let CoreSchemaRefinementPlanNode::Record(fields) = plan.root_node() else {
-            panic!("root plan should be a record");
-        };
-        let CoreSchemaRefinementPlanNode::Adt {
-            expected_variants,
-            variants,
-        } = plan.node(fields[0].plan)
-        else {
-            panic!("outer refinement should retain ADT dispatch");
-        };
-        assert!(!expected_variants.is_empty());
-        assert!(
-            variants.iter().all(|variant| variant.payloads.is_empty()),
-            "an outer constraint must not flow onto an unrefined recursive payload"
-        );
+        assert_outer_recursive_payloads_are_unrefined(field_type);
     }
 
+    assert_nested_refinement_uses_distinct_recursive_plan();
+}
+
+fn assert_outer_recursive_payloads_are_unrefined(field_type: &str) {
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "type State\n  Connected\n  Closed\nend\ntype Node<A>\n  Next(value: Node<A>)\n  Value(value: A)\n  Empty\nend\nschema Packet\n  item: {field_type}\nend\nfn check(value: {{item: Node<State>}}, base: ByteOffset) -> Result<{{item: {field_type}}}, DecodeError>\n  validate Packet from value at base\nend\n"
+        ),
+    );
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parse(&source).tree));
+    assert!(
+        lowered.diagnostics.is_empty(),
+        "{field_type}: {:#?}",
+        lowered.diagnostics
+    );
+    let plan = &lowered
+        .core
+        .as_ref()
+        .expect("checked core")
+        .schema_refinement_validators[0]
+        .plan;
+    let CoreSchemaRefinementPlanNode::Record(fields) = plan.root_node() else {
+        panic!("root plan should be a record");
+    };
+    let CoreSchemaRefinementPlanNode::Adt {
+        expected_variants,
+        variants,
+    } = plan.node(fields[0].plan)
+    else {
+        panic!("outer refinement should retain ADT dispatch");
+    };
+    assert!(!expected_variants.is_empty());
+    assert!(
+        variants.iter().all(|variant| variant.payloads.is_empty()),
+        "an outer constraint must not flow onto an unrefined recursive payload"
+    );
+}
+
+fn assert_nested_refinement_uses_distinct_recursive_plan() {
     let source = SourceFile::new(
         "main.veln",
         concat!(

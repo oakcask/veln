@@ -569,55 +569,14 @@ impl SchemaRefinementPlanBuilder<'_> {
             ty,
         )?;
         let memo_key = (descriptor.identity(), ty.clone());
-        let identity = descriptor.identity();
         let args = match ty {
             Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
             _ => return None,
         };
-        if let Type::VariantRefinement {
-            name,
-            identity,
-            args,
-            variants,
-            ..
-        } = ty
-        {
-            if let Some(completed) = self.completed_adts.get(&memo_key) {
-                return *completed;
-            }
-            let base = Type::Named {
-                name: name.clone(),
-                identity: identity.clone(),
-                args: args.clone(),
-            };
-            let base_node_start = self.nodes.len();
-            let payload_plan = self.source_adt(current_module, current_package, &base);
-            if payload_plan.is_none() {
-                self.nodes.truncate(base_node_start);
-            }
-            let plan = if let Some(payload_plan) = payload_plan {
-                let IrSchemaRefinementPlanNode::Adt {
-                    variants: payload_variants,
-                    ..
-                } = &self.nodes[payload_plan]
-                else {
-                    unreachable!("an unrefined source ADT payload plan must dispatch variants");
-                };
-                let payload_variants = payload_variants.clone();
-                Some(self.push(IrSchemaRefinementPlanNode::Adt {
-                    expected_variants: variants.to_vec(),
-                    variants: payload_variants,
-                }))
-            } else {
-                Some(self.push(IrSchemaRefinementPlanNode::Variant(
-                    IrSchemaVariantRefinement {
-                        expected_variants: variants.to_vec(),
-                    },
-                )))
-            };
-            self.completed_adts.insert(memo_key, plan);
-            return plan;
+        if matches!(ty, Type::VariantRefinement { .. }) {
+            return self.refined_source_adt(current_module, current_package, ty, memo_key);
         }
+        let identity = descriptor.identity();
         if let Some((_, active_args, node)) = self
             .adt_stack
             .iter()
@@ -644,6 +603,60 @@ impl SchemaRefinementPlanBuilder<'_> {
         );
         self.adt_stack.pop();
         let plan = self.fill_source_adt_plan(node, ty, variants);
+        self.completed_adts.insert(memo_key, plan);
+        plan
+    }
+
+    fn refined_source_adt(
+        &mut self,
+        current_module: Option<&str>,
+        current_package: Option<&str>,
+        ty: &Type,
+        memo_key: SchemaRefinementMemoKey,
+    ) -> Option<usize> {
+        if let Some(completed) = self.completed_adts.get(&memo_key) {
+            return *completed;
+        }
+        let Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            variants,
+            ..
+        } = ty
+        else {
+            unreachable!("refined source ADT planning requires a variant refinement");
+        };
+        let base = Type::Named {
+            name: name.clone(),
+            identity: identity.clone(),
+            args: args.clone(),
+        };
+        let base_node_start = self.nodes.len();
+        let payload_plan = self.source_adt(current_module, current_package, &base);
+        if payload_plan.is_none() {
+            self.nodes.truncate(base_node_start);
+        }
+        let plan = Some(match payload_plan {
+            Some(payload_plan) => {
+                let IrSchemaRefinementPlanNode::Adt {
+                    variants: payload_variants,
+                    ..
+                } = &self.nodes[payload_plan]
+                else {
+                    unreachable!("an unrefined source ADT payload plan must dispatch variants");
+                };
+                self.push(IrSchemaRefinementPlanNode::Adt {
+                    expected_variants: variants.to_vec(),
+                    variants: payload_variants.clone(),
+                })
+            }
+            None => self.push(IrSchemaRefinementPlanNode::Variant(
+                IrSchemaVariantRefinement {
+                    expected_variants: variants.to_vec(),
+                },
+            )),
+        });
         self.completed_adts.insert(memo_key, plan);
         plan
     }

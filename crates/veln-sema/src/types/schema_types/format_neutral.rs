@@ -372,22 +372,7 @@ fn format_neutral_runtime_validation_source_adt_type(
         adts,
         ty,
     )?;
-    if !descriptor_has_source_declaration(adts, descriptor) {
-        return None;
-    }
-    if matches!(
-        descriptor.type_name.as_str(),
-        "Option" | "Result" | "List" | "Vec" | "Dict" | "String"
-    ) {
-        return None;
-    }
-    let descriptor_is_local = descriptor.module_name.as_deref() == current_module
-        && descriptor.package_name.as_deref() == current_package;
-    if !descriptor_is_local
-        && descriptor
-            .variants
-            .iter()
-            .any(|variant| variant.visibility != Visibility::Public)
+    if !runtime_validation_source_adt_is_eligible(adts, descriptor, current_module, current_package)
     {
         return None;
     }
@@ -399,21 +384,15 @@ fn format_neutral_runtime_validation_source_adt_type(
         Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
         _ => return None,
     };
-    let mut erased_args = Vec::with_capacity(args.len());
-    for arg in args {
-        erased_args.push(
-            format_neutral_runtime_validation_type(
-                module,
-                current_module,
-                current_package,
-                adts,
-                arg,
-                adt_stack,
-                completed_adts,
-            )?
-            .0,
-        );
-    }
+    let erased_args = format_neutral_runtime_validation_source_adt_args(
+        module,
+        current_module,
+        current_package,
+        adts,
+        args,
+        adt_stack,
+        completed_adts,
+    )?;
     let erased = Type::resolved_named(
         descriptor.type_name.clone(),
         descriptor.identity(),
@@ -428,38 +407,114 @@ fn format_neutral_runtime_validation_source_adt_type(
         return (active_args == args).then_some((active_erased.clone(), false));
     }
     adt_stack.push((identity, args.to_vec(), erased.clone()));
-    let result = (|| {
-        let mut payload_has_refinement = false;
-        for variant in &descriptor.variants {
-            for index in 0..variant.payload_fields.len() {
-                let payload_ty = adt::payload_type(
-                    ty,
-                    AdtConstructor {
-                        descriptor,
-                        variant,
-                    },
-                    index,
-                )?;
-                let (_, has_refinement) = format_neutral_runtime_validation_type(
-                    module,
-                    current_module,
-                    current_package,
-                    adts,
-                    &payload_ty,
-                    adt_stack,
-                    completed_adts,
-                )?;
-                payload_has_refinement |= has_refinement;
-            }
-        }
-        Some((
+    let result = format_neutral_runtime_validation_source_adt_payload_has_refinement(
+        module,
+        current_module,
+        current_package,
+        adts,
+        ty,
+        adt_stack,
+        completed_adts,
+    )
+    .map(|payload_has_refinement| {
+        (
             erased,
             matches!(ty, Type::VariantRefinement { .. }) || payload_has_refinement,
-        ))
-    })();
+        )
+    });
     adt_stack.pop();
     completed_adts.insert(memo_key, result.clone());
     result
+}
+
+fn runtime_validation_source_adt_is_eligible(
+    adts: &AdtRegistry,
+    descriptor: &AdtDescriptor,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+) -> bool {
+    if !descriptor_has_source_declaration(adts, descriptor)
+        || matches!(
+            descriptor.type_name.as_str(),
+            "Option" | "Result" | "List" | "Vec" | "Dict" | "String"
+        )
+    {
+        return false;
+    }
+    let descriptor_is_local = descriptor.module_name.as_deref() == current_module
+        && descriptor.package_name.as_deref() == current_package;
+    descriptor_is_local
+        || descriptor
+            .variants
+            .iter()
+            .all(|variant| variant.visibility == Visibility::Public)
+}
+
+fn format_neutral_runtime_validation_source_adt_args(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    adts: &AdtRegistry,
+    args: &[Type],
+    adt_stack: &mut RuntimeValidationAdtStack,
+    completed_adts: &mut RuntimeValidationMemo,
+) -> Option<Vec<Type>> {
+    args.iter()
+        .map(|arg| {
+            format_neutral_runtime_validation_type(
+                module,
+                current_module,
+                current_package,
+                adts,
+                arg,
+                adt_stack,
+                completed_adts,
+            )
+            .map(|(erased, _)| erased)
+        })
+        .collect()
+}
+
+fn format_neutral_runtime_validation_source_adt_payload_has_refinement(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    adts: &AdtRegistry,
+    ty: &Type,
+    adt_stack: &mut RuntimeValidationAdtStack,
+    completed_adts: &mut RuntimeValidationMemo,
+) -> Option<bool> {
+    let descriptor = format_neutral_schema_source_adt_descriptor(
+        module,
+        current_module,
+        current_package,
+        adts,
+        ty,
+    )?;
+    let mut payload_has_refinement = false;
+    for variant in &descriptor.variants {
+        for index in 0..variant.payload_fields.len() {
+            let payload_ty = adt::payload_type(
+                ty,
+                AdtConstructor {
+                    descriptor,
+                    variant,
+                },
+                index,
+            )?;
+            let (_, has_refinement) = format_neutral_runtime_validation_type(
+                module,
+                current_module,
+                current_package,
+                adts,
+                &payload_ty,
+                adt_stack,
+                completed_adts,
+            )?;
+            payload_has_refinement |= has_refinement;
+        }
+    }
+    Some(payload_has_refinement)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
