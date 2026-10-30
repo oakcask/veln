@@ -5,7 +5,8 @@ use veln_ast::{Expr, ExprKind, SurfaceModule};
 use super::{check_module_value, colliding_module_value_identities, module_value_indices};
 use crate::analysis::VariantDiagnosticInterner;
 use crate::types::{
-    BareModuleValueExposureIdentity, ModuleValueDependency, ModuleValueIdentity, TypeEnvironment,
+    BareModuleValueExposureIdentity, ModuleValueDependency, ModuleValueIdentity, ModuleValueIndex,
+    TypeEnvironment,
 };
 
 pub(super) struct ReverseDependencies {
@@ -46,6 +47,23 @@ struct CyclicDependencyComponents {
     components: Vec<BTreeSet<ModuleValueIdentity>>,
 }
 
+struct AvailabilityEvaluation {
+    identity: ModuleValueIdentity,
+    invalid: bool,
+    diagnostics: Vec<veln_diagnostics::Diagnostic>,
+}
+
+struct AvailabilityWave<'a> {
+    module: &'a SurfaceModule,
+    environment: &'a mut TypeEnvironment,
+    variant_diagnostics: &'a mut VariantDiagnosticInterner,
+    unavailable: &'a BTreeSet<ModuleValueIdentity>,
+    reverse_dependencies: &'a ReverseDependencies,
+    intrinsic_invalid: &'a BTreeSet<ModuleValueIdentity>,
+    recurrently_unavailable: &'a BTreeSet<ModuleValueIdentity>,
+    value_indices: &'a HashMap<ModuleValueIdentity, ModuleValueIndex>,
+}
+
 impl CyclicDependencyComponents {
     fn get(&self, identity: &ModuleValueIdentity) -> Option<&BTreeSet<ModuleValueIdentity>> {
         self.component_by_identity
@@ -80,116 +98,42 @@ pub(super) fn stabilize_module_value_availability(
     while !pending_dependencies.is_empty() {
         record_availability_wave();
         let changes = std::mem::take(&mut pending_dependencies);
-        let mut dirty_declarations = BTreeSet::new();
-        for changed in changes {
-            let dependents = match &changed {
-                AvailabilityChange::Identity(identity) => {
-                    reverse_dependencies.identities.get(identity)
-                }
-                AvailabilityChange::BareExposure(exposure) => reverse_dependencies
-                    .bare_exposures
-                    .get(exposure)
-                    .map(|dependencies| &dependencies.dependents),
-            };
-            if let Some(dependents) = dependents {
-                dirty_declarations.extend(dependents.iter().copied());
-            }
+        let evaluations = AvailabilityWave {
+            module,
+            environment,
+            variant_diagnostics,
+            unavailable: &unavailable,
+            reverse_dependencies,
+            intrinsic_invalid,
+            recurrently_unavailable: &recurrently_unavailable,
+            value_indices: &value_indices,
         }
-        let mut evaluations = Vec::new();
-        for index in dirty_declarations {
-            record_declaration_recheck_lookup();
-            let value = &module.module_values[index];
-            let Some(identity) = value.name.as_ref().map(|name| {
-                (
-                    value.package_name.clone(),
-                    value.module_name.clone(),
-                    name.clone(),
-                )
-            }) else {
-                continue;
-            };
-            if intrinsic_invalid.contains(&identity) || recurrently_unavailable.contains(&identity)
-            {
-                continue;
-            }
-            let mut dependencies = Vec::new();
-            let mut diagnostics = Vec::new();
-            #[cfg(test)]
-            super::update_module_value_availability_work(|work| work.semantic_visits += 1);
-            let mut invalid = check_module_value(
-                value,
-                index,
-                &value_indices,
-                environment,
-                variant_diagnostics,
-                &mut dependencies,
-                &mut diagnostics,
-            );
-            // Same-module reads reserve unavailable names without producing a
-            // lookup diagnostic, so their dependency status must be checked too.
-            invalid |= dependencies.iter().any(|dependency| {
-                let target = &module.module_values[dependency.target];
-                target.name.as_ref().is_some_and(|name| {
-                    unavailable.contains(&(
-                        target.package_name.clone(),
-                        target.module_name.clone(),
-                        name.clone(),
-                    ))
-                })
-            });
-            evaluations.push((identity, invalid, diagnostics));
-        }
+        .evaluate(changes);
 
         // All declarations in one dirty wave are checked against the same
         // availability snapshot. Publishing a result while later declarations
         // are still being checked would make a competing fixed point depend on
         // their source indices.
-        let mut newly_rejected = BTreeSet::new();
-        for (identity, invalid, _) in &evaluations {
-            record_availability_state_steps(1);
-            if *invalid
-                && ever_unavailable.contains(identity)
-                && !unavailable.contains(identity)
-                && let Some(component) = cyclic_components.get(identity)
-            {
-                newly_rejected.extend(component.iter().cloned());
-            }
-        }
-        for (identity, invalid, diagnostics) in &evaluations {
-            if *invalid && newly_rejected.contains(identity) {
-                recurrent_diagnostics.extend(diagnostics.iter().cloned());
-            }
-        }
-
-        let mut changed_identities = BTreeSet::new();
-        for (identity, invalid, _) in evaluations {
-            if newly_rejected.contains(&identity) {
-                continue;
-            }
-            record_availability_state_steps(1);
-            let changed = if invalid {
-                let changed = unavailable.insert(identity.clone());
-                if ever_unavailable.insert(identity.clone()) {
-                    record_retained_history_insertions(1);
-                }
-                changed
-            } else {
-                unavailable.remove(&identity)
-            };
-            if changed {
-                changed_identities.insert(identity);
-            }
-        }
-        for identity in newly_rejected {
-            recurrently_unavailable.insert(identity.clone());
-            record_availability_state_steps(1);
-            if unavailable.insert(identity.clone()) {
-                changed_identities.insert(identity.clone());
-            }
-            if ever_unavailable.insert(identity) {
-                record_retained_history_insertions(1);
-            }
-        }
+        let newly_rejected = recurrently_rejected_identities(
+            &evaluations,
+            &ever_unavailable,
+            &unavailable,
+            &cyclic_components,
+        );
+        retain_recurrent_diagnostics(&evaluations, &newly_rejected, &mut recurrent_diagnostics);
+        let mut changed_identities = apply_availability_evaluations(
+            evaluations,
+            &newly_rejected,
+            &mut unavailable,
+            &mut ever_unavailable,
+        );
+        reject_recurrent_identities(
+            newly_rejected,
+            &mut recurrently_unavailable,
+            &mut unavailable,
+            &mut ever_unavailable,
+            &mut changed_identities,
+        );
         for identity in changed_identities {
             queue_availability_change(
                 &identity,
@@ -205,6 +149,159 @@ pub(super) fn stabilize_module_value_availability(
         unavailable,
         rejected: recurrently_unavailable,
         recurrent_diagnostics,
+    }
+}
+
+impl AvailabilityWave<'_> {
+    fn evaluate(self, changes: BTreeSet<AvailabilityChange>) -> Vec<AvailabilityEvaluation> {
+        dependent_declaration_indices(changes, self.reverse_dependencies)
+            .into_iter()
+            .filter_map(|index| {
+                record_declaration_recheck_lookup();
+                let value = &self.module.module_values[index];
+                let identity = value.name.as_ref().map(|name| {
+                    (
+                        value.package_name.clone(),
+                        value.module_name.clone(),
+                        name.clone(),
+                    )
+                })?;
+                if self.intrinsic_invalid.contains(&identity)
+                    || self.recurrently_unavailable.contains(&identity)
+                {
+                    return None;
+                }
+                let mut dependencies = Vec::new();
+                let mut diagnostics = Vec::new();
+                #[cfg(test)]
+                super::update_module_value_availability_work(|work| work.semantic_visits += 1);
+                let mut invalid = check_module_value(
+                    value,
+                    index,
+                    self.value_indices,
+                    self.environment,
+                    self.variant_diagnostics,
+                    &mut dependencies,
+                    &mut diagnostics,
+                );
+                // Same-module reads reserve unavailable names without producing a
+                // lookup diagnostic, so their dependency status must be checked too.
+                invalid |= dependencies.iter().any(|dependency| {
+                    let target = &self.module.module_values[dependency.target];
+                    target.name.as_ref().is_some_and(|name| {
+                        self.unavailable.contains(&(
+                            target.package_name.clone(),
+                            target.module_name.clone(),
+                            name.clone(),
+                        ))
+                    })
+                });
+                Some(AvailabilityEvaluation {
+                    identity,
+                    invalid,
+                    diagnostics,
+                })
+            })
+            .collect()
+    }
+}
+
+fn dependent_declaration_indices(
+    changes: BTreeSet<AvailabilityChange>,
+    reverse_dependencies: &ReverseDependencies,
+) -> BTreeSet<usize> {
+    let mut dirty_declarations = BTreeSet::new();
+    for changed in changes {
+        let dependents = match &changed {
+            AvailabilityChange::Identity(identity) => reverse_dependencies.identities.get(identity),
+            AvailabilityChange::BareExposure(exposure) => reverse_dependencies
+                .bare_exposures
+                .get(exposure)
+                .map(|dependencies| &dependencies.dependents),
+        };
+        if let Some(dependents) = dependents {
+            dirty_declarations.extend(dependents.iter().copied());
+        }
+    }
+    dirty_declarations
+}
+
+fn recurrently_rejected_identities(
+    evaluations: &[AvailabilityEvaluation],
+    ever_unavailable: &BTreeSet<ModuleValueIdentity>,
+    unavailable: &BTreeSet<ModuleValueIdentity>,
+    cyclic_components: &CyclicDependencyComponents,
+) -> BTreeSet<ModuleValueIdentity> {
+    let mut rejected = BTreeSet::new();
+    for evaluation in evaluations {
+        record_availability_state_steps(1);
+        if evaluation.invalid
+            && ever_unavailable.contains(&evaluation.identity)
+            && !unavailable.contains(&evaluation.identity)
+            && let Some(component) = cyclic_components.get(&evaluation.identity)
+        {
+            rejected.extend(component.iter().cloned());
+        }
+    }
+    rejected
+}
+
+fn retain_recurrent_diagnostics(
+    evaluations: &[AvailabilityEvaluation],
+    rejected: &BTreeSet<ModuleValueIdentity>,
+    recurrent_diagnostics: &mut Vec<veln_diagnostics::Diagnostic>,
+) {
+    for evaluation in evaluations {
+        if evaluation.invalid && rejected.contains(&evaluation.identity) {
+            recurrent_diagnostics.extend(evaluation.diagnostics.iter().cloned());
+        }
+    }
+}
+
+fn apply_availability_evaluations(
+    evaluations: Vec<AvailabilityEvaluation>,
+    rejected: &BTreeSet<ModuleValueIdentity>,
+    unavailable: &mut BTreeSet<ModuleValueIdentity>,
+    ever_unavailable: &mut BTreeSet<ModuleValueIdentity>,
+) -> BTreeSet<ModuleValueIdentity> {
+    let mut changed_identities = BTreeSet::new();
+    for evaluation in evaluations {
+        if rejected.contains(&evaluation.identity) {
+            continue;
+        }
+        record_availability_state_steps(1);
+        let changed = if evaluation.invalid {
+            let changed = unavailable.insert(evaluation.identity.clone());
+            if ever_unavailable.insert(evaluation.identity.clone()) {
+                record_retained_history_insertions(1);
+            }
+            changed
+        } else {
+            unavailable.remove(&evaluation.identity)
+        };
+        if changed {
+            changed_identities.insert(evaluation.identity);
+        }
+    }
+    changed_identities
+}
+
+fn reject_recurrent_identities(
+    rejected: BTreeSet<ModuleValueIdentity>,
+    recurrently_unavailable: &mut BTreeSet<ModuleValueIdentity>,
+    unavailable: &mut BTreeSet<ModuleValueIdentity>,
+    ever_unavailable: &mut BTreeSet<ModuleValueIdentity>,
+    changed_identities: &mut BTreeSet<ModuleValueIdentity>,
+) {
+    for identity in rejected {
+        recurrently_unavailable.insert(identity.clone());
+        record_availability_state_steps(1);
+        if unavailable.insert(identity.clone()) {
+            changed_identities.insert(identity.clone());
+        }
+        if ever_unavailable.insert(identity) {
+            record_retained_history_insertions(1);
+        }
     }
 }
 
