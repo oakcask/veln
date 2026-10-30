@@ -553,6 +553,79 @@ public final class SchemaRefinementSourceAdtHarness {
 }
 
 #[test]
+fn jvm_runtime_schema_refinement_plan_traverses_deep_recursive_values_iteratively() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        eprintln!("skipping deep recursive refinement verification because a JDK is unavailable");
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-schema-refinement-deep-recursive-source-adt",
+        "SchemaRefinementDeepRecursiveSourceAdtHarness.java",
+        r#"
+public final class SchemaRefinementDeepRecursiveSourceAdtHarness {
+    public static void main(String[] args) {
+        Object variant = VelnRuntime.list("variant", VelnRuntime.list("Connected"));
+        Object recursive = VelnRuntime.list(
+            "adt",
+            VelnRuntime.list(),
+            VelnRuntime.list(
+                VelnRuntime.list(
+                    "Next",
+                    VelnRuntime.list(VelnRuntime.list(Integer.valueOf(0), "value", Integer.valueOf(1)))
+                ),
+                VelnRuntime.list(
+                    "Value",
+                    VelnRuntime.list(VelnRuntime.list(Integer.valueOf(0), "value", Integer.valueOf(0)))
+                )
+            )
+        );
+        Object root = VelnRuntime.list(
+            "record",
+            VelnRuntime.list(VelnRuntime.list("item", Integer.valueOf(1)))
+        );
+        Object plan = VelnRuntime.list(
+            Integer.valueOf(2),
+            VelnRuntime.list(variant, recursive, root)
+        );
+        Object item = VelnRuntime.adt(
+            "Node::Value",
+            new Object[] { VelnRuntime.adt("State::Connected", new Object[] {}) }
+        );
+        for (int depth = 0; depth < 5000; depth += 1) {
+            item = VelnRuntime.adt("Node::Next", new Object[] { item });
+        }
+        Object value = VelnRuntime.record("item", item);
+        VelnRuntime.Result result = (VelnRuntime.Result) VelnRuntime.validateSchemaRefinementPlan(
+            value,
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(71) }),
+            "Packet",
+            plan
+        );
+        if (!result.isOk() || result.value() != value) {
+            throw new AssertionError("deep recursive validation did not preserve input identity");
+        }
+        System.out.println("deep recursive refinement traversal passed");
+    }
+}
+"#,
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "deep recursive refinement traversal passed\n"
+    );
+}
+
+#[test]
 fn jvm_runtime_preserves_cancellation_entering_host_connect_when_java_is_available() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

@@ -574,6 +574,50 @@ impl SchemaRefinementPlanBuilder<'_> {
             Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
             _ => return None,
         };
+        if let Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            variants,
+            ..
+        } = ty
+        {
+            if let Some(completed) = self.completed_adts.get(&memo_key) {
+                return *completed;
+            }
+            let base = Type::Named {
+                name: name.clone(),
+                identity: identity.clone(),
+                args: args.clone(),
+            };
+            let base_node_start = self.nodes.len();
+            let payload_plan = self.source_adt(current_module, current_package, &base);
+            if payload_plan.is_none() {
+                self.nodes.truncate(base_node_start);
+            }
+            let plan = if let Some(payload_plan) = payload_plan {
+                let IrSchemaRefinementPlanNode::Adt {
+                    variants: payload_variants,
+                    ..
+                } = &self.nodes[payload_plan]
+                else {
+                    unreachable!("an unrefined source ADT payload plan must dispatch variants");
+                };
+                let payload_variants = payload_variants.clone();
+                Some(self.push(IrSchemaRefinementPlanNode::Adt {
+                    expected_variants: variants.to_vec(),
+                    variants: payload_variants,
+                }))
+            } else {
+                Some(self.push(IrSchemaRefinementPlanNode::Variant(
+                    IrSchemaVariantRefinement {
+                        expected_variants: variants.to_vec(),
+                    },
+                )))
+            };
+            self.completed_adts.insert(memo_key, plan);
+            return plan;
+        }
         if let Some((_, active_args, node)) = self
             .adt_stack
             .iter()

@@ -126,6 +126,145 @@
         Object value,
         Object baseOffset,
         String path,
+        java.util.List<?> nodes,
+        int nodeIndex
+    ) {
+        java.util.ArrayDeque<Object[]> work = new java.util.ArrayDeque<Object[]>();
+        work.addLast(new Object[] { value, path, Integer.valueOf(nodeIndex) });
+        while (!work.isEmpty()) {
+            Object[] frame = work.removeLast();
+            Object currentValue = frame[0];
+            String currentPath = (String) frame[1];
+            java.util.List<?> plan = (java.util.List<?>) nodes.get(
+                ((Number) frame[2]).intValue()
+            );
+            String kind = asString(plan.get(0));
+            if (kind.equals("variant")) {
+                Object failure = schemaVariantRefinementFailure(
+                    currentValue,
+                    baseOffset,
+                    currentPath,
+                    (java.util.List<?>) plan.get(1)
+                );
+                if (failure != null) return failure;
+                continue;
+            }
+            if (kind.equals("adt")) {
+                java.util.List<?> expected = (java.util.List<?>) plan.get(1);
+                if (!expected.isEmpty()) {
+                    Object failure = schemaVariantRefinementFailure(
+                        currentValue,
+                        baseOffset,
+                        currentPath,
+                        expected
+                    );
+                    if (failure != null) return failure;
+                }
+                Adt adtValue = (Adt) currentValue;
+                String actual = adtLeafName(adtValue.name);
+                boolean matched = false;
+                for (Object variantValue : (java.util.List<?>) plan.get(2)) {
+                    java.util.List<?> variant = (java.util.List<?>) variantValue;
+                    String variantName = asString(variant.get(0));
+                    if (!actual.equals(variantName)) continue;
+                    matched = true;
+                    String constructorPath = currentPath + "/" + jsonPointerToken(variantName);
+                    java.util.List<?> payloads = (java.util.List<?>) variant.get(1);
+                    for (int index = payloads.size() - 1; index >= 0; index -= 1) {
+                        java.util.List<?> payload = (java.util.List<?>) payloads.get(index);
+                        work.addLast(new Object[] {
+                            adtValue.payloads[((Number) payload.get(0)).intValue()],
+                            constructorPath + "/" + jsonPointerToken(asString(payload.get(1))),
+                            payload.get(2)
+                        });
+                    }
+                    break;
+                }
+                if (!matched) {
+                    throw new IllegalStateException(
+                        "missing schema refinement plan for ADT constructor `" + actual + "`"
+                    );
+                }
+                continue;
+            }
+            if (kind.equals("record")) {
+                java.util.List<?> fields = (java.util.List<?>) plan.get(1);
+                for (int index = fields.size() - 1; index >= 0; index -= 1) {
+                    java.util.List<?> field = (java.util.List<?>) fields.get(index);
+                    String name = asString(field.get(0));
+                    work.addLast(new Object[] {
+                        recordField(currentValue, name),
+                        currentPath + "/" + jsonPointerToken(name),
+                        field.get(1)
+                    });
+                }
+                continue;
+            }
+            if (kind.equals("option")) {
+                Option option = (Option) currentValue;
+                if (option.some) {
+                    work.addLast(new Object[] { option.value, currentPath, plan.get(1) });
+                }
+                continue;
+            }
+            if (kind.equals("result")) {
+                Result result = (Result) currentValue;
+                Object branch = plan.get(result.ok ? 1 : 2);
+                if (!(branch instanceof java.util.List<?> && ((java.util.List<?>) branch).isEmpty())) {
+                    work.addLast(new Object[] { result.value, currentPath, branch });
+                }
+                continue;
+            }
+            if (kind.equals("list")) {
+                ListValue item = (ListValue) currentValue;
+                java.util.ArrayList<Object> items = new java.util.ArrayList<Object>();
+                while (item.cons) {
+                    items.add(item.head);
+                    item = (ListValue) item.tail;
+                }
+                for (int index = items.size() - 1; index >= 0; index -= 1) {
+                    work.addLast(new Object[] {
+                        items.get(index), currentPath + "/" + index, plan.get(1)
+                    });
+                }
+                continue;
+            }
+            if (kind.equals("vec")) {
+                java.util.List<?> items = (java.util.List<?>) currentValue;
+                for (int index = items.size() - 1; index >= 0; index -= 1) {
+                    work.addLast(new Object[] {
+                        items.get(index), currentPath + "/" + index, plan.get(1)
+                    });
+                }
+                continue;
+            }
+            if (kind.equals("dict")) {
+                java.util.Map<Object, Object> values = asMap(currentValue);
+                java.util.ArrayList<SchemaRefinementDictionaryKey> keys =
+                    new java.util.ArrayList<SchemaRefinementDictionaryKey>();
+                for (Object key : values.keySet()) {
+                    keys.add(new SchemaRefinementDictionaryKey(asString(key)));
+                }
+                java.util.Collections.sort(keys, VelnRuntime::compareUtf8Bytes);
+                for (int index = keys.size() - 1; index >= 0; index -= 1) {
+                    SchemaRefinementDictionaryKey entry = keys.get(index);
+                    work.addLast(new Object[] {
+                        values.get(entry.key),
+                        currentPath + "/" + jsonPointerToken(entry.key),
+                        plan.get(1)
+                    });
+                }
+                continue;
+            }
+            throw new IllegalStateException("unknown schema refinement plan `" + kind + "`");
+        }
+        return null;
+    }
+
+    private static Object schemaRefinementPlanFailure(
+        Object value,
+        Object baseOffset,
+        String path,
         java.util.List<?> tree
     ) {
         java.util.ArrayList<Object> nodes = new java.util.ArrayList<Object>();
@@ -194,155 +333,6 @@
         int index = nodes.size();
         nodes.add(node);
         return index;
-    }
-
-    private static Object schemaRefinementPlanFailure(
-        Object value,
-        Object baseOffset,
-        String path,
-        java.util.List<?> nodes,
-        int nodeIndex
-    ) {
-        java.util.List<?> plan = (java.util.List<?>) nodes.get(nodeIndex);
-        String kind = asString(plan.get(0));
-        if (kind.equals("variant")) {
-            return schemaVariantRefinementFailure(
-                value,
-                baseOffset,
-                path,
-                (java.util.List<?>) plan.get(1)
-            );
-        }
-        if (kind.equals("adt")) {
-            java.util.List<?> expected = (java.util.List<?>) plan.get(1);
-            if (!expected.isEmpty()) {
-                Object failure = schemaVariantRefinementFailure(
-                    value,
-                    baseOffset,
-                    path,
-                    expected
-                );
-                if (failure != null) return failure;
-            }
-            Adt adtValue = (Adt) value;
-            String actual = adtLeafName(adtValue.name);
-            for (Object variantValue : (java.util.List<?>) plan.get(2)) {
-                java.util.List<?> variant = (java.util.List<?>) variantValue;
-                String variantName = asString(variant.get(0));
-                if (!actual.equals(variantName)) continue;
-                String constructorPath = path + "/" + jsonPointerToken(variantName);
-                for (Object payloadValue : (java.util.List<?>) variant.get(1)) {
-                    java.util.List<?> payload = (java.util.List<?>) payloadValue;
-                    int index = ((Number) payload.get(0)).intValue();
-                    String segment = asString(payload.get(1));
-                    Object failure = schemaRefinementPlanFailure(
-                        adtValue.payloads[index],
-                        baseOffset,
-                        constructorPath + "/" + jsonPointerToken(segment),
-                        nodes,
-                        ((Number) payload.get(2)).intValue()
-                    );
-                    if (failure != null) return failure;
-                }
-                return null;
-            }
-            throw new IllegalStateException(
-                "missing schema refinement plan for ADT constructor `" + actual + "`"
-            );
-        }
-        if (kind.equals("record")) {
-            for (Object fieldValue : (java.util.List<?>) plan.get(1)) {
-                java.util.List<?> field = (java.util.List<?>) fieldValue;
-                String name = asString(field.get(0));
-                Object failure = schemaRefinementPlanFailure(
-                    recordField(value, name),
-                    baseOffset,
-                    path + "/" + jsonPointerToken(name),
-                    nodes,
-                    ((Number) field.get(1)).intValue()
-                );
-                if (failure != null) return failure;
-            }
-            return null;
-        }
-        if (kind.equals("option")) {
-            Option option = (Option) value;
-            return option.some
-                ? schemaRefinementPlanFailure(
-                    option.value,
-                    baseOffset,
-                    path,
-                    nodes,
-                    ((Number) plan.get(1)).intValue()
-                )
-                : null;
-        }
-        if (kind.equals("result")) {
-            Result result = (Result) value;
-            Object branch = plan.get(result.ok ? 1 : 2);
-            if (branch instanceof java.util.List<?> && ((java.util.List<?>) branch).isEmpty()) {
-                return null;
-            }
-            return schemaRefinementPlanFailure(
-                result.value,
-                baseOffset,
-                path,
-                nodes,
-                ((Number) branch).intValue()
-            );
-        }
-        if (kind.equals("list")) {
-            ListValue item = (ListValue) value;
-            long index = 0L;
-            while (item.cons) {
-                Object failure = schemaRefinementPlanFailure(
-                    item.head,
-                    baseOffset,
-                    path + "/" + index,
-                    nodes,
-                    ((Number) plan.get(1)).intValue()
-                );
-                if (failure != null) return failure;
-                item = (ListValue) item.tail;
-                index += 1L;
-            }
-            return null;
-        }
-        if (kind.equals("vec")) {
-            java.util.List<?> items = (java.util.List<?>) value;
-            for (int index = 0; index < items.size(); index += 1) {
-                Object failure = schemaRefinementPlanFailure(
-                    items.get(index),
-                    baseOffset,
-                    path + "/" + index,
-                    nodes,
-                    ((Number) plan.get(1)).intValue()
-                );
-                if (failure != null) return failure;
-            }
-            return null;
-        }
-        if (kind.equals("dict")) {
-            java.util.Map<Object, Object> values = asMap(value);
-            java.util.ArrayList<SchemaRefinementDictionaryKey> keys =
-                new java.util.ArrayList<SchemaRefinementDictionaryKey>();
-            for (Object key : values.keySet()) {
-                keys.add(new SchemaRefinementDictionaryKey(asString(key)));
-            }
-            java.util.Collections.sort(keys, VelnRuntime::compareUtf8Bytes);
-            for (SchemaRefinementDictionaryKey entry : keys) {
-                Object failure = schemaRefinementPlanFailure(
-                    values.get(entry.key),
-                    baseOffset,
-                    path + "/" + jsonPointerToken(entry.key),
-                    nodes,
-                    ((Number) plan.get(1)).intValue()
-                );
-                if (failure != null) return failure;
-            }
-            return null;
-        }
-        throw new IllegalStateException("unknown schema refinement plan `" + kind + "`");
     }
 
     private static Object schemaVariantRefinementFailure(

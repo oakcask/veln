@@ -11,14 +11,14 @@ pub type Node<A>
 end
 
 schema Packet
-	item: Node<State::Connected>
+	item: Node<State::Connected>::Next
 end
 
-fn validate_packet(value: {item: Node<State>}, offset: ByteOffset) -> Result<{item: Node<State::Connected>}, DecodeError>
+fn validate_packet(value: {item: Node<State>}, offset: ByteOffset) -> Result<{item: Node<State::Connected>::Next}, DecodeError>
 	validate Packet from value at offset
 end
 
-pub fn main() -> Result<{item: Node<State::Connected>}, DecodeError>
+pub fn main() -> Result<{item: Node<State::Connected>::Next}, DecodeError>
 	match byte_offset(61)
 		Ok(offset) => validate_packet({item: Next(Next(Value(Closed)))}, offset)
 		Err(_) => main()

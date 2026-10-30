@@ -870,11 +870,6 @@ fn explicit_schema_validate_expression_builds_finite_regular_recursive_source_ad
             3,
         ),
         (
-            "type Node<A>\n  Next(value: Node<A>)\n  Value(value: A)\nend\n",
-            "Node<State>::Value",
-            3,
-        ),
-        (
             "type Node<A>\n  Next(value: Other<A>)\n  Value(value: A)\nend\ntype Other<A>\n  Back(value: Node<A>)\nend\n",
             "Node<State::Connected>",
             4,
@@ -917,6 +912,114 @@ fn explicit_schema_validate_expression_builds_finite_regular_recursive_source_ad
             assert_eq!(variants[0].payloads[0].plan, first);
         }
     }
+}
+
+#[test]
+fn explicit_schema_validate_expression_erases_outer_refinements_from_recursive_payloads() {
+    for field_type in [
+        "Node<State>::Next",
+        "Node<State>::Next | Node<State>::Value",
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "type State\n  Connected\n  Closed\nend\ntype Node<A>\n  Next(value: Node<A>)\n  Value(value: A)\n  Empty\nend\nschema Packet\n  item: {field_type}\nend\nfn check(value: {{item: Node<State>}}, base: ByteOffset) -> Result<{{item: {field_type}}}, DecodeError>\n  validate Packet from value at base\nend\n"
+            ),
+        );
+        let lowered = lower_checked_surface_module(&lower_surface_ast(&parse(&source).tree));
+        assert!(
+            lowered.diagnostics.is_empty(),
+            "{field_type}: {:#?}",
+            lowered.diagnostics
+        );
+        let plan = &lowered
+            .core
+            .as_ref()
+            .expect("checked core")
+            .schema_refinement_validators[0]
+            .plan;
+        let CoreSchemaRefinementPlanNode::Record(fields) = plan.root_node() else {
+            panic!("root plan should be a record");
+        };
+        let CoreSchemaRefinementPlanNode::Adt {
+            expected_variants,
+            variants,
+        } = plan.node(fields[0].plan)
+        else {
+            panic!("outer refinement should retain ADT dispatch");
+        };
+        assert!(!expected_variants.is_empty());
+        assert!(
+            variants.iter().all(|variant| variant.payloads.is_empty()),
+            "an outer constraint must not flow onto an unrefined recursive payload"
+        );
+    }
+
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "type Node<A>\n  Next(value: Node<A>)\n  Value(value: A)\nend\n",
+            "schema Packet\n  item: Node<State::Connected>::Next\nend\n",
+            "fn check(value: {item: Node<State>}, base: ByteOffset) -> Result<{item: Node<State::Connected>::Next}, DecodeError>\n",
+            "  validate Packet from value at base\n",
+            "end\n",
+        ),
+    );
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parse(&source).tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let plan = &lowered
+        .core
+        .as_ref()
+        .expect("checked core")
+        .schema_refinement_validators[0]
+        .plan;
+    let CoreSchemaRefinementPlanNode::Record(fields) = plan.root_node() else {
+        panic!("root plan should be a record");
+    };
+    let outer = fields[0].plan;
+    let CoreSchemaRefinementPlanNode::Adt {
+        expected_variants,
+        variants,
+    } = plan.node(outer)
+    else {
+        panic!("outer refinement should dispatch the source ADT");
+    };
+    assert_eq!(expected_variants, &["Next"]);
+    let recursive = variants
+        .iter()
+        .find(|variant| variant.name == "Next")
+        .expect("Next plan")
+        .payloads[0]
+        .plan;
+    assert_ne!(recursive, outer);
+    let CoreSchemaRefinementPlanNode::Adt {
+        expected_variants,
+        variants,
+    } = plan.node(recursive)
+    else {
+        panic!("recursive payload should use an unrefined ADT cycle");
+    };
+    assert!(expected_variants.is_empty());
+    assert_eq!(
+        variants
+            .iter()
+            .find(|variant| variant.name == "Next")
+            .expect("recursive Next plan")
+            .payloads[0]
+            .plan,
+        recursive
+    );
+    let value_plan = variants
+        .iter()
+        .find(|variant| variant.name == "Value")
+        .expect("Value plan")
+        .payloads[0]
+        .plan;
+    assert!(matches!(
+        plan.node(value_plan),
+        CoreSchemaRefinementPlanNode::Variant(expected) if expected == &["Connected"]
+    ));
 }
 
 #[test]
