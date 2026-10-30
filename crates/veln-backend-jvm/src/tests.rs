@@ -180,11 +180,26 @@ fn run_jvm_program_with_env_when_java_is_available(
 }
 
 fn wait_for_test_child(
-    mut child: std::process::Child,
+    child: std::process::Child,
     name: &str,
     timeout: std::time::Duration,
 ) -> std::process::Output {
-    let mut stdout = child
+    wait_for_test_child_with_stdout(child, name, timeout, |mut stdout| {
+        let mut bytes = Vec::new();
+        stdout
+            .read_to_end(&mut bytes)
+            .expect("test child stdout should be readable");
+        bytes
+    })
+}
+
+fn wait_for_test_child_with_stdout(
+    mut child: std::process::Child,
+    name: &str,
+    timeout: std::time::Duration,
+    read_stdout: impl FnOnce(std::process::ChildStdout) -> Vec<u8> + Send + 'static,
+) -> std::process::Output {
+    let stdout = child
         .stdout
         .take()
         .expect("test child stdout should be piped");
@@ -192,13 +207,7 @@ fn wait_for_test_child(
         .stderr
         .take()
         .expect("test child stderr should be piped");
-    let stdout_reader = std::thread::spawn(move || {
-        let mut bytes = Vec::new();
-        stdout
-            .read_to_end(&mut bytes)
-            .expect("test child stdout should be readable");
-        bytes
-    });
+    let stdout_reader = std::thread::spawn(move || read_stdout(stdout));
     let stderr_reader = std::thread::spawn(move || {
         let mut bytes = Vec::new();
         stderr

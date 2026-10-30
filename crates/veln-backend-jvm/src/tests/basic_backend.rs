@@ -1138,9 +1138,19 @@ fn external_socket_client_uses_an_unregistered_host_listener_when_java_is_availa
 
 #[test]
 fn external_socket_listener_accepts_an_unsynthesized_host_client_when_java_is_available() {
+    use std::io::{BufRead, BufReader};
+
     if Command::new("java").arg("-version").output().is_err() {
         return;
     }
+    let Some(reservation) = bind_loopback_listener_when_available() else {
+        return;
+    };
+    drop(reservation);
+
+    // Exercise real host acceptance, byte transfer, and half-close through the JVM.
+    // Publish the OS-assigned endpoint only after listen succeeds, so host startup
+    // does not depend on a retry window or reuse a released port reservation.
     let ir = lower_with_standard_modules_to_ir(concat!(
         "use net from \"std\"\n",
         "use stdio\n",
@@ -1156,9 +1166,13 @@ fn external_socket_listener_accepts_an_unsynthesized_host_client_when_java_is_av
         "    net::ReadEnd => Ok(0)\n",
         "  end\n",
         "end\n",
-        "fn run_listener(address: String) -> Result<(), net::NetError> effects [net::IO, time, stdio]\n",
-        "  let parts = net::split_host_port(address)?\n",
-        "  let listener = net::listen(net::Address(net::Tcp4, parts.host, parts.port))?\n",
+        "fn run_listener() -> Result<(), net::NetError> effects [net::IO, time, stdio]\n",
+        "  let listener = net::listen(net::Address(net::Tcp4, \"127.0.0.1\", 0))?\n",
+        "  let endpoint = net::listener_address(listener)?\n",
+        "  let address = match endpoint\n",
+        "    net::Endpoint(_, address) => address\n",
+        "  end\n",
+        "  stdio::println(address)\n",
         "  let stream = net::accept(listener)?\n",
         "  let token: CancelToken = time::cancel_token()\n",
         "  time::cancel(token)\n",
@@ -1177,48 +1191,63 @@ fn external_socket_listener_accepts_an_unsynthesized_host_client_when_java_is_av
         "  stdio::println(int_to_string(request_count))\n",
         "  Ok(())\n",
         "end\n",
-        "pub fn main(address: String) -> Result<(), net::NetError> effects [net, time, stdio]\n",
-        "  handle run_listener(address) with net::system()\n",
+        "pub fn main() -> Result<(), net::NetError> effects [net, time, stdio]\n",
+        "  handle run_listener() with net::system()\n",
         "end\n",
     ));
-    let program = generate_classfiles_with_entry_arg_types(&ir, "main", &[EntryArgType::String]);
-    let Some(reservation) = bind_loopback_listener_when_available() else {
-        return;
-    };
-    let address = reservation
-        .local_addr()
-        .expect("port reservation should have an address")
-        .to_string();
-    drop(reservation);
-    let client_address = address.clone();
-    let host = thread::spawn(move || {
-        let mut stream = (0..100)
-            .find_map(|_| match TcpStream::connect(&client_address) {
-                Ok(stream) => Some(stream),
-                Err(_) => {
-                    thread::sleep(Duration::from_millis(10));
-                    None
-                }
-            })
-            .expect("host client should connect to the external listener");
-        stream
-            .write_all(&[0x01, 0x02, 0x03])
-            .expect("host client should write in order");
-        stream
-            .shutdown(Shutdown::Write)
-            .expect("host client should half-close its request");
-        let mut response = Vec::new();
-        stream
-            .read_to_end(&mut response)
-            .expect("host client should observe reclaimed stream output");
-        assert_eq!(response, [0x0a, 0x0b]);
-    });
-
-    let output =
-        run_jvm_program_when_java_is_available("external-socket-listener", &program, &[&address])
-            .expect("java availability was checked");
-
-    host.join().expect("host client should finish");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let root = temp_dir("external-socket-listener");
+    write_jvm_program(&root, &program);
+    let child = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("VelnEntry")
+        .current_dir(&root)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("java should run");
+    let output = wait_for_test_child_with_stdout(
+        child,
+        "external-socket-listener",
+        Duration::from_secs(30),
+        |stdout| {
+            let mut stdout = BufReader::new(stdout);
+            let mut address = String::new();
+            stdout
+                .read_line(&mut address)
+                .expect("listener should publish its endpoint");
+            let address = address
+                .trim()
+                .parse::<std::net::SocketAddr>()
+                .expect("listener should publish a socket address");
+            let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(5))
+                .expect("host client should connect to the ready external listener");
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .expect("host client reads should be bounded");
+            stream
+                .set_write_timeout(Some(Duration::from_secs(5)))
+                .expect("host client writes should be bounded");
+            stream
+                .write_all(&[0x01, 0x02, 0x03])
+                .expect("host client should write in order");
+            stream
+                .shutdown(Shutdown::Write)
+                .expect("host client should half-close its request");
+            let mut response = Vec::new();
+            stream
+                .read_to_end(&mut response)
+                .expect("host client should observe reclaimed stream output");
+            assert_eq!(response, [0x0a, 0x0b]);
+            let mut bytes = Vec::new();
+            stdout
+                .read_to_end(&mut bytes)
+                .expect("listener output should be readable");
+            bytes
+        },
+    );
+    let _ = fs::remove_dir_all(root);
     assert!(
         output.status.success(),
         "{}",
