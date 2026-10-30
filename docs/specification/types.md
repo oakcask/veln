@@ -1505,7 +1505,11 @@ position and must have a supported format-neutral shape. A direct or mutual
 recursive payload graph is eligible when every return to an active source ADT
 uses the same nominal identity and exact instantiated generic arguments as that
 active occurrence. Refinement erasure continues through those regular recursive
-edges. A return with different instantiated arguments, including
+edges. A constructor refinement constrains only the ADT occurrence where it is
+written. It is not copied onto a recursive payload occurrence whose declared
+type is the unrefined ADT. Refinements in the payload's instantiated generic
+arguments remain in effect and are erased independently for the input record.
+A return with different instantiated arguments, including
 generic-expanding recursion, makes the validation operation a static failure.
 Every reachable composed schema must be format-neutral
 and predicate-free, including composed branches that contain no refinement. A

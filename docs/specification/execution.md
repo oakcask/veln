@@ -410,7 +410,12 @@ install that production client boundary.
   index. Direct and mutual recursive source-ADT values follow the same
   constructor and payload order. Every finite value occurrence is checked;
   revisiting the same recursive validation shape does not skip a later value
-  occurrence. Lists and vectors visit elements in increasing
+  occurrence. A constructor refinement on an outer ADT occurrence is checked
+  only at that occurrence. A recursive payload declared as the unrefined ADT
+  may use any of its constructors, while refinements in instantiated generic
+  arguments are still checked at their payload positions. Deep finite values
+  retain this behavior without failing from JVM call-stack exhaustion. Lists
+  and vectors visit elements in increasing
   index order. Dictionaries visit values in ascending lexicographic order of
   the keys' UTF-8 bytes. Nested and repeated container positions are all
   visited. Each refinement accepts constructors in its source-ADT declaration
