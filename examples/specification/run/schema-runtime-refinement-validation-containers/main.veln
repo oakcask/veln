@@ -43,7 +43,7 @@ end
 pub fn main() -> Result<(), String> effects [stdio]
 	let offset = byte_offset(41)?
 	report(validate_packet({optional: None, outcome: Err(Closed(2)), linked: linked(Connected(3), Connected(5)), vector: [Connected(7), Connected(11)], table: {"two": Connected(13), "one": Connected(17)}, mixed: Some([{"ok": Ok(Connected(19))}])}, offset))
-	report(validate_packet({optional: Some(Connected(2)), outcome: Ok(Connected(3)), linked: linked(Connected(5), Closed(7)), vector: [Connected(11)], table: {}, mixed: None}, offset))
+	report(validate_packet({optional: Some(Connected(2)), outcome: Ok(Connected(3)), linked: list_cons(Connected(5), linked(Closed(7), Closed(11))), vector: [Connected(13)], table: {}, mixed: None}, offset))
 	report(validate_packet({optional: None, outcome: Err(Closed(2)), linked: list_nil(), vector: [Connected(3), Closed(5), Closed(7)], table: {}, mixed: None}, offset))
 	report(validate_packet({optional: None, outcome: Err(Closed(2)), linked: list_nil(), vector: [], table: {}, mixed: Some([{"a/b~c": Ok(Closed(11))}])}, offset))
 	report(validate_packet({optional: None, outcome: Err(Closed(2)), linked: list_nil(), vector: [], table: {"b": Closed(3), "a": Closed(5)}, mixed: None}, offset))

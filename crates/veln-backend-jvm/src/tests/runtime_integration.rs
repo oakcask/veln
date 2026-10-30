@@ -327,6 +327,20 @@ public final class SchemaRefinementContainersHarness {
             throw new AssertionError("successful validation did not preserve input identity");
         }
 
+        Object linked = VelnRuntime.listCons(
+            connected,
+            VelnRuntime.listCons(closed, VelnRuntime.listCons(closed, VelnRuntime.listNil()))
+        );
+        Object rejectedList = VelnRuntime.record(
+            "optional", VelnRuntime.none(),
+            "outcome", VelnRuntime.err(closed),
+            "linked", linked,
+            "vector", VelnRuntime.list(),
+            "table", VelnRuntime.dict(),
+            "mixed", VelnRuntime.none()
+        );
+        requireFailurePath(rejectedList, rootPlan, "/ContainerPacket/linked/1");
+
         Object vector = VelnRuntime.list(connected, closed, closed);
         Object rejected = VelnRuntime.record(
             "optional", VelnRuntime.none(),
