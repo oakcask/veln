@@ -491,8 +491,9 @@ recursive static eligibility check. A dictionary on a refinement path must use
 `String` keys. Every reachable source-ADT constructor and payload type must be
 visible from its use position and have a supported format-neutral shape. The
 source-ADT payload graph may use direct or mutual recursive edges when every
-edge preserves the instantiated type arguments. Generic-expanding recursion is
-not eligible because it has no finite validation shape. Binary schemas are
+return to an active source ADT uses the same instantiated type arguments.
+Generic-expanding recursion is not eligible because it has no finite validation
+shape. Binary schemas are
 also not eligible. The value and offset expressions are evaluated once, in
 that order. Schema-path lookup,
 public aliases, and exact-companion private access follow the decode and encode
