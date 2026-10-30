@@ -242,6 +242,167 @@ public final class SchemaRefinementRejectionIdentityHarness {
 }
 
 #[test]
+fn jvm_runtime_schema_refinement_plan_traverses_standard_containers_deterministically() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        eprintln!("skipping container refinement verification because a JDK is unavailable");
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-schema-refinement-containers",
+        "SchemaRefinementContainersHarness.java",
+        r#"
+public final class SchemaRefinementContainersHarness {
+    private static Object variant(String expected) {
+        return VelnRuntime.list("variant", VelnRuntime.list(expected));
+    }
+
+    private static Object field(String name, Object plan) {
+        return VelnRuntime.list(name, plan);
+    }
+
+    private static VelnRuntime.Result validate(Object value, Object plan) {
+        return (VelnRuntime.Result) VelnRuntime.validateSchemaRefinementPlan(
+            value,
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(37) }),
+            "ContainerPacket",
+            plan
+        );
+    }
+
+    private static void requireFailurePath(Object value, Object plan, String path) {
+        VelnRuntime.Result result = validate(value, plan);
+        if (result.isOk() || !result.toString().contains(path)) {
+            throw new AssertionError("expected failure at " + path + ": " + result);
+        }
+    }
+
+    public static void main(String[] args) {
+        Object connected = VelnRuntime.adt("State::Connected", new Object[] {});
+        Object closed = VelnRuntime.adt("State::Closed", new Object[] {});
+        Object statePlan = variant("Connected");
+        Object rootPlan = VelnRuntime.list(
+            "record",
+            VelnRuntime.list(
+                field("optional", VelnRuntime.list("option", statePlan)),
+                field(
+                    "outcome",
+                    VelnRuntime.list("result", statePlan, variant("Closed"))
+                ),
+                field("linked", VelnRuntime.list("list", statePlan)),
+                field("vector", VelnRuntime.list("vec", statePlan)),
+                field("table", VelnRuntime.list("dict", statePlan)),
+                field(
+                    "mixed",
+                    VelnRuntime.list(
+                        "option",
+                        VelnRuntime.list(
+                            "vec",
+                            VelnRuntime.list(
+                                "dict",
+                                VelnRuntime.list(
+                                    "result",
+                                    statePlan,
+                                    variant("Closed")
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        );
+        Object value = VelnRuntime.record(
+            "optional", VelnRuntime.none(),
+            "outcome", VelnRuntime.err(closed),
+            "linked", VelnRuntime.listCons(connected, VelnRuntime.listCons(connected, VelnRuntime.listNil())),
+            "vector", VelnRuntime.list(connected, connected),
+            "table", VelnRuntime.dict("two", connected, "one", connected),
+            "mixed", VelnRuntime.some(VelnRuntime.list(VelnRuntime.dict("ok", VelnRuntime.ok(connected))))
+        );
+        VelnRuntime.Result accepted = validate(value, rootPlan);
+        if (!accepted.isOk() || accepted.value() != value) {
+            throw new AssertionError("successful validation did not preserve input identity");
+        }
+
+        Object linked = VelnRuntime.listCons(
+            connected,
+            VelnRuntime.listCons(closed, VelnRuntime.listCons(closed, VelnRuntime.listNil()))
+        );
+        Object rejectedList = VelnRuntime.record(
+            "optional", VelnRuntime.none(),
+            "outcome", VelnRuntime.err(closed),
+            "linked", linked,
+            "vector", VelnRuntime.list(),
+            "table", VelnRuntime.dict(),
+            "mixed", VelnRuntime.none()
+        );
+        requireFailurePath(rejectedList, rootPlan, "/ContainerPacket/linked/1");
+
+        Object vector = VelnRuntime.list(connected, closed, closed);
+        Object rejected = VelnRuntime.record(
+            "optional", VelnRuntime.none(),
+            "outcome", VelnRuntime.err(closed),
+            "linked", VelnRuntime.listNil(),
+            "vector", vector,
+            "table", VelnRuntime.dict(),
+            "mixed", VelnRuntime.none()
+        );
+        Object suppliedVector = VelnRuntime.recordField(rejected, "vector");
+        requireFailurePath(rejected, rootPlan, "/ContainerPacket/vector/1");
+        if (VelnRuntime.recordField(rejected, "vector") != suppliedVector) {
+            throw new AssertionError("failed validation changed input identity");
+        }
+
+        Object dictPlan = VelnRuntime.list(
+            "record",
+            VelnRuntime.list(field("table", VelnRuntime.list("dict", statePlan)))
+        );
+        String firstUtf8 = "\uE000";
+        String laterUtf8 = "\uD800\uDC00";
+        Object insertionOne = VelnRuntime.record(
+            "table", VelnRuntime.dict(laterUtf8, closed, firstUtf8, closed)
+        );
+        Object insertionTwo = VelnRuntime.record(
+            "table", VelnRuntime.dict(firstUtf8, closed, laterUtf8, closed)
+        );
+        requireFailurePath(insertionOne, dictPlan, "/ContainerPacket/table/" + firstUtf8);
+        requireFailurePath(insertionTwo, dictPlan, "/ContainerPacket/table/" + firstUtf8);
+
+        Object escaped = VelnRuntime.record("table", VelnRuntime.dict("a/b~c", closed));
+        requireFailurePath(escaped, dictPlan, "/ContainerPacket/table/a~1b~0c");
+
+        java.util.Map<Object, Object> manyLongKeys =
+            new java.util.LinkedHashMap<Object, Object>();
+        StringBuilder prefixBuilder = new StringBuilder();
+        for (int index = 0; index < 512; index += 1) prefixBuilder.append('a');
+        String prefix = prefixBuilder.toString();
+        for (int index = 255; index >= 0; index -= 1) {
+            String key = prefix + String.format("-%03d", Integer.valueOf(index));
+            manyLongKeys.put(key, index == 0 ? closed : connected);
+        }
+        Object many = VelnRuntime.record("table", manyLongKeys);
+        requireFailurePath(many, dictPlan, "/ContainerPacket/table/" + prefix + "-000");
+        System.out.println("container refinement traversal passed");
+    }
+}
+"#,
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "container refinement traversal passed\n"
+    );
+}
+
+#[test]
 fn jvm_runtime_preserves_cancellation_entering_host_connect_when_java_is_available() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

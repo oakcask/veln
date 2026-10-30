@@ -218,7 +218,8 @@ common fields are:
 
 - `kind: "byte_diagnostic"`, `id`, and `message`;
 - `byte_offset`, `field_path`, and optional `field_path_display`; field-path
-  segments carry `kind` and `name`, with `index` segments for repeated fields;
+  segments carry `kind` and `name`, with `index` segments for repeated binary
+  fields;
 - one typed fact: count/readiness, range, fixed value, or `reason`;
 - optional bounded `byte_preview`.
 
@@ -255,11 +256,14 @@ Format-neutral runtime refinement validation reports these result failures in
 
 | ID | Additional fields |
 | --- | --- |
-| `schema.variant_refinement_mismatch` | The exact supplied `byte_offset`, a `field_path` starting at the terminal schema declaration, passing through containing composed-schema or anonymous-record fields, and ending at the rejected field, plus `reason` naming the actual and admitted variants. |
+| `schema.variant_refinement_mismatch` | The exact supplied `byte_offset`, a `field_path` starting at the terminal schema declaration, passing through containing composed-schema or anonymous-record fields, decimal list or vector indices, and dictionary keys before the rejected field, plus `reason` naming the actual and admitted variants. |
 | `schema.validation_offset_invalid` | The exact negative supplied `byte_offset`, the terminal schema declaration root in `field_path`, and `reason` naming the rejected offset. |
 
 Both failures retain the supplied offset. Their paths do not start at a public
-alias used to reach the terminal schema.
+alias used to reach the terminal schema. Container indices and dictionary keys
+use `field` segments whose `name` is the decimal index or decoded key. The
+optional `field_path_display` retains the JSON Pointer spelling, where `~` is
+escaped as `~0` and `/` as `~1`.
 
 ### Value diagnostic projection
 

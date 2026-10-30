@@ -6,7 +6,15 @@ use veln_source::SourceSpan;
 pub struct TypedProgram {
     pub functions: Vec<IrFunction>,
     pub schema_decoders: Vec<IrSchemaDecodeSpec>,
+    pub schema_refinement_validators: Vec<IrSchemaRefinementValidationSpec>,
     pub module_values: Vec<IrModuleValueDecl>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IrSchemaRefinementValidationSpec {
+    pub schema_name: String,
+    pub declaration_name: String,
+    pub plan: IrSchemaRefinementPlan,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -43,11 +51,32 @@ pub struct IrSchemaDecodeField {
     pub dispatch: Option<IrSchemaDecodeDispatch>,
     pub reserved_bits: Option<IrSchemaReservedBits>,
     pub variant_refinement: Option<IrSchemaVariantRefinement>,
+    pub refinement_plan: Option<Box<IrSchemaRefinementPlan>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IrSchemaVariantRefinement {
     pub expected_variants: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum IrSchemaRefinementPlan {
+    Variant(IrSchemaVariantRefinement),
+    Record(Vec<IrSchemaRefinementField>),
+    Option(Box<IrSchemaRefinementPlan>),
+    Result {
+        ok: Option<Box<IrSchemaRefinementPlan>>,
+        err: Option<Box<IrSchemaRefinementPlan>>,
+    },
+    List(Box<IrSchemaRefinementPlan>),
+    Vec(Box<IrSchemaRefinementPlan>),
+    Dict(Box<IrSchemaRefinementPlan>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IrSchemaRefinementField {
+    pub name: String,
+    pub plan: Box<IrSchemaRefinementPlan>,
 }
 
 impl IrSchemaDecodeField {
@@ -65,6 +94,7 @@ impl IrSchemaDecodeField {
             dispatch: None,
             reserved_bits: None,
             variant_refinement: None,
+            refinement_plan: None,
         }
     }
 }

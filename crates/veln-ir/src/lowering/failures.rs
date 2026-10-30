@@ -31,6 +31,7 @@ fn blocked_readiness_returns_first_blocker_before_lowering_body() {
         }],
         effects: Vec::new(),
         module_values: Vec::new(),
+        schema_refinement_validators: Vec::new(),
         readiness: CoreReadiness::Blocked(vec![first.clone(), second]),
     };
 

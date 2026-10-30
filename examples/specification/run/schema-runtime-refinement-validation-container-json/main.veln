@@ -1,0 +1,17 @@
+# Container validation failures retain structured and escaped field paths.
+
+pub type State
+	pub Connected
+	pub Closed
+end
+
+schema ContainerPacket
+	mixed: Vec<Dict<String, State::Connected>>
+end
+
+pub fn main() -> Result<{mixed: Vec<Dict<String, State::Connected>>}, DecodeError>
+	match byte_offset(41)
+		Ok(offset) => validate ContainerPacket from {mixed: [{"a/b~c": Closed}]} at offset
+		Err(_) => main()
+	end
+end

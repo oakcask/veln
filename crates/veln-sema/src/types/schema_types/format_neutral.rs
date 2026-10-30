@@ -1,8 +1,9 @@
 use super::*;
 
-use crate::adt::descriptors::{AdtConstructor, AdtDescriptor};
+use crate::adt::descriptors::{AdtConstructor, AdtDescriptor, AdtVariantKind};
 use crate::adt::registry::AdtRegistry;
 use crate::adt::type_operations as adt;
+use crate::builtin_type_syntax::BUILTIN_TYPE_SYNTAX_DESCRIPTORS;
 use crate::name_recovery::{normal_use_decls, use_decl_is_recovery_candidate};
 use crate::type_syntax::parse_type_annotation;
 
@@ -107,7 +108,13 @@ fn format_neutral_schema_runtime_validation_types_inner(
             has_refinement |= child_has_refinement;
             child_erased
         } else {
-            let (erased, field_has_refinement) = format_neutral_runtime_validation_type(&refined)?;
+            let (erased, field_has_refinement) = format_neutral_runtime_validation_type(
+                module,
+                schema.module_name.as_deref(),
+                schema.package_name.as_deref(),
+                adts,
+                &refined,
+            )?;
             has_refinement |= field_has_refinement;
             erased
         };
@@ -122,7 +129,13 @@ fn format_neutral_schema_runtime_validation_types_inner(
     ))
 }
 
-fn format_neutral_runtime_validation_type(ty: &Type) -> Option<(Type, bool)> {
+fn format_neutral_runtime_validation_type(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    adts: &AdtRegistry,
+    ty: &Type,
+) -> Option<(Type, bool)> {
     match ty {
         Type::VariantRefinement {
             name,
@@ -140,18 +153,196 @@ fn format_neutral_runtime_validation_type(ty: &Type) -> Option<(Type, bool)> {
                 true,
             ))
         }
-        Type::Record(fields) => {
-            let mut erased_fields = Vec::with_capacity(fields.len());
-            let mut has_refinement = false;
-            for (name, field_ty) in fields {
-                let (erased, field_has_refinement) =
-                    format_neutral_runtime_validation_type(field_ty)?;
-                erased_fields.push((name.clone(), erased));
-                has_refinement |= field_has_refinement;
-            }
-            Some((Type::Record(erased_fields), has_refinement))
-        }
+        Type::Record(fields) => format_neutral_runtime_validation_record_type(
+            module,
+            current_module,
+            current_package,
+            adts,
+            fields,
+        ),
+        Type::Named { .. } => format_neutral_runtime_validation_named_type(
+            module,
+            current_module,
+            current_package,
+            adts,
+            ty,
+        ),
         _ if !format_neutral_type_contains_refinement(ty) => Some((ty.clone(), false)),
+        _ => None,
+    }
+}
+
+fn format_neutral_runtime_validation_record_type(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    adts: &AdtRegistry,
+    fields: &[(String, Type)],
+) -> Option<(Type, bool)> {
+    let mut erased_fields = Vec::with_capacity(fields.len());
+    let mut has_refinement = false;
+    for (name, field_ty) in fields {
+        let (erased, field_has_refinement) = format_neutral_runtime_validation_type(
+            module,
+            current_module,
+            current_package,
+            adts,
+            field_ty,
+        )?;
+        erased_fields.push((name.clone(), erased));
+        has_refinement |= field_has_refinement;
+    }
+    Some((Type::Record(erased_fields), has_refinement))
+}
+
+fn format_neutral_runtime_validation_named_type(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    adts: &AdtRegistry,
+    ty: &Type,
+) -> Option<(Type, bool)> {
+    let Type::Named {
+        name,
+        identity,
+        args,
+    } = ty
+    else {
+        return None;
+    };
+    let Some(kind) =
+        resolved_standard_runtime_type_kind(module, current_module, current_package, adts, ty)
+    else {
+        return (!format_neutral_type_contains_refinement(ty)).then(|| (ty.clone(), false));
+    };
+    if !kind.is_container() {
+        return Some((ty.clone(), false));
+    }
+    if kind == StandardRuntimeTypeKind::Dict
+        && resolved_standard_runtime_type_kind(
+            module,
+            current_module,
+            current_package,
+            adts,
+            &args[0],
+        ) != Some(StandardRuntimeTypeKind::String)
+    {
+        return None;
+    }
+    let mut erased_args = Vec::with_capacity(args.len());
+    let mut has_refinement = false;
+    for arg in args {
+        let (erased, arg_has_refinement) = format_neutral_runtime_validation_type(
+            module,
+            current_module,
+            current_package,
+            adts,
+            arg,
+        )?;
+        erased_args.push(erased);
+        has_refinement |= arg_has_refinement;
+    }
+    Some((
+        Type::resolved_named(name.clone(), identity.clone(), erased_args),
+        has_refinement,
+    ))
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum StandardRuntimeTypeKind {
+    Option,
+    Result,
+    List,
+    Vec,
+    Dict,
+    String,
+}
+
+impl StandardRuntimeTypeKind {
+    fn is_container(self) -> bool {
+        self != Self::String
+    }
+}
+
+pub(crate) fn resolved_standard_runtime_type_kind(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    adts: &AdtRegistry,
+    ty: &Type,
+) -> Option<StandardRuntimeTypeKind> {
+    let Type::Named {
+        name,
+        identity,
+        args,
+    } = ty
+    else {
+        return None;
+    };
+    let kind = match (identity.as_str(), args.len()) {
+        ("Option", 1) => StandardRuntimeTypeKind::Option,
+        ("Result", 2) => StandardRuntimeTypeKind::Result,
+        ("List", 1) => StandardRuntimeTypeKind::List,
+        ("Vec", 1) => StandardRuntimeTypeKind::Vec,
+        ("Dict", 2) => StandardRuntimeTypeKind::Dict,
+        ("String", 0) => StandardRuntimeTypeKind::String,
+        _ => return None,
+    };
+    if module.types.iter().any(|declaration| {
+        declaration.name.as_deref() == Some(name)
+            && declaration.params.len() == args.len()
+            && declaration.module_name.as_deref() == current_module
+            && declaration.package_name.as_deref() == current_package
+            && !(declaration.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+                && declaration.module_name.as_deref() == Some("std::prelude"))
+    }) {
+        return None;
+    }
+    let uses = normal_use_decls(module);
+    let descriptor = if identity != name {
+        adts.descriptor_for_type(ty)
+    } else {
+        adts.descriptor_for_type_path_in_owner(
+            name,
+            args.len(),
+            current_module,
+            current_package,
+            &uses,
+        )
+    };
+    if let Some(descriptor) = descriptor {
+        return standard_core_container_descriptor_kind(descriptor)
+            .filter(|descriptor_kind| *descriptor_kind == kind);
+    }
+    BUILTIN_TYPE_SYNTAX_DESCRIPTORS
+        .iter()
+        .any(|descriptor| descriptor.name == identity && descriptor.arity == args.len())
+        .then_some(kind)
+}
+
+fn standard_core_container_descriptor_kind(
+    descriptor: &AdtDescriptor,
+) -> Option<StandardRuntimeTypeKind> {
+    if !descriptor.has_standard_prelude_origin()
+        && (descriptor.package_name.is_some() || descriptor.module_name.is_some())
+    {
+        return None;
+    }
+    let kinds = descriptor
+        .variants
+        .iter()
+        .map(|variant| variant.kind)
+        .collect::<Vec<_>>();
+    match (descriptor.type_name.as_str(), kinds.as_slice()) {
+        ("Option", [AdtVariantKind::OptionSome, AdtVariantKind::OptionNone]) => {
+            Some(StandardRuntimeTypeKind::Option)
+        }
+        ("Result", [AdtVariantKind::ResultOk, AdtVariantKind::ResultErr]) => {
+            Some(StandardRuntimeTypeKind::Result)
+        }
+        ("List", [AdtVariantKind::ListNil, AdtVariantKind::ListCons]) => {
+            Some(StandardRuntimeTypeKind::List)
+        }
         _ => None,
     }
 }
@@ -501,10 +692,15 @@ fn format_neutral_schema_visible_shape_type_for_schema(
     traversal: FormatNeutralSchemaTraversal,
 ) -> Option<Type> {
     match ty {
-        Type::Named { name, args, .. } => format_neutral_schema_named_visible_shape_type(
+        Type::Named {
+            name,
+            identity,
+            args,
+        } => format_neutral_schema_named_visible_shape_type(
             (module, current_module, current_package, adts, traversal),
             ty,
             name,
+            identity,
             args,
             state,
         ),
@@ -552,13 +748,24 @@ fn format_neutral_schema_named_visible_shape_type(
     context: FormatNeutralSchemaContext<'_>,
     ty: &Type,
     name: &str,
+    identity: &str,
     args: &[Type],
     state: &mut FormatNeutralSchemaTraversalState,
 ) -> Option<Type> {
     let (module, current_module, current_package, adts, traversal) = context;
-    match (name, args) {
-        ("List" | "Vec", [item]) | ("Option", [item]) => Some(Type::named(
+    let standard_kind =
+        resolved_standard_runtime_type_kind(module, current_module, current_package, adts, ty);
+    match (standard_kind, args) {
+        (
+            Some(
+                StandardRuntimeTypeKind::List
+                | StandardRuntimeTypeKind::Vec
+                | StandardRuntimeTypeKind::Option,
+            ),
+            [item],
+        ) => Some(Type::resolved_named(
             name,
+            identity,
             vec![format_neutral_schema_visible_shape_type_for_schema(
                 module,
                 current_module,
@@ -569,20 +776,35 @@ fn format_neutral_schema_named_visible_shape_type(
                 traversal,
             )?],
         )),
-        ("Dict", [key, value]) if *key == Type::string() => Some(Type::dict(
-            Type::string(),
-            format_neutral_schema_visible_shape_type_for_schema(
+        (Some(StandardRuntimeTypeKind::Dict), [key, value])
+            if resolved_standard_runtime_type_kind(
                 module,
                 current_module,
                 current_package,
                 adts,
-                value,
-                state,
-                traversal,
-            )?,
-        )),
-        ("Result", [ok, error]) => Some(Type::named(
-            "Result",
+                key,
+            ) == Some(StandardRuntimeTypeKind::String) =>
+        {
+            Some(Type::resolved_named(
+                name,
+                identity,
+                vec![
+                    key.clone(),
+                    format_neutral_schema_visible_shape_type_for_schema(
+                        module,
+                        current_module,
+                        current_package,
+                        adts,
+                        value,
+                        state,
+                        traversal,
+                    )?,
+                ],
+            ))
+        }
+        (Some(StandardRuntimeTypeKind::Result), [ok, error]) => Some(Type::resolved_named(
+            name,
+            identity,
             vec![
                 format_neutral_schema_visible_shape_type_for_schema(
                     module,

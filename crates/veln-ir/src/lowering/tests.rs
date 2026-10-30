@@ -70,6 +70,7 @@ fn complete_program(functions: Vec<CoreFunction>) -> CheckedProgram {
         functions,
         effects: Vec::new(),
         module_values: Vec::new(),
+        schema_refinement_validators: Vec::new(),
         readiness: CoreReadiness::Complete,
     }
 }

@@ -10,7 +10,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         let schema = self
             .program
             .program
-            .schema_decoders
+            .schema_refinement_validators
             .iter()
             .find(|schema| schema.schema_name == name)
             .unwrap_or_else(|| panic!("missing schema refinement validation spec `{name}`"));
@@ -20,36 +20,44 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_expr(code, value);
         self.emit_expr(code, base_offset);
         code.ldc_string(&schema.declaration_name);
-        self.emit_schema_field_names(code, schema);
-        self.emit_schema_refinement_expectations(code, schema);
-        self.emit_schema_refinement_children(code, schema);
+        self.emit_schema_refinement_plan(code, &schema.plan);
         code.invokestatic(
             &self.program.options.runtime_class,
-            "validateSchemaRefinements",
-            &object_method_descriptor(6),
+            "validateSchemaRefinementPlan",
+            &object_method_descriptor(4),
         );
     }
 
-    fn emit_schema_refinement_expectations(
+    fn emit_schema_refinement_plan(
         &mut self,
         code: &mut MethodCode,
-        schema: &IrSchemaDecodeSpec,
+        plan: &veln_ir::IrSchemaRefinementPlan,
     ) {
-        self.emit_object_array(code, schema.fields.len(), |this, code, index| {
-            let variants = schema.fields[index]
-                .variant_refinement
-                .as_ref()
-                .map(|refinement| refinement.expected_variants.as_slice())
-                .unwrap_or(&[]);
-            this.emit_object_array(code, variants.len(), |_, code, variant_index| {
-                code.ldc_string(&variants[variant_index]);
-            });
-            code.invokestatic(
-                &this.program.options.runtime_class,
-                "list",
-                "([Ljava/lang/Object;)Ljava/util/List;",
-            );
-        });
+        use veln_ir::IrSchemaRefinementPlan;
+
+        match plan {
+            IrSchemaRefinementPlan::Variant(refinement) => {
+                self.emit_schema_variant_refinement_plan(code, refinement)
+            }
+            IrSchemaRefinementPlan::Record(fields) => {
+                self.emit_schema_record_refinement_plan(code, fields)
+            }
+            IrSchemaRefinementPlan::Option(payload) => {
+                self.emit_single_payload_schema_refinement_plan(code, "option", payload)
+            }
+            IrSchemaRefinementPlan::Result { ok, err } => {
+                self.emit_schema_result_refinement_plan(code, ok.as_deref(), err.as_deref())
+            }
+            IrSchemaRefinementPlan::List(payload) => {
+                self.emit_single_payload_schema_refinement_plan(code, "list", payload)
+            }
+            IrSchemaRefinementPlan::Vec(payload) => {
+                self.emit_single_payload_schema_refinement_plan(code, "vec", payload)
+            }
+            IrSchemaRefinementPlan::Dict(payload) => {
+                self.emit_single_payload_schema_refinement_plan(code, "dict", payload)
+            }
+        }
         code.invokestatic(
             &self.program.options.runtime_class,
             "list",
@@ -57,38 +65,101 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         );
     }
 
-    fn emit_schema_refinement_children(
+    fn emit_schema_variant_refinement_plan(
         &mut self,
         code: &mut MethodCode,
-        schema: &IrSchemaDecodeSpec,
+        refinement: &veln_ir::IrSchemaVariantRefinement,
     ) {
-        self.emit_object_array(code, schema.fields.len(), |this, code, index| {
-            let Some(child) = schema.fields[index].payload_schema.as_deref() else {
-                this.emit_object_array(code, 0, |_, _, _| {});
+        self.emit_object_array(code, 2, |this, code, part| match part {
+            0 => code.ldc_string("variant"),
+            1 => {
+                this.emit_object_array(
+                    code,
+                    refinement.expected_variants.len(),
+                    |_, code, index| code.ldc_string(&refinement.expected_variants[index]),
+                );
                 code.invokestatic(
                     &this.program.options.runtime_class,
                     "list",
                     "([Ljava/lang/Object;)Ljava/util/List;",
                 );
-                return;
-            };
-            this.emit_object_array(code, 3, |this, code, part| match part {
-                0 => this.emit_schema_field_names(code, child),
-                1 => this.emit_schema_refinement_expectations(code, child),
-                2 => this.emit_schema_refinement_children(code, child),
-                _ => unreachable!("schema refinement child descriptor part"),
-            });
+            }
+            _ => unreachable!("variant refinement plan part"),
+        });
+    }
+
+    fn emit_schema_record_refinement_plan(
+        &mut self,
+        code: &mut MethodCode,
+        fields: &[veln_ir::IrSchemaRefinementField],
+    ) {
+        self.emit_object_array(code, 2, |this, code, part| match part {
+            0 => code.ldc_string("record"),
+            1 => {
+                this.emit_object_array(code, fields.len(), |this, code, index| {
+                    this.emit_object_array(code, 2, |this, code, field_part| match field_part {
+                        0 => code.ldc_string(&fields[index].name),
+                        1 => this.emit_schema_refinement_plan(code, &fields[index].plan),
+                        _ => unreachable!("record refinement field part"),
+                    });
+                    code.invokestatic(
+                        &this.program.options.runtime_class,
+                        "list",
+                        "([Ljava/lang/Object;)Ljava/util/List;",
+                    );
+                });
+                code.invokestatic(
+                    &this.program.options.runtime_class,
+                    "list",
+                    "([Ljava/lang/Object;)Ljava/util/List;",
+                );
+            }
+            _ => unreachable!("record refinement plan part"),
+        });
+    }
+
+    fn emit_single_payload_schema_refinement_plan(
+        &mut self,
+        code: &mut MethodCode,
+        kind: &str,
+        payload: &veln_ir::IrSchemaRefinementPlan,
+    ) {
+        self.emit_object_array(code, 2, |this, code, part| match part {
+            0 => code.ldc_string(kind),
+            1 => this.emit_schema_refinement_plan(code, payload),
+            _ => unreachable!("single payload refinement plan part"),
+        });
+    }
+
+    fn emit_schema_result_refinement_plan(
+        &mut self,
+        code: &mut MethodCode,
+        ok: Option<&veln_ir::IrSchemaRefinementPlan>,
+        err: Option<&veln_ir::IrSchemaRefinementPlan>,
+    ) {
+        self.emit_object_array(code, 3, |this, code, part| match part {
+            0 => code.ldc_string("result"),
+            1 => this.emit_optional_schema_refinement_plan(code, ok),
+            2 => this.emit_optional_schema_refinement_plan(code, err),
+            _ => unreachable!("result refinement plan part"),
+        });
+    }
+
+    fn emit_optional_schema_refinement_plan(
+        &mut self,
+        code: &mut MethodCode,
+        plan: Option<&veln_ir::IrSchemaRefinementPlan>,
+    ) {
+        if let Some(plan) = plan {
+            self.emit_schema_refinement_plan(code, plan);
+        } else {
+            self.emit_object_array(code, 0, |_, _, _| {});
             code.invokestatic(
-                &this.program.options.runtime_class,
+                &self.program.options.runtime_class,
                 "list",
                 "([Ljava/lang/Object;)Ljava/util/List;",
             );
-        });
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "list",
-            "([Ljava/lang/Object;)Ljava/util/List;",
-        );
+        }
     }
 
     fn emit_schema_field_list(

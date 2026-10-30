@@ -175,6 +175,9 @@ fn lower_surface_module_to_core_if(
                 .filter_map(|effect| lower_effect_decl(effect, environment))
                 .collect(),
             module_values: module_value_lowering::lower_module_values(module, environment),
+            schema_refinement_validators: crate::schema::ir::schema_refinement_validation_specs(
+                module,
+            ),
             readiness,
         },
         diagnostics,

@@ -1482,16 +1482,22 @@ For `validate Schema from value at offset`, a supported format-neutral schema
 with singleton or finite-set refinement fields derives an input record by
 replacing each such refinement with its resolved base ADT. The derivation
 recurses through anonymous records and composed format-neutral schema fields
-while preserving field requirements, schema visibility, nominal identity, and
-generic arguments. The result is
+and through `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and
+`Dict<String, T>`. It preserves field requirements, schema visibility, nominal
+container identity, and every generic argument position. Container and
+dictionary-key recognition requires a resolved declaration owned by the
+toolchain standard package. A same-spelled source ADT does not satisfy that
+boundary, including one declared by an application-owned module named
+`std::prelude`. A dictionary on a refinement path with any key type other than
+the standard `String` is ineligible. The result is
 `Result<SchemaRecord, DecodeError>` and retains the written refinements.
 Contextual typing applies the erased record to `value` and requires
 `ByteOffset` for `offset`; an unrelated ADT, generic argument, record shape, or
 scalar remains a static mismatch. Other supported field types that contain no
 refinement remain unchanged in both records, including containers, anonymous
 records, and composed format-neutral schemas. Refinement erasure and traversal
-inside containers, source-ADT payloads, or recursive values remain proposal
-work. Every reachable composed schema must be format-neutral
+inside arbitrary source-ADT payloads or recursive values remain proposal work.
+Every reachable composed schema must be format-neutral
 and predicate-free, including composed branches that contain no refinement. A
 field `where` clause,
 schema `validate` clause, or binary schema anywhere in that graph makes the

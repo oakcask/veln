@@ -47,8 +47,12 @@ a finite set, while the two resource descriptors are opaque. The
 observable refinement rules and failures. The toolchain
 `std` package is the source of truth for prelude declarations, visibility,
 ordinary types, ADTs other than compiler-owned `Option`, `Result`, and `List`,
-and Veln helper bodies. Compiler adapters retain expected-type and callback
-inference for public helper names declared by that package.
+and Veln helper bodies. Only declarations resolved to that package's
+`std::prelude` module receive standard-prelude descriptor identity. A
+same-spelled module owned by an application keeps its package-qualified
+identity and cannot replace a standard descriptor. Compiler adapters retain
+expected-type and callback inference for public helper names declared by the
+standard package.
 
 The `time::wall_time` descriptor returns the structural record type named by
 the public `std::prelude::WallTime` alias. The descriptor therefore supplies

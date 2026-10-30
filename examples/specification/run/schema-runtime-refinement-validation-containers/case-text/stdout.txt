@@ -1,0 +1,21 @@
+accepted
+schema.variant_refinement_mismatch
+41
+/ContainerPacket/linked/1
+actual variant `Closed`; expected one of `Connected`
+schema.variant_refinement_mismatch
+41
+/ContainerPacket/vector/1
+actual variant `Closed`; expected one of `Connected`
+schema.variant_refinement_mismatch
+41
+/ContainerPacket/mixed/0/a~1b~0c
+actual variant `Closed`; expected one of `Connected`
+schema.variant_refinement_mismatch
+41
+/ContainerPacket/table/a
+actual variant `Closed`; expected one of `Connected`
+schema.variant_refinement_mismatch
+41
+/ContainerPacket/table/a
+actual variant `Closed`; expected one of `Connected`

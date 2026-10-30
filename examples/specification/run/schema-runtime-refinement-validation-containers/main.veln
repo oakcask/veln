@@ -1,0 +1,52 @@
+# Recursive schema validation visits only actual container payloads and reports deterministic paths.
+use stdio
+
+type State
+	Connected(value: Int)
+	Closed(value: Int)
+end
+
+schema ContainerPacket
+	optional: Option<State::Connected>
+	outcome: Result<State::Connected, State::Closed>
+	linked: List<State::Connected>
+	vector: Vec<State::Connected>
+	table: Dict<String, State::Connected>
+	mixed: Option<Vec<Dict<String, Result<State::Connected, State::Closed>>>>
+end
+
+fn validate_packet(value: {optional: Option<State>, outcome: Result<State, State>, linked: List<State>, vector: Vec<State>, table: Dict<String, State>, mixed: Option<Vec<Dict<String, Result<State, State>>>>}, offset: ByteOffset) -> Result<{optional: Option<State::Connected>, outcome: Result<State::Connected, State::Closed>, linked: List<State::Connected>, vector: Vec<State::Connected>, table: Dict<String, State::Connected>, mixed: Option<Vec<Dict<String, Result<State::Connected, State::Closed>>>>}, DecodeError>
+	validate ContainerPacket from value at offset
+end
+
+fn report(result: Result<{optional: Option<State::Connected>, outcome: Result<State::Connected, State::Closed>, linked: List<State::Connected>, vector: Vec<State::Connected>, table: Dict<String, State::Connected>, mixed: Option<Vec<Dict<String, Result<State::Connected, State::Closed>>>>}, DecodeError>) -> () effects [stdio]
+	match result
+		Ok(_) => stdio::println("accepted")
+		Err(DecodeErrorWithReason(id, offset, path, reason)) => begin
+			stdio::println(id)
+			stdio::println(int_to_string(byte_offset_to_int(offset)))
+			stdio::println(path)
+			stdio::println(reason)
+		end
+		Err(DecodeError(id, offset, path)) => begin
+			stdio::println(id)
+			stdio::println(int_to_string(byte_offset_to_int(offset)))
+			stdio::println(path)
+		end
+	end
+end
+
+fn linked(first: State, second: State) -> List<State>
+	list_cons(first, list_cons(second, list_nil()))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let offset = byte_offset(41)?
+	report(validate_packet({optional: None, outcome: Err(Closed(2)), linked: linked(Connected(3), Connected(5)), vector: [Connected(7), Connected(11)], table: {"two": Connected(13), "one": Connected(17)}, mixed: Some([{"ok": Ok(Connected(19))}])}, offset))
+	report(validate_packet({optional: Some(Connected(2)), outcome: Ok(Connected(3)), linked: list_cons(Connected(5), linked(Closed(7), Closed(11))), vector: [Connected(13)], table: {}, mixed: None}, offset))
+	report(validate_packet({optional: None, outcome: Err(Closed(2)), linked: list_nil(), vector: [Connected(3), Closed(5), Closed(7)], table: {}, mixed: None}, offset))
+	report(validate_packet({optional: None, outcome: Err(Closed(2)), linked: list_nil(), vector: [], table: {}, mixed: Some([{"a/b~c": Ok(Closed(11))}])}, offset))
+	report(validate_packet({optional: None, outcome: Err(Closed(2)), linked: list_nil(), vector: [], table: {"b": Closed(3), "a": Closed(5)}, mixed: None}, offset))
+	report(validate_packet({optional: None, outcome: Err(Closed(2)), linked: list_nil(), vector: [], table: {"a": Closed(5), "b": Closed(3)}, mixed: None}, offset))
+	Ok(())
+end

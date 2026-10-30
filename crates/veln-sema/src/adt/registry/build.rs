@@ -493,7 +493,7 @@ fn remove_replaced_standard_descriptors(
 ) {
     let standard_source_types = source_descriptors
         .iter()
-        .filter(|descriptor| descriptor.module_name.as_deref() == Some("std::prelude"))
+        .filter(|descriptor| descriptor.has_standard_prelude_origin())
         .map(|descriptor| descriptor.type_name.as_str())
         .chain(
             module
@@ -501,6 +501,7 @@ fn remove_replaced_standard_descriptors(
                 .iter()
                 .filter(|alias| {
                     alias.kind == PublicAliasKind::Type
+                        && alias.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
                         && alias.module_name.as_deref() == Some("std::prelude")
                 })
                 .filter_map(|alias| alias.name.as_deref()),

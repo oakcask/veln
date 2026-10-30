@@ -8,7 +8,35 @@ pub struct CheckedProgram {
     pub functions: Vec<CoreFunction>,
     pub effects: Vec<CoreEffectDecl>,
     pub module_values: Vec<CoreModuleValueDecl>,
+    pub schema_refinement_validators: Vec<CoreSchemaRefinementValidationSpec>,
     pub readiness: CoreReadiness,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CoreSchemaRefinementValidationSpec {
+    pub schema_name: String,
+    pub declaration_name: String,
+    pub plan: CoreSchemaRefinementPlan,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CoreSchemaRefinementPlan {
+    Variant(Vec<String>),
+    Record(Vec<CoreSchemaRefinementField>),
+    Option(Box<CoreSchemaRefinementPlan>),
+    Result {
+        ok: Option<Box<CoreSchemaRefinementPlan>>,
+        err: Option<Box<CoreSchemaRefinementPlan>>,
+    },
+    List(Box<CoreSchemaRefinementPlan>),
+    Vec(Box<CoreSchemaRefinementPlan>),
+    Dict(Box<CoreSchemaRefinementPlan>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CoreSchemaRefinementField {
+    pub name: String,
+    pub plan: Box<CoreSchemaRefinementPlan>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
