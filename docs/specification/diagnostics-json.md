@@ -1186,9 +1186,13 @@ key before the rejected position. The retained JSON Pointer display escapes
 `~` as `~0` and `/` as `~1`. The checked
 [`schema-runtime-refinement-validation-containers`](../../examples/specification/run/schema-runtime-refinement-validation-containers/)
 case fixes collection indices, deterministic dictionary ordering, and escaped
-dictionary keys. Human rendering identifies
-the failed fact at the offset and places the path and mismatch or offset reason
-in notes.
+dictionary keys. The checked
+[`schema-runtime-refinement-validation-container-json`](../../examples/specification/run/schema-runtime-refinement-validation-container-json/)
+and
+[`schema-runtime-refinement-validation-container-human`](../../examples/specification/run/schema-runtime-refinement-validation-container-human/)
+cases fix their structured and human diagnostic projections. Human rendering
+identifies the failed fact at the offset and places the path and mismatch or
+offset reason in notes.
 
 Type inference diagnostics include:
 
