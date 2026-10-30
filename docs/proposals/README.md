@@ -21,8 +21,9 @@ also states it.
   implemented direct-field and composed-schema operation:
   [schema-runtime-refinement-validation.md](schema-runtime-refinement-validation.md).
 - With typed module `let` syntax, package-wide dependency validation, imported
-  lookup, package-aware stable identity, and visibility implemented, add
-  execution, documentation publication, and language-service navigation:
+  lookup, package-aware stable identity, visibility, and checked-core/typed-IR
+  preservation implemented, add runtime materialization and execution,
+  documentation publication, and language-service navigation:
   [module-immutable-values.md](module-immutable-values.md).
 - Generic named-type variance, bounded inference, and variance metadata:
   [generic-and-function-variance.md](generic-and-function-variance.md).

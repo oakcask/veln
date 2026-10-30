@@ -14,6 +14,71 @@ fn module_with_values(count: usize) -> SurfaceModule {
     lower_surface_ast(&parsed.tree)
 }
 
+fn module_with_literal_values_and_imports(
+    value_count: usize,
+    import_count: usize,
+) -> SurfaceModule {
+    let mut merged = SurfaceModule {
+        module: None,
+        uses: Vec::new(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        types: Vec::new(),
+        module_values: Vec::new(),
+        functions: Vec::new(),
+        invalid_names: Vec::new(),
+    };
+    for owner_index in 0..3 {
+        let module = literal_value_owner_module(owner_index, value_count, import_count);
+        merged.module = module.module.clone();
+        merged.uses.extend(module.uses);
+        merged.module_values.extend(module.module_values);
+    }
+    merged
+}
+
+fn literal_value_owner_module(
+    owner_index: usize,
+    value_count: usize,
+    import_count: usize,
+) -> SurfaceModule {
+    let imports = (0..import_count)
+        .filter(|index| index % 3 == owner_index)
+        .map(|index| format!("use dependency_{index}\n"))
+        .collect::<String>();
+    let values = literal_values_for_owner(owner_index, value_count);
+    let source = SourceFile::new(
+        format!("owner_{owner_index}/shared.veln"),
+        format!("{imports}{values}"),
+    );
+    veln_ast::lower_surface_ast_with_package_module_identity(
+        &parse(&source).tree,
+        format!("owner_{owner_index}/pkg"),
+        literal_value_owner_module_name(owner_index).to_string(),
+        source.span(veln_source::TextRange::new(0, 0)),
+    )
+}
+
+fn literal_values_for_owner(owner_index: usize, value_count: usize) -> String {
+    if owner_index >= 2 {
+        return String::new();
+    }
+    (0..value_count)
+        .filter(|index| index % 2 == owner_index)
+        .map(|index| format!("let value_{index}: Int = {index}\n"))
+        .collect()
+}
+
+fn literal_value_owner_module_name(owner_index: usize) -> &'static str {
+    if owner_index < 2 {
+        "shared"
+    } else {
+        "unrelated"
+    }
+}
+
 fn module_with_value_chain(count: usize) -> SurfaceModule {
     let source = SourceFile::new(
         "main.veln",
@@ -511,8 +576,8 @@ fn module_value_gate_reports_adjacent_size_timings() {
         let lowered = lower_analyzed_surface_module(&module, diagnostics);
         let elapsed = started.elapsed();
 
-        assert!(lowered.core.is_none());
-        assert!(lowered.ir.is_none());
+        assert_eq!(lowered.core.as_ref().unwrap().module_values.len(), count);
+        assert_eq!(lowered.ir.as_ref().unwrap().module_values.len(), count);
         eprintln!("module value gate: {count} declarations in {elapsed:?}");
     }
 }
@@ -758,8 +823,8 @@ fn module_value_gate_work_grows_linearly_with_declarations() {
         let lowered = lower_analyzed_surface_module(&module, diagnostics);
         let work = take_module_value_gate_work();
 
-        assert!(lowered.core.is_none());
-        assert!(lowered.ir.is_none());
+        assert_eq!(lowered.core.as_ref().unwrap().module_values.len(), count);
+        assert_eq!(lowered.ir.as_ref().unwrap().module_values.len(), count);
         assert_eq!(work.indexed_values, count, "{work:#?}");
         assert_eq!(work.scanned_diagnostics, count, "{work:#?}");
         assert_eq!(work.span_index_lookups, count, "{work:#?}");
@@ -771,6 +836,70 @@ fn module_value_gate_work_grows_linearly_with_declarations() {
     let work_n = work_for(N);
     let work_2n = work_for(2 * N);
     assert_eq!(work_2n.total(), 2 * work_n.total());
+}
+
+#[test]
+fn module_value_lowering_import_preparation_is_additive_in_values_and_imports() {
+    fn work_for(
+        value_count: usize,
+        import_count: usize,
+    ) -> crate::lowering::ModuleValueImportPreparationWork {
+        let module = module_with_literal_values_and_imports(value_count, import_count);
+        assert_eq!(module.module_values.len(), value_count);
+        assert_eq!(module.uses.len(), import_count);
+        let diagnostics = analyze_surface_module(&module);
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "module.value_not_executable")
+                .count(),
+            value_count,
+            "{diagnostics:#?}"
+        );
+        assert!(
+            diagnostics.iter().all(|diagnostic| {
+                diagnostic.id == "module.value_not_executable"
+                    || diagnostic.severity != veln_diagnostics::Severity::Error
+            }),
+            "{diagnostics:#?}"
+        );
+
+        crate::lowering::reset_module_value_import_preparation_work();
+        let lowered = lower_analyzed_surface_module(&module, diagnostics);
+        let work = crate::lowering::take_module_value_import_preparation_work();
+
+        let core = lowered
+            .core
+            .expect("literal values should reach checked core");
+        let ir = lowered.ir.expect("literal values should reach typed IR");
+        assert_eq!(core.module_values.len(), value_count);
+        assert_eq!(ir.module_values.len(), value_count);
+        assert!(core.module_values.iter().any(|value| {
+            value.identity.package.as_deref() == Some("owner_0/pkg")
+                && value.identity.module.as_deref() == Some("owner_0/pkg::shared")
+        }));
+        assert!(core.module_values.iter().any(|value| {
+            value.identity.package.as_deref() == Some("owner_1/pkg")
+                && value.identity.module.as_deref() == Some("owner_1/pkg::shared")
+        }));
+        assert_eq!(work.scanned_imports, import_count, "{work:#?}");
+        assert_eq!(work.retained_import_clones, import_count, "{work:#?}");
+        assert_eq!(work.owner_lookups, value_count, "{work:#?}");
+        work
+    }
+
+    const N: usize = 32;
+    let base = work_for(N, N);
+    let more_values = work_for(2 * N, N);
+    let more_imports = work_for(N, 2 * N);
+    let both = work_for(2 * N, 2 * N);
+
+    assert_eq!(more_values.total() - base.total(), N);
+    assert_eq!(more_imports.total() - base.total(), 2 * N);
+    assert_eq!(
+        both.total(),
+        more_values.total() + more_imports.total() - base.total()
+    );
 }
 
 #[test]
@@ -802,7 +931,7 @@ fn module_value_annotation_dedup_work_grows_linearly_with_failures() {
 }
 
 #[test]
-fn module_values_block_checked_core_and_typed_ir_at_the_shared_boundary() {
+fn module_values_retain_checked_core_and_typed_ir_behind_the_execution_gate() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -875,15 +1004,22 @@ fn assert_module_value_gate_diagnostics(lowered: &LoweredSurfaceModule) {
         vec![veln_diagnostics::JsonValue::object([(
             "message",
             veln_diagnostics::JsonValue::string(
-                "The declaration is semantically checked, but checked-core lowering and code generation do not support module values yet.",
+                "The declaration is preserved in checked core and typed IR, but runtime materialization and code generation do not support module values yet.",
             ),
         )])]
     );
     assert_diagnostic_span(diagnostic, 1, 1, 2, 1);
     assert_diagnostic_span(diagnostics[1], 2, 1, 3, 1);
     assert_diagnostic_span(diagnostics[2], 3, 1, 4, 1);
-    assert!(lowered.core.is_none());
-    assert!(lowered.ir.is_none());
+    let core = lowered
+        .core
+        .as_ref()
+        .expect("gate should retain checked core");
+    let ir = lowered.ir.as_ref().expect("gate should retain typed IR");
+    assert_eq!(core.module_values.len(), 3);
+    assert_eq!(ir.module_values.len(), 3);
+    assert_eq!(core.module_values[0].identity.name, "answer");
+    assert_eq!(ir.module_values[0].identity, core.module_values[0].identity);
 }
 
 fn assert_incomplete_diagnostics_are_completed(lowered: &LoweredSurfaceModule) {
@@ -896,8 +1032,8 @@ fn assert_incomplete_diagnostics_are_completed(lowered: &LoweredSurfaceModule) {
         3
     );
     assert_eq!(lowered.diagnostics[0].id, "caller.unrelated");
-    assert!(lowered.core.is_none());
-    assert!(lowered.ir.is_none());
+    assert_eq!(lowered.core.as_ref().unwrap().module_values.len(), 3);
+    assert_eq!(lowered.ir.as_ref().unwrap().module_values.len(), 3);
 }
 
 fn assert_colliding_gate_diagnostics_are_replaced(module: &SurfaceModule, unrelated: Diagnostic) {
@@ -955,8 +1091,24 @@ fn assert_colliding_gate_diagnostics_are_replaced(module: &SurfaceModule, unrela
             .count(),
         1
     );
-    assert!(lowered_with_colliding_warning.core.is_none());
-    assert!(lowered_with_colliding_warning.ir.is_none());
+    assert_eq!(
+        lowered_with_colliding_warning
+            .core
+            .as_ref()
+            .unwrap()
+            .module_values
+            .len(),
+        3
+    );
+    assert_eq!(
+        lowered_with_colliding_warning
+            .ir
+            .as_ref()
+            .unwrap()
+            .module_values
+            .len(),
+        3
+    );
 }
 
 #[test]
@@ -996,6 +1148,75 @@ fn module_value_initializers_accept_finite_data_and_forward_references() {
         }),
         "{diagnostics:#?}"
     );
+
+    let lowered = lower_checked_surface_module(&module);
+    let core = lowered
+        .core
+        .expect("accepted values should retain checked core");
+    let ir = lowered.ir.expect("accepted values should retain typed IR");
+    assert_eq!(core.module_values.len(), 2);
+    assert_eq!(ir.module_values.len(), 2);
+    assert_eq!(
+        core.module_values[0].annotation,
+        "{ state : State, attempts : Int }"
+    );
+    assert_eq!(
+        ir.module_values[0].annotation,
+        core.module_values[0].annotation
+    );
+    let veln_core::CoreExprKind::Record(fields) = &core.module_values[0].initializer.kind else {
+        panic!("expected record initializer");
+    };
+    assert!(matches!(
+        &fields[0].expr.kind,
+        veln_core::CoreExprKind::ModuleValue(identity)
+            if identity.name == "initial"
+    ));
+    assert!(matches!(
+        &fields[1].expr.kind,
+        veln_core::CoreExprKind::Prefix {
+            op: veln_ast::PrefixOp::Negate,
+            ..
+        }
+    ));
+    assert!(matches!(
+        &core.module_values[1].initializer.kind,
+        veln_core::CoreExprKind::AdtVariant { name, payloads }
+            if name == &["State".to_string(), "Active".to_string()]
+                && matches!(payloads.as_slice(), [veln_core::CoreExpr { kind: veln_core::CoreExprKind::IntLiteral(value), .. }] if value == "3")
+    ));
+    assert_eq!(ir.module_values[0].identity, core.module_values[0].identity);
+    assert_eq!(ir.module_values[0].ty, core.module_values[0].ty);
+    assert_eq!(
+        ir.module_values[0].visibility,
+        core.module_values[0].visibility
+    );
+    assert_eq!(ir.module_values[0].span, core.module_values[0].span);
+    assert!(matches!(
+        &ir.module_values[0].initializer.kind,
+        veln_ir::IrExprKind::Record(fields)
+            if matches!(&fields[0].value.kind, veln_ir::IrExprKind::ModuleValue(identity) if identity.name == "initial")
+    ));
+    assert!(matches!(
+        core.functions[0].body.last().map(|statement| &statement.kind),
+        Some(veln_core::CoreStmtKind::Return {
+            expr: veln_core::CoreExpr {
+                kind: veln_core::CoreExprKind::FieldAccess { base, field },
+                ..
+            }
+        }) if field == "attempts"
+            && matches!(&base.kind, veln_core::CoreExprKind::ModuleValue(identity) if identity.name == "defaults")
+    ));
+    assert!(matches!(
+        ir.functions[0].body.last().map(|statement| &statement.kind),
+        Some(veln_ir::IrStmtKind::Return {
+            value: veln_ir::IrExpr {
+                kind: veln_ir::IrExprKind::FieldAccess { base, field },
+                ..
+            }
+        }) if field == "attempts"
+            && matches!(&base.kind, veln_ir::IrExprKind::ModuleValue(identity) if identity.name == "defaults")
+    ));
 }
 
 #[test]
@@ -1017,6 +1238,7 @@ fn module_value_initializers_accept_the_complete_finite_data_surface() {
             "let outcome: Result<Int, String> = Ok(later)\n",
             "let items: List<Int> = Cons(later, Nil)\n",
             "let nested: { state: State, data: { optional: Option<Int>, items: List<Int> } } = { state: Active(later), data: { optional: Some(later), items: Cons(later, Nil) } }\n",
+            "let projected: { kept: Int } = { kept: later, extra: { flag: true }, inferred: Some({ flag: true }) }\n",
             "let later: Int = 3\n",
         ),
     );
@@ -1036,6 +1258,130 @@ fn module_value_initializers_accept_the_complete_finite_data_surface() {
             .iter()
             .all(|diagnostic| diagnostic.id == "module.value_not_executable"),
         "{diagnostics:#?}"
+    );
+
+    let lowered = lower_checked_surface_module(&module);
+    let core = lowered.core.expect("finite initializers should reach core");
+    let ir = lowered.ir.expect("finite initializers should reach IR");
+    assert_eq!(core.module_values.len(), module.module_values.len());
+    assert_eq!(ir.module_values.len(), module.module_values.len());
+    assert_core_finite_module_value_initializers(&core);
+    assert_ir_finite_module_value_initializers(&ir);
+}
+
+fn core_module_value<'a>(
+    core: &'a veln_core::CheckedProgram,
+    name: &str,
+) -> &'a veln_core::CoreModuleValueDecl {
+    core.module_values
+        .iter()
+        .find(|declaration| declaration.identity.name == name)
+        .expect("core module value")
+}
+
+fn assert_core_finite_module_value_initializers(core: &veln_core::CheckedProgram) {
+    assert!(matches!(
+        core_module_value(core, "boolean").initializer.kind,
+        veln_core::CoreExprKind::BoolLiteral(true)
+    ));
+    assert!(matches!(
+        core_module_value(core, "text").initializer.kind,
+        veln_core::CoreExprKind::StringLiteral(_)
+    ));
+    assert!(matches!(
+        core_module_value(core, "nothing").initializer.kind,
+        veln_core::CoreExprKind::Unit
+    ));
+    assert!(
+        matches!(core_module_value(core, "grouped").initializer.kind, veln_core::CoreExprKind::ModuleValue(ref identity) if identity.name == "boolean")
+    );
+    assert!(
+        matches!(core_module_value(core, "idle").initializer.kind, veln_core::CoreExprKind::AdtVariant { ref payloads, .. } if payloads.is_empty())
+    );
+    assert!(
+        matches!(core_module_value(core, "active").initializer.kind, veln_core::CoreExprKind::AdtVariant { ref payloads, .. } if payloads.len() == 1)
+    );
+    assert!(matches!(
+        core_module_value(core, "optional").initializer.kind,
+        veln_core::CoreExprKind::OptionSome(_)
+    ));
+    assert!(matches!(
+        core_module_value(core, "outcome").initializer.kind,
+        veln_core::CoreExprKind::ResultOk(_)
+    ));
+    assert!(matches!(
+        core_module_value(core, "items").initializer.kind,
+        veln_core::CoreExprKind::ListCons { .. }
+    ));
+    assert!(matches!(
+        core_module_value(core, "nested").initializer.kind,
+        veln_core::CoreExprKind::Record(_)
+    ));
+    let veln_core::CoreExprKind::Record(fields) =
+        &core_module_value(core, "projected").initializer.kind
+    else {
+        panic!("expected projected record initializer");
+    };
+    assert_eq!(
+        fields[1].expr.ty,
+        veln_core::CoreType::Record(vec![("flag".to_string(), veln_core::CoreType::bool(),)])
+    );
+    assert_eq!(
+        fields[2].expr.ty,
+        veln_core::CoreType::named(
+            "Option",
+            vec![veln_core::CoreType::Record(vec![(
+                "flag".to_string(),
+                veln_core::CoreType::bool(),
+            )])],
+        )
+    );
+    assert!(matches!(
+        &fields[2].expr.kind,
+        veln_core::CoreExprKind::OptionSome(payload)
+            if payload.ty == veln_core::CoreType::Record(vec![(
+                "flag".to_string(),
+                veln_core::CoreType::bool(),
+            )])
+    ));
+}
+
+fn ir_module_value<'a>(
+    ir: &'a veln_ir::TypedProgram,
+    name: &str,
+) -> &'a veln_ir::IrModuleValueDecl {
+    ir.module_values
+        .iter()
+        .find(|declaration| declaration.identity.name == name)
+        .expect("IR module value")
+}
+
+fn assert_ir_finite_module_value_initializers(ir: &veln_ir::TypedProgram) {
+    assert!(matches!(
+        ir_module_value(ir, "optional").initializer.kind,
+        veln_ir::IrExprKind::OptionSome(_)
+    ));
+    assert!(matches!(
+        ir_module_value(ir, "items").initializer.kind,
+        veln_ir::IrExprKind::ListCons { .. }
+    ));
+    let veln_ir::IrExprKind::Record(fields) = &ir_module_value(ir, "projected").initializer.kind
+    else {
+        panic!("expected projected record initializer");
+    };
+    assert_eq!(
+        fields[1].value.ty,
+        veln_core::CoreType::Record(vec![("flag".to_string(), veln_core::CoreType::bool(),)])
+    );
+    assert_eq!(
+        fields[2].value.ty,
+        veln_core::CoreType::named(
+            "Option",
+            vec![veln_core::CoreType::Record(vec![(
+                "flag".to_string(),
+                veln_core::CoreType::bool(),
+            )])],
+        )
     );
 }
 
@@ -1088,33 +1434,81 @@ fn contextual_empty_dictionaries_are_not_admitted_as_empty_records() {
 
 #[test]
 fn qualified_same_module_values_resolve_across_declaring_sources() {
-    let module = merged_modules_with_identities(vec![
-        (
+    for reverse_sources in [false, true] {
+        let consumers = (
             "app::config",
             SourceFile::new(
-                "first.veln",
+                "consumers.veln",
                 concat!(
                     "let bare: Int = later\n",
                     "let leaf: Int = config::later\n",
                     "let complete: Int = app::config::later\n",
                 ),
             ),
-        ),
-        (
+        );
+        let selected = (
             "app::config",
             SourceFile::new("later.veln", "let later: Int = 2\n"),
-        ),
-    ]);
+        );
+        let sources = if reverse_sources {
+            vec![selected, consumers]
+        } else {
+            vec![consumers, selected]
+        };
+        let module = merged_modules_with_identities(sources);
 
-    let diagnostics = analyze_surface_module(&module);
+        let lowered = lower_checked_surface_module(&module);
 
-    assert!(
-        diagnostics.iter().all(|diagnostic| {
-            diagnostic.id == "module.value_not_executable"
-                || diagnostic.severity != veln_diagnostics::Severity::Error
-        }),
-        "{diagnostics:#?}"
-    );
+        assert!(
+            lowered.diagnostics.iter().all(|diagnostic| {
+                diagnostic.id == "module.value_not_executable"
+                    || diagnostic.severity != veln_diagnostics::Severity::Error
+            }),
+            "reverse_sources={reverse_sources}: {:#?}",
+            lowered.diagnostics
+        );
+        let core = lowered.core.expect("same-module values should reach core");
+        let ir = lowered.ir.expect("same-module values should reach IR");
+        let selected_identity = veln_core::CoreModuleValueIdentity {
+            package: None,
+            module: Some("app::config".to_string()),
+            name: "later".to_string(),
+        };
+
+        for name in ["bare", "leaf", "complete"] {
+            let consumer_identity = veln_core::CoreModuleValueIdentity {
+                package: None,
+                module: Some("app::config".to_string()),
+                name: name.to_string(),
+            };
+            let declaration = core
+                .module_values
+                .iter()
+                .find(|declaration| declaration.identity == consumer_identity)
+                .expect("core consumer declaration");
+            assert!(
+                matches!(
+                    &declaration.initializer.kind,
+                    veln_core::CoreExprKind::ModuleValue(identity)
+                        if identity == &selected_identity
+                ),
+                "name={name}, reverse_sources={reverse_sources}: {declaration:#?}"
+            );
+            let declaration = ir
+                .module_values
+                .iter()
+                .find(|declaration| declaration.identity == consumer_identity)
+                .expect("IR consumer declaration");
+            assert!(
+                matches!(
+                    &declaration.initializer.kind,
+                    veln_ir::IrExprKind::ModuleValue(identity)
+                        if identity == &selected_identity
+                ),
+                "name={name}, reverse_sources={reverse_sources}: {declaration:#?}"
+            );
+        }
+    }
 }
 
 #[test]
@@ -1351,6 +1745,74 @@ fn bare_and_qualified_paths_select_the_same_module_value_declaration() {
     };
 
     assert!(std::ptr::eq(bare, qualified));
+}
+
+#[test]
+fn imported_module_value_spellings_retain_the_selected_identity_in_core_and_ir() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "values",
+            SourceFile::new("values.veln", "pub let answer: Int = 42\n"),
+        ),
+        (
+            "app",
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use values\n",
+                    "let bare: Int = answer\n",
+                    "let qualified: Int = values::answer\n",
+                ),
+            ),
+        ),
+        (
+            "aliased",
+            SourceFile::new(
+                "aliased.veln",
+                concat!(
+                    "use values as config\n",
+                    "let aliased: Int = config::answer\n",
+                ),
+            ),
+        ),
+    ]);
+
+    let lowered = lower_checked_surface_module(&module);
+    assert!(
+        lowered.diagnostics.iter().all(|diagnostic| {
+            diagnostic.id == "module.value_not_executable"
+                || diagnostic.severity != veln_diagnostics::Severity::Error
+        }),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    let core = lowered.core.expect("imported values should reach core");
+    let ir = lowered.ir.expect("imported values should reach IR");
+    let expected = veln_core::CoreModuleValueIdentity {
+        package: None,
+        module: Some("values".to_string()),
+        name: "answer".to_string(),
+    };
+    for name in ["bare", "qualified", "aliased"] {
+        let declaration = core
+            .module_values
+            .iter()
+            .find(|declaration| declaration.identity.name == name)
+            .expect("consumer declaration");
+        assert!(matches!(
+            &declaration.initializer.kind,
+            veln_core::CoreExprKind::ModuleValue(identity) if identity == &expected
+        ));
+        let declaration = ir
+            .module_values
+            .iter()
+            .find(|declaration| declaration.identity.name == name)
+            .expect("IR consumer declaration");
+        assert!(matches!(
+            &declaration.initializer.kind,
+            veln_ir::IrExprKind::ModuleValue(identity) if identity == &expected
+        ));
+    }
 }
 
 #[test]

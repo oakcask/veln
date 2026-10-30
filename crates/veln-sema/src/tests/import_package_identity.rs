@@ -76,7 +76,9 @@ fn same_spelled_module_values_fixture(
         "app.veln",
         &format!(
             "{imports}fn first_value() -> first::Marker\n  first::answer\nend\n\
-             fn second_value() -> second::Marker\n  second::answer\nend\n"
+             fn second_value() -> second::Marker\n  second::answer\nend\n\
+             fn first_equal_value() -> Int\n  first::distraction\nend\n\
+             fn second_equal_value() -> Int\n  second::distraction\nend\n"
         ),
         Some("owner/pkg"),
         "app",
@@ -118,9 +120,10 @@ fn same_spelled_module_values_fixture(
 fn module_value_for_alias<'a>(
     environment: &'a TypeEnvironment,
     alias: &str,
+    name: &str,
 ) -> &'a crate::types::ModuleValueSignature {
     match environment.module_value_path_in_owner(
-        &[alias.to_string(), "answer".to_string()],
+        &[alias.to_string(), name.to_string()],
         Some("owner/pkg::app"),
         Some("owner/pkg"),
     ) {
@@ -162,80 +165,87 @@ fn same_spelled_module_values_from_distinct_packages_keep_distinct_identity() {
                 );
 
                 let environment = TypeEnvironment::from_module(&app);
-                for (alias, package) in [("first", "selected/pkg"), ("second", "namesake/pkg")] {
-                    let value = module_value_for_alias(&environment, alias);
+                for (alias, package, name) in [
+                    ("first", "selected/pkg", "answer"),
+                    ("second", "namesake/pkg", "answer"),
+                    ("first", "selected/pkg", "distraction"),
+                    ("second", "namesake/pkg", "distraction"),
+                ] {
+                    let value = module_value_for_alias(&environment, alias, name);
                     assert_eq!(
                         (
                             value.declaration.package_name.as_deref(),
                             value.declaration.module_name.as_deref(),
                             value.declaration.name.as_deref(),
                         ),
-                        (Some(package), Some("shared"), Some("answer")),
-                        "alias={alias}, {context}"
+                        (Some(package), Some("shared"), Some(name)),
+                        "alias={alias}, name={name}, {context}"
                     );
+                    if name == "answer" {
+                        assert!(
+                            matches!(
+                                &value.ty,
+                                Type::Named { identity, .. }
+                                    if identity == &format!("{package}::shared::Marker")
+                            ),
+                            "alias={alias}, {context}: {:?}",
+                            value.ty
+                        );
+                    } else {
+                        assert_eq!(value.ty, Type::int(), "alias={alias}, {context}");
+                    }
+                }
+
+                let lowered = lower_checked_surface_module(&app);
+                let core = lowered.core.expect("package identities should reach core");
+                let ir = lowered.ir.expect("package identities should reach IR");
+                for (function_name, package, value_name) in [
+                    ("first_value", "selected/pkg", "answer"),
+                    ("second_value", "namesake/pkg", "answer"),
+                    ("first_equal_value", "selected/pkg", "distraction"),
+                    ("second_equal_value", "namesake/pkg", "distraction"),
+                ] {
+                    let function = core
+                        .functions
+                        .iter()
+                        .find(|function| function.name.ends_with(function_name))
+                        .expect("core function");
                     assert!(
                         matches!(
-                            &value.ty,
-                            Type::Named { identity, .. }
-                                if identity == &format!("{package}::shared::Marker")
+                            function.body.last().map(|statement| &statement.kind),
+                            Some(veln_core::CoreStmtKind::Return {
+                                expr: veln_core::CoreExpr {
+                                    kind: veln_core::CoreExprKind::ModuleValue(identity),
+                                    ..
+                                }
+                            }) if identity.package.as_deref() == Some(package)
+                                && identity.module.as_deref() == Some("shared")
+                                && identity.name == value_name
                         ),
-                        "alias={alias}, {context}: {:?}",
-                        value.ty
+                        "{function_name}, {context}: {function:#?}"
+                    );
+                    let function = ir
+                        .functions
+                        .iter()
+                        .find(|function| function.name.ends_with(function_name))
+                        .expect("IR function");
+                    assert!(
+                        matches!(
+                            function.body.last().map(|statement| &statement.kind),
+                            Some(veln_ir::IrStmtKind::Return {
+                                value: veln_ir::IrExpr {
+                                    kind: veln_ir::IrExprKind::ModuleValue(identity),
+                                    ..
+                                }
+                            }) if identity.package.as_deref() == Some(package)
+                                && identity.module.as_deref() == Some("shared")
+                                && identity.name == value_name
+                        ),
+                        "{function_name}, {context}: {function:#?}"
                     );
                 }
             }
         }
-    }
-}
-
-#[test]
-fn public_module_value_visibility_uses_complete_package_and_module_owner() {
-    let declarations = concat!(
-        "use helper\n",
-        "type Secret\n",
-        "  pub Value\n",
-        "end\n",
-        "pub type State\n",
-        "  Hidden\n",
-        "end\n",
-        "pub let named: Secret = Value\n",
-        "pub let refined: State::Hidden = Hidden\n",
-    );
-
-    for reverse in [false, true] {
-        let one = source_module("one/shared.veln", declarations, Some("one/pkg"), "shared");
-        let two = source_module("two/shared.veln", declarations, Some("two/pkg"), "shared");
-        let mut module = if reverse { two.clone() } else { one.clone() };
-        if reverse {
-            extend(&mut module, one);
-        } else {
-            extend(&mut module, two);
-        }
-
-        let diagnostics = analyze_surface_module(&module);
-
-        assert_eq!(
-            diagnostics
-                .iter()
-                .filter(|diagnostic| diagnostic.id == "type.public_annotation_private")
-                .count(),
-            2,
-            "reverse={reverse}: {diagnostics:#?}"
-        );
-        assert_eq!(
-            diagnostics
-                .iter()
-                .filter(|diagnostic| diagnostic.id == "type.variant_refinement_private")
-                .count(),
-            2,
-            "reverse={reverse}: {diagnostics:#?}"
-        );
-        assert!(
-            diagnostics
-                .iter()
-                .all(|diagnostic| diagnostic.id != "name.unresolved"),
-            "reverse={reverse}: {diagnostics:#?}"
-        );
     }
 }
 
@@ -645,6 +655,7 @@ fn each_effect_alias_excludes_the_other_package_from_inference_and_discharge() {
     }
 }
 
+mod module_value_owners;
 mod package_scoped_helpers;
 mod quarantine_recovery;
 mod schema_type_identity;

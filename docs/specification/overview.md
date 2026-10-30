@@ -52,8 +52,9 @@ The following behavior is fixed for the implemented slice:
   immutable data. `veln fmt` accepts a valid declaration. After initializer
   and package-wide dependency checking,
   `veln check`, `veln run`, `veln test`, and `veln doc` report
-  `module.value_not_executable` before checked-core, typed-IR, runtime, or
-  package-documentation use. See
+  `module.value_not_executable` before runtime, backend, or
+  package-documentation use. Checked core and typed IR retain each accepted
+  declaration, finite initializer, and selected package-aware reference. See
   [source-surface.md](source-surface.md#module-immutable-value-declarations),
   [diagnostics-json.md](diagnostics-json.md#diagnostic-families), and
   [execution.md](execution.md#runtime-readiness-and-host-boundaries).

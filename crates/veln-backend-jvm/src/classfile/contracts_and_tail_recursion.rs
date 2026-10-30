@@ -119,6 +119,7 @@ fn scan_expr_tail_recursion(
             scan_cleanup_region_tail_recursion(region, function, facts);
         }
         IrExprKind::Local(_)
+        | IrExprKind::ModuleValue(_)
         | IrExprKind::BoolLiteral(_)
         | IrExprKind::StringLiteral(_)
         | IrExprKind::IntLiteral(_)

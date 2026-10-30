@@ -6,8 +6,9 @@ use veln_ast::{
 };
 use veln_core::{
     ContractObligationStatus, CoreCleanupRegion, CoreContract, CoreContractCall, CoreDictEntry,
-    CoreFunction, CoreMatchArm, CoreParam, CorePattern, CorePatternField, CorePatternKind,
-    CoreReadiness, CoreRecordField, CoreStmtKind, CoreType,
+    CoreFunction, CoreMatchArm, CoreModuleValueDecl, CoreModuleValueIdentity, CoreParam,
+    CorePattern, CorePatternField, CorePatternKind, CoreReadiness, CoreRecordField, CoreStmtKind,
+    CoreType,
 };
 use veln_source::SourceFile;
 use veln_syntax::parse;
@@ -68,6 +69,7 @@ fn complete_program(functions: Vec<CoreFunction>) -> CheckedProgram {
     CheckedProgram {
         functions,
         effects: Vec::new(),
+        module_values: Vec::new(),
         readiness: CoreReadiness::Complete,
     }
 }

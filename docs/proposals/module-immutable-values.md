@@ -22,12 +22,15 @@ cycle rejection. The current
 [name-resolution specification](../specification/name-resolution.md#namespaces-and-use-roles)
 defines package-aware declaration identity, same-module and imported lookup,
 forward lookup, local shadowing, visibility, and the shared
-function/module-value namespace. The current compiler deliberately retains
-`module.value_not_executable` after those checks.
+function/module-value namespace. The current
+[execution specification](../specification/execution.md#runtime-readiness-and-host-boundaries)
+defines checked-core and typed-IR preservation and the remaining runtime gate.
+The compiler deliberately retains `module.value_not_executable` after those
+checks.
 
 This proposal now owns only:
 
-- checked-core lowering and immutable runtime value construction;
+- immutable runtime value construction and backend code generation;
 - package-documentation publication of public names and annotations; and
 - language-service definition, references, and rename for module values.
 
@@ -43,9 +46,8 @@ startup phase, user-code initializer execution, lazy failure, or mutable
 storage. Physical sharing is unspecified; declaration identity remains distinct
 from storage identity and from equality of initializer data.
 
-Checked-core and typed IR must preserve module-value declaration identity and
-references. Runtime lowering must materialize admitted literal, record, and ADT
-constructor trees without invoking user code. The existing
+Backend lowering must materialize admitted literal, record, and ADT constructor
+trees without invoking user code. The existing
 `module.value_not_executable` gate remains until this complete route is present.
 
 Package documentation must publish each eligible public name and written

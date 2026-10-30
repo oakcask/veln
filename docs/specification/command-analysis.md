@@ -41,7 +41,8 @@ valid module value. The same boundary applies when analysis reuses a prepared
 standard-library environment.
 Initializer or package-wide dependency failures are reported together with
 `module.value_not_executable` for each declaration. The latter error keeps the
-shared pipeline from producing checked core or typed IR for that selection.
+selection from becoming execution-ready or producing backend output. Accepted
+declarations and references remain represented in checked core and typed IR.
 Parsing and formatting remain available as specified by the
 [source-surface boundary](source-surface.md#module-immutable-value-declarations).
 

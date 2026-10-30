@@ -117,19 +117,34 @@ runtime failure, or cancellation is already primary, it remains primary and
 the network-handler cleanup failure is attached as a related cleanup failure
 while unwinding continues.
 
-Semantic diagnostics must be error-free before the compiler produces checked
-core and typed IR. Command analysis checks readiness for the selected entry
-before applying command-specific execution or write policy. Holes, missing
-expressions, constructor or call arity failures, and recognized concurrency
-blockers prevent execution.
+Semantic diagnostics other than the module-value execution gate must be
+error-free before the compiler produces checked core and typed IR. Command
+analysis checks readiness for the selected entry before applying
+command-specific execution or write policy. Holes, missing expressions,
+constructor or call arity failures, and recognized concurrency blockers
+prevent execution.
 
-Module immutable value declarations do not reach checked core or typed IR.
-Shared semantic analysis checks their written annotations, finite-data
-initializers, eligible imported references, package-aware visibility, and
-selected dependency edges across package sources. It then emits
-`module.value_not_executable` for every declaration, which blocks execution
-before code generation. Parsing, formatting, and semantic checking for the
-declaration do not create a runtime value or initialization phase.
+An accepted module immutable value declaration reaches checked core and typed
+IR. Both representations retain its package, module, and name identity, its
+written annotation and checked type, visibility, declaration span, and finite
+initializer tree. A selected same-module or imported reference is a distinct
+module-value reference whose package-aware declaration identity survives
+core-to-IR lowering. Source order, import order, import spelling, and equal
+initializer data do not replace that identity. Focused structural evidence is
+in the semantic
+[`module_values`](../../crates/veln-sema/src/tests/module_values.rs) and
+[`import_package_identity`](../../crates/veln-sema/src/tests/import_package_identity.rs)
+tests and the typed-IR
+[`successful_lowering`](../../crates/veln-ir/src/lowering/successful_lowering.rs)
+tests.
+
+Shared semantic analysis still emits `module.value_not_executable` for every
+declaration. The diagnostic blocks runtime materialization, code generation,
+and command success. Parsing, formatting, semantic checking, and internal
+representation do not create a runtime value or initialization phase.
+The JVM backend requires the typed program's module-value declaration set to
+be empty. It rejects a nonempty set before classfile generation, so retaining a
+declaration in typed IR does not make that declaration executable.
 
 A named-type visibility failure in a public module value annotation is also a
 checked-core and typed-IR blocker. The same applies to a variant-refinement

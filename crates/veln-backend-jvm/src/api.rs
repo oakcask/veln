@@ -12,6 +12,7 @@ pub fn generate_classfiles_with_test_entries(
     program: &TypedProgram,
     entry_functions: &[String],
 ) -> JvmProgram {
+    assert_module_values_not_executable(program);
     let options = SanitizedOptions {
         program_class: java_type_identifier(&JvmBackendOptions::default().program_class),
         runtime_class: "VelnRuntime".to_string(),
@@ -38,9 +39,17 @@ pub fn generate_classfiles_with_entry_arg_types_options(
     entry_arg_types: &[EntryArgType],
     options: &JvmBackendOptions,
 ) -> JvmProgram {
+    assert_module_values_not_executable(program);
     let options = SanitizedOptions {
         program_class: java_type_identifier(&options.program_class),
         runtime_class: "VelnRuntime".to_string(),
     };
     ClassfileEmitter::new(program, options).emit(entry_function, entry_arg_types)
+}
+
+fn assert_module_values_not_executable(program: &TypedProgram) {
+    assert!(
+        program.module_values.is_empty(),
+        "module values must be rejected before JVM backend lowering"
+    );
 }

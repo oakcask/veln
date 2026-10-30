@@ -7,8 +7,9 @@ use veln_core::{
     CheckedProgram, ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreCallbackTarget,
     CoreCleanupRegion, CoreContract, CoreContractCall, CoreDeferredBlock, CoreDeferredCapture,
     CoreDictEntry, CoreEffectDecl, CoreEffectOperationDecl, CoreExpr, CoreExprKind, CoreFunction,
-    CoreHandlerProvider, CoreMatchArm, CoreParam, CorePattern, CorePatternField, CorePatternKind,
-    CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
+    CoreHandlerProvider, CoreMatchArm, CoreModuleValueDecl, CoreModuleValueIdentity, CoreParam,
+    CorePattern, CorePatternField, CorePatternKind, CoreReadiness, CoreRecordField, CoreStmt,
+    CoreStmtKind, CoreType,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_literals::parse_integer_literal;
@@ -37,6 +38,13 @@ mod call_lowering;
 mod data_and_control_flow;
 mod expression_lowering;
 mod function_lowering;
+mod module_value_lowering;
+
+#[cfg(test)]
+pub(crate) use module_value_lowering::{
+    ModuleValueImportPreparationWork, reset_module_value_import_preparation_work,
+    take_module_value_import_preparation_work,
+};
 
 #[derive(Clone)]
 struct CoreBinding {
@@ -166,6 +174,7 @@ fn lower_surface_module_to_core_if(
                 .iter()
                 .filter_map(|effect| lower_effect_decl(effect, environment))
                 .collect(),
+            module_values: module_value_lowering::lower_module_values(module, environment),
             readiness,
         },
         diagnostics,
