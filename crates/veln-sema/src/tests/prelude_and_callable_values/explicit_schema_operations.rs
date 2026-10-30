@@ -578,6 +578,46 @@ fn explicit_schema_validate_expression_rejects_same_spelled_source_container_typ
 }
 
 #[test]
+fn explicit_schema_validate_expression_rejects_application_owned_std_prelude_container() {
+    let source = SourceFile::new(
+        "std/prelude.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "type List<A>\n  Nil\n  Cons(head: A, tail: List<A>)\nend\n",
+            "schema Packet\n  value: List<State::Connected>\nend\n",
+            "fn check(value: {value: List<State>}, base: ByteOffset) -> ()\n",
+            "  validate Packet from value at base\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = veln_ast::lower_surface_ast_with_module_identity(
+        &parsed.tree,
+        "std::prelude".to_string(),
+        source.span(veln_source::TextRange::at(0)),
+    );
+    let lowered = lower_checked_surface_module(&module);
+    assert!(
+        lowered
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "schema.validate_expression"),
+        "application-owned std::prelude List must not be a standard container: {:#?}",
+        lowered.diagnostics
+    );
+    assert!(
+        lowered.core.as_ref().is_none_or(|core| {
+            core.schema_refinement_validators
+                .iter()
+                .all(|spec| spec.schema_name != "Packet")
+        }),
+        "application-owned std::prelude List must not produce a validation plan"
+    );
+}
+
+#[test]
 fn explicit_schema_validate_expression_rejects_same_spelled_source_string_dict_key() {
     let source = SourceFile::new(
         "main.veln",

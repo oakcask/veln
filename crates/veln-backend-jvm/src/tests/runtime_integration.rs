@@ -359,6 +359,18 @@ public final class SchemaRefinementContainersHarness {
 
         Object escaped = VelnRuntime.record("table", VelnRuntime.dict("a/b~c", closed));
         requireFailurePath(escaped, dictPlan, "/ContainerPacket/table/a~1b~0c");
+
+        java.util.Map<Object, Object> manyLongKeys =
+            new java.util.LinkedHashMap<Object, Object>();
+        StringBuilder prefixBuilder = new StringBuilder();
+        for (int index = 0; index < 512; index += 1) prefixBuilder.append('a');
+        String prefix = prefixBuilder.toString();
+        for (int index = 255; index >= 0; index -= 1) {
+            String key = prefix + String.format("-%03d", Integer.valueOf(index));
+            manyLongKeys.put(key, index == 0 ? closed : connected);
+        }
+        Object many = VelnRuntime.record("table", manyLongKeys);
+        requireFailurePath(many, dictPlan, "/ContainerPacket/table/" + prefix + "-000");
         System.out.println("container refinement traversal passed");
     }
 }

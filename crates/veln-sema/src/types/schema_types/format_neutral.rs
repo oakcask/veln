@@ -265,7 +265,8 @@ pub(crate) fn resolved_standard_runtime_type_kind(
             && declaration.params.len() == args.len()
             && declaration.module_name.as_deref() == current_module
             && declaration.package_name.as_deref() == current_package
-            && declaration.module_name.as_deref() != Some("std::prelude")
+            && !(declaration.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+                && declaration.module_name.as_deref() == Some("std::prelude"))
     }) {
         return None;
     }
@@ -294,6 +295,11 @@ pub(crate) fn resolved_standard_runtime_type_kind(
 fn standard_core_container_descriptor_kind(
     descriptor: &AdtDescriptor,
 ) -> Option<StandardRuntimeTypeKind> {
+    if !descriptor.has_standard_prelude_origin()
+        && (descriptor.package_name.is_some() || descriptor.module_name.is_some())
+    {
+        return None;
+    }
     let kinds = descriptor
         .variants
         .iter()

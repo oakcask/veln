@@ -38,6 +38,7 @@ mod harness_constants;
 mod java_helpers_and_mapping;
 mod result_diagnostic_harness;
 mod runtime_integration;
+mod schema_refinement_policy;
 mod tasks_and_contracts;
 
 use harness_constants::*;

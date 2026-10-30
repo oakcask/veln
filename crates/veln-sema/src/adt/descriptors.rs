@@ -37,6 +37,11 @@ pub(crate) struct AdtDescriptor {
 }
 
 impl AdtDescriptor {
+    pub(crate) fn has_standard_prelude_origin(&self) -> bool {
+        self.package_name.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+            && self.module_name.as_deref() == Some("std::prelude")
+    }
+
     pub(crate) fn identity(&self) -> String {
         if let Some(identity) = &self.nominal_identity {
             return identity.clone();
@@ -46,7 +51,10 @@ impl AdtDescriptor {
 
     pub(crate) fn declaration_identity(&self) -> String {
         match (self.package_name.as_deref(), self.module_name.as_deref()) {
-            (None, None) | (_, Some("std::prelude")) => self.type_name.clone(),
+            (None, None) => self.type_name.clone(),
+            (Some(package), Some("std::prelude")) if package == veln_stdlib::PACKAGE_NAME => {
+                self.type_name.clone()
+            }
             (Some(package), Some(module))
                 if module == package || module.starts_with(&format!("{package}::")) =>
             {

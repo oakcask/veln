@@ -404,6 +404,19 @@ fn source_less_provider_inventory_names_builtin_adt_lookup_routes() {
 }
 
 #[test]
+fn standard_prelude_declaration_identity_requires_standard_package_provenance() {
+    let application = lookup_descriptor("std::prelude", 0);
+    assert_eq!(
+        application.declaration_identity(),
+        "workspace::std::prelude::State"
+    );
+
+    let mut standard = application;
+    standard.package_name = Some(veln_stdlib::PACKAGE_NAME.to_string());
+    assert_eq!(standard.declaration_identity(), "State");
+}
+
+#[test]
 fn validated_registry_indexes_descriptor_and_constructor_owners() {
     let descriptor = AdtDescriptor {
         type_name: "Owned".to_string(),

@@ -188,14 +188,17 @@
         }
         if (kind.equals("dict")) {
             java.util.Map<Object, Object> values = asMap(value);
-            java.util.ArrayList<String> keys = new java.util.ArrayList<String>();
-            for (Object key : values.keySet()) keys.add(asString(key));
+            java.util.ArrayList<SchemaRefinementDictionaryKey> keys =
+                new java.util.ArrayList<SchemaRefinementDictionaryKey>();
+            for (Object key : values.keySet()) {
+                keys.add(new SchemaRefinementDictionaryKey(asString(key)));
+            }
             java.util.Collections.sort(keys, VelnRuntime::compareUtf8Bytes);
-            for (String key : keys) {
+            for (SchemaRefinementDictionaryKey entry : keys) {
                 Object failure = schemaRefinementPlanFailure(
-                    values.get(key),
+                    values.get(entry.key),
                     baseOffset,
-                    path + "/" + jsonPointerToken(key),
+                    path + "/" + jsonPointerToken(entry.key),
                     (java.util.List<?>) plan.get(1)
                 );
                 if (failure != null) return failure;
@@ -233,15 +236,28 @@
         ));
     }
 
-    private static int compareUtf8Bytes(String left, String right) {
-        byte[] leftBytes = left.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        byte[] rightBytes = right.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    private static int compareUtf8Bytes(
+        SchemaRefinementDictionaryKey left,
+        SchemaRefinementDictionaryKey right
+    ) {
+        byte[] leftBytes = left.utf8Bytes;
+        byte[] rightBytes = right.utf8Bytes;
         int length = Math.min(leftBytes.length, rightBytes.length);
         for (int index = 0; index < length; index += 1) {
             int comparison = Integer.compare(leftBytes[index] & 0xff, rightBytes[index] & 0xff);
             if (comparison != 0) return comparison;
         }
         return Integer.compare(leftBytes.length, rightBytes.length);
+    }
+
+    private static final class SchemaRefinementDictionaryKey {
+        private final String key;
+        private final byte[] utf8Bytes;
+
+        private SchemaRefinementDictionaryKey(String key) {
+            this.key = key;
+            this.utf8Bytes = key.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        }
     }
 
     private static String adtLeafName(String name) {
