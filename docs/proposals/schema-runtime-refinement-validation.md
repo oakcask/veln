@@ -87,7 +87,7 @@ change no wire bytes, and would not weaken
 | --- | --- |
 | Recursive typing | Generic source-ADT payload and recursive-value erasure; wrong identities and generic arguments remain rejected. |
 | Runtime traversal | Admitted and excluded constructors at every recursive position, including repeated recursive values. |
-| Ordering and paths | Multiple failures, dictionary insertion permutations, escaped keys, and recursive payload segments. |
+| Ordering and paths | Source-ADT constructor payload order and recursive-value occurrence order, including constructor and payload path segments. |
 | Predicates | Refinements precede predicates; child, field, and schema predicates follow the specified order. |
 | External decoder | A real ordinary Veln byte decoder covers success, excluded variants, malformed tags and payloads, truncation, readiness, consumed counts, and unchanged bytes. |
 | Failure preservation | Inputs and earlier successful values remain usable; no trap, partial refined value, or hidden decoder invocation occurs. |

@@ -377,16 +377,17 @@ fn explicit_schema_validate_expression_carries_recursive_container_plan_through_
         "main.veln",
         concat!(
             "type State\n  Connected\n  Closed\nend\n",
+            "type Failure\n  Denied\n  Expired\nend\n",
             "schema ContainerPacket\n  direct: State::Connected\n  states: List<State::Connected>\nend\n",
             "schema RecursiveContainers\n",
             "  optional: Option<State::Connected>\n",
-            "  outcome: Result<State::Connected, State::Closed>\n",
+            "  outcome: Result<State::Connected, Failure::Denied>\n",
             "  linked: List<State::Connected>\n",
             "  vector: Vec<State::Connected>\n",
             "  table: Dict<String, State::Connected>\n",
-            "  mixed: Option<Vec<Dict<String, Result<State::Connected, State::Closed>>>>\n",
+            "  mixed: Option<Vec<Dict<String, Result<State::Connected, Failure::Denied>>>>\n",
             "end\n",
-            "fn container(value: {optional: Option<State>, outcome: Result<State, State>, linked: List<State>, vector: Vec<State>, table: Dict<String, State>, mixed: Option<Vec<Dict<String, Result<State, State>>>>}, base: ByteOffset) -> Result<{optional: Option<State::Connected>, outcome: Result<State::Connected, State::Closed>, linked: List<State::Connected>, vector: Vec<State::Connected>, table: Dict<String, State::Connected>, mixed: Option<Vec<Dict<String, Result<State::Connected, State::Closed>>>>}, DecodeError>\n",
+            "fn container(value: {optional: Option<State>, outcome: Result<State, Failure>, linked: List<State>, vector: Vec<State>, table: Dict<String, State>, mixed: Option<Vec<Dict<String, Result<State, Failure>>>>}, base: ByteOffset) -> Result<{optional: Option<State::Connected>, outcome: Result<State::Connected, Failure::Denied>, linked: List<State::Connected>, vector: Vec<State::Connected>, table: Dict<String, State::Connected>, mixed: Option<Vec<Dict<String, Result<State::Connected, Failure::Denied>>>>}, DecodeError>\n",
             "  validate RecursiveContainers from value at base\nend\n",
         ),
     );
@@ -415,9 +416,20 @@ fn explicit_schema_validate_expression_carries_recursive_container_plan_through_
         &*core_fields[0].plan,
         CoreSchemaRefinementPlan::Option(_)
     ));
+    let CoreSchemaRefinementPlan::Result {
+        ok: Some(core_ok),
+        err: Some(core_err),
+    } = &*core_fields[1].plan
+    else {
+        panic!("result validation plan should retain both branches");
+    };
     assert!(matches!(
-        &*core_fields[1].plan,
-        CoreSchemaRefinementPlan::Result { .. }
+        &**core_ok,
+        CoreSchemaRefinementPlan::Variant(variants) if variants == &["Connected"]
+    ));
+    assert!(matches!(
+        &**core_err,
+        CoreSchemaRefinementPlan::Variant(variants) if variants == &["Denied"]
     ));
     assert!(matches!(
         &*core_fields[2].plan,
@@ -438,7 +450,26 @@ fn explicit_schema_validate_expression_carries_recursive_container_plan_through_
         .iter()
         .find(|spec| spec.schema_name == "RecursiveContainers")
         .expect("IR validation plan");
-    assert!(matches!(ir_spec.plan, IrSchemaRefinementPlan::Record(_)));
+    let IrSchemaRefinementPlan::Record(ir_fields) = &ir_spec.plan else {
+        panic!("root IR validation plan should be a record");
+    };
+    let IrSchemaRefinementPlan::Result {
+        ok: Some(ir_ok),
+        err: Some(ir_err),
+    } = &*ir_fields[1].plan
+    else {
+        panic!("IR result validation plan should retain both branches");
+    };
+    assert!(matches!(
+        &**ir_ok,
+        IrSchemaRefinementPlan::Variant(refinement)
+            if refinement.expected_variants == ["Connected"]
+    ));
+    assert!(matches!(
+        &**ir_err,
+        IrSchemaRefinementPlan::Variant(refinement)
+            if refinement.expected_variants == ["Denied"]
+    ));
 }
 
 #[test]
@@ -447,20 +478,25 @@ fn explicit_schema_validate_expression_rejects_wrong_container_arguments() {
         "main.veln",
         concat!(
             "type State\n  Connected\n  Closed\nend\n",
+            "type Failure\n  Denied\nend\n",
             "type OtherState\n  Connected\nend\n",
             "type Box<A>\n  Boxed(value: A)\nend\n",
             "schema Packet\n",
             "  optional: Option<State::Connected>\n",
-            "  outcome: Result<State::Connected, State::Closed>\n",
+            "  outcome: Result<State::Connected, Failure::Denied>\n",
             "  table: Dict<String, State::Connected>\n",
             "end\n",
-            "fn wrong_identity(value: {optional: Box<State>, outcome: Result<State, State>, table: Dict<String, State>}, base: ByteOffset) -> ()\n",
+            "fn wrong_identity(value: {optional: Box<State>, outcome: Result<State, Failure>, table: Dict<String, State>}, base: ByteOffset) -> ()\n",
             "  validate Packet from value at base\n  ()\nend\n",
-            "fn wrong_option_arg(value: {optional: Option<OtherState>, outcome: Result<State, State>, table: Dict<String, State>}, base: ByteOffset) -> ()\n",
+            "fn wrong_option_arg(value: {optional: Option<OtherState>, outcome: Result<State, Failure>, table: Dict<String, State>}, base: ByteOffset) -> ()\n",
             "  validate Packet from value at base\n  ()\nend\n",
-            "fn wrong_result_arg(value: {optional: Option<State>, outcome: Result<State, String>, table: Dict<String, State>}, base: ByteOffset) -> ()\n",
+            "fn swapped_result_args(value: {optional: Option<State>, outcome: Result<Failure, State>, table: Dict<String, State>}, base: ByteOffset) -> ()\n",
             "  validate Packet from value at base\n  ()\nend\n",
-            "fn wrong_dict_key(value: {optional: Option<State>, outcome: Result<State, State>, table: Dict<Int, State>}, base: ByteOffset) -> ()\n",
+            "fn wrong_result_first_arg(value: {optional: Option<State>, outcome: Result<OtherState, Failure>, table: Dict<String, State>}, base: ByteOffset) -> ()\n",
+            "  validate Packet from value at base\n  ()\nend\n",
+            "fn wrong_result_second_arg(value: {optional: Option<State>, outcome: Result<State, String>, table: Dict<String, State>}, base: ByteOffset) -> ()\n",
+            "  validate Packet from value at base\n  ()\nend\n",
+            "fn wrong_dict_key(value: {optional: Option<State>, outcome: Result<State, Failure>, table: Dict<Int, State>}, base: ByteOffset) -> ()\n",
             "  validate Packet from value at base\n  ()\nend\n",
         ),
     );
@@ -471,7 +507,99 @@ fn explicit_schema_validate_expression_rejects_wrong_container_arguments() {
         .iter()
         .filter(|diagnostic| diagnostic.id == "type.mismatch")
         .collect::<Vec<_>>();
-    assert_eq!(mismatches.len(), 4, "{:#?}", lowered.diagnostics);
+    assert_eq!(mismatches.len(), 6, "{:#?}", lowered.diagnostics);
+}
+
+#[test]
+fn explicit_schema_validate_expression_rejects_same_spelled_source_container_types() {
+    let cases = [
+        (
+            "Option<A>",
+            "Wrapped(value: A)",
+            "Option<State::Connected>",
+            "Option<State>",
+        ),
+        (
+            "Result<A, B>",
+            "Wrapped(value: A, error: B)",
+            "Result<State::Connected, State>",
+            "Result<State, State>",
+        ),
+        (
+            "List<A>",
+            "Wrapped(value: A)",
+            "List<State::Connected>",
+            "List<State>",
+        ),
+        (
+            "Vec<A>",
+            "Wrapped(value: A)",
+            "Vec<State::Connected>",
+            "Vec<State>",
+        ),
+        (
+            "Dict<K, V>",
+            "Wrapped(key: K, value: V)",
+            "Dict<String, State::Connected>",
+            "Dict<String, State>",
+        ),
+    ];
+    for (declaration, variant, refined, erased) in cases {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                "type State\n  Connected\n  Closed\nend\ntype {declaration}\n  {variant}\nend\nschema Packet\n  value: {refined}\nend\nfn check(value: {{value: {erased}}}, base: ByteOffset) -> ()\n  validate Packet from value at base\n  ()\nend\n"
+            ),
+        );
+        let parsed = parse(&source);
+        assert!(
+            parsed.diagnostics.is_empty(),
+            "{declaration}: {:#?}",
+            parsed.diagnostics
+        );
+        let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+        assert!(
+            lowered
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "schema.validate_expression"),
+            "same-spelled {declaration} should not be a standard container: {:#?}",
+            lowered.diagnostics
+        );
+        assert!(
+            lowered.core.as_ref().is_none_or(|core| {
+                core.schema_refinement_validators
+                    .iter()
+                    .all(|spec| spec.schema_name != "Packet")
+            }),
+            "same-spelled {declaration} should not produce a validation plan"
+        );
+    }
+}
+
+#[test]
+fn explicit_schema_validate_expression_rejects_same_spelled_source_string_dict_key() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "type String\n  Text\nend\n",
+            "schema Packet\n  value: Dict<String, State::Connected>\nend\n",
+            "fn check(value: {value: Dict<String, State>}, base: ByteOffset) -> ()\n",
+            "  validate Packet from value at base\n  ()\nend\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(
+        lowered
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "schema.validate_expression"),
+        "same-spelled String should not be a standard dictionary key: {:#?}",
+        lowered.diagnostics
+    );
 }
 
 #[test]

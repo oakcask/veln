@@ -26,11 +26,11 @@ use crate::schema::reserved_layout::supported_encode_reserved_bits;
 use crate::semantic_model::Type;
 use crate::type_syntax::parse_type_annotation;
 use crate::types::schema_types::{
-    format_neutral_schema_encode_field_type_for_schema,
+    StandardRuntimeTypeKind, format_neutral_schema_encode_field_type_for_schema,
     format_neutral_schema_field_type_for_schema,
     recursive_dispatch_decode_only_payload_case_is_eligible,
-    recursive_dispatch_payload_case_is_eligible, schema_decode_function_name,
-    schema_decode_value_type, schema_dispatch_has_recursive_payload,
+    recursive_dispatch_payload_case_is_eligible, resolved_standard_runtime_type_kind,
+    schema_decode_function_name, schema_decode_value_type, schema_dispatch_has_recursive_payload,
     schema_dispatch_payload_schema, schema_field_target,
     schema_recursive_dispatch_helper_payload_type, schema_recursive_dispatch_payload_type,
 };
@@ -185,7 +185,9 @@ fn format_neutral_schema_decode_spec(
                     .or_else(|| {
                         field_ty
                             .as_ref()
-                            .and_then(|ty| ir_schema_refinement_record_spec(ty, &adts))
+                            .and_then(|ty| {
+                                ir_schema_refinement_record_spec(module, schema, ty, &adts)
+                            })
                             .map(Box::new)
                     });
             Some(IrSchemaDecodeField {
@@ -199,7 +201,7 @@ fn format_neutral_schema_decode_spec(
                     .and_then(|ty| ir_schema_variant_refinement(ty, &adts)),
                 refinement_plan: field_ty
                     .as_ref()
-                    .and_then(|ty| ir_schema_refinement_plan(ty, &adts))
+                    .and_then(|ty| ir_schema_refinement_plan(module, schema, ty, &adts))
                     .map(Box::new),
                 ..IrSchemaDecodeField::new(field.name.clone())
             })
@@ -214,7 +216,12 @@ fn format_neutral_schema_decode_spec(
     })
 }
 
-fn ir_schema_refinement_record_spec(ty: &Type, adts: &AdtRegistry) -> Option<IrSchemaDecodeSpec> {
+fn ir_schema_refinement_record_spec(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    ty: &Type,
+    adts: &AdtRegistry,
+) -> Option<IrSchemaDecodeSpec> {
     let Type::Record(fields) = ty else {
         return None;
     };
@@ -223,12 +230,14 @@ fn ir_schema_refinement_record_spec(ty: &Type, adts: &AdtRegistry) -> Option<IrS
         .iter()
         .map(|(name, field_ty)| {
             let variant_refinement = ir_schema_variant_refinement(field_ty, adts);
-            let payload_schema = ir_schema_refinement_record_spec(field_ty, adts).map(Box::new);
+            let payload_schema =
+                ir_schema_refinement_record_spec(module, schema, field_ty, adts).map(Box::new);
             has_refinement |= variant_refinement.is_some() || payload_schema.is_some();
             IrSchemaDecodeField {
                 variant_refinement,
                 payload_schema,
-                refinement_plan: ir_schema_refinement_plan(field_ty, adts).map(Box::new),
+                refinement_plan: ir_schema_refinement_plan(module, schema, field_ty, adts)
+                    .map(Box::new),
                 ..IrSchemaDecodeField::new(name.clone())
             }
         })
@@ -242,7 +251,12 @@ fn ir_schema_refinement_record_spec(ty: &Type, adts: &AdtRegistry) -> Option<IrS
     })
 }
 
-fn ir_schema_refinement_plan(ty: &Type, adts: &AdtRegistry) -> Option<IrSchemaRefinementPlan> {
+fn ir_schema_refinement_plan(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    ty: &Type,
+    adts: &AdtRegistry,
+) -> Option<IrSchemaRefinementPlan> {
     if let Some(refinement) = ir_schema_variant_refinement(ty, adts) {
         return Some(IrSchemaRefinementPlan::Variant(refinement));
     }
@@ -251,44 +265,85 @@ fn ir_schema_refinement_plan(ty: &Type, adts: &AdtRegistry) -> Option<IrSchemaRe
             let fields = fields
                 .iter()
                 .filter_map(|(name, ty)| {
-                    ir_schema_refinement_plan(ty, adts).map(|plan| IrSchemaRefinementField {
-                        name: name.clone(),
-                        plan: Box::new(plan),
+                    ir_schema_refinement_plan(module, schema, ty, adts).map(|plan| {
+                        IrSchemaRefinementField {
+                            name: name.clone(),
+                            plan: Box::new(plan),
+                        }
                     })
                 })
                 .collect::<Vec<_>>();
             (!fields.is_empty()).then_some(IrSchemaRefinementPlan::Record(fields))
         }
-        Type::Named { identity, args, .. } if identity == "Option" && args.len() == 1 => {
-            ir_schema_refinement_plan(&args[0], adts)
+        Type::Named { args, .. }
+            if resolved_standard_runtime_type_kind(
+                module,
+                schema.module_name.as_deref(),
+                schema.package_name.as_deref(),
+                adts,
+                ty,
+            ) == Some(StandardRuntimeTypeKind::Option) =>
+        {
+            ir_schema_refinement_plan(module, schema, &args[0], adts)
                 .map(Box::new)
                 .map(IrSchemaRefinementPlan::Option)
         }
-        Type::Named { identity, args, .. } if identity == "Result" && args.len() == 2 => {
-            let ok = ir_schema_refinement_plan(&args[0], adts).map(Box::new);
-            let err = ir_schema_refinement_plan(&args[1], adts).map(Box::new);
+        Type::Named { args, .. }
+            if resolved_standard_runtime_type_kind(
+                module,
+                schema.module_name.as_deref(),
+                schema.package_name.as_deref(),
+                adts,
+                ty,
+            ) == Some(StandardRuntimeTypeKind::Result) =>
+        {
+            let ok = ir_schema_refinement_plan(module, schema, &args[0], adts).map(Box::new);
+            let err = ir_schema_refinement_plan(module, schema, &args[1], adts).map(Box::new);
             (ok.is_some() || err.is_some()).then_some(IrSchemaRefinementPlan::Result { ok, err })
         }
-        Type::Named { identity, args, .. } if identity == "List" && args.len() == 1 => {
-            ir_schema_refinement_plan(&args[0], adts)
+        Type::Named { args, .. }
+            if resolved_standard_runtime_type_kind(
+                module,
+                schema.module_name.as_deref(),
+                schema.package_name.as_deref(),
+                adts,
+                ty,
+            ) == Some(StandardRuntimeTypeKind::List) =>
+        {
+            ir_schema_refinement_plan(module, schema, &args[0], adts)
                 .map(Box::new)
                 .map(IrSchemaRefinementPlan::List)
         }
-        Type::Named { identity, args, .. } if identity == "Vec" && args.len() == 1 => {
-            ir_schema_refinement_plan(&args[0], adts)
+        Type::Named { args, .. }
+            if resolved_standard_runtime_type_kind(
+                module,
+                schema.module_name.as_deref(),
+                schema.package_name.as_deref(),
+                adts,
+                ty,
+            ) == Some(StandardRuntimeTypeKind::Vec) =>
+        {
+            ir_schema_refinement_plan(module, schema, &args[0], adts)
                 .map(Box::new)
                 .map(IrSchemaRefinementPlan::Vec)
         }
-        Type::Named { identity, args, .. }
-            if identity == "Dict"
-                && args.len() == 2
-                && matches!(
+        Type::Named { args, .. }
+            if resolved_standard_runtime_type_kind(
+                module,
+                schema.module_name.as_deref(),
+                schema.package_name.as_deref(),
+                adts,
+                ty,
+            ) == Some(StandardRuntimeTypeKind::Dict)
+                && resolved_standard_runtime_type_kind(
+                    module,
+                    schema.module_name.as_deref(),
+                    schema.package_name.as_deref(),
+                    adts,
                     &args[0],
-                    Type::Named { identity, args, .. }
-                        if identity == "String" && args.is_empty()
-                ) =>
+                ) == Some(StandardRuntimeTypeKind::String) =>
         {
-            ir_schema_refinement_plan(&args[1], adts)
+            ir_schema_refinement_plan(module, schema, &args[1], adts)
                 .map(Box::new)
                 .map(IrSchemaRefinementPlan::Dict)
         }
