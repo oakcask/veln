@@ -153,71 +153,99 @@ fn format_neutral_runtime_validation_type(
                 true,
             ))
         }
-        Type::Record(fields) => {
-            let mut erased_fields = Vec::with_capacity(fields.len());
-            let mut has_refinement = false;
-            for (name, field_ty) in fields {
-                let (erased, field_has_refinement) = format_neutral_runtime_validation_type(
-                    module,
-                    current_module,
-                    current_package,
-                    adts,
-                    field_ty,
-                )?;
-                erased_fields.push((name.clone(), erased));
-                has_refinement |= field_has_refinement;
-            }
-            Some((Type::Record(erased_fields), has_refinement))
-        }
-        Type::Named {
-            name,
-            identity,
-            args,
-        } => {
-            let Some(kind) = resolved_standard_runtime_type_kind(
-                module,
-                current_module,
-                current_package,
-                adts,
-                ty,
-            ) else {
-                return (!format_neutral_type_contains_refinement(ty)).then(|| (ty.clone(), false));
-            };
-            if !kind.is_container() {
-                return Some((ty.clone(), false));
-            }
-            if kind == StandardRuntimeTypeKind::Dict
-                && resolved_standard_runtime_type_kind(
-                    module,
-                    current_module,
-                    current_package,
-                    adts,
-                    &args[0],
-                ) != Some(StandardRuntimeTypeKind::String)
-            {
-                return None;
-            }
-            let mut erased_args = Vec::with_capacity(args.len());
-            let mut has_refinement = false;
-            for arg in args {
-                let (erased, arg_has_refinement) = format_neutral_runtime_validation_type(
-                    module,
-                    current_module,
-                    current_package,
-                    adts,
-                    arg,
-                )?;
-                erased_args.push(erased);
-                has_refinement |= arg_has_refinement;
-            }
-            Some((
-                Type::resolved_named(name.clone(), identity.clone(), erased_args),
-                has_refinement,
-            ))
-        }
+        Type::Record(fields) => format_neutral_runtime_validation_record_type(
+            module,
+            current_module,
+            current_package,
+            adts,
+            fields,
+        ),
+        Type::Named { .. } => format_neutral_runtime_validation_named_type(
+            module,
+            current_module,
+            current_package,
+            adts,
+            ty,
+        ),
         _ if !format_neutral_type_contains_refinement(ty) => Some((ty.clone(), false)),
         _ => None,
     }
+}
+
+fn format_neutral_runtime_validation_record_type(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    adts: &AdtRegistry,
+    fields: &[(String, Type)],
+) -> Option<(Type, bool)> {
+    let mut erased_fields = Vec::with_capacity(fields.len());
+    let mut has_refinement = false;
+    for (name, field_ty) in fields {
+        let (erased, field_has_refinement) = format_neutral_runtime_validation_type(
+            module,
+            current_module,
+            current_package,
+            adts,
+            field_ty,
+        )?;
+        erased_fields.push((name.clone(), erased));
+        has_refinement |= field_has_refinement;
+    }
+    Some((Type::Record(erased_fields), has_refinement))
+}
+
+fn format_neutral_runtime_validation_named_type(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    adts: &AdtRegistry,
+    ty: &Type,
+) -> Option<(Type, bool)> {
+    let Type::Named {
+        name,
+        identity,
+        args,
+    } = ty
+    else {
+        return None;
+    };
+    let Some(kind) =
+        resolved_standard_runtime_type_kind(module, current_module, current_package, adts, ty)
+    else {
+        return (!format_neutral_type_contains_refinement(ty)).then(|| (ty.clone(), false));
+    };
+    if !kind.is_container() {
+        return Some((ty.clone(), false));
+    }
+    if kind == StandardRuntimeTypeKind::Dict
+        && resolved_standard_runtime_type_kind(
+            module,
+            current_module,
+            current_package,
+            adts,
+            &args[0],
+        ) != Some(StandardRuntimeTypeKind::String)
+    {
+        return None;
+    }
+    let mut erased_args = Vec::with_capacity(args.len());
+    let mut has_refinement = false;
+    for arg in args {
+        let (erased, arg_has_refinement) = format_neutral_runtime_validation_type(
+            module,
+            current_module,
+            current_package,
+            adts,
+            arg,
+        )?;
+        erased_args.push(erased);
+        has_refinement |= arg_has_refinement;
+    }
+    Some((
+        Type::resolved_named(name.clone(), identity.clone(), erased_args),
+        has_refinement,
+    ))
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
