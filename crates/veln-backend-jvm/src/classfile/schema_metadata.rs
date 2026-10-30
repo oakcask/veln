@@ -33,33 +33,59 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         plan: &veln_ir::IrSchemaRefinementPlan,
     ) {
-        use veln_ir::IrSchemaRefinementPlan;
+        self.emit_object_array(code, 2, |this, code, part| match part {
+            0 => this.emit_schema_refinement_node_id(code, plan.root),
+            1 => {
+                this.emit_object_array(code, plan.nodes.len(), |this, code, index| {
+                    this.emit_schema_refinement_node(code, &plan.nodes[index]);
+                });
+                code.invokestatic(
+                    &this.program.options.runtime_class,
+                    "list",
+                    "([Ljava/lang/Object;)Ljava/util/List;",
+                );
+            }
+            _ => unreachable!("schema refinement graph part"),
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
+    }
 
-        match plan {
-            IrSchemaRefinementPlan::Variant(refinement) => {
+    fn emit_schema_refinement_node(
+        &mut self,
+        code: &mut MethodCode,
+        node: &veln_ir::IrSchemaRefinementPlanNode,
+    ) {
+        use veln_ir::IrSchemaRefinementPlanNode;
+
+        match node {
+            IrSchemaRefinementPlanNode::Variant(refinement) => {
                 self.emit_schema_variant_refinement_plan(code, refinement)
             }
-            IrSchemaRefinementPlan::Adt {
+            IrSchemaRefinementPlanNode::Adt {
                 expected_variants,
                 variants,
             } => self.emit_schema_adt_refinement_plan(code, expected_variants, variants),
-            IrSchemaRefinementPlan::Record(fields) => {
+            IrSchemaRefinementPlanNode::Record(fields) => {
                 self.emit_schema_record_refinement_plan(code, fields)
             }
-            IrSchemaRefinementPlan::Option(payload) => {
-                self.emit_single_payload_schema_refinement_plan(code, "option", payload)
+            IrSchemaRefinementPlanNode::Option(payload) => {
+                self.emit_single_payload_schema_refinement_plan(code, "option", *payload)
             }
-            IrSchemaRefinementPlan::Result { ok, err } => {
-                self.emit_schema_result_refinement_plan(code, ok.as_deref(), err.as_deref())
+            IrSchemaRefinementPlanNode::Result { ok, err } => {
+                self.emit_schema_result_refinement_plan(code, *ok, *err)
             }
-            IrSchemaRefinementPlan::List(payload) => {
-                self.emit_single_payload_schema_refinement_plan(code, "list", payload)
+            IrSchemaRefinementPlanNode::List(payload) => {
+                self.emit_single_payload_schema_refinement_plan(code, "list", *payload)
             }
-            IrSchemaRefinementPlan::Vec(payload) => {
-                self.emit_single_payload_schema_refinement_plan(code, "vec", payload)
+            IrSchemaRefinementPlanNode::Vec(payload) => {
+                self.emit_single_payload_schema_refinement_plan(code, "vec", *payload)
             }
-            IrSchemaRefinementPlan::Dict(payload) => {
-                self.emit_single_payload_schema_refinement_plan(code, "dict", payload)
+            IrSchemaRefinementPlanNode::Dict(payload) => {
+                self.emit_single_payload_schema_refinement_plan(code, "dict", *payload)
             }
         }
         code.invokestatic(
@@ -137,9 +163,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                                                     );
                                                 }
                                                 1 => code.ldc_string(&payload.path_segment),
-                                                2 => this.emit_schema_refinement_plan(
+                                                2 => this.emit_schema_refinement_node_id(
                                                     code,
-                                                    &payload.plan,
+                                                    payload.plan,
                                                 ),
                                                 _ => unreachable!("ADT payload plan part"),
                                             },
@@ -187,7 +213,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 this.emit_object_array(code, fields.len(), |this, code, index| {
                     this.emit_object_array(code, 2, |this, code, field_part| match field_part {
                         0 => code.ldc_string(&fields[index].name),
-                        1 => this.emit_schema_refinement_plan(code, &fields[index].plan),
+                        1 => this.emit_schema_refinement_node_id(code, fields[index].plan),
                         _ => unreachable!("record refinement field part"),
                     });
                     code.invokestatic(
@@ -210,11 +236,11 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         &mut self,
         code: &mut MethodCode,
         kind: &str,
-        payload: &veln_ir::IrSchemaRefinementPlan,
+        payload: usize,
     ) {
         self.emit_object_array(code, 2, |this, code, part| match part {
             0 => code.ldc_string(kind),
-            1 => this.emit_schema_refinement_plan(code, payload),
+            1 => this.emit_schema_refinement_node_id(code, payload),
             _ => unreachable!("single payload refinement plan part"),
         });
     }
@@ -222,8 +248,8 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     fn emit_schema_result_refinement_plan(
         &mut self,
         code: &mut MethodCode,
-        ok: Option<&veln_ir::IrSchemaRefinementPlan>,
-        err: Option<&veln_ir::IrSchemaRefinementPlan>,
+        ok: Option<usize>,
+        err: Option<usize>,
     ) {
         self.emit_object_array(code, 3, |this, code, part| match part {
             0 => code.ldc_string("result"),
@@ -233,13 +259,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         });
     }
 
-    fn emit_optional_schema_refinement_plan(
-        &mut self,
-        code: &mut MethodCode,
-        plan: Option<&veln_ir::IrSchemaRefinementPlan>,
-    ) {
+    fn emit_optional_schema_refinement_plan(&mut self, code: &mut MethodCode, plan: Option<usize>) {
         if let Some(plan) = plan {
-            self.emit_schema_refinement_plan(code, plan);
+            self.emit_schema_refinement_node_id(code, plan);
         } else {
             self.emit_object_array(code, 0, |_, _, _| {});
             code.invokestatic(
@@ -248,6 +270,11 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 "([Ljava/lang/Object;)Ljava/util/List;",
             );
         }
+    }
+
+    fn emit_schema_refinement_node_id(&mut self, code: &mut MethodCode, node: usize) {
+        code.push_i32(node as i32);
+        code.invokestatic("java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;");
     }
 
     fn emit_schema_field_list(

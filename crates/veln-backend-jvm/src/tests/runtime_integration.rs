@@ -443,21 +443,25 @@ public final class SchemaRefinementSourceAdtHarness {
     }
     private static Object orderedPayloadPlan() {
         return VelnRuntime.list(
-            "record",
-            VelnRuntime.list(VelnRuntime.list(
-                "item",
+            Integer.valueOf(2),
+            VelnRuntime.list(
+                VelnRuntime.list("variant", VelnRuntime.list("Connected")),
                 VelnRuntime.list(
                     "adt",
                     VelnRuntime.list(),
                     VelnRuntime.list(VelnRuntime.list(
                         "Pair",
                         VelnRuntime.list(
-                            payload(0, "first", variant("Connected")),
-                            payload(1, "second", variant("Connected"))
+                            VelnRuntime.list(Integer.valueOf(0), "first", Integer.valueOf(0)),
+                            VelnRuntime.list(Integer.valueOf(1), "second", Integer.valueOf(0))
                         )
                     ))
+                ),
+                VelnRuntime.list(
+                    "record",
+                    VelnRuntime.list(VelnRuntime.list("item", Integer.valueOf(1)))
                 )
-            ))
+            )
         );
     }
     private static Object nestedSourceAdtPlan() {
@@ -507,7 +511,7 @@ public final class SchemaRefinementSourceAdtHarness {
         System.out.println(validate(VelnRuntime.adt("Box::Boxed", new Object[] { closed })));
         System.out.println(validate(VelnRuntime.adt("Box::Named", new Object[] { closed })));
         System.out.println(validateWithPlan(
-            VelnRuntime.adt("Pair::Pair", new Object[] { closed, closed }),
+            VelnRuntime.adt("Pair::Pair", new Object[] { connected, closed }),
             orderedPayloadPlan()
         ));
         System.out.println(validateWithPlan(
@@ -538,7 +542,7 @@ public final class SchemaRefinementSourceAdtHarness {
             "ByteOffset(43), /Packet/item/Named/a~1b~0c, actual variant `Closed`; ",
             "expected one of `Connected`))\n",
             "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, ",
-            "ByteOffset(43), /Packet/item/Pair/first, actual variant `Closed`; ",
+            "ByteOffset(43), /Packet/item/Pair/second, actual variant `Closed`; ",
             "expected one of `Connected`))\n",
             "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, ",
             "ByteOffset(43), /Packet/item/Nested/child/Boxed/0, actual variant `Closed`; ",

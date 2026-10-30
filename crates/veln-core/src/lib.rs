@@ -10,8 +10,8 @@ pub use model::{
     CoreDictEntry, CoreEffectDecl, CoreEffectOperationDecl, CoreExpr, CoreExprKind, CoreFunction,
     CoreHandlerProvider, CoreMatchArm, CoreModuleValueDecl, CoreModuleValueIdentity, CoreParam,
     CorePattern, CorePatternField, CorePatternKind, CoreRecordField, CoreSchemaRefinementField,
-    CoreSchemaRefinementPayload, CoreSchemaRefinementPlan, CoreSchemaRefinementValidationSpec,
-    CoreSchemaRefinementVariant, CoreStmt, CoreStmtKind,
+    CoreSchemaRefinementPayload, CoreSchemaRefinementPlan, CoreSchemaRefinementPlanNode,
+    CoreSchemaRefinementValidationSpec, CoreSchemaRefinementVariant, CoreStmt, CoreStmtKind,
 };
 pub use readiness::{CoreBlocker, CoreReadiness};
 pub use types::CoreType;

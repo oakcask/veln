@@ -20,21 +20,37 @@ pub struct CoreSchemaRefinementValidationSpec {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum CoreSchemaRefinementPlan {
+pub struct CoreSchemaRefinementPlan {
+    pub root: usize,
+    pub nodes: Vec<CoreSchemaRefinementPlanNode>,
+}
+
+impl CoreSchemaRefinementPlan {
+    pub fn root_node(&self) -> &CoreSchemaRefinementPlanNode {
+        &self.nodes[self.root]
+    }
+
+    pub fn node(&self, index: usize) -> &CoreSchemaRefinementPlanNode {
+        &self.nodes[index]
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CoreSchemaRefinementPlanNode {
     Variant(Vec<String>),
     Adt {
         expected_variants: Vec<String>,
         variants: Vec<CoreSchemaRefinementVariant>,
     },
     Record(Vec<CoreSchemaRefinementField>),
-    Option(Box<CoreSchemaRefinementPlan>),
+    Option(usize),
     Result {
-        ok: Option<Box<CoreSchemaRefinementPlan>>,
-        err: Option<Box<CoreSchemaRefinementPlan>>,
+        ok: Option<usize>,
+        err: Option<usize>,
     },
-    List(Box<CoreSchemaRefinementPlan>),
-    Vec(Box<CoreSchemaRefinementPlan>),
-    Dict(Box<CoreSchemaRefinementPlan>),
+    List(usize),
+    Vec(usize),
+    Dict(usize),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -47,13 +63,13 @@ pub struct CoreSchemaRefinementVariant {
 pub struct CoreSchemaRefinementPayload {
     pub index: usize,
     pub path_segment: String,
-    pub plan: Box<CoreSchemaRefinementPlan>,
+    pub plan: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CoreSchemaRefinementField {
     pub name: String,
-    pub plan: Box<CoreSchemaRefinementPlan>,
+    pub plan: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]

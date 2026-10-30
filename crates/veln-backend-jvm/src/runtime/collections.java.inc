@@ -20,11 +20,23 @@
                 }
             ));
         }
+        java.util.List<?> graph = (java.util.List<?>) planValue;
+        java.util.List<?> nodes;
+        int root;
+        if (graph.size() == 2 && graph.get(0) instanceof Number) {
+            root = ((Number) graph.get(0)).intValue();
+            nodes = (java.util.List<?>) graph.get(1);
+        } else {
+            java.util.ArrayList<Object> converted = new java.util.ArrayList<Object>();
+            root = appendSchemaRefinementTreeNode(graph, converted);
+            nodes = converted;
+        }
         Object failure = schemaRefinementPlanFailure(
             value,
             baseOffset,
             rootPath,
-            (java.util.List<?>) planValue
+            nodes,
+            root
         );
         return failure == null ? okPreservingValue(value) : failure;
     }
@@ -114,8 +126,84 @@
         Object value,
         Object baseOffset,
         String path,
-        java.util.List<?> plan
+        java.util.List<?> tree
     ) {
+        java.util.ArrayList<Object> nodes = new java.util.ArrayList<Object>();
+        int root = appendSchemaRefinementTreeNode(tree, nodes);
+        return schemaRefinementPlanFailure(value, baseOffset, path, nodes, root);
+    }
+
+    private static int appendSchemaRefinementTreeNode(
+        java.util.List<?> tree,
+        java.util.ArrayList<Object> nodes
+    ) {
+        String kind = asString(tree.get(0));
+        java.util.ArrayList<Object> node = new java.util.ArrayList<Object>();
+        node.add(kind);
+        if (kind.equals("adt")) {
+            node.add(tree.get(1));
+            java.util.ArrayList<Object> variants = new java.util.ArrayList<Object>();
+            for (Object variantValue : (java.util.List<?>) tree.get(2)) {
+                java.util.List<?> variant = (java.util.List<?>) variantValue;
+                java.util.ArrayList<Object> encodedVariant = new java.util.ArrayList<Object>();
+                encodedVariant.add(variant.get(0));
+                java.util.ArrayList<Object> payloads = new java.util.ArrayList<Object>();
+                for (Object payloadValue : (java.util.List<?>) variant.get(1)) {
+                    java.util.List<?> payload = (java.util.List<?>) payloadValue;
+                    java.util.ArrayList<Object> encodedPayload = new java.util.ArrayList<Object>();
+                    encodedPayload.add(payload.get(0));
+                    encodedPayload.add(payload.get(1));
+                    encodedPayload.add(appendSchemaRefinementTreeNode(
+                        (java.util.List<?>) payload.get(2),
+                        nodes
+                    ));
+                    payloads.add(encodedPayload);
+                }
+                encodedVariant.add(payloads);
+                variants.add(encodedVariant);
+            }
+            node.add(variants);
+        } else if (kind.equals("record")) {
+            java.util.ArrayList<Object> fields = new java.util.ArrayList<Object>();
+            for (Object fieldValue : (java.util.List<?>) tree.get(1)) {
+                java.util.List<?> field = (java.util.List<?>) fieldValue;
+                java.util.ArrayList<Object> encodedField = new java.util.ArrayList<Object>();
+                encodedField.add(field.get(0));
+                encodedField.add(appendSchemaRefinementTreeNode(
+                    (java.util.List<?>) field.get(1),
+                    nodes
+                ));
+                fields.add(encodedField);
+            }
+            node.add(fields);
+        } else if (kind.equals("result")) {
+            for (int branchIndex = 1; branchIndex <= 2; branchIndex += 1) {
+                java.util.List<?> branch = (java.util.List<?>) tree.get(branchIndex);
+                node.add(branch.isEmpty()
+                    ? branch
+                    : appendSchemaRefinementTreeNode(branch, nodes));
+            }
+        } else if (
+            kind.equals("option") || kind.equals("list") ||
+            kind.equals("vec") || kind.equals("dict")
+        ) {
+            node.add(appendSchemaRefinementTreeNode((java.util.List<?>) tree.get(1), nodes));
+        } else {
+            node.add(tree.get(1));
+        }
+        int index = nodes.size();
+        nodes.add(node);
+        return index;
+    }
+
+    private static Object schemaRefinementPlanFailure(
+        Object value,
+        Object baseOffset,
+        String path,
+        java.util.List<?> nodes,
+        int nodeIndex
+    ) {
+        java.util.List<?> plan = (java.util.List<?>) nodes.get(nodeIndex);
         String kind = asString(plan.get(0));
         if (kind.equals("variant")) {
             return schemaVariantRefinementFailure(
@@ -151,7 +239,8 @@
                         adtValue.payloads[index],
                         baseOffset,
                         constructorPath + "/" + jsonPointerToken(segment),
-                        (java.util.List<?>) payload.get(2)
+                        nodes,
+                        ((Number) payload.get(2)).intValue()
                     );
                     if (failure != null) return failure;
                 }
@@ -169,7 +258,8 @@
                     recordField(value, name),
                     baseOffset,
                     path + "/" + jsonPointerToken(name),
-                    (java.util.List<?>) field.get(1)
+                    nodes,
+                    ((Number) field.get(1)).intValue()
                 );
                 if (failure != null) return failure;
             }
@@ -182,16 +272,24 @@
                     option.value,
                     baseOffset,
                     path,
-                    (java.util.List<?>) plan.get(1)
+                    nodes,
+                    ((Number) plan.get(1)).intValue()
                 )
                 : null;
         }
         if (kind.equals("result")) {
             Result result = (Result) value;
-            java.util.List<?> branch = (java.util.List<?>) plan.get(result.ok ? 1 : 2);
-            return branch.isEmpty()
-                ? null
-                : schemaRefinementPlanFailure(result.value, baseOffset, path, branch);
+            Object branch = plan.get(result.ok ? 1 : 2);
+            if (branch instanceof java.util.List<?> && ((java.util.List<?>) branch).isEmpty()) {
+                return null;
+            }
+            return schemaRefinementPlanFailure(
+                result.value,
+                baseOffset,
+                path,
+                nodes,
+                ((Number) branch).intValue()
+            );
         }
         if (kind.equals("list")) {
             ListValue item = (ListValue) value;
@@ -201,7 +299,8 @@
                     item.head,
                     baseOffset,
                     path + "/" + index,
-                    (java.util.List<?>) plan.get(1)
+                    nodes,
+                    ((Number) plan.get(1)).intValue()
                 );
                 if (failure != null) return failure;
                 item = (ListValue) item.tail;
@@ -216,7 +315,8 @@
                     items.get(index),
                     baseOffset,
                     path + "/" + index,
-                    (java.util.List<?>) plan.get(1)
+                    nodes,
+                    ((Number) plan.get(1)).intValue()
                 );
                 if (failure != null) return failure;
             }
@@ -235,7 +335,8 @@
                     values.get(entry.key),
                     baseOffset,
                     path + "/" + jsonPointerToken(entry.key),
-                    (java.util.List<?>) plan.get(1)
+                    nodes,
+                    ((Number) plan.get(1)).intValue()
                 );
                 if (failure != null) return failure;
             }

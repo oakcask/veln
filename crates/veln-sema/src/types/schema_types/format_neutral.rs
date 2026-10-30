@@ -1,5 +1,7 @@
 use super::*;
 
+use std::collections::HashMap;
+
 use crate::adt::descriptors::{AdtConstructor, AdtDescriptor, AdtVariantKind};
 use crate::adt::registry::AdtRegistry;
 use crate::adt::type_operations as adt;
@@ -14,6 +16,9 @@ pub(crate) use refinement::{
     format_neutral_schema_encode_field_contains_refinement,
     format_neutral_schema_encode_field_is_source_adt_candidate,
 };
+
+type RuntimeValidationMemoKey = (Option<String>, Option<String>, Type);
+type RuntimeValidationMemo = HashMap<RuntimeValidationMemoKey, Option<(Type, bool)>>;
 
 pub(super) fn format_neutral_schema_decode_function_signature_for_schema(
     module: &SurfaceModule,
@@ -48,11 +53,13 @@ pub(crate) fn format_neutral_schema_runtime_validation_types(
     schema: &SchemaDecl,
     adts: &AdtRegistry,
 ) -> Option<(Type, Type)> {
+    let mut completed_adts = HashMap::new();
     let (erased, refined, has_refinement) = format_neutral_schema_runtime_validation_types_inner(
         module,
         schema,
         adts,
         &mut Vec::new(),
+        &mut completed_adts,
     )?;
     has_refinement.then_some((erased, refined))
 }
@@ -62,6 +69,7 @@ fn format_neutral_schema_runtime_validation_types_inner(
     schema: &SchemaDecl,
     adts: &AdtRegistry,
     composition_stack: &mut Vec<(Option<String>, Option<String>, String)>,
+    completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, Type, bool)> {
     if schema.format.is_some()
         || !schema.validations.is_empty()
@@ -101,6 +109,7 @@ fn format_neutral_schema_runtime_validation_types_inner(
                     child,
                     adts,
                     composition_stack,
+                    completed_adts,
                 )?;
             if child_refined != refined {
                 return None;
@@ -115,6 +124,7 @@ fn format_neutral_schema_runtime_validation_types_inner(
                 adts,
                 &refined,
                 &mut Vec::new(),
+                completed_adts,
             )?;
             has_refinement |= field_has_refinement;
             erased
@@ -137,6 +147,7 @@ fn format_neutral_runtime_validation_type(
     adts: &AdtRegistry,
     ty: &Type,
     adt_stack: &mut Vec<String>,
+    completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, bool)> {
     match ty {
         Type::VariantRefinement {
@@ -160,6 +171,7 @@ fn format_neutral_runtime_validation_type(
                     adts,
                     ty,
                     adt_stack,
+                    completed_adts,
                 );
             }
             if format_neutral_runtime_validation_type_is_inaccessible_source_adt(
@@ -187,6 +199,7 @@ fn format_neutral_runtime_validation_type(
             adts,
             fields,
             adt_stack,
+            completed_adts,
         ),
         Type::Named { .. } => format_neutral_runtime_validation_named_type(
             module,
@@ -195,6 +208,7 @@ fn format_neutral_runtime_validation_type(
             adts,
             ty,
             adt_stack,
+            completed_adts,
         ),
         _ if !format_neutral_type_contains_refinement(ty) => Some((ty.clone(), false)),
         _ => None,
@@ -208,6 +222,7 @@ fn format_neutral_runtime_validation_record_type(
     adts: &AdtRegistry,
     fields: &[(String, Type)],
     adt_stack: &mut Vec<String>,
+    completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, bool)> {
     let mut erased_fields = Vec::with_capacity(fields.len());
     let mut has_refinement = false;
@@ -219,6 +234,7 @@ fn format_neutral_runtime_validation_record_type(
             adts,
             field_ty,
             adt_stack,
+            completed_adts,
         )?;
         erased_fields.push((name.clone(), erased));
         has_refinement |= field_has_refinement;
@@ -233,6 +249,7 @@ fn format_neutral_runtime_validation_named_type(
     adts: &AdtRegistry,
     ty: &Type,
     adt_stack: &mut Vec<String>,
+    completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, bool)> {
     let Type::Named {
         name,
@@ -259,6 +276,7 @@ fn format_neutral_runtime_validation_named_type(
                 adts,
                 ty,
                 adt_stack,
+                completed_adts,
             );
         }
         if format_neutral_runtime_validation_type_is_inaccessible_source_adt(
@@ -296,6 +314,7 @@ fn format_neutral_runtime_validation_named_type(
             adts,
             arg,
             adt_stack,
+            completed_adts,
         )?;
         erased_args.push(erased);
         has_refinement |= arg_has_refinement;
@@ -343,6 +362,7 @@ fn format_neutral_runtime_validation_source_adt_type(
     adts: &AdtRegistry,
     ty: &Type,
     adt_stack: &mut Vec<String>,
+    completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, bool)> {
     let descriptor = format_neutral_schema_source_adt_descriptor(
         module,
@@ -370,60 +390,74 @@ fn format_neutral_runtime_validation_source_adt_type(
     {
         return None;
     }
+    let memo_key = (
+        current_module.map(str::to_owned),
+        current_package.map(str::to_owned),
+        ty.clone(),
+    );
     let identity = descriptor.identity();
     if adt_stack.contains(&identity) {
         return None;
     }
-    let args = match ty {
-        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
-        _ => return None,
-    };
-    let mut erased_args = Vec::with_capacity(args.len());
-    for arg in args {
-        erased_args.push(
-            format_neutral_runtime_validation_type(
-                module,
-                current_module,
-                current_package,
-                adts,
-                arg,
-                adt_stack,
-            )?
-            .0,
-        );
+    if let Some(completed) = completed_adts.get(&memo_key) {
+        return completed.clone();
     }
     adt_stack.push(identity);
-    let mut payload_has_refinement = false;
-    for variant in &descriptor.variants {
-        for index in 0..variant.payload_fields.len() {
-            let payload_ty = adt::payload_type(
-                ty,
-                AdtConstructor {
-                    descriptor,
-                    variant,
-                },
-                index,
-            )?;
-            let (_, has_refinement) = format_neutral_runtime_validation_type(
-                module,
-                current_module,
-                current_package,
-                adts,
-                &payload_ty,
-                adt_stack,
-            )?;
-            payload_has_refinement |= has_refinement;
+    let result = (|| {
+        let args = match ty {
+            Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
+            _ => return None,
+        };
+        let mut erased_args = Vec::with_capacity(args.len());
+        for arg in args {
+            erased_args.push(
+                format_neutral_runtime_validation_type(
+                    module,
+                    current_module,
+                    current_package,
+                    adts,
+                    arg,
+                    adt_stack,
+                    completed_adts,
+                )?
+                .0,
+            );
         }
-    }
+        let mut payload_has_refinement = false;
+        for variant in &descriptor.variants {
+            for index in 0..variant.payload_fields.len() {
+                let payload_ty = adt::payload_type(
+                    ty,
+                    AdtConstructor {
+                        descriptor,
+                        variant,
+                    },
+                    index,
+                )?;
+                let (_, has_refinement) = format_neutral_runtime_validation_type(
+                    module,
+                    current_module,
+                    current_package,
+                    adts,
+                    &payload_ty,
+                    adt_stack,
+                    completed_adts,
+                )?;
+                payload_has_refinement |= has_refinement;
+            }
+        }
+        Some((
+            Type::resolved_named(
+                descriptor.type_name.clone(),
+                descriptor.identity(),
+                erased_args,
+            ),
+            matches!(ty, Type::VariantRefinement { .. }) || payload_has_refinement,
+        ))
+    })();
     adt_stack.pop();
-    Some((
-        Type::resolved_named(
-            descriptor.type_name.clone(),
-            descriptor.identity(),
-            erased_args,
-        ),
-        matches!(ty, Type::VariantRefinement { .. }) || payload_has_refinement,
-    ))
+    completed_adts.insert(memo_key, result.clone());
+    result
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
