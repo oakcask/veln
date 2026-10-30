@@ -467,20 +467,22 @@ bare schema operation path. Generated helper names are implementation details.
 `validate SchemaName from value at base_offset` accepts a format-neutral schema
 whose refinement-bearing positions are record fields of that schema, nested
 anonymous record fields, or fields of recursively composed format-neutral
-schemas. Each such field contains a singleton or finite-set source-ADT
-refinement. The value is checked against the schema-local record after
-recursively replacing each supported refinement with its base ADT while
-preserving every surrounding record shape, and `base_offset` must be
-`ByteOffset`. The result is
+schemas. These positions may pass through `Option<T>`, `Result<T, E>`,
+`List<T>`, `Vec<T>`, and `Dict<String, T>` in any supported nesting. Each
+terminal position contains a singleton or finite-set source-ADT refinement.
+The value is checked against the schema-local record after recursively
+replacing each supported refinement with its base ADT while preserving every
+record shape, container identity, and generic argument position, and
+`base_offset` must be `ByteOffset`. The result is
 `Result<SchemaRecord, DecodeError>` with the refinements retained. A supported
 validation schema has at least one reachable such field. It and every reachable
 composed schema have no field-local or schema-level predicate. Other supported
 fields may contain unrefined containers, which runtime validation preserves
 without traversing. Composed branches and anonymous record branches without
 refinements are also preserved, but composed branches still participate in the
-recursive static eligibility check. Refinement erasure inside containers,
-source-ADT payloads, or recursive values is not eligible. Binary schemas are
-also not eligible. The value and offset
+recursive static eligibility check. A dictionary on a refinement path must use
+`String` keys. Refinement erasure inside arbitrary source-ADT payloads or
+recursive values is not eligible. Binary schemas are also not eligible. The value and offset
 expressions are evaluated once, in that order. Schema-path lookup,
 public aliases, and exact-companion private access follow the decode and encode
 rules above. This expression use of `validate` is distinct from a schema-body

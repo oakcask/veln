@@ -151,6 +151,41 @@ fn format_neutral_runtime_validation_type(ty: &Type) -> Option<(Type, bool)> {
             }
             Some((Type::Record(erased_fields), has_refinement))
         }
+        Type::Named {
+            name,
+            identity,
+            args,
+        } if matches!(
+            identity.as_str(),
+            "Option" | "Result" | "List" | "Vec" | "Dict"
+        ) =>
+        {
+            let expected_arity = match identity.as_str() {
+                "Result" | "Dict" => 2,
+                _ => 1,
+            };
+            if args.len() != expected_arity
+                || (identity == "Dict"
+                    && !matches!(
+                        &args[0],
+                        Type::Named { identity, args, .. }
+                            if identity == "String" && args.is_empty()
+                    ))
+            {
+                return None;
+            }
+            let mut erased_args = Vec::with_capacity(args.len());
+            let mut has_refinement = false;
+            for arg in args {
+                let (erased, arg_has_refinement) = format_neutral_runtime_validation_type(arg)?;
+                erased_args.push(erased);
+                has_refinement |= arg_has_refinement;
+            }
+            Some((
+                Type::resolved_named(name.clone(), identity.clone(), erased_args),
+                has_refinement,
+            ))
+        }
         _ if !format_neutral_type_contains_refinement(ty) => Some((ty.clone(), false)),
         _ => None,
     }
@@ -501,10 +536,15 @@ fn format_neutral_schema_visible_shape_type_for_schema(
     traversal: FormatNeutralSchemaTraversal,
 ) -> Option<Type> {
     match ty {
-        Type::Named { name, args, .. } => format_neutral_schema_named_visible_shape_type(
+        Type::Named {
+            name,
+            identity,
+            args,
+        } => format_neutral_schema_named_visible_shape_type(
             (module, current_module, current_package, adts, traversal),
             ty,
             name,
+            identity,
             args,
             state,
         ),
@@ -552,13 +592,15 @@ fn format_neutral_schema_named_visible_shape_type(
     context: FormatNeutralSchemaContext<'_>,
     ty: &Type,
     name: &str,
+    identity: &str,
     args: &[Type],
     state: &mut FormatNeutralSchemaTraversalState,
 ) -> Option<Type> {
     let (module, current_module, current_package, adts, traversal) = context;
-    match (name, args) {
-        ("List" | "Vec", [item]) | ("Option", [item]) => Some(Type::named(
+    match (identity, args) {
+        ("List" | "Vec", [item]) | ("Option", [item]) => Some(Type::resolved_named(
             name,
+            identity,
             vec![format_neutral_schema_visible_shape_type_for_schema(
                 module,
                 current_module,
@@ -569,20 +611,33 @@ fn format_neutral_schema_named_visible_shape_type(
                 traversal,
             )?],
         )),
-        ("Dict", [key, value]) if *key == Type::string() => Some(Type::dict(
-            Type::string(),
-            format_neutral_schema_visible_shape_type_for_schema(
-                module,
-                current_module,
-                current_package,
-                adts,
-                value,
-                state,
-                traversal,
-            )?,
-        )),
-        ("Result", [ok, error]) => Some(Type::named(
-            "Result",
+        ("Dict", [key, value])
+            if matches!(
+                key,
+                Type::Named { identity, args, .. }
+                    if identity == "String" && args.is_empty()
+            ) =>
+        {
+            Some(Type::resolved_named(
+                name,
+                identity,
+                vec![
+                    key.clone(),
+                    format_neutral_schema_visible_shape_type_for_schema(
+                        module,
+                        current_module,
+                        current_package,
+                        adts,
+                        value,
+                        state,
+                        traversal,
+                    )?,
+                ],
+            ))
+        }
+        ("Result", [ok, error]) => Some(Type::resolved_named(
+            name,
+            identity,
             vec![
                 format_neutral_schema_visible_shape_type_for_schema(
                     module,

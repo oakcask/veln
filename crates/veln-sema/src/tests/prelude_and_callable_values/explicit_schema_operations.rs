@@ -372,51 +372,106 @@ fn explicit_schema_validate_expression_checks_erased_inputs_and_offset() {
 }
 
 #[test]
-fn explicit_schema_validate_expression_rejects_unsupported_container_refinement_shapes() {
+fn explicit_schema_validate_expression_carries_recursive_container_plan_through_core_and_ir() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
             "type State\n  Connected\n  Closed\nend\n",
             "schema ContainerPacket\n  direct: State::Connected\n  states: List<State::Connected>\nend\n",
-            "schema PredicatePacket\n  direct: State::Connected where true\nend\n",
-            "schema PredicateChild\n  state: State::Connected where true\nend\n",
-            "schema ComposedPredicatePacket\n  child: PredicateChild\nend\n",
-            "fn container(value: {direct: State, states: List<State>}, base: ByteOffset) -> ()\n",
-            "  validate ContainerPacket from value at base\n  ()\nend\n",
-            "fn predicate(value: {direct: State}, base: ByteOffset) -> ()\n",
-            "  validate PredicatePacket from value at base\n  ()\nend\n",
-            "fn composed_predicate(value: {child: {state: State}}, base: ByteOffset) -> ()\n",
-            "  validate ComposedPredicatePacket from value at base\n  ()\nend\n",
+            "schema RecursiveContainers\n",
+            "  optional: Option<State::Connected>\n",
+            "  outcome: Result<State::Connected, State::Closed>\n",
+            "  linked: List<State::Connected>\n",
+            "  vector: Vec<State::Connected>\n",
+            "  table: Dict<String, State::Connected>\n",
+            "  mixed: Option<Vec<Dict<String, Result<State::Connected, State::Closed>>>>\n",
+            "end\n",
+            "fn container(value: {optional: Option<State>, outcome: Result<State, State>, linked: List<State>, vector: Vec<State>, table: Dict<String, State>, mixed: Option<Vec<Dict<String, Result<State, State>>>>}, base: ByteOffset) -> Result<{optional: Option<State::Connected>, outcome: Result<State::Connected, State::Closed>, linked: List<State::Connected>, vector: Vec<State::Connected>, table: Dict<String, State::Connected>, mixed: Option<Vec<Dict<String, Result<State::Connected, State::Closed>>>>}, DecodeError>\n",
+            "  validate RecursiveContainers from value at base\nend\n",
         ),
     );
     let parsed = parse(&source);
     assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
     let module = lower_surface_ast(&parsed.tree);
     let lowered = lower_checked_surface_module(&module);
-    let validation_diagnostics = lowered
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core");
+    let core_spec = core
+        .schema_refinement_validators
+        .iter()
+        .find(|spec| spec.schema_name == "RecursiveContainers")
+        .expect("core validation plan");
+    let CoreSchemaRefinementPlan::Record(core_fields) = &core_spec.plan else {
+        panic!("root validation plan should be a record");
+    };
+    assert_eq!(
+        core_fields
+            .iter()
+            .map(|field| field.name.as_str())
+            .collect::<Vec<_>>(),
+        ["optional", "outcome", "linked", "vector", "table", "mixed"]
+    );
+    assert!(matches!(
+        &*core_fields[0].plan,
+        CoreSchemaRefinementPlan::Option(_)
+    ));
+    assert!(matches!(
+        &*core_fields[1].plan,
+        CoreSchemaRefinementPlan::Result { .. }
+    ));
+    assert!(matches!(
+        &*core_fields[2].plan,
+        CoreSchemaRefinementPlan::List(_)
+    ));
+    assert!(matches!(
+        &*core_fields[3].plan,
+        CoreSchemaRefinementPlan::Vec(_)
+    ));
+    assert!(matches!(
+        &*core_fields[4].plan,
+        CoreSchemaRefinementPlan::Dict(_)
+    ));
+
+    let ir = lowered.ir.as_ref().expect("typed IR");
+    let ir_spec = ir
+        .schema_refinement_validators
+        .iter()
+        .find(|spec| spec.schema_name == "RecursiveContainers")
+        .expect("IR validation plan");
+    assert!(matches!(ir_spec.plan, IrSchemaRefinementPlan::Record(_)));
+}
+
+#[test]
+fn explicit_schema_validate_expression_rejects_wrong_container_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "type OtherState\n  Connected\nend\n",
+            "type Box<A>\n  Boxed(value: A)\nend\n",
+            "schema Packet\n",
+            "  optional: Option<State::Connected>\n",
+            "  outcome: Result<State::Connected, State::Closed>\n",
+            "  table: Dict<String, State::Connected>\n",
+            "end\n",
+            "fn wrong_identity(value: {optional: Box<State>, outcome: Result<State, State>, table: Dict<String, State>}, base: ByteOffset) -> ()\n",
+            "  validate Packet from value at base\n  ()\nend\n",
+            "fn wrong_option_arg(value: {optional: Option<OtherState>, outcome: Result<State, State>, table: Dict<String, State>}, base: ByteOffset) -> ()\n",
+            "  validate Packet from value at base\n  ()\nend\n",
+            "fn wrong_result_arg(value: {optional: Option<State>, outcome: Result<State, String>, table: Dict<String, State>}, base: ByteOffset) -> ()\n",
+            "  validate Packet from value at base\n  ()\nend\n",
+            "fn wrong_dict_key(value: {optional: Option<State>, outcome: Result<State, State>, table: Dict<Int, State>}, base: ByteOffset) -> ()\n",
+            "  validate Packet from value at base\n  ()\nend\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let lowered = lower_checked_surface_module(&module);
+    let mismatches = lowered
         .diagnostics
         .iter()
-        .filter(|diagnostic| diagnostic.id == "schema.validate_expression")
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
         .collect::<Vec<_>>();
-
-    assert_eq!(
-        validation_diagnostics.len(),
-        3,
-        "{:#?}",
-        lowered.diagnostics
-    );
-    for schema in [
-        "ContainerPacket",
-        "PredicatePacket",
-        "ComposedPredicatePacket",
-    ] {
-        assert!(
-            validation_diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.message.contains(schema)),
-            "missing unsupported target {schema}: {validation_diagnostics:#?}"
-        );
-    }
+    assert_eq!(mismatches.len(), 4, "{:#?}", lowered.diagnostics);
 }
 
 #[test]

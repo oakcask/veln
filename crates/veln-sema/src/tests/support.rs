@@ -2,10 +2,12 @@ pub(super) use crate::*;
 pub(super) use veln_ast::{SurfaceModule, lower_surface_ast};
 pub(super) use veln_core::{
     ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreExprKind, CorePatternKind,
-    CoreReadiness, CoreStmtKind, CoreType,
+    CoreReadiness, CoreSchemaRefinementPlan, CoreStmtKind, CoreType,
 };
 pub(super) use veln_diagnostics::{Diagnostic, DiagnosticKind};
-pub(super) use veln_ir::{IrCallTarget, IrExprKind, IrPatternKind, IrStmtKind};
+pub(super) use veln_ir::{
+    IrCallTarget, IrExprKind, IrPatternKind, IrSchemaRefinementPlan, IrStmtKind,
+};
 pub(super) use veln_source::SourceFile;
 pub(super) use veln_syntax::parse;
 

@@ -1,5 +1,34 @@
     private static final int byteChunkMaximumRetainedCapacityRatio = 4;
 
+    public static Object validateSchemaRefinementPlan(
+        Object value,
+        Object baseOffset,
+        Object schemaNameValue,
+        Object planValue
+    ) {
+        long byteOffset = byteOffsetLong(baseOffset);
+        String schemaName = asString(schemaNameValue);
+        String rootPath = "/" + jsonPointerToken(schemaName);
+        if (byteOffset < 0L) {
+            return err(adt(
+                "DecodeError::DecodeErrorWithReason",
+                new Object[] {
+                    "schema.validation_offset_invalid",
+                    baseOffset,
+                    rootPath,
+                    "offset=" + byteOffset + "; expected a non-negative ByteOffset"
+                }
+            ));
+        }
+        Object failure = schemaRefinementPlanFailure(
+            value,
+            baseOffset,
+            rootPath,
+            (java.util.List<?>) planValue
+        );
+        return failure == null ? okPreservingValue(value) : failure;
+    }
+
     public static Object validateSchemaRefinements(
         Object value,
         Object baseOffset,
@@ -47,52 +76,172 @@
             Object fieldValue = recordField(value, fieldName);
             String fieldPath = path + "/" + jsonPointerToken(fieldName);
             if (!expected.isEmpty()) {
-                String actual = fieldValue instanceof Adt
-                    ? adtLeafName(((Adt) fieldValue).name)
-                    : format(fieldValue);
-                boolean admitted = false;
-                for (Object candidate : expected) {
-                    if (actual.equals(asString(candidate))) {
-                        admitted = true;
-                        break;
-                    }
-                }
-                if (!admitted) {
-                    StringBuilder expectedText = new StringBuilder();
-                    for (int variantIndex = 0; variantIndex < expected.size(); variantIndex += 1) {
-                        if (variantIndex > 0) {
-                            expectedText.append(", ");
-                        }
-                        expectedText.append(asString(expected.get(variantIndex)));
-                    }
-                    return err(adt(
-                        "DecodeError::DecodeErrorWithReason",
-                        new Object[] {
-                            "schema.variant_refinement_mismatch",
-                            baseOffset,
-                            fieldPath,
-                            "actual variant `" + actual + "`; expected one of `" + expectedText + "`"
-                        }
-                    ));
+                Object failure = schemaVariantRefinementFailure(
+                    fieldValue,
+                    baseOffset,
+                    fieldPath,
+                    expected
+                );
+                if (failure != null) {
+                    return failure;
                 }
             }
             java.util.List<?> child = (java.util.List<?>) childrenByField.get(index);
             if (child.isEmpty()) {
                 continue;
             }
-            Object failure = schemaRefinementFailure(
-                fieldValue,
-                baseOffset,
-                fieldPath,
-                (java.util.List<?>) child.get(0),
-                (java.util.List<?>) child.get(1),
-                (java.util.List<?>) child.get(2)
-            );
+            Object failure;
+            if (child.get(0) instanceof String) {
+                failure = schemaRefinementPlanFailure(fieldValue, baseOffset, fieldPath, child);
+            } else {
+                failure = schemaRefinementFailure(
+                    fieldValue,
+                    baseOffset,
+                    fieldPath,
+                    (java.util.List<?>) child.get(0),
+                    (java.util.List<?>) child.get(1),
+                    (java.util.List<?>) child.get(2)
+                );
+            }
             if (failure != null) {
                 return failure;
             }
         }
         return null;
+    }
+
+    private static Object schemaRefinementPlanFailure(
+        Object value,
+        Object baseOffset,
+        String path,
+        java.util.List<?> plan
+    ) {
+        String kind = asString(plan.get(0));
+        if (kind.equals("variant")) {
+            return schemaVariantRefinementFailure(
+                value,
+                baseOffset,
+                path,
+                (java.util.List<?>) plan.get(1)
+            );
+        }
+        if (kind.equals("record")) {
+            for (Object fieldValue : (java.util.List<?>) plan.get(1)) {
+                java.util.List<?> field = (java.util.List<?>) fieldValue;
+                String name = asString(field.get(0));
+                Object failure = schemaRefinementPlanFailure(
+                    recordField(value, name),
+                    baseOffset,
+                    path + "/" + jsonPointerToken(name),
+                    (java.util.List<?>) field.get(1)
+                );
+                if (failure != null) return failure;
+            }
+            return null;
+        }
+        if (kind.equals("option")) {
+            Option option = (Option) value;
+            return option.some
+                ? schemaRefinementPlanFailure(
+                    option.value,
+                    baseOffset,
+                    path,
+                    (java.util.List<?>) plan.get(1)
+                )
+                : null;
+        }
+        if (kind.equals("result")) {
+            Result result = (Result) value;
+            java.util.List<?> branch = (java.util.List<?>) plan.get(result.ok ? 1 : 2);
+            return branch.isEmpty()
+                ? null
+                : schemaRefinementPlanFailure(result.value, baseOffset, path, branch);
+        }
+        if (kind.equals("list")) {
+            ListValue item = (ListValue) value;
+            long index = 0L;
+            while (item.cons) {
+                Object failure = schemaRefinementPlanFailure(
+                    item.head,
+                    baseOffset,
+                    path + "/" + index,
+                    (java.util.List<?>) plan.get(1)
+                );
+                if (failure != null) return failure;
+                item = (ListValue) item.tail;
+                index += 1L;
+            }
+            return null;
+        }
+        if (kind.equals("vec")) {
+            java.util.List<?> items = (java.util.List<?>) value;
+            for (int index = 0; index < items.size(); index += 1) {
+                Object failure = schemaRefinementPlanFailure(
+                    items.get(index),
+                    baseOffset,
+                    path + "/" + index,
+                    (java.util.List<?>) plan.get(1)
+                );
+                if (failure != null) return failure;
+            }
+            return null;
+        }
+        if (kind.equals("dict")) {
+            java.util.Map<Object, Object> values = asMap(value);
+            java.util.ArrayList<String> keys = new java.util.ArrayList<String>();
+            for (Object key : values.keySet()) keys.add(asString(key));
+            java.util.Collections.sort(keys, VelnRuntime::compareUtf8Bytes);
+            for (String key : keys) {
+                Object failure = schemaRefinementPlanFailure(
+                    values.get(key),
+                    baseOffset,
+                    path + "/" + jsonPointerToken(key),
+                    (java.util.List<?>) plan.get(1)
+                );
+                if (failure != null) return failure;
+            }
+            return null;
+        }
+        throw new IllegalStateException("unknown schema refinement plan `" + kind + "`");
+    }
+
+    private static Object schemaVariantRefinementFailure(
+        Object value,
+        Object baseOffset,
+        String path,
+        java.util.List<?> expected
+    ) {
+        String actual = value instanceof Adt
+            ? adtLeafName(((Adt) value).name)
+            : format(value);
+        for (Object candidate : expected) {
+            if (actual.equals(asString(candidate))) return null;
+        }
+        StringBuilder expectedText = new StringBuilder();
+        for (int index = 0; index < expected.size(); index += 1) {
+            if (index > 0) expectedText.append(", ");
+            expectedText.append(asString(expected.get(index)));
+        }
+        return err(adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "schema.variant_refinement_mismatch",
+                baseOffset,
+                path,
+                "actual variant `" + actual + "`; expected one of `" + expectedText + "`"
+            }
+        ));
+    }
+
+    private static int compareUtf8Bytes(String left, String right) {
+        byte[] leftBytes = left.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] rightBytes = right.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        int length = Math.min(leftBytes.length, rightBytes.length);
+        for (int index = 0; index < length; index += 1) {
+            int comparison = Integer.compare(leftBytes[index] & 0xff, rightBytes[index] & 0xff);
+            if (comparison != 0) return comparison;
+        }
+        return Integer.compare(leftBytes.length, rightBytes.length);
     }
 
     private static String adtLeafName(String name) {

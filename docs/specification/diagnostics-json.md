@@ -1181,7 +1181,12 @@ uses `schema.variant_refinement_mismatch`, and a negative offset uses
 the exact `ByteOffset`, `reason`, and decoded JSON Pointer `field_path`. The
 root segment has kind `schema` and the terminal declaration name; following
 segments have kind `field`, including each containing composed-schema or
-anonymous-record field before the rejected field. Human rendering identifies
+anonymous-record field, decimal list or vector index, and escaped dictionary
+key before the rejected position. JSON Pointer key tokens escape `~` as `~0`
+and `/` as `~1`. The checked
+[`schema-runtime-refinement-validation-containers`](../../examples/specification/run/schema-runtime-refinement-validation-containers/)
+case fixes collection indices, deterministic dictionary ordering, and escaped
+dictionary keys. Human rendering identifies
 the failed fact at the offset and places the path and mismatch or offset reason
 in notes.
 

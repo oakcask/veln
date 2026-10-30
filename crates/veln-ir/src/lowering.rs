@@ -1,13 +1,14 @@
 use veln_ast::NodeId;
 use veln_core::{
     CheckedProgram, CoreBlocker, CoreCallTarget, CoreCallbackTarget, CoreExpr, CoreExprKind,
-    CoreReadiness, CoreStmt, CoreStmtKind,
+    CoreReadiness, CoreSchemaRefinementPlan, CoreStmt, CoreStmtKind,
 };
 
 use crate::{
     IrCallTarget, IrCallbackTarget, IrCleanupRegion, IrContract, IrDeferredBlock,
     IrDeferredCapture, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrHandlerProvider, IrMatchArm,
-    IrModuleValueDecl, IrParam, IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrStmt,
+    IrModuleValueDecl, IrParam, IrPattern, IrPatternField, IrPatternKind, IrRecordField,
+    IrSchemaRefinementField, IrSchemaRefinementPlan, IrSchemaRefinementValidationSpec, IrStmt,
     IrStmtKind, TypedProgram,
 };
 
@@ -35,6 +36,15 @@ pub fn lower_checked_core(program: &CheckedProgram) -> Result<TypedProgram, IrLo
     Ok(TypedProgram {
         functions,
         schema_decoders: Vec::new(),
+        schema_refinement_validators: program
+            .schema_refinement_validators
+            .iter()
+            .map(|spec| IrSchemaRefinementValidationSpec {
+                schema_name: spec.schema_name.clone(),
+                declaration_name: spec.declaration_name.clone(),
+                plan: lower_schema_refinement_plan(&spec.plan),
+            })
+            .collect(),
         module_values: program
             .module_values
             .iter()
@@ -51,6 +61,47 @@ pub fn lower_checked_core(program: &CheckedProgram) -> Result<TypedProgram, IrLo
             })
             .collect::<Result<Vec<_>, IrLowerError>>()?,
     })
+}
+
+fn lower_schema_refinement_plan(plan: &CoreSchemaRefinementPlan) -> IrSchemaRefinementPlan {
+    match plan {
+        CoreSchemaRefinementPlan::Variant(expected_variants) => {
+            IrSchemaRefinementPlan::Variant(crate::IrSchemaVariantRefinement {
+                expected_variants: expected_variants.clone(),
+            })
+        }
+        CoreSchemaRefinementPlan::Record(fields) => IrSchemaRefinementPlan::Record(
+            fields
+                .iter()
+                .map(|field| IrSchemaRefinementField {
+                    name: field.name.clone(),
+                    plan: Box::new(lower_schema_refinement_plan(&field.plan)),
+                })
+                .collect(),
+        ),
+        CoreSchemaRefinementPlan::Option(payload) => {
+            IrSchemaRefinementPlan::Option(Box::new(lower_schema_refinement_plan(payload)))
+        }
+        CoreSchemaRefinementPlan::Result { ok, err } => IrSchemaRefinementPlan::Result {
+            ok: ok
+                .as_deref()
+                .map(lower_schema_refinement_plan)
+                .map(Box::new),
+            err: err
+                .as_deref()
+                .map(lower_schema_refinement_plan)
+                .map(Box::new),
+        },
+        CoreSchemaRefinementPlan::List(payload) => {
+            IrSchemaRefinementPlan::List(Box::new(lower_schema_refinement_plan(payload)))
+        }
+        CoreSchemaRefinementPlan::Vec(payload) => {
+            IrSchemaRefinementPlan::Vec(Box::new(lower_schema_refinement_plan(payload)))
+        }
+        CoreSchemaRefinementPlan::Dict(payload) => {
+            IrSchemaRefinementPlan::Dict(Box::new(lower_schema_refinement_plan(payload)))
+        }
+    }
 }
 
 fn lower_function(function: &veln_core::CoreFunction) -> Result<IrFunction, IrLowerError> {

@@ -1,9 +1,13 @@
 use std::collections::BTreeMap;
 
 use veln_ast::{SchemaDecl, SchemaField, SurfaceModule};
+use veln_core::{
+    CoreSchemaRefinementField, CoreSchemaRefinementPlan, CoreSchemaRefinementValidationSpec,
+};
 use veln_ir::{
     IrSchemaDecodeDispatch, IrSchemaDecodeDispatchCase, IrSchemaDecodeField, IrSchemaDecodeSpec,
-    IrSchemaRepeat, IrSchemaReservedBits, IrSchemaVariantRefinement,
+    IrSchemaRefinementField, IrSchemaRefinementPlan, IrSchemaRepeat, IrSchemaReservedBits,
+    IrSchemaVariantRefinement,
 };
 
 use crate::adt::registry::AdtRegistry;
@@ -37,6 +41,87 @@ pub(crate) fn schema_decode_specs(module: &SurfaceModule) -> Vec<IrSchemaDecodeS
         .iter()
         .filter_map(|schema| schema_decode_spec(module, schema))
         .collect()
+}
+
+pub(crate) fn schema_refinement_validation_specs(
+    module: &SurfaceModule,
+) -> Vec<CoreSchemaRefinementValidationSpec> {
+    module
+        .schemas
+        .iter()
+        .filter(|schema| schema.format.is_none())
+        .filter_map(|schema| {
+            let decoded = schema_decode_spec(module, schema)?;
+            let fields = decoded
+                .fields
+                .iter()
+                .filter_map(|field| {
+                    ir_schema_refinement_field_plan(field).map(|plan| CoreSchemaRefinementField {
+                        name: field.name.clone(),
+                        plan: Box::new(core_schema_refinement_plan(&plan)),
+                    })
+                })
+                .collect::<Vec<_>>();
+            (!fields.is_empty()).then_some(CoreSchemaRefinementValidationSpec {
+                schema_name: decoded.schema_name,
+                declaration_name: decoded.declaration_name,
+                plan: CoreSchemaRefinementPlan::Record(fields),
+            })
+        })
+        .collect()
+}
+
+fn ir_schema_refinement_field_plan(field: &IrSchemaDecodeField) -> Option<IrSchemaRefinementPlan> {
+    field.refinement_plan.as_deref().cloned().or_else(|| {
+        let child = field.payload_schema.as_deref()?;
+        let fields = child
+            .fields
+            .iter()
+            .filter_map(|field| {
+                ir_schema_refinement_field_plan(field).map(|plan| IrSchemaRefinementField {
+                    name: field.name.clone(),
+                    plan: Box::new(plan),
+                })
+            })
+            .collect::<Vec<_>>();
+        (!fields.is_empty()).then_some(IrSchemaRefinementPlan::Record(fields))
+    })
+}
+
+fn core_schema_refinement_plan(plan: &IrSchemaRefinementPlan) -> CoreSchemaRefinementPlan {
+    match plan {
+        IrSchemaRefinementPlan::Variant(refinement) => {
+            CoreSchemaRefinementPlan::Variant(refinement.expected_variants.clone())
+        }
+        IrSchemaRefinementPlan::Record(fields) => CoreSchemaRefinementPlan::Record(
+            fields
+                .iter()
+                .map(|field| CoreSchemaRefinementField {
+                    name: field.name.clone(),
+                    plan: Box::new(core_schema_refinement_plan(&field.plan)),
+                })
+                .collect(),
+        ),
+        IrSchemaRefinementPlan::Option(payload) => {
+            CoreSchemaRefinementPlan::Option(Box::new(core_schema_refinement_plan(payload)))
+        }
+        IrSchemaRefinementPlan::Result { ok, err } => CoreSchemaRefinementPlan::Result {
+            ok: ok.as_deref().map(core_schema_refinement_plan).map(Box::new),
+            err: err
+                .as_deref()
+                .map(core_schema_refinement_plan)
+                .map(Box::new),
+        },
+        IrSchemaRefinementPlan::List(payload) => {
+            CoreSchemaRefinementPlan::List(Box::new(core_schema_refinement_plan(payload)))
+        }
+        IrSchemaRefinementPlan::Vec(payload) => {
+            CoreSchemaRefinementPlan::Vec(Box::new(core_schema_refinement_plan(payload)))
+        }
+        IrSchemaRefinementPlan::Dict(payload) => {
+            CoreSchemaRefinementPlan::Dict(Box::new(core_schema_refinement_plan(payload)))
+        }
+    }
 }
 
 fn schema_decode_spec(module: &SurfaceModule, schema: &SchemaDecl) -> Option<IrSchemaDecodeSpec> {
@@ -112,6 +197,10 @@ fn format_neutral_schema_decode_spec(
                 variant_refinement: field_ty
                     .as_ref()
                     .and_then(|ty| ir_schema_variant_refinement(ty, &adts)),
+                refinement_plan: field_ty
+                    .as_ref()
+                    .and_then(|ty| ir_schema_refinement_plan(ty, &adts))
+                    .map(Box::new),
                 ..IrSchemaDecodeField::new(field.name.clone())
             })
         })
@@ -139,6 +228,7 @@ fn ir_schema_refinement_record_spec(ty: &Type, adts: &AdtRegistry) -> Option<IrS
             IrSchemaDecodeField {
                 variant_refinement,
                 payload_schema,
+                refinement_plan: ir_schema_refinement_plan(field_ty, adts).map(Box::new),
                 ..IrSchemaDecodeField::new(name.clone())
             }
         })
@@ -150,6 +240,60 @@ fn ir_schema_refinement_record_spec(ty: &Type, adts: &AdtRegistry) -> Option<IrS
         fields,
         validation: None,
     })
+}
+
+fn ir_schema_refinement_plan(ty: &Type, adts: &AdtRegistry) -> Option<IrSchemaRefinementPlan> {
+    if let Some(refinement) = ir_schema_variant_refinement(ty, adts) {
+        return Some(IrSchemaRefinementPlan::Variant(refinement));
+    }
+    match ty {
+        Type::Record(fields) => {
+            let fields = fields
+                .iter()
+                .filter_map(|(name, ty)| {
+                    ir_schema_refinement_plan(ty, adts).map(|plan| IrSchemaRefinementField {
+                        name: name.clone(),
+                        plan: Box::new(plan),
+                    })
+                })
+                .collect::<Vec<_>>();
+            (!fields.is_empty()).then_some(IrSchemaRefinementPlan::Record(fields))
+        }
+        Type::Named { identity, args, .. } if identity == "Option" && args.len() == 1 => {
+            ir_schema_refinement_plan(&args[0], adts)
+                .map(Box::new)
+                .map(IrSchemaRefinementPlan::Option)
+        }
+        Type::Named { identity, args, .. } if identity == "Result" && args.len() == 2 => {
+            let ok = ir_schema_refinement_plan(&args[0], adts).map(Box::new);
+            let err = ir_schema_refinement_plan(&args[1], adts).map(Box::new);
+            (ok.is_some() || err.is_some()).then_some(IrSchemaRefinementPlan::Result { ok, err })
+        }
+        Type::Named { identity, args, .. } if identity == "List" && args.len() == 1 => {
+            ir_schema_refinement_plan(&args[0], adts)
+                .map(Box::new)
+                .map(IrSchemaRefinementPlan::List)
+        }
+        Type::Named { identity, args, .. } if identity == "Vec" && args.len() == 1 => {
+            ir_schema_refinement_plan(&args[0], adts)
+                .map(Box::new)
+                .map(IrSchemaRefinementPlan::Vec)
+        }
+        Type::Named { identity, args, .. }
+            if identity == "Dict"
+                && args.len() == 2
+                && matches!(
+                    &args[0],
+                    Type::Named { identity, args, .. }
+                        if identity == "String" && args.is_empty()
+                ) =>
+        {
+            ir_schema_refinement_plan(&args[1], adts)
+                .map(Box::new)
+                .map(IrSchemaRefinementPlan::Dict)
+        }
+        _ => None,
+    }
 }
 
 fn schema_decode_spec_inner_after_push(
