@@ -57,6 +57,21 @@ struct HandlerEffectContext<'a> {
     companion_effect_access_targets: &'a BTreeMap<String, CompanionAccessTarget>,
 }
 
+impl HandlerEffectContext<'_> {
+    fn function_context(&self) -> FunctionEffectContext<'_> {
+        FunctionEffectContext {
+            uses: self.uses,
+            functions: self.functions,
+            user_effects: self.user_effects,
+            handlers: self.handlers,
+            effects_by_function: self.effects_by_function,
+            effects_by_module_path: self.effects_by_module_path,
+            companion_access_targets: self.companion_access_targets,
+            companion_effect_access_targets: self.companion_effect_access_targets,
+        }
+    }
+}
+
 pub(super) fn infer_function_and_private_handler_effects(
     module: &SurfaceModule,
     functions: &mut [FunctionSignature],
@@ -498,72 +513,85 @@ fn collect_private_handler_effects(
     else {
         return Vec::new();
     };
-    let mut inferred = Vec::new();
-    let function_context = FunctionEffectContext {
-        uses: context.uses,
-        functions: context.functions,
-        user_effects: context.user_effects,
-        handlers: context.handlers,
-        effects_by_function: context.effects_by_function,
-        effects_by_module_path: context.effects_by_module_path,
-        companion_access_targets: context.companion_access_targets,
-        companion_effect_access_targets: context.companion_effect_access_targets,
-    };
-    for clause in &decl.operation_clauses {
-        let Some(operation_name) = clause.operation.as_deref() else {
-            continue;
-        };
-        let Some(operation) = effect
-            .operations
-            .iter()
-            .find(|operation| operation.name == operation_name)
-        else {
-            continue;
-        };
-        let mut bindings = handler_parameter_bindings(decl, handler);
-        bindings.extend(
-            clause
-                .params
+    let function_context = context.function_context();
+    decl.operation_clauses
+        .iter()
+        .filter_map(|clause| {
+            let operation_name = clause.operation.as_deref()?;
+            let operation = effect
+                .operations
                 .iter()
-                .enumerate()
-                .filter_map(|(index, param)| {
-                    if valid_value_binding_name(&param.name) {
-                        Some(Binding::new(
-                            param.name.clone(),
-                            operation
-                                .params
-                                .get(index)
-                                .cloned()
-                                .unwrap_or(Type::Unknown),
-                        ))
-                    } else {
-                        None
-                    }
-                }),
-        );
-        let mut handled_effects = ActiveHandledEffects::default();
-        visit_effect_expr(
-            &clause.body,
-            handler.module_name.as_deref(),
-            handler.package_name.as_deref(),
-            &function_context,
-            &mut bindings,
-            &mut handled_effects,
-            true,
-            &mut |expr, expr_context, handled_effects| {
-                let before = inferred.len();
-                collect_expr_effects(expr, expr_context, &mut inferred);
-                if !handled_effects.is_empty() {
-                    let retained = inferred
-                        .drain(before..)
-                        .filter(|effect| !handled_effects.contains(effect))
-                        .collect::<Vec<_>>();
-                    inferred.extend(retained);
-                }
-            },
-        );
-    }
+                .find(|operation| operation.name == operation_name)?;
+            Some(collect_handler_clause_effects(
+                decl,
+                handler,
+                clause,
+                operation,
+                &function_context,
+            ))
+        })
+        .flatten()
+        .collect()
+}
+
+fn collect_handler_clause_effects(
+    declaration: &HandlerDecl,
+    handler: &HandlerSignature,
+    clause: &veln_ast::HandlerOperationClauseDecl,
+    operation: &EffectOperationSignature,
+    context: &FunctionEffectContext<'_>,
+) -> Vec<String> {
+    let mut inferred = Vec::new();
+    let mut bindings = handler_operation_bindings(declaration, handler, clause, operation);
+    let mut handled_effects = ActiveHandledEffects::default();
+    visit_effect_expr(
+        &clause.body,
+        handler.module_name.as_deref(),
+        handler.package_name.as_deref(),
+        context,
+        &mut bindings,
+        &mut handled_effects,
+        true,
+        &mut |expr, expr_context, handled_effects| {
+            let before = inferred.len();
+            collect_expr_effects(expr, expr_context, &mut inferred);
+            if !handled_effects.is_empty() {
+                let retained = inferred
+                    .drain(before..)
+                    .filter(|effect| !handled_effects.contains(effect))
+                    .collect::<Vec<_>>();
+                inferred.extend(retained);
+            }
+        },
+    );
     inferred
+}
+
+fn handler_operation_bindings(
+    declaration: &HandlerDecl,
+    handler: &HandlerSignature,
+    clause: &veln_ast::HandlerOperationClauseDecl,
+    operation: &EffectOperationSignature,
+) -> PrivateBindings {
+    let mut bindings = handler_parameter_bindings(declaration, handler);
+    bindings.extend(
+        clause
+            .params
+            .iter()
+            .enumerate()
+            .filter(|(_, param)| valid_value_binding_name(&param.name))
+            .map(|(index, param)| {
+                Binding::new(
+                    param.name.clone(),
+                    operation
+                        .params
+                        .get(index)
+                        .cloned()
+                        .unwrap_or(Type::Unknown),
+                )
+            }),
+    );
+    bindings
 }
 
 fn handler_parameter_bindings(

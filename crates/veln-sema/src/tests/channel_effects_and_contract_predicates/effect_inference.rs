@@ -68,6 +68,53 @@ fn nested_handler_effects_keep_argument_effects_outside_the_handler() {
 }
 
 #[test]
+fn private_handler_effect_inference_collects_each_operation_clause() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Ask\n",
+            "  text(value: String) -> Int\n",
+            "  number(value: Int) -> Int\n",
+            "end\n",
+            "fn print_value(value: String) -> Int\n",
+            "  stdio::println(value)\n",
+            "  1\n",
+            "end\n",
+            "fn timestamp(value: Int) -> Int\n",
+            "  time::monotonic_ms()\n",
+            "  value\n",
+            "end\n",
+            "handler ask(fallback: String) for Ask\n",
+            "  text(value) => print_value(fallback)\n",
+            "  number(value) => timestamp(value)\n",
+            "end\n",
+            "fn compute() -> Int effects [Ask]\n",
+            "  perform Ask::text(\"value\")\n",
+            "  perform Ask::number(1)\n",
+            "end\n",
+            "pub fn main() -> Int\n",
+            "  handle compute() with ask(\"fallback\")\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    for diagnostic in &diagnostics {
+        assert_eq!(diagnostic.id, "effect.missing_public");
+        let details = diagnostic.details.to_json();
+        assert!(
+            details.contains("\"inferred_effects\":[\"stdio\",\"time\"]"),
+            "{details}"
+        );
+    }
+}
+
+#[test]
 fn infers_transitive_private_helper_effects_from_body() {
     let source = SourceFile::new(
         "main.veln",
