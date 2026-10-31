@@ -442,10 +442,15 @@ install that production client boundary.
   the predicate on its containing field. Each schema-level predicate runs
   after that schema's field predicates. The first failed predicate returns
   `schema.validation_failed` with the supplied offset and the failed field path
-  or schema root. The checked
+  or schema root. Schema predicates evaluate integer bitwise operations with
+  signed 64-bit two's-complement behavior. A dynamic shift count outside
+  `0..63` stops execution with `runtime.invalid_shift_count`; it does not
+  return a schema validation `Err`. The checked
   [`schema-runtime-refinement-predicate-order`](../../examples/specification/run/schema-runtime-refinement-predicate-order/)
-  case covers refinement precedence, predicate order, paths, and successful
-  value preservation. The checked
+  case covers refinement precedence, predicate order, bitwise evaluation,
+  paths, and successful value preservation. The checked
+  [`schema-runtime-refinement-predicate-invalid-shift-json`](../../examples/specification/run/schema-runtime-refinement-predicate-invalid-shift-json/)
+  case covers the dynamic shift failure. The checked
   container traversal and ordering behavior is exercised by
   [`schema-runtime-refinement-validation-containers`](../../examples/specification/run/schema-runtime-refinement-validation-containers/).
   Source-ADT traversal and human and JSON path projection are checked by

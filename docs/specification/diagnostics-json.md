@@ -292,7 +292,10 @@ Malformed integer literals use `parse.integer_literal` with the complete
 numeric candidate, parser context, accepted form, and non-cascading recovery;
 related notes may identify the accepted digit set or prefix. Invalid literal
 shift counts use `type.invalid_shift_count` with `operator`, `actual_count`,
-`minimum_count`, and `maximum_count`; the span is the count expression.
+`minimum_count`, and `maximum_count`. In ordinary expressions, contracts, and
+hole predicates, the span is the count expression. In a schema field `where`
+predicate or schema-level `validate` predicate, the span is the containing
+predicate clause.
 
 A remainder divisor written as an integer zero literal reports one
 `type.remainder_by_zero` diagnostic with kind `type`, message
@@ -1178,7 +1181,10 @@ Schema diagnostics cover parse rejection, primitive kind checks, field
 references, validation predicates, dispatch payload eligibility, explicit
 schema operation path resolution, and generated helper availability. Mapping
 clauses are rejected by the parser and therefore have no current schema
-mapping diagnostic.
+mapping diagnostic. If `format binary` appears after a schema validation
+clause, that clause reports `parse.schema_validation_before_format`; a
+format-neutral schema without a format clause may use the same validation
+position.
 
 Static failures for `validate Schema from value at offset` use
 `schema.validate_expression`. The details include `phase: "body_analysis"`,

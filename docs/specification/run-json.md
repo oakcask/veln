@@ -173,7 +173,10 @@ acquire those `listen` or `connect` commit facts.
 An invalid dynamic shift count uses
 `details.id: "runtime.invalid_shift_count"` with `operator`,
 `actual_count`, `minimum_count`, and `maximum_count`. Other host failures
-keep the generic runtime shape.
+keep the generic runtime shape. The same projection applies when a schema field
+or schema-level predicate evaluates an invalid dynamic shift; the checked
+[`schema-runtime-refinement-predicate-invalid-shift-json`](../../examples/specification/run/schema-runtime-refinement-predicate-invalid-shift-json/)
+case covers that boundary.
 
 A computed zero remainder divisor uses
 `details.id: "runtime.remainder_by_zero"`, `operator: "%"`, and numeric

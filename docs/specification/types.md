@@ -1701,6 +1701,10 @@ contract reasoning evaluates literal-only bitwise expressions. Repair
 reasoning leaves nonliteral bitwise predicates runtime-checked instead of
 inventing an arithmetic rewrite.
 
+Schema field `where` predicates and schema-level `validate` predicates use the
+same `Int` bitwise and shift operators, precedence, and literal shift-count
+range. They do not accept `%`.
+
 ## References
 
 - Type inference and compatibility: `crates/veln-sema/src/types.rs` and
