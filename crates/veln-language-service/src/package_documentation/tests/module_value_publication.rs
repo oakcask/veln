@@ -72,6 +72,64 @@ fn dependency_rejected_public_module_value_fails_the_complete_catalog() {
 }
 
 #[test]
+fn recurrent_imported_lookup_rejection_fails_the_complete_catalog_in_every_import_order() {
+    for reverse_sources in [false, true] {
+        let (b_path, owner_path) = if reverse_sources {
+            ("order_2/b.veln", "order_0/owner.veln")
+        } else {
+            ("order_0/b.veln", "order_2/owner.veln")
+        };
+        let c_path = "order_1/c.veln";
+        let b_module = b_path.trim_end_matches(".veln").replace('/', "::");
+        let c_module = c_path.trim_end_matches(".veln").replace('/', "::");
+        let owner_module = owner_path.trim_end_matches(".veln").replace('/', "::");
+        for reverse_imports in [false, true] {
+            let imports = if reverse_imports {
+                format!("use {c_module} as c\nuse {b_module} as b\n")
+            } else {
+                format!("use {b_module} as b\nuse {c_module} as c\n")
+            };
+            let owner = format!(
+                "{imports}pub let selected: Int = shared\npub let local: Int = selected\npub let independent: Int = 4\n"
+            );
+            let b = format!("use {owner_module} as owner\npub let shared: Int = owner::selected\n");
+            let manifest = format!(
+                "[package]\nname = \"module-value-recurrent-lookup\"\n[lib]\nexports = [\"{owner_path}\"]\n"
+            );
+            let sources = [
+                (b_path, b.as_str()),
+                (c_path, "pub let shared: Int = 1\n"),
+                (owner_path, owner.as_str()),
+            ];
+            let result = generate(&manifest, &sources);
+
+            assert!(result.catalog().is_none(), "{:#?}", result.status());
+            assert!(
+                result
+                    .declaration_uri_for(&owner_module, "module_value", "selected")
+                    .is_none()
+            );
+            assert!(
+                result
+                    .declaration_uri_for(&owner_module, "module_value", "independent")
+                    .is_none()
+            );
+            assert!(
+                result.status().diagnostics.iter().any(|diagnostic| {
+                    diagnostic.gate == "module_value"
+                        && matches!(
+                            diagnostic.code.as_str(),
+                            "name.ambiguous" | "name.unresolved"
+                        )
+                }),
+                "{:#?}",
+                result.status().diagnostics
+            );
+        }
+    }
+}
+
+#[test]
 fn rejected_public_value_does_not_publish_unrelated_private_diagnostics() {
     let result = generate(
         concat!(
@@ -230,6 +288,22 @@ fn captured_invalid_same_path_dependency(source: &str) -> CapturedDependencyProj
     }
 }
 
+fn captured_dependency_source_uri(
+    dependency: &CapturedDependencyProject,
+    source_path: &str,
+) -> String {
+    let project = dependency.project.as_ref().unwrap();
+    let manifest = project.manifest.as_ref().unwrap();
+    let snapshot = capture_embedded_package_snapshot(
+        &manifest.source_bytes,
+        project.files.iter().map(|source| {
+            PackageSnapshotSource::new(source.path().as_str(), source.text().as_bytes())
+        }),
+    )
+    .unwrap();
+    source_uri(&dependency.package, snapshot.digest(), source_path)
+}
+
 #[test]
 fn unrelated_dependency_value_with_colliding_source_span_does_not_reject_root() {
     for dependency_source in [
@@ -262,6 +336,7 @@ fn unrelated_dependency_value_with_colliding_source_span_does_not_reject_root() 
 #[test]
 fn required_same_path_dependency_failure_keeps_dependency_location() {
     let dependency = captured_invalid_same_path_dependency("pub let fail: Int = \"x\"\n");
+    let expected_source_uri = captured_dependency_source_uri(&dependency, "main.veln");
     let result = generate_with_dependencies(
         concat!(
             "[package]\n",
@@ -292,10 +367,10 @@ fn required_same_path_dependency_failure_keeps_dependency_location() {
         result.status().diagnostics.iter().any(|diagnostic| {
             diagnostic.gate == "module_value"
                 && diagnostic.code == "type.mismatch"
-                && diagnostic.span.as_ref().is_some_and(|span| {
-                    span.source_uri.contains("veln-pkg:///b/snapshot/")
-                        && span.source_uri.ends_with("/main.veln")
-                })
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.source_uri == expected_source_uri)
         }),
         "{:#?}",
         result.status().diagnostics
@@ -310,6 +385,7 @@ fn required_dependency_callable_collision_keeps_dependency_identity() {
         "end\n",
         "pub let shared: Int = 1\n",
     ));
+    let expected_source_uri = captured_dependency_source_uri(&dependency, "main.veln");
     let result = generate_with_dependencies(
         concat!(
             "[package]\n",
@@ -334,10 +410,10 @@ fn required_dependency_callable_collision_keeps_dependency_identity() {
         result.status().diagnostics.iter().any(|diagnostic| {
             diagnostic.gate == "module_value"
                 && diagnostic.code == "name.duplicate"
-                && diagnostic.span.as_ref().is_some_and(|span| {
-                    span.source_uri.contains("veln-pkg:///b/snapshot/")
-                        && span.source_uri.ends_with("/main.veln")
-                })
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.source_uri == expected_source_uri)
         }),
         "{:#?}",
         result.status().diagnostics
@@ -625,6 +701,7 @@ enum ClassificationWorkload {
     ExportedChain,
     IndependentInvalid,
     InvalidCasing,
+    DuplicateCallable,
 }
 
 fn classification_work(
@@ -647,6 +724,15 @@ fn classification_work(
         ClassificationWorkload::InvalidCasing => (0..count)
             .map(|index| format!("pub let BadValue{index}: Int = {index}\n"))
             .collect::<String>(),
+        ClassificationWorkload::DuplicateCallable => {
+            let functions = (0..count)
+                .map(|index| format!("fn value_{index}() -> Int\n  {index}\nend\n"))
+                .collect::<String>();
+            let values = (0..count)
+                .map(|index| format!("pub let value_{index}: Int = {index}\n"))
+                .collect::<String>();
+            format!("{functions}{values}")
+        }
     };
     reset_package_doc_semantic_classification_work();
     let result = generate(
@@ -661,9 +747,9 @@ fn classification_work(
     assert!(result.catalog().is_none());
     let first_name = match workload {
         ClassificationWorkload::InvalidCasing => "BadValue0",
-        ClassificationWorkload::ExportedChain | ClassificationWorkload::IndependentInvalid => {
-            "value_0"
-        }
+        ClassificationWorkload::ExportedChain
+        | ClassificationWorkload::IndependentInvalid
+        | ClassificationWorkload::DuplicateCallable => "value_0",
     };
     assert!(
         result
@@ -676,10 +762,12 @@ fn classification_work(
             "type.mismatch"
         }
         ClassificationWorkload::InvalidCasing => "name.invalid_case",
+        ClassificationWorkload::DuplicateCallable => "name.duplicate",
     };
     let expected_count = match workload {
         ClassificationWorkload::ExportedChain => 1,
         ClassificationWorkload::IndependentInvalid | ClassificationWorkload::InvalidCasing => count,
+        ClassificationWorkload::DuplicateCallable => count,
     };
     assert_eq!(diagnostics.len(), expected_count, "{diagnostics:#?}");
     assert!(diagnostics.iter().all(|diagnostic| {
@@ -700,8 +788,10 @@ fn assert_linear_adjacent_work(
     assert!(original.exported_module_value_lookups > 0);
     assert!(original.diagnostic_lookups > 0);
 
-    assert_eq!(original.exported_module_value_lookups, 32);
-    assert_eq!(adjacent.exported_module_value_lookups, 64);
+    assert_eq!(
+        adjacent.exported_module_value_lookups,
+        original.exported_module_value_lookups * 2
+    );
     assert!(adjacent.retained_values <= original.retained_values * 2);
     assert!(adjacent.retained_edges <= original.retained_edges * 2 + 1);
     assert!(adjacent.retained_direct_causes <= original.retained_direct_causes * 2);
@@ -711,6 +801,8 @@ fn assert_linear_adjacent_work(
     assert!(adjacent.cause_processing <= original.cause_processing * 2);
     assert!(adjacent.cause_index_insertions <= original.cause_index_insertions * 2);
     assert!(adjacent.diagnostic_lookups <= original.diagnostic_lookups * 2);
+    assert!(adjacent.collision_identity_insertions <= original.collision_identity_insertions * 2);
+    assert!(adjacent.collision_diagnostic_lookups <= original.collision_diagnostic_lookups * 2);
 }
 
 #[test]
@@ -762,4 +854,23 @@ fn invalid_casing_export_classification_uses_indexed_provenance_linearly() {
     assert_linear_adjacent_work(original, adjacent);
     assert_eq!(original.casing_range_comparisons, 32);
     assert_eq!(adjacent.casing_range_comparisons, 64);
+}
+
+#[test]
+fn duplicate_callable_classification_uses_keyed_span_lookups_linearly() {
+    let original = classification_work(32, ClassificationWorkload::DuplicateCallable);
+    let adjacent = classification_work(64, ClassificationWorkload::DuplicateCallable);
+    let larger = classification_work(128, ClassificationWorkload::DuplicateCallable);
+    eprintln!(
+        "duplicate callable classification work: 32={original:?}, 64={adjacent:?}, 128={larger:?}"
+    );
+
+    assert_linear_adjacent_work(original, adjacent);
+    assert_linear_adjacent_work(adjacent, larger);
+    assert_eq!(original.collision_identity_insertions, 64);
+    assert_eq!(adjacent.collision_identity_insertions, 128);
+    assert_eq!(larger.collision_identity_insertions, 256);
+    assert_eq!(original.collision_diagnostic_lookups, 32);
+    assert_eq!(adjacent.collision_diagnostic_lookups, 64);
+    assert_eq!(larger.collision_diagnostic_lookups, 128);
 }

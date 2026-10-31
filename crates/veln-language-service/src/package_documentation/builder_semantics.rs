@@ -226,6 +226,8 @@ impl PackageDocBuilder<'_> {
             work.traversal_values += publication_work.traversal_values;
             work.traversal_edges += publication_work.traversal_edges;
             work.cause_processing += publication_work.cause_insertions;
+            work.collision_identity_insertions += publication_work.collision_identity_insertions;
+            work.collision_diagnostic_lookups += publication_work.collision_diagnostic_lookups;
         });
     }
 

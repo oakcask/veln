@@ -90,6 +90,12 @@ impl LoweredSurfaceModule {
             retained_values: self.module_value_publication.values.len(),
             retained_edges: self.module_value_publication.retained_edges,
             retained_direct_causes: self.module_value_publication.retained_direct_causes,
+            collision_identity_insertions: self
+                .module_value_publication
+                .collision_identity_insertions,
+            collision_diagnostic_lookups: self
+                .module_value_publication
+                .collision_diagnostic_lookups,
             visited_initializations: self.module_value_publication.values.len(),
             exported_root_lookups,
             ..ModuleValuePublicationWork::default()
@@ -184,8 +190,8 @@ pub(super) fn index_module_value_publication(
     provenance: ModuleValuePublicationProvenance,
 ) -> IndexedModuleValuePublicationProvenance {
     let direct_diagnostic_indices = direct_diagnostic_indices(diagnostics, &provenance);
-    let callable_identities = callable_identities(module);
-    let collision_diagnostic_indices =
+    let (callable_identities, collision_identity_insertions) = callable_identities(module);
+    let (collision_diagnostic_indices, collision_diagnostic_lookups) =
         collision_diagnostic_indices(diagnostics, &callable_identities);
     let failures_by_file_and_range = failures_by_file_and_range(&provenance);
     let failures_by_identity = failures_by_identity(&provenance);
@@ -197,6 +203,8 @@ pub(super) fn index_module_value_publication(
         failures_by_file_and_range,
         values,
         collision_diagnostic_indices,
+        collision_identity_insertions,
+        collision_diagnostic_lookups,
         retained_edges,
         retained_direct_causes,
     }
@@ -234,35 +242,39 @@ fn direct_diagnostic_indices(
 
 fn callable_identities(
     module: &SurfaceModule,
-) -> Vec<(PublicationSpanKey, crate::types::ModuleValueIdentity)> {
-    let mut identities = Vec::new();
+) -> (
+    HashMap<PublicationSpanKey, Vec<crate::types::ModuleValueIdentity>>,
+    usize,
+) {
+    let mut identities = HashMap::new();
     insert_function_identities(module, &mut identities);
     insert_alias_identities(module, &mut identities);
     insert_value_identities(module, &mut identities);
-    identities
+    let insertions = identities.values().map(Vec::len).sum();
+    (identities, insertions)
 }
 
 fn insert_function_identities(
     module: &SurfaceModule,
-    identities: &mut Vec<(PublicationSpanKey, crate::types::ModuleValueIdentity)>,
+    identities: &mut HashMap<PublicationSpanKey, Vec<crate::types::ModuleValueIdentity>>,
 ) {
     for function in &module.functions {
         if let Some(name) = function.name.as_ref() {
-            identities.push((
-                publication_span_key(&function.span),
-                (
+            identities
+                .entry(publication_span_key(&function.span))
+                .or_default()
+                .push((
                     function.package_name.clone(),
                     function.module_name.clone(),
                     name.clone(),
-                ),
-            ));
+                ));
         }
     }
 }
 
 fn insert_alias_identities(
     module: &SurfaceModule,
-    identities: &mut Vec<(PublicationSpanKey, crate::types::ModuleValueIdentity)>,
+    identities: &mut HashMap<PublicationSpanKey, Vec<crate::types::ModuleValueIdentity>>,
 ) {
     for alias in module
         .aliases
@@ -270,41 +282,45 @@ fn insert_alias_identities(
         .filter(|alias| alias.kind == PublicAliasKind::Function)
     {
         if let Some(name) = alias.name.as_ref() {
-            identities.push((
-                publication_span_key(&alias.span),
-                (
+            identities
+                .entry(publication_span_key(&alias.span))
+                .or_default()
+                .push((
                     alias.package_name.clone(),
                     alias.module_name.clone(),
                     name.clone(),
-                ),
-            ));
+                ));
         }
     }
 }
 
 fn insert_value_identities(
     module: &SurfaceModule,
-    identities: &mut Vec<(PublicationSpanKey, crate::types::ModuleValueIdentity)>,
+    identities: &mut HashMap<PublicationSpanKey, Vec<crate::types::ModuleValueIdentity>>,
 ) {
     for value in &module.module_values {
         if let Some(name) = value.name.as_ref() {
-            identities.push((
-                publication_span_key(&value.span),
-                (
+            identities
+                .entry(publication_span_key(&value.span))
+                .or_default()
+                .push((
                     value.package_name.clone(),
                     value.module_name.clone(),
                     name.clone(),
-                ),
-            ));
+                ));
         }
     }
 }
 
 fn collision_diagnostic_indices(
     diagnostics: &[Diagnostic],
-    callable_identities: &[(PublicationSpanKey, crate::types::ModuleValueIdentity)],
-) -> HashMap<crate::types::ModuleValueIdentity, Vec<usize>> {
+    callable_identities: &HashMap<PublicationSpanKey, Vec<crate::types::ModuleValueIdentity>>,
+) -> (
+    HashMap<crate::types::ModuleValueIdentity, Vec<usize>>,
+    usize,
+) {
     let mut indices = HashMap::<crate::types::ModuleValueIdentity, Vec<usize>>::new();
+    let mut lookups = 0;
     for (index, diagnostic) in diagnostics.iter().enumerate() {
         if diagnostic.id != "name.duplicate" {
             continue;
@@ -313,11 +329,14 @@ fn collision_diagnostic_indices(
             continue;
         };
         let key = publication_span_key(span);
-        for (_, identity) in callable_identities.iter().filter(|(span, _)| *span == key) {
-            indices.entry(identity.clone()).or_default().push(index);
+        lookups += 1;
+        if let Some(identities) = callable_identities.get(&key) {
+            for identity in identities {
+                indices.entry(identity.clone()).or_default().push(index);
+            }
         }
     }
-    indices
+    (indices, lookups)
 }
 
 fn failures_by_file_and_range(

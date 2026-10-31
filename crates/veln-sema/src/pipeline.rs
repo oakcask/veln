@@ -63,6 +63,8 @@ struct IndexedModuleValuePublicationProvenance {
     failures_by_file_and_range: HashMap<String, HashMap<(usize, usize), usize>>,
     values: Vec<IndexedModuleValuePublicationValue>,
     collision_diagnostic_indices: HashMap<crate::types::ModuleValueIdentity, Vec<usize>>,
+    collision_identity_insertions: usize,
+    collision_diagnostic_lookups: usize,
     retained_edges: usize,
     retained_direct_causes: usize,
 }
@@ -166,6 +168,8 @@ pub struct ModuleValuePublicationWork {
     pub traversal_values: usize,
     pub traversal_edges: usize,
     pub cause_insertions: usize,
+    pub collision_identity_insertions: usize,
+    pub collision_diagnostic_lookups: usize,
 }
 
 #[cfg(test)]
@@ -180,6 +184,8 @@ thread_local! {
             traversal_values: 0,
             traversal_edges: 0,
             cause_insertions: 0,
+            collision_identity_insertions: 0,
+            collision_diagnostic_lookups: 0,
         }) };
 }
 

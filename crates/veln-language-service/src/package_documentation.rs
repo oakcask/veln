@@ -10,8 +10,8 @@ use veln_analysis::{
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, Severity, write_json_string};
 use veln_project::{
-    CapturedPackageSnapshot, PackageIdentity, Project, ProjectManifest, classify_companion_source,
-    parse_manifest_text,
+    CapturedPackageSnapshot, PackageIdentity, PackageSnapshotSource, Project, ProjectManifest,
+    capture_embedded_package_snapshot, classify_companion_source, parse_manifest_text,
 };
 use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
@@ -49,6 +49,8 @@ struct PackageDocSemanticClassificationWork {
     traversal_edges: usize,
     cause_processing: usize,
     cause_index_insertions: usize,
+    collision_identity_insertions: usize,
+    collision_diagnostic_lookups: usize,
     diagnostic_lookups: usize,
     casing_range_comparisons: usize,
 }
@@ -67,6 +69,8 @@ thread_local! {
             traversal_edges: 0,
             cause_processing: 0,
             cause_index_insertions: 0,
+            collision_identity_insertions: 0,
+            collision_diagnostic_lookups: 0,
             diagnostic_lookups: 0,
             casing_range_comparisons: 0,
         }) };
@@ -481,6 +485,7 @@ struct PackageDocBuilder<'a> {
     manifest: &'a ProjectManifest,
     project_root: &'a std::path::Path,
     dependencies: &'a [CapturedDependencyProject],
+    dependency_snapshot_digests: HashMap<String, String>,
     generator_contract: PackageDocGeneratorContract,
     diagnostics: Vec<PackageDocDiagnostic>,
     #[cfg(test)]

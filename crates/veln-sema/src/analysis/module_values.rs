@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
 use veln_ast::{BodyLine, BodyLineKind, Function, FunctionKind, SurfaceModule, Visibility};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
@@ -221,15 +221,50 @@ pub(crate) fn check_module_values(
         variant_diagnostics,
         &stabilized.rejected,
     );
-    let mut diagnostic_keys = final_analysis
+    let mut diagnostic_indices = final_analysis
         .diagnostics
         .iter()
-        .map(module_value_diagnostic_key)
-        .collect::<HashSet<_>>();
-    for diagnostic in stabilized.recurrent_diagnostics {
-        if diagnostic_keys.insert(module_value_diagnostic_key(&diagnostic)) {
+        .enumerate()
+        .map(|(index, diagnostic)| (module_value_diagnostic_key(diagnostic), index))
+        .collect::<HashMap<_, _>>();
+    let value_indices = module
+        .module_values
+        .iter()
+        .enumerate()
+        .filter_map(|(index, value)| {
+            Some((
+                (
+                    value.package_name.clone(),
+                    value.module_name.clone(),
+                    value.name.clone()?,
+                ),
+                index,
+            ))
+        })
+        .collect::<HashMap<_, _>>();
+    for (identity, diagnostic) in stabilized.recurrent_causes {
+        let key = module_value_diagnostic_key(&diagnostic);
+        let diagnostic_index = if let Some(index) = diagnostic_indices.get(&key) {
+            *index
+        } else {
+            let index = final_analysis.diagnostics.len();
+            diagnostic_indices.insert(key, index);
             final_analysis.diagnostics.push(diagnostic);
-        }
+            index
+        };
+        let Some(value_index) = value_indices.get(&identity).copied() else {
+            continue;
+        };
+        let diagnostic = &final_analysis.diagnostics[diagnostic_index];
+        let Some(span) = diagnostic.span.clone() else {
+            continue;
+        };
+        final_analysis.direct_causes[value_index].push(ModuleValuePublicationCause {
+            package_name: identity.0,
+            diagnostic_id: diagnostic.id.clone(),
+            span,
+            diagnostic_index: Some(diagnostic_index),
+        });
     }
     debug_assert_eq!(stabilized.unavailable, final_analysis.invalid);
     final_analysis

@@ -255,6 +255,66 @@ fn saved_dependency_documentation_uses_other_captured_dependencies() {
 }
 
 #[test]
+fn dependency_failure_status_links_to_the_retained_causal_source() {
+    let workspace = TempWorkspace::new("dependency-doc-causal-source");
+    workspace.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"a\"]\n",
+            "path = \"vendor/a\"\n",
+            "[dependencies.\"b\"]\n",
+            "path = \"vendor/b\"\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        "use api from \"a\"\nuse shared from \"b\"\nfn main() -> Int\n  1\nend\n",
+    );
+    workspace.write(
+        "vendor/a/veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"a\"\n",
+            "[lib]\n",
+            "exports = [\"api.veln\"]\n",
+            "[dependencies.\"b\"]\n",
+            "path = \"../b\"\n",
+        ),
+    );
+    workspace.write(
+        "vendor/a/api.veln",
+        "use shared from \"b\"\npub let exposed: Int = shared::answer\n",
+    );
+    workspace.write(
+        "vendor/b/veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"b\"\n",
+            "[lib]\n",
+            "exports = [\"shared.veln\"]\n",
+        ),
+    );
+    let causal_source = "pub let answer: Int = \"wrong\"\n";
+    workspace.write("vendor/b/shared.veln", causal_source);
+    let mut server = initialized_server(&workspace);
+
+    let result = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(result["isError"], false, "{result:#}");
+    let status_uri = listed_dependency_documentation_uri(&mut server, "a");
+    assert!(status_uri.ends_with("/status"), "{status_uri}");
+    let status = read_resource(&mut server, 110, &status_uri);
+    let status_text = status["result"]["contents"][0]["text"].as_str().unwrap();
+    let source_uri = extract_uris_with_prefix(status_text, "veln-pkg:///b/snapshot/")
+        .into_iter()
+        .next()
+        .expect("dependency diagnostic source URI");
+    let source = read_resource(&mut server, 111, &source_uri);
+
+    assert_eq!(source["result"]["contents"][0]["uri"], source_uri);
+    assert_eq!(source["result"]["contents"][0]["text"], causal_source);
+}
+
+#[test]
 fn failed_dependency_documentation_publishes_only_status_resource() {
     let workspace = TempWorkspace::new("dependency-doc-status");
     write_workspace_with_dependency_source(

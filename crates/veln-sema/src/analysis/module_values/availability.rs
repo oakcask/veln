@@ -42,7 +42,7 @@ pub(super) enum AvailabilityChange {
 pub(super) struct StabilizedAvailability {
     pub(super) unavailable: BTreeSet<ModuleValueIdentity>,
     pub(super) rejected: BTreeSet<ModuleValueIdentity>,
-    pub(super) recurrent_diagnostics: Vec<veln_diagnostics::Diagnostic>,
+    pub(super) recurrent_causes: Vec<(ModuleValueIdentity, veln_diagnostics::Diagnostic)>,
 }
 
 struct CyclicDependencyComponents {
@@ -90,7 +90,7 @@ pub(super) fn stabilize_module_value_availability(
 ) -> StabilizedAvailability {
     let mut ever_unavailable = unavailable.clone();
     let mut recurrently_unavailable = BTreeSet::new();
-    let mut recurrent_diagnostics = Vec::new();
+    let mut recurrent_causes = Vec::new();
     let cyclic_components = cyclic_dependency_components(module, reverse_dependencies);
     record_retained_cyclic_component_identities(cyclic_components.retained_identity_count());
     record_retained_history_insertions(ever_unavailable.len());
@@ -123,7 +123,7 @@ pub(super) fn stabilize_module_value_availability(
             &unavailable,
             &cyclic_components,
         );
-        retain_recurrent_diagnostics(&evaluations, &newly_rejected, &mut recurrent_diagnostics);
+        retain_recurrent_causes(&evaluations, &newly_rejected, &mut recurrent_causes);
         let mut changed_identities = apply_availability_evaluations(
             evaluations,
             &newly_rejected,
@@ -151,7 +151,7 @@ pub(super) fn stabilize_module_value_availability(
     StabilizedAvailability {
         unavailable,
         rejected: recurrently_unavailable,
-        recurrent_diagnostics,
+        recurrent_causes,
     }
 }
 
@@ -254,14 +254,20 @@ fn recurrently_rejected_identities(
     rejected
 }
 
-fn retain_recurrent_diagnostics(
+fn retain_recurrent_causes(
     evaluations: &[AvailabilityEvaluation],
     rejected: &BTreeSet<ModuleValueIdentity>,
-    recurrent_diagnostics: &mut Vec<veln_diagnostics::Diagnostic>,
+    recurrent_causes: &mut Vec<(ModuleValueIdentity, veln_diagnostics::Diagnostic)>,
 ) {
     for evaluation in evaluations {
         if evaluation.invalid && rejected.contains(&evaluation.identity) {
-            recurrent_diagnostics.extend(evaluation.diagnostics.iter().cloned());
+            recurrent_causes.extend(
+                evaluation
+                    .diagnostics
+                    .iter()
+                    .cloned()
+                    .map(|diagnostic| (evaluation.identity.clone(), diagnostic)),
+            );
         }
     }
 }

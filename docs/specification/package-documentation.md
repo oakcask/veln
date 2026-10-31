@@ -194,9 +194,10 @@ For example, one failed result can report a module-value diagnostic with
 `gate: "module_value"` and an independent private-refinement diagnostic with
 `gate: "semantic_visibility"`. The presence or ordering of another diagnostic
 does not reclassify either failure. A retained cause from a captured dependency
-keeps that dependency's package identity in its canonical `veln-pkg:` source
-URI. A source path or byte range that is also present in the package being
-documented does not reassign the cause to that package.
+keeps that dependency's package identity and captured snapshot digest in its
+canonical `veln-pkg:` source URI. A source path or byte range that is also
+present in the package being documented does not reassign the cause to that
+package.
 
 The implemented gates are:
 
@@ -304,8 +305,9 @@ documentation digest rotation, package-atomic failure, and causal diagnostic
 selection for rejected values. They also check recovered-import causes and
 dependency-owned causes whose paths or spans collide with the documented
 package. Deterministic work counters compare adjacent input sizes for public
-dependency chains, independent invalid values, and invalid-casing values to
-guard linear semantic classification without a wall-time threshold.
+dependency chains, independent invalid values, invalid-casing values, and
+callable/module-value collisions to guard linear semantic classification
+without a wall-time threshold.
 The checked
 [`standard-library-package-documentation-resources`](../../examples/specification/mcp/standard-library-package-documentation-resources/)
 transcript covers the public `net::system()` handler resource, its canonical
