@@ -322,3 +322,127 @@ fn checked_core_and_typed_ir_preserve_effect_row_representation() {
         vec!["Transport".to_string(), "...E".to_string()]
     );
 }
+
+#[test]
+fn call_bound_effect_rows_solve_shared_lower_and_upper_bounds() {
+    let module = module(concat!(
+        "fn stdio_callback() -> () effects [stdio]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn accepts_stdio_or_db(callback: fn() -> () effects [stdio, db]) -> ()\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn lower_then_upper<effect E>(produce: fn() -> () effects [...E], consume: fn(fn() -> () effects [...E]) -> ()) -> () effects [fs, ...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn upper_then_lower<effect E>(consume: fn(fn() -> () effects [...E]) -> (), produce: fn() -> () effects [...E]) -> () effects [fs, ...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "pub fn first_order() -> () effects [fs, stdio]\n",
+        "\tlower_then_upper(stdio_callback, accepts_stdio_or_db)\n",
+        "end\n",
+        "\n",
+        "pub fn reverse_order() -> () effects [fs, stdio]\n",
+        "\tupper_then_lower(accepts_stdio_or_db, stdio_callback)\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn unconstrained_call_bound_effect_row_infers_empty_set() {
+    let module = module(concat!(
+        "fn unconstrained<effect E>() -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tunconstrained()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn unsatisfied_effect_row_upper_bound_rejects_without_leaking_effects() {
+    let module = module(concat!(
+        "fn network_callback() -> () effects [net]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn accepts_stdio(callback: fn() -> () effects [stdio]) -> ()\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn constrained<effect E>(produce: fn() -> () effects [...E], consume: fn(fn() -> () effects [...E]) -> ()) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "pub fn rejected_call_is_transactional() -> ()\n",
+        "\tconstrained(network_callback, accepts_stdio)\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert!(
+        !diagnostics[0].message.contains("missing"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn rejected_non_row_payload_does_not_leak_a_partial_row_substitution() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn rejected_helper() -> ()\n",
+        "\tinvoke(db_callback, \"wrong\")\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\trejected_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+}
+
+#[test]
+fn enclosing_effect_rows_are_rigid_during_body_checking() {
+    let module = module(concat!(
+        "fn call_once<effect E>(callback: fn() -> () effects [...E]) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn rigid<effect R>(callback: fn() -> () effects [...R]) -> () effects [...R]\n",
+        "\tcall_once(callback)\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+}

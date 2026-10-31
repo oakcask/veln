@@ -392,8 +392,11 @@ impl<'a> FunctionChecker<'a> {
             variadic.as_deref(),
             &origin,
             type_origin.as_ref(),
+            None,
         );
-        self.record_call_effects(expr, &origin, &instantiated_effects);
+        if let Some(instantiated_effects) = instantiated_effects {
+            self.record_call_effects(expr, &origin, &instantiated_effects);
+        }
         Some(*return_type)
     }
 
@@ -530,10 +533,11 @@ impl<'a> FunctionChecker<'a> {
                 .as_ref(),
         )?;
 
-        let instantiated_effects =
-            self.check_call_arguments(args, &params, variadic.as_ref(), &origin);
-
-        self.record_call_effects(expr, &origin, &instantiated_effects);
+        if let Some(instantiated_effects) =
+            self.check_call_arguments(args, &params, variadic.as_ref(), &origin)
+        {
+            self.record_call_effects(expr, &origin, &instantiated_effects);
+        }
         Some(return_type)
     }
 
@@ -588,8 +592,9 @@ impl<'a> FunctionChecker<'a> {
         params: &[Type],
         variadic: Option<&Type>,
         origin: &CallOrigin,
-    ) -> Vec<(String, Vec<String>)> {
-        self.check_call_arguments_with_origin(args, params, variadic, origin, None)
+    ) -> Option<EffectRowSubstitutions> {
+        let row = call_bound_effect_row(params, variadic, &origin.effects);
+        self.check_call_arguments_with_origin(args, params, variadic, origin, None, row.as_deref())
     }
 
     fn check_call_arguments_with_origin(
@@ -599,8 +604,11 @@ impl<'a> FunctionChecker<'a> {
         variadic: Option<&Type>,
         origin: &CallOrigin,
         type_origin: Option<&TypeOrigin>,
-    ) -> Vec<(String, Vec<String>)> {
-        let mut row_substitutions = Vec::<(String, Vec<String>)>::new();
+        call_bound_row: Option<&str>,
+    ) -> Option<EffectRowSubstitutions> {
+        let mut inferred = Vec::new();
+        let mut valid = variadic.is_some_and(|_| args.len() >= params.len())
+            || (variadic.is_none() && args.len() == params.len());
         for (index, arg) in args.iter().enumerate() {
             let param_type = params.get(index).or(variadic);
             let Some(param_type) = param_type else {
@@ -628,7 +636,17 @@ impl<'a> FunctionChecker<'a> {
                 },
             );
             let actual = self.infer_expr(arg, Some(&expected));
-            collect_effect_row_substitution(param_type, &actual, &mut row_substitutions);
+            inferred.push((arg, expected, actual));
+        }
+        let row_substitutions = solve_call_bound_effect_row(
+            call_bound_row,
+            inferred
+                .iter()
+                .map(|(_, expected, actual)| (&expected.ty, actual)),
+        );
+        for (arg, mut expected, actual) in inferred {
+            expected.ty = instantiate_effect_rows_in_type(&expected.ty, &row_substitutions);
+            valid &= is_assignable(&expected.ty, &actual);
             if origin.schema_encode {
                 self.check_schema_encode_assignable(
                     arg,
@@ -641,7 +659,7 @@ impl<'a> FunctionChecker<'a> {
                 self.check_assignable(arg, &expected.ty, &actual, &expected, "call_argument");
             }
         }
-        row_substitutions
+        valid.then_some(row_substitutions)
     }
 }
 

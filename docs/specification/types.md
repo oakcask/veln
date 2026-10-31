@@ -1522,8 +1522,8 @@ schema `validate` clause, or binary schema anywhere in that graph makes the
 operation a static failure, as do
 qualified-value control-flow refinement and the provider-dependent
 unavailable-descriptor diagnostic.
-This behavior does not add variance for named generic constructors, generic
-inference, or effect-row bound solving.
+This behavior does not add variance for named generic constructors or generic
+inference.
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual
@@ -1538,11 +1538,29 @@ not assignment-compatible with each other. Two variadic function types are
 compatible only when their fixed counts match and each input is compatible in
 the contravariant direction. The actual callable's effects must all be present
 in the expected function type's effect list, so a pure callable can satisfy an
-effectful function type but a `stdio` callable cannot satisfy a pure function type. If
-the expected function type contains a bound final effect row tail such as
-`effects [stdio, ...E]`, the row tail accepts the actual callable effects not
-already named by the concrete entries. The call boundary substitutes those
-effects for `E` when it computes the enclosing call's concrete effect set.
+effectful function type but a `stdio` callable cannot satisfy a pure function
+type.
+
+For a function declared with `<effect E>`, a final `...E` tail in its function
+types is call-bound. Each occurrence contributes a set-inclusion constraint in
+the structural direction of that occurrence: function inputs reverse the
+direction, while results and effect sets preserve it. One call solves all
+occurrences together. It chooses the least concrete set satisfying every lower
+bound and accepts the call only when that set also satisfies every upper bound.
+The result does not depend on argument or nested-type traversal order.
+
+Concrete entries beside the tail remain in the instantiated effect set. A
+call-bound row with no concrete lower bound becomes the empty set. A row bound
+by the enclosing function remains rigid while that function body is checked;
+it cannot be treated as an empty call substitution or as a wildcard for a
+concrete effect. If argument compatibility or any row upper bound fails, the
+call is rejected and none of its tentative row substitution contributes to the
+caller's inferred effects. The accepted
+[`effect-row-call-constraints`](../../examples/specification/check/effect-row-call-constraints/)
+case checks shared lower and upper bounds, concrete effects, empty inference,
+and order independence. Its
+[`rejection companion`](../../examples/specification/check/effect-row-call-rejection/)
+checks unsatisfied bounds, rigid enclosing rows, and transactional rejection.
 
 One record literal cannot declare the same field name twice. Duplicate record
 literal fields are name errors before record assignability chooses an expected

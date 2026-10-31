@@ -1,0 +1,39 @@
+fn network_callback() -> () effects [net]
+	()
+end
+
+fn accepts_stdio(callback: fn() -> () effects [stdio]) -> ()
+	()
+end
+
+fn constrained<effect E>(produce: fn() -> () effects [...E], consume: fn(fn() -> () effects [...E]) -> ()) -> () effects [...E]
+	()
+end
+
+fn call_once<effect E>(callback: fn() -> () effects [...E]) -> () effects [...E]
+	callback()
+end
+
+fn rigid<effect R>(callback: fn() -> () effects [...R]) -> () effects [...R]
+	call_once(callback)
+end
+
+fn db_callback() -> () effects [db]
+	()
+end
+
+fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]
+	callback()
+end
+
+fn rejected_helper() -> ()
+	invoke(db_callback, "wrong")
+end
+
+pub fn rejected_call_is_transactional() -> ()
+	constrained(network_callback, accepts_stdio)
+end
+
+pub fn rejected_payload_is_transactional() -> ()
+	rejected_helper()
+end

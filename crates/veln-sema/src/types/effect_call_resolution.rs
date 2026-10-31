@@ -1,22 +1,53 @@
 use super::effect_inference::{EffectsByFunction, EffectsByModulePath};
 use super::*;
 
-use crate::effect_rows::{collect_effect_row_substitution, instantiate_effect_rows};
+use crate::effect_rows::{
+    call_bound_effect_row, instantiate_effect_rows, instantiate_effect_rows_in_type,
+    solve_call_bound_effect_row, type_contains_effect_row,
+};
 use crate::effects::concurrency_effects;
 
 pub(super) fn instantiate_call_effect_rows(
     signature: &FunctionSignature,
     args: &[Expr],
     context: &ExprEffectContext<'_>,
-) -> Vec<String> {
-    let mut row_substitutions = Vec::<(String, Vec<String>)>::new();
+) -> Option<Vec<String>> {
+    let row = call_bound_effect_row(
+        &signature.params,
+        signature.variadic.as_ref(),
+        &signature.effects,
+    );
+    let mut comparisons = Vec::new();
     for (param, arg) in signature.params.iter().zip(args) {
-        let Some(actual) = function_type_for_expr(arg, context) else {
+        let Some(actual) = type_for_effect_call_argument(arg, context) else {
+            if row
+                .as_deref()
+                .is_some_and(|row| type_contains_effect_row(param, row))
+            {
+                return None;
+            }
             continue;
         };
-        collect_effect_row_substitution(param, &actual, &mut row_substitutions);
+        comparisons.push((param, actual));
     }
-    instantiate_effect_rows(&signature.effects, &row_substitutions)
+    let row_substitutions = solve_call_bound_effect_row(
+        row.as_deref(),
+        comparisons
+            .iter()
+            .map(|(expected, actual)| (*expected, actual)),
+    );
+    if comparisons.iter().any(|(expected, actual)| {
+        !crate::type_relations::is_assignable(
+            &instantiate_effect_rows_in_type(expected, &row_substitutions),
+            actual,
+        )
+    }) {
+        return None;
+    }
+    Some(instantiate_effect_rows(
+        &signature.effects,
+        &row_substitutions,
+    ))
 }
 
 pub(super) fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_>) -> Option<Type> {
@@ -51,6 +82,17 @@ pub(super) fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_
             )
             .map(FunctionSignature::ty)
         }
+    }
+}
+
+fn type_for_effect_call_argument(expr: &Expr, context: &ExprEffectContext<'_>) -> Option<Type> {
+    match &expr.kind {
+        ExprKind::StringLiteral(_) => Some(Type::string()),
+        ExprKind::IntLiteral(_) => Some(Type::int()),
+        ExprKind::FloatLiteral(_) => Some(Type::float()),
+        ExprKind::BoolLiteral(_) => Some(Type::bool()),
+        ExprKind::Unit => Some(Type::unit()),
+        _ => function_type_for_expr(expr, context),
     }
 }
 

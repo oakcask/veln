@@ -195,7 +195,9 @@ impl ExprEffectCollector<'_, '_, '_> {
                 self.context.companion_access_targets,
             )
         {
-            self.push_all(&instantiate_call_effect_rows(signature, args, self.context));
+            if let Some(effects) = instantiate_call_effect_rows(signature, args, self.context) {
+                self.push_all(&effects);
+            }
         } else if is_stdio_call(segments) {
             push_unique_effect(self.inferred, "stdio");
         } else if let Some(effects) = concurrency_effects_for_call(segments, args, self.context) {
@@ -225,7 +227,9 @@ impl ExprEffectCollector<'_, '_, '_> {
             self.context.current_package,
             self.context.companion_access_targets,
         ) {
-            self.push_all(&instantiate_call_effect_rows(signature, args, self.context));
+            if let Some(effects) = instantiate_call_effect_rows(signature, args, self.context) {
+                self.push_all(&effects);
+            }
         } else {
             if let Some(effects) = effects_for_callee_path(
                 segments,

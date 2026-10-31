@@ -25,7 +25,8 @@ also states it.
   preservation implemented, add runtime materialization and execution,
   documentation publication, and language-service navigation:
   [module-immutable-values.md](module-immutable-values.md).
-- Generic named-type variance, bounded inference, and variance metadata:
+- Generic named-type variance, bounded inference, variance metadata, and
+  nested incompatibility diagnostics:
   [generic-and-function-variance.md](generic-and-function-variance.md).
 - Buffered observation handlers, spans, failure schedules, concurrent shutdown,
   interruption, and late host-call completion beyond the implemented normal
