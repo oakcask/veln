@@ -204,26 +204,47 @@ fn type_for_effect_call_argument(
                 .collect::<Option<Vec<_>>>()
                 .map(Type::Record)
         }
-        ExprKind::Call { callee, args }
-            if matches!(callee.callee_name_path(), Some([name]) if name == "Some")
-                && args.len() == 1 =>
-        {
-            match expected {
-                Type::Named {
-                    name,
-                    identity,
-                    args: expected_args,
-                } if name == "Option" && expected_args.len() == 1 => Some(Type::Named {
-                    name: name.clone(),
-                    identity: identity.clone(),
-                    args: vec![type_for_effect_call_argument(
-                        &args[0],
-                        &expected_args[0],
-                        context,
-                    )?],
-                }),
-                _ => None,
+        ExprKind::Call { callee, args } if let Some(segments) = callee.callee_name_path() => {
+            let descriptor = context
+                .adts
+                .descriptor_for_type_prefer_module(expected, context.current_module)?;
+            let constructor = context.adts.constructor_for_descriptor(
+                segments,
+                descriptor,
+                context.current_module,
+                context.uses,
+            )?;
+            if args.len() != constructor.variant.payload_fields.len() {
+                return None;
             }
+            let expected_args = crate::adt::unification::adt_args(expected, descriptor)?;
+            let mut actual_args = vec![Type::Unknown; expected_args.len()];
+            for (index, arg) in args.iter().enumerate() {
+                let payload_expected =
+                    crate::adt::type_operations::payload_type_with_resolved_args(
+                        constructor,
+                        index,
+                        |type_index| expected_args[type_index].clone(),
+                    )?;
+                let actual = type_for_effect_call_argument(arg, &payload_expected, context)?;
+                crate::adt::type_operations::merge_type_args_from_payload(
+                    &mut actual_args,
+                    constructor,
+                    index,
+                    &actual,
+                );
+            }
+            for (actual, expected) in actual_args.iter_mut().zip(expected_args) {
+                if *actual == Type::Unknown {
+                    *actual = expected.clone();
+                }
+            }
+            Some(
+                crate::adt::type_operations::refined_constructed_type_from_args(
+                    constructor,
+                    &actual_args,
+                ),
+            )
         }
         _ => function_type_for_expr(expr, context),
     }

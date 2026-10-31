@@ -1570,11 +1570,11 @@ row belongs to the enclosing declaration remains rigid instead. The accepted
 [`effect-row-call-constraints`](../../examples/specification/check/effect-row-call-constraints/)
 case checks shared lower and upper bounds, concrete effects, empty inference,
 rigid row propagation, order independence, variadic contributions, accepted
-record arguments, nested payloads, result instantiation, and direct local
-bindings. Its
+record arguments, standard and source-ADT nested payloads, result instantiation,
+and direct local bindings. Its
 [`rejection companion`](../../examples/specification/check/effect-row-call-rejection/)
-checks unsatisfied bounds and transactional rejection for direct and nested
-payloads.
+checks unsatisfied concrete and rigid-row bounds plus transactional rejection
+for direct and nested payloads.
 
 One record literal cannot declare the same field name twice. Duplicate record
 literal fields are name errors before record assignability chooses an expected

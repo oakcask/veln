@@ -605,6 +605,70 @@ fn nested_option_payload_contributes_to_the_shared_effect_row() {
 }
 
 #[test]
+fn nested_result_and_source_adt_payloads_contribute_to_private_effect_inference() {
+    let module = module(concat!(
+        "type CallbackBox<A>\n",
+        "\tWrapped(value: A)\n",
+        "end\n",
+        "\n",
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke_result<effect E>(callback: Result<fn() -> () effects [...E], String>) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke_box<effect E>(callback: CallbackBox<fn() -> () effects [...E]>) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn private_helper() -> ()\n",
+        "\tinvoke_result(Result::Ok(db_callback))\n",
+        "\tinvoke_box(CallbackBox::Wrapped(db_callback))\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tprivate_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+    let missing_effects = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "effect.missing_public")
+        .collect::<Vec<_>>();
+
+    assert_eq!(missing_effects.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        missing_effects[0].message,
+        "public function uses undeclared effect `db`"
+    );
+}
+
+#[test]
+fn enclosing_effect_row_cannot_satisfy_a_concrete_upper_bound() {
+    let module = module(concat!(
+        "fn accepts_pure(callback: fn() -> ()) -> ()\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn constrained<effect E>(produce: fn() -> () effects [...E], consume: fn(fn() -> () effects [...E]) -> ()) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn rigid<effect R>(callback: fn() -> () effects [...R]) -> () effects [...R]\n",
+        "\tconstrained(callback, accepts_pure)\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+}
+
+#[test]
 fn local_alias_preserves_declared_call_bound_row_provenance() {
     let module = module(concat!(
         "fn db_callback() -> () effects [db]\n",

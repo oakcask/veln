@@ -30,6 +30,14 @@ fn rejected_nested_helper() -> ()
 	invoke_optional(Some(db_callback), {count: 1})
 end
 
+fn accepts_pure(callback: fn() -> ()) -> ()
+	()
+end
+
+fn rigid_rejection<effect R>(callback: fn() -> () effects [...R]) -> () effects [...R]
+	constrained(callback, accepts_pure)
+end
+
 pub fn rejected_call_is_transactional() -> ()
 	constrained(network_callback, accepts_stdio)
 end

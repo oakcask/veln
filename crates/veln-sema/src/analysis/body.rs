@@ -11,7 +11,7 @@ use super::repair_reasoning::*;
 use super::*;
 use crate::effect_rows::{
     call_bound_effect_row, instantiate_effect_rows, instantiate_effect_rows_in_type,
-    solve_call_bound_effect_row, type_contains_effect_row,
+    mask_call_bound_effect_row, solve_call_bound_effect_row,
 };
 use crate::effects::prelude_effect_origin;
 use crate::schema::primitives::lowercase_schema_primitive;

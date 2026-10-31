@@ -62,12 +62,12 @@ function's declared effect set and in nested function type effect sets inside
 the function signature. An unbound row tail, more than one row tail in one
 effect set, or a row tail before a later effect entry is rejected. When a
 row-polymorphic function is called, argument compatibility determines one
-concrete substitution for `E` across all nested occurrences in the call
-signature. The [type compatibility rules](types.md#compatibility-and-limits)
-define the structural constraint directions, least-set solution, and rejected
-bounds. The accepted substitution is unioned with the concrete effects written
-beside `...E`. Public boundary diagnostics for the call use the concrete
-instantiated effects.
+substitution for `E` across all nested occurrences in the call signature. The
+[type compatibility rules](types.md#compatibility-and-limits) define the
+structural constraint directions, least-set solution, retained rigid enclosing
+row tails, and rejected bounds. The accepted substitution is unioned with the
+concrete effects written beside `...E`. Public boundary diagnostics for a fully
+concrete call use the concrete instantiated effects.
 
 Source modules may also declare nominal operation effects with `effect Name`
 or `pub effect Name`. Each operation declares ordinary parameter types and one

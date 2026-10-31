@@ -183,29 +183,64 @@ fn effect_row_in_type(ty: &Type) -> Option<String> {
     }
 }
 
-pub(crate) fn type_contains_effect_row(ty: &Type, row: &str) -> bool {
+pub(crate) fn mask_call_bound_effect_row(ty: &Type, row: &str) -> Type {
     match ty {
-        Type::Unknown => false,
-        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
-            args.iter().any(|arg| type_contains_effect_row(arg, row))
-        }
-        Type::Record(fields) => fields
-            .iter()
-            .any(|(_, field)| type_contains_effect_row(field, row)),
+        Type::Unknown => Type::Unknown,
+        Type::Named {
+            name,
+            identity,
+            args,
+        } => Type::Named {
+            name: name.clone(),
+            identity: identity.clone(),
+            args: args
+                .iter()
+                .map(|arg| mask_call_bound_effect_row(arg, row))
+                .collect(),
+        },
+        Type::VariantRefinement {
+            name,
+            identity,
+            args,
+            variants,
+            unresolved_alternatives,
+        } => Type::VariantRefinement {
+            name: name.clone(),
+            identity: identity.clone(),
+            args: args
+                .iter()
+                .map(|arg| mask_call_bound_effect_row(arg, row))
+                .collect(),
+            variants: variants.clone(),
+            unresolved_alternatives: unresolved_alternatives.clone(),
+        },
+        Type::Record(fields) => Type::Record(
+            fields
+                .iter()
+                .map(|(name, field)| (name.clone(), mask_call_bound_effect_row(field, row)))
+                .collect(),
+        ),
         Type::Function {
             params,
             variadic,
             return_type,
             effects,
         } => {
-            effects.iter().any(|effect| effect == &format!("...{row}"))
-                || params
+            let tail = format!("...{row}");
+            if effects.contains(&tail) {
+                return Type::Unknown;
+            }
+            Type::Function {
+                params: params
                     .iter()
-                    .any(|param| type_contains_effect_row(param, row))
-                || variadic
+                    .map(|param| mask_call_bound_effect_row(param, row))
+                    .collect(),
+                variadic: variadic
                     .as_deref()
-                    .is_some_and(|ty| type_contains_effect_row(ty, row))
-                || type_contains_effect_row(return_type, row)
+                    .map(|ty| Box::new(mask_call_bound_effect_row(ty, row))),
+                return_type: Box::new(mask_call_bound_effect_row(return_type, row)),
+                effects: effects.clone(),
+            }
         }
     }
 }

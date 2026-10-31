@@ -46,6 +46,18 @@ fn invoke_optional<effect E>(callback: Option<fn() -> () effects [...E]>) -> () 
 	()
 end
 
+type CallbackBox<A>
+	Wrapped(value: A)
+end
+
+fn invoke_result<effect E>(callback: Result<fn() -> () effects [...E], String>) -> () effects [...E]
+	()
+end
+
+fn invoke_box<effect E>(callback: CallbackBox<fn() -> () effects [...E]>) -> () effects [...E]
+	()
+end
+
 fn invoke_all<effect E>(callbacks: ...fn() -> () effects [...E]) -> () effects [...E]
 	()
 end
@@ -72,6 +84,8 @@ end
 
 pub fn nested_payload() -> () effects [db]
 	invoke_optional(Some(db_callback))
+	invoke_result(Result::Ok(db_callback))
+	invoke_box(CallbackBox::Wrapped(db_callback))
 end
 
 pub fn variadic_arguments() -> () effects [db, stdio]

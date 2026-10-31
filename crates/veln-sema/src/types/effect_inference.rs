@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::adt::registry::AdtRegistry;
 use crate::name_recovery::normal_use_decls;
 use crate::type_syntax::parse_type_or_unknown;
 
@@ -13,6 +14,7 @@ pub(super) enum EffectDependencyNode {
 
 struct FunctionEffectContext<'a> {
     uses: &'a [UseDecl],
+    adts: &'a AdtRegistry,
     functions: &'a [FunctionSignature],
     user_effects: &'a [EffectSignature],
     handlers: &'a [HandlerSignature],
@@ -34,6 +36,7 @@ impl FunctionEffectContext<'_> {
             current_module,
             current_package,
             bindings,
+            adts: self.adts,
             functions: self.functions,
             effects_by_function: self.effects_by_function,
             effects_by_module_path: self.effects_by_module_path,
@@ -47,6 +50,7 @@ impl FunctionEffectContext<'_> {
 
 struct HandlerEffectContext<'a> {
     module: &'a SurfaceModule,
+    adts: &'a AdtRegistry,
     uses: &'a [UseDecl],
     user_effects: &'a [EffectSignature],
     functions: &'a [FunctionSignature],
@@ -61,6 +65,7 @@ impl HandlerEffectContext<'_> {
     fn function_context(&self) -> FunctionEffectContext<'_> {
         FunctionEffectContext {
             uses: self.uses,
+            adts: self.adts,
             functions: self.functions,
             user_effects: self.user_effects,
             handlers: self.handlers,
@@ -87,6 +92,7 @@ pub(super) type EffectsByModulePath = BTreeMap<EffectFunctionKey, (Vec<String>, 
 struct EffectInference<'a> {
     module: &'a SurfaceModule,
     uses: Vec<UseDecl>,
+    adts: AdtRegistry,
     functions: &'a mut [FunctionSignature],
     user_effects: &'a [EffectSignature],
     handlers: &'a mut [HandlerSignature],
@@ -111,13 +117,15 @@ impl<'a> EffectInference<'a> {
         user_effects: &'a [EffectSignature],
         handlers: &'a mut [HandlerSignature],
     ) -> Self {
-        let graph = effect_dependency_graph(module, functions, user_effects, handlers);
+        let adts = AdtRegistry::from_module(module);
+        let graph = effect_dependency_graph(module, functions, user_effects, handlers, &adts);
         let (effects_by_function, effects_by_module_path) = effect_lookup_maps(functions);
         let queue = graph.ordered_nodes.iter().cloned().collect();
         let queued = graph.nodes.clone();
         Self {
             module,
             uses: normal_use_decls(module),
+            adts,
             companion_access_targets: companion_function_access_targets(module),
             companion_effect_access_targets: companion_access_target_infos(module),
             clause_companion_access_targets: companion_access_targets_for_signatures(functions),
@@ -183,6 +191,7 @@ impl<'a> EffectInference<'a> {
             &self.handlers[index],
             &HandlerEffectContext {
                 module: self.module,
+                adts: &self.adts,
                 uses: &self.uses,
                 user_effects: self.user_effects,
                 functions: self.functions,
@@ -203,6 +212,7 @@ impl<'a> EffectInference<'a> {
     fn function_context(&self) -> FunctionEffectContext<'_> {
         FunctionEffectContext {
             uses: &self.uses,
+            adts: &self.adts,
             functions: self.functions,
             user_effects: self.user_effects,
             handlers: self.handlers,
@@ -368,6 +378,7 @@ fn effect_dependency_graph(
     functions: &[FunctionSignature],
     user_effects: &[EffectSignature],
     handlers: &[HandlerSignature],
+    adts: &AdtRegistry,
 ) -> EffectDependencyGraph {
     let uses = normal_use_decls(module);
     let companion_access_targets = companion_function_access_targets(module);
@@ -388,6 +399,7 @@ fn effect_dependency_graph(
         .collect::<BTreeSet<_>>();
     let context = FunctionEffectContext {
         uses: &uses,
+        adts,
         functions,
         user_effects,
         handlers,

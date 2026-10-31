@@ -1,6 +1,7 @@
 use super::effect_inference::{EffectsByFunction, EffectsByModulePath};
 use super::*;
 
+use crate::adt::registry::AdtRegistry;
 use crate::effects::{is_stdio_call, prelude_effects, standard_library_effects};
 
 pub(super) struct ExprEffectContext<'a> {
@@ -8,6 +9,7 @@ pub(super) struct ExprEffectContext<'a> {
     pub(super) current_module: Option<&'a str>,
     pub(super) current_package: Option<&'a str>,
     pub(super) bindings: &'a [Binding],
+    pub(super) adts: &'a AdtRegistry,
     pub(super) functions: &'a [FunctionSignature],
     pub(super) effects_by_function: &'a EffectsByFunction,
     pub(super) effects_by_module_path: &'a EffectsByModulePath,

@@ -658,11 +658,14 @@ impl<'a> FunctionChecker<'a> {
                     origin_message: type_origin.message,
                 },
             );
-            let inference_expected = call_bound_row
-                .filter(|row| type_contains_effect_row(param_type, row))
-                .is_none()
-                .then_some(&expected);
-            let actual = self.infer_expr(arg, inference_expected);
+            let inference_expected = call_bound_row.map_or_else(
+                || expected.clone(),
+                |row| ExpectedType {
+                    ty: mask_call_bound_effect_row(&expected.ty, row),
+                    ..expected.clone()
+                },
+            );
+            let actual = self.infer_expr(arg, Some(&inference_expected));
             inferred.push((arg, expected, actual));
         }
         let row_substitutions = solve_call_bound_effect_row(
