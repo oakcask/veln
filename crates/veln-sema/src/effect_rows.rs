@@ -27,7 +27,11 @@ pub(crate) fn solve_call_bound_effect_row<'a>(
     for (expected, actual) in comparisons {
         collect_lower_bounds(expected, actual, row, &mut lower_bound);
     }
-    vec![(row.to_string(), lower_bound.into_iter().collect())]
+    let (mut concrete, rigid): (Vec<_>, Vec<_>) = lower_bound
+        .into_iter()
+        .partition(|effect| !effect.starts_with("..."));
+    concrete.extend(rigid);
+    vec![(row.to_string(), concrete)]
 }
 
 pub(crate) fn instantiate_effect_rows(
@@ -224,7 +228,7 @@ fn collect_effect_inclusion_lower_bound(
         return;
     }
     for effect in subset {
-        if !effect.starts_with("...") && !superset.iter().any(|candidate| candidate == effect) {
+        if effect.starts_with("...") || !superset.iter().any(|candidate| candidate == effect) {
             lower_bound.insert(effect.clone());
         }
     }

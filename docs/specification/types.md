@@ -1553,14 +1553,16 @@ Concrete entries beside the tail remain in the instantiated effect set. A
 call-bound row with no concrete lower bound becomes the empty set. A row bound
 by the enclosing function remains rigid while that function body is checked;
 it cannot be treated as an empty call substitution or as a wildcard for a
-concrete effect. If argument compatibility or any row upper bound fails, the
-call is rejected and none of its tentative row substitution contributes to the
-caller's inferred effects. The accepted
+concrete effect. When it constrains another call-bound row, the substitution
+retains that enclosing row tail together with any concrete lower bounds instead
+of solving the enclosing row. If argument compatibility or any row upper bound
+fails, the call is rejected and none of its tentative row substitution
+contributes to the caller's inferred effects. The accepted
 [`effect-row-call-constraints`](../../examples/specification/check/effect-row-call-constraints/)
 case checks shared lower and upper bounds, concrete effects, empty inference,
-and order independence. Its
+rigid row propagation, and order independence. Its
 [`rejection companion`](../../examples/specification/check/effect-row-call-rejection/)
-checks unsatisfied bounds, rigid enclosing rows, and transactional rejection.
+checks unsatisfied bounds and transactional rejection.
 
 One record literal cannot declare the same field name twice. Duplicate record
 literal fields are name errors before record assignability chooses an expected

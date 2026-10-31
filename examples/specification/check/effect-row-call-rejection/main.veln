@@ -10,14 +10,6 @@ fn constrained<effect E>(produce: fn() -> () effects [...E], consume: fn(fn() ->
 	()
 end
 
-fn call_once<effect E>(callback: fn() -> () effects [...E]) -> () effects [...E]
-	callback()
-end
-
-fn rigid<effect R>(callback: fn() -> () effects [...R]) -> () effects [...R]
-	call_once(callback)
-end
-
 fn db_callback() -> () effects [db]
 	()
 end

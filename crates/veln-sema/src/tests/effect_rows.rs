@@ -512,7 +512,7 @@ fn variadic_call_bound_effect_rows_contribute_every_argument() {
 }
 
 #[test]
-fn enclosing_effect_rows_are_rigid_during_body_checking() {
+fn enclosing_effect_rows_remain_rigid_during_body_checking() {
     let module = module(concat!(
         "fn call_once<effect E>(callback: fn() -> () effects [...E]) -> () effects [...E]\n",
         "\tcallback()\n",
@@ -525,6 +525,5 @@ fn enclosing_effect_rows_are_rigid_during_body_checking() {
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }

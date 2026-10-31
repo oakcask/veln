@@ -18,6 +18,14 @@ fn unconstrained<effect E>() -> () effects [...E]
 	()
 end
 
+fn call_once<effect E>(callback: fn() -> () effects [...E]) -> () effects [...E]
+	callback()
+end
+
+fn preserve_rigid<effect R>(callback: fn() -> () effects [...R]) -> () effects [...R]
+	call_once(callback)
+end
+
 pub fn first_order() -> () effects [fs, stdio]
 	lower_then_upper(stdio_callback, accepts_stdio_or_db)
 end

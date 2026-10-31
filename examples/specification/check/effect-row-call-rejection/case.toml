@@ -15,4 +15,4 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 3
+equals = 2
