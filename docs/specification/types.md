@@ -1495,6 +1495,8 @@ boundary, including one declared by an application-owned module named
 `std::prelude`. A dictionary on a refinement path with any key type other than
 the standard `String` is ineligible. The result is
 `Result<SchemaRecord, DecodeError>` and retains the written refinements.
+When predicates make a schema eligible without any refinements, the input and
+successful result use the same schema-local record type.
 Contextual typing applies the erased record to `value` and requires
 `ByteOffset` for `offset`; an unrelated ADT, generic argument, record shape, or
 scalar remains a static mismatch. Other supported field types that contain no

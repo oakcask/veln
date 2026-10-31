@@ -363,8 +363,8 @@ generic types remain type delimiters rather than shift expressions.
 A schema declaration is `schema Name ... end` or `pub schema Name ... end`.
 A single `format binary` clause, when present, precedes fields. Without that
 clause, fields use format-neutral types. A field has `name: Type` and may have a
-field-local `where` predicate; one schema-level `validate` predicate follows
-the fields.
+field-local `where` predicate. One schema-level `validate` predicate may follow
+the fields in either a format-neutral or binary schema.
 
 ### Format-neutral fields
 
