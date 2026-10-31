@@ -527,3 +527,142 @@ fn enclosing_effect_rows_remain_rigid_during_body_checking() {
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
+
+#[test]
+fn accepted_record_argument_preserves_instantiated_call_effects() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], config: {count: Int}) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn through_record() -> ()\n",
+        "\tinvoke(db_callback, {count: 1})\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tthrough_record()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
+    );
+}
+
+#[test]
+fn solved_effect_row_instantiates_the_call_result_type() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn effect_identity<effect E>(callback: fn() -> () effects [...E]) -> fn() -> () effects [...E]\n",
+        "\tcallback\n",
+        "end\n",
+        "\n",
+        "fn accept_db(callback: fn() -> () effects [db]) -> ()\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\taccept_db(effect_identity(db_callback))\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn nested_option_payload_contributes_to_the_shared_effect_row() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke_optional<effect E>(callback: Option<fn() -> () effects [...E]>) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> () effects [db]\n",
+        "\tinvoke_optional(Some(db_callback))\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn local_alias_preserves_declared_call_bound_row_provenance() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E]) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn through_alias() -> ()\n",
+        "\tlet local = invoke\n",
+        "\tlocal(db_callback)\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tthrough_alias()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
+    );
+}
+
+#[test]
+fn rejected_nested_payload_does_not_publish_a_partial_row_solution() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke_optional<effect E>(callback: Option<fn() -> () effects [...E]>, count: Int) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn rejected_helper() -> ()\n",
+        "\tinvoke_optional(Some(db_callback), {count: 1})\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\trejected_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}

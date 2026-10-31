@@ -1,8 +1,37 @@
 use std::collections::BTreeSet;
 
+#[cfg(test)]
+use std::cell::Cell;
+
 use crate::semantic_model::Type;
 
 pub(crate) type EffectRowSubstitutions = Vec<(String, Vec<String>)>;
+
+#[derive(Clone, Copy)]
+enum ComparisonDirection {
+    Forward,
+    Both,
+}
+
+#[cfg(test)]
+thread_local! {
+    static EFFECT_ROW_COMPARISON_WORK: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn reset_effect_row_comparison_work() {
+    EFFECT_ROW_COMPARISON_WORK.with(|work| work.set(0));
+}
+
+#[cfg(test)]
+fn take_effect_row_comparison_work() -> usize {
+    EFFECT_ROW_COMPARISON_WORK.with(|work| work.replace(0))
+}
+
+fn record_effect_row_comparison() {
+    #[cfg(test)]
+    EFFECT_ROW_COMPARISON_WORK.with(|work| work.set(work.get() + 1));
+}
 
 pub(crate) fn call_bound_effect_row(
     params: &[Type],
@@ -25,7 +54,13 @@ pub(crate) fn solve_call_bound_effect_row<'a>(
     };
     let mut lower_bound = BTreeSet::new();
     for (expected, actual) in comparisons {
-        collect_lower_bounds(expected, actual, row, &mut lower_bound);
+        collect_lower_bounds(
+            expected,
+            actual,
+            row,
+            ComparisonDirection::Forward,
+            &mut lower_bound,
+        );
     }
     let (mut concrete, rigid): (Vec<_>, Vec<_>) = lower_bound
         .into_iter()
@@ -148,12 +183,41 @@ fn effect_row_in_type(ty: &Type) -> Option<String> {
     }
 }
 
+pub(crate) fn type_contains_effect_row(ty: &Type, row: &str) -> bool {
+    match ty {
+        Type::Unknown => false,
+        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
+            args.iter().any(|arg| type_contains_effect_row(arg, row))
+        }
+        Type::Record(fields) => fields
+            .iter()
+            .any(|(_, field)| type_contains_effect_row(field, row)),
+        Type::Function {
+            params,
+            variadic,
+            return_type,
+            effects,
+        } => {
+            effects.iter().any(|effect| effect == &format!("...{row}"))
+                || params
+                    .iter()
+                    .any(|param| type_contains_effect_row(param, row))
+                || variadic
+                    .as_deref()
+                    .is_some_and(|ty| type_contains_effect_row(ty, row))
+                || type_contains_effect_row(return_type, row)
+        }
+    }
+}
+
 fn collect_lower_bounds(
     expected: &Type,
     actual: &Type,
     row: &str,
+    direction: ComparisonDirection,
     lower_bound: &mut BTreeSet<String>,
 ) {
+    record_effect_row_comparison();
     match (expected, actual) {
         (
             Type::Function {
@@ -175,20 +239,36 @@ fn collect_lower_bounds(
                 row,
                 lower_bound,
             );
+            if matches!(direction, ComparisonDirection::Both) {
+                collect_effect_inclusion_lower_bound(
+                    expected_effects,
+                    actual_effects,
+                    row,
+                    lower_bound,
+                );
+            }
             for (expected_param, actual_param) in expected_params.iter().zip(actual_params) {
-                collect_lower_bounds(actual_param, expected_param, row, lower_bound);
+                let (expected_param, actual_param) = match direction {
+                    ComparisonDirection::Forward => (actual_param, expected_param),
+                    ComparisonDirection::Both => (expected_param, actual_param),
+                };
+                collect_lower_bounds(expected_param, actual_param, row, direction, lower_bound);
             }
             if let (Some(expected), Some(actual)) =
                 (expected_variadic.as_deref(), actual_variadic.as_deref())
             {
-                collect_lower_bounds(actual, expected, row, lower_bound);
+                let (expected, actual) = match direction {
+                    ComparisonDirection::Forward => (actual, expected),
+                    ComparisonDirection::Both => (expected, actual),
+                };
+                collect_lower_bounds(expected, actual, row, direction, lower_bound);
             }
-            collect_lower_bounds(expected_return, actual_return, row, lower_bound);
+            collect_lower_bounds(expected_return, actual_return, row, direction, lower_bound);
         }
         (Type::Record(expected), Type::Record(actual)) => {
             for (name, expected_field) in expected {
                 if let Some((_, actual_field)) = actual.iter().find(|(actual, _)| actual == name) {
-                    collect_lower_bounds(expected_field, actual_field, row, lower_bound);
+                    collect_lower_bounds(expected_field, actual_field, row, direction, lower_bound);
                 }
             }
         }
@@ -209,8 +289,13 @@ fn collect_lower_bounds(
             },
         ) => {
             for (expected_arg, actual_arg) in expected_args.iter().zip(actual_args) {
-                collect_lower_bounds(expected_arg, actual_arg, row, lower_bound);
-                collect_lower_bounds(actual_arg, expected_arg, row, lower_bound);
+                collect_lower_bounds(
+                    expected_arg,
+                    actual_arg,
+                    row,
+                    ComparisonDirection::Both,
+                    lower_bound,
+                );
             }
         }
         _ => {}
@@ -300,6 +385,40 @@ mod tests {
         assert_eq!(
             instantiated,
             Type::function(Vec::new(), Type::unit(), vec!["fs".to_string()])
+        );
+    }
+
+    #[test]
+    fn invariant_named_effect_row_collection_work_has_constant_adjacent_growth() {
+        fn nested_option(depth: usize, effects: Vec<String>) -> Type {
+            let mut ty = Type::function(Vec::new(), Type::unit(), effects);
+            for _ in 0..depth {
+                ty = Type::named("Option", vec![ty]);
+            }
+            ty
+        }
+
+        let work = [8, 9, 10].map(|depth| {
+            let expected = nested_option(depth, vec!["...E".to_string()]);
+            let actual = nested_option(depth, vec!["db".to_string()]);
+
+            reset_effect_row_comparison_work();
+            let solution = solve_call_bound_effect_row(Some("E"), [(&expected, &actual)]);
+            let work = take_effect_row_comparison_work();
+
+            assert_eq!(
+                solution,
+                vec![("E".to_string(), vec!["db".to_string()])],
+                "depth={depth}"
+            );
+            work
+        });
+
+        assert!(work[0] < work[1] && work[1] < work[2], "work={work:?}");
+        assert_eq!(
+            work[1] - work[0],
+            work[2] - work[1],
+            "invariant named traversal must have constant adjacent growth: {work:?}"
         );
     }
 }

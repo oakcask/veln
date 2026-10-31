@@ -12,23 +12,80 @@ pub(super) fn instantiate_call_effect_rows(
     args: &[Expr],
     context: &ExprEffectContext<'_>,
 ) -> Option<Vec<String>> {
-    let row = call_bound_effect_row(
+    instantiate_callable_effect_rows(
         &signature.params,
         signature.variadic.as_ref(),
         &signature.effects,
-    );
-    let arity_matches = args.len() >= signature.params.len()
-        && (signature.variadic.is_some() || args.len() == signature.params.len());
+        args,
+        context,
+    )
+}
+
+pub(super) fn instantiate_local_call_effect_rows(
+    name: &str,
+    args: &[Expr],
+    context: &ExprEffectContext<'_>,
+) -> Option<Vec<String>> {
+    let binding = context
+        .bindings
+        .iter()
+        .rev()
+        .find(|binding| binding.name == name)?;
+    let row = binding.call_bound_effect_row.as_deref()?;
+    let Type::Function {
+        params,
+        variadic,
+        effects,
+        ..
+    } = &binding.ty
+    else {
+        return None;
+    };
+    instantiate_callable_effect_rows_with_row(
+        params,
+        variadic.as_deref(),
+        effects,
+        Some(row),
+        args,
+        context,
+    )
+}
+
+fn instantiate_callable_effect_rows(
+    params: &[Type],
+    variadic: Option<&Type>,
+    effects: &[String],
+    args: &[Expr],
+    context: &ExprEffectContext<'_>,
+) -> Option<Vec<String>> {
+    let row = call_bound_effect_row(params, variadic, effects);
+    instantiate_callable_effect_rows_with_row(
+        params,
+        variadic,
+        effects,
+        row.as_deref(),
+        args,
+        context,
+    )
+}
+
+fn instantiate_callable_effect_rows_with_row(
+    params: &[Type],
+    variadic: Option<&Type>,
+    effects: &[String],
+    row: Option<&str>,
+    args: &[Expr],
+    context: &ExprEffectContext<'_>,
+) -> Option<Vec<String>> {
+    let arity_matches =
+        args.len() >= params.len() && (variadic.is_some() || args.len() == params.len());
     if !arity_matches {
         return None;
     }
     let mut comparisons = Vec::new();
     for (index, arg) in args.iter().enumerate() {
-        let param = signature
-            .params
-            .get(index)
-            .or(signature.variadic.as_ref())?;
-        let Some(actual) = type_for_effect_call_argument(arg, context) else {
+        let param = params.get(index).or(variadic)?;
+        let Some(actual) = type_for_effect_call_argument(arg, param, context) else {
             if row.is_some() {
                 return None;
             }
@@ -37,7 +94,7 @@ pub(super) fn instantiate_call_effect_rows(
         comparisons.push((param, actual));
     }
     let row_substitutions = solve_call_bound_effect_row(
-        row.as_deref(),
+        row,
         comparisons
             .iter()
             .map(|(expected, actual)| (*expected, actual)),
@@ -50,10 +107,7 @@ pub(super) fn instantiate_call_effect_rows(
     }) {
         return None;
     }
-    Some(instantiate_effect_rows(
-        &signature.effects,
-        &row_substitutions,
-    ))
+    Some(instantiate_effect_rows(effects, &row_substitutions))
 }
 
 pub(super) fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_>) -> Option<Type> {
@@ -91,13 +145,86 @@ pub(super) fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_
     }
 }
 
-fn type_for_effect_call_argument(expr: &Expr, context: &ExprEffectContext<'_>) -> Option<Type> {
+pub(super) fn call_bound_effect_row_for_expr(
+    expr: &Expr,
+    context: &ExprEffectContext<'_>,
+) -> Option<String> {
+    let segments = expr.callee_name_path()?;
+    if let [name] = segments
+        && let Some(binding) = context
+            .bindings
+            .iter()
+            .rev()
+            .find(|binding| binding.name == *name)
+    {
+        return binding.call_bound_effect_row.clone();
+    }
+    let signature = effect_function_signature_path(
+        segments,
+        context.uses,
+        context.functions,
+        context.current_module,
+        context.current_package,
+        context.companion_access_targets,
+    )?;
+    call_bound_effect_row(
+        &signature.params,
+        signature.variadic.as_ref(),
+        &signature.effects,
+    )
+}
+
+fn type_for_effect_call_argument(
+    expr: &Expr,
+    expected: &Type,
+    context: &ExprEffectContext<'_>,
+) -> Option<Type> {
     match &expr.kind {
         ExprKind::StringLiteral(_) => Some(Type::string()),
         ExprKind::IntLiteral(_) => Some(Type::int()),
         ExprKind::FloatLiteral(_) => Some(Type::float()),
         ExprKind::BoolLiteral(_) => Some(Type::bool()),
         ExprKind::Unit => Some(Type::unit()),
+        ExprKind::Record(fields) => {
+            let Type::Record(expected_fields) = expected else {
+                return None;
+            };
+            fields
+                .iter()
+                .map(|field| {
+                    let expected_field = expected_fields
+                        .iter()
+                        .find(|(name, _)| name == &field.name)
+                        .map(|(_, ty)| ty)?;
+                    Some((
+                        field.name.clone(),
+                        type_for_effect_call_argument(&field.expr, expected_field, context)?,
+                    ))
+                })
+                .collect::<Option<Vec<_>>>()
+                .map(Type::Record)
+        }
+        ExprKind::Call { callee, args }
+            if matches!(callee.callee_name_path(), Some([name]) if name == "Some")
+                && args.len() == 1 =>
+        {
+            match expected {
+                Type::Named {
+                    name,
+                    identity,
+                    args: expected_args,
+                } if name == "Option" && expected_args.len() == 1 => Some(Type::Named {
+                    name: name.clone(),
+                    identity: identity.clone(),
+                    args: vec![type_for_effect_call_argument(
+                        &args[0],
+                        &expected_args[0],
+                        context,
+                    )?],
+                }),
+                _ => None,
+            }
+        }
         _ => function_type_for_expr(expr, context),
     }
 }

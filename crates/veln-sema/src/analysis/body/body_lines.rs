@@ -11,6 +11,7 @@ struct LetBindingContext {
     record_root: Option<usize>,
     stable_place: Option<usize>,
     schema_encode_callable: bool,
+    call_bound_effect_row: Option<String>,
 }
 
 type LetInitializer = (Type, Option<TypeOrigin>, bool, bool, Option<usize>);
@@ -208,6 +209,7 @@ impl<'a> FunctionChecker<'a> {
             record_root: stable_record_root,
             stable_place,
             schema_encode_callable: self.expr_is_schema_encode_callable(expr),
+            call_bound_effect_row: self.expr_call_bound_effect_row(expr),
         };
         for binding in pattern_bindings {
             self.bind_let_pattern(binding, &binding_context);
@@ -331,7 +333,42 @@ impl<'a> FunctionChecker<'a> {
         admitted.schema_encode_callable = matches!(binding.ty, Type::Function { .. })
             && context.schema_encode_callable
             && initializer_is_reliable;
+        admitted.call_bound_effect_row = matches!(binding.ty, Type::Function { .. })
+            .then(|| context.call_bound_effect_row.clone())
+            .flatten()
+            .filter(|_| initializer_is_reliable);
         admitted
+    }
+
+    fn expr_call_bound_effect_row(&self, expr: &Expr) -> Option<String> {
+        let ExprKind::NamePath { segments, .. } = &expr.kind else {
+            return None;
+        };
+        if let [name] = segments.as_slice()
+            && let Some(index) = self.visible_binding_index(name)
+        {
+            return self.bindings[index].call_bound_effect_row.clone();
+        }
+        let function = match segments.as_slice() {
+            [name] => self
+                .environment
+                .unqualified_function_in_owner(
+                    name,
+                    self.function.module_name.as_deref(),
+                    self.function.package_name.as_deref(),
+                )
+                .found(),
+            _ => self.environment.function_path_in_owner(
+                segments,
+                self.function.module_name.as_deref(),
+                self.function.package_name.as_deref(),
+            ),
+        }?;
+        call_bound_effect_row(
+            &function.params,
+            function.variadic.as_ref(),
+            &function.effects,
+        )
     }
 
     fn expr_is_schema_encode_callable(&self, expr: &Expr) -> bool {

@@ -207,6 +207,10 @@ impl ExprEffectCollector<'_, '_, '_> {
                 push_unique_effect(self.inferred, effect);
             }
         } else if let [name] = segments
+            && let Some(effects) = instantiate_local_call_effect_rows(name, args, self.context)
+        {
+            self.push_all(&effects);
+        } else if let [name] = segments
             && let Some(effects) = lexical_effects_for_bare_callee(
                 name,
                 self.context.bindings,

@@ -22,10 +22,23 @@ fn rejected_helper() -> ()
 	invoke(db_callback, "wrong")
 end
 
+fn invoke_optional<effect E>(callback: Option<fn() -> () effects [...E]>, count: Int) -> () effects [...E]
+	()
+end
+
+fn rejected_nested_helper() -> ()
+	invoke_optional(Some(db_callback), {count: 1})
+end
+
 pub fn rejected_call_is_transactional() -> ()
 	constrained(network_callback, accepts_stdio)
 end
 
 pub fn rejected_payload_is_transactional() -> ()
 	rejected_helper()
+end
+
+
+pub fn rejected_nested_payload_is_transactional() -> ()
+	rejected_nested_helper()
 end

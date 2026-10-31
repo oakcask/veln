@@ -370,6 +370,7 @@ impl<'a> FunctionChecker<'a> {
         self.record_defer_capture(binding_index, name);
         let binding = &self.bindings[binding_index];
         let type_origin = binding.type_origin.clone();
+        let call_bound_effect_row = binding.call_bound_effect_row.clone();
         let Type::Function {
             params,
             variadic,
@@ -392,12 +393,20 @@ impl<'a> FunctionChecker<'a> {
             variadic.as_deref(),
             &origin,
             type_origin.as_ref(),
-            None,
+            call_bound_effect_row.as_deref(),
         );
         if let Some(instantiated_effects) = instantiated_effects {
             self.record_call_effects(expr, &origin, &instantiated_effects);
+            return Some(instantiate_effect_rows_in_type(
+                &return_type,
+                &instantiated_effects,
+            ));
         }
-        Some(*return_type)
+        Some(if call_bound_effect_row.is_some() {
+            Type::Unknown
+        } else {
+            *return_type
+        })
     }
 
     pub(super) fn infer_constructor_call(
@@ -533,12 +542,26 @@ impl<'a> FunctionChecker<'a> {
                 .as_ref(),
         )?;
 
-        if let Some(instantiated_effects) =
-            self.check_call_arguments(args, &params, variadic.as_ref(), &origin)
-        {
+        let call_bound_row = call_bound_effect_row(&params, variadic.as_ref(), &origin.effects);
+        if let Some(instantiated_effects) = self.check_call_arguments_with_origin(
+            args,
+            &params,
+            variadic.as_ref(),
+            &origin,
+            None,
+            call_bound_row.as_deref(),
+        ) {
             self.record_call_effects(expr, &origin, &instantiated_effects);
+            return Some(instantiate_effect_rows_in_type(
+                &return_type,
+                &instantiated_effects,
+            ));
         }
-        Some(return_type)
+        Some(if call_bound_row.is_some() {
+            Type::Unknown
+        } else {
+            return_type
+        })
     }
 
     fn record_call_effects(
@@ -635,7 +658,11 @@ impl<'a> FunctionChecker<'a> {
                     origin_message: type_origin.message,
                 },
             );
-            let actual = self.infer_expr(arg, Some(&expected));
+            let inference_expected = call_bound_row
+                .filter(|row| type_contains_effect_row(param_type, row))
+                .is_none()
+                .then_some(&expected);
+            let actual = self.infer_expr(arg, inference_expected);
             inferred.push((arg, expected, actual));
         }
         let row_substitutions = solve_call_bound_effect_row(

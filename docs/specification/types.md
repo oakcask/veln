@@ -1548,6 +1548,10 @@ direction, while results and effect sets preserve it. One call solves all
 occurrences together. It chooses the least concrete set satisfying every lower
 bound and accepts the call only when that set also satisfies every upper bound.
 The result does not depend on argument or nested-type traversal order.
+The accepted substitution instantiates every row occurrence in the call's
+result type as well as the effects attributed to the caller. A nested payload,
+such as `Option<fn() -> () effects [...E]>`, contributes through its complete
+payload type before compatibility is decided.
 
 Concrete entries beside the tail remain in the instantiated effect set. A
 call-bound row with no concrete lower bound becomes the empty set. A row bound
@@ -1557,12 +1561,17 @@ concrete effect. When it constrains another call-bound row, the substitution
 retains that enclosing row tail together with any concrete lower bounds instead
 of solving the enclosing row. If argument compatibility or any row upper bound
 fails, the call is rejected and none of its tentative row substitution
-contributes to the caller's inferred effects. The accepted
+contributes to the caller's inferred effects or escaping result type. A direct
+local binding of a declared row-polymorphic function keeps that declaration's
+call-bound row for calls through the binding. A function-typed parameter whose
+row belongs to the enclosing declaration remains rigid instead. The accepted
 [`effect-row-call-constraints`](../../examples/specification/check/effect-row-call-constraints/)
 case checks shared lower and upper bounds, concrete effects, empty inference,
-rigid row propagation, and order independence. Its
+rigid row propagation, order independence, accepted record arguments, nested
+payloads, result instantiation, and direct local bindings. Its
 [`rejection companion`](../../examples/specification/check/effect-row-call-rejection/)
-checks unsatisfied bounds and transactional rejection.
+checks unsatisfied bounds and transactional rejection for direct and nested
+payloads.
 
 One record literal cannot declare the same field name twice. Duplicate record
 literal fields are name errors before record assignability chooses an expected

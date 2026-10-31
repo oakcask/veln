@@ -2,6 +2,10 @@ fn stdio_callback() -> () effects [stdio]
 	()
 end
 
+fn db_callback() -> () effects [db]
+	()
+end
+
 fn accepts_stdio_or_db(callback: fn() -> () effects [stdio, db]) -> ()
 	()
 end
@@ -26,6 +30,22 @@ fn preserve_rigid<effect R>(callback: fn() -> () effects [...R]) -> () effects [
 	call_once(callback)
 end
 
+fn invoke_with_record<effect E>(callback: fn() -> () effects [...E], config: {count: Int}) -> () effects [...E]
+	callback()
+end
+
+fn effect_identity<effect E>(callback: fn() -> () effects [...E]) -> fn() -> () effects [...E]
+	callback
+end
+
+fn accept_db(callback: fn() -> () effects [db]) -> ()
+	()
+end
+
+fn invoke_optional<effect E>(callback: Option<fn() -> () effects [...E]>) -> () effects [...E]
+	()
+end
+
 pub fn first_order() -> () effects [fs, stdio]
 	lower_then_upper(stdio_callback, accepts_stdio_or_db)
 end
@@ -36,4 +56,21 @@ end
 
 pub fn empty_row() -> ()
 	unconstrained()
+end
+
+pub fn record_argument() -> () effects [db]
+	invoke_with_record(db_callback, {count: 1})
+end
+
+pub fn instantiated_result() -> ()
+	accept_db(effect_identity(db_callback))
+end
+
+pub fn nested_payload() -> () effects [db]
+	invoke_optional(Some(db_callback))
+end
+
+pub fn local_alias() -> () effects [db]
+	let local = call_once
+	local(db_callback)
 end

@@ -711,6 +711,14 @@ fn visit_effect_body_expressions(
                 expr,
                 ..
             } => {
+                let (initializer_type, call_bound_effect_row) = {
+                    let expr_context =
+                        context.expression_context(current_module, current_package, bindings);
+                    (
+                        function_type_for_expr(expr, &expr_context),
+                        call_bound_effect_row_for_expr(expr, &expr_context),
+                    )
+                };
                 visit_effect_expr(
                     expr,
                     current_module,
@@ -722,8 +730,19 @@ fn visit_effect_body_expressions(
                     visit,
                 );
                 let mut ty = parse_type_or_unknown(annotation.as_deref());
+                if ty == Type::Unknown
+                    && let Some(initializer_type) = initializer_type
+                {
+                    ty = initializer_type;
+                }
                 canonicalize_binding_effects(&mut ty, current_module, current_package, context);
+                let binding_count = bindings.len();
                 collect_pattern_bindings(pattern, &ty, bindings);
+                if matches!(pattern.kind, PatternKind::Binding(_))
+                    && let Some(binding) = bindings.get_mut(binding_count)
+                {
+                    binding.call_bound_effect_row = call_bound_effect_row;
+                }
             }
             BodyLineKind::Expr { expr } => {
                 visit_effect_expr(
