@@ -62,6 +62,12 @@ struct IndexedModuleValuePublicationFailure {
     value_index: usize,
 }
 
+#[derive(Clone, Debug)]
+struct IndexedModuleValuePublicationOwner {
+    span: veln_source::SourceSpan,
+    value_index: usize,
+}
+
 #[derive(Clone, Debug, Default)]
 struct IndexedModuleValuePublicationProvenance {
     failures: Vec<IndexedModuleValuePublicationFailure>,
@@ -1024,15 +1030,18 @@ fn index_module_value_publication(
     diagnostics: &[Diagnostic],
     provenance: ModuleValuePublicationProvenance,
 ) -> IndexedModuleValuePublicationProvenance {
-    let mut owners_by_file = HashMap::<&str, Vec<(usize, usize, usize)>>::new();
+    let mut owners_by_file = HashMap::<&str, Vec<IndexedModuleValuePublicationOwner>>::new();
     for (index, value) in provenance.values.iter().enumerate() {
         owners_by_file
             .entry(value.span.file.as_str())
             .or_default()
-            .push((value.span.start.offset, value.span.end.offset, index));
+            .push(IndexedModuleValuePublicationOwner {
+                span: value.span.clone(),
+                value_index: index,
+            });
     }
     for owners in owners_by_file.values_mut() {
-        owners.sort_unstable_by_key(|(start, _, _)| *start);
+        identifier_casing::radix_sort_by_span(owners, |owner| &owner.span, |_| {});
     }
 
     let mut direct_diagnostic_indices = vec![Vec::new(); provenance.values.len()];
@@ -1046,12 +1055,14 @@ fn index_module_value_publication(
         let Some(owners) = owners_by_file.get(span.file.as_str()) else {
             continue;
         };
-        let insertion = owners.partition_point(|(start, _, _)| *start <= span.start.offset);
-        let Some((start, end, owner)) = insertion.checked_sub(1).map(|index| owners[index]) else {
+        let insertion =
+            owners.partition_point(|owner| owner.span.start.offset <= span.start.offset);
+        let Some(owner) = insertion.checked_sub(1).map(|index| &owners[index]) else {
             continue;
         };
-        if span.start.offset >= start && span.end.offset <= end {
-            direct_diagnostic_indices[owner].push(diagnostic_index);
+        if span.start.offset >= owner.span.start.offset && span.end.offset <= owner.span.end.offset
+        {
+            direct_diagnostic_indices[owner.value_index].push(diagnostic_index);
         }
     }
 
@@ -1128,14 +1139,7 @@ fn index_module_value_publication(
             },
         )
         .collect::<Vec<_>>();
-    failures.sort_by(|left, right| {
-        left.span
-            .file
-            .as_str()
-            .cmp(right.span.file.as_str())
-            .then(left.span.start.offset.cmp(&right.span.start.offset))
-            .then(left.span.end.offset.cmp(&right.span.end.offset))
-    });
+    identifier_casing::radix_sort_by_span(&mut failures, |failure| &failure.span, |_| {});
     let values: Vec<IndexedModuleValuePublicationValue> = provenance
         .values
         .into_iter()

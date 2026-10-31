@@ -30,7 +30,11 @@ impl EnclosingFunctionSpanIndex {
                 .push(function.span.clone());
         }
         for spans in functions.values_mut() {
-            radix_sort_by_span(spans, |span| span);
+            radix_sort_by_span(
+                spans,
+                |span| span,
+                crate::pipeline::record_variant_refinement_casing_work,
+            );
         }
         Self {
             invalid_segments,
