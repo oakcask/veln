@@ -102,5 +102,6 @@ fn generate_with_forced_declaration_id(
 mod catalog_identity;
 mod doctest_gates;
 mod doctest_publication;
+mod module_value_publication;
 mod navigation_and_manifest;
 mod variant_refinement_visibility;

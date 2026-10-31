@@ -29,7 +29,7 @@ impl<'a> PackageDocBuilder<'a> {
         self.validate_manifest_gate();
         let parsed_sources = self.parse_sources();
         self.validate_manifest_exports(&parsed_sources);
-        self.validate_public_variant_refinement_visibility(&parsed_sources);
+        self.validate_public_declaration_semantics(&parsed_sources);
         let metadata = self.metadata(&parsed_sources);
         self.validate_doctests(&parsed_sources);
         let schema_targets = self.public_schema_targets(&parsed_sources);
@@ -286,7 +286,7 @@ impl<'a> PackageDocBuilder<'a> {
         }
     }
 
-    pub(super) fn validate_public_variant_refinement_visibility(
+    pub(super) fn validate_public_declaration_semantics(
         &mut self,
         parsed_sources: &[ParsedPackageSource],
     ) {
@@ -313,7 +313,7 @@ impl<'a> PackageDocBuilder<'a> {
             .flat_map(|declaration| declaration.causal_diagnostics.iter().cloned())
             .collect::<Vec<_>>();
         let diagnostics = analysis.checked_diagnostics();
-        for diagnostic in diagnostics.into_iter().filter(|diagnostic| {
+        for diagnostic in diagnostics.iter().filter(|diagnostic| {
             diagnostic.severity == Severity::Error
                 && diagnostic.id == "type.variant_refinement_private"
                 && diagnostic.span.as_ref().is_some_and(|span| {
@@ -324,7 +324,45 @@ impl<'a> PackageDocBuilder<'a> {
                 })
         }) {
             self.diagnostics
-                .push(self.project_diagnostic("semantic_visibility", diagnostic));
+                .push(self.project_diagnostic("semantic_visibility", diagnostic.clone()));
+        }
+
+        for source in parsed_sources.iter().filter(|source| source.exported) {
+            for value in source.tree.items.iter().filter_map(|item| match item {
+                SyntaxItem::ModuleValue(value) if value.visibility == Visibility::Public => {
+                    Some(value.as_ref())
+                }
+                _ => None,
+            }) {
+                for diagnostic in diagnostics.iter().filter(|diagnostic| {
+                    diagnostic.severity == Severity::Error
+                        && diagnostic.id != "module.value_not_executable"
+                        && diagnostic.span.as_ref().is_some_and(|span| {
+                            span.file == value.span.file
+                                && span.start.offset >= value.span.start.offset
+                                && span.end.offset <= value.span.end.offset
+                        })
+                }) {
+                    let duplicate = self.diagnostics.iter().any(|existing| {
+                        existing.code == diagnostic.id
+                            && existing.span.as_ref().is_some_and(|span| {
+                                diagnostic.span.as_ref().is_some_and(|diagnostic_span| {
+                                    span.source_uri
+                                        == source_uri(
+                                            self.identity,
+                                            self.snapshot.digest(),
+                                            diagnostic_span.file.as_str(),
+                                        )
+                                        && span.offset == diagnostic_span.start.offset
+                                })
+                            })
+                    });
+                    if !duplicate {
+                        self.diagnostics
+                            .push(self.project_diagnostic("module_value", diagnostic.clone()));
+                    }
+                }
+            }
         }
     }
 

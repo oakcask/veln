@@ -55,6 +55,9 @@ pub(super) fn public_documentation_lines(tree: &veln_syntax::SyntaxTree) -> Vec<
                     );
                     lines
                 }
+                SyntaxItem::ModuleValue(value) if value.visibility == Visibility::Public => {
+                    vec![value.span.start.line]
+                }
                 SyntaxItem::Schema(schema) if schema.visibility == Visibility::Public => {
                     vec![schema.span.start.line]
                 }

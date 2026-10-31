@@ -15,8 +15,10 @@ use veln_project::{
 use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
     ContractClause, ContractKind, EffectDecl, FunctionDecl, FunctionKind, HandlerDecl,
-    ParseDiagnostic, PublicAliasDecl, PublicAliasKind, SchemaDecl, SyntaxItem, TokenKind, TypeDecl,
-    TypeVariantDecl, Visibility, declaration_type_signature as type_signature,
+    ModuleValueDecl, ParseDiagnostic, PublicAliasDecl, PublicAliasKind, SchemaDecl, SyntaxItem,
+    TokenKind, TypeDecl, TypeVariantDecl, Visibility,
+    declaration_module_value_signature_from_source as module_value_signature,
+    declaration_type_signature as type_signature,
     declaration_variant_signature as variant_signature, documentation_block_before,
     documentation_lines_are_adr_lite, extract_documentation_schema_references, lex, parse,
     render_documentation_lines,

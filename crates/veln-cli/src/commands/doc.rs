@@ -14,8 +14,9 @@ use veln_project::{
 };
 use veln_source::SourceFile;
 use veln_syntax::{
-    AdrLiteAnchor, ContractClause, ContractKind, FunctionDecl, FunctionKind, PublicAliasDecl,
-    PublicAliasKind, SchemaDecl, SyntaxItem, TypeDecl, Visibility,
+    AdrLiteAnchor, ContractClause, ContractKind, FunctionDecl, FunctionKind, ModuleValueDecl,
+    PublicAliasDecl, PublicAliasKind, SchemaDecl, SyntaxItem, TypeDecl, Visibility,
+    declaration_module_value_signature_from_source as module_value_signature,
     declaration_type_signature as type_signature, documentation_block_before as doc_block_before,
     extract_documentation_schema_references, parse,
     render_documentation_lines as rendered_doc_lines,
@@ -121,8 +122,12 @@ fn validate_doc_sources(
     diagnostics.extend(validate_manifest_exports(project));
     diagnostics.extend(validate_manifest_dependencies(project));
     if diagnostics.is_empty() {
-        diagnostics
-            .extend(analyze_project(project.clone(), DoctestMode::Exclude).semantic_diagnostics());
+        diagnostics.extend(
+            analyze_project(project.clone(), DoctestMode::Exclude)
+                .semantic_diagnostics()
+                .into_iter()
+                .filter(|diagnostic| diagnostic.id != "module.value_not_executable"),
+        );
     }
     if diagnostics.is_empty() {
         let (surface_module, _) = load_surface_module(project);
@@ -222,6 +227,9 @@ fn push_public_api(out: &mut String, source: &SourceFile, tree: &veln_syntax::Sy
     for schema in public_api.schemas {
         push_public_schema(out, source, schema);
     }
+    for value in public_api.module_values {
+        push_public_module_value(out, source, value);
+    }
     for function in public_api.functions {
         push_public_function(out, source, function);
     }
@@ -233,6 +241,7 @@ fn push_public_api(out: &mut String, source: &SourceFile, tree: &veln_syntax::Sy
 struct PublicApi<'a> {
     types: Vec<&'a TypeDecl>,
     schemas: Vec<&'a SchemaDecl>,
+    module_values: Vec<&'a ModuleValueDecl>,
     functions: Vec<&'a FunctionDecl>,
     aliases: Vec<&'a PublicAliasDecl>,
 }
@@ -242,6 +251,7 @@ impl<'a> PublicApi<'a> {
         let mut public_api = Self {
             types: Vec::new(),
             schemas: Vec::new(),
+            module_values: Vec::new(),
             functions: Vec::new(),
             aliases: Vec::new(),
         };
@@ -252,6 +262,9 @@ impl<'a> PublicApi<'a> {
                 }
                 SyntaxItem::Schema(schema) if schema.visibility == Visibility::Public => {
                     public_api.schemas.push(schema);
+                }
+                SyntaxItem::ModuleValue(value) if value.visibility == Visibility::Public => {
+                    public_api.module_values.push(value);
                 }
                 SyntaxItem::Function(function)
                     if function.kind == FunctionKind::Function
@@ -269,6 +282,7 @@ impl<'a> PublicApi<'a> {
     fn is_empty(&self) -> bool {
         self.types.is_empty()
             && self.schemas.is_empty()
+            && self.module_values.is_empty()
             && self.functions.is_empty()
             && self.aliases.is_empty()
     }
@@ -296,6 +310,11 @@ fn push_public_type(out: &mut String, source: &SourceFile, type_decl: &TypeDecl)
 fn push_public_schema(out: &mut String, source: &SourceFile, schema: &SchemaDecl) {
     push_heading(out, 5, &schema_signature(schema));
     push_doc_block(out, doc_block_before(source, schema.span.start.line));
+}
+
+fn push_public_module_value(out: &mut String, source: &SourceFile, value: &ModuleValueDecl) {
+    push_heading(out, 5, &module_value_signature(value, source));
+    push_doc_block(out, doc_block_before(source, value.span.start.line));
 }
 
 fn push_public_function(out: &mut String, source: &SourceFile, function: &FunctionDecl) {

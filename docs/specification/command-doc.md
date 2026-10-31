@@ -23,9 +23,11 @@ package `name` becomes the title, otherwise the title is `Veln Project`.
 
 For each selected parse-clean non-companion source, output includes the
 path-derived module identity, source path, imports, public types and
-constructors, public schemas, public member aliases, public functions,
-attached documentation comments, and function contract clauses. ADR-lite
-records have a separate section and retain their parsed anchor.
+constructors, public schemas, public module immutable values, public member
+aliases, public functions, attached documentation comments, and function
+contract clauses. A public module value is rendered as its name and written
+type annotation. Its initializer is not rendered. ADR-lite records have a
+separate section and retain their parsed anchor.
 
 Canonical public declaration signatures preserve accepted singleton and
 finite-union variant-refinement annotations. They also canonicalize the
@@ -33,10 +35,10 @@ complete signature around those annotations, including rendering `Unit` as
 `()`, for function parameters, function results, and constructor fields.
 
 A documentation line comment attaches only when immediately above the nearest
-module, public type, public schema, public member alias, or public function.
-The `##` marker is removed. Executable doctest and expected-output fences
-remain visible except hidden setup lines beginning with `> `, which are
-omitted from the rendered example.
+module, public type, public schema, public module immutable value, public
+member alias, or public function. The `##` marker is removed. Executable
+doctest and expected-output fences remain visible except hidden setup lines
+beginning with `> `, which are omitted from the rendered example.
 
 Schema references use `{@schema Name}` or a qualified path. Bare references
 may resolve private or public schemas in the same module. Qualified references
@@ -62,11 +64,11 @@ document.
 
 A selected module immutable value declaration is checked using the shared
 finite-data initializer, annotation, imported lookup, package-aware visibility,
-and package-wide dependency rules. It also produces
-`module.value_not_executable`, so it blocks document generation even when that
-semantic checking succeeds. The command does not publish the declaration's
-name, annotation, or initializer while package-documentation publication
-remains unimplemented.
+and package-wide dependency rules. The runtime-only
+`module.value_not_executable` diagnostic does not block documentation. Any
+other error for a selected module value blocks the complete document. A valid
+public value publishes its name and written annotation without its initializer;
+a valid private value is omitted.
 
 Variant-refinement errors remain semantic diagnostics when recovery retains a
 type or constructor identity. Such an error produces no generated document.

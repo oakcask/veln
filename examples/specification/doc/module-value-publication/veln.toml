@@ -1,0 +1,5 @@
+[package]
+name = "module-value-publication"
+
+[lib]
+exports = ["main.veln"]

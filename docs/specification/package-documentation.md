@@ -55,8 +55,8 @@ the documentation digest because the canonical result contains that snapshot
 digest. Catalog-semantic, schema, or generator-contract changes also affect
 the documentation digest.
 
-The implemented gates are parse, manifest, export, semantic visibility,
-documentation-reference, doctest, and identity.
+The implemented gates are parse, manifest, export, semantic visibility, module
+value, documentation-reference, doctest, and identity.
 
 ## Result Identity
 
@@ -101,20 +101,24 @@ signatures include effect row binders such as `<effect E>`. Effect declaration
 signatures include the ordered operation names, parameter names and types, and
 result types. Handler declaration signatures include the handler name and
 parameters, the handled effect, and the retained effect row. Handler operation
-clauses and bodies do not contribute to the signature or identity. Declaration
-identity does not use source order or source byte offsets. A duplicate semantic
-identity fails the complete package documentation result. A detected module or
-declaration identifier collision also fails the complete package documentation
-result.
+clauses and bodies do not contribute to the signature or identity. A module
+immutable value signature contains `let`, its public name, and its written type
+annotation. Its initializer does not contribute to the signature, identity, or
+catalog bytes. Declaration identity does not use source order or source byte
+offsets. A duplicate semantic identity fails the complete package documentation
+result. A detected module or declaration identifier collision also fails the
+complete package documentation result.
 
 ## Published Boundary
 
 The successful catalog includes only modules listed by `[lib].exports`. For
 those modules it includes public type declarations, public type constructors,
-public schemas, public effects and their operation signatures, public member
-aliases, public handlers, public functions, attached documentation comments,
-public function contracts, visible doctest fences, expected-output fences, and
-resolved schema documentation references. Each public handler is a distinct
+public schemas, public effects and their operation signatures, public module
+immutable values, public member aliases, public handlers, public functions,
+attached documentation comments, public function contracts, visible doctest
+fences, expected-output fences, and resolved schema documentation references.
+Each public module value publishes its name and written type annotation without
+initializer text. Each public handler is a distinct
 `handler` declaration with its canonical signature, stable declaration
 identifier, and individually readable declaration resource. Public type
 constructors carry their own attached documentation comments, visible doctest
@@ -138,17 +142,17 @@ are eligible for the package-atomic failure even when their primary spans are
 in non-exported sources.
 
 The catalog excludes non-exported modules, private declarations, handler
-operation clauses and bodies, module immutable value declarations, exact test
-companions, integration-test sources, hidden doctest setup lines, ADR-lite
+operation clauses and bodies, module immutable value initializer text, exact
+test companions, integration-test sources, hidden doctest setup lines, ADR-lite
 records, raw manifests, dependency declarations, dependency selectors, local
 paths, repository and homepage URLs, tool metadata, unknown manifest fields,
-and environment-derived values. A direct successful `PackageDocResult` has no
-declaration or lookup URI for a module immutable value. The `veln doc` command
-runs project analysis before package-documentation generation. It reports any
-finite-data initializer, annotation-visibility, imported-lookup, or package-wide
-dependency diagnostics for selected module immutable values, together with
-`module.value_not_executable` for every such declaration. These diagnostics
-block generation before the command can publish the declaration.
+and environment-derived values. A direct successful `PackageDocResult` has a
+declaration and lookup URI for each accepted public module value. A public
+module value rejected by finite-data initializer, annotation, imported-lookup,
+visibility, or package-wide dependency checking fails the package-atomic
+result. No accepted sibling declaration is published in that failure result.
+The `veln doc` command applies the same semantic acceptance boundary while
+ignoring the runtime-only `module.value_not_executable` diagnostic.
 
 Published expected-output fences preserve the stream as `stdout` or `stderr`
 and the complete lines for that stream.
@@ -201,6 +205,13 @@ The implemented gates are:
   `gate: "semantic_visibility"`, reports
   `type.variant_refinement_private`, and publishes no declaration identity or
   signature;
+- module value: every public module immutable value in an exported source must
+  pass finite-data initializer, written-annotation, imported-lookup,
+  package-aware visibility, and package-wide dependency checking. The
+  runtime-only `module.value_not_executable` diagnostic is not a documentation
+  rejection. Any other error within the public declaration rejects the complete
+  catalog with `gate: "module_value"` and publishes no module value or accepted
+  sibling declaration;
 - documentation reference: `{@schema ...}` references in documentation
   blocks that attach to exported public declarations or exported public type
   constructors must resolve to a public schema in an exported module. Bare
