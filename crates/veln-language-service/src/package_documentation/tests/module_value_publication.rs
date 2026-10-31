@@ -269,20 +269,23 @@ fn unrelated_quarantined_import_does_not_reject_a_public_value() {
 }
 
 fn captured_invalid_same_path_dependency(source: &str) -> CapturedDependencyProject {
+    captured_same_path_dependency("b", "vendor/b", source)
+}
+
+fn captured_same_path_dependency(
+    package: &str,
+    source_root: &str,
+    source: &str,
+) -> CapturedDependencyProject {
     CapturedDependencyProject {
-        package: "b".to_string(),
-        source: "vendor/b".to_string(),
+        package: package.to_string(),
+        source: source_root.to_string(),
         project: Some(Project {
             root: PathBuf::new(),
             files: vec![SourceFile::new("main.veln", source)],
             manifest: Some(parse_manifest_text(
                 "veln.toml",
-                concat!(
-                    "[package]\n",
-                    "name = \"b\"\n",
-                    "[lib]\n",
-                    "exports = [\"main.veln\"]\n",
-                ),
+                &format!("[package]\nname = \"{package}\"\n[lib]\nexports = [\"main.veln\"]\n"),
             )),
         }),
     }
@@ -420,6 +423,69 @@ fn required_dependency_callable_collision_keeps_dependency_identity() {
     );
 }
 
+#[test]
+fn identical_dependency_spans_do_not_share_callable_collision_causes() {
+    let collision_source = concat!(
+        "fn shared() -> Int\n",
+        "  1\n",
+        "end\n",
+        "pub let shared: Int = 1\n",
+    );
+    let required = captured_same_path_dependency("b", "vendor/b", collision_source);
+    let unrelated = captured_same_path_dependency("c", "vendor/c", collision_source);
+    let required_uri = captured_dependency_source_uri(&required, "main.veln");
+    let unrelated_uri = captured_dependency_source_uri(&unrelated, "main.veln");
+    let result = generate_with_dependencies(
+        concat!(
+            "[package]\n",
+            "name = \"a\"\n",
+            "[lib]\n",
+            "exports = [\"main.veln\"]\n",
+            "[dependencies.\"b\"]\n",
+            "path = \"vendor/b\"\n",
+            "[dependencies.\"c\"]\n",
+            "path = \"vendor/c\"\n",
+        ),
+        &[(
+            "main.veln",
+            concat!(
+                "use main as required from \"b\"\n",
+                "use main as unrelated from \"c\"\n",
+                "pub let exposed: Int = required::shared\n",
+            ),
+        )],
+        &[required, unrelated],
+    );
+
+    assert!(result.catalog().is_none(), "{:#?}", result.status());
+    let diagnostics = &result.status().diagnostics;
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| (diagnostic.gate.as_str(), diagnostic.code.as_str()))
+            .collect::<Vec<_>>(),
+        [
+            ("module_value", "name.unresolved"),
+            ("module_value", "name.duplicate"),
+        ]
+    );
+    assert_eq!(
+        diagnostics[1].span.as_ref().unwrap().source_uri,
+        required_uri
+    );
+    assert_eq!(
+        diagnostics[0].span.as_ref().unwrap().source_uri,
+        source_uri("a", result.snapshot_digest(), "main.veln")
+    );
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic
+            .span
+            .as_ref()
+            .is_none_or(|span| span.source_uri != unrelated_uri)
+    }));
+}
+
 fn captured_shared_value_dependency() -> CapturedDependencyProject {
     CapturedDependencyProject {
         package: "b".to_string(),
@@ -534,6 +600,70 @@ fn public_module_value_refinement_diagnostic_uses_module_value_gate() {
     assert_eq!(
         result.status().diagnostics[0].code,
         "type.variant_refinement_private"
+    );
+}
+
+#[test]
+fn reordered_private_refinement_causes_keep_their_declaration_gates() {
+    let source = concat!(
+        "pub type State\n",
+        "  Hidden\n",
+        "end\n",
+        "pub fn expose(value: State::Hidden) -> ()\n",
+        "  ()\n",
+        "end\n",
+        "pub let refined: State::Hidden = Hidden\n",
+    );
+    let result = generate(
+        concat!(
+            "[package]\n",
+            "name = \"module-value-refinement-order\"\n",
+            "[lib]\n",
+            "exports = [\"main.veln\"]\n",
+        ),
+        &[("main.veln", source)],
+    );
+
+    assert!(result.catalog().is_none());
+    let diagnostics = &result.status().diagnostics;
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    let expected_uri = source_uri(
+        "module-value-refinement-order",
+        result.snapshot_digest(),
+        "main.veln",
+    );
+    let function_offset = source.find("State::Hidden").unwrap() + "State::".len();
+    let value_offset = source.rfind("State::Hidden").unwrap() + "State::".len();
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| (
+                diagnostic.gate.as_str(),
+                diagnostic.code.as_str(),
+                diagnostic.span.as_ref().unwrap().source_uri.as_str(),
+                diagnostic.span.as_ref().unwrap().line,
+                diagnostic.span.as_ref().unwrap().column,
+                diagnostic.span.as_ref().unwrap().offset,
+            ))
+            .collect::<Vec<_>>(),
+        [
+            (
+                "semantic_visibility",
+                "type.variant_refinement_private",
+                expected_uri.as_str(),
+                4,
+                29,
+                function_offset,
+            ),
+            (
+                "module_value",
+                "type.variant_refinement_private",
+                expected_uri.as_str(),
+                7,
+                25,
+                value_offset,
+            ),
+        ]
     );
 }
 
@@ -803,6 +933,9 @@ fn assert_linear_adjacent_work(
     assert!(adjacent.diagnostic_lookups <= original.diagnostic_lookups * 2);
     assert!(adjacent.collision_identity_insertions <= original.collision_identity_insertions * 2);
     assert!(adjacent.collision_diagnostic_lookups <= original.collision_diagnostic_lookups * 2);
+    assert!(
+        adjacent.collision_association_iterations <= original.collision_association_iterations * 2
+    );
 }
 
 #[test]
@@ -873,4 +1006,71 @@ fn duplicate_callable_classification_uses_keyed_span_lookups_linearly() {
     assert_eq!(original.collision_diagnostic_lookups, 32);
     assert_eq!(adjacent.collision_diagnostic_lookups, 64);
     assert_eq!(larger.collision_diagnostic_lookups, 128);
+    assert_eq!(original.collision_association_iterations, 32);
+    assert_eq!(adjacent.collision_association_iterations, 64);
+    assert_eq!(larger.collision_association_iterations, 128);
+}
+
+fn captured_collision_package_work(count: usize) -> PackageDocSemanticClassificationWork {
+    let collision_source = concat!(
+        "fn shared() -> Int\n",
+        "  1\n",
+        "end\n",
+        "pub let shared: Int = 1\n",
+    );
+    let mut manifest = String::from(
+        "[package]\nname = \"captured-collision-scaling\"\n[lib]\nexports = [\"main.veln\"]\n",
+    );
+    let mut imports = String::new();
+    let mut values = String::new();
+    let dependencies = (0..count)
+        .map(|index| {
+            let package = format!("p{index}");
+            manifest.push_str(&format!(
+                "[dependencies.\"{package}\"]\npath = \"vendor/{package}\"\n"
+            ));
+            imports.push_str(&format!("use main as dep_{index} from \"{package}\"\n"));
+            values.push_str(&format!(
+                "pub let value_{index}: Int = dep_{index}::shared\n"
+            ));
+            captured_same_path_dependency(&package, &format!("vendor/{package}"), collision_source)
+        })
+        .collect::<Vec<_>>();
+    let source = format!("{imports}{values}");
+    reset_package_doc_semantic_classification_work();
+    let result =
+        generate_with_dependencies(&manifest, &[("main.veln", source.as_str())], &dependencies);
+    assert!(result.catalog().is_none(), "{:#?}", result.status());
+    assert_eq!(
+        result
+            .status()
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "name.duplicate")
+            .count(),
+        count,
+        "{:#?}",
+        result.status().diagnostics
+    );
+    assert!(
+        result
+            .status()
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.gate == "module_value")
+    );
+    take_package_doc_semantic_classification_work()
+}
+
+#[test]
+fn captured_identical_span_collision_association_is_linear() {
+    let original = captured_collision_package_work(8);
+    let adjacent = captured_collision_package_work(16);
+    eprintln!("captured collision association work: 8={original:?}, 16={adjacent:?}");
+
+    assert_eq!(original.collision_association_iterations, 8);
+    assert_eq!(adjacent.collision_association_iterations, 16);
+    assert!(
+        adjacent.collision_association_iterations <= original.collision_association_iterations * 2
+    );
 }

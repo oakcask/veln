@@ -1,7 +1,17 @@
 use super::*;
 
-type PublicationSpanKey = (String, usize, usize);
-
+type PublicationSpanKey = (
+    String,
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+    Option<String>,
+    Option<(usize, usize, usize)>,
+    Option<(usize, usize, usize)>,
+);
 impl LoweredSurfaceModule {
     pub fn module_value_publication_diagnostic_indices_for_identities(
         &self,
@@ -96,6 +106,9 @@ impl LoweredSurfaceModule {
             collision_diagnostic_lookups: self
                 .module_value_publication
                 .collision_diagnostic_lookups,
+            collision_association_iterations: self
+                .module_value_publication
+                .collision_association_iterations,
             visited_initializations: self.module_value_publication.values.len(),
             exported_root_lookups,
             ..ModuleValuePublicationWork::default()
@@ -190,9 +203,26 @@ pub(super) fn index_module_value_publication(
     provenance: ModuleValuePublicationProvenance,
 ) -> IndexedModuleValuePublicationProvenance {
     let direct_diagnostic_indices = direct_diagnostic_indices(diagnostics, &provenance);
-    let (callable_identities, collision_identity_insertions) = callable_identities(module);
-    let (collision_diagnostic_indices, collision_diagnostic_lookups) =
-        collision_diagnostic_indices(diagnostics, &callable_identities);
+    let collision_identity_insertions = module
+        .functions
+        .iter()
+        .filter(|function| function.name.is_some())
+        .count()
+        + module
+            .aliases
+            .iter()
+            .filter(|alias| alias.kind == PublicAliasKind::Function && alias.name.is_some())
+            .count()
+        + module
+            .module_values
+            .iter()
+            .filter(|value| value.name.is_some())
+            .count();
+    let (
+        collision_diagnostic_indices,
+        collision_diagnostic_lookups,
+        collision_association_iterations,
+    ) = collision_diagnostic_indices(diagnostics, &provenance.callable_collisions);
     let failures_by_file_and_range = failures_by_file_and_range(&provenance);
     let failures_by_identity = failures_by_identity(&provenance);
     let values = indexed_values(provenance, direct_diagnostic_indices);
@@ -205,6 +235,7 @@ pub(super) fn index_module_value_publication(
         collision_diagnostic_indices,
         collision_identity_insertions,
         collision_diagnostic_lookups,
+        collision_association_iterations,
         retained_edges,
         retained_direct_causes,
     }
@@ -220,17 +251,47 @@ fn direct_diagnostic_indices(
         .enumerate()
         .filter_map(|(index, diagnostic)| {
             let span = diagnostic.span.as_ref()?;
+            Some((
+                (
+                    diagnostic.id.as_str(),
+                    publication_span_key(span),
+                    diagnostic.message.as_str(),
+                ),
+                index,
+            ))
+        })
+        .collect::<HashMap<_, _>>();
+    let diagnostics_by_span = diagnostics
+        .iter()
+        .enumerate()
+        .filter_map(|(index, diagnostic)| {
+            let span = diagnostic.span.as_ref()?;
             Some(((diagnostic.id.as_str(), publication_span_key(span)), index))
         })
         .collect::<HashMap<_, _>>();
     for (value_index, value) in provenance.values.iter().enumerate() {
         for cause in &value.direct_causes {
-            if let Some(index) = cause.diagnostic_index {
+            if let Some(index) = cause.diagnostic_index.filter(|index| {
+                diagnostics
+                    .get(*index)
+                    .is_some_and(|diagnostic| diagnostic_matches_cause(diagnostic, cause))
+            }) {
                 indices[value_index].push(index);
-            } else if let Some(index) = diagnostics_by_key.get(&(
-                cause.diagnostic_id.as_str(),
-                publication_span_key(&cause.span),
-            )) {
+                continue;
+            }
+            let index = if let Some(message) = cause.diagnostic_message.as_deref() {
+                diagnostics_by_key.get(&(
+                    cause.diagnostic_id.as_str(),
+                    publication_span_key(&cause.span),
+                    message,
+                ))
+            } else {
+                diagnostics_by_span.get(&(
+                    cause.diagnostic_id.as_str(),
+                    publication_span_key(&cause.span),
+                ))
+            };
+            if let Some(index) = index {
                 indices[value_index].push(*index);
             }
         }
@@ -240,103 +301,60 @@ fn direct_diagnostic_indices(
     indices
 }
 
-fn callable_identities(
-    module: &SurfaceModule,
-) -> (
-    HashMap<PublicationSpanKey, Vec<crate::types::ModuleValueIdentity>>,
-    usize,
-) {
-    let mut identities = HashMap::new();
-    insert_function_identities(module, &mut identities);
-    insert_alias_identities(module, &mut identities);
-    insert_value_identities(module, &mut identities);
-    let insertions = identities.values().map(Vec::len).sum();
-    (identities, insertions)
-}
-
-fn insert_function_identities(
-    module: &SurfaceModule,
-    identities: &mut HashMap<PublicationSpanKey, Vec<crate::types::ModuleValueIdentity>>,
-) {
-    for function in &module.functions {
-        if let Some(name) = function.name.as_ref() {
-            identities
-                .entry(publication_span_key(&function.span))
-                .or_default()
-                .push((
-                    function.package_name.clone(),
-                    function.module_name.clone(),
-                    name.clone(),
-                ));
-        }
-    }
-}
-
-fn insert_alias_identities(
-    module: &SurfaceModule,
-    identities: &mut HashMap<PublicationSpanKey, Vec<crate::types::ModuleValueIdentity>>,
-) {
-    for alias in module
-        .aliases
-        .iter()
-        .filter(|alias| alias.kind == PublicAliasKind::Function)
-    {
-        if let Some(name) = alias.name.as_ref() {
-            identities
-                .entry(publication_span_key(&alias.span))
-                .or_default()
-                .push((
-                    alias.package_name.clone(),
-                    alias.module_name.clone(),
-                    name.clone(),
-                ));
-        }
-    }
-}
-
-fn insert_value_identities(
-    module: &SurfaceModule,
-    identities: &mut HashMap<PublicationSpanKey, Vec<crate::types::ModuleValueIdentity>>,
-) {
-    for value in &module.module_values {
-        if let Some(name) = value.name.as_ref() {
-            identities
-                .entry(publication_span_key(&value.span))
-                .or_default()
-                .push((
-                    value.package_name.clone(),
-                    value.module_name.clone(),
-                    name.clone(),
-                ));
-        }
-    }
+fn diagnostic_matches_cause(
+    diagnostic: &Diagnostic,
+    cause: &crate::analysis::ModuleValuePublicationCause,
+) -> bool {
+    diagnostic.id == cause.diagnostic_id
+        && diagnostic.span.as_ref() == Some(&cause.span)
+        && cause
+            .diagnostic_message
+            .as_deref()
+            .is_none_or(|message| diagnostic.message == message)
 }
 
 fn collision_diagnostic_indices(
     diagnostics: &[Diagnostic],
-    callable_identities: &HashMap<PublicationSpanKey, Vec<crate::types::ModuleValueIdentity>>,
+    collision_causes: &[(crate::types::ModuleValueIdentity, Diagnostic)],
 ) -> (
     HashMap<crate::types::ModuleValueIdentity, Vec<usize>>,
     usize,
+    usize,
 ) {
     let mut indices = HashMap::<crate::types::ModuleValueIdentity, Vec<usize>>::new();
+    let diagnostics_by_key = diagnostics
+        .iter()
+        .enumerate()
+        .filter(|(_, diagnostic)| diagnostic.id == "name.duplicate")
+        .filter_map(|(index, diagnostic)| {
+            Some((
+                (
+                    diagnostic.id.clone(),
+                    publication_span_key(diagnostic.span.as_ref()?),
+                    diagnostic.message.as_str().to_owned(),
+                ),
+                index,
+            ))
+        })
+        .collect::<HashMap<_, _>>();
     let mut lookups = 0;
-    for (index, diagnostic) in diagnostics.iter().enumerate() {
-        if diagnostic.id != "name.duplicate" {
-            continue;
-        }
+    let mut association_iterations = 0;
+    for (identity, diagnostic) in collision_causes {
+        lookups += 1;
+        association_iterations += 1;
         let Some(span) = diagnostic.span.as_ref() else {
             continue;
         };
-        let key = publication_span_key(span);
-        lookups += 1;
-        if let Some(identities) = callable_identities.get(&key) {
-            for identity in identities {
-                indices.entry(identity.clone()).or_default().push(index);
-            }
+        let key = (
+            diagnostic.id.clone(),
+            publication_span_key(span),
+            diagnostic.message.as_str().to_owned(),
+        );
+        if let Some(index) = diagnostics_by_key.get(&key) {
+            indices.entry(identity.clone()).or_default().push(*index);
         }
     }
-    (indices, lookups)
+    (indices, lookups, association_iterations)
 }
 
 fn failures_by_file_and_range(
@@ -409,7 +427,16 @@ fn retained_value_edges(value: &IndexedModuleValuePublicationValue) -> usize {
 fn publication_span_key(span: &veln_source::SourceSpan) -> PublicationSpanKey {
     (
         span.file.as_str().to_owned(),
+        span.start.line,
+        span.start.column,
         span.start.offset,
+        span.end.line,
+        span.end.column,
         span.end.offset,
+        span.original_path().map(|path| path.as_str().to_owned()),
+        span.original_start()
+            .map(|position| (position.line, position.column, position.offset)),
+        span.original_end()
+            .map(|position| (position.line, position.column, position.offset)),
     )
 }

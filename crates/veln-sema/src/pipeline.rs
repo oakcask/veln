@@ -65,6 +65,7 @@ struct IndexedModuleValuePublicationProvenance {
     collision_diagnostic_indices: HashMap<crate::types::ModuleValueIdentity, Vec<usize>>,
     collision_identity_insertions: usize,
     collision_diagnostic_lookups: usize,
+    collision_association_iterations: usize,
     retained_edges: usize,
     retained_direct_causes: usize,
 }
@@ -170,6 +171,7 @@ pub struct ModuleValuePublicationWork {
     pub cause_insertions: usize,
     pub collision_identity_insertions: usize,
     pub collision_diagnostic_lookups: usize,
+    pub collision_association_iterations: usize,
 }
 
 #[cfg(test)]
@@ -186,6 +188,7 @@ thread_local! {
             cause_insertions: 0,
             collision_identity_insertions: 0,
             collision_diagnostic_lookups: 0,
+            collision_association_iterations: 0,
         }) };
 }
 
@@ -548,7 +551,7 @@ fn check_module_declarations(
     let mut diagnostics = Vec::new();
 
     let module_value_analysis = check_module_values(module, environment, variant_diagnostics);
-    let module_value_publication = module_value_analysis.publication_provenance(module);
+    let mut module_value_publication = module_value_analysis.publication_provenance(module);
     diagnostics.extend(module_value_analysis.diagnostics);
     diagnostics.extend(
         module
@@ -557,7 +560,12 @@ fn check_module_declarations(
             .map(module_value_not_executable_diagnostic),
     );
     diagnostics.extend(check_invalid_name_casing(module, environment));
-    diagnostics.extend(check_duplicate_function_names(module));
+    let (callable_diagnostics, callable_collisions) = check_duplicate_function_names(module);
+    diagnostics.extend(callable_diagnostics);
+    module_value_publication.callable_collisions = callable_collisions
+        .into_iter()
+        .map(|collision| (collision.identity, collision.diagnostic))
+        .collect();
     diagnostics.extend(check_duplicate_type_names(module));
     diagnostics.extend(check_duplicate_effect_names(module));
     diagnostics.extend(check_duplicate_schema_names(module));
@@ -900,9 +908,9 @@ fn lower_analyzed_surface_module_with_environment(
     environment: &TypeEnvironment,
     mode: SurfaceLoweringMode,
 ) -> LoweredSurfaceModule {
+    let mut diagnostics = enforce_module_value_lowering_gate(module, diagnostics);
     let module_value_publication =
         index_module_value_publication(module, &diagnostics, module_value_publication);
-    let mut diagnostics = enforce_module_value_lowering_gate(module, diagnostics);
     let unpublished_declarations =
         unpublished_public_declarations(module, environment, &diagnostics);
     if diagnostics.iter().any(blocks_core_lowering) {

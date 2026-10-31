@@ -51,6 +51,7 @@ struct PackageDocSemanticClassificationWork {
     cause_index_insertions: usize,
     collision_identity_insertions: usize,
     collision_diagnostic_lookups: usize,
+    collision_association_iterations: usize,
     diagnostic_lookups: usize,
     casing_range_comparisons: usize,
 }
@@ -71,6 +72,7 @@ thread_local! {
             cause_index_insertions: 0,
             collision_identity_insertions: 0,
             collision_diagnostic_lookups: 0,
+            collision_association_iterations: 0,
             diagnostic_lookups: 0,
             casing_range_comparisons: 0,
         }) };

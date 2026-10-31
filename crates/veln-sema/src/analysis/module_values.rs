@@ -47,6 +47,7 @@ pub(crate) struct ModuleValueAnalysis {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ModuleValuePublicationProvenance {
     pub(crate) values: Vec<ModuleValuePublicationValue>,
+    pub(crate) callable_collisions: Vec<(ModuleValueIdentity, Diagnostic)>,
 }
 
 #[derive(Clone, Debug)]
@@ -63,6 +64,7 @@ pub(crate) struct ModuleValuePublicationValue {
 pub(crate) struct ModuleValuePublicationCause {
     pub(crate) package_name: Option<String>,
     pub(crate) diagnostic_id: String,
+    pub(crate) diagnostic_message: Option<String>,
     pub(crate) span: veln_source::SourceSpan,
     pub(crate) diagnostic_index: Option<usize>,
 }
@@ -262,6 +264,7 @@ pub(crate) fn check_module_values(
         final_analysis.direct_causes[value_index].push(ModuleValuePublicationCause {
             package_name: identity.0,
             diagnostic_id: diagnostic.id.clone(),
+            diagnostic_message: Some(diagnostic.message.as_str().to_owned()),
             span,
             diagnostic_index: Some(diagnostic_index),
         });
@@ -412,6 +415,7 @@ impl ModuleValueCheckState {
             self.direct_causes[index].push(ModuleValuePublicationCause {
                 package_name: value.package_name.clone(),
                 diagnostic_id: "name.invalid_case".to_string(),
+                diagnostic_message: None,
                 span,
                 diagnostic_index: None,
             });
@@ -429,6 +433,7 @@ impl ModuleValueCheckState {
             self.direct_causes[index].push(ModuleValuePublicationCause {
                 package_name: value.package_name.clone(),
                 diagnostic_id: "name.invalid_case".to_string(),
+                diagnostic_message: None,
                 span,
                 diagnostic_index: None,
             });
@@ -490,6 +495,7 @@ fn publication_cause(
     Some(ModuleValuePublicationCause {
         package_name,
         diagnostic_id: diagnostic.id.clone(),
+        diagnostic_message: Some(diagnostic.message.as_str().to_owned()),
         span: diagnostic.span.clone()?,
         diagnostic_index,
     })
@@ -542,6 +548,7 @@ impl ModuleValueAnalysis {
                     direct_causes: self.direct_causes[index].clone(),
                 })
                 .collect(),
+            callable_collisions: Vec::new(),
         }
     }
 }
