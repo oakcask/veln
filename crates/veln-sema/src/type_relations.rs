@@ -664,9 +664,6 @@ fn invariant_variadics_match(expected: &Option<Box<Type>>, actual: &Option<Box<T
 }
 
 fn effects_are_assignable(expected: &[String], actual: &[String]) -> bool {
-    if expected.iter().any(|effect| effect.starts_with("...")) {
-        return true;
-    }
     actual
         .iter()
         .all(|effect| expected.iter().any(|expected| expected == effect))

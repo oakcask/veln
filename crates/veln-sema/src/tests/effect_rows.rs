@@ -38,6 +38,13 @@ fn effect_row_substitution_reaches_concrete_call_boundaries() {
     let diagnostics = analyze_surface_module(&module);
 
     assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter_map(|diagnostic| diagnostic.span.as_ref().map(|span| span.start.line))
+            .collect::<Vec<_>>(),
+        vec![17, 21]
+    );
     assert_eq!(diagnostics[0].id, "effect.missing_public");
     assert_eq!(
         diagnostics[0].message,
@@ -320,5 +327,1095 @@ fn checked_core_and_typed_ir_preserve_effect_row_representation() {
     assert_eq!(
         function.effects,
         vec!["Transport".to_string(), "...E".to_string()]
+    );
+}
+
+#[test]
+fn call_bound_effect_rows_solve_shared_lower_and_upper_bounds() {
+    let module = module(concat!(
+        "fn stdio_callback() -> () effects [stdio]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn accepts_stdio_or_db(callback: fn() -> () effects [stdio, db]) -> ()\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn lower_then_upper<effect E>(produce: fn() -> () effects [...E], consume: fn(fn() -> () effects [...E]) -> ()) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn upper_then_lower<effect E>(consume: fn(fn() -> () effects [...E]) -> (), produce: fn() -> () effects [...E]) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "pub fn first_order() -> ()\n",
+        "\tlower_then_upper(stdio_callback, accepts_stdio_or_db)\n",
+        "end\n",
+        "\n",
+        "pub fn reverse_order() -> ()\n",
+        "\tupper_then_lower(accepts_stdio_or_db, stdio_callback)\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id == "effect.missing_public"
+            && diagnostic.message == "public function uses undeclared effect `stdio`"
+    }));
+}
+
+#[test]
+fn unconstrained_call_bound_effect_row_infers_empty_set() {
+    let module = module(concat!(
+        "fn unconstrained<effect E>() -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tunconstrained()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn unsatisfied_effect_row_upper_bound_rejects_without_leaking_effects() {
+    let module = module(concat!(
+        "fn network_callback() -> () effects [net]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn accepts_stdio(callback: fn() -> () effects [stdio]) -> ()\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn constrained<effect E>(produce: fn() -> () effects [...E], consume: fn(fn() -> () effects [...E]) -> ()) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "pub fn rejected_call_is_transactional() -> ()\n",
+        "\tconstrained(network_callback, accepts_stdio)\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert!(
+        !diagnostics[0].message.contains("missing"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn rejected_non_row_payload_does_not_leak_a_partial_row_substitution() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn rejected_helper() -> ()\n",
+        "\tinvoke(db_callback, \"wrong\")\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\trejected_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+}
+
+#[test]
+fn accepted_perform_argument_preserves_instantiated_call_effects() {
+    let module = module(concat!(
+        "effect Ask\n",
+        "\tvalue() -> Int\n",
+        "end\n",
+        "\n",
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn helper() -> ()\n",
+        "\tinvoke(db_callback, perform Ask::value())\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> () effects [Ask]\n",
+        "\thelper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
+    );
+}
+
+#[test]
+fn rejected_try_argument_does_not_leak_a_partial_row_substitution() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn bad() -> Result<String, String>\n",
+        "\tOk(\"wrong\")\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn helper() -> Result<(), String>\n",
+        "\tinvoke(db_callback, bad()?)\n",
+        "\tOk(())\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> Result<(), String>\n",
+        "\thelper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn rejected_call_shape_does_not_leak_a_partial_row_substitution() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn missing_argument() -> ()\n",
+        "\tinvoke(db_callback)\n",
+        "end\n",
+        "\n",
+        "fn unresolved_non_row_argument() -> ()\n",
+        "\tinvoke(db_callback, { value: 1 })\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tmissing_argument()\n",
+        "\tunresolved_non_row_argument()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn variadic_call_bound_effect_rows_contribute_every_argument() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn stdio_callback() -> () effects [stdio]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke_all<effect E>(callbacks: ...fn() -> () effects [...E]) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn helper() -> ()\n",
+        "\tinvoke_all(db_callback, stdio_callback)\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\thelper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+    let messages = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "effect.missing_public")
+        .map(|diagnostic| diagnostic.message.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        messages,
+        vec![
+            "public function uses undeclared effect `db`",
+            "public function uses undeclared effect `stdio`",
+        ],
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn enclosing_effect_rows_remain_rigid_during_body_checking() {
+    let module = module(concat!(
+        "fn call_once<effect E>(callback: fn() -> () effects [...E]) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn rigid<effect R>(callback: fn() -> () effects [...R]) -> () effects [...R]\n",
+        "\tcall_once(callback)\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn accepted_record_argument_preserves_instantiated_call_effects() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], config: {count: Int}) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn through_record() -> ()\n",
+        "\tinvoke(db_callback, {count: 1})\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tthrough_record()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
+    );
+}
+
+#[test]
+fn accepted_call_expression_argument_preserves_instantiated_private_call_effects() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn make_int() -> Int\n",
+        "\t1\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn through_call() -> ()\n",
+        "\tinvoke(db_callback, make_int())\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tthrough_call()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
+    );
+}
+
+#[test]
+fn accepted_binary_argument_preserves_instantiated_private_call_effects() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn through_binary() -> ()\n",
+        "\tinvoke(db_callback, 1 + 1)\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tthrough_binary()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
+    );
+}
+
+#[test]
+fn accepted_prefix_argument_preserves_instantiated_private_call_effects() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn through_prefix() -> ()\n",
+        "\tinvoke(db_callback, -1)\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tthrough_prefix()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
+    );
+}
+
+#[test]
+fn rejected_binary_argument_does_not_publish_a_partial_row_solution() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn rejected_helper() -> ()\n",
+        "\tinvoke(db_callback, 1 + \"wrong\")\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\trejected_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn rejected_prefix_argument_does_not_publish_a_partial_row_solution() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], flag: Bool) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn rejected_helper() -> ()\n",
+        "\tinvoke(db_callback, not 1)\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\trejected_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn accepted_schema_expression_arguments_preserve_instantiated_private_call_effects() {
+    let cases = [
+        concat!(
+            "schema PacketWire\n",
+            "\tformat binary\n",
+            "\n",
+            "\tlength: UInt8\n",
+            "end\n",
+            "\n",
+            "fn db_callback() -> () effects [db]\n",
+            "\t()\n",
+            "end\n",
+            "\n",
+            "fn invoke<effect E>(callback: fn() -> () effects [...E], step: DecodeStep<{length: Int}>) -> () effects [...E]\n",
+            "\tcallback()\n",
+            "end\n",
+            "\n",
+            "fn helper(view: ByteView, base: ByteOffset) -> ()\n",
+            "\tinvoke(db_callback, decode PacketWire from view at base)\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView, base: ByteOffset) -> ()\n",
+            "\thelper(view, base)\n",
+            "end\n",
+        ),
+        concat!(
+            "schema PacketWire\n",
+            "\tformat binary\n",
+            "\n",
+            "\tlength: UInt8\n",
+            "end\n",
+            "\n",
+            "fn db_callback() -> () effects [db]\n",
+            "\t()\n",
+            "end\n",
+            "\n",
+            "fn invoke<effect E>(callback: fn() -> () effects [...E], step: Result<ByteChunk, EncodeError>) -> () effects [...E]\n",
+            "\tcallback()\n",
+            "end\n",
+            "\n",
+            "fn helper() -> ()\n",
+            "\tinvoke(db_callback, encode PacketWire from {length: 1})\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> ()\n",
+            "\thelper()\n",
+            "end\n",
+        ),
+        concat!(
+            "type State\n",
+            "\tConnected\n",
+            "\tClosed\n",
+            "end\n",
+            "\n",
+            "schema Packet\n",
+            "\tstate: State::Connected\n",
+            "end\n",
+            "\n",
+            "fn db_callback() -> () effects [db]\n",
+            "\t()\n",
+            "end\n",
+            "\n",
+            "fn invoke<effect E>(callback: fn() -> () effects [...E], step: Result<{state: State::Connected}, DecodeError>) -> () effects [...E]\n",
+            "\tcallback()\n",
+            "end\n",
+            "\n",
+            "fn helper(state: State, base: ByteOffset) -> ()\n",
+            "\tinvoke(db_callback, validate Packet from {state: state} at base)\n",
+            "end\n",
+            "\n",
+            "pub fn main(state: State, base: ByteOffset) -> ()\n",
+            "\thelper(state, base)\n",
+            "end\n",
+        ),
+    ];
+
+    for source in cases {
+        let diagnostics = analyze_surface_module(&module(source));
+
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+        assert_eq!(diagnostics[0].id, "effect.missing_public");
+        assert_eq!(
+            diagnostics[0].message,
+            "public function uses undeclared effect `db`"
+        );
+    }
+}
+
+#[test]
+fn solved_effect_row_instantiates_the_call_result_type() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn effect_identity<effect E>(callback: fn() -> () effects [...E]) -> fn() -> () effects [...E]\n",
+        "\tcallback\n",
+        "end\n",
+        "\n",
+        "fn accept_db(callback: fn() -> () effects [db]) -> ()\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\taccept_db(effect_identity(db_callback))\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn return_only_call_bound_row_instantiates_empty_for_declared_and_local_calls() {
+    let module = module(concat!(
+        "fn pure_callback() -> ()\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn make<effect E>() -> fn() -> () effects [...E]\n",
+        "\tpure_callback\n",
+        "end\n",
+        "\n",
+        "fn accept_pure(callback: fn() -> ()) -> ()\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\taccept_pure(make())\n",
+        "\tlet local = make\n",
+        "\taccept_pure(local())\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn nested_option_payload_contributes_to_the_shared_effect_row() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke_optional<effect E>(callback: Option<fn() -> () effects [...E]>) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> () effects [db]\n",
+        "\tinvoke_optional(Some(db_callback))\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn nested_result_and_source_adt_payloads_contribute_to_private_effect_inference() {
+    let module = module(concat!(
+        "type CallbackBox<A>\n",
+        "\tWrapped(value: A)\n",
+        "end\n",
+        "\n",
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke_result<effect E>(callback: Result<fn() -> () effects [...E], String>) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke_box<effect E>(callback: CallbackBox<fn() -> () effects [...E]>) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn private_helper() -> ()\n",
+        "\tinvoke_result(Result::Ok(db_callback))\n",
+        "\tinvoke_box(CallbackBox::Wrapped(db_callback))\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tprivate_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+    let missing_effects = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "effect.missing_public")
+        .collect::<Vec<_>>();
+
+    assert_eq!(missing_effects.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        missing_effects[0].message,
+        "public function uses undeclared effect `db`"
+    );
+}
+
+#[test]
+fn enclosing_effect_row_cannot_satisfy_a_concrete_upper_bound() {
+    let module = module(concat!(
+        "fn accepts_pure(callback: fn() -> ()) -> ()\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn constrained<effect E>(produce: fn() -> () effects [...E], consume: fn(fn() -> () effects [...E]) -> ()) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn rigid<effect R>(callback: fn() -> () effects [...R]) -> () effects [...R]\n",
+        "\tconstrained(callback, accepts_pure)\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+}
+
+#[test]
+fn local_alias_preserves_declared_call_bound_row_provenance() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E]) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn through_alias() -> ()\n",
+        "\tlet local = invoke\n",
+        "\tlocal(db_callback)\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tthrough_alias()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
+    );
+}
+
+#[test]
+fn rejected_nested_payload_does_not_publish_a_partial_row_solution() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke_optional<effect E>(callback: Option<fn() -> () effects [...E]>, count: Int) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn rejected_helper() -> ()\n",
+        "\tinvoke_optional(Some(db_callback), {count: 1})\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\trejected_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn rejected_constructor_payload_does_not_publish_a_partial_row_solution() {
+    let module = module(concat!(
+        "type CallbackBox<A>\n",
+        "\tWrapped(value: A, count: Int)\n",
+        "end\n",
+        "\n",
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke_box<effect E>(callback: CallbackBox<fn() -> () effects [...E]>) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn rejected_helper() -> ()\n",
+        "\tinvoke_box(CallbackBox::Wrapped(db_callback, \"wrong\"))\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\trejected_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn rejected_fixed_field_inside_row_bearing_constructor_payload_is_transactional() {
+    let module = module(concat!(
+        "type CallbackBox<A>\n",
+        "\tWrapped(value: {callback: A, count: Int})\n",
+        "end\n",
+        "\n",
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke_box<effect E>(callback: CallbackBox<fn() -> () effects [...E]>) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn rejected_helper() -> ()\n",
+        "\tinvoke_box(CallbackBox::Wrapped({callback: db_callback, count: \"wrong\"}))\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\trejected_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn accepted_fixed_field_inside_row_bearing_constructor_payload_retains_row_effect() {
+    let module = module(concat!(
+        "type CallbackBox<A>\n",
+        "\tWrapped(value: {callback: A, count: Int})\n",
+        "end\n",
+        "\n",
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke_box<effect E>(callback: CallbackBox<fn() -> () effects [...E]>) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn accepted_helper() -> ()\n",
+        "\tinvoke_box(CallbackBox::Wrapped({callback: db_callback, count: 1}))\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\taccepted_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
+    );
+}
+
+#[test]
+fn rejected_local_alias_call_does_not_publish_declared_or_inferred_effects() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [fs, ...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn rejected_helper() -> ()\n",
+        "\tlet local = invoke\n",
+        "\tlocal(db_callback, \"wrong\")\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\trejected_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn rejected_unresolved_argument_does_not_publish_a_partial_row_solution() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tinvoke(db_callback, missing)\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "name.unresolved");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn rejected_row_bearing_result_recovers_without_publishing_type_or_effects() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn produce<effect E>(callback: fn() -> () effects [...E], count: Int) -> fn() -> () effects [...E] effects [...E]\n",
+        "\tcallback\n",
+        "end\n",
+        "\n",
+        "fn accepts_pure(callback: fn() -> ()) -> ()\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tlet recovered = produce(db_callback, \"wrong\")\n",
+        "\taccepts_pure(recovered)\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn pipeline_row_calls_and_pipeline_arguments_retain_effects_across_private_boundaries() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn identity(value: Int) -> Int\n",
+        "\tvalue\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn piped_call_helper() -> ()\n",
+        "\tdb_callback |> invoke(1)\n",
+        "end\n",
+        "\n",
+        "fn piped_argument_helper() -> ()\n",
+        "\tinvoke(db_callback, 1 |> identity())\n",
+        "end\n",
+        "\n",
+        "pub fn direct_piped_call() -> ()\n",
+        "\tdb_callback |> invoke(1)\n",
+        "end\n",
+        "\n",
+        "pub fn direct_piped_argument() -> ()\n",
+        "\tinvoke(db_callback, 1 |> identity())\n",
+        "end\n",
+        "\n",
+        "pub fn private_piped_call() -> ()\n",
+        "\tpiped_call_helper()\n",
+        "end\n",
+        "\n",
+        "pub fn private_piped_argument() -> ()\n",
+        "\tpiped_argument_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let lines = diagnostics
+        .iter()
+        .filter_map(|diagnostic| diagnostic.span.as_ref().map(|span| span.start.line))
+        .collect::<Vec<_>>();
+    assert_eq!(lines, vec![21, 25, 29, 33]);
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id == "effect.missing_public"
+            && diagnostic.message == "public function uses undeclared effect `db`"
+    }));
+}
+
+#[test]
+fn rejected_if_conditions_and_branches_do_not_publish_partial_row_effects() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn rejected_conditions() -> ()\n",
+        "\tinvoke(db_callback, if 1\n",
+        "\t\t1\n",
+        "\telse if 2\n",
+        "\t\t1\n",
+        "\telse\n",
+        "\t\t1\n",
+        "\tend)\n",
+        "end\n",
+        "\n",
+        "fn rejected_branch() -> ()\n",
+        "\tinvoke(db_callback, if true\n",
+        "\t\t\"wrong\"\n",
+        "\telse\n",
+        "\t\t1\n",
+        "\tend)\n",
+        "end\n",
+        "\n",
+        "pub fn direct_conditions() -> ()\n",
+        "\tinvoke(db_callback, if 1\n",
+        "\t\t1\n",
+        "\telse if 2\n",
+        "\t\t1\n",
+        "\telse\n",
+        "\t\t1\n",
+        "\tend)\n",
+        "end\n",
+        "\n",
+        "pub fn direct_branch() -> ()\n",
+        "\tinvoke(db_callback, if true\n",
+        "\t\t\"wrong\"\n",
+        "\telse\n",
+        "\t\t1\n",
+        "\tend)\n",
+        "end\n",
+        "\n",
+        "pub fn private_boundaries() -> ()\n",
+        "\trejected_conditions()\n",
+        "\trejected_branch()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 6, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
+            .count(),
+        6,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
     );
 }

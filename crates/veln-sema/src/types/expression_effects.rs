@@ -1,6 +1,7 @@
 use super::effect_inference::{EffectsByFunction, EffectsByModulePath};
 use super::*;
 
+use crate::adt::registry::AdtRegistry;
 use crate::effects::{is_stdio_call, prelude_effects, standard_library_effects};
 
 pub(super) struct ExprEffectContext<'a> {
@@ -8,6 +9,7 @@ pub(super) struct ExprEffectContext<'a> {
     pub(super) current_module: Option<&'a str>,
     pub(super) current_package: Option<&'a str>,
     pub(super) bindings: &'a [Binding],
+    pub(super) adts: &'a AdtRegistry,
     pub(super) functions: &'a [FunctionSignature],
     pub(super) effects_by_function: &'a EffectsByFunction,
     pub(super) effects_by_module_path: &'a EffectsByModulePath,
@@ -71,6 +73,11 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
     fn collect(&mut self, expr: &Expr) {
         match &expr.kind {
             ExprKind::Call { callee, args } => self.collect_call(callee, args),
+            ExprKind::Binary {
+                op: veln_ast::BinaryOp::PipeGreater,
+                left,
+                right,
+            } => self.collect_pipeline(left, right),
             ExprKind::Handle {
                 body,
                 handler,
@@ -96,6 +103,23 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
             self.collect(callee);
         }
         self.collect_all(args);
+    }
+
+    fn collect_pipeline(&mut self, left: &Expr, right: &Expr) {
+        let ExprKind::Call { callee, args } = &right.kind else {
+            self.collect(left);
+            self.collect(right);
+            return;
+        };
+        if !matches!(callee.kind, ExprKind::NamePath { .. }) {
+            self.collect(left);
+            self.collect(right);
+            return;
+        }
+        let mut piped_args = Vec::with_capacity(args.len() + 1);
+        piped_args.push(left.clone());
+        piped_args.extend(args.iter().cloned());
+        self.collect_call(callee, &piped_args);
     }
 
     fn collect_handle(&mut self, body: &Expr, handler: &[String], args: &[Expr]) {
@@ -161,6 +185,11 @@ impl ExprEffectCollector<'_, '_, '_> {
     fn collect(&mut self, expr: &Expr) {
         match &expr.kind {
             ExprKind::Call { callee, args } => self.collect_call(callee, args),
+            ExprKind::Binary {
+                op: veln_ast::BinaryOp::PipeGreater,
+                left,
+                right,
+            } => self.collect_pipeline(left, right),
             ExprKind::Perform { effect, args, .. } => self.collect_perform(effect, args),
             ExprKind::Handle {
                 body,
@@ -195,7 +224,9 @@ impl ExprEffectCollector<'_, '_, '_> {
                 self.context.companion_access_targets,
             )
         {
-            self.push_all(&instantiate_call_effect_rows(signature, args, self.context));
+            if let Some(effects) = instantiate_call_effect_rows(signature, args, self.context) {
+                self.push_all(&effects);
+            }
         } else if is_stdio_call(segments) {
             push_unique_effect(self.inferred, "stdio");
         } else if let Some(effects) = concurrency_effects_for_call(segments, args, self.context) {
@@ -203,6 +234,12 @@ impl ExprEffectCollector<'_, '_, '_> {
         } else if let Some(effects) = standard_library_effects(segments) {
             for effect in effects {
                 push_unique_effect(self.inferred, effect);
+            }
+        } else if let [name] = segments
+            && local_call_has_bound_effect_row(name, self.context)
+        {
+            if let Some(effects) = instantiate_local_call_effect_rows(name, args, self.context) {
+                self.push_all(&effects);
             }
         } else if let [name] = segments
             && let Some(effects) = lexical_effects_for_bare_callee(
@@ -225,7 +262,9 @@ impl ExprEffectCollector<'_, '_, '_> {
             self.context.current_package,
             self.context.companion_access_targets,
         ) {
-            self.push_all(&instantiate_call_effect_rows(signature, args, self.context));
+            if let Some(effects) = instantiate_call_effect_rows(signature, args, self.context) {
+                self.push_all(&effects);
+            }
         } else {
             if let Some(effects) = effects_for_callee_path(
                 segments,
@@ -241,6 +280,23 @@ impl ExprEffectCollector<'_, '_, '_> {
             }
         }
         self.collect_all(args);
+    }
+
+    fn collect_pipeline(&mut self, left: &Expr, right: &Expr) {
+        let ExprKind::Call { callee, args } = &right.kind else {
+            self.collect(left);
+            self.collect(right);
+            return;
+        };
+        if !matches!(callee.kind, ExprKind::NamePath { .. }) {
+            self.collect(left);
+            self.collect(right);
+            return;
+        }
+        let mut piped_args = Vec::with_capacity(args.len() + 1);
+        piped_args.push(left.clone());
+        piped_args.extend(args.iter().cloned());
+        self.collect_call(callee, &piped_args);
     }
 
     fn collect_perform(&mut self, effect: &[String], args: &[Expr]) {

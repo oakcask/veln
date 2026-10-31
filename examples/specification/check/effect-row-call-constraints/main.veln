@@ -1,0 +1,116 @@
+fn stdio_callback() -> () effects [stdio]
+	()
+end
+
+fn db_callback() -> () effects [db]
+	()
+end
+
+fn pure_callback() -> ()
+	()
+end
+
+fn accepts_stdio_or_db(callback: fn() -> () effects [stdio, db]) -> ()
+	()
+end
+
+fn lower_then_upper<effect E>(produce: fn() -> () effects [...E], consume: fn(fn() -> () effects [...E]) -> ()) -> () effects [...E]
+	()
+end
+
+fn upper_then_lower<effect E>(consume: fn(fn() -> () effects [...E]) -> (), produce: fn() -> () effects [...E]) -> () effects [...E]
+	()
+end
+
+fn unconstrained<effect E>() -> () effects [...E]
+	()
+end
+
+fn call_once<effect E>(callback: fn() -> () effects [...E]) -> () effects [...E]
+	callback()
+end
+
+fn preserve_rigid<effect R>(callback: fn() -> () effects [...R]) -> () effects [...R]
+	call_once(callback)
+end
+
+fn invoke_with_record<effect E>(callback: fn() -> () effects [...E], config: {count: Int}) -> () effects [...E]
+	callback()
+end
+
+fn effect_identity<effect E>(callback: fn() -> () effects [...E]) -> fn() -> () effects [...E]
+	callback
+end
+
+fn return_only<effect E>() -> fn() -> () effects [...E]
+	pure_callback
+end
+
+fn accept_pure(callback: fn() -> ()) -> ()
+	()
+end
+
+fn accept_db(callback: fn() -> () effects [db]) -> ()
+	()
+end
+
+fn invoke_optional<effect E>(callback: Option<fn() -> () effects [...E]>) -> () effects [...E]
+	()
+end
+
+type CallbackBox<A>
+	Wrapped(value: A)
+end
+
+fn invoke_result<effect E>(callback: Result<fn() -> () effects [...E], String>) -> () effects [...E]
+	()
+end
+
+fn invoke_box<effect E>(callback: CallbackBox<fn() -> () effects [...E]>) -> () effects [...E]
+	()
+end
+
+fn invoke_all<effect E>(callbacks: ...fn() -> () effects [...E]) -> () effects [...E]
+	()
+end
+
+pub fn first_order() -> ()
+	lower_then_upper(stdio_callback, accepts_stdio_or_db)
+end
+
+pub fn reverse_order() -> ()
+	upper_then_lower(accepts_stdio_or_db, stdio_callback)
+end
+
+pub fn empty_row() -> ()
+	unconstrained()
+end
+
+pub fn record_argument() -> () effects [db]
+	invoke_with_record(db_callback, {count: 1})
+end
+
+pub fn instantiated_result() -> ()
+	accept_db(effect_identity(db_callback))
+end
+
+pub fn empty_return_only_row() -> ()
+	let local = return_only
+	accept_pure(return_only())
+	accept_pure(local())
+end
+
+pub fn nested_payload() -> () effects [db]
+	invoke_optional(Some(db_callback))
+	invoke_result(Result::Ok(db_callback))
+	invoke_box(CallbackBox::Wrapped(db_callback))
+end
+
+pub fn variadic_arguments() -> () effects [db, stdio]
+	invoke_all(db_callback, stdio_callback)
+end
+
+pub fn local_alias() -> () effects [db]
+	let local = call_once
+	local(db_callback)
+end

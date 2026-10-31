@@ -887,6 +887,31 @@ The [type assignment rules](types.md#compatibility-and-limits) own the record,
 function-input, result, and effect directions. Their rejected directions and
 outer rendered types are checked by the
 [`complete structural assignment diagnostic case`](../../examples/specification/check/complete-type-structural-assignability-diagnostics/).
+The same rules own call-bound effect-row constraints. A rejected constraint or
+argument reports the ordinary `type.mismatch` for the failed compatibility
+fact. The rejected call does not emit `effect.missing_public` from a tentative
+row substitution, including when its rejected result is used later. An
+accepted call still contributes its instantiated row to the public-boundary
+diagnostic when another argument is an ordinary call, `perform` expression, or
+pipeline. A pipeline into the row-polymorphic call is checked as its first
+argument. An incompatible value propagated with `?`, an invalid operator
+operand, or an invalid `if` condition or branch rejects the call without
+publishing that tentative row. The
+[`effect-row rejection case`](../../examples/specification/check/effect-row-call-rejection/)
+checks those JSON outcomes for direct and nested payload failures,
+local-binding and constructor-payload rejection, escaping-result recovery, and
+an accepted ordinary-call argument. The
+[`argument-consistency case`](../../examples/specification/check/effect-row-call-argument-consistency/)
+requires accepted prefix, `perform`, and pipeline arguments to retain their row
+effects through direct and private-helper boundaries. Rejected prefix, binary,
+`?`, and `if` arguments emit type diagnostics without leaking tentative row
+effects. The
+[`constructor-record case`](../../examples/specification/check/effect-row-call-constructor-record-payload/)
+requires `type.mismatch` without `effect.missing_public` from the rejected
+row-bearing sibling, while its accepted control retains the concrete row. The
+[`schema-argument case`](../../examples/specification/check/effect-row-call-schema-arguments/)
+requires accepted `decode`, `encode`, and `validate` arguments to retain the row
+diagnostics inferred through private helpers.
 
 Format-neutral generated decode helpers retain refinements in their parameter
 and successful `Result` types, but they use ordinary structural record

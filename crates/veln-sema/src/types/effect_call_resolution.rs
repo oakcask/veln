@@ -1,22 +1,127 @@
+mod effect_argument_types;
+
 use super::effect_inference::{EffectsByFunction, EffectsByModulePath};
 use super::*;
+use effect_argument_types::type_for_effect_call_argument;
 
-use crate::effect_rows::{collect_effect_row_substitution, instantiate_effect_rows};
+use crate::effect_rows::{
+    call_bound_effect_row, instantiate_effect_rows, instantiate_effect_rows_in_type,
+    solve_call_bound_effect_row,
+};
 use crate::effects::concurrency_effects;
 
 pub(super) fn instantiate_call_effect_rows(
     signature: &FunctionSignature,
     args: &[Expr],
     context: &ExprEffectContext<'_>,
-) -> Vec<String> {
-    let mut row_substitutions = Vec::<(String, Vec<String>)>::new();
-    for (param, arg) in signature.params.iter().zip(args) {
-        let Some(actual) = function_type_for_expr(arg, context) else {
+) -> Option<Vec<String>> {
+    instantiate_callable_effect_rows(
+        &signature.params,
+        signature.variadic.as_ref(),
+        &signature.return_type,
+        &signature.effects,
+        args,
+        context,
+    )
+}
+
+pub(super) fn instantiate_local_call_effect_rows(
+    name: &str,
+    args: &[Expr],
+    context: &ExprEffectContext<'_>,
+) -> Option<Vec<String>> {
+    let binding = context
+        .bindings
+        .iter()
+        .rev()
+        .find(|binding| binding.name == name)?;
+    let row = binding.call_bound_effect_row.as_deref()?;
+    let Type::Function {
+        params,
+        variadic,
+        effects,
+        ..
+    } = &binding.ty
+    else {
+        return None;
+    };
+    instantiate_callable_effect_rows_with_row(
+        params,
+        variadic.as_deref(),
+        effects,
+        Some(row),
+        args,
+        context,
+    )
+}
+
+pub(super) fn local_call_has_bound_effect_row(name: &str, context: &ExprEffectContext<'_>) -> bool {
+    context
+        .bindings
+        .iter()
+        .rev()
+        .find(|binding| binding.name == name)
+        .is_some_and(|binding| binding.call_bound_effect_row.is_some())
+}
+
+fn instantiate_callable_effect_rows(
+    params: &[Type],
+    variadic: Option<&Type>,
+    return_type: &Type,
+    effects: &[String],
+    args: &[Expr],
+    context: &ExprEffectContext<'_>,
+) -> Option<Vec<String>> {
+    let row = call_bound_effect_row(params, variadic, return_type, effects);
+    instantiate_callable_effect_rows_with_row(
+        params,
+        variadic,
+        effects,
+        row.as_deref(),
+        args,
+        context,
+    )
+}
+
+fn instantiate_callable_effect_rows_with_row(
+    params: &[Type],
+    variadic: Option<&Type>,
+    effects: &[String],
+    row: Option<&str>,
+    args: &[Expr],
+    context: &ExprEffectContext<'_>,
+) -> Option<Vec<String>> {
+    let arity_matches =
+        args.len() >= params.len() && (variadic.is_some() || args.len() == params.len());
+    if !arity_matches {
+        return None;
+    }
+    let mut comparisons = Vec::new();
+    for (index, arg) in args.iter().enumerate() {
+        let param = params.get(index).or(variadic)?;
+        let Some(actual) = type_for_effect_call_argument(arg, param, context) else {
+            if row.is_some() {
+                return None;
+            }
             continue;
         };
-        collect_effect_row_substitution(param, &actual, &mut row_substitutions);
+        comparisons.push((param, actual));
     }
-    instantiate_effect_rows(&signature.effects, &row_substitutions)
+    let row_substitutions = solve_call_bound_effect_row(
+        row,
+        comparisons
+            .iter()
+            .map(|(expected, actual)| (*expected, actual)),
+    );
+    if comparisons.iter().any(|(expected, actual)| {
+        !crate::type_relations::is_assignable(
+            &instantiate_effect_rows_in_type(expected, &row_substitutions),
+            actual,
+        )
+    }) {
+        return None;
+    }
+    Some(instantiate_effect_rows(effects, &row_substitutions))
 }
 
 pub(super) fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_>) -> Option<Type> {
@@ -52,6 +157,36 @@ pub(super) fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_
             .map(FunctionSignature::ty)
         }
     }
+}
+
+pub(super) fn call_bound_effect_row_for_expr(
+    expr: &Expr,
+    context: &ExprEffectContext<'_>,
+) -> Option<String> {
+    let segments = expr.callee_name_path()?;
+    if let [name] = segments
+        && let Some(binding) = context
+            .bindings
+            .iter()
+            .rev()
+            .find(|binding| binding.name == *name)
+    {
+        return binding.call_bound_effect_row.clone();
+    }
+    let signature = effect_function_signature_path(
+        segments,
+        context.uses,
+        context.functions,
+        context.current_module,
+        context.current_package,
+        context.companion_access_targets,
+    )?;
+    call_bound_effect_row(
+        &signature.params,
+        signature.variadic.as_ref(),
+        &signature.return_type,
+        &signature.effects,
+    )
 }
 
 pub(super) fn concurrency_effects_for_call(

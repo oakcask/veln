@@ -1,0 +1,120 @@
+effect Ask
+	value() -> Int
+end
+
+fn db_callback() -> () effects [db]
+	()
+end
+
+fn net_callback() -> () effects [net]
+	()
+end
+
+fn fs_callback() -> () effects [fs]
+	()
+end
+
+fn time_callback() -> () effects [time]
+	()
+end
+
+fn bad() -> Result<String, String>
+	Ok("wrong")
+end
+
+fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]
+	callback()
+end
+
+fn invoke_bool<effect E>(callback: fn() -> () effects [...E], flag: Bool) -> () effects [...E]
+	callback()
+end
+
+fn accepted_helper() -> ()
+	invoke(db_callback, perform Ask::value())
+end
+
+fn rejected_helper() -> Result<(), String>
+	invoke(db_callback, bad()?)
+	Ok(())
+end
+
+fn accepted_prefix_helper() -> ()
+	invoke(net_callback, -1)
+end
+
+fn rejected_binary_helper() -> ()
+	invoke(fs_callback, 1 + "wrong")
+end
+
+fn rejected_prefix_helper() -> ()
+	invoke_bool(time_callback, not 1)
+end
+
+fn identity(value: Int) -> Int
+	value
+end
+
+fn accepted_piped_call_helper() -> ()
+	db_callback |> invoke(1)
+end
+
+fn accepted_piped_argument_helper() -> ()
+	invoke(db_callback, 1 |> identity())
+end
+
+fn rejected_if_helper() -> ()
+	invoke(fs_callback, if 1
+		1
+	else
+		1
+	end)
+end
+
+pub fn accepted_operation_result() -> () effects [Ask]
+	accepted_helper()
+end
+
+pub fn rejected_result_propagation() -> Result<(), String>
+	rejected_helper()
+end
+
+pub fn accepted_prefix_result() -> ()
+	accepted_prefix_helper()
+end
+
+pub fn rejected_binary_result() -> ()
+	rejected_binary_helper()
+end
+
+pub fn rejected_prefix_result() -> ()
+	rejected_prefix_helper()
+end
+
+pub fn direct_piped_call() -> ()
+	db_callback |> invoke(1)
+end
+
+pub fn private_piped_call() -> ()
+	accepted_piped_call_helper()
+end
+
+pub fn direct_piped_argument() -> ()
+	invoke(db_callback, 1 |> identity())
+end
+
+pub fn private_piped_argument() -> ()
+	accepted_piped_argument_helper()
+end
+
+pub fn direct_rejected_if() -> ()
+	invoke(fs_callback, if 1
+		1
+	else
+		1
+	end)
+end
+
+pub fn private_rejected_if() -> ()
+	rejected_if_helper()
+end

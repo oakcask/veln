@@ -42,12 +42,17 @@ pub(crate) fn infer_private_match_type(
 }
 
 pub(crate) fn infer_private_if_result_type(
+    condition: &Expr,
     then_branch: &Expr,
     else_if_branches: &[IfBranch],
     else_branch: &Expr,
     expected: Option<&Type>,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
+    context.infer_expected_outcome(condition, &Type::bool());
+    for branch in else_if_branches {
+        context.infer_expected_outcome(&branch.condition, &Type::bool());
+    }
     let mut result = expected.cloned().unwrap_or(Type::Unknown);
     let mut joined_result = None;
     let mut join_failed = false;
@@ -59,10 +64,13 @@ pub(crate) fn infer_private_if_result_type(
             .as_ref()
             .is_none_or(crate::aggregate_type_join::AggregateTypeJoin::has_complete_domain)
             .then_some(&result);
-        let actual = context.infer(
-            branch_expr,
-            expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none)),
-        );
+        let branch_expected =
+            expected.or_else(|| recovery_expected.and_then(item_type_unknown_as_none));
+        let actual = match branch_expected {
+            Some(expected) => context.infer_expected_outcome(branch_expr, expected).ty,
+            None => context.infer(branch_expr, None),
+        };
+        let was_join_failed = join_failed;
         merge_private_control_flow_result(
             &mut result,
             &mut joined_result,
@@ -71,6 +79,9 @@ pub(crate) fn infer_private_if_result_type(
             context.adts,
             expected.is_none(),
         );
+        if !was_join_failed && join_failed {
+            *context.failures += 1;
+        }
     }
     materialize_private_control_flow_result(result, joined_result, join_failed)
 }

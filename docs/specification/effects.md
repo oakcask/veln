@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: Veln effect labels, compiler-known call signatures, nominal handlers, or effect-boundary behavior changes.
+update-when: Veln effect labels, call-bound effect-row inference, compiler-known call signatures, nominal handlers, or effect-boundary behavior changes.
 specification-coverage: usage=#representative-usage; behavior=#effect-labels; limits=#limits
 ---
 
@@ -61,10 +61,29 @@ One user-defined function declaration may bind one effect row with
 function's declared effect set and in nested function type effect sets inside
 the function signature. An unbound row tail, more than one row tail in one
 effect set, or a row tail before a later effect entry is rejected. When a
-row-polymorphic function is called with a callback argument, the callback's
-duplicate-free concrete effect set is substituted for `E` and unioned with the
-concrete effects written beside `...E`. Public boundary diagnostics for the
-call use the concrete instantiated effects.
+row-polymorphic function is called, argument compatibility determines one
+substitution for `E` across all nested occurrences in the call signature. The
+[type compatibility rules](types.md#compatibility-and-limits) define the
+structural constraint directions, least-set solution, retained rigid enclosing
+row tails, and rejected bounds. A call with no lower bound uses an empty
+substitution, including when the row occurs only in the result type. An
+accepted call instantiates both its result and its effects, then unions the row
+with concrete effects written beside `...E`. An accepted call keeps that
+instantiated row when another argument is a prefix, `perform`, or pipeline
+expression, or an accepted schema `decode`, `encode`, or `validate` expression.
+A pipeline into a row-polymorphic call contributes its left expression as the
+first argument before the row is solved. The performed effect also contributes
+through the ordinary expression-effect rule. A rejected call exposes neither
+the tentative result row nor its effects, including through a local function
+binding, an incompatible operator operand, an invalid `if` condition or branch,
+a value propagated with `?`, or a constructor payload whose fixed field is
+incompatible beside a row-bearing field. Public boundary diagnostics for a
+fully concrete accepted call use the concrete instantiated effects. The checked
+[`argument-consistency`](../../examples/specification/check/effect-row-call-argument-consistency/),
+[`constructor-record`](../../examples/specification/check/effect-row-call-constructor-record-payload/),
+and
+[`schema-argument`](../../examples/specification/check/effect-row-call-schema-arguments/)
+cases cover those accepted-expression and rejection boundaries.
 
 Source modules may also declare nominal operation effects with `effect Name`
 or `pub effect Name`. Each operation declares ordinary parameter types and one

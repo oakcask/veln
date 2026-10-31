@@ -50,8 +50,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use veln_ast::{
     BodyLineKind, EffectDecl, Expr, ExprKind, Function, FunctionKind, HandlerDecl, InvalidName,
-    PublicAlias, PublicAliasKind, ResolvedImportOwner, SchemaDecl, SchemaField, SurfaceModule,
-    TypeDecl, UseDecl, Visibility,
+    PatternKind, PublicAlias, PublicAliasKind, ResolvedImportOwner, SchemaDecl, SchemaField,
+    SurfaceModule, TypeDecl, UseDecl, Visibility,
 };
 use veln_project::{classify_companion_source, companion_access_target};
 use veln_source::{SourcePath, SourceSpan};

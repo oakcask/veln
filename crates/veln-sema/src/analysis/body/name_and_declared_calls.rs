@@ -370,6 +370,7 @@ impl<'a> FunctionChecker<'a> {
         self.record_defer_capture(binding_index, name);
         let binding = &self.bindings[binding_index];
         let type_origin = binding.type_origin.clone();
+        let call_bound_effect_row = binding.call_bound_effect_row.clone();
         let Type::Function {
             params,
             variadic,
@@ -392,9 +393,20 @@ impl<'a> FunctionChecker<'a> {
             variadic.as_deref(),
             &origin,
             type_origin.as_ref(),
+            call_bound_effect_row.as_deref(),
         );
-        self.record_call_effects(expr, &origin, &instantiated_effects);
-        Some(*return_type)
+        if let Some(instantiated_effects) = instantiated_effects {
+            self.record_call_effects(expr, &origin, &instantiated_effects);
+            return Some(instantiate_effect_rows_in_type(
+                &return_type,
+                &instantiated_effects,
+            ));
+        }
+        Some(if call_bound_effect_row.is_some() {
+            Type::Unknown
+        } else {
+            *return_type
+        })
     }
 
     pub(super) fn infer_constructor_call(
@@ -530,11 +542,27 @@ impl<'a> FunctionChecker<'a> {
                 .as_ref(),
         )?;
 
-        let instantiated_effects =
-            self.check_call_arguments(args, &params, variadic.as_ref(), &origin);
-
-        self.record_call_effects(expr, &origin, &instantiated_effects);
-        Some(return_type)
+        let call_bound_row =
+            call_bound_effect_row(&params, variadic.as_ref(), &return_type, &origin.effects);
+        if let Some(instantiated_effects) = self.check_call_arguments_with_origin(
+            args,
+            &params,
+            variadic.as_ref(),
+            &origin,
+            None,
+            call_bound_row.as_deref(),
+        ) {
+            self.record_call_effects(expr, &origin, &instantiated_effects);
+            return Some(instantiate_effect_rows_in_type(
+                &return_type,
+                &instantiated_effects,
+            ));
+        }
+        Some(if call_bound_row.is_some() {
+            Type::Unknown
+        } else {
+            return_type
+        })
     }
 
     fn record_call_effects(
@@ -588,8 +616,9 @@ impl<'a> FunctionChecker<'a> {
         params: &[Type],
         variadic: Option<&Type>,
         origin: &CallOrigin,
-    ) -> Vec<(String, Vec<String>)> {
-        self.check_call_arguments_with_origin(args, params, variadic, origin, None)
+    ) -> Option<EffectRowSubstitutions> {
+        let row = call_bound_effect_row(params, variadic, &Type::Unknown, &origin.effects);
+        self.check_call_arguments_with_origin(args, params, variadic, origin, None, row.as_deref())
     }
 
     fn check_call_arguments_with_origin(
@@ -599,8 +628,11 @@ impl<'a> FunctionChecker<'a> {
         variadic: Option<&Type>,
         origin: &CallOrigin,
         type_origin: Option<&TypeOrigin>,
-    ) -> Vec<(String, Vec<String>)> {
-        let mut row_substitutions = Vec::<(String, Vec<String>)>::new();
+        call_bound_row: Option<&str>,
+    ) -> Option<EffectRowSubstitutions> {
+        let mut inferred = Vec::new();
+        let mut valid = variadic.is_some_and(|_| args.len() >= params.len())
+            || (variadic.is_none() && args.len() == params.len());
         for (index, arg) in args.iter().enumerate() {
             let param_type = params.get(index).or(variadic);
             let Some(param_type) = param_type else {
@@ -627,8 +659,27 @@ impl<'a> FunctionChecker<'a> {
                     origin_message: type_origin.message,
                 },
             );
-            let actual = self.infer_expr(arg, Some(&expected));
-            collect_effect_row_substitution(param_type, &actual, &mut row_substitutions);
+            let inference_expected = call_bound_row.map_or_else(
+                || expected.clone(),
+                |row| ExpectedType {
+                    ty: mask_call_bound_effect_row(&expected.ty, row),
+                    ..expected.clone()
+                },
+            );
+            let diagnostics_before = self.diagnostics.len();
+            let actual = self.infer_expr(arg, Some(&inference_expected));
+            let argument_valid = self.diagnostics.len() == diagnostics_before;
+            inferred.push((arg, expected, actual, argument_valid));
+        }
+        let row_substitutions = solve_call_bound_effect_row(
+            call_bound_row,
+            inferred
+                .iter()
+                .map(|(_, expected, actual, _)| (&expected.ty, actual)),
+        );
+        for (arg, mut expected, actual, argument_valid) in inferred {
+            expected.ty = instantiate_effect_rows_in_type(&expected.ty, &row_substitutions);
+            valid &= argument_valid && is_assignable(&expected.ty, &actual);
             if origin.schema_encode {
                 self.check_schema_encode_assignable(
                     arg,
@@ -641,7 +692,7 @@ impl<'a> FunctionChecker<'a> {
                 self.check_assignable(arg, &expected.ty, &actual, &expected, "call_argument");
             }
         }
-        row_substitutions
+        valid.then_some(row_substitutions)
     }
 }
 

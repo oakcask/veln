@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Generic named-type assignability, aggregate covariance, function subtyping, effect-subset composition, or variance verification changes.
+update-when: Generic named-type assignability, aggregate covariance, bounded generic inference, variance metadata, or nested incompatibility diagnostics change.
 ---
 
 # Generic And Function Variance
@@ -11,8 +11,8 @@ This proposal contains the remaining work for named generic variance. The
 compiler will infer source-ADT parameter variance from payload declarations.
 Compiler-owned immutable containers will be covariant, and Veln will add no
 declaration-site variance modifiers. The remaining work also includes bounded
-generic inference, call-bound effect-row constraint solving, dependency
-metadata, and detailed nested incompatibility context.
+generic inference, dependency metadata, and detailed nested incompatibility
+context.
 
 Recursive assignment through records and functions is current behavior under
 the [type specification](../specification/types.md#compatibility-and-limits).
@@ -132,34 +132,14 @@ constraints. Veln adopts the least restrictive sound result and excludes
 call-site-dependent variance. Rust's trait, lifetime, and compiler-query details
 are not part of this proposal.
 
-## Remaining Effect-Row Composition
-
-The current [function assignment
-rules](../specification/types.md#compatibility-and-limits) define shape,
-polarity, and concrete effect-set comparison at every function node. The
-remaining callable work is solving call-bound effect rows after those polarity
-directions are known.
-
-Call-bound effect row variables use the existing binding scopes. After polarity
-composition, collect set-inclusion constraints for all occurrences together.
-Infer the least concrete sets satisfying their lower bounds, and check every
-upper bound before accepting. An unconstrained call-bound row receives the
-empty set. For example, constraints `stdio ⊆ E` and `E ⊆ {stdio, network}`
-infer `E = {stdio}`; constraints `stdio ⊆ E` and `E ⊆ {network}` reject.
-Concrete effects already written in a row remain present. Multiple occurrences
-of one row share one solution, independent of traversal order. Rows bound by
-an enclosing generic declaration are rigid during its body check: an inclusion
-must hold for every permitted instantiation, not just an empty substitution.
-This adds neither a new row binder nor general first-class row polymorphism.
-
 The [Rustonomicon's subtyping and variance chapter](https://doc.rust-lang.org/nomicon/subtyping.html)
 explains the function input/output directions and distinguishes owning
 collection covariance from mutation through an alias. Veln adopts these
 polarity directions in the current structural kernel and the remaining
 source-ADT inference design, with immutable source values replacing Rust's
 ownership conditions. Rust's lifetime relation supplies comparative reasoning,
-not the ADT-refinement relation or effect rules specified here. Treating every
-payload as covariant is rejected because a stored callback can consume its parameter.
+not the ADT-refinement relation specified here. Treating every payload as
+covariant is rejected because a stored callback can consume its parameter.
 Treating every constructor as invariant is safe but needlessly rejects the
 immutable producer cases above.
 
@@ -214,8 +194,8 @@ signatures and local bindings remain monomorphic; variance does not turn a
 single inferred binding into an independently instantiated generic value.
 
 A payload contributes all of its constraints or none. A rejected payload or
-expression must not change previously admitted type facts, effect-row
-substitutions, or alias provenance. Successful inference over the same
+expression must not change previously admitted type facts or alias provenance.
+Successful inference over the same
 contributions has the same resolved type and presentation in every order.
 Diagnostic recovery may report errors at their original source locations; it
 must not use a failed contribution to justify another accepted assignment.
@@ -251,13 +231,12 @@ the expected results for the change.
 | --- | --- |
 | Constructor and polarity tables | Table-driven semantic tests cover every named-parameter classification and composition cell, both assignment directions, same-spelled distinct ADTs, and refinement sets with varying arguments. |
 | Recursive inference | Source-ADT fixtures cover positive, negative, mixed, irrelevant, opaque, and mutually recursive cases; declaration permutations must yield the same classifications. |
-| Effect-row solving | Accepted and rejected source fixtures cover shared row lower and upper bounds, rigid enclosing rows, unconstrained rows, and unsatisfiable rows. |
 | Bounded inference | Permuted branch, collection, and payload cases cover successful joins, annotation-required meets, irrelevant slots, exact constraints, and transactional exclusion of failed contributions. |
 | Immutable dictionary safety | Companion tests in `crates/veln-stdlib/veln/` widen refined keys and values, query existing and absent keys, insert/remove on the widened value, and prove that the original keys, values, and iteration order remain unchanged. |
 | Host and backend behavior | Backend cases independently check representation-preserving widened callback calls and container transport; they do not substitute for stdlib API tests. |
 | Metadata and identity | Package fixtures compare local and imported behavior, hidden payloads, absent metadata, and invalidation after a variance-changing payload edit. |
 | Presentation and diagnostics | Human and JSON fixtures cover nested paths, reversed input comparison, direct exclusions, aliases, modifier-free declarations, and stable package/LSP/MCP presentations. |
-| Failure preservation | Analysis and language-service regression cases prove no partial signature or row substitution escapes rejection, retained successful snapshots survive applicable failures, and rejected programs do not run. |
+| Failure preservation | Analysis and language-service regression cases prove no partial signature escapes rejection, retained successful snapshots survive applicable failures, and rejected programs do not run. |
 
 Compiler evidence belongs in the existing semantic test suites and
 `examples/specification/check/` with diagnostic companions. Standard-library
@@ -284,7 +263,6 @@ runtime representation changes solely for variance.
 The inspected local implementation anchors are
 `crates/veln-sema/src/type_relations.rs` for current structural polarity and the
 future application of named-parameter classifications;
-`crates/veln-sema/src/effect_rows.rs` for existing row binding/substitution;
 `crates/veln-sema/src/aggregate_type_join.rs` for current refinement joins; and
 `crates/veln-backend-jvm/src/runtime/collections.java.inc` for persistent
 map operations. These identify the affected implementation boundaries; the

@@ -27,6 +27,36 @@ pub(crate) fn infer_private_signature_expr_type(
     .ty
 }
 
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn infer_checked_effect_argument_type(
+    expr: &Expr,
+    expected: &Type,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    uses: &[UseDecl],
+    bindings: &[Binding],
+    functions: &[FunctionSignature],
+    adts: &AdtRegistry,
+) -> Option<Type> {
+    let mut bindings = PrivateBindings::without_builtin(bindings.to_vec());
+    let signatures_by_path = signatures_by_path(functions);
+    let returns_by_path = returns_by_path(functions);
+    let mut failures = 0;
+    let outcome = infer_private_signature_expr_type_with_failures(
+        expr,
+        Some(expected),
+        current_module,
+        current_package,
+        uses,
+        &mut bindings,
+        Some(&signatures_by_path),
+        &returns_by_path,
+        adts,
+        &mut failures,
+    );
+    (failures == 0 && outcome.may_contribute && outcome.ty != Type::Unknown).then_some(outcome.ty)
+}
+
 #[derive(Clone, Debug)]
 pub(super) struct PrivateExprInference {
     pub(super) ty: Type,
@@ -69,10 +99,9 @@ pub(super) fn infer_private_signature_expr_type_with_failures(
         return PrivateExprInference::successful(ty);
     }
     match &expr.kind {
-        ExprKind::Prefix { expr, .. } => {
-            context.infer(expr, expected);
-            PrivateExprInference::successful(Type::Unknown)
-        }
+        ExprKind::Prefix { op, expr } => PrivateExprInference::successful(
+            infer_private_prefix_type(*op, expr, expected, &mut context),
+        ),
         ExprKind::Binary { op, left, right } => PrivateExprInference::successful(
             infer_private_binary_type(*op, left, right, expected, &mut context),
         ),
@@ -113,11 +142,12 @@ fn infer_private_branch_type(
             Some(infer_private_match_type(scrutinee, arms, expected, context))
         }
         ExprKind::If {
+            condition,
             then_branch,
             else_if_branches,
             else_branch,
-            ..
         } => Some(infer_private_if_result_type(
+            condition,
             then_branch,
             else_if_branches,
             else_branch,
@@ -175,7 +205,7 @@ fn infer_private_value_type(
 
 fn infer_private_schema_type(
     expr: &Expr,
-    expected: Option<&Type>,
+    _expected: Option<&Type>,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Option<Type> {
     match &expr.kind {
@@ -200,10 +230,10 @@ fn infer_private_schema_type(
                 .cloned()
                 .unwrap_or(Type::Unknown),
         ),
-        ExprKind::Try { expr: inner, .. } => Some(expected.cloned().unwrap_or_else(|| {
+        ExprKind::Try { expr: inner, .. } => Some({
             let inner_type = context.infer(inner, None);
             adt::result_parts(&inner_type).map_or(Type::Unknown, |(value, _)| value.clone())
-        })),
+        }),
         _ => None,
     }
 }
@@ -362,6 +392,30 @@ pub(super) fn inferred_private_aggregate_member_type(ty: Type, expected: &Type) 
     }
 }
 
+fn infer_private_prefix_type(
+    op: veln_ast::PrefixOp,
+    expr: &Expr,
+    expected: Option<&Type>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
+) -> Type {
+    let outcome = context.infer_outcome(expr, None);
+    let operand_type = match op {
+        veln_ast::PrefixOp::Not => Type::bool(),
+        veln_ast::PrefixOp::Negate => {
+            if expected.is_some_and(|expected| expected == &Type::float())
+                || outcome.ty == Type::float()
+            {
+                Type::float()
+            } else {
+                Type::int()
+            }
+        }
+        veln_ast::PrefixOp::BitwiseNot => Type::int(),
+    };
+    reject_private_operator_operand(&outcome, &operand_type, context);
+    operand_type
+}
+
 pub(crate) fn infer_private_binary_type(
     op: veln_ast::BinaryOp,
     left: &Expr,
@@ -369,35 +423,76 @@ pub(crate) fn infer_private_binary_type(
     expected: Option<&Type>,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
-    match op {
-        veln_ast::BinaryOp::Equal
-        | veln_ast::BinaryOp::NotEqual
-        | veln_ast::BinaryOp::Less
+    if op == veln_ast::BinaryOp::PipeGreater {
+        return infer_private_pipeline_type(left, right, expected, context);
+    }
+
+    let left = context.infer_outcome(left, None);
+    let right = context.infer_outcome(right, None);
+    let numeric_type = if expected.is_some_and(|expected| expected == &Type::float())
+        || left.ty == Type::float()
+        || right.ty == Type::float()
+    {
+        Type::float()
+    } else {
+        Type::int()
+    };
+    let (operand_type, result_type) = match op {
+        veln_ast::BinaryOp::Equal | veln_ast::BinaryOp::NotEqual => (Type::Unknown, Type::bool()),
+        veln_ast::BinaryOp::Less
         | veln_ast::BinaryOp::LessEqual
         | veln_ast::BinaryOp::Greater
-        | veln_ast::BinaryOp::GreaterEqual
-        | veln_ast::BinaryOp::Or
-        | veln_ast::BinaryOp::And => Type::bool(),
+        | veln_ast::BinaryOp::GreaterEqual => (numeric_type, Type::bool()),
+        veln_ast::BinaryOp::Or | veln_ast::BinaryOp::And => (Type::bool(), Type::bool()),
         veln_ast::BinaryOp::BitwiseOr
         | veln_ast::BinaryOp::BitwiseXor
         | veln_ast::BinaryOp::BitwiseAnd
         | veln_ast::BinaryOp::ShiftLeft
         | veln_ast::BinaryOp::ShiftRight
-        | veln_ast::BinaryOp::ShiftRightLogical => Type::int(),
+        | veln_ast::BinaryOp::ShiftRightLogical => (Type::int(), Type::int()),
         veln_ast::BinaryOp::Add
         | veln_ast::BinaryOp::Subtract
         | veln_ast::BinaryOp::Multiply
-        | veln_ast::BinaryOp::Divide => {
-            let left = context.infer(left, expected);
-            let right = context.infer(right, expected);
-            if left == Type::float() || right == Type::float() {
-                Type::float()
-            } else {
-                Type::int()
-            }
-        }
-        veln_ast::BinaryOp::Remainder => Type::int(),
-        veln_ast::BinaryOp::PipeGreater => Type::Unknown,
+        | veln_ast::BinaryOp::Divide => (numeric_type.clone(), numeric_type),
+        veln_ast::BinaryOp::Remainder => (Type::int(), Type::int()),
+        veln_ast::BinaryOp::PipeGreater => unreachable!("pipeline returned before operand checks"),
+    };
+    reject_private_operator_operand(&left, &operand_type, context);
+    reject_private_operator_operand(&right, &operand_type, context);
+    result_type
+}
+
+fn infer_private_pipeline_type(
+    left: &Expr,
+    right: &Expr,
+    expected: Option<&Type>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
+) -> Type {
+    let ExprKind::Call { callee, args } = &right.kind else {
+        context.infer_outcome(left, None);
+        context.infer_outcome(right, expected);
+        *context.failures += 1;
+        return Type::Unknown;
+    };
+    if !matches!(callee.kind, ExprKind::NamePath { .. }) {
+        context.infer_outcome(left, None);
+        context.infer_outcome(right, expected);
+        *context.failures += 1;
+        return Type::Unknown;
+    }
+    let mut piped_args = Vec::with_capacity(args.len() + 1);
+    piped_args.push(left.clone());
+    piped_args.extend(args.iter().cloned());
+    infer_private_signature_call_type(callee, &piped_args, expected, context)
+}
+
+fn reject_private_operator_operand(
+    outcome: &PrivateExprInference,
+    expected: &Type,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
+) {
+    if outcome.may_contribute && !crate::type_relations::is_assignable(expected, &outcome.ty) {
+        *context.failures += 1;
     }
 }
 
@@ -551,7 +646,7 @@ impl PrivateSignatureInferContext<'_, '_> {
             self.adts,
             self.failures,
         );
-        outcome.may_contribute = *self.failures == failure_count;
+        outcome.may_contribute &= *self.failures == failure_count;
         outcome
     }
 
