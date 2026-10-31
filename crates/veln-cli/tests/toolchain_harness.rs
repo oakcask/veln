@@ -23,6 +23,8 @@ use veln_repo_toolchain_case::{inventory as toolchain_case_inventory, manifest_s
 
 #[path = "toolchain_harness/assertion_json.rs"]
 mod assertion_json;
+#[path = "toolchain_harness/assertion_json_tests.rs"]
+mod assertion_json_tests;
 #[cfg(all(unix, debug_assertions))]
 #[path = "toolchain_harness/jvm_cache_coordination.rs"]
 mod jvm_cache_coordination;

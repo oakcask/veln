@@ -270,22 +270,7 @@ impl JsonParser<'_> {
     }
 
     fn parse_unicode_escape(&mut self) -> Result<char, JsonParseError> {
-        let start = self.offset;
-        let end = start + 4;
-        let Some(hex) = self.text.get(start..end) else {
-            return Err(JsonParseError::new(
-                start,
-                format!("short unicode escape at byte {start}"),
-            ));
-        };
-        if !hex.chars().all(|ch| ch.is_ascii_hexdigit()) {
-            return Err(JsonParseError::new(
-                start,
-                format!("invalid unicode escape `{hex}` at byte {start}"),
-            ));
-        }
-        self.offset = end;
-        let codepoint = u16::from_str_radix(hex, 16).expect("hex was validated");
+        let (codepoint, hex, start) = self.parse_unicode_unit()?;
         if (0xd800..=0xdbff).contains(&codepoint) {
             if !self.text[self.offset..].starts_with("\\u") {
                 return Err(JsonParseError::new(
