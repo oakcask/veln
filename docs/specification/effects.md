@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: Veln effect labels, compiler-known call signatures, nominal handlers, or effect-boundary behavior changes.
+update-when: Veln effect labels, call-bound effect-row inference, compiler-known call signatures, nominal handlers, or effect-boundary behavior changes.
 specification-coverage: usage=#representative-usage; behavior=#effect-labels; limits=#limits
 ---
 
