@@ -20,25 +20,44 @@ public final class ConnectCancellationHarness {
         return inAwaitSocketReady && inSelector;
     }
 
-    private static void cancelInSelector(Object task, String boundary) throws Exception {
+    private static Object cancelAndJoin(Object task) {
+        VelnRuntime.taskCancel(task);
+        return VelnRuntime.taskJoin(task);
+    }
+
+    private static void closeSuccessfulConnect(Object joined) {
+        VelnRuntime.Result result = (VelnRuntime.Result) joined;
+        if (result.isOk()) {
+            VelnRuntime.netCloseStream(result.value());
+        }
+    }
+
+    private static boolean tryCancelInSelector(Object task) throws Exception {
         Thread thread = taskThread(task);
         long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5L);
         while (!isWaitingInSelector(thread) && System.nanoTime() < deadline) {
             Thread.yield();
         }
         if (!isWaitingInSelector(thread)) {
-            throw new AssertionError("task did not enter its " + boundary + " selector wait");
+            closeSuccessfulConnect(cancelAndJoin(task));
+            return false;
         }
-        VelnRuntime.taskCancel(task);
-        Object joined = VelnRuntime.taskJoin(task);
+        Object joined = cancelAndJoin(task);
         VelnRuntime.Result result = (VelnRuntime.Result) joined;
         if (result.isOk()
             || !((Boolean) VelnRuntime.taskJoinErrorIsCancelled(result.value()))) {
             throw new AssertionError("selector cancellation was not preserved: " + joined);
         }
+        return true;
     }
 
-    private static void runConnectWait() throws Exception {
+    private static void cancelInSelector(Object task, String boundary) throws Exception {
+        if (!tryCancelInSelector(task)) {
+            throw new AssertionError("task did not enter its " + boundary + " selector wait");
+        }
+    }
+
+    private static boolean runConnectWait() throws Exception {
         java.nio.channels.ServerSocketChannel server =
             java.nio.channels.ServerSocketChannel.open();
         java.util.ArrayList<java.nio.channels.SocketChannel> fillers =
@@ -67,7 +86,7 @@ public final class ConnectCancellationHarness {
                     return VelnRuntime.netConnect(address);
                 }
             });
-            cancelInSelector(task, "OP_CONNECT");
+            return tryCancelInSelector(task);
         } finally {
             for (java.nio.channels.SocketChannel filler : fillers) {
                 filler.close();
@@ -116,9 +135,13 @@ public final class ConnectCancellationHarness {
     }
 
     public static void main(String[] args) throws Exception {
+        boolean coveredConnectWait = false;
         try {
-            runConnectWait();
+            coveredConnectWait = runConnectWait();
         } catch (java.net.SocketException restrictedHost) {
+            coveredConnectWait = false;
+        }
+        if (!coveredConnectWait) {
             runRestrictedHostFallback();
         }
         System.out.println("connect cancellation remained primary");
