@@ -69,14 +69,14 @@ row tails, and rejected bounds. A call with no lower bound uses an empty
 substitution, including when the row occurs only in the result type. An
 accepted call instantiates both its result and its effects, then unions the row
 with concrete effects written beside `...E`. An accepted call keeps that
-instantiated row when another argument is a `perform` expression or an accepted
-schema `decode`, `encode`, or `validate` expression. The performed effect also
-contributes through the ordinary expression-effect rule. A rejected call
-exposes neither the tentative result row nor its effects, including through a
-local function binding, an incompatible value propagated with `?`, or a
-constructor payload whose fixed field is incompatible beside a row-bearing
-field. Public boundary diagnostics for a fully concrete accepted call use the
-concrete instantiated effects. The checked
+instantiated row when another argument is a prefix or `perform` expression, or
+an accepted schema `decode`, `encode`, or `validate` expression. The performed
+effect also contributes through the ordinary expression-effect rule. A
+rejected call exposes neither the tentative result row nor its effects,
+including through a local function binding, an incompatible operator operand,
+a value propagated with `?`, or a constructor payload whose fixed field is
+incompatible beside a row-bearing field. Public boundary diagnostics for a
+fully concrete accepted call use the concrete instantiated effects. The checked
 [`constructor-record`](../../examples/specification/check/effect-row-call-constructor-record-payload/)
 and
 [`schema-argument`](../../examples/specification/check/effect-row-call-schema-arguments/)

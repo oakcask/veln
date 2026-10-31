@@ -694,6 +694,108 @@ fn accepted_binary_argument_preserves_instantiated_private_call_effects() {
 }
 
 #[test]
+fn accepted_prefix_argument_preserves_instantiated_private_call_effects() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn through_prefix() -> ()\n",
+        "\tinvoke(db_callback, -1)\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tthrough_prefix()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
+    );
+}
+
+#[test]
+fn rejected_binary_argument_does_not_publish_a_partial_row_solution() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn rejected_helper() -> ()\n",
+        "\tinvoke(db_callback, 1 + \"wrong\")\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\trejected_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn rejected_prefix_argument_does_not_publish_a_partial_row_solution() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], flag: Bool) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn rejected_helper() -> ()\n",
+        "\tinvoke(db_callback, not 1)\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\trejected_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn accepted_schema_expression_arguments_preserve_instantiated_private_call_effects() {
     let cases = [
         concat!(

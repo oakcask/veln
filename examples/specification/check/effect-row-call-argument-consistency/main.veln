@@ -6,11 +6,27 @@ fn db_callback() -> () effects [db]
 	()
 end
 
+fn net_callback() -> () effects [net]
+	()
+end
+
+fn fs_callback() -> () effects [fs]
+	()
+end
+
+fn time_callback() -> () effects [time]
+	()
+end
+
 fn bad() -> Result<String, String>
 	Ok("wrong")
 end
 
 fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]
+	callback()
+end
+
+fn invoke_bool<effect E>(callback: fn() -> () effects [...E], flag: Bool) -> () effects [...E]
 	callback()
 end
 
@@ -23,10 +39,34 @@ fn rejected_helper() -> Result<(), String>
 	Ok(())
 end
 
+fn accepted_prefix_helper() -> ()
+	invoke(net_callback, -1)
+end
+
+fn rejected_binary_helper() -> ()
+	invoke(fs_callback, 1 + "wrong")
+end
+
+fn rejected_prefix_helper() -> ()
+	invoke_bool(time_callback, not 1)
+end
+
 pub fn accepted_operation_result() -> () effects [Ask]
 	accepted_helper()
 end
 
 pub fn rejected_result_propagation() -> Result<(), String>
 	rejected_helper()
+end
+
+pub fn accepted_prefix_result() -> ()
+	accepted_prefix_helper()
+end
+
+pub fn rejected_binary_result() -> ()
+	rejected_binary_helper()
+end
+
+pub fn rejected_prefix_result() -> ()
+	rejected_prefix_helper()
 end

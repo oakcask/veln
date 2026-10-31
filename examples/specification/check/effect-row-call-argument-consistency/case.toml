@@ -3,8 +3,8 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"type.mismatch\"", "public function uses undeclared effect `db`"]
-not_contains = ["public function uses undeclared effect `Ask`"]
+contains = ["\"id\":\"type.mismatch\"", "public function uses undeclared effect `db`", "public function uses undeclared effect `net`"]
+not_contains = ["public function uses undeclared effect `Ask`", "public function uses undeclared effect `fs`", "public function uses undeclared effect `time`"]
 
 [stderr]
 format = "empty"
@@ -15,7 +15,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 2
+equals = 5
 
 [[diagnostics]]
 id = "effect.missing_public"
@@ -27,3 +27,22 @@ message = "public function uses undeclared effect `db`"
 id = "type.mismatch"
 severity = "error"
 kind = "type"
+message = "expected `Result<Int, String>`, but found `Result<String, String>`"
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `net`"
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `String`"
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Bool`, but found `Int`"

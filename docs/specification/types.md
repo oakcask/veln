@@ -1594,9 +1594,9 @@ calls, local bindings, and constructor payloads. It also requires the diagnostic
 for a concrete effect written beside a row, so the concrete-entry preservation
 rule is independently observable. The
 [`argument-consistency case`](../../examples/specification/check/effect-row-call-argument-consistency/)
-checks that an accepted `perform` argument preserves another argument's row
-solution and that an incompatible value propagated with `?` publishes no
-tentative substitution. The
+checks that accepted `perform` and prefix arguments preserve another argument's
+row solution. It also checks that an incompatible value propagated with `?` or
+an invalid prefix or binary operand publishes no tentative substitution. The
 [`constructor-record case`](../../examples/specification/check/effect-row-call-constructor-record-payload/)
 checks accepted and rejected fixed fields beside a row-bearing field in one
 payload component. The
