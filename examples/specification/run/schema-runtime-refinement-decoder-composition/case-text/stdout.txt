@@ -36,8 +36,18 @@ step-predicate
 2
 schema.validation_failed
 40
+/Packet
+predicate `value < 10` failed; supplied_values=value=10
+step-division
+3
+schema.validation_failed
+40
 /Packet/value
-predicate `value > 0` failed; supplied_values=value=0
+predicate `10 / value > 0` evaluation failed: schema predicate division by zero; supplied_values=value=0
+division-input-after-failure
+1
+0
+170
 input-after-failures
 1
 7
@@ -64,3 +74,8 @@ result-truncated
 codec.truncated
 40
 Packet
+result-division
+schema.validation_failed
+40
+/Packet/value
+predicate `10 / value > 0` evaluation failed: schema predicate division by zero; supplied_values=value=0

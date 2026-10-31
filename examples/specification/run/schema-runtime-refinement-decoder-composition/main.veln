@@ -8,7 +8,8 @@ end
 
 schema Packet
 	kind: Kind::Allowed
-	value: Int where value > 0
+	value: Int where 10 / value > 0
+	validate value < 10
 end
 
 fn absolute_offset(base: ByteOffset, local: Int) -> ByteOffset
@@ -147,8 +148,14 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let truncated = view("01")?
 	report_step("step-truncated", truncated, validate_step(decode_packet(truncated, base), base))
 	report_step("step-need-end", empty, validate_step(NeedMore(NeedEnd), base))
-	let predicate = view("0100")?
+	let predicate = view("010a")?
 	report_step("step-predicate", predicate, validate_step(decode_packet(predicate, base), base))
+	let division = view("0100aa")?
+	report_step("step-division", division, validate_step(decode_packet(division, base), base))
+	stdio::println("division-input-after-failure")
+	stdio::println(int_to_string(byte_at(division, 0)?))
+	stdio::println(int_to_string(byte_at(division, 1)?))
+	stdio::println(int_to_string(byte_at(division, 2)?))
 	stdio::println("input-after-failures")
 	stdio::println(int_to_string(byte_at(success, 0)?))
 	stdio::println(int_to_string(byte_at(success, 1)?))
@@ -158,5 +165,6 @@ pub fn main() -> Result<(), String> effects [stdio]
 	report_result("result-excluded", validate_result(decode_packet_result(excluded, base), base))
 	report_result("result-malformed", validate_result(decode_packet_result(malformed_tag, base), base))
 	report_result("result-truncated", validate_result(decode_packet_result(truncated, base), base))
+	report_result("result-division", validate_result(decode_packet_result(division, base), base))
 	Ok(())
 end

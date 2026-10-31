@@ -6,6 +6,7 @@ jdk = true
 
 [stdout]
 format = "json"
+not_contains = ["ArithmeticException", "/ by zero", "java.lang", "VelnRuntime.java"]
 
 [stderr]
 format = "empty"

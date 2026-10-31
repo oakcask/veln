@@ -445,10 +445,14 @@ install that production client boundary.
   or schema root. Schema predicates evaluate integer bitwise operations with
   signed 64-bit two's-complement behavior. A dynamic shift count outside
   `0..63` stops execution with `runtime.invalid_shift_count`; it does not
-  return a schema validation `Err`. The checked
+  return a schema validation `Err`. Integer predicate division by a dynamic
+  zero stays inside the schema-validation boundary. It returns
+  `schema.validation_failed` with the supplied offset, the field or schema
+  path, and a reason that identifies predicate evaluation failure; no host
+  arithmetic exception escapes. The checked
   [`schema-runtime-refinement-predicate-order`](../../examples/specification/run/schema-runtime-refinement-predicate-order/)
   case covers refinement precedence, predicate order, bitwise evaluation,
-  paths, and successful value preservation. The checked
+  division failure, paths, and successful value preservation. The checked
   [`schema-runtime-refinement-predicate-invalid-shift-json`](../../examples/specification/run/schema-runtime-refinement-predicate-invalid-shift-json/)
   case covers the dynamic shift failure. The checked
   container traversal and ordering behavior is exercised by
@@ -672,11 +676,17 @@ only to `Decoded` or `Ok`. A successful wrapper preserves the decoded value,
 consumed count, input bytes, and any trailing bytes. It returns validation
 failure as `Invalid` or `Err` without publishing a refined value. `NeedMore`
 readiness and an existing `Invalid` or `Err` are returned unchanged and do not
-run validation. This composition does not add wire mapping or weaken generated
+run validation. Predicate evaluation failure, including division by zero,
+uses the same typed `Invalid` or `Err` wrapper and preserves the input bytes.
+This composition does not add wire mapping or weaken generated
 binary-schema refinement rejection. The checked
 [`schema-runtime-refinement-decoder-composition`](../../examples/specification/run/schema-runtime-refinement-decoder-composition/)
 case covers success, excluded constructors, predicate failure, malformed and
-truncated input, both readiness forms, consumed counts, and unchanged input.
+truncated input, predicate evaluation failure, both readiness forms, consumed
+counts, and unchanged input. The checked
+[`binary-schema-predicate-division-by-zero-json`](../../examples/specification/run/binary-schema-predicate-division-by-zero-json/)
+case confirms that the retained binary-schema predicate path also contains
+division failure inside a Veln result.
 
 The production HTTP/2 HPACK API is authoritative for prefixed integers,
 Huffman strings, static and dynamic tables, table-size updates, indexed and

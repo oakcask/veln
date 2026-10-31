@@ -194,6 +194,76 @@ public final class SchemaRefinementSuccessIdentityHarness {
 }
 
 #[test]
+fn jvm_runtime_schema_predicates_follow_source_precedence_and_contain_division_failure() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        eprintln!("skipping schema predicate verification because a JDK is unavailable");
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-schema-predicate-precedence",
+        "SchemaPredicatePrecedenceHarness.java",
+        r#"
+public final class SchemaPredicatePrecedenceHarness {
+    private static Object validate(long value, String fieldPredicate, String validation) {
+        return VelnRuntime.validateSchemaRefinementAndPredicates(
+            VelnRuntime.record("value", Long.valueOf(value)),
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(19) }),
+            "Packet",
+            VelnRuntime.list("record", VelnRuntime.list()),
+            java.util.Arrays.asList(
+                "Packet",
+                VelnRuntime.list("value"),
+                VelnRuntime.list(fieldPredicate),
+                validation,
+                VelnRuntime.list("")
+            )
+        );
+    }
+
+    public static void main(String[] args) {
+        System.out.println(validate(
+            1,
+            "(value & 1) == 1",
+            "value << 1 == 2 and 1 < 2 == true"
+        ));
+        System.out.println(validate(2, "(value & 1) == 1", ""));
+        System.out.println(validate(2, "value & 1 == 1", ""));
+        System.out.println(validate(0, "10 / value > 0", ""));
+    }
+}
+"#,
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(
+        stdout,
+        concat!(
+            "Ok({value=1})\n",
+            "Err(DecodeErrorWithReason(schema.validation_failed, ByteOffset(19), /Packet/value, ",
+            "predicate `(value & 1) == 1` failed; supplied_values=value=2))\n",
+            "Err(DecodeErrorWithReason(schema.validation_failed, ByteOffset(19), /Packet/value, ",
+            "predicate `value & 1 == 1` evaluation failed: schema predicate operator `&` ",
+            "expects Int operands; supplied_values=value=2))\n",
+            "Err(DecodeErrorWithReason(schema.validation_failed, ByteOffset(19), /Packet/value, ",
+            "predicate `10 / value > 0` evaluation failed: schema predicate division by zero; ",
+            "supplied_values=value=0))\n",
+        )
+    );
+    assert!(!stdout.contains("ArithmeticException"));
+    assert!(!stdout.contains("/ by zero"));
+    assert!(!String::from_utf8_lossy(&output.stderr).contains("java.lang"));
+}
+
+#[test]
 fn jvm_runtime_schema_refinement_rejection_leaves_input_unchanged() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

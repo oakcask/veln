@@ -1231,7 +1231,10 @@ identifies the failed fact at the offset and places the path and mismatch or
 offset reason in notes.
 Runtime predicate rejection uses `schema.validation_failed` at the supplied
 offset. Its decoded JSON Pointer selects the containing field for a field
-predicate and the current schema root for a schema-level predicate. The checked
+predicate and the current schema root for a schema-level predicate. A
+predicate evaluation failure uses the same identifier, offset, and path and
+adds the language-level evaluation failure to the reason instead of exposing a
+host exception. The checked
 [`schema-runtime-refinement-predicate-order`](../../examples/specification/run/schema-runtime-refinement-predicate-order/)
 case fixes predicate precedence, paths, and reasons.
 The checked

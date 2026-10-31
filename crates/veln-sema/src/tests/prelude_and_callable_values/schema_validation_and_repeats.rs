@@ -233,6 +233,49 @@ fn schema_predicates_reject_literal_shift_counts_outside_int_bounds() {
 }
 
 #[test]
+fn schema_predicate_typing_uses_ordinary_bitwise_comparison_precedence() {
+    let invalid_source = SourceFile::new(
+        "invalid.veln",
+        concat!(
+            "schema InvalidPrecedence\n",
+            "  value: Int where value & 1 == 1\n",
+            "  validate value | 1 < 4\n",
+            "end\n",
+        ),
+    );
+    let invalid = lower_surface_ast(&parse(&invalid_source).tree);
+    let diagnostics = analyze_surface_module(&invalid);
+    let mismatches = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.mismatch")
+        .collect::<Vec<_>>();
+
+    assert_eq!(mismatches.len(), 2, "{diagnostics:#?}");
+    assert!(mismatches.iter().any(|diagnostic| {
+        diagnostic.message
+            == "schema predicate operator `&` expects `Int` operands, but found `Bool`"
+    }));
+    assert!(mismatches.iter().any(|diagnostic| {
+        diagnostic.message
+            == "schema predicate operator `|` expects `Int` operands, but found `Bool`"
+    }));
+
+    let valid_source = SourceFile::new(
+        "valid.veln",
+        concat!(
+            "schema ValidPrecedence\n",
+            "  value: Int where (value & 1) == 1\n",
+            "  validate value << 1 == 2 and 1 < 2 == true\n",
+            "end\n",
+        ),
+    );
+    let valid = lower_surface_ast(&parse(&valid_source).tree);
+    let diagnostics = analyze_surface_module(&valid);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn generated_schema_helpers_resolve_bounded_repeated_primitive_fields() {
     let source = SourceFile::new(
         "main.veln",

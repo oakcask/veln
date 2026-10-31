@@ -1703,7 +1703,11 @@ inventing an arithmetic rewrite.
 
 Schema field `where` predicates and schema-level `validate` predicates use the
 same `Int` bitwise and shift operators, precedence, and literal shift-count
-range. They do not accept `%`.
+range. A bitwise operator whose ordinary parse gives it a comparison or
+equality operand is rejected as an `Int` operand mismatch; parentheses can
+make the intended integer bitwise subexpression explicit. The checked
+[`schema-predicate-precedence-diagnostics`](../../examples/specification/check/schema-predicate-precedence-diagnostics/)
+case covers that boundary. Schema predicates do not accept `%`.
 
 ## References
 

@@ -21,11 +21,11 @@ end
 
 schema Bitwise
 	value: Int where (value & 1) == 1 and (~value >> 63) == -1 and (-1 >>> 63) == 1 and (value << 0) == value and (value >> 0) == value and (1 << 63) < 0 and (0b11 & 0x1) == 1
-	validate ((value ^ 3) | 8) == 10 and (value << 1) == 2
+	validate ((value ^ 3) | 8) == 10 and value << 1 == 2 and 1 < 2 == true
 end
 
-schema AcceptedUnparenthesized
-	value: Int where value & 1 == 1
+schema Dividing
+	value: Int where 10 / value > 0
 end
 
 fn validate_packet(value: {before: Int, child: {state: State, value: Int}, after: Int}, offset: ByteOffset) -> Result<{before: Int, child: {state: State::Connected, value: Int}, after: Int}, DecodeError>
@@ -74,15 +74,6 @@ fn report_bitwise(label: String, result: Result<{value: Int}, DecodeError>) -> (
 	end
 end
 
-fn report_typed_result(label: String, result: Result<{value: Int}, DecodeError>) -> () effects [stdio]
-	stdio::println(label)
-	match result
-		Ok(_) => stdio::println("typed-result")
-		Err(DecodeErrorWithReason(_, _, _, _)) => stdio::println("typed-result")
-		Err(DecodeError(_, _, _)) => stdio::println("typed-result")
-	end
-end
-
 pub fn main() -> Result<(), String> effects [stdio]
 	let offset = byte_offset(19)?
 	report("refinement-first", validate_packet({before: 0, child: {state: Closed, value: 0}, after: 0}, offset))
@@ -96,6 +87,6 @@ pub fn main() -> Result<(), String> effects [stdio]
 	report_bitwise("bitwise-field", validate Bitwise from {value: 2} at offset)
 	report_bitwise("bitwise-root", validate Bitwise from {value: 3} at offset)
 	report_bitwise("bitwise-success", validate Bitwise from {value: 1} at offset)
-	report_typed_result("accepted-unparenthesized", validate AcceptedUnparenthesized from {value: 2} at offset)
+	report_bitwise("division-by-zero", validate Dividing from {value: 0} at offset)
 	Ok(())
 end

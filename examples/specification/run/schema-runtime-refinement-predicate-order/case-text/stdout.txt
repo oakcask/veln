@@ -45,9 +45,12 @@ bitwise-root
 schema.validation_failed
 19
 /Bitwise
-predicate `((value ^ 3) | 8) == 10 and(value << 1) == 2` failed; supplied_values=value=3
+predicate `((value ^ 3) | 8) == 10 and value << 1 == 2 and 1 < 2 == true` failed; supplied_values=value=3
 bitwise-success
 accepted
 1
-accepted-unparenthesized
-typed-result
+division-by-zero
+schema.validation_failed
+19
+/Dividing/value
+predicate `10 / value > 0` evaluation failed: schema predicate division by zero; supplied_values=value=0
