@@ -139,6 +139,94 @@ fn dependency_failure_keeps_only_the_exported_values_causal_diagnostics() {
     }));
 }
 
+fn captured_shared_value_dependency() -> CapturedDependencyProject {
+    CapturedDependencyProject {
+        package: "b".to_string(),
+        source: "vendor/b".to_string(),
+        project: Some(Project {
+            root: PathBuf::new(),
+            files: vec![SourceFile::new("shared.veln", "pub let answer: Int = 1\n")],
+            manifest: Some(parse_manifest_text(
+                "veln.toml",
+                concat!(
+                    "[package]\n",
+                    "name = \"b\"\n",
+                    "[lib]\n",
+                    "exports = [\"shared.veln\"]\n",
+                ),
+            )),
+        }),
+    }
+}
+
+const DEPENDENCY_BACKED_VALUE_MANIFEST: &str = concat!(
+    "[package]\n",
+    "name = \"a\"\n",
+    "[lib]\n",
+    "exports = [\"main.veln\"]\n",
+    "[dependencies.\"b\"]\n",
+    "path = \"vendor/b\"\n",
+);
+
+#[test]
+fn dependency_backed_public_module_value_publishes_with_declaration_lookup() {
+    let dependency = captured_shared_value_dependency();
+    let result = generate_with_dependencies(
+        DEPENDENCY_BACKED_VALUE_MANIFEST,
+        &[(
+            "main.veln",
+            "use shared from \"b\"\npub let exposed: Int = shared::answer\n",
+        )],
+        &[dependency],
+    );
+
+    let catalog = catalog_or_panic(&result);
+    assert_eq!(catalog.modules[0].declarations[0].name, "exposed");
+    assert_eq!(
+        catalog.modules[0].declarations[0].signature,
+        "let exposed: Int"
+    );
+    assert!(
+        result
+            .declaration_uri_for("main", "module_value", "exposed")
+            .is_some()
+    );
+}
+
+#[test]
+fn invalid_dependency_backed_public_module_value_fails_atomically() {
+    let dependency = captured_shared_value_dependency();
+    let result = generate_with_dependencies(
+        DEPENDENCY_BACKED_VALUE_MANIFEST,
+        &[(
+            "main.veln",
+            concat!(
+                "use shared from \"b\"\n",
+                "pub let exposed: Int = shared::answer\n",
+                "pub let broken: Bool = shared::answer\n",
+            ),
+        )],
+        &[dependency],
+    );
+
+    assert!(result.catalog().is_none());
+    assert!(
+        result
+            .declaration_uri_for("main", "module_value", "exposed")
+            .is_none()
+    );
+    let diagnostics = &result.status().diagnostics;
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].gate, "module_value");
+    assert_eq!(diagnostics[0].code, "type.mismatch");
+    assert!(
+        diagnostics[0]
+            .span
+            .as_ref()
+            .is_some_and(|span| span.source_uri.ends_with("/main.veln"))
+    );
+}
+
 #[test]
 fn public_module_value_refinement_diagnostic_uses_module_value_gate() {
     let result = generate(
@@ -247,6 +335,46 @@ fn invalid_cased_public_module_value_uses_module_value_gate() {
         "pub let BadValue: Int = 1\nlet unrelated: Bool = 0\n",
         "BadValue",
         "name.invalid_case",
+    );
+}
+
+#[test]
+fn mixed_source_and_visibility_diagnostics_keep_their_causal_gates() {
+    let result = generate(
+        concat!(
+            "[package]\n",
+            "name = \"mixed-publication-gates\"\n",
+            "[lib]\n",
+            "exports = [\"main.veln\"]\n",
+        ),
+        &[
+            ("bad.veln", "pub let BadValue: Int = 1\n"),
+            (
+                "main.veln",
+                concat!(
+                    "pub type State\n",
+                    "  Hidden\n",
+                    "end\n",
+                    "pub fn expose(value: State::Hidden) -> ()\n",
+                    "  ()\n",
+                    "end\n",
+                ),
+            ),
+        ],
+    );
+
+    assert!(result.catalog().is_none());
+    assert_eq!(
+        result
+            .status()
+            .diagnostics
+            .iter()
+            .map(|diagnostic| (diagnostic.gate.as_str(), diagnostic.code.as_str()))
+            .collect::<Vec<_>>(),
+        [
+            ("module_value", "name.invalid_case"),
+            ("semantic_visibility", "type.variant_refinement_private"),
+        ]
     );
 }
 

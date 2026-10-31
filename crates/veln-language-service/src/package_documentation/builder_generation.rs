@@ -5,12 +5,16 @@ impl<'a> PackageDocBuilder<'a> {
         identity: &'a str,
         snapshot: &'a CapturedPackageSnapshot,
         manifest: &'a ProjectManifest,
+        project_root: &'a std::path::Path,
+        dependencies: &'a [CapturedDependencyProject],
         generator_contract: PackageDocGeneratorContract,
     ) -> Self {
         Self {
             identity,
             snapshot,
             manifest,
+            project_root,
+            dependencies,
             generator_contract,
             diagnostics: Vec::new(),
             #[cfg(test)]
@@ -328,16 +332,17 @@ impl<'a> PackageDocBuilder<'a> {
             .filter(|source| source.exported)
             .map(|source| source.source.path().as_str())
             .collect::<BTreeSet<_>>();
-        let analysis = analyze_project(
+        let analysis = analyze_project_with_captured_dependencies(
             Project {
-                root: ".".into(),
+                root: self.project_root.to_path_buf(),
                 files: parsed_sources
                     .iter()
                     .map(|source| source.source.clone())
                     .collect(),
-                manifest: None,
+                manifest: Some(self.manifest.clone()),
             },
             DoctestMode::Exclude,
+            self.dependencies,
         );
         let diagnostics = analysis.checked_diagnostics();
         let mut gates = vec![None; diagnostics.len()];
@@ -422,10 +427,21 @@ impl<'a> PackageDocBuilder<'a> {
         {
             record_package_doc_semantic_classification_work(|work| {
                 work.cause_processing += 1;
-                work.cause_index_insertions += 1;
             });
-            if let Some(index) = analysis.diagnostic_index_for_publication_cause(cause) {
-                gates[index].get_or_insert("semantic_visibility");
+            let key = (
+                cause.diagnostic_id.clone(),
+                cause.span.file.as_str().to_owned(),
+                cause.span.start.offset,
+                cause.span.end.offset,
+            );
+            if let Some(index) = diagnostic_indices_by_key
+                .get(&key)
+                .and_then(|indices| indices.first())
+            {
+                record_package_doc_semantic_classification_work(|work| {
+                    work.cause_index_insertions += 1;
+                });
+                gates[*index].get_or_insert("semantic_visibility");
             }
         }
 

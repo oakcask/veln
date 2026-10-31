@@ -155,7 +155,7 @@ fn resolve_external_dependency_project(
     dependency: &veln_project::ManifestDependency,
 ) -> Result<Project, DependencyProjectLoadError> {
     let dependency_project = match captured_dependencies {
-        Some(dependencies) => captured_dependency_project(dependencies, dependency)
+        Some(dependencies) => captured_dependency_project(project, dependencies, dependency)
             .and_then(|captured| captured.project.clone())
             .ok_or(DependencyProjectLoadError::Unavailable)?,
         None => load_direct_dependency_project(project, dependency)?,
@@ -188,6 +188,7 @@ fn load_direct_dependency_project(
 }
 
 fn captured_dependency_project<'a>(
+    project: &Project,
     dependencies: &'a [CapturedDependencyProject],
     dependency: &veln_project::ManifestDependency,
 ) -> Option<&'a CapturedDependencyProject> {
@@ -195,6 +196,18 @@ fn captured_dependency_project<'a>(
     dependencies
         .iter()
         .find(|captured| captured.package == dependency.package && captured.source == source)
+        .or_else(|| {
+            let local_source = dependency.direct_local_source()?;
+            let expected_root =
+                veln_project::normalize_lexical_path(&project.root.join(&local_source.value));
+            dependencies.iter().find(|captured| {
+                captured.package == dependency.package
+                    && captured.project.as_ref().is_some_and(|captured_project| {
+                        veln_project::normalize_lexical_path(&captured_project.root)
+                            == expected_root
+                    })
+            })
+        })
 }
 
 fn captured_dependency_source(dependency: &veln_project::ManifestDependency) -> Option<String> {

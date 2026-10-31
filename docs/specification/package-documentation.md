@@ -9,19 +9,23 @@ update-when: The package documentation catalog API, canonical result bytes, dige
 
 `veln-language-service` exposes a transport-independent package documentation
 catalog for one validated package identity, one captured package snapshot, and
-the validated manifest parsed from that same capture. The catalog is not the
-`veln doc` Markdown output. `veln mcp` exposes a Markdown projection for the
-embedded `std` package-documentation result and for admitted direct-dependency
-package snapshots.
+the validated manifest parsed from that same capture. Semantic publication
+uses only the captured dependency projects supplied with that package and does
+not reconstruct dependencies from the host filesystem. The package project
+root is an analysis identity input and is not published in the catalog. The
+catalog is not the `veln doc` Markdown output. `veln mcp` exposes a Markdown
+projection for the embedded `std` package-documentation result and for
+admitted direct-dependency package snapshots.
 
 ## Usage
 
 Call `PackageDocResult::generate` with a validated `PackageIdentity`, a
-`CapturedPackageSnapshot`, its `ProjectManifest`, and a
+`CapturedPackageSnapshot`, its `ProjectManifest`, the captured package project
+root, every captured dependency project from the same analysis, and a
 `PackageDocGeneratorContract`. Inspect `status()` for generation diagnostics
 and `catalog()` for the optional published catalog. `canonical_bytes()` and
-`doc_digest()` expose the stable result identity. Use `declaration_uri_for`
-or `declaration_uri_for_location` to obtain documentation links rather than
+`doc_digest()` expose the stable result identity. Use `declaration_uri_for` or
+`declaration_uri_for_location` to obtain documentation links rather than
 constructing their identifiers.
 
 ## Read First

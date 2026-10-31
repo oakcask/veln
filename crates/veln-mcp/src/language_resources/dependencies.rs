@@ -37,11 +37,14 @@ pub(super) fn dependency_resources(
 ) -> Vec<DependencyResources> {
     dependencies
         .iter()
-        .filter_map(dependency_resource)
+        .filter_map(|dependency| dependency_resource(dependency, dependencies))
         .collect()
 }
 
-fn dependency_resource(dependency: &CapturedDependencyProject) -> Option<DependencyResources> {
+fn dependency_resource(
+    dependency: &CapturedDependencyProject,
+    dependencies: &[CapturedDependencyProject],
+) -> Option<DependencyResources> {
     let identity = PackageIdentity::new(&dependency.package).ok()?;
     let project = dependency.project.as_ref()?;
     let manifest = project.manifest.clone()?;
@@ -58,6 +61,8 @@ fn dependency_resource(dependency: &CapturedDependencyProject) -> Option<Depende
         &identity,
         &snapshot,
         &manifest,
+        &project.root,
+        dependencies,
         PackageDocGeneratorContract::new(veln_repo_mcp_standard_library_docs::GENERATOR_CONTRACT),
     );
     let catalog = VirtualSourceCatalog::new([(identity.clone(), snapshot.clone())]).ok()?;

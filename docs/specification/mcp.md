@@ -127,12 +127,16 @@ operation. A valid snapshot
 has a manifest package name that equals the dependency table key and a captured
 package distribution snapshot. The server generates the existing
 transport-independent package-documentation result from that retained snapshot
-and the parsed manifest used for admission. If generation succeeds, the
-dependency documentation index is listed, and its linked module and
-declaration resources are available only through exact `resources/read`
-requests. If generation fails, only the dependency documentation status
-resource is listed and readable. Source resources are retained in either
-case. Repeating the same package identity and digest adds no state. A later
+and the parsed manifest used for admission. Publication analysis receives the
+complete dependency set from the same stable capture. A saved dependency that
+imports another captured dependency therefore publishes the same accepted
+public declarations without rereading either package from the host filesystem.
+If generation succeeds, the dependency documentation index is listed, and its
+linked module and declaration resources are available only through exact
+`resources/read` requests. If generation fails, only the dependency
+documentation status resource is listed and readable. Source resources are
+retained in either case. Repeating the same package identity and digest adds no
+state. A later
 digest for the same identity coexists with the earlier snapshot. The server
 retains at most 256 package snapshots, including the embedded standard-library
 snapshot. If one operation would exceed that limit, the tool returns

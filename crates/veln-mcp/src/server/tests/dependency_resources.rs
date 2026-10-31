@@ -193,6 +193,68 @@ fn successful_dependency_documentation_resources_round_trip_from_rendered_result
 }
 
 #[test]
+fn saved_dependency_documentation_uses_other_captured_dependencies() {
+    let workspace = TempWorkspace::new("dependency-doc-transitive-capture");
+    workspace.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"a\"]\n",
+            "path = \"vendor/a\"\n",
+            "[dependencies.\"b\"]\n",
+            "path = \"vendor/b\"\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use api from \"a\"\n",
+            "use shared from \"b\"\n",
+            "fn main() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/a/veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"a\"\n",
+            "[lib]\n",
+            "exports = [\"api.veln\"]\n",
+            "[dependencies.\"b\"]\n",
+            "path = \"../b\"\n",
+        ),
+    );
+    workspace.write(
+        "vendor/a/api.veln",
+        "use shared from \"b\"\npub let exposed: Int = shared::answer\n",
+    );
+    workspace.write(
+        "vendor/b/veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"b\"\n",
+            "[lib]\n",
+            "exports = [\"shared.veln\"]\n",
+        ),
+    );
+    workspace.write("vendor/b/shared.veln", "pub let answer: Int = 1\n");
+    let mut server = initialized_server(&workspace);
+
+    let result = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(result["isError"], false, "{result:#}");
+    let index_uri = listed_dependency_documentation_uri(&mut server, "a");
+    assert!(index_uri.ends_with("/index"), "{index_uri}");
+    let declaration_uri = linked_dependency_declaration_uri(&mut server, &index_uri);
+    let declaration = read_resource(&mut server, 109, &declaration_uri);
+    let text = declaration["result"]["contents"][0]["text"]
+        .as_str()
+        .unwrap();
+    assert!(text.starts_with("# Module_value exposed\n\n"), "{text}");
+    assert!(text.contains("- Signature: let exposed: Int"), "{text}");
+}
+
+#[test]
 fn failed_dependency_documentation_publishes_only_status_resource() {
     let workspace = TempWorkspace::new("dependency-doc-status");
     write_workspace_with_dependency_source(
@@ -940,6 +1002,8 @@ fn expected_dependency_documentation_resources(
         &identity,
         &snapshot,
         &manifest,
+        std::path::Path::new("."),
+        &[],
         PackageDocGeneratorContract::new(veln_repo_mcp_standard_library_docs::GENERATOR_CONTRACT),
     );
     render_package_documentation(&result)

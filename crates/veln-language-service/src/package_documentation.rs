@@ -4,8 +4,9 @@ use std::fmt;
 
 use sha2::{Digest, Sha256};
 use veln_analysis::{
-    DoctestMode, analyze_project, derive_export_source_module_path, derive_source_module_path,
-    is_source_path_invalid_case_diagnostic,
+    CapturedDependencyProject, DoctestMode, analyze_project,
+    analyze_project_with_captured_dependencies, derive_export_source_module_path,
+    derive_source_module_path, is_source_path_invalid_case_diagnostic,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, Severity, write_json_string};
 use veln_project::{
@@ -134,6 +135,8 @@ impl PackageDocResult {
         identity: &PackageIdentity,
         snapshot: &CapturedPackageSnapshot,
         manifest: &ProjectManifest,
+        project_root: &std::path::Path,
+        dependencies: &[CapturedDependencyProject],
         generator_contract: PackageDocGeneratorContract,
     ) -> Self {
         let manifest = if manifest.source_bytes == snapshot.manifest_bytes() {
@@ -143,8 +146,15 @@ impl PackageDocResult {
         } else {
             manifest.clone()
         };
-        PackageDocBuilder::new(identity.as_str(), snapshot, &manifest, generator_contract)
-            .generate()
+        PackageDocBuilder::new(
+            identity.as_str(),
+            snapshot,
+            &manifest,
+            project_root,
+            dependencies,
+            generator_contract,
+        )
+        .generate()
     }
 
     pub fn identity(&self) -> &str {
@@ -469,6 +479,8 @@ struct PackageDocBuilder<'a> {
     identity: &'a str,
     snapshot: &'a CapturedPackageSnapshot,
     manifest: &'a ProjectManifest,
+    project_root: &'a std::path::Path,
+    dependencies: &'a [CapturedDependencyProject],
     generator_contract: PackageDocGeneratorContract,
     diagnostics: Vec<PackageDocDiagnostic>,
     #[cfg(test)]

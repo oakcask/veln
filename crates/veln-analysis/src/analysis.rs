@@ -336,7 +336,7 @@ pub fn checked_project_diagnostics_with_captured_dependencies(
         .checked_diagnostics()
 }
 
-fn analyze_project_with_captured_dependencies(
+pub fn analyze_project_with_captured_dependencies(
     project: Project,
     doctest_mode: DoctestMode,
     dependencies: &[CapturedDependencyProject],
@@ -426,13 +426,6 @@ impl ProjectAnalysis {
                 .collect(),
             work,
         )
-    }
-
-    pub fn diagnostic_index_for_publication_cause(
-        &self,
-        cause: &veln_sema::PublicationDiagnosticCause,
-    ) -> Option<usize> {
-        self.checked.diagnostic_index_for_publication_cause(cause)
     }
 
     pub fn lower_reachable_entry(

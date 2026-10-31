@@ -138,6 +138,8 @@ pub fn generate_checked_bundle() -> Result<GeneratedBundle, String> {
         &PackageIdentity::embedded_standard(),
         &snapshot,
         &manifest,
+        std::path::Path::new("."),
+        &[],
         PackageDocGeneratorContract::new(GENERATOR_CONTRACT),
     );
     let mut resources = render_package_documentation(&result);

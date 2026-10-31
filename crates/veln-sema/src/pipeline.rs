@@ -53,7 +53,6 @@ pub struct LoweredSurfaceModule {
     pub ir: Option<TypedProgram>,
     pub unpublished_declarations: Vec<UnpublishedDeclaration>,
     module_value_publication: IndexedModuleValuePublicationProvenance,
-    diagnostic_indices_by_cause: HashMap<PublicationDiagnosticCause, usize>,
 }
 
 #[derive(Clone, Debug)]
@@ -87,7 +86,6 @@ impl LoweredSurfaceModule {
             ir: None,
             unpublished_declarations: Vec::new(),
             module_value_publication: IndexedModuleValuePublicationProvenance::default(),
-            diagnostic_indices_by_cause: HashMap::new(),
         }
     }
 
@@ -169,13 +167,6 @@ impl LoweredSurfaceModule {
             diagnostic_indices.into_iter().collect(),
             work,
         )
-    }
-
-    pub fn diagnostic_index_for_publication_cause(
-        &self,
-        cause: &PublicationDiagnosticCause,
-    ) -> Option<usize> {
-        self.diagnostic_indices_by_cause.get(cause).copied()
     }
 }
 
@@ -972,21 +963,6 @@ fn lower_analyzed_surface_module_with_environment(
     environment: &TypeEnvironment,
     mode: SurfaceLoweringMode,
 ) -> LoweredSurfaceModule {
-    let diagnostic_indices_by_cause = diagnostics
-        .iter()
-        .enumerate()
-        .filter_map(|(index, diagnostic)| {
-            diagnostic.span.as_ref().map(|span| {
-                (
-                    PublicationDiagnosticCause {
-                        diagnostic_id: diagnostic.id.clone(),
-                        span: span.clone(),
-                    },
-                    index,
-                )
-            })
-        })
-        .collect::<HashMap<_, _>>();
     let module_value_publication =
         index_module_value_publication(module, &diagnostics, module_value_publication);
     let mut diagnostics = enforce_module_value_lowering_gate(module, diagnostics);
@@ -999,7 +975,6 @@ fn lower_analyzed_surface_module_with_environment(
             ir: None,
             unpublished_declarations,
             module_value_publication,
-            diagnostic_indices_by_cause,
         };
     }
 
@@ -1030,7 +1005,6 @@ fn lower_analyzed_surface_module_with_environment(
         ir,
         unpublished_declarations,
         module_value_publication,
-        diagnostic_indices_by_cause,
     }
 }
 
