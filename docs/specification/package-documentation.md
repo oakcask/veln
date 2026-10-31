@@ -239,6 +239,9 @@ The implemented gates are:
   dependency rejects the complete catalog with `gate: "module_value"` and
   publishes no module value or accepted sibling declaration. The failure keeps
   only diagnostics in the rejected exported value's causal dependency closure.
+  If multiple public declarations have the same semantic module-value identity,
+  the gate evaluates every occurrence and retains the union of their owned
+  causal diagnostics. Source order does not select one occurrence's causes.
   A public module value whose name does not start with an ASCII lowercase
   letter reports `name.invalid_case` through this gate. This name check applies
   to every retained source, including a source that is not exported;
@@ -308,7 +311,8 @@ publication, and gate tests are in its `package_documentation/tests/` modules.
 The `module_value_publication` tests check public declaration content and
 lookup, initializer-independent declaration identity, snapshot and
 documentation digest rotation, package-atomic failure, and causal diagnostic
-selection for rejected values. They also check recovered-import causes and
+selection for rejected values. They also check every owned cause for duplicate
+public module-value occurrences, recovered-import causes, and
 dependency-owned causes whose paths or spans collide with the documented
 package or another captured dependency. Deterministic work counters compare
 adjacent input sizes for public dependency chains, independent invalid values,
