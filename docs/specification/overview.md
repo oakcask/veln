@@ -50,11 +50,13 @@ The following behavior is fixed for the implemented slice:
 - Typed module `let` declarations have a fixed parsing, formatting, and
   package-aware same-module and imported semantic-analysis surface for finite
   immutable data. `veln fmt` accepts a valid declaration. After initializer
-  and package-wide dependency checking,
-  `veln check`, `veln run`, `veln test`, and `veln doc` report
-  `module.value_not_executable` before runtime, backend, or
-  package-documentation use. Checked core and typed IR retain each accepted
-  declaration, finite initializer, and selected package-aware reference. See
+  and package-wide dependency checking, `veln check`, `veln run`, and `veln
+  test` report `module.value_not_executable` before runtime or backend use.
+  Package documentation publishes accepted public declarations without that
+  runtime-only diagnostic; see
+  [package-documentation.md](package-documentation.md#published-boundary).
+  Checked core and typed IR retain each accepted declaration, finite
+  initializer, and selected package-aware reference. See
   [source-surface.md](source-surface.md#module-immutable-value-declarations),
   [diagnostics-json.md](diagnostics-json.md#diagnostic-families), and
   [execution.md](execution.md#runtime-readiness-and-host-boundaries).

@@ -306,28 +306,9 @@ impl<'a> PackageDocBuilder<'a> {
             },
             DoctestMode::Exclude,
         );
-        let causal_diagnostics = analysis
-            .unpublished_declarations()
-            .iter()
-            .filter(|declaration| exported_paths.contains(declaration.span.file.as_str()))
-            .flat_map(|declaration| declaration.causal_diagnostics.iter().cloned())
-            .collect::<Vec<_>>();
         let diagnostics = analysis.checked_diagnostics();
-        for diagnostic in diagnostics.iter().filter(|diagnostic| {
-            diagnostic.severity == Severity::Error
-                && diagnostic.id == "type.variant_refinement_private"
-                && diagnostic.span.as_ref().is_some_and(|span| {
-                    exported_paths.contains(span.file.as_str())
-                        || causal_diagnostics.iter().any(|cause| {
-                            cause.diagnostic_id == diagnostic.id && cause.span == *span
-                        })
-                })
-        }) {
-            self.diagnostics
-                .push(self.project_diagnostic("semantic_visibility", diagnostic.clone()));
-        }
-
-        let has_invalid_exported_value = parsed_sources
+        let mut gates = vec![None; diagnostics.len()];
+        for value in parsed_sources
             .iter()
             .filter(|source| source.exported)
             .flat_map(|source| source.tree.items.iter())
@@ -337,35 +318,45 @@ impl<'a> PackageDocBuilder<'a> {
                 }
                 _ => None,
             })
-            .any(|value| {
-                value.name.as_deref().is_some_and(|name| {
-                    analysis.module_value_is_invalid(value.span.file.as_str(), name)
-                })
+        {
+            record_package_doc_semantic_classification_work(|work| {
+                work.exported_module_value_lookups += 1;
             });
-        if has_invalid_exported_value {
-            for diagnostic in diagnostics.iter().filter(|diagnostic| {
-                diagnostic.severity == Severity::Error
-                    && diagnostic.id != "module.value_not_executable"
-                    && analysis.diagnostic_is_in_invalid_module_value(diagnostic)
-            }) {
-                let duplicate = self.diagnostics.iter().any(|existing| {
-                    existing.code == diagnostic.id
-                        && existing.span.as_ref().is_some_and(|span| {
-                            diagnostic.span.as_ref().is_some_and(|diagnostic_span| {
-                                span.source_uri
-                                    == source_uri(
-                                        self.identity,
-                                        self.snapshot.digest(),
-                                        diagnostic_span.file.as_str(),
-                                    )
-                                    && span.offset == diagnostic_span.start.offset
-                            })
-                        })
-                });
-                if !duplicate {
-                    self.diagnostics
-                        .push(self.project_diagnostic("module_value", diagnostic.clone()));
+            if let Some(indices) = analysis.module_value_publication_diagnostic_indices(&value.span)
+            {
+                for index in indices {
+                    record_package_doc_semantic_classification_work(|work| {
+                        work.cause_index_insertions += 1;
+                    });
+                    gates[*index] = Some("module_value");
                 }
+            }
+        }
+        for cause in analysis
+            .unpublished_declarations()
+            .iter()
+            .filter(|declaration| exported_paths.contains(declaration.span.file.as_str()))
+            .flat_map(|declaration| declaration.causal_diagnostics.iter())
+            .filter(|cause| cause.diagnostic_id == "type.variant_refinement_private")
+        {
+            record_package_doc_semantic_classification_work(|work| {
+                work.cause_index_insertions += 1;
+            });
+            if let Some(index) = analysis.diagnostic_index_for_publication_cause(cause) {
+                gates[index].get_or_insert("semantic_visibility");
+            }
+        }
+
+        for (index, diagnostic) in diagnostics.iter().enumerate() {
+            record_package_doc_semantic_classification_work(|work| {
+                work.diagnostic_lookups += 1;
+            });
+            if diagnostic.severity == Severity::Error
+                && diagnostic.id != "module.value_not_executable"
+                && let Some(gate) = gates[index]
+            {
+                self.diagnostics
+                    .push(self.project_diagnostic(gate, diagnostic.clone()));
             }
         }
     }

@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
 use veln_ast::{BodyLine, BodyLineKind, Function, FunctionKind, SurfaceModule, Visibility};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
@@ -30,9 +30,18 @@ pub(super) struct Dependency {
 pub(crate) struct ModuleValueAnalysis {
     pub(crate) diagnostics: Vec<Diagnostic>,
     pub(crate) invalid: BTreeSet<ModuleValueIdentity>,
+    pub(crate) publication_failures: Vec<ModuleValuePublicationFailure>,
+    invalid_indices: Vec<bool>,
     // Collisions, invalid casing, and initializer cycles cannot recover when
     // imported candidates change. Other failures are rechecked at each change.
     intrinsic_invalid: BTreeSet<ModuleValueIdentity>,
+    dependencies: Vec<Vec<Dependency>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ModuleValuePublicationFailure {
+    pub(crate) span: veln_source::SourceSpan,
+    pub(crate) causal_diagnostics: Vec<crate::PublicationDiagnosticCause>,
 }
 
 #[cfg(test)]
@@ -189,19 +198,35 @@ pub(crate) fn check_module_values(
         variant_diagnostics,
         &stabilized.rejected,
     );
+    let mut diagnostic_keys = final_analysis
+        .diagnostics
+        .iter()
+        .map(module_value_diagnostic_key)
+        .collect::<HashSet<_>>();
     for diagnostic in stabilized.recurrent_diagnostics {
-        let duplicate = final_analysis.diagnostics.iter().any(|existing| {
-            existing.id == diagnostic.id
-                && existing.span == diagnostic.span
-                && existing.message.as_str() == diagnostic.message.as_str()
-        });
-        if !duplicate {
+        if diagnostic_keys.insert(module_value_diagnostic_key(&diagnostic)) {
             final_analysis.diagnostics.push(diagnostic);
         }
     }
     debug_assert_eq!(stabilized.unavailable, final_analysis.invalid);
+    final_analysis.publication_failures = module_value_publication_failures(
+        module,
+        &final_analysis.diagnostics,
+        &final_analysis.invalid_indices,
+        &final_analysis.dependencies,
+    );
     final_analysis
 }
+
+fn module_value_diagnostic_key(diagnostic: &Diagnostic) -> ModuleValueDiagnosticKey {
+    (
+        diagnostic.id.clone(),
+        diagnostic.span.as_ref().map(span_identity),
+        diagnostic.message.as_str().to_owned(),
+    )
+}
+
+type ModuleValueDiagnosticKey = (String, Option<SpanIdentity>, String);
 
 fn check_module_values_once(
     module: &SurfaceModule,
@@ -246,23 +271,117 @@ fn check_module_values_once(
         }
     }
     propagate_invalid_dependencies(&dependencies, &mut invalid);
+    let invalid_identities = module
+        .module_values
+        .iter()
+        .enumerate()
+        .filter(|(index, value)| invalid[*index] && value.name.is_some())
+        .map(|(_, value)| {
+            (
+                value.package_name.clone(),
+                value.module_name.clone(),
+                value.name.clone().expect("filtered module value name"),
+            )
+        })
+        .collect();
     ModuleValueAnalysis {
         diagnostics,
         intrinsic_invalid,
-        invalid: module
-            .module_values
-            .iter()
-            .enumerate()
-            .filter(|(index, value)| invalid[*index] && value.name.is_some())
-            .map(|(_, value)| {
-                (
-                    value.package_name.clone(),
-                    value.module_name.clone(),
-                    value.name.clone().expect("filtered module value name"),
-                )
-            })
-            .collect(),
+        dependencies,
+        publication_failures: Vec::new(),
+        invalid: invalid_identities,
+        invalid_indices: invalid,
     }
+}
+
+fn module_value_publication_failures(
+    module: &SurfaceModule,
+    diagnostics: &[Diagnostic],
+    invalid: &[bool],
+    dependencies: &[Vec<Dependency>],
+) -> Vec<ModuleValuePublicationFailure> {
+    let mut owners_by_file = HashMap::<&str, Vec<(usize, usize, usize)>>::new();
+    for (index, value) in module.module_values.iter().enumerate() {
+        owners_by_file
+            .entry(value.span.file.as_str())
+            .or_default()
+            .push((value.span.start.offset, value.span.end.offset, index));
+    }
+    for owners in owners_by_file.values_mut() {
+        owners.sort_unstable_by_key(|(start, _, _)| *start);
+    }
+
+    let mut causes = vec![HashSet::new(); module.module_values.len()];
+    let mut pending = VecDeque::new();
+    for diagnostic in diagnostics {
+        let Some(span) = diagnostic.span.as_ref() else {
+            continue;
+        };
+        let Some(owners) = owners_by_file.get(span.file.as_str()) else {
+            continue;
+        };
+        let insertion = owners.partition_point(|(start, _, _)| *start <= span.start.offset);
+        let Some((start, end, owner)) = insertion.checked_sub(1).map(|index| owners[index]) else {
+            continue;
+        };
+        if span.start.offset < start || span.end.offset > end {
+            continue;
+        }
+        let cause = crate::PublicationDiagnosticCause {
+            diagnostic_id: diagnostic.id.clone(),
+            span: span.clone(),
+        };
+        if causes[owner].insert(cause.clone()) {
+            pending.push_back((owner, cause));
+        }
+    }
+
+    let mut dependents = vec![Vec::new(); module.module_values.len()];
+    for (source, targets) in dependencies.iter().enumerate() {
+        for target in targets {
+            dependents[target.target].push(source);
+        }
+    }
+    while let Some((target, cause)) = pending.pop_front() {
+        for dependent in &dependents[target] {
+            if causes[*dependent].insert(cause.clone()) {
+                pending.push_back((*dependent, cause.clone()));
+            }
+        }
+    }
+
+    let mut failures = module
+        .module_values
+        .iter()
+        .enumerate()
+        .filter_map(|(index, value)| {
+            (invalid[index] && value.name.is_some()).then(|| {
+                let mut causal_diagnostics = causes[index].iter().cloned().collect::<Vec<_>>();
+                causal_diagnostics.sort_by(|left, right| {
+                    left.span
+                        .file
+                        .as_str()
+                        .cmp(right.span.file.as_str())
+                        .then(left.span.start.offset.cmp(&right.span.start.offset))
+                        .then(left.span.end.offset.cmp(&right.span.end.offset))
+                        .then(left.diagnostic_id.cmp(&right.diagnostic_id))
+                });
+                ModuleValuePublicationFailure {
+                    span: value.span.clone(),
+                    causal_diagnostics,
+                }
+            })
+        })
+        .collect::<Vec<_>>();
+    failures.sort_by(|left, right| {
+        left.span
+            .file
+            .as_str()
+            .cmp(right.span.file.as_str())
+            .then(left.span.start.offset.cmp(&right.span.start.offset))
+            .then(left.span.end.offset.cmp(&right.span.end.offset))
+    });
+    failures
 }
 
 pub(super) fn check_module_value(

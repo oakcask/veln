@@ -103,11 +103,14 @@ result types. Handler declaration signatures include the handler name and
 parameters, the handled effect, and the retained effect row. Handler operation
 clauses and bodies do not contribute to the signature or identity. A module
 immutable value signature contains `let`, its public name, and its written type
-annotation. Its initializer does not contribute to the signature, identity, or
-catalog bytes. Declaration identity does not use source order or source byte
-offsets. A duplicate semantic identity fails the complete package documentation
-result. A detected module or declaration identifier collision also fails the
-complete package documentation result.
+annotation. Its initializer is not copied into declaration content and does not
+contribute to the signature or declaration identity. Declaration identity does
+not use source order or source byte offsets. A duplicate semantic identity
+fails the complete package documentation result. A detected module or
+declaration identifier collision also fails the complete package documentation
+result. Initializer source bytes remain part of the package snapshot, so an
+initializer-only source change rotates the snapshot identity, canonical result
+bytes, and documentation digest.
 
 ## Published Boundary
 
@@ -209,9 +212,10 @@ The implemented gates are:
   pass finite-data initializer, written-annotation, imported-lookup,
   package-aware visibility, and package-wide dependency checking. The
   runtime-only `module.value_not_executable` diagnostic is not a documentation
-  rejection. Any other error within the public declaration rejects the complete
-  catalog with `gate: "module_value"` and publishes no module value or accepted
-  sibling declaration;
+  rejection. An error owned by that declaration or by a required module-value
+  dependency rejects the complete catalog with `gate: "module_value"` and
+  publishes no module value or accepted sibling declaration. The failure keeps
+  only diagnostics in the rejected exported value's causal dependency closure;
 - documentation reference: `{@schema ...}` references in documentation
   blocks that attach to exported public declarations or exported public type
   constructors must resolve to a public schema in an exported module. Bare

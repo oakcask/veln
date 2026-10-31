@@ -390,33 +390,19 @@ impl ProjectAnalysis {
         &self.checked.unpublished_declarations
     }
 
-    pub fn module_value_is_invalid(&self, source_path: &str, name: &str) -> bool {
-        self.module.module_values.iter().any(|value| {
-            value.span.file.as_str() == source_path
-                && value.name.as_deref() == Some(name)
-                && self.checked.module_value_is_invalid(
-                    value.package_name.as_deref(),
-                    value.module_name.as_deref(),
-                    name,
-                )
-        })
+    pub fn module_value_publication_diagnostic_indices(
+        &self,
+        span: &veln_source::SourceSpan,
+    ) -> Option<&[usize]> {
+        self.checked
+            .module_value_publication_diagnostic_indices(span)
     }
 
-    pub fn diagnostic_is_in_invalid_module_value(&self, diagnostic: &Diagnostic) -> bool {
-        diagnostic.span.as_ref().is_some_and(|span| {
-            self.module.module_values.iter().any(|value| {
-                value.name.as_deref().is_some_and(|name| {
-                    span.file == value.span.file
-                        && span.start.offset >= value.span.start.offset
-                        && span.end.offset <= value.span.end.offset
-                        && self.checked.module_value_is_invalid(
-                            value.package_name.as_deref(),
-                            value.module_name.as_deref(),
-                            name,
-                        )
-                })
-            })
-        })
+    pub fn diagnostic_index_for_publication_cause(
+        &self,
+        cause: &veln_sema::PublicationDiagnosticCause,
+    ) -> Option<usize> {
+        self.checked.diagnostic_index_for_publication_cause(cause)
     }
 
     pub fn lower_reachable_entry(

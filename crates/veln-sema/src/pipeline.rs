@@ -7,13 +7,14 @@ use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
 
 use crate::analysis::{
-    VariantDiagnosticInterner, check_declared_effect_labels, check_duplicate_constructor_names,
-    check_duplicate_effect_names, check_duplicate_function_names, check_duplicate_schema_names,
-    check_duplicate_type_names, check_duplicate_use_aliases, check_function_body,
-    check_handler_declarations, check_module_boundary, check_module_values,
-    check_public_adt_variant_refinement_visibility, check_public_aliases,
-    check_public_function_boundary, check_reserved_prelude_aliases, check_schema_field_primitives,
-    check_schema_type_references, check_test_declaration_boundary, check_variant_refinement_bases,
+    ModuleValuePublicationFailure, VariantDiagnosticInterner, check_declared_effect_labels,
+    check_duplicate_constructor_names, check_duplicate_effect_names,
+    check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,
+    check_duplicate_use_aliases, check_function_body, check_handler_declarations,
+    check_module_boundary, check_module_values, check_public_adt_variant_refinement_visibility,
+    check_public_aliases, check_public_function_boundary, check_reserved_prelude_aliases,
+    check_schema_field_primitives, check_schema_type_references, check_test_declaration_boundary,
+    check_variant_refinement_bases,
 };
 use crate::lowering::{
     lower_executable_surface_module_to_core, lower_project_surface_module_to_core,
@@ -22,8 +23,8 @@ use crate::lowering::{
 use crate::schema;
 use crate::source_less_lookup::validate_source_less_lookup_registries;
 use crate::types::{
-    ModuleValueIdentity, ReusableStandardEnvironment, TypeEnvironment,
-    prepare_current_reusable_standard_environment, prepare_reusable_standard_environment,
+    ReusableStandardEnvironment, TypeEnvironment, prepare_current_reusable_standard_environment,
+    prepare_reusable_standard_environment,
 };
 
 mod diagnostic_ordering;
@@ -51,7 +52,14 @@ pub struct LoweredSurfaceModule {
     pub core: Option<CheckedProgram>,
     pub ir: Option<TypedProgram>,
     pub unpublished_declarations: Vec<UnpublishedDeclaration>,
-    invalid_module_values: BTreeSet<ModuleValueIdentity>,
+    module_value_publication_failures: Vec<IndexedModuleValuePublicationFailure>,
+    diagnostic_indices_by_cause: HashMap<PublicationDiagnosticCause, usize>,
+}
+
+#[derive(Clone, Debug)]
+struct IndexedModuleValuePublicationFailure {
+    span: veln_source::SourceSpan,
+    diagnostic_indices: Vec<usize>,
 }
 
 impl LoweredSurfaceModule {
@@ -61,27 +69,44 @@ impl LoweredSurfaceModule {
             core: None,
             ir: None,
             unpublished_declarations: Vec::new(),
-            invalid_module_values: BTreeSet::new(),
+            module_value_publication_failures: Vec::new(),
+            diagnostic_indices_by_cause: HashMap::new(),
         }
     }
 
-    pub fn module_value_is_invalid(
+    pub fn module_value_publication_diagnostic_indices(
         &self,
-        package_name: Option<&str>,
-        module_name: Option<&str>,
-        name: &str,
-    ) -> bool {
-        self.invalid_module_values.contains(&(
-            package_name.map(str::to_owned),
-            module_name.map(str::to_owned),
-            name.to_owned(),
-        ))
+        span: &veln_source::SourceSpan,
+    ) -> Option<&[usize]> {
+        self.module_value_publication_failures
+            .binary_search_by(|failure| {
+                failure
+                    .span
+                    .file
+                    .as_str()
+                    .cmp(span.file.as_str())
+                    .then(failure.span.start.offset.cmp(&span.start.offset))
+                    .then(failure.span.end.offset.cmp(&span.end.offset))
+            })
+            .ok()
+            .map(|index| {
+                self.module_value_publication_failures[index]
+                    .diagnostic_indices
+                    .as_slice()
+            })
+    }
+
+    pub fn diagnostic_index_for_publication_cause(
+        &self,
+        cause: &PublicationDiagnosticCause,
+    ) -> Option<usize> {
+        self.diagnostic_indices_by_cause.get(cause).copied()
     }
 }
 
 struct SurfaceAnalysis {
     diagnostics: Vec<Diagnostic>,
-    invalid_module_values: BTreeSet<ModuleValueIdentity>,
+    module_value_publication_failures: Vec<ModuleValuePublicationFailure>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -291,7 +316,7 @@ fn check_project_surface_module_with_environment(
     let checked = lower_analyzed_surface_module_with_environment(
         module,
         semantic_diagnostics.clone(),
-        analysis.invalid_module_values,
+        analysis.module_value_publication_failures,
         &environment,
         SurfaceLoweringMode::ProjectCheck,
     );
@@ -306,14 +331,14 @@ fn analyze_surface_module_with_environment(
     if let Err(failure) = validate_source_less_lookup_registries() {
         return SurfaceAnalysis {
             diagnostics: vec![failure.diagnostic()],
-            invalid_module_values: BTreeSet::new(),
+            module_value_publication_failures: Vec::new(),
         };
     }
     let mut diagnostics = Vec::new();
     let mut variant_diagnostics = VariantDiagnosticInterner::default();
     let mut environment = environment.clone();
 
-    let (module_diagnostics, invalid_module_values) =
+    let (module_diagnostics, module_value_publication_failures) =
         check_module_declarations(module, &mut environment, &mut variant_diagnostics);
     diagnostics.extend(module_diagnostics);
 
@@ -340,7 +365,7 @@ fn analyze_surface_module_with_environment(
 
     SurfaceAnalysis {
         diagnostics,
-        invalid_module_values,
+        module_value_publication_failures,
     }
 }
 
@@ -467,7 +492,7 @@ fn check_module_declarations(
     module: &SurfaceModule,
     environment: &mut TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
-) -> (Vec<Diagnostic>, BTreeSet<ModuleValueIdentity>) {
+) -> (Vec<Diagnostic>, Vec<ModuleValuePublicationFailure>) {
     let mut diagnostics = Vec::new();
 
     let module_value_analysis = check_module_values(module, environment, variant_diagnostics);
@@ -498,7 +523,7 @@ fn check_module_declarations(
     diagnostics.extend(check_schema_type_references(module));
     diagnostics.extend(check_handler_declarations(module, environment));
 
-    (diagnostics, module_value_analysis.invalid)
+    (diagnostics, module_value_analysis.publication_failures)
 }
 
 fn module_value_not_executable_diagnostic(value: &veln_ast::ModuleValueDecl) -> Diagnostic {
@@ -699,7 +724,7 @@ pub fn lower_checked_surface_module(module: &SurfaceModule) -> LoweredSurfaceMod
         lower_analyzed_surface_module_with_environment(
             module,
             analysis.diagnostics,
-            analysis.invalid_module_values,
+            analysis.module_value_publication_failures,
             &environment,
             SurfaceLoweringMode::Module,
         )
@@ -769,7 +794,7 @@ fn lower_project_reachable_surface_module_with_environment(
     lower_analyzed_surface_module_with_environment(
         module,
         analysis.diagnostics,
-        analysis.invalid_module_values,
+        analysis.module_value_publication_failures,
         &environment,
         SurfaceLoweringMode::Execution,
     )
@@ -788,16 +813,16 @@ pub fn lower_analyzed_surface_module(
         }
         let environment = TypeEnvironment::from_module(module);
         let mut module_value_environment = environment.clone();
-        let invalid_module_values = check_module_values(
+        let module_value_publication_failures = check_module_values(
             module,
             &mut module_value_environment,
             &mut VariantDiagnosticInterner::default(),
         )
-        .invalid;
+        .publication_failures;
         lower_analyzed_surface_module_with_environment(
             module,
             diagnostics,
-            invalid_module_values,
+            module_value_publication_failures,
             &environment,
             SurfaceLoweringMode::Module,
         )
@@ -818,10 +843,36 @@ fn lowered_internal_failure(diagnostics: Vec<Diagnostic>) -> LoweredSurfaceModul
 fn lower_analyzed_surface_module_with_environment(
     module: &SurfaceModule,
     diagnostics: Vec<Diagnostic>,
-    invalid_module_values: BTreeSet<ModuleValueIdentity>,
+    module_value_publication_failures: Vec<ModuleValuePublicationFailure>,
     environment: &TypeEnvironment,
     mode: SurfaceLoweringMode,
 ) -> LoweredSurfaceModule {
+    let diagnostic_indices_by_cause = diagnostics
+        .iter()
+        .enumerate()
+        .filter_map(|(index, diagnostic)| {
+            diagnostic.span.as_ref().map(|span| {
+                (
+                    PublicationDiagnosticCause {
+                        diagnostic_id: diagnostic.id.clone(),
+                        span: span.clone(),
+                    },
+                    index,
+                )
+            })
+        })
+        .collect::<HashMap<_, _>>();
+    let module_value_publication_failures = module_value_publication_failures
+        .into_iter()
+        .map(|failure| IndexedModuleValuePublicationFailure {
+            span: failure.span,
+            diagnostic_indices: failure
+                .causal_diagnostics
+                .iter()
+                .filter_map(|cause| diagnostic_indices_by_cause.get(cause).copied())
+                .collect(),
+        })
+        .collect();
     let mut diagnostics = enforce_module_value_lowering_gate(module, diagnostics);
     let unpublished_declarations =
         unpublished_public_declarations(module, environment, &diagnostics);
@@ -831,7 +882,8 @@ fn lower_analyzed_surface_module_with_environment(
             core: None,
             ir: None,
             unpublished_declarations,
-            invalid_module_values,
+            module_value_publication_failures,
+            diagnostic_indices_by_cause,
         };
     }
 
@@ -861,7 +913,8 @@ fn lower_analyzed_surface_module_with_environment(
         core: Some(lowered_core.program),
         ir,
         unpublished_declarations,
-        invalid_module_values,
+        module_value_publication_failures,
+        diagnostic_indices_by_cause,
     }
 }
 

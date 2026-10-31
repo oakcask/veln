@@ -37,6 +37,52 @@ const URI_PREFIX: &str = "veln-doc:///package/";
 const SCHEMA_VERSION: &str = "veln-package-doc-catalog/v1";
 const SNAPSHOT_MANIFEST_PATH: &str = "veln.toml";
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct PackageDocSemanticClassificationWork {
+    exported_module_value_lookups: usize,
+    cause_index_insertions: usize,
+    diagnostic_lookups: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    static PACKAGE_DOC_SEMANTIC_CLASSIFICATION_WORK:
+        std::cell::Cell<PackageDocSemanticClassificationWork> =
+        const { std::cell::Cell::new(PackageDocSemanticClassificationWork {
+            exported_module_value_lookups: 0,
+            cause_index_insertions: 0,
+            diagnostic_lookups: 0,
+        }) };
+}
+
+#[cfg(test)]
+fn record_package_doc_semantic_classification_work(
+    update: impl FnOnce(&mut PackageDocSemanticClassificationWork),
+) {
+    PACKAGE_DOC_SEMANTIC_CLASSIFICATION_WORK.set({
+        let mut work = PACKAGE_DOC_SEMANTIC_CLASSIFICATION_WORK.get();
+        update(&mut work);
+        work
+    });
+}
+
+#[cfg(not(test))]
+fn record_package_doc_semantic_classification_work(
+    _update: impl FnOnce(&mut PackageDocSemanticClassificationWork),
+) {
+}
+
+#[cfg(test)]
+fn reset_package_doc_semantic_classification_work() {
+    PACKAGE_DOC_SEMANTIC_CLASSIFICATION_WORK.set(PackageDocSemanticClassificationWork::default());
+}
+
+#[cfg(test)]
+fn take_package_doc_semantic_classification_work() -> PackageDocSemanticClassificationWork {
+    PACKAGE_DOC_SEMANTIC_CLASSIFICATION_WORK
+        .replace(PackageDocSemanticClassificationWork::default())
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PackageDocGeneratorContract {
     version: String,
