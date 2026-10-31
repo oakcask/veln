@@ -1,4 +1,6 @@
-use super::effect_inference::{EffectsByFunction, EffectsByModulePath};
+use super::effect_inference::{
+    EffectsByFunction, EffectsByModulePath, user_effect_signature_for_path,
+};
 use super::*;
 
 use crate::effect_rows::{
@@ -197,6 +199,35 @@ fn type_for_effect_call_argument(
         ExprKind::FloatLiteral(_) => Some(Type::float()),
         ExprKind::BoolLiteral(_) => Some(Type::bool()),
         ExprKind::Unit => Some(Type::unit()),
+        ExprKind::Perform {
+            effect,
+            operation,
+            args,
+            ..
+        } => {
+            let effect = user_effect_signature_for_path(
+                effect,
+                context.uses,
+                context.current_module,
+                context.current_package,
+                context.user_effects,
+                context.companion_effect_access_targets,
+            )?;
+            let operation = effect
+                .operations
+                .iter()
+                .find(|candidate| candidate.name == *operation)?;
+            if args.len() != operation.params.len() {
+                return None;
+            }
+            for (arg, param) in args.iter().zip(&operation.params) {
+                let actual = type_for_effect_call_argument(arg, param, context)?;
+                if !crate::type_relations::is_assignable(param, &actual) {
+                    return None;
+                }
+            }
+            Some(operation.return_type.clone())
+        }
         ExprKind::Record(fields) => {
             let Type::Record(expected_fields) = expected else {
                 return None;

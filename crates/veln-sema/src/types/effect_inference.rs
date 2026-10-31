@@ -943,15 +943,31 @@ pub(crate) fn canonical_user_effect_label(
     effects: &[EffectSignature],
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Option<String> {
+    user_effect_signature_for_path(
+        segments,
+        uses,
+        current_module,
+        current_package,
+        effects,
+        companion_effect_access_targets,
+    )
+    .map(|effect| effect.qualified_name.clone())
+}
+
+pub(super) fn user_effect_signature_for_path<'a>(
+    segments: &[String],
+    uses: &[UseDecl],
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    effects: &'a [EffectSignature],
+    companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
+) -> Option<&'a EffectSignature> {
     match segments {
-        [name] => effects
-            .iter()
-            .find(|effect| {
-                effect.name == *name
-                    && effect.module_name.as_deref() == current_module
-                    && effect.package_name.as_deref() == current_package
-            })
-            .map(|effect| effect.qualified_name.clone()),
+        [name] => effects.iter().find(|effect| {
+            effect.name == *name
+                && effect.module_name.as_deref() == current_module
+                && effect.package_name.as_deref() == current_package
+        }),
         [_, .., name] => {
             let use_decl = imported_use_for_path_in_owner(
                 uses,
@@ -959,21 +975,18 @@ pub(crate) fn canonical_user_effect_label(
                 current_module,
                 current_package,
             )?;
-            effects
-                .iter()
-                .find(|effect| {
-                    effect.name == *name
-                        && effect.module_name.as_deref() == Some(use_decl.name.as_str())
-                        && effect.package_name == use_decl.resolved_target().package
-                        && imported_effect_is_visible(
-                            use_decl,
-                            current_module,
-                            use_decl.name.as_str(),
-                            effect.visibility,
-                            companion_effect_access_targets,
-                        )
-                })
-                .map(|effect| effect.qualified_name.clone())
+            effects.iter().find(|effect| {
+                effect.name == *name
+                    && effect.module_name.as_deref() == Some(use_decl.name.as_str())
+                    && effect.package_name == use_decl.resolved_target().package
+                    && imported_effect_is_visible(
+                        use_decl,
+                        current_module,
+                        use_decl.name.as_str(),
+                        effect.visibility,
+                        companion_effect_access_targets,
+                    )
+            })
         }
         _ => None,
     }

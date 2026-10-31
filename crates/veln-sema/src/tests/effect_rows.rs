@@ -430,6 +430,77 @@ fn rejected_non_row_payload_does_not_leak_a_partial_row_substitution() {
 }
 
 #[test]
+fn accepted_perform_argument_preserves_instantiated_call_effects() {
+    let module = module(concat!(
+        "effect Ask\n",
+        "\tvalue() -> Int\n",
+        "end\n",
+        "\n",
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn helper() -> ()\n",
+        "\tinvoke(db_callback, perform Ask::value())\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> () effects [Ask]\n",
+        "\thelper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
+    );
+}
+
+#[test]
+fn rejected_try_argument_does_not_leak_a_partial_row_substitution() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn bad() -> Result<String, String>\n",
+        "\tOk(\"wrong\")\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn helper() -> Result<(), String>\n",
+        "\tinvoke(db_callback, bad()?)\n",
+        "\tOk(())\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> Result<(), String>\n",
+        "\thelper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn rejected_call_shape_does_not_leak_a_partial_row_substitution() {
     let module = module(concat!(
         "fn db_callback() -> () effects [db]\n",

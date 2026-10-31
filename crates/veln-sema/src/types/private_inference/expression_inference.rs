@@ -205,7 +205,7 @@ fn infer_private_value_type(
 
 fn infer_private_schema_type(
     expr: &Expr,
-    expected: Option<&Type>,
+    _expected: Option<&Type>,
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Option<Type> {
     match &expr.kind {
@@ -230,10 +230,10 @@ fn infer_private_schema_type(
                 .cloned()
                 .unwrap_or(Type::Unknown),
         ),
-        ExprKind::Try { expr: inner, .. } => Some(expected.cloned().unwrap_or_else(|| {
+        ExprKind::Try { expr: inner, .. } => Some({
             let inner_type = context.infer(inner, None);
             adt::result_parts(&inner_type).map_or(Type::Unknown, |(value, _)| value.clone())
-        })),
+        }),
         _ => None,
     }
 }

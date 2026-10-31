@@ -1,0 +1,32 @@
+effect Ask
+	value() -> Int
+end
+
+fn db_callback() -> () effects [db]
+	()
+end
+
+fn bad() -> Result<String, String>
+	Ok("wrong")
+end
+
+fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]
+	callback()
+end
+
+fn accepted_helper() -> ()
+	invoke(db_callback, perform Ask::value())
+end
+
+fn rejected_helper() -> Result<(), String>
+	invoke(db_callback, bad()?)
+	Ok(())
+end
+
+pub fn accepted_operation_result() -> () effects [Ask]
+	accepted_helper()
+end
+
+pub fn rejected_result_propagation() -> Result<(), String>
+	rejected_helper()
+end
