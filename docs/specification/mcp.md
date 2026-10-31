@@ -134,9 +134,13 @@ public declarations without rereading either package from the host filesystem.
 If generation succeeds, the dependency documentation index is listed, and its
 linked module and declaration resources are available only through exact
 `resources/read` requests. If generation fails, only the dependency
-documentation status resource is listed and readable. Source resources are
-retained in either case. Repeating the same package identity and digest adds no
-state. A later
+documentation status resource is listed and readable. Its diagnostic source
+span keeps the canonical package identity of the captured package that owns
+the cause, including another dependency in the same stable capture. The
+[package-documentation specification](package-documentation.md#generation-gates)
+defines this diagnostic identity contract. Source resources are retained in
+either case. Repeating the same package identity and digest adds no state. A
+later
 digest for the same identity coexists with the earlier snapshot. The server
 retains at most 256 package snapshots, including the embedded standard-library
 snapshot. If one operation would exceed that limit, the tool returns
