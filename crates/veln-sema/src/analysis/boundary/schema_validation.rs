@@ -198,66 +198,85 @@ fn schema_predicate_expression_type(
         ExprKind::IntLiteral(_) => Ok(Some(Type::int())),
         ExprKind::BoolLiteral(_) => Ok(Some(Type::bool())),
         ExprKind::Prefix { op, expr } => {
-            let expected = match op {
-                PrefixOp::Not => Type::bool(),
-                PrefixOp::Negate | PrefixOp::BitwiseNot => Type::int(),
-            };
-            let actual = schema_predicate_expression_type(expr, decoded_fields)?;
-            require_schema_predicate_operand(prefix_operator_text(*op), &expected, actual)?;
-            Ok(Some(expected))
+            schema_predicate_prefix_expression_type(*op, expr, decoded_fields)
         }
         ExprKind::Binary { op, left, right } => {
-            let left = schema_predicate_expression_type(left, decoded_fields)?;
-            let right = schema_predicate_expression_type(right, decoded_fields)?;
-            match op {
-                BinaryOp::Or | BinaryOp::And => {
-                    let expected = Type::bool();
-                    require_schema_predicate_operand(binary_operator_text(*op), &expected, left)?;
-                    require_schema_predicate_operand(binary_operator_text(*op), &expected, right)?;
-                    Ok(Some(Type::bool()))
-                }
-                BinaryOp::Equal | BinaryOp::NotEqual => {
-                    if left.is_none() || right.is_none() {
-                        Ok(None)
-                    } else {
-                        Ok(Some(Type::bool()))
-                    }
-                }
-                BinaryOp::Less
-                | BinaryOp::LessEqual
-                | BinaryOp::Greater
-                | BinaryOp::GreaterEqual
-                | BinaryOp::BitwiseOr
-                | BinaryOp::BitwiseXor
-                | BinaryOp::BitwiseAnd
-                | BinaryOp::ShiftLeft
-                | BinaryOp::ShiftRight
-                | BinaryOp::ShiftRightLogical
-                | BinaryOp::Add
-                | BinaryOp::Subtract
-                | BinaryOp::Multiply
-                | BinaryOp::Divide
-                | BinaryOp::Remainder => {
-                    let expected = Type::int();
-                    require_schema_predicate_operand(binary_operator_text(*op), &expected, left)?;
-                    require_schema_predicate_operand(binary_operator_text(*op), &expected, right)?;
-                    if matches!(
-                        op,
-                        BinaryOp::Less
-                            | BinaryOp::LessEqual
-                            | BinaryOp::Greater
-                            | BinaryOp::GreaterEqual
-                    ) {
-                        Ok(Some(Type::bool()))
-                    } else {
-                        Ok(Some(Type::int()))
-                    }
-                }
-                BinaryOp::PipeGreater => Ok(None),
-            }
+            schema_predicate_binary_expression_type(*op, left, right, decoded_fields)
         }
         _ => Ok(None),
     }
+}
+
+fn schema_predicate_prefix_expression_type(
+    operator: PrefixOp,
+    operand: &Expr,
+    decoded_fields: &BTreeMap<String, Type>,
+) -> Result<Option<Type>, SchemaPredicateOperandMismatch> {
+    let expected = match operator {
+        PrefixOp::Not => Type::bool(),
+        PrefixOp::Negate | PrefixOp::BitwiseNot => Type::int(),
+    };
+    let actual = schema_predicate_expression_type(operand, decoded_fields)?;
+    require_schema_predicate_operand(prefix_operator_text(operator), &expected, actual)?;
+    Ok(Some(expected))
+}
+
+fn schema_predicate_binary_expression_type(
+    operator: BinaryOp,
+    left: &Expr,
+    right: &Expr,
+    decoded_fields: &BTreeMap<String, Type>,
+) -> Result<Option<Type>, SchemaPredicateOperandMismatch> {
+    let left = schema_predicate_expression_type(left, decoded_fields)?;
+    let right = schema_predicate_expression_type(right, decoded_fields)?;
+    match operator {
+        BinaryOp::Or | BinaryOp::And => {
+            schema_predicate_typed_binary_expression(operator, Type::bool(), left, right)
+        }
+        BinaryOp::Equal | BinaryOp::NotEqual => Ok(left.and(right).map(|_| Type::bool())),
+        BinaryOp::Less
+        | BinaryOp::LessEqual
+        | BinaryOp::Greater
+        | BinaryOp::GreaterEqual
+        | BinaryOp::BitwiseOr
+        | BinaryOp::BitwiseXor
+        | BinaryOp::BitwiseAnd
+        | BinaryOp::ShiftLeft
+        | BinaryOp::ShiftRight
+        | BinaryOp::ShiftRightLogical
+        | BinaryOp::Add
+        | BinaryOp::Subtract
+        | BinaryOp::Multiply
+        | BinaryOp::Divide
+        | BinaryOp::Remainder => {
+            schema_predicate_typed_binary_expression(operator, Type::int(), left, right)
+        }
+        BinaryOp::PipeGreater => Ok(None),
+    }
+}
+
+fn schema_predicate_typed_binary_expression(
+    operator: BinaryOp,
+    expected: Type,
+    left: Option<Type>,
+    right: Option<Type>,
+) -> Result<Option<Type>, SchemaPredicateOperandMismatch> {
+    let operator_text = binary_operator_text(operator);
+    require_schema_predicate_operand(operator_text, &expected, left)?;
+    require_schema_predicate_operand(operator_text, &expected, right)?;
+    let result = if is_schema_predicate_ordering_operator(operator) {
+        Type::bool()
+    } else {
+        expected
+    };
+    Ok(Some(result))
+}
+
+fn is_schema_predicate_ordering_operator(operator: BinaryOp) -> bool {
+    matches!(
+        operator,
+        BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual
+    )
 }
 
 fn schema_predicate_reference_path(expression: &Expr) -> Option<String> {
