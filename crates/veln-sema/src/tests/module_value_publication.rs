@@ -49,3 +49,34 @@ fn provenance_and_requested_traversal_are_linear() {
     assert_eq!(original.cause_insertions, 16);
     assert_eq!(adjacent.cause_insertions, 32);
 }
+
+fn duplicate_identity_publication_work(
+    count: usize,
+) -> crate::pipeline::ModuleValuePublicationWork {
+    let source = (0..count)
+        .map(|index| format!("pub let shared: Int = {index}\n"))
+        .collect::<String>();
+    let source = SourceFile::new("main.veln", source);
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+    let identities = vec![(None, None, "shared".to_string()); count];
+    let (matched_roots, _, work) =
+        lowered.module_value_publication_diagnostic_indices_for_identities(&identities);
+    assert_eq!(matched_roots, count);
+    work
+}
+
+#[test]
+fn duplicate_identity_root_expansion_is_linear() {
+    let original = duplicate_identity_publication_work(16);
+    let adjacent = duplicate_identity_publication_work(32);
+
+    assert_eq!(original.exported_root_lookups, 16);
+    assert_eq!(adjacent.exported_root_lookups, 32);
+    assert_eq!(original.identity_root_expansions, 16);
+    assert_eq!(adjacent.identity_root_expansions, 32);
+    assert_eq!(original.traversal_values, 16);
+    assert_eq!(adjacent.traversal_values, 32);
+}

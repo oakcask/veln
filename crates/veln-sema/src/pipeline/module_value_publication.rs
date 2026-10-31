@@ -18,15 +18,7 @@ impl LoweredSurfaceModule {
         identities: &[ModuleValuePublicationIdentity],
     ) -> (usize, Vec<usize>, ModuleValuePublicationWork) {
         let mut work = self.retained_publication_work(identities.len());
-        let mut pending = identities
-            .iter()
-            .filter_map(|identity| {
-                self.module_value_publication
-                    .failures_by_identity
-                    .get(identity)
-                    .copied()
-            })
-            .collect::<Vec<_>>();
+        let mut pending = self.publication_roots_for_identities(identities, &mut work);
         let matched_roots = pending.len();
         let diagnostic_indices = self
             .collect_publication_causes(&mut pending, &mut work)
@@ -44,15 +36,7 @@ impl LoweredSurfaceModule {
         ModuleValuePublicationWork,
     ) {
         let mut work = self.retained_publication_work(identities.len());
-        let mut pending = identities
-            .iter()
-            .filter_map(|identity| {
-                self.module_value_publication
-                    .failures_by_identity
-                    .get(identity)
-                    .copied()
-            })
-            .collect::<Vec<_>>();
+        let mut pending = self.publication_roots_for_identities(identities, &mut work);
         let causes = self.collect_publication_causes(&mut pending, &mut work);
         (
             causes
@@ -126,6 +110,29 @@ impl LoweredSurfaceModule {
                     .copied()
             })
             .collect()
+    }
+
+    fn publication_roots_for_identities(
+        &self,
+        identities: &[ModuleValuePublicationIdentity],
+        work: &mut ModuleValuePublicationWork,
+    ) -> Vec<usize> {
+        let mut seen = HashSet::with_capacity(identities.len());
+        let mut pending = Vec::new();
+        for identity in identities {
+            if !seen.insert(identity) {
+                continue;
+            }
+            if let Some(indices) = self
+                .module_value_publication
+                .failures_by_identity
+                .get(identity)
+            {
+                work.identity_root_expansions += indices.len();
+                pending.extend(indices.iter().copied());
+            }
+        }
+        pending
     }
 
     fn collect_publication_diagnostics(
@@ -380,7 +387,7 @@ fn failures_by_file_and_range(
 
 fn failures_by_identity(
     provenance: &ModuleValuePublicationProvenance,
-) -> HashMap<ModuleValuePublicationIdentity, usize> {
+) -> HashMap<ModuleValuePublicationIdentity, Vec<usize>> {
     provenance
         .values
         .iter()
@@ -388,7 +395,13 @@ fn failures_by_identity(
         .filter_map(|(index, value)| {
             (value.invalid).then(|| value.identity.clone().map(|identity| (identity, index)))?
         })
-        .collect()
+        .fold(HashMap::new(), |mut failures, (identity, index)| {
+            failures
+                .entry(identity)
+                .or_insert_with(Vec::new)
+                .push(index);
+            failures
+        })
 }
 
 fn indexed_values(

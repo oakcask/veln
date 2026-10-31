@@ -41,6 +41,7 @@ const SNAPSHOT_MANIFEST_PATH: &str = "veln.toml";
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct PackageDocSemanticClassificationWork {
     exported_module_value_lookups: usize,
+    identity_root_expansions: usize,
     retained_values: usize,
     retained_edges: usize,
     retained_direct_causes: usize,
@@ -62,6 +63,7 @@ thread_local! {
         std::cell::Cell<PackageDocSemanticClassificationWork> =
         const { std::cell::Cell::new(PackageDocSemanticClassificationWork {
             exported_module_value_lookups: 0,
+            identity_root_expansions: 0,
             retained_values: 0,
             retained_edges: 0,
             retained_direct_causes: 0,

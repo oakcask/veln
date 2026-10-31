@@ -219,6 +219,7 @@ impl PackageDocBuilder<'_> {
     fn record_publication_work(publication_work: veln_sema::ModuleValuePublicationWork) {
         record_package_doc_semantic_classification_work(|work| {
             work.exported_module_value_lookups += publication_work.exported_root_lookups;
+            work.identity_root_expansions += publication_work.identity_root_expansions;
             work.retained_values += publication_work.retained_values;
             work.retained_edges += publication_work.retained_edges;
             work.retained_direct_causes += publication_work.retained_direct_causes;

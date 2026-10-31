@@ -718,6 +718,52 @@ fn shared_namespace_collisions_reject_public_module_values() {
 }
 
 #[test]
+fn duplicate_public_module_value_occurrences_retain_every_owned_cause() {
+    for source in [
+        concat!(
+            "pub let shared: Int = \"bad\"\n",
+            "pub let shared: Int = 2\n",
+        ),
+        concat!(
+            "pub let shared: Int = 2\n",
+            "pub let shared: Int = \"bad\"\n",
+        ),
+    ] {
+        let result = generate(
+            concat!(
+                "[package]\n",
+                "name = \"duplicate-module-value-causes\"\n",
+                "[lib]\n",
+                "exports = [\"main.veln\"]\n",
+            ),
+            &[("main.veln", source)],
+        );
+
+        assert!(result.catalog().is_none(), "{:#?}", result.status());
+        assert!(
+            result
+                .declaration_uri_for("main", "module_value", "shared")
+                .is_none()
+        );
+        let diagnostics = &result.status().diagnostics;
+        assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.gate == "module_value")
+        );
+        assert_eq!(
+            diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.code.as_str())
+                .collect::<HashSet<_>>(),
+            HashSet::from(["name.duplicate", "type.mismatch"]),
+            "{diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
 fn shared_namespace_collision_causes_reach_exported_dependents() {
     for collision in [
         concat!(
@@ -922,6 +968,7 @@ fn assert_linear_adjacent_work(
         adjacent.exported_module_value_lookups,
         original.exported_module_value_lookups * 2
     );
+    assert!(adjacent.identity_root_expansions <= original.identity_root_expansions * 2);
     assert!(adjacent.retained_values <= original.retained_values * 2);
     assert!(adjacent.retained_edges <= original.retained_edges * 2 + 1);
     assert!(adjacent.retained_direct_causes <= original.retained_direct_causes * 2);

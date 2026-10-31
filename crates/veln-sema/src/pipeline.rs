@@ -59,7 +59,7 @@ pub struct LoweredSurfaceModule {
 
 #[derive(Clone, Debug, Default)]
 struct IndexedModuleValuePublicationProvenance {
-    failures_by_identity: HashMap<ModuleValuePublicationIdentity, usize>,
+    failures_by_identity: HashMap<ModuleValuePublicationIdentity, Vec<usize>>,
     failures_by_file_and_range: HashMap<String, HashMap<(usize, usize), usize>>,
     values: Vec<IndexedModuleValuePublicationValue>,
     collision_diagnostic_indices: HashMap<crate::types::ModuleValueIdentity, Vec<usize>>,
@@ -166,6 +166,7 @@ pub struct ModuleValuePublicationWork {
     pub retained_direct_causes: usize,
     pub visited_initializations: usize,
     pub exported_root_lookups: usize,
+    pub identity_root_expansions: usize,
     pub traversal_values: usize,
     pub traversal_edges: usize,
     pub cause_insertions: usize,
@@ -183,6 +184,7 @@ thread_local! {
             retained_direct_causes: 0,
             visited_initializations: 0,
             exported_root_lookups: 0,
+            identity_root_expansions: 0,
             traversal_values: 0,
             traversal_edges: 0,
             cause_insertions: 0,
