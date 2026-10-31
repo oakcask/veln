@@ -1545,9 +1545,11 @@ For a function declared with `<effect E>`, a final `...E` tail in its function
 types is call-bound. Each occurrence contributes a set-inclusion constraint in
 the structural direction of that occurrence: function inputs reverse the
 direction, while results and effect sets preserve it. One call solves all
-occurrences together. It chooses the least concrete set satisfying every lower
-bound and accepts the call only when that set also satisfies every upper bound.
-The result does not depend on argument or nested-type traversal order.
+occurrences together. Every supplied variadic argument contributes through the
+declared variadic element type. The solver chooses the least concrete set
+satisfying every lower bound and accepts the call only when that set also
+satisfies every upper bound. The result does not depend on argument or
+nested-type traversal order.
 The accepted substitution instantiates every row occurrence in the call's
 result type as well as the effects attributed to the caller. A nested payload,
 such as `Option<fn() -> () effects [...E]>`, contributes through its complete
@@ -1567,8 +1569,9 @@ call-bound row for calls through the binding. A function-typed parameter whose
 row belongs to the enclosing declaration remains rigid instead. The accepted
 [`effect-row-call-constraints`](../../examples/specification/check/effect-row-call-constraints/)
 case checks shared lower and upper bounds, concrete effects, empty inference,
-rigid row propagation, order independence, accepted record arguments, nested
-payloads, result instantiation, and direct local bindings. Its
+rigid row propagation, order independence, variadic contributions, accepted
+record arguments, nested payloads, result instantiation, and direct local
+bindings. Its
 [`rejection companion`](../../examples/specification/check/effect-row-call-rejection/)
 checks unsatisfied bounds and transactional rejection for direct and nested
 payloads.

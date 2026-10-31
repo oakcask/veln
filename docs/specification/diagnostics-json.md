@@ -887,6 +887,12 @@ The [type assignment rules](types.md#compatibility-and-limits) own the record,
 function-input, result, and effect directions. Their rejected directions and
 outer rendered types are checked by the
 [`complete structural assignment diagnostic case`](../../examples/specification/check/complete-type-structural-assignability-diagnostics/).
+The same rules own call-bound effect-row constraints. A rejected constraint or
+argument reports the ordinary `type.mismatch` for the failed compatibility
+fact. The rejected call does not emit `effect.missing_public` from a tentative
+row substitution. The
+[`effect-row rejection case`](../../examples/specification/check/effect-row-call-rejection/)
+checks that JSON outcome for direct and nested payload failures.
 
 Format-neutral generated decode helpers retain refinements in their parameter
 and successful `Result` types, but they use ordinary structural record

@@ -46,6 +46,10 @@ fn invoke_optional<effect E>(callback: Option<fn() -> () effects [...E]>) -> () 
 	()
 end
 
+fn invoke_all<effect E>(callbacks: ...fn() -> () effects [...E]) -> () effects [...E]
+	()
+end
+
 pub fn first_order() -> () effects [fs, stdio]
 	lower_then_upper(stdio_callback, accepts_stdio_or_db)
 end
@@ -68,6 +72,10 @@ end
 
 pub fn nested_payload() -> () effects [db]
 	invoke_optional(Some(db_callback))
+end
+
+pub fn variadic_arguments() -> () effects [db, stdio]
+	invoke_all(db_callback, stdio_callback)
 end
 
 pub fn local_alias() -> () effects [db]
