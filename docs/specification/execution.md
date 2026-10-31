@@ -449,10 +449,16 @@ install that production client boundary.
   zero stays inside the schema-validation boundary. It returns
   `schema.validation_failed` with the supplied offset, the field or schema
   path, and a reason that identifies predicate evaluation failure; no host
-  arithmetic exception escapes. The checked
+  arithmetic exception escapes. Predicate references retain decoded `Int` or
+  `Bool` values. A `Bool` reference can be the predicate or an operand of
+  Boolean equality and Boolean operators. Other decoded value types, including
+  `String`, `Float`, and source ADTs, are rejected during schema analysis
+  rather than being converted or failing during runtime predicate evaluation.
+  The checked
   [`schema-runtime-refinement-predicate-order`](../../examples/specification/run/schema-runtime-refinement-predicate-order/)
-  case covers refinement precedence, predicate order, bitwise evaluation,
-  division failure, paths, and successful value preservation. The checked
+  case covers refinement precedence, predicate order, integer and Boolean
+  evaluation, division failure, paths, and successful value preservation. The
+  checked
   [`schema-runtime-refinement-predicate-invalid-shift-json`](../../examples/specification/run/schema-runtime-refinement-predicate-invalid-shift-json/)
   case covers the dynamic shift failure. The checked
   container traversal and ordering behavior is exercised by
@@ -676,7 +682,8 @@ only to `Decoded` or `Ok`. A successful wrapper preserves the decoded value,
 consumed count, input bytes, and any trailing bytes. It returns validation
 failure as `Invalid` or `Err` without publishing a refined value. `NeedMore`
 readiness and an existing `Invalid` or `Err` are returned unchanged and do not
-run validation. Predicate evaluation failure, including division by zero,
+run validation. Predicate failure for either an integer or Boolean field, and
+predicate evaluation failure including division by zero,
 uses the same typed `Invalid` or `Err` wrapper and preserves the input bytes.
 This composition does not add wire mapping or weaken generated
 binary-schema refinement rejection. The checked

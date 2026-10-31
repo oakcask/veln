@@ -224,6 +224,22 @@ public final class SchemaPredicatePrecedenceHarness {
         );
     }
 
+    private static Object validateFlag(boolean flag) {
+        return VelnRuntime.validateSchemaRefinementAndPredicates(
+            VelnRuntime.record("flag", Boolean.valueOf(flag)),
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(19) }),
+            "Flagged",
+            VelnRuntime.list("record", VelnRuntime.list()),
+            java.util.Arrays.asList(
+                "Flagged",
+                VelnRuntime.list("flag"),
+                VelnRuntime.list("flag"),
+                "",
+                VelnRuntime.list("")
+            )
+        );
+    }
+
     public static void main(String[] args) {
         System.out.println(validate(
             1,
@@ -233,6 +249,8 @@ public final class SchemaPredicatePrecedenceHarness {
         System.out.println(validate(2, "(value & 1) == 1", ""));
         System.out.println(validate(2, "value & 1 == 1", ""));
         System.out.println(validate(0, "10 / value > 0", ""));
+        System.out.println(validateFlag(true));
+        System.out.println(validateFlag(false));
     }
 }
 "#,
@@ -256,6 +274,9 @@ public final class SchemaPredicatePrecedenceHarness {
             "Err(DecodeErrorWithReason(schema.validation_failed, ByteOffset(19), /Packet/value, ",
             "predicate `10 / value > 0` evaluation failed: schema predicate division by zero; ",
             "supplied_values=value=0))\n",
+            "Ok({flag=true})\n",
+            "Err(DecodeErrorWithReason(schema.validation_failed, ByteOffset(19), /Flagged/flag, ",
+            "predicate `flag` failed; supplied_values=flag=false))\n",
         )
     );
     assert!(!stdout.contains("ArithmeticException"));

@@ -172,15 +172,14 @@
             return err("invalid runtime schema predicate metadata for schema `" + schemaName + "`");
         }
         java.util.Map<Object, Object> record = asMap(value);
-        java.util.LinkedHashMap<String, Long> supplied = new java.util.LinkedHashMap<String, Long>();
+        java.util.LinkedHashMap<String, Object> supplied = new java.util.LinkedHashMap<String, Object>();
         for (int index = 0; index < fieldNames.size(); index += 1) {
             String fieldName = asString(fieldNames.get(index));
             Object fieldValue = record.get(fieldName);
-            Long intValue = fieldValue instanceof Long ? (Long) fieldValue : null;
-            if (intValue != null) {
-                supplied.put(fieldName, intValue);
+            if (fieldValue instanceof Long || fieldValue instanceof Boolean) {
+                supplied.put(fieldName, fieldValue);
             } else {
-                schemaPutNestedIntFields(supplied, fieldName, fieldValue);
+                schemaPutNestedPredicateFields(supplied, fieldName, fieldValue);
             }
             SchemaRefinementPath fieldPath = path.append(fieldName);
             Object nested = nestedMetadata.get(index);
@@ -274,7 +273,7 @@
         Object baseOffset,
         SchemaRefinementPath path,
         String predicate,
-        java.util.Map<String, Long> supplied
+        java.util.Map<String, ?> supplied
     ) {
         return err(adt(
             "DecodeError::DecodeErrorWithReason",
@@ -293,7 +292,7 @@
         SchemaRefinementPath path,
         String predicate,
         String failure,
-        java.util.Map<String, Long> supplied
+        java.util.Map<String, ?> supplied
     ) {
         return err(adt(
             "DecodeError::DecodeErrorWithReason",
@@ -940,13 +939,13 @@
     private interface SchemaValueExpr {}
 
     private interface SchemaIntExpr extends SchemaValueExpr {
-        long eval(java.util.Map<String, Long> decoded);
+        long eval(java.util.Map<String, ?> decoded);
 
         void collectRefs(java.util.Set<String> refs);
     }
 
     private interface SchemaBoolExpr extends SchemaValueExpr {
-        boolean eval(java.util.Map<String, Long> decoded);
+        boolean evalBool(java.util.Map<String, ?> decoded);
 
         void collectRefs(java.util.Set<String> refs);
     }
@@ -1661,8 +1660,8 @@
             this.expr = expr;
         }
 
-        boolean eval(java.util.Map<String, Long> decoded) {
-            return expr.eval(decoded);
+        boolean eval(java.util.Map<String, ?> decoded) {
+            return expr.evalBool(decoded);
         }
 
         java.util.Set<String> refs() {
@@ -2027,26 +2026,38 @@
             this.value = value;
         }
 
-        public long eval(java.util.Map<String, Long> decoded) {
+        public long eval(java.util.Map<String, ?> decoded) {
             return value;
         }
 
         public void collectRefs(java.util.Set<String> refs) {}
     }
 
-    private static final class SchemaRef implements SchemaIntExpr {
+    private static final class SchemaRef implements SchemaIntExpr, SchemaBoolExpr {
         final String name;
 
         SchemaRef(String name) {
             this.name = name;
         }
 
-        public long eval(java.util.Map<String, Long> decoded) {
-            Long value = decoded.get(name);
-            if (value == null) {
-                throw new IllegalStateException("schema predicate reference `" + name + "` is not decoded");
+        public long eval(java.util.Map<String, ?> decoded) {
+            Object value = decoded.get(name);
+            if (!(value instanceof Long)) {
+                throw new IllegalStateException(
+                    "schema predicate reference `" + name + "` is not a decoded Int"
+                );
             }
-            return value.longValue();
+            return ((Long) value).longValue();
+        }
+
+        public boolean evalBool(java.util.Map<String, ?> decoded) {
+            Object value = decoded.get(name);
+            if (!(value instanceof Boolean)) {
+                throw new IllegalStateException(
+                    "schema predicate reference `" + name + "` is not a decoded Bool"
+                );
+            }
+            return ((Boolean) value).booleanValue();
         }
 
         public void collectRefs(java.util.Set<String> refs) {
@@ -2065,7 +2076,7 @@
             this.right = right;
         }
 
-        public long eval(java.util.Map<String, Long> decoded) {
+        public long eval(java.util.Map<String, ?> decoded) {
             long leftValue = left.eval(decoded);
             long rightValue = right.eval(decoded);
             if (op.equals("+")) {
@@ -2099,7 +2110,7 @@
             this.expr = expr;
         }
 
-        public long eval(java.util.Map<String, Long> decoded) {
+        public long eval(java.util.Map<String, ?> decoded) {
             return -expr.eval(decoded);
         }
 
@@ -2115,7 +2126,7 @@
             this.expr = expr;
         }
 
-        public long eval(java.util.Map<String, Long> decoded) {
+        public long eval(java.util.Map<String, ?> decoded) {
             return ~expr.eval(decoded);
         }
 
@@ -2135,7 +2146,7 @@
             this.right = right;
         }
 
-        public long eval(java.util.Map<String, Long> decoded) {
+        public long eval(java.util.Map<String, ?> decoded) {
             long leftValue = left.eval(decoded);
             long rightValue = right.eval(decoded);
             if (op.equals("&")) {
@@ -2183,7 +2194,7 @@
             this.right = right;
         }
 
-        public boolean eval(java.util.Map<String, Long> decoded) {
+        public boolean evalBool(java.util.Map<String, ?> decoded) {
             Object leftValue = schemaPredicateValue(left, decoded);
             Object rightValue = schemaPredicateValue(right, decoded);
             boolean equal = leftValue.equals(rightValue);
@@ -2204,12 +2215,22 @@
 
     private static Object schemaPredicateValue(
         SchemaValueExpr expression,
-        java.util.Map<String, Long> decoded
+        java.util.Map<String, ?> decoded
     ) {
+        if (expression instanceof SchemaRef) {
+            Object value = decoded.get(((SchemaRef) expression).name);
+            if (value == null) {
+                throw new IllegalStateException(
+                    "schema predicate reference `" + ((SchemaRef) expression).name
+                        + "` is not decoded"
+                );
+            }
+            return value;
+        }
         if (expression instanceof SchemaIntExpr) {
             return Long.valueOf(((SchemaIntExpr) expression).eval(decoded));
         }
-        return Boolean.valueOf(((SchemaBoolExpr) expression).eval(decoded));
+        return Boolean.valueOf(((SchemaBoolExpr) expression).evalBool(decoded));
     }
 
     private static void schemaPredicateCollectRefs(
@@ -2234,7 +2255,7 @@
             this.right = right;
         }
 
-        public boolean eval(java.util.Map<String, Long> decoded) {
+        public boolean evalBool(java.util.Map<String, ?> decoded) {
             long leftValue = left.eval(decoded);
             long rightValue = right.eval(decoded);
             if (op.equals("<")) {
@@ -2271,7 +2292,7 @@
             this.value = value;
         }
 
-        public boolean eval(java.util.Map<String, Long> decoded) {
+        public boolean evalBool(java.util.Map<String, ?> decoded) {
             return value;
         }
 
@@ -2285,8 +2306,8 @@
             this.expr = expr;
         }
 
-        public boolean eval(java.util.Map<String, Long> decoded) {
-            return !expr.eval(decoded);
+        public boolean evalBool(java.util.Map<String, ?> decoded) {
+            return !expr.evalBool(decoded);
         }
 
         public void collectRefs(java.util.Set<String> refs) {
@@ -2305,12 +2326,12 @@
             this.right = right;
         }
 
-        public boolean eval(java.util.Map<String, Long> decoded) {
+        public boolean evalBool(java.util.Map<String, ?> decoded) {
             if (op.equals("and")) {
-                return left.eval(decoded) && right.eval(decoded);
+                return left.evalBool(decoded) && right.evalBool(decoded);
             }
             if (op.equals("or")) {
-                return left.eval(decoded) || right.eval(decoded);
+                return left.evalBool(decoded) || right.evalBool(decoded);
             }
             throw new IllegalStateException("unsupported schema boolean operator `" + op + "`");
         }
@@ -9465,6 +9486,20 @@
             Object child = entry.getValue();
             if (child instanceof Long) target.put(path, (Long) child);
             else schemaPutNestedIntFields(target, path, child);
+        }
+    }
+
+    private static void schemaPutNestedPredicateFields(
+        java.util.Map<String, Object> target,
+        String prefix,
+        Object value
+    ) {
+        if (!(value instanceof java.util.Map<?, ?>)) return;
+        for (java.util.Map.Entry<?, ?> entry : ((java.util.Map<?, ?>) value).entrySet()) {
+            String path = prefix + "." + asString(entry.getKey());
+            Object child = entry.getValue();
+            if (child instanceof Long || child instanceof Boolean) target.put(path, child);
+            else schemaPutNestedPredicateFields(target, path, child);
         }
     }
 

@@ -54,3 +54,10 @@ schema.validation_failed
 19
 /Dividing/value
 predicate `10 / value > 0` evaluation failed: schema predicate division by zero; supplied_values=value=0
+bool-success
+accepted-true
+bool-failure
+schema.validation_failed
+19
+/Flagged/flag
+predicate `flag` failed; supplied_values=flag=false

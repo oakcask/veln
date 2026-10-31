@@ -12,6 +12,10 @@ schema Packet
 	validate value < 10
 end
 
+schema Flagged
+	flag: Bool where flag
+end
+
 fn absolute_offset(base: ByteOffset, local: Int) -> ByteOffset
 	match byte_offset(byte_offset_to_int(base) + local)
 		Ok(offset) => offset
@@ -74,6 +78,24 @@ fn validate_result(result: Result<{kind: Kind, value: Int}, DecodeError>, base: 
 	end
 end
 
+fn validate_flag_step(step: DecodeStep<{flag: Bool}>, base: ByteOffset) -> DecodeStep<{flag: Bool}>
+	match step
+		Decoded(value, consumed) => match validate Flagged from value at base
+			Ok(refined) => Decoded(refined, consumed)
+			Err(error) => Invalid(error)
+		end
+		NeedMore(readiness) => NeedMore(readiness)
+		Invalid(error) => Invalid(error)
+	end
+end
+
+fn validate_flag_result(result: Result<{flag: Bool}, DecodeError>, base: ByteOffset) -> Result<{flag: Bool}, DecodeError>
+	match result
+		Ok(value) => validate Flagged from value at base
+		Err(error) => Err(error)
+	end
+end
+
 fn view(hex: String) -> Result<ByteView, String>
 	let bytes = byte_chunk_from_hex(hex)?
 	byte_view(bytes, byte_offset(0)?, byte_chunk_count(bytes))
@@ -132,6 +154,49 @@ fn report_result(label: String, result: Result<{kind: Kind::Allowed, value: Int}
 	end
 end
 
+fn report_flag_step(label: String, input: ByteView, step: DecodeStep<{flag: Bool}>) -> () effects [stdio]
+	stdio::println(label)
+	stdio::println(int_to_string(byte_count_to_int(byte_view_count(input))))
+	match step
+		Decoded(value, consumed) => begin
+			match value.flag
+				true => stdio::println("decoded-true")
+				false => stdio::println("decoded-false")
+			end
+			stdio::println(int_to_string(byte_count_to_int(consumed)))
+		end
+		NeedMore(_) => stdio::println("unexpected-readiness")
+		Invalid(DecodeErrorWithReason(id, offset, path, _)) => begin
+			stdio::println(id)
+			stdio::println(int_to_string(byte_offset_to_int(offset)))
+			stdio::println(path)
+		end
+		Invalid(DecodeError(id, offset, path)) => begin
+			stdio::println(id)
+			stdio::println(int_to_string(byte_offset_to_int(offset)))
+			stdio::println(path)
+		end
+	end
+end
+
+fn report_flag_result(label: String, result: Result<{flag: Bool}, DecodeError>) -> () effects [stdio]
+	stdio::println(label)
+	match result
+		Ok(value) => match value.flag
+			true => stdio::println("ok-true")
+			false => stdio::println("ok-false")
+		end
+		Err(DecodeErrorWithReason(id, _, path, _)) => begin
+			stdio::println(id)
+			stdio::println(path)
+		end
+		Err(DecodeError(id, _, path)) => begin
+			stdio::println(id)
+			stdio::println(path)
+		end
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let base = byte_offset(40)?
 	let success = view("0107aa")?
@@ -166,5 +231,13 @@ pub fn main() -> Result<(), String> effects [stdio]
 	report_result("result-malformed", validate_result(decode_packet_result(malformed_tag, base), base))
 	report_result("result-truncated", validate_result(decode_packet_result(truncated, base), base))
 	report_result("result-division", validate_result(decode_packet_result(division, base), base))
+	report_flag_step("bool-step-success", success, validate_flag_step(Decoded({flag: true}, byte_count(1)?), base))
+	report_flag_step("bool-step-failure", success, validate_flag_step(Decoded({flag: false}, byte_count(1)?), base))
+	report_flag_result("bool-result-success", validate_flag_result(Ok({flag: true}), base))
+	report_flag_result("bool-result-failure", validate_flag_result(Ok({flag: false}), base))
+	stdio::println("bool-wrapper-input-after-validation")
+	stdio::println(int_to_string(byte_at(success, 0)?))
+	stdio::println(int_to_string(byte_at(success, 1)?))
+	stdio::println(int_to_string(byte_at(success, 2)?))
 	Ok(())
 end

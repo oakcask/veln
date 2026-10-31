@@ -28,6 +28,10 @@ schema Dividing
 	value: Int where 10 / value > 0
 end
 
+schema Flagged
+	flag: Bool where flag
+end
+
 fn validate_packet(value: {before: Int, child: {state: State, value: Int}, after: Int}, offset: ByteOffset) -> Result<{before: Int, child: {state: State::Connected, value: Int}, after: Int}, DecodeError>
 	validate Parent from value at offset
 end
@@ -74,6 +78,27 @@ fn report_bitwise(label: String, result: Result<{value: Int}, DecodeError>) -> (
 	end
 end
 
+fn report_flag(label: String, result: Result<{flag: Bool}, DecodeError>) -> () effects [stdio]
+	stdio::println(label)
+	match result
+		Ok(value) => match value.flag
+			true => stdio::println("accepted-true")
+			false => stdio::println("accepted-false")
+		end
+		Err(DecodeErrorWithReason(id, offset, path, reason)) => begin
+			stdio::println(id)
+			stdio::println(int_to_string(byte_offset_to_int(offset)))
+			stdio::println(path)
+			stdio::println(reason)
+		end
+		Err(DecodeError(id, offset, path)) => begin
+			stdio::println(id)
+			stdio::println(int_to_string(byte_offset_to_int(offset)))
+			stdio::println(path)
+		end
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let offset = byte_offset(19)?
 	report("refinement-first", validate_packet({before: 0, child: {state: Closed, value: 0}, after: 0}, offset))
@@ -88,5 +113,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	report_bitwise("bitwise-root", validate Bitwise from {value: 3} at offset)
 	report_bitwise("bitwise-success", validate Bitwise from {value: 1} at offset)
 	report_bitwise("division-by-zero", validate Dividing from {value: 0} at offset)
+	report_flag("bool-success", validate Flagged from {flag: true} at offset)
+	report_flag("bool-failure", validate Flagged from {flag: false} at offset)
 	Ok(())
 end

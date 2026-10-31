@@ -3014,10 +3014,10 @@
         );
     }
 
-    private static String formatDecodedSchemaValues(java.util.Map<String, Long> decodedValues) {
+    private static String formatDecodedSchemaValues(java.util.Map<String, ?> decodedValues) {
         StringBuilder out = new StringBuilder();
         boolean first = true;
-        for (java.util.Map.Entry<String, Long> entry : decodedValues.entrySet()) {
+        for (java.util.Map.Entry<String, ?> entry : decodedValues.entrySet()) {
             if (!first) {
                 out.append(", ");
             }

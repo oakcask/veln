@@ -199,7 +199,7 @@ fn schema_level_validation_rejects_non_int_decoded_fields() {
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "schema.validation_reference"
             && diagnostic.message
-                == "schema validation reference `payload` decodes as `ByteView`, not `Int`"
+                == "schema validation reference `payload` decodes as `ByteView`, not `Int` or `Bool`"
     }));
 }
 
@@ -273,6 +273,96 @@ fn schema_predicate_typing_uses_ordinary_bitwise_comparison_precedence() {
     let diagnostics = analyze_surface_module(&valid);
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn schema_predicate_typing_accepts_bool_and_rejects_unimplemented_runtime_values() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Flagged\n",
+            "  flag: Bool where flag\n",
+            "  validate flag == true\n",
+            "end\n",
+            "schema Labelled\n",
+            "  label: String where label == label\n",
+            "end\n",
+            "schema Measured\n",
+            "  ratio: Float where ratio == ratio\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        !diagnostics.iter().any(|diagnostic| {
+            diagnostic.message.contains("`flag`") || diagnostic.message.contains("Bool, not")
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "schema.field_predicate_reference"
+            && diagnostic.message
+                == "schema field predicate reference `label` decodes as `String`, not `Int` or `Bool`"
+    }), "{diagnostics:#?}");
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "schema.field_predicate_reference"
+            && diagnostic.message
+                == "schema field predicate reference `ratio` decodes as `Float`, not `Int` or `Bool`"
+    }), "{diagnostics:#?}");
+}
+
+fn schema_predicate_analysis_nodes(predicate: String) -> (Vec<Diagnostic>, usize) {
+    let source = SourceFile::new(
+        "main.veln",
+        format!("schema Scaled\n  value: Int where {predicate}\nend\n"),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+    crate::analysis::boundary::reset_schema_predicate_visited_nodes();
+    let diagnostics = analyze_surface_module(&module);
+    let visited = crate::analysis::boundary::schema_predicate_visited_nodes();
+    (diagnostics, visited)
+}
+
+#[test]
+fn generated_schema_predicate_analysis_is_linear_and_stack_safe() {
+    fn arithmetic_predicate(additions: usize) -> String {
+        format!("value{} > 0", " + 0".repeat(additions))
+    }
+    fn shift_predicate(shifts: usize, final_count: i64) -> String {
+        format!(
+            "value{} << {final_count} > 0",
+            " << 1".repeat(shifts.saturating_sub(1))
+        )
+    }
+
+    let (small_diagnostics, small_nodes) =
+        schema_predicate_analysis_nodes(arithmetic_predicate(2_048));
+    let (large_diagnostics, large_nodes) =
+        schema_predicate_analysis_nodes(arithmetic_predicate(4_096));
+    assert!(small_diagnostics.is_empty(), "{small_diagnostics:#?}");
+    assert!(large_diagnostics.is_empty(), "{large_diagnostics:#?}");
+    assert_eq!(small_nodes, 2 * 2_048 + 3);
+    assert_eq!(large_nodes, 2 * 4_096 + 3);
+    assert_eq!(large_nodes - small_nodes, 2 * 2_048);
+
+    let (shift_diagnostics, shift_nodes) =
+        schema_predicate_analysis_nodes(shift_predicate(4_096, 1));
+    assert!(shift_diagnostics.is_empty(), "{shift_diagnostics:#?}");
+    assert_eq!(shift_nodes, 2 * 4_096 + 3);
+
+    let (invalid_diagnostics, invalid_nodes) =
+        schema_predicate_analysis_nodes(shift_predicate(4_096, 64));
+    assert!(
+        invalid_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.invalid_shift_count")
+    );
+    assert_eq!(invalid_nodes, 2 * 4_096 + 3);
 }
 
 #[test]

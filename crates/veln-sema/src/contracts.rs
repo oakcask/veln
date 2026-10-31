@@ -371,53 +371,6 @@ pub(crate) fn predicate_has_nonfoldable_remainder_with_remainders(
         .any(|range| flat_remainder_chain_value(predicate, &remainders[range]).is_none())
 }
 
-pub(crate) fn predicate_invalid_literal_shift_count(
-    predicate: &str,
-) -> Option<(&'static str, i64)> {
-    let predicate = strip_balanced_outer_parens(predicate.trim());
-    for keyword in ["or", "and"] {
-        let clauses = split_top_level_keyword(predicate, keyword);
-        if clauses.len() > 1 {
-            return clauses
-                .into_iter()
-                .find_map(predicate_invalid_literal_shift_count);
-        }
-    }
-    for operators in [
-        &["|"][..],
-        &["^"][..],
-        &["&"][..],
-        &["==", "!="][..],
-        &["<=", ">=", "<", ">"][..],
-        &[">>>", ">>", "<<"][..],
-        &["+", "-"][..],
-        &["*", "/"][..],
-    ] {
-        let Some((left, operator, right)) = split_top_level_operator_group(predicate, operators)
-        else {
-            continue;
-        };
-        if matches!(operator, "<<" | ">>" | ">>>")
-            && let Some(count) = static_integer_expression(right)
-            && !(0..=63).contains(&count)
-        {
-            let operator = match operator {
-                "<<" => "<<",
-                ">>" => ">>",
-                ">>>" => ">>>",
-                _ => unreachable!(),
-            };
-            return Some((operator, count));
-        }
-        return predicate_invalid_literal_shift_count(left)
-            .or_else(|| predicate_invalid_literal_shift_count(right));
-    }
-    predicate
-        .strip_prefix('-')
-        .or_else(|| predicate.strip_prefix('~'))
-        .and_then(predicate_invalid_literal_shift_count)
-}
-
 mod boolean_cases;
 mod boolean_core;
 mod case_and_order;

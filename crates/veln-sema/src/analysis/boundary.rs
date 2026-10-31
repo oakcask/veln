@@ -78,6 +78,11 @@ pub(in crate::analysis) use schema_type_references::{
     lowercase_schema_primitive_position_diagnostic,
 };
 
+#[cfg(test)]
+pub(crate) use schema_validation::{
+    reset_schema_predicate_visited_nodes, schema_predicate_visited_nodes,
+};
+
 use module_boundaries::*;
 use names_and_aliases::*;
 use schema_composition::*;

@@ -17,7 +17,6 @@ pub(super) fn check_schema_validation_clause(
     decoded_fields: &BTreeMap<String, Type>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    check_schema_predicate_shift_count(&validation.predicate, &validation.span, diagnostics);
     for reference in schema_validation_references(&validation.predicate) {
         let Some(ty) = schema_field_reference_type(decoded_fields, &reference) else {
             diagnostics.push(schema_validation_reference_diagnostic(
@@ -30,14 +29,14 @@ pub(super) fn check_schema_validation_clause(
             ));
             continue;
         };
-        if ty != &Type::int() {
+        if ty != &Type::int() && ty != &Type::bool() {
             diagnostics.push(schema_validation_reference_diagnostic(
                 schema,
                 validation,
                 &reference,
                 "incompatible_field_reference",
                 format!(
-                    "schema validation reference `{reference}` decodes as `{}`, not `Int`",
+                    "schema validation reference `{reference}` decodes as `{}`, not `Int` or `Bool`",
                     ty.render()
                 ),
                 [("actual", JsonValue::string(ty.render()))],
@@ -73,7 +72,6 @@ pub(super) fn check_schema_field_predicate_references(
     let Some(where_clause) = &field.where_clause else {
         return;
     };
-    check_schema_predicate_shift_count(&where_clause.predicate, &where_clause.span, diagnostics);
     let mut visible_fields = decoded_fields.clone();
     visible_fields.insert(field.name.clone(), field_ty.clone());
     for reference in schema_validation_references(&where_clause.predicate) {
@@ -95,14 +93,14 @@ pub(super) fn check_schema_field_predicate_references(
             ));
             continue;
         };
-        if reference.contains('.') && ty != &Type::int() {
+        if ty != &Type::int() && ty != &Type::bool() {
             diagnostics.push(schema_field_predicate_reference_diagnostic(
                 schema,
                 field,
                 &reference,
                 "incompatible_field_reference",
                 format!(
-                    "schema field predicate reference `{reference}` decodes as `{}`, not `Int`",
+                    "schema field predicate reference `{reference}` decodes as `{}`, not `Int` or `Bool`",
                     ty.render()
                 ),
                 [("actual", JsonValue::string(ty.render()))],
@@ -124,6 +122,40 @@ struct SchemaPredicateOperandMismatch {
     actual: Box<Type>,
 }
 
+#[derive(Debug)]
+struct SchemaPredicateExpressionInfo {
+    ty: Option<Type>,
+    literal_int: Option<i64>,
+    invalid_shift: Option<(&'static str, i64)>,
+}
+
+#[derive(Debug)]
+struct SchemaPredicateAnalysis {
+    actual: Option<Type>,
+    invalid_shift: Option<(&'static str, i64)>,
+}
+
+enum SchemaPredicateAnalysisTask {
+    Visit(Expr),
+    FinishPrefix(PrefixOp),
+    FinishBinary(BinaryOp),
+}
+
+#[cfg(test)]
+thread_local! {
+    static SCHEMA_PREDICATE_VISITED_NODES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_schema_predicate_visited_nodes() {
+    SCHEMA_PREDICATE_VISITED_NODES.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn schema_predicate_visited_nodes() -> usize {
+    SCHEMA_PREDICATE_VISITED_NODES.get()
+}
+
 fn check_schema_predicate_type(
     predicate: &str,
     span: &SourceSpan,
@@ -133,8 +165,36 @@ fn check_schema_predicate_type(
     let Some(expression) = parse_schema_predicate_expression(predicate) else {
         return;
     };
-    match schema_predicate_expression_type(&expression, decoded_fields) {
-        Ok(Some(actual)) if actual != Type::bool() => diagnostics.push(Diagnostic::new(
+    let analysis = match analyze_schema_predicate_expression(expression, decoded_fields) {
+        Ok(analysis) => analysis,
+        Err(mismatch) => {
+            diagnostics.push(Diagnostic::new(
+                "type.mismatch",
+                Severity::Error,
+                DiagnosticKind::Type,
+                format!(
+                    "schema predicate operator `{}` expects `{}` operands, but found `{}`",
+                    mismatch.operator,
+                    mismatch.expected,
+                    mismatch.actual.render()
+                ),
+                Some(span.clone()),
+                JsonValue::object([
+                    ("operator", JsonValue::string(mismatch.operator)),
+                    ("expected", JsonValue::string(mismatch.expected)),
+                    ("actual", JsonValue::string(mismatch.actual.render())),
+                ]),
+            ));
+            return;
+        }
+    };
+    if let Some((operator, count)) = analysis.invalid_shift {
+        diagnostics.push(invalid_schema_predicate_shift_count_diagnostic(
+            span, operator, count,
+        ));
+    }
+    match analysis.actual {
+        Some(actual) if actual != Type::bool() => diagnostics.push(Diagnostic::new(
             "type.mismatch",
             Severity::Error,
             DiagnosticKind::Type,
@@ -148,24 +208,7 @@ fn check_schema_predicate_type(
                 ("actual", JsonValue::string(actual.render())),
             ]),
         )),
-        Err(mismatch) => diagnostics.push(Diagnostic::new(
-            "type.mismatch",
-            Severity::Error,
-            DiagnosticKind::Type,
-            format!(
-                "schema predicate operator `{}` expects `{}` operands, but found `{}`",
-                mismatch.operator,
-                mismatch.expected,
-                mismatch.actual.render()
-            ),
-            Some(span.clone()),
-            JsonValue::object([
-                ("operator", JsonValue::string(mismatch.operator)),
-                ("expected", JsonValue::string(mismatch.expected)),
-                ("actual", JsonValue::string(mismatch.actual.render())),
-            ]),
-        )),
-        Ok(_) => {}
+        _ => {}
     }
 }
 
@@ -187,53 +230,140 @@ fn parse_schema_predicate_expression(predicate: &str) -> Option<veln_syntax::Exp
     Some(expr)
 }
 
-fn schema_predicate_expression_type(
-    expression: &Expr,
+fn analyze_schema_predicate_expression(
+    expression: Expr,
     decoded_fields: &BTreeMap<String, Type>,
-) -> Result<Option<Type>, SchemaPredicateOperandMismatch> {
-    if let Some(reference) = schema_predicate_reference_path(expression) {
-        return Ok(schema_field_reference_type(decoded_fields, &reference).cloned());
-    }
-    match &expression.kind {
-        ExprKind::IntLiteral(_) => Ok(Some(Type::int())),
-        ExprKind::BoolLiteral(_) => Ok(Some(Type::bool())),
-        ExprKind::Prefix { op, expr } => {
-            schema_predicate_prefix_expression_type(*op, expr, decoded_fields)
+) -> Result<SchemaPredicateAnalysis, SchemaPredicateOperandMismatch> {
+    let mut tasks = vec![SchemaPredicateAnalysisTask::Visit(expression)];
+    let mut results = Vec::new();
+    while let Some(task) = tasks.pop() {
+        match task {
+            SchemaPredicateAnalysisTask::Visit(expression) => {
+                #[cfg(test)]
+                SCHEMA_PREDICATE_VISITED_NODES
+                    .set(SCHEMA_PREDICATE_VISITED_NODES.get().saturating_add(1));
+                match expression.kind {
+                    ExprKind::NamePath { segments, .. } => {
+                        let reference = (segments.len() == 1)
+                            .then(|| segments.into_iter().next())
+                            .flatten();
+                        results.push(SchemaPredicateExpressionInfo {
+                            ty: reference.and_then(|reference| {
+                                schema_field_reference_type(decoded_fields, &reference).cloned()
+                            }),
+                            literal_int: None,
+                            invalid_shift: None,
+                        });
+                    }
+                    ExprKind::FieldAccess { base, field, .. } => {
+                        let reference = schema_predicate_reference_path_from_field(*base, field);
+                        results.push(SchemaPredicateExpressionInfo {
+                            ty: reference.and_then(|reference| {
+                                schema_field_reference_type(decoded_fields, &reference).cloned()
+                            }),
+                            literal_int: None,
+                            invalid_shift: None,
+                        });
+                    }
+                    ExprKind::IntLiteral(text) => {
+                        results.push(SchemaPredicateExpressionInfo {
+                            ty: Some(Type::int()),
+                            literal_int: parse_schema_predicate_int_literal(&text),
+                            invalid_shift: None,
+                        });
+                    }
+                    ExprKind::BoolLiteral(_) => results.push(SchemaPredicateExpressionInfo {
+                        ty: Some(Type::bool()),
+                        literal_int: None,
+                        invalid_shift: None,
+                    }),
+                    ExprKind::StringLiteral(_) => results.push(SchemaPredicateExpressionInfo {
+                        ty: Some(Type::string()),
+                        literal_int: None,
+                        invalid_shift: None,
+                    }),
+                    ExprKind::FloatLiteral(_) => results.push(SchemaPredicateExpressionInfo {
+                        ty: Some(Type::float()),
+                        literal_int: None,
+                        invalid_shift: None,
+                    }),
+                    ExprKind::Prefix { op, expr } => {
+                        tasks.push(SchemaPredicateAnalysisTask::FinishPrefix(op));
+                        tasks.push(SchemaPredicateAnalysisTask::Visit(*expr));
+                    }
+                    ExprKind::Binary { op, left, right } => {
+                        tasks.push(SchemaPredicateAnalysisTask::FinishBinary(op));
+                        tasks.push(SchemaPredicateAnalysisTask::Visit(*right));
+                        tasks.push(SchemaPredicateAnalysisTask::Visit(*left));
+                    }
+                    _ => results.push(SchemaPredicateExpressionInfo {
+                        ty: None,
+                        literal_int: None,
+                        invalid_shift: None,
+                    }),
+                }
+            }
+            SchemaPredicateAnalysisTask::FinishPrefix(operator) => {
+                let operand = results.pop().expect("schema predicate prefix operand");
+                let expected = match operator {
+                    PrefixOp::Not => Type::bool(),
+                    PrefixOp::Negate | PrefixOp::BitwiseNot => Type::int(),
+                };
+                require_schema_predicate_operand(
+                    prefix_operator_text(operator),
+                    &expected,
+                    operand.ty,
+                )?;
+                let literal_int = match operator {
+                    PrefixOp::Negate => operand.literal_int.map(i64::wrapping_neg),
+                    PrefixOp::BitwiseNot => operand.literal_int.map(|value| !value),
+                    PrefixOp::Not => None,
+                };
+                results.push(SchemaPredicateExpressionInfo {
+                    ty: Some(expected),
+                    literal_int,
+                    invalid_shift: operand.invalid_shift,
+                });
+            }
+            SchemaPredicateAnalysisTask::FinishBinary(operator) => {
+                let right = results.pop().expect("schema predicate right operand");
+                let left = results.pop().expect("schema predicate left operand");
+                results.push(schema_predicate_binary_expression_info(
+                    operator, left, right,
+                )?);
+            }
         }
-        ExprKind::Binary { op, left, right } => {
-            schema_predicate_binary_expression_type(*op, left, right, decoded_fields)
-        }
-        _ => Ok(None),
     }
+    let result = results.pop().expect("schema predicate result");
+    debug_assert!(results.is_empty());
+    Ok(SchemaPredicateAnalysis {
+        actual: result.ty,
+        invalid_shift: result.invalid_shift,
+    })
 }
 
-fn schema_predicate_prefix_expression_type(
-    operator: PrefixOp,
-    operand: &Expr,
-    decoded_fields: &BTreeMap<String, Type>,
-) -> Result<Option<Type>, SchemaPredicateOperandMismatch> {
-    let expected = match operator {
-        PrefixOp::Not => Type::bool(),
-        PrefixOp::Negate | PrefixOp::BitwiseNot => Type::int(),
-    };
-    let actual = schema_predicate_expression_type(operand, decoded_fields)?;
-    require_schema_predicate_operand(prefix_operator_text(operator), &expected, actual)?;
-    Ok(Some(expected))
-}
-
-fn schema_predicate_binary_expression_type(
+fn schema_predicate_binary_expression_info(
     operator: BinaryOp,
-    left: &Expr,
-    right: &Expr,
-    decoded_fields: &BTreeMap<String, Type>,
-) -> Result<Option<Type>, SchemaPredicateOperandMismatch> {
-    let left = schema_predicate_expression_type(left, decoded_fields)?;
-    let right = schema_predicate_expression_type(right, decoded_fields)?;
-    match operator {
+    left: SchemaPredicateExpressionInfo,
+    right: SchemaPredicateExpressionInfo,
+) -> Result<SchemaPredicateExpressionInfo, SchemaPredicateOperandMismatch> {
+    let invalid_shift = if matches!(
+        operator,
+        BinaryOp::ShiftLeft | BinaryOp::ShiftRight | BinaryOp::ShiftRightLogical
+    ) && let Some(count) = right.literal_int
+        && !(0..=63).contains(&count)
+    {
+        Some((binary_operator_text(operator), count))
+    } else {
+        left.invalid_shift.or(right.invalid_shift)
+    };
+    let ty = match operator {
         BinaryOp::Or | BinaryOp::And => {
-            schema_predicate_typed_binary_expression(operator, Type::bool(), left, right)
+            schema_predicate_typed_binary_expression(operator, Type::bool(), left.ty, right.ty)?
         }
-        BinaryOp::Equal | BinaryOp::NotEqual => Ok(left.and(right).map(|_| Type::bool())),
+        BinaryOp::Equal | BinaryOp::NotEqual => {
+            schema_predicate_equality_expression_type(operator, left.ty, right.ty)?
+        }
         BinaryOp::Less
         | BinaryOp::LessEqual
         | BinaryOp::Greater
@@ -249,10 +379,38 @@ fn schema_predicate_binary_expression_type(
         | BinaryOp::Multiply
         | BinaryOp::Divide
         | BinaryOp::Remainder => {
-            schema_predicate_typed_binary_expression(operator, Type::int(), left, right)
+            schema_predicate_typed_binary_expression(operator, Type::int(), left.ty, right.ty)?
         }
-        BinaryOp::PipeGreater => Ok(None),
+        BinaryOp::PipeGreater => None,
+    };
+    let literal_int =
+        schema_predicate_literal_binary_value(operator, left.literal_int, right.literal_int);
+    Ok(SchemaPredicateExpressionInfo {
+        ty,
+        literal_int,
+        invalid_shift,
+    })
+}
+
+fn schema_predicate_equality_expression_type(
+    operator: BinaryOp,
+    left: Option<Type>,
+    right: Option<Type>,
+) -> Result<Option<Type>, SchemaPredicateOperandMismatch> {
+    let Some(left) = left else {
+        return Ok(None);
+    };
+    let Some(right) = right else {
+        return Ok(None);
+    };
+    if left == right && (left == Type::int() || left == Type::bool()) {
+        return Ok(Some(Type::bool()));
     }
+    Err(SchemaPredicateOperandMismatch {
+        operator: binary_operator_text(operator),
+        expected: "matching Int or Bool",
+        actual: Box::new(right),
+    })
 }
 
 fn schema_predicate_typed_binary_expression(
@@ -279,15 +437,61 @@ fn is_schema_predicate_ordering_operator(operator: BinaryOp) -> bool {
     )
 }
 
-fn schema_predicate_reference_path(expression: &Expr) -> Option<String> {
-    match &expression.kind {
-        ExprKind::NamePath { segments, .. } if segments.len() == 1 => segments.first().cloned(),
-        ExprKind::FieldAccess { base, field, .. } => {
-            let mut path = schema_predicate_reference_path(base)?;
-            path.push('.');
-            path.push_str(field);
-            Some(path)
+fn schema_predicate_reference_path_from_field(mut base: Expr, field: String) -> Option<String> {
+    let mut fields = vec![field];
+    loop {
+        match base.kind {
+            ExprKind::NamePath { segments, .. } if segments.len() == 1 => {
+                let mut path = segments.into_iter().next()?;
+                for field in fields.into_iter().rev() {
+                    path.push('.');
+                    path.push_str(&field);
+                }
+                return Some(path);
+            }
+            ExprKind::FieldAccess {
+                base: next, field, ..
+            } => {
+                fields.push(field);
+                base = *next;
+            }
+            _ => return None,
         }
+    }
+}
+
+fn parse_schema_predicate_int_literal(text: &str) -> Option<i64> {
+    let text = text.replace('_', "");
+    if let Some(binary) = text.strip_prefix("0b") {
+        i64::from_str_radix(binary, 2).ok()
+    } else if let Some(hex) = text.strip_prefix("0x") {
+        i64::from_str_radix(hex, 16).ok()
+    } else {
+        text.parse().ok()
+    }
+}
+
+fn schema_predicate_literal_binary_value(
+    operator: BinaryOp,
+    left: Option<i64>,
+    right: Option<i64>,
+) -> Option<i64> {
+    let left = left?;
+    let right = right?;
+    match operator {
+        BinaryOp::BitwiseOr => Some(left | right),
+        BinaryOp::BitwiseXor => Some(left ^ right),
+        BinaryOp::BitwiseAnd => Some(left & right),
+        BinaryOp::ShiftLeft if (0..=63).contains(&right) => Some(left.wrapping_shl(right as u32)),
+        BinaryOp::ShiftRight if (0..=63).contains(&right) => Some(left >> right),
+        BinaryOp::ShiftRightLogical if (0..=63).contains(&right) => {
+            Some(((left as u64) >> right) as i64)
+        }
+        BinaryOp::Add => Some(left.wrapping_add(right)),
+        BinaryOp::Subtract => Some(left.wrapping_sub(right)),
+        BinaryOp::Multiply => Some(left.wrapping_mul(right)),
+        BinaryOp::Divide if right != 0 => Some(left.wrapping_div(right)),
+        BinaryOp::Remainder if right != 0 => Some(left.wrapping_rem(right)),
         _ => None,
     }
 }
@@ -347,17 +551,12 @@ fn binary_operator_text(operator: BinaryOp) -> &'static str {
     }
 }
 
-fn check_schema_predicate_shift_count(
-    predicate: &str,
+fn invalid_schema_predicate_shift_count_diagnostic(
     span: &SourceSpan,
-    diagnostics: &mut Vec<Diagnostic>,
-) {
-    let Some((operator, count)) =
-        crate::contracts::predicate_invalid_literal_shift_count(predicate)
-    else {
-        return;
-    };
-    diagnostics.push(Diagnostic::new(
+    operator: &'static str,
+    count: i64,
+) -> Diagnostic {
+    Diagnostic::new(
         "type.invalid_shift_count",
         Severity::Error,
         DiagnosticKind::Type,
@@ -369,7 +568,7 @@ fn check_schema_predicate_shift_count(
             ("minimum_count", JsonValue::Number(0)),
             ("maximum_count", JsonValue::Number(63)),
         ]),
-    ));
+    )
 }
 
 pub(super) fn schema_validation_references(predicate: &str) -> Vec<String> {
