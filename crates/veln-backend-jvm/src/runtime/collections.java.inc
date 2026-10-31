@@ -127,6 +127,143 @@
         return failure == null ? okPreservingValue(value) : failure;
     }
 
+    public static Object validateSchemaRefinementAndPredicates(
+        Object value,
+        Object baseOffset,
+        Object schemaNameValue,
+        Object planValue,
+        Object validationMetadata
+    ) {
+        Object refined = validateSchemaRefinementPlan(
+            value,
+            baseOffset,
+            schemaNameValue,
+            planValue
+        );
+        if (isErr(refined)) {
+            return refined;
+        }
+        String rootPath = "/" + jsonPointerToken(asString(schemaNameValue));
+        Object failure = schemaRuntimePredicateFailure(
+            value,
+            baseOffset,
+            new SchemaRefinementPath(rootPath),
+            validationMetadata
+        );
+        return failure == null ? refined : failure;
+    }
+
+    private static Object schemaRuntimePredicateFailure(
+        Object value,
+        Object baseOffset,
+        SchemaRefinementPath path,
+        Object metadata
+    ) {
+        java.util.List<Object> values = asList(metadata);
+        if (values.size() != 5) {
+            return err("invalid runtime schema predicate metadata");
+        }
+        String schemaName = asString(values.get(0));
+        java.util.List<Object> fieldNames = asList(values.get(1));
+        java.util.List<Object> predicateValues = asList(values.get(2));
+        java.util.List<Object> nestedMetadata = asList(values.get(4));
+        if (fieldNames.size() != predicateValues.size()
+            || fieldNames.size() != nestedMetadata.size()) {
+            return err("invalid runtime schema predicate metadata for schema `" + schemaName + "`");
+        }
+        java.util.Map<Object, Object> record = asMap(value);
+        java.util.LinkedHashMap<String, Long> supplied = new java.util.LinkedHashMap<String, Long>();
+        for (int index = 0; index < fieldNames.size(); index += 1) {
+            String fieldName = asString(fieldNames.get(index));
+            Object fieldValue = record.get(fieldName);
+            Long intValue = fieldValue instanceof Long ? (Long) fieldValue : null;
+            if (intValue != null) {
+                supplied.put(fieldName, intValue);
+            } else {
+                schemaPutNestedIntFields(supplied, fieldName, fieldValue);
+            }
+            SchemaRefinementPath fieldPath = path.append(fieldName);
+            Object nested = nestedMetadata.get(index);
+            if (nested instanceof java.util.List<?>) {
+                Object failure = schemaRuntimePredicateFailure(
+                    fieldValue,
+                    baseOffset,
+                    fieldPath,
+                    nested
+                );
+                if (failure != null) {
+                    return failure;
+                }
+            }
+            String predicateText = asString(predicateValues.get(index));
+            if (predicateText.isEmpty()) {
+                continue;
+            }
+            SchemaPredicate predicate;
+            try {
+                predicate = new SchemaPredicateParser(predicateText).parse();
+            } catch (IllegalStateException failure) {
+                return err(failure.getMessage());
+            }
+            boolean passed;
+            try {
+                passed = predicate.eval(supplied);
+            } catch (IllegalStateException failure) {
+                return err(failure.getMessage());
+            }
+            if (!passed) {
+                return schemaRuntimePredicateDecodeError(
+                    baseOffset,
+                    fieldPath,
+                    predicate.text,
+                    supplied
+                );
+            }
+        }
+        String validationText = asString(values.get(3));
+        if (validationText.isEmpty()) {
+            return null;
+        }
+        SchemaPredicate validation;
+        try {
+            validation = new SchemaPredicateParser(validationText).parse();
+        } catch (IllegalStateException failure) {
+            return err(failure.getMessage());
+        }
+        boolean passed;
+        try {
+            passed = validation.eval(supplied);
+        } catch (IllegalStateException failure) {
+            return err(failure.getMessage());
+        }
+        return passed
+            ? null
+            : schemaRuntimePredicateDecodeError(
+                baseOffset,
+                path,
+                validation.text,
+                supplied
+            );
+    }
+
+    private static Object schemaRuntimePredicateDecodeError(
+        Object baseOffset,
+        SchemaRefinementPath path,
+        String predicate,
+        java.util.Map<String, Long> supplied
+    ) {
+        return err(adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "schema.validation_failed",
+                baseOffset,
+                path.render(),
+                "predicate `" + predicate + "` failed; supplied_values="
+                    + formatDecodedSchemaValues(supplied)
+            }
+        ));
+    }
+
     public static Object validateSchemaRefinements(
         Object value,
         Object baseOffset,

@@ -14,6 +14,13 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             .iter()
             .find(|schema| schema.schema_name == name)
             .unwrap_or_else(|| panic!("missing schema refinement validation spec `{name}`"));
+        let validation_schema = self
+            .program
+            .program
+            .schema_decoders
+            .iter()
+            .find(|candidate| candidate.schema_name == name)
+            .unwrap_or_else(|| panic!("missing schema predicate validation spec `{name}`"));
         let [value, base_offset] = args else {
             panic!("schema refinement validation should receive a value and offset");
         };
@@ -21,10 +28,11 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_expr(code, base_offset);
         code.ldc_string(&schema.declaration_name);
         self.emit_schema_refinement_plan(code, &schema.plan);
+        self.emit_schema_validation_metadata(code, validation_schema);
         code.invokestatic(
             &self.program.options.runtime_class,
-            "validateSchemaRefinementPlan",
-            &object_method_descriptor(4),
+            "validateSchemaRefinementAndPredicates",
+            &object_method_descriptor(5),
         );
     }
 

@@ -436,7 +436,16 @@ install that production client boundary.
   `~0` and `/` as `~1`; selecting a public alias does not replace the terminal
   declaration root. A negative supplied offset fails before field traversal
   with `schema.validation_offset_invalid` at the schema root. Validation
-  performs no byte I/O and does not invoke a schema decoder. The checked
+  performs no byte I/O and does not invoke a schema decoder. After all
+  reachable refinements succeed, predicate evaluation visits fields in
+  declaration order. A composed child's field and schema predicates run before
+  the predicate on its containing field. Each schema-level predicate runs
+  after that schema's field predicates. The first failed predicate returns
+  `schema.validation_failed` with the supplied offset and the failed field path
+  or schema root. The checked
+  [`schema-runtime-refinement-predicate-order`](../../examples/specification/run/schema-runtime-refinement-predicate-order/)
+  case covers refinement precedence, predicate order, paths, and successful
+  value preservation. The checked
   container traversal and ordering behavior is exercised by
   [`schema-runtime-refinement-validation-containers`](../../examples/specification/run/schema-runtime-refinement-validation-containers/).
   Source-ADT traversal and human and JSON path projection are checked by
@@ -651,6 +660,18 @@ result may instead request more input as part of its public partial-read
 contract. Successful incremental encoding can return `EncodeStep::Partial`
 with output chunks, a produced count, and continuation state; partial output
 is not itself an encode failure.
+
+An ordinary Veln decoder can narrow its successful value by matching a
+`DecodeStep` or `Result` and applying `validate Schema from value at offset`
+only to `Decoded` or `Ok`. A successful wrapper preserves the decoded value,
+consumed count, input bytes, and any trailing bytes. It returns validation
+failure as `Invalid` or `Err` without publishing a refined value. `NeedMore`
+readiness and an existing `Invalid` or `Err` are returned unchanged and do not
+run validation. This composition does not add wire mapping or weaken generated
+binary-schema refinement rejection. The checked
+[`schema-runtime-refinement-decoder-composition`](../../examples/specification/run/schema-runtime-refinement-decoder-composition/)
+case covers success, excluded constructors, predicate failure, malformed and
+truncated input, both readiness forms, consumed counts, and unchanged input.
 
 The production HTTP/2 HPACK API is authoritative for prefixed integers,
 Huffman strings, static and dynamic tables, table-size updates, indexed and

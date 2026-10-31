@@ -59,7 +59,11 @@ pub(crate) fn schema_refinement_validation_specs(
             let plan =
                 ir_schema_refinement_record_plan(decoded.fields.iter().filter_map(|field| {
                     ir_schema_refinement_field_plan(field).map(|plan| (field.name.clone(), plan))
-                }))?;
+                }))
+                .unwrap_or_else(|| IrSchemaRefinementPlan {
+                    root: 0,
+                    nodes: vec![IrSchemaRefinementPlanNode::Record(Vec::new())],
+                });
             Some(CoreSchemaRefinementValidationSpec {
                 schema_name: decoded.schema_name,
                 declaration_name: decoded.declaration_name,

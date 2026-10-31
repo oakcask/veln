@@ -1187,8 +1187,8 @@ Static failures for `validate Schema from value at offset` use
 `private_schema`; a resolved wrong-kind diagnostic also supplies
 `resolved_kind`. The primary span covers the written schema path without the
 `validate` keyword or either operand. `unresolved_schema` also reports an
-ineligible reachable composition graph, including a predicate or binary schema
-on a branch without refinements or a recursive source ADT that returns to an
+ineligible reachable composition graph, including any binary schema or a
+recursive source ADT that returns to an
 active declaration with different instantiated arguments. A missing path in
 `validate from value at offset` instead uses
 `parse.schema_validate_expression` with `schema path` as its expected input.
@@ -1197,8 +1197,6 @@ The checked
 and
 [`schema-runtime-validation-targets-json`](../../examples/specification/check/schema-runtime-validation-targets-json/)
 cases fix the target spans, messages, stable reasons, and JSON fields. The
-[`schema-runtime-refinement-predicate-boundary`](../../examples/specification/check/schema-runtime-refinement-predicate-boundary/)
-case fixes the reachable-composition eligibility boundary. The
 rejected
 [`schema-runtime-validation-missing-path`](source-surface-fixtures/rejected/schema-runtime-validation-missing-path.veln)
 fixture fixes the missing-path parse boundary. Runtime constructor rejection
@@ -1225,6 +1223,11 @@ and
 cases fix their structured and human diagnostic projections. Human rendering
 identifies the failed fact at the offset and places the path and mismatch or
 offset reason in notes.
+Runtime predicate rejection uses `schema.validation_failed` at the supplied
+offset. Its decoded JSON Pointer selects the containing field for a field
+predicate and the current schema root for a schema-level predicate. The checked
+[`schema-runtime-refinement-predicate-order`](../../examples/specification/run/schema-runtime-refinement-predicate-order/)
+case fixes predicate precedence, paths, and reasons.
 The checked
 [`schema-runtime-source-adt-validation-json`](../../examples/specification/run/schema-runtime-source-adt-validation-json/)
 and

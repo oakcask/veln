@@ -243,7 +243,7 @@ fn explicit_schema_validate_expression_checks_all_unrefined_composed_branches() 
 }
 
 #[test]
-fn explicit_schema_validate_expression_rejects_predicates_in_any_composed_branch() {
+fn explicit_schema_validate_expression_accepts_predicates_in_any_composed_branch() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -281,18 +281,8 @@ fn explicit_schema_validate_expression_rejects_predicates_in_any_composed_branch
         .expect("schema predicate fixture")
         .format = None;
     let lowered = lower_checked_surface_module(&module);
-    let validation_diagnostics = lowered
-        .diagnostics
-        .iter()
-        .filter(|diagnostic| diagnostic.id == "schema.validate_expression")
-        .collect::<Vec<_>>();
-
-    assert_eq!(
-        validation_diagnostics.len(),
-        8,
-        "{:#?}",
-        lowered.diagnostics
-    );
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
     for schema in [
         "FieldDirectBefore",
         "FieldDirectAfter",
@@ -304,12 +294,43 @@ fn explicit_schema_validate_expression_rejects_predicates_in_any_composed_branch
         "SchemaNestedAfter",
     ] {
         assert!(
-            validation_diagnostics
+            core.schema_refinement_validators
                 .iter()
-                .any(|diagnostic| diagnostic.message.contains(schema)),
-            "missing unsupported target {schema}: {validation_diagnostics:#?}"
+                .any(|spec| spec.schema_name == schema),
+            "missing runtime validator for {schema}: {:#?}",
+            core.schema_refinement_validators
         );
     }
+}
+
+#[test]
+fn explicit_schema_validate_expression_accepts_predicates_without_refinements() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PredicatesOnly\n",
+            "  value: Int where value > 0\n",
+            "  validate value < 10\n",
+            "end\n",
+            "fn check(value: {value: Int}, base: ByteOffset) -> Result<{value: Int}, DecodeError>\n",
+            "  validate PredicatesOnly from value at base\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parsed.tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let spec = core
+        .schema_refinement_validators
+        .iter()
+        .find(|spec| spec.schema_name == "PredicatesOnly")
+        .expect("predicate-only runtime validator");
+    assert!(matches!(
+        spec.plan.root_node(),
+        CoreSchemaRefinementPlanNode::Record(fields) if fields.is_empty()
+    ));
 }
 
 #[test]

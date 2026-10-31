@@ -1,0 +1,38 @@
+refinement-first
+schema.variant_refinement_mismatch
+19
+/Parent/child/state
+actual variant `Closed`; expected one of `Connected`
+first-field
+schema.validation_failed
+19
+/Parent/before
+predicate `before > 0` failed; supplied_values=before=0
+child-field
+schema.validation_failed
+19
+/Parent/child/value
+predicate `value > 0` failed; supplied_values=value=0
+child-schema
+schema.validation_failed
+19
+/Parent/child
+predicate `value < 10` failed; supplied_values=value=10
+containing-field
+schema.validation_failed
+19
+/Parent/child
+predicate `child.value < 8` failed; supplied_values=before=1, child.value=8
+later-field
+schema.validation_failed
+19
+/Parent/after
+predicate `after > 0` failed; supplied_values=before=1, child.value=2, after=0
+root-schema
+schema.validation_failed
+19
+/Parent
+predicate `before + child.value == after` failed; supplied_values=before=1, child.value=2, after=4
+success
+accepted
+6

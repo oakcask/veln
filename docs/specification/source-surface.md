@@ -466,7 +466,8 @@ admitted by the format-neutral field rules. A written import does not create a
 bare schema operation path. Generated helper names are implementation details.
 
 `validate SchemaName from value at base_offset` accepts a format-neutral schema
-whose refinement-bearing positions are record fields of that schema, nested
+with at least one reachable refinement or predicate. Refinement-bearing
+positions are record fields of that schema, nested
 anonymous record fields, or fields of recursively composed format-neutral
 schemas. A refinement-bearing position can also occur in a payload of a source
 ADT reached from one of those fields. These positions may pass
@@ -481,9 +482,10 @@ The value is checked against the schema-local record after recursively
 replacing each supported refinement with its base ADT while preserving every
 record shape, container identity, source-ADT identity, and generic argument
 position, and `base_offset` must be `ByteOffset`. The result is
-`Result<SchemaRecord, DecodeError>` with the refinements retained. A supported
-validation schema has at least one reachable such field. It and every reachable
-composed schema have no field-local or schema-level predicate. Other supported
+`Result<SchemaRecord, DecodeError>` with the refinements retained. A
+predicate-only schema has the same input and successful result record type.
+Field-local and schema-level predicates are supported in every reachable
+composed format-neutral schema. Other supported
 fields may contain unrefined containers, which runtime validation preserves
 without traversing. Composed branches and anonymous record branches without
 refinements are also preserved, but composed branches still participate in the

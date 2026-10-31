@@ -16,10 +16,6 @@ also states it.
 
 ## Ready
 
-- Predicate ordering and ordinary decoder composition for the implemented
-  record, composed-schema, standard-container, and regular recursive source-ADT
-  runtime-validation operation:
-  [schema-runtime-refinement-validation.md](schema-runtime-refinement-validation.md).
 - With typed module `let` syntax, package-wide dependency validation, imported
   lookup, package-aware stable identity, visibility, and checked-core/typed-IR
   preservation implemented, add runtime materialization and execution,

@@ -84,8 +84,7 @@ impl<'a> Parser<'a> {
                 body.format = Some(clause);
             }
         } else if self.at_ident_text(crate::VALIDATE_MARKER) && !self.peek_at(TokenKind::Colon) {
-            body.validations
-                .push(self.parse_schema_validation_clause(body.format.is_some()));
+            body.validations.push(self.parse_schema_validation_clause());
         } else if self.at_ident_text("map") && !self.peek_at(TokenKind::Colon) {
             self.parse_removed_schema_mapping_clause();
         } else {
@@ -256,10 +255,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(super) fn parse_schema_validation_clause(
-        &mut self,
-        has_format: bool,
-    ) -> SchemaValidationClause {
+    pub(super) fn parse_schema_validation_clause(&mut self) -> SchemaValidationClause {
         let start = self
             .expect_ident_text(
                 crate::VALIDATE_MARKER,
@@ -267,16 +263,6 @@ impl<'a> Parser<'a> {
                 crate::VALIDATE_MARKER,
             )
             .range;
-        if !has_format {
-            self.error_current(
-                "parse.schema_validation_before_format",
-                "schema validation appears before a format clause",
-                "schema_validation",
-                vec!["format"],
-                RecoveryStrategy::InsertToken,
-                Some("format"),
-            );
-        }
         let (parts, predicate_tokens, _, end) = self.collect_line_parts_and_tokens();
         let mut perform_effect_spans = Vec::new();
         if predicate_tokens.is_empty() {
@@ -305,11 +291,7 @@ impl<'a> Parser<'a> {
         let end = self.expect_newline("schema_validation").range.cover(end);
         SchemaValidationClause {
             predicate: normalize_collected_text(parts),
-            perform_effect_spans: if has_format {
-                perform_effect_spans
-            } else {
-                Vec::new()
-            },
+            perform_effect_spans,
             span: self.source.span(start.cover(end)),
         }
     }
