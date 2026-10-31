@@ -542,7 +542,8 @@ impl<'a> FunctionChecker<'a> {
                 .as_ref(),
         )?;
 
-        let call_bound_row = call_bound_effect_row(&params, variadic.as_ref(), &origin.effects);
+        let call_bound_row =
+            call_bound_effect_row(&params, variadic.as_ref(), &return_type, &origin.effects);
         if let Some(instantiated_effects) = self.check_call_arguments_with_origin(
             args,
             &params,
@@ -616,7 +617,7 @@ impl<'a> FunctionChecker<'a> {
         variadic: Option<&Type>,
         origin: &CallOrigin,
     ) -> Option<EffectRowSubstitutions> {
-        let row = call_bound_effect_row(params, variadic, &origin.effects);
+        let row = call_bound_effect_row(params, variadic, &Type::Unknown, &origin.effects);
         self.check_call_arguments_with_origin(args, params, variadic, origin, None, row.as_deref())
     }
 

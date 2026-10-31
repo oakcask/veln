@@ -1553,7 +1553,11 @@ nested-type traversal order.
 The accepted substitution instantiates every row occurrence in the call's
 result type as well as the effects attributed to the caller. A nested payload,
 such as `Option<fn() -> () effects [...E]>`, contributes through its complete
-payload type before compatibility is decided.
+payload type before compatibility is decided. Any accepted argument expression,
+including an ordinary function call, contributes its checked type. A row that
+occurs only in the result type is still call-bound and receives the empty
+substitution when the call supplies no lower bound. These rules apply to both a
+declared function and a direct local binding of that function.
 
 Concrete entries beside the tail remain in the instantiated effect set. A
 call-bound row with no concrete lower bound becomes the empty set. A row bound
@@ -1563,18 +1567,20 @@ concrete effect. When it constrains another call-bound row, the substitution
 retains that enclosing row tail together with any concrete lower bounds instead
 of solving the enclosing row. If argument compatibility or any row upper bound
 fails, the call is rejected and none of its tentative row substitution
-contributes to the caller's inferred effects or escaping result type. A direct
-local binding of a declared row-polymorphic function keeps that declaration's
-call-bound row for calls through the binding. A function-typed parameter whose
-row belongs to the enclosing declaration remains rigid instead. The accepted
+contributes to the caller's inferred effects or escaping result type. The
+rejected result recovers as `unknown`; reusing it does not reveal a tentative
+concrete row or add effects from that row. A direct local binding of a declared
+row-polymorphic function keeps that declaration's call-bound row for calls
+through the binding. A function-typed parameter whose row belongs to the
+enclosing declaration remains rigid instead. The accepted
 [`effect-row-call-constraints`](../../examples/specification/check/effect-row-call-constraints/)
-case checks shared lower and upper bounds, concrete effects, empty inference,
-rigid row propagation, order independence, variadic contributions, accepted
-record arguments, standard and source-ADT nested payloads, result instantiation,
-and direct local bindings. Its
+case checks successful constraint solving and result instantiation, including
+empty return-only rows through declared and local calls. Its
 [`rejection companion`](../../examples/specification/check/effect-row-call-rejection/)
-checks unsatisfied concrete and rigid-row bounds plus transactional rejection
-for direct and nested payloads.
+checks unsatisfied concrete and rigid-row bounds, accepted ordinary-call
+arguments, escaping-result recovery, and transactional rejection. It also
+requires the diagnostic for a concrete effect written beside a row, so the
+concrete-entry preservation rule is independently observable.
 
 One record literal cannot declare the same field name twice. Duplicate record
 literal fields are name errors before record assignability chooses an expected

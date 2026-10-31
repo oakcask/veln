@@ -6,6 +6,10 @@ fn db_callback() -> () effects [db]
 	()
 end
 
+fn pure_callback() -> ()
+	()
+end
+
 fn accepts_stdio_or_db(callback: fn() -> () effects [stdio, db]) -> ()
 	()
 end
@@ -36,6 +40,14 @@ end
 
 fn effect_identity<effect E>(callback: fn() -> () effects [...E]) -> fn() -> () effects [...E]
 	callback
+end
+
+fn return_only<effect E>() -> fn() -> () effects [...E]
+	pure_callback
+end
+
+fn accept_pure(callback: fn() -> ()) -> ()
+	()
 end
 
 fn accept_db(callback: fn() -> () effects [db]) -> ()
@@ -80,6 +92,12 @@ end
 
 pub fn instantiated_result() -> ()
 	accept_db(effect_identity(db_callback))
+end
+
+pub fn empty_return_only_row() -> ()
+	let local = return_only
+	accept_pure(return_only())
+	accept_pure(local())
 end
 
 pub fn nested_payload() -> () effects [db]

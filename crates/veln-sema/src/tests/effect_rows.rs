@@ -559,6 +559,40 @@ fn accepted_record_argument_preserves_instantiated_call_effects() {
 }
 
 #[test]
+fn accepted_call_expression_argument_preserves_instantiated_private_call_effects() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn make_int() -> Int\n",
+        "\t1\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn through_call() -> ()\n",
+        "\tinvoke(db_callback, make_int())\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tthrough_call()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
+    );
+}
+
+#[test]
 fn solved_effect_row_instantiates_the_call_result_type() {
     let module = module(concat!(
         "fn db_callback() -> () effects [db]\n",
@@ -575,6 +609,33 @@ fn solved_effect_row_instantiates_the_call_result_type() {
         "\n",
         "pub fn main() -> ()\n",
         "\taccept_db(effect_identity(db_callback))\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn return_only_call_bound_row_instantiates_empty_for_declared_and_local_calls() {
+    let module = module(concat!(
+        "fn pure_callback() -> ()\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn make<effect E>() -> fn() -> () effects [...E]\n",
+        "\tpure_callback\n",
+        "end\n",
+        "\n",
+        "fn accept_pure(callback: fn() -> ()) -> ()\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\taccept_pure(make())\n",
+        "\tlet local = make\n",
+        "\taccept_pure(local())\n",
         "end\n",
     ));
 
@@ -716,6 +777,39 @@ fn rejected_nested_payload_does_not_publish_a_partial_row_solution() {
         "\n",
         "pub fn main() -> ()\n",
         "\trejected_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn rejected_row_bearing_result_recovers_without_publishing_type_or_effects() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn produce<effect E>(callback: fn() -> () effects [...E], count: Int) -> fn() -> () effects [...E] effects [...E]\n",
+        "\tcallback\n",
+        "end\n",
+        "\n",
+        "fn accepts_pure(callback: fn() -> ()) -> ()\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tlet recovered = produce(db_callback, \"wrong\")\n",
+        "\taccepts_pure(recovered)\n",
         "end\n",
     ));
 

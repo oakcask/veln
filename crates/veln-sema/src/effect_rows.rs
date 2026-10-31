@@ -36,6 +36,7 @@ fn record_effect_row_comparison() {
 pub(crate) fn call_bound_effect_row(
     params: &[Type],
     variadic: Option<&Type>,
+    return_type: &Type,
     effects: &[String],
 ) -> Option<String> {
     effects
@@ -43,6 +44,7 @@ pub(crate) fn call_bound_effect_row(
         .find_map(|effect| effect.strip_prefix("...").map(str::to_string))
         .or_else(|| params.iter().find_map(effect_row_in_type))
         .or_else(|| variadic.and_then(effect_row_in_type))
+        .or_else(|| effect_row_in_type(return_type))
 }
 
 pub(crate) fn solve_call_bound_effect_row<'a>(

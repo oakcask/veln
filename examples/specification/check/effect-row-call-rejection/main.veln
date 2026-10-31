@@ -18,8 +18,16 @@ fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effec
 	callback()
 end
 
+fn make_int() -> Int
+	1
+end
+
 fn rejected_helper() -> ()
 	invoke(db_callback, "wrong")
+end
+
+fn accepted_call_expression_helper() -> ()
+	invoke(db_callback, make_int())
 end
 
 fn invoke_optional<effect E>(callback: Option<fn() -> () effects [...E]>, count: Int) -> () effects [...E]
@@ -31,6 +39,14 @@ fn rejected_nested_helper() -> ()
 end
 
 fn accepts_pure(callback: fn() -> ()) -> ()
+	()
+end
+
+fn produce<effect E>(callback: fn() -> () effects [...E], count: Int) -> fn() -> () effects [...E] effects [...E]
+	callback
+end
+
+fn concrete_boundary<effect E>(callback: fn() -> () effects [...E]) -> () effects [fs, ...E]
 	()
 end
 
@@ -49,4 +65,17 @@ end
 
 pub fn rejected_nested_payload_is_transactional() -> ()
 	rejected_nested_helper()
+end
+
+pub fn rejected_result_is_transactional() -> ()
+	let recovered = produce(db_callback, "wrong")
+	accepts_pure(recovered)
+end
+
+pub fn accepted_call_expression_keeps_row_effect() -> ()
+	accepted_call_expression_helper()
+end
+
+pub fn concrete_effect_is_observable() -> () effects [db]
+	concrete_boundary(db_callback)
 end

@@ -3,8 +3,8 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"type.mismatch\""]
-not_contains = ["effect.missing_public", "net`"]
+contains = ["\"id\":\"type.mismatch\"", "public function uses undeclared effect `db`", "public function uses undeclared effect `fs`"]
+not_contains = ["public function uses undeclared effect `net`"]
 
 [stderr]
 format = "empty"
@@ -15,4 +15,16 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 4
+equals = 7
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `db`"
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `fs`"

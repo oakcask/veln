@@ -367,6 +367,7 @@ impl<'a> FunctionChecker<'a> {
         call_bound_effect_row(
             &function.params,
             function.variadic.as_ref(),
+            &function.return_type,
             &function.effects,
         )
     }

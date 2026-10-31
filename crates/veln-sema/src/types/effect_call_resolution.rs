@@ -15,6 +15,7 @@ pub(super) fn instantiate_call_effect_rows(
     instantiate_callable_effect_rows(
         &signature.params,
         signature.variadic.as_ref(),
+        &signature.return_type,
         &signature.effects,
         args,
         context,
@@ -54,11 +55,12 @@ pub(super) fn instantiate_local_call_effect_rows(
 fn instantiate_callable_effect_rows(
     params: &[Type],
     variadic: Option<&Type>,
+    return_type: &Type,
     effects: &[String],
     args: &[Expr],
     context: &ExprEffectContext<'_>,
 ) -> Option<Vec<String>> {
-    let row = call_bound_effect_row(params, variadic, effects);
+    let row = call_bound_effect_row(params, variadic, return_type, effects);
     instantiate_callable_effect_rows_with_row(
         params,
         variadic,
@@ -170,6 +172,7 @@ pub(super) fn call_bound_effect_row_for_expr(
     call_bound_effect_row(
         &signature.params,
         signature.variadic.as_ref(),
+        &signature.return_type,
         &signature.effects,
     )
 }
@@ -204,50 +207,101 @@ fn type_for_effect_call_argument(
                 .collect::<Option<Vec<_>>>()
                 .map(Type::Record)
         }
-        ExprKind::Call { callee, args } if let Some(segments) = callee.callee_name_path() => {
-            let descriptor = context
-                .adts
-                .descriptor_for_type_prefer_module(expected, context.current_module)?;
-            let constructor = context.adts.constructor_for_descriptor(
-                segments,
-                descriptor,
-                context.current_module,
-                context.uses,
-            )?;
-            if args.len() != constructor.variant.payload_fields.len() {
+        ExprKind::Call { callee, args } => {
+            if let Some(constructed) =
+                type_for_effect_constructor_call(callee, args, expected, context)
+            {
+                return Some(constructed);
+            }
+            let Type::Function {
+                params,
+                variadic,
+                return_type,
+                effects,
+            } = function_type_for_expr(callee, context)?
+            else {
+                return None;
+            };
+            let arity_matches =
+                args.len() >= params.len() && (variadic.is_some() || args.len() == params.len());
+            if !arity_matches {
                 return None;
             }
-            let expected_args = crate::adt::unification::adt_args(expected, descriptor)?;
-            let mut actual_args = vec![Type::Unknown; expected_args.len()];
+            let mut comparisons = Vec::new();
             for (index, arg) in args.iter().enumerate() {
-                let payload_expected =
-                    crate::adt::type_operations::payload_type_with_resolved_args(
-                        constructor,
-                        index,
-                        |type_index| expected_args[type_index].clone(),
-                    )?;
-                let actual = type_for_effect_call_argument(arg, &payload_expected, context)?;
-                crate::adt::type_operations::merge_type_args_from_payload(
-                    &mut actual_args,
-                    constructor,
-                    index,
-                    &actual,
-                );
+                let expected = params.get(index).or(variadic.as_deref())?;
+                comparisons.push((
+                    expected,
+                    type_for_effect_call_argument(arg, expected, context)?,
+                ));
             }
-            for (actual, expected) in actual_args.iter_mut().zip(expected_args) {
-                if *actual == Type::Unknown {
-                    *actual = expected.clone();
-                }
+            let row = call_bound_effect_row_for_expr(callee, context).or_else(|| {
+                call_bound_effect_row(&params, variadic.as_deref(), &return_type, &effects)
+            });
+            let substitutions = solve_call_bound_effect_row(
+                row.as_deref(),
+                comparisons
+                    .iter()
+                    .map(|(expected, actual)| (*expected, actual)),
+            );
+            if comparisons.iter().any(|(expected, actual)| {
+                !crate::type_relations::is_assignable(
+                    &instantiate_effect_rows_in_type(expected, &substitutions),
+                    actual,
+                )
+            }) {
+                return None;
             }
-            Some(
-                crate::adt::type_operations::refined_constructed_type_from_args(
-                    constructor,
-                    &actual_args,
-                ),
-            )
+            Some(instantiate_effect_rows_in_type(
+                &return_type,
+                &substitutions,
+            ))
         }
         _ => function_type_for_expr(expr, context),
     }
+}
+
+fn type_for_effect_constructor_call(
+    callee: &Expr,
+    args: &[Expr],
+    expected: &Type,
+    context: &ExprEffectContext<'_>,
+) -> Option<Type> {
+    let segments = callee.callee_name_path()?;
+    let descriptor = context
+        .adts
+        .descriptor_for_type_prefer_module(expected, context.current_module)?;
+    let constructor = context.adts.constructor_for_descriptor(
+        segments,
+        descriptor,
+        context.current_module,
+        context.uses,
+    )?;
+    if args.len() != constructor.variant.payload_fields.len() {
+        return None;
+    }
+    let expected_args = crate::adt::unification::adt_args(expected, descriptor)?;
+    let mut actual_args = vec![Type::Unknown; expected_args.len()];
+    for (index, arg) in args.iter().enumerate() {
+        let payload_expected = crate::adt::type_operations::payload_type_with_resolved_args(
+            constructor,
+            index,
+            |type_index| expected_args[type_index].clone(),
+        )?;
+        let actual = type_for_effect_call_argument(arg, &payload_expected, context)?;
+        crate::adt::type_operations::merge_type_args_from_payload(
+            &mut actual_args,
+            constructor,
+            index,
+            &actual,
+        );
+    }
+    for (actual, expected) in actual_args.iter_mut().zip(expected_args) {
+        if *actual == Type::Unknown {
+            *actual = expected.clone();
+        }
+    }
+    Some(crate::adt::type_operations::refined_constructed_type_from_args(constructor, &actual_args))
 }
 
 pub(super) fn concurrency_effects_for_call(
