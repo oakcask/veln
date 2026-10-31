@@ -78,6 +78,10 @@ fn view(hex: String) -> Result<ByteView, String>
 	byte_view(bytes, byte_offset(0)?, byte_chunk_count(bytes))
 end
 
+fn byte_at(input: ByteView, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view_drop(input, byte_count(index)?)?)
+end
+
 fn report_step(label: String, input: ByteView, step: DecodeStep<{kind: Kind::Allowed, value: Int}>) -> () effects [stdio]
 	stdio::println(label)
 	stdio::println(int_to_string(byte_count_to_int(byte_view_count(input))))
@@ -130,7 +134,8 @@ end
 pub fn main() -> Result<(), String> effects [stdio]
 	let base = byte_offset(40)?
 	let success = view("0107aa")?
-	report_step("step-success", success, validate_step(decode_packet(success, base), base))
+	let successful_step = validate_step(decode_packet(success, base), base)
+	report_step("step-success", success, successful_step)
 	let excluded = view("0207")?
 	report_step("step-excluded", excluded, validate_step(decode_packet(excluded, base), base))
 	let malformed_tag = view("0907")?
@@ -144,6 +149,11 @@ pub fn main() -> Result<(), String> effects [stdio]
 	report_step("step-need-end", empty, validate_step(NeedMore(NeedEnd), base))
 	let predicate = view("0100")?
 	report_step("step-predicate", predicate, validate_step(decode_packet(predicate, base), base))
+	stdio::println("input-after-failures")
+	stdio::println(int_to_string(byte_at(success, 0)?))
+	stdio::println(int_to_string(byte_at(success, 1)?))
+	stdio::println(int_to_string(byte_at(success, 2)?))
+	report_step("earlier-success-after-failures", success, successful_step)
 	report_result("result-success", validate_result(decode_packet_result(success, base), base))
 	report_result("result-excluded", validate_result(decode_packet_result(excluded, base), base))
 	report_result("result-malformed", validate_result(decode_packet_result(malformed_tag, base), base))

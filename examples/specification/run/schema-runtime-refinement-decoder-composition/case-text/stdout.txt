@@ -38,6 +38,15 @@ schema.validation_failed
 40
 /Packet/value
 predicate `value > 0` failed; supplied_values=value=0
+input-after-failures
+1
+7
+170
+earlier-success-after-failures
+3
+decoded
+7
+2
 result-success
 ok
 7
