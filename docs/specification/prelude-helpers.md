@@ -495,6 +495,26 @@ passes. Projection from the schema-local record into a domain shape is ordinary
 source code at the explicit operation or compatibility helper boundary.
 They report `schema.validation_failed` with field path, predicate, decoded
 values, and structured byte preview fields when validation fails. The same
+helpers evaluate predicate operators with ordinary expression precedence and
+evaluate a schema-level `validate` predicate after all fields are decoded. A
+predicate evaluation failure, including division by a dynamic zero divisor,
+returns an ordinary `Err(String)` instead of the structured validation
+diagnostic or a JVM exception. The matching compatibility encoders check
+supported field-local predicates against the supplied values before returning
+bytes. A false predicate returns a structured `schema.validation_failed`
+encode error, and a predicate evaluation failure returns a structured
+`codec.metadata` encode error. Predicate operand and operator limits are
+specified under [operators and diagnostics](types.md#operators-and-diagnostics).
+
+Generated `byte_decode_<schema>` and `byte_encode_<schema>` helpers for
+format-neutral composition retain checked `Int` and `Bool` predicate operands.
+A composed target evaluates its field predicates in declaration order and its
+schema-level predicate before the containing schema continues. A false nested
+predicate returns `schema.validation_failed` with the complete containing and
+target schema path, and neither direction returns a partial containing value or
+byte sequence.
+
+The same
 eligible schema declarations also retain compatibility
 `byte_decode_step_<schema>` helpers that accept `ByteView` plus `ByteOffset`
 and return `DecodeStep<T>` with
