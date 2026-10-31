@@ -27,21 +27,34 @@ pub(super) struct Dependency {
     span: veln_source::SourceSpan,
 }
 
+pub(super) struct DependencyCollector<'a> {
+    dependencies: &'a mut Vec<Dependency>,
+    collision_dependencies: &'a mut Vec<ModuleValueIdentity>,
+}
+
 pub(crate) struct ModuleValueAnalysis {
     pub(crate) diagnostics: Vec<Diagnostic>,
     pub(crate) invalid: BTreeSet<ModuleValueIdentity>,
-    pub(crate) publication_failures: Vec<ModuleValuePublicationFailure>,
     invalid_indices: Vec<bool>,
     // Collisions, invalid casing, and initializer cycles cannot recover when
     // imported candidates change. Other failures are rechecked at each change.
     intrinsic_invalid: BTreeSet<ModuleValueIdentity>,
     dependencies: Vec<Vec<Dependency>>,
+    collision_dependencies: Vec<Vec<ModuleValueIdentity>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct ModuleValuePublicationFailure {
+#[derive(Clone, Debug, Default)]
+pub(crate) struct ModuleValuePublicationProvenance {
+    pub(crate) values: Vec<ModuleValuePublicationValue>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct ModuleValuePublicationValue {
     pub(crate) span: veln_source::SourceSpan,
-    pub(crate) causal_diagnostics: Vec<crate::PublicationDiagnosticCause>,
+    pub(crate) identity: Option<ModuleValueIdentity>,
+    pub(crate) invalid: bool,
+    pub(crate) dependencies: Vec<usize>,
+    pub(crate) collision_dependencies: Vec<ModuleValueIdentity>,
 }
 
 #[cfg(test)]
@@ -209,12 +222,6 @@ pub(crate) fn check_module_values(
         }
     }
     debug_assert_eq!(stabilized.unavailable, final_analysis.invalid);
-    final_analysis.publication_failures = module_value_publication_failures(
-        module,
-        &final_analysis.diagnostics,
-        &final_analysis.invalid_indices,
-        &final_analysis.dependencies,
-    );
     final_analysis
 }
 
@@ -236,6 +243,7 @@ fn check_module_values_once(
 ) -> ModuleValueAnalysis {
     let mut diagnostics = Vec::new();
     let mut dependencies = vec![Vec::new(); module.module_values.len()];
+    let mut collision_dependencies = vec![Vec::new(); module.module_values.len()];
     let colliding_identities = colliding_module_value_identities(module);
     let mut intrinsic_invalid = colliding_identities.clone();
     intrinsic_invalid.extend(invalid_cased_module_value_identities(module));
@@ -246,13 +254,17 @@ fn check_module_values_once(
     for (index, value) in module.module_values.iter().enumerate() {
         #[cfg(test)]
         update_module_value_availability_work(|work| work.semantic_visits += 1);
+        let mut collected_dependencies = DependencyCollector {
+            dependencies: &mut dependencies[index],
+            collision_dependencies: &mut collision_dependencies[index],
+        };
         invalid[index] |= check_module_value(
             value,
             index,
             &value_indices,
             environment,
             variant_diagnostics,
-            &mut dependencies[index],
+            &mut collected_dependencies,
             &mut diagnostics,
         );
     }
@@ -288,99 +300,41 @@ fn check_module_values_once(
         diagnostics,
         intrinsic_invalid,
         dependencies,
-        publication_failures: Vec::new(),
+        collision_dependencies,
         invalid: invalid_identities,
         invalid_indices: invalid,
     }
 }
 
-fn module_value_publication_failures(
-    module: &SurfaceModule,
-    diagnostics: &[Diagnostic],
-    invalid: &[bool],
-    dependencies: &[Vec<Dependency>],
-) -> Vec<ModuleValuePublicationFailure> {
-    let mut owners_by_file = HashMap::<&str, Vec<(usize, usize, usize)>>::new();
-    for (index, value) in module.module_values.iter().enumerate() {
-        owners_by_file
-            .entry(value.span.file.as_str())
-            .or_default()
-            .push((value.span.start.offset, value.span.end.offset, index));
-    }
-    for owners in owners_by_file.values_mut() {
-        owners.sort_unstable_by_key(|(start, _, _)| *start);
-    }
-
-    let mut causes = vec![HashSet::new(); module.module_values.len()];
-    let mut pending = VecDeque::new();
-    for diagnostic in diagnostics {
-        let Some(span) = diagnostic.span.as_ref() else {
-            continue;
-        };
-        let Some(owners) = owners_by_file.get(span.file.as_str()) else {
-            continue;
-        };
-        let insertion = owners.partition_point(|(start, _, _)| *start <= span.start.offset);
-        let Some((start, end, owner)) = insertion.checked_sub(1).map(|index| owners[index]) else {
-            continue;
-        };
-        if span.start.offset < start || span.end.offset > end {
-            continue;
-        }
-        let cause = crate::PublicationDiagnosticCause {
-            diagnostic_id: diagnostic.id.clone(),
-            span: span.clone(),
-        };
-        if causes[owner].insert(cause.clone()) {
-            pending.push_back((owner, cause));
+impl ModuleValueAnalysis {
+    pub(crate) fn publication_provenance(
+        &self,
+        module: &SurfaceModule,
+    ) -> ModuleValuePublicationProvenance {
+        ModuleValuePublicationProvenance {
+            values: module
+                .module_values
+                .iter()
+                .enumerate()
+                .map(|(index, value)| ModuleValuePublicationValue {
+                    span: value.span.clone(),
+                    identity: value.name.as_ref().map(|name| {
+                        (
+                            value.package_name.clone(),
+                            value.module_name.clone(),
+                            name.clone(),
+                        )
+                    }),
+                    invalid: self.invalid_indices[index],
+                    dependencies: self.dependencies[index]
+                        .iter()
+                        .map(|dependency| dependency.target)
+                        .collect(),
+                    collision_dependencies: self.collision_dependencies[index].clone(),
+                })
+                .collect(),
         }
     }
-
-    let mut dependents = vec![Vec::new(); module.module_values.len()];
-    for (source, targets) in dependencies.iter().enumerate() {
-        for target in targets {
-            dependents[target.target].push(source);
-        }
-    }
-    while let Some((target, cause)) = pending.pop_front() {
-        for dependent in &dependents[target] {
-            if causes[*dependent].insert(cause.clone()) {
-                pending.push_back((*dependent, cause.clone()));
-            }
-        }
-    }
-
-    let mut failures = module
-        .module_values
-        .iter()
-        .enumerate()
-        .filter(|(index, value)| invalid[*index] && value.name.is_some())
-        .map(|(index, value)| {
-            let mut causal_diagnostics = causes[index].iter().cloned().collect::<Vec<_>>();
-            causal_diagnostics.sort_by(|left, right| {
-                left.span
-                    .file
-                    .as_str()
-                    .cmp(right.span.file.as_str())
-                    .then(left.span.start.offset.cmp(&right.span.start.offset))
-                    .then(left.span.end.offset.cmp(&right.span.end.offset))
-                    .then(left.diagnostic_id.cmp(&right.diagnostic_id))
-            });
-            ModuleValuePublicationFailure {
-                span: value.span.clone(),
-                causal_diagnostics,
-            }
-        })
-        .collect::<Vec<_>>();
-    failures.sort_by(|left, right| {
-        left.span
-            .file
-            .as_str()
-            .cmp(right.span.file.as_str())
-            .then(left.span.start.offset.cmp(&right.span.start.offset))
-            .then(left.span.end.offset.cmp(&right.span.end.offset))
-    });
-    failures
 }
 
 pub(super) fn check_module_value(
@@ -389,7 +343,7 @@ pub(super) fn check_module_value(
     value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
-    dependencies: &mut Vec<Dependency>,
+    dependencies: &mut DependencyCollector<'_>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> bool {
     let has_invalid_dependency =
@@ -424,7 +378,7 @@ fn collect_value_dependencies(
     value: &veln_ast::ModuleValueDecl,
     value_indices: &HashMap<ModuleValueIdentity, ModuleValueIndex>,
     environment: &TypeEnvironment,
-    dependencies: &mut Vec<Dependency>,
+    dependencies: &mut DependencyCollector<'_>,
 ) -> bool {
     let mut has_invalid_dependency = false;
     collect_dependencies(

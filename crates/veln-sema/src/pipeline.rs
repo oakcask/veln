@@ -1,13 +1,13 @@
 use std::collections::{BTreeSet, HashMap};
 use std::hash::Hash;
 
-use veln_ast::{FunctionKind, SurfaceModule, Visibility};
+use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, Visibility};
 use veln_core::CheckedProgram;
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
 
 use crate::analysis::{
-    ModuleValuePublicationFailure, VariantDiagnosticInterner, check_declared_effect_labels,
+    ModuleValuePublicationProvenance, VariantDiagnosticInterner, check_declared_effect_labels,
     check_duplicate_constructor_names, check_duplicate_effect_names,
     check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,
     check_duplicate_use_aliases, check_function_body, check_handler_declarations,
@@ -52,14 +52,29 @@ pub struct LoweredSurfaceModule {
     pub core: Option<CheckedProgram>,
     pub ir: Option<TypedProgram>,
     pub unpublished_declarations: Vec<UnpublishedDeclaration>,
-    module_value_publication_failures: Vec<IndexedModuleValuePublicationFailure>,
+    module_value_publication: IndexedModuleValuePublicationProvenance,
     diagnostic_indices_by_cause: HashMap<PublicationDiagnosticCause, usize>,
 }
 
 #[derive(Clone, Debug)]
 struct IndexedModuleValuePublicationFailure {
     span: veln_source::SourceSpan,
-    diagnostic_indices: Vec<usize>,
+    value_index: usize,
+}
+
+#[derive(Clone, Debug, Default)]
+struct IndexedModuleValuePublicationProvenance {
+    failures: Vec<IndexedModuleValuePublicationFailure>,
+    values: Vec<IndexedModuleValuePublicationValue>,
+    collision_diagnostic_indices: HashMap<crate::types::ModuleValueIdentity, Vec<usize>>,
+}
+
+#[derive(Clone, Debug)]
+struct IndexedModuleValuePublicationValue {
+    identity: Option<crate::types::ModuleValueIdentity>,
+    dependencies: Vec<usize>,
+    collision_dependencies: Vec<crate::types::ModuleValueIdentity>,
+    direct_diagnostic_indices: Vec<usize>,
 }
 
 impl LoweredSurfaceModule {
@@ -69,7 +84,7 @@ impl LoweredSurfaceModule {
             core: None,
             ir: None,
             unpublished_declarations: Vec::new(),
-            module_value_publication_failures: Vec::new(),
+            module_value_publication: IndexedModuleValuePublicationProvenance::default(),
             diagnostic_indices_by_cause: HashMap::new(),
         }
     }
@@ -77,8 +92,10 @@ impl LoweredSurfaceModule {
     pub fn module_value_publication_diagnostic_indices(
         &self,
         span: &veln_source::SourceSpan,
-    ) -> Option<&[usize]> {
-        self.module_value_publication_failures
+    ) -> Option<Vec<usize>> {
+        let value_index = self
+            .module_value_publication
+            .failures
             .binary_search_by(|failure| {
                 failure
                     .span
@@ -89,11 +106,48 @@ impl LoweredSurfaceModule {
                     .then(failure.span.end.offset.cmp(&span.end.offset))
             })
             .ok()
-            .map(|index| {
-                self.module_value_publication_failures[index]
-                    .diagnostic_indices
-                    .as_slice()
-            })
+            .map(|index| self.module_value_publication.failures[index].value_index)?;
+        let mut pending = vec![value_index];
+        let mut visited = vec![false; self.module_value_publication.values.len()];
+        let mut diagnostic_indices = BTreeSet::new();
+        while let Some(index) = pending.pop() {
+            if std::mem::replace(&mut visited[index], true) {
+                continue;
+            }
+            let value = &self.module_value_publication.values[index];
+            record_module_value_publication_work(|work| {
+                work.traversal_values += 1;
+                work.traversal_edges +=
+                    value.dependencies.len() + value.collision_dependencies.len();
+                work.cause_insertions += value.direct_diagnostic_indices.len();
+            });
+            diagnostic_indices.extend(value.direct_diagnostic_indices.iter().copied());
+            if let Some(identity) = value.identity.as_ref()
+                && let Some(indices) = self
+                    .module_value_publication
+                    .collision_diagnostic_indices
+                    .get(identity)
+            {
+                record_module_value_publication_work(|work| {
+                    work.cause_insertions += indices.len();
+                });
+                diagnostic_indices.extend(indices.iter().copied());
+            }
+            for identity in &value.collision_dependencies {
+                if let Some(indices) = self
+                    .module_value_publication
+                    .collision_diagnostic_indices
+                    .get(identity)
+                {
+                    record_module_value_publication_work(|work| {
+                        work.cause_insertions += indices.len();
+                    });
+                    diagnostic_indices.extend(indices.iter().copied());
+                }
+            }
+            pending.extend(value.dependencies.iter().copied());
+        }
+        Some(diagnostic_indices.into_iter().collect())
     }
 
     pub fn diagnostic_index_for_publication_cause(
@@ -106,7 +160,7 @@ impl LoweredSurfaceModule {
 
 struct SurfaceAnalysis {
     diagnostics: Vec<Diagnostic>,
-    module_value_publication_failures: Vec<ModuleValuePublicationFailure>,
+    module_value_publication: ModuleValuePublicationProvenance,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -157,6 +211,51 @@ pub(crate) struct PublicationPropagationWork {
     pub reverse_edges: usize,
     pub admitted_cause_pairs: usize,
     pub propagation_attempts: usize,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct ModuleValuePublicationWork {
+    pub(crate) retained_values: usize,
+    pub(crate) retained_edges: usize,
+    pub(crate) retained_direct_causes: usize,
+    pub(crate) traversal_values: usize,
+    pub(crate) traversal_edges: usize,
+    pub(crate) cause_insertions: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    static MODULE_VALUE_PUBLICATION_WORK: std::cell::Cell<ModuleValuePublicationWork> =
+        const { std::cell::Cell::new(ModuleValuePublicationWork {
+            retained_values: 0,
+            retained_edges: 0,
+            retained_direct_causes: 0,
+            traversal_values: 0,
+            traversal_edges: 0,
+            cause_insertions: 0,
+        }) };
+}
+
+#[cfg(test)]
+fn record_module_value_publication_work(update: impl FnOnce(&mut ModuleValuePublicationWork)) {
+    MODULE_VALUE_PUBLICATION_WORK.set({
+        let mut work = MODULE_VALUE_PUBLICATION_WORK.get();
+        update(&mut work);
+        work
+    });
+}
+
+#[cfg(not(test))]
+fn record_module_value_publication_work(_update: impl FnOnce(&mut ModuleValuePublicationWork)) {}
+
+#[cfg(test)]
+pub(crate) fn reset_module_value_publication_work() {
+    MODULE_VALUE_PUBLICATION_WORK.set(ModuleValuePublicationWork::default());
+}
+
+#[cfg(test)]
+pub(crate) fn take_module_value_publication_work() -> ModuleValuePublicationWork {
+    MODULE_VALUE_PUBLICATION_WORK.replace(ModuleValuePublicationWork::default())
 }
 
 #[cfg(test)]
@@ -316,7 +415,7 @@ fn check_project_surface_module_with_environment(
     let checked = lower_analyzed_surface_module_with_environment(
         module,
         semantic_diagnostics.clone(),
-        analysis.module_value_publication_failures,
+        analysis.module_value_publication,
         &environment,
         SurfaceLoweringMode::ProjectCheck,
     );
@@ -331,14 +430,14 @@ fn analyze_surface_module_with_environment(
     if let Err(failure) = validate_source_less_lookup_registries() {
         return SurfaceAnalysis {
             diagnostics: vec![failure.diagnostic()],
-            module_value_publication_failures: Vec::new(),
+            module_value_publication: ModuleValuePublicationProvenance::default(),
         };
     }
     let mut diagnostics = Vec::new();
     let mut variant_diagnostics = VariantDiagnosticInterner::default();
     let mut environment = environment.clone();
 
-    let (module_diagnostics, module_value_publication_failures) =
+    let (module_diagnostics, module_value_publication) =
         check_module_declarations(module, &mut environment, &mut variant_diagnostics);
     diagnostics.extend(module_diagnostics);
 
@@ -365,7 +464,7 @@ fn analyze_surface_module_with_environment(
 
     SurfaceAnalysis {
         diagnostics,
-        module_value_publication_failures,
+        module_value_publication,
     }
 }
 
@@ -492,10 +591,11 @@ fn check_module_declarations(
     module: &SurfaceModule,
     environment: &mut TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
-) -> (Vec<Diagnostic>, Vec<ModuleValuePublicationFailure>) {
+) -> (Vec<Diagnostic>, ModuleValuePublicationProvenance) {
     let mut diagnostics = Vec::new();
 
     let module_value_analysis = check_module_values(module, environment, variant_diagnostics);
+    let module_value_publication = module_value_analysis.publication_provenance(module);
     diagnostics.extend(module_value_analysis.diagnostics);
     diagnostics.extend(
         module
@@ -523,7 +623,7 @@ fn check_module_declarations(
     diagnostics.extend(check_schema_type_references(module));
     diagnostics.extend(check_handler_declarations(module, environment));
 
-    (diagnostics, module_value_analysis.publication_failures)
+    (diagnostics, module_value_publication)
 }
 
 fn module_value_not_executable_diagnostic(value: &veln_ast::ModuleValueDecl) -> Diagnostic {
@@ -724,7 +824,7 @@ pub fn lower_checked_surface_module(module: &SurfaceModule) -> LoweredSurfaceMod
         lower_analyzed_surface_module_with_environment(
             module,
             analysis.diagnostics,
-            analysis.module_value_publication_failures,
+            analysis.module_value_publication,
             &environment,
             SurfaceLoweringMode::Module,
         )
@@ -794,7 +894,7 @@ fn lower_project_reachable_surface_module_with_environment(
     lower_analyzed_surface_module_with_environment(
         module,
         analysis.diagnostics,
-        analysis.module_value_publication_failures,
+        analysis.module_value_publication,
         &environment,
         SurfaceLoweringMode::Execution,
     )
@@ -813,16 +913,16 @@ pub fn lower_analyzed_surface_module(
         }
         let environment = TypeEnvironment::from_module(module);
         let mut module_value_environment = environment.clone();
-        let module_value_publication_failures = check_module_values(
+        let module_value_analysis = check_module_values(
             module,
             &mut module_value_environment,
             &mut VariantDiagnosticInterner::default(),
-        )
-        .publication_failures;
+        );
+        let module_value_publication = module_value_analysis.publication_provenance(module);
         lower_analyzed_surface_module_with_environment(
             module,
             diagnostics,
-            module_value_publication_failures,
+            module_value_publication,
             &environment,
             SurfaceLoweringMode::Module,
         )
@@ -843,7 +943,7 @@ fn lowered_internal_failure(diagnostics: Vec<Diagnostic>) -> LoweredSurfaceModul
 fn lower_analyzed_surface_module_with_environment(
     module: &SurfaceModule,
     diagnostics: Vec<Diagnostic>,
-    module_value_publication_failures: Vec<ModuleValuePublicationFailure>,
+    module_value_publication: ModuleValuePublicationProvenance,
     environment: &TypeEnvironment,
     mode: SurfaceLoweringMode,
 ) -> LoweredSurfaceModule {
@@ -862,17 +962,8 @@ fn lower_analyzed_surface_module_with_environment(
             })
         })
         .collect::<HashMap<_, _>>();
-    let module_value_publication_failures = module_value_publication_failures
-        .into_iter()
-        .map(|failure| IndexedModuleValuePublicationFailure {
-            span: failure.span,
-            diagnostic_indices: failure
-                .causal_diagnostics
-                .iter()
-                .filter_map(|cause| diagnostic_indices_by_cause.get(cause).copied())
-                .collect(),
-        })
-        .collect();
+    let module_value_publication =
+        index_module_value_publication(module, &diagnostics, module_value_publication);
     let mut diagnostics = enforce_module_value_lowering_gate(module, diagnostics);
     let unpublished_declarations =
         unpublished_public_declarations(module, environment, &diagnostics);
@@ -882,7 +973,7 @@ fn lower_analyzed_surface_module_with_environment(
             core: None,
             ir: None,
             unpublished_declarations,
-            module_value_publication_failures,
+            module_value_publication,
             diagnostic_indices_by_cause,
         };
     }
@@ -913,8 +1004,166 @@ fn lower_analyzed_surface_module_with_environment(
         core: Some(lowered_core.program),
         ir,
         unpublished_declarations,
-        module_value_publication_failures,
+        module_value_publication,
         diagnostic_indices_by_cause,
+    }
+}
+
+type PublicationSpanKey = (String, usize, usize);
+
+fn publication_span_key(span: &veln_source::SourceSpan) -> PublicationSpanKey {
+    (
+        span.file.as_str().to_owned(),
+        span.start.offset,
+        span.end.offset,
+    )
+}
+
+fn index_module_value_publication(
+    module: &SurfaceModule,
+    diagnostics: &[Diagnostic],
+    provenance: ModuleValuePublicationProvenance,
+) -> IndexedModuleValuePublicationProvenance {
+    let mut owners_by_file = HashMap::<&str, Vec<(usize, usize, usize)>>::new();
+    for (index, value) in provenance.values.iter().enumerate() {
+        owners_by_file
+            .entry(value.span.file.as_str())
+            .or_default()
+            .push((value.span.start.offset, value.span.end.offset, index));
+    }
+    for owners in owners_by_file.values_mut() {
+        owners.sort_unstable_by_key(|(start, _, _)| *start);
+    }
+
+    let mut direct_diagnostic_indices = vec![Vec::new(); provenance.values.len()];
+    for (diagnostic_index, diagnostic) in diagnostics.iter().enumerate() {
+        if diagnostic.id == "module.value_not_executable" {
+            continue;
+        }
+        let Some(span) = diagnostic.span.as_ref() else {
+            continue;
+        };
+        let Some(owners) = owners_by_file.get(span.file.as_str()) else {
+            continue;
+        };
+        let insertion = owners.partition_point(|(start, _, _)| *start <= span.start.offset);
+        let Some((start, end, owner)) = insertion.checked_sub(1).map(|index| owners[index]) else {
+            continue;
+        };
+        if span.start.offset >= start && span.end.offset <= end {
+            direct_diagnostic_indices[owner].push(diagnostic_index);
+        }
+    }
+
+    let mut callable_identities =
+        HashMap::<PublicationSpanKey, crate::types::ModuleValueIdentity>::new();
+    for function in &module.functions {
+        if let Some(name) = function.name.as_ref() {
+            callable_identities.insert(
+                publication_span_key(&function.span),
+                (
+                    function.package_name.clone(),
+                    function.module_name.clone(),
+                    name.clone(),
+                ),
+            );
+        }
+    }
+    for alias in module
+        .aliases
+        .iter()
+        .filter(|alias| alias.kind == PublicAliasKind::Function)
+    {
+        if let Some(name) = alias.name.as_ref() {
+            callable_identities.insert(
+                publication_span_key(&alias.span),
+                (
+                    alias.package_name.clone(),
+                    alias.module_name.clone(),
+                    name.clone(),
+                ),
+            );
+        }
+    }
+    for value in &module.module_values {
+        if let Some(name) = value.name.as_ref() {
+            callable_identities.insert(
+                publication_span_key(&value.span),
+                (
+                    value.package_name.clone(),
+                    value.module_name.clone(),
+                    name.clone(),
+                ),
+            );
+        }
+    }
+    let mut collision_diagnostic_indices =
+        HashMap::<crate::types::ModuleValueIdentity, Vec<usize>>::new();
+    for (index, diagnostic) in diagnostics.iter().enumerate() {
+        if diagnostic.id != "name.duplicate" {
+            continue;
+        }
+        let Some(identity) = diagnostic
+            .span
+            .as_ref()
+            .and_then(|span| callable_identities.get(&publication_span_key(span)))
+        else {
+            continue;
+        };
+        collision_diagnostic_indices
+            .entry(identity.clone())
+            .or_default()
+            .push(index);
+    }
+
+    let mut failures = provenance
+        .values
+        .iter()
+        .enumerate()
+        .filter(|(_, value)| value.invalid && value.identity.is_some())
+        .map(
+            |(value_index, value)| IndexedModuleValuePublicationFailure {
+                span: value.span.clone(),
+                value_index,
+            },
+        )
+        .collect::<Vec<_>>();
+    failures.sort_by(|left, right| {
+        left.span
+            .file
+            .as_str()
+            .cmp(right.span.file.as_str())
+            .then(left.span.start.offset.cmp(&right.span.start.offset))
+            .then(left.span.end.offset.cmp(&right.span.end.offset))
+    });
+    let values: Vec<IndexedModuleValuePublicationValue> = provenance
+        .values
+        .into_iter()
+        .enumerate()
+        .map(|(index, value)| IndexedModuleValuePublicationValue {
+            identity: value.identity,
+            dependencies: value.dependencies,
+            collision_dependencies: value.collision_dependencies,
+            direct_diagnostic_indices: std::mem::take(&mut direct_diagnostic_indices[index]),
+        })
+        .collect();
+    record_module_value_publication_work(|work| {
+        work.retained_values += values.len();
+        work.retained_edges += values
+            .iter()
+            .map(|value: &IndexedModuleValuePublicationValue| {
+                value.dependencies.len() + value.collision_dependencies.len()
+            })
+            .sum::<usize>();
+        work.retained_direct_causes += values
+            .iter()
+            .map(|value| value.direct_diagnostic_indices.len())
+            .sum::<usize>();
+    });
+    IndexedModuleValuePublicationProvenance {
+        failures,
+        values,
+        collision_diagnostic_indices,
     }
 }
 

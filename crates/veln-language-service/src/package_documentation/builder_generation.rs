@@ -205,7 +205,40 @@ impl<'a> PackageDocBuilder<'a> {
             let source_file = SourceFile::new(source.path(), text);
             let source_uri = source_uri(self.identity, self.snapshot.digest(), source.path());
             let output = parse(&source_file);
-            for diagnostic in output.diagnostics {
+            let public_module_value_spans = output
+                .tree
+                .items
+                .iter()
+                .filter_map(|item| match item {
+                    SyntaxItem::ModuleValue(value) if value.visibility == Visibility::Public => {
+                        Some(&value.span)
+                    }
+                    _ => None,
+                })
+                .map(|span| (span.file.clone(), span.start.offset, span.end.offset))
+                .collect::<BTreeSet<_>>();
+            for mut diagnostic in output.diagnostics {
+                let is_public_module_value_casing = diagnostic.id
+                    == "parse.module_value_declaration"
+                    && diagnostic.message
+                        == "module value name must start with an ASCII lowercase letter"
+                    && diagnostic.span.as_ref().is_some_and(|span| {
+                        public_module_value_spans.iter().any(|(file, start, end)| {
+                            *file == span.file
+                                && *start <= span.start.offset
+                                && span.end.offset <= *end
+                        })
+                    });
+                if is_public_module_value_casing {
+                    diagnostic.id = "name.invalid_case";
+                    self.diagnostics.push(parse_diagnostic(
+                        "module_value",
+                        diagnostic,
+                        self.identity,
+                        self.snapshot.digest(),
+                    ));
+                    continue;
+                }
                 self.diagnostics.push(parse_diagnostic(
                     "parse",
                     diagnostic,
@@ -308,6 +341,29 @@ impl<'a> PackageDocBuilder<'a> {
         );
         let diagnostics = analysis.checked_diagnostics();
         let mut gates = vec![None; diagnostics.len()];
+        let diagnostic_indices_by_key = diagnostics
+            .iter()
+            .enumerate()
+            .filter_map(|(index, diagnostic)| {
+                diagnostic.span.as_ref().map(|span| {
+                    (
+                        (
+                            diagnostic.id.clone(),
+                            span.file.as_str().to_owned(),
+                            span.start.offset,
+                            span.end.offset,
+                        ),
+                        index,
+                    )
+                })
+            })
+            .fold(
+                BTreeMap::<(String, String, usize, usize), Vec<usize>>::new(),
+                |mut indices, (key, index)| {
+                    indices.entry(key).or_default().push(index);
+                    indices
+                },
+            );
         for value in parsed_sources
             .iter()
             .filter(|source| source.exported)
@@ -322,13 +378,25 @@ impl<'a> PackageDocBuilder<'a> {
             record_package_doc_semantic_classification_work(|work| {
                 work.exported_module_value_lookups += 1;
             });
-            if let Some(indices) = analysis.module_value_publication_diagnostic_indices(&value.span)
-            {
-                for index in indices {
-                    record_package_doc_semantic_classification_work(|work| {
-                        work.cause_index_insertions += 1;
-                    });
-                    gates[*index] = Some("module_value");
+            if let Some(causes) = analysis.module_value_publication_diagnostics(&value.span) {
+                for cause in causes {
+                    let Some(span) = cause.span.as_ref() else {
+                        continue;
+                    };
+                    let key = (
+                        cause.id,
+                        span.file.as_str().to_owned(),
+                        span.start.offset,
+                        span.end.offset,
+                    );
+                    if let Some(indices) = diagnostic_indices_by_key.get(&key) {
+                        for index in indices {
+                            record_package_doc_semantic_classification_work(|work| {
+                                work.cause_index_insertions += 1;
+                            });
+                            gates[*index] = Some("module_value");
+                        }
+                    }
                 }
             }
         }

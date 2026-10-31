@@ -89,7 +89,7 @@ fn rejected_public_value_does_not_publish_unrelated_private_diagnostics() {
     assert!(result.catalog().is_none());
     let diagnostics = &result.status().diagnostics;
     assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-    assert_eq!(diagnostics[0].gate, "module_value");
+    assert_eq!(diagnostics[0].gate, "module_value", "{diagnostics:#?}");
     assert_eq!(diagnostics[0].code, "type.mismatch");
     assert_eq!(
         diagnostics[0].span.as_ref().unwrap().source_uri,
@@ -165,6 +165,88 @@ fn public_module_value_refinement_diagnostic_uses_module_value_gate() {
     assert_eq!(
         result.status().diagnostics[0].code,
         "type.variant_refinement_private"
+    );
+}
+
+fn assert_module_value_publication_failure(
+    source: &str,
+    declaration_name: &str,
+    expected_code: &str,
+) {
+    let result = generate(
+        concat!(
+            "[package]\n",
+            "name = \"module-value-publication-provenance\"\n",
+            "[lib]\n",
+            "exports = [\"main.veln\"]\n",
+        ),
+        &[("main.veln", source)],
+    );
+
+    assert!(result.catalog().is_none(), "{:#?}", result.status());
+    assert!(
+        result
+            .declaration_uri_for("main", "module_value", declaration_name)
+            .is_none()
+    );
+    let diagnostics = &result.status().diagnostics;
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].gate, "module_value", "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].code, expected_code);
+}
+
+#[test]
+fn shared_namespace_collisions_reject_public_module_values() {
+    for source in [
+        concat!(
+            "fn shared() -> Int\n",
+            "  1\n",
+            "end\n",
+            "pub let shared: Int = 1\n",
+        ),
+        concat!(
+            "fn original() -> Int\n",
+            "  1\n",
+            "end\n",
+            "pub fn shared = original\n",
+            "pub let shared: Int = 1\n",
+        ),
+        concat!("pub let shared: Int = 1\n", "let shared: Int = 2\n",),
+        concat!("let shared: Int = 1\n", "pub let shared: Int = 2\n",),
+    ] {
+        assert_module_value_publication_failure(source, "shared", "name.duplicate");
+    }
+}
+
+#[test]
+fn shared_namespace_collision_causes_reach_exported_dependents() {
+    for collision in [
+        concat!(
+            "fn shared() -> Int\n",
+            "  1\n",
+            "end\n",
+            "let shared: Int = 1\n"
+        ),
+        concat!(
+            "fn original() -> Int\n",
+            "  1\n",
+            "end\n",
+            "pub fn shared = original\n",
+            "let shared: Int = 1\n",
+        ),
+        concat!("let shared: Int = 1\n", "let shared: Int = 2\n"),
+    ] {
+        let source = format!("{collision}pub let exposed: Int = shared\nlet unrelated: Bool = 0\n");
+        assert_module_value_publication_failure(&source, "exposed", "name.duplicate");
+    }
+}
+
+#[test]
+fn invalid_cased_public_module_value_uses_module_value_gate() {
+    assert_module_value_publication_failure(
+        "pub let BadValue: Int = 1\nlet unrelated: Bool = 0\n",
+        "BadValue",
+        "name.invalid_case",
     );
 }
 

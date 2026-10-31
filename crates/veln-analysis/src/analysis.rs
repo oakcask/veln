@@ -393,9 +393,23 @@ impl ProjectAnalysis {
     pub fn module_value_publication_diagnostic_indices(
         &self,
         span: &veln_source::SourceSpan,
-    ) -> Option<&[usize]> {
+    ) -> Option<Vec<usize>> {
         self.checked
             .module_value_publication_diagnostic_indices(span)
+    }
+
+    pub fn module_value_publication_diagnostics(
+        &self,
+        span: &veln_source::SourceSpan,
+    ) -> Option<Vec<Diagnostic>> {
+        self.checked
+            .module_value_publication_diagnostic_indices(span)
+            .map(|indices| {
+                indices
+                    .into_iter()
+                    .map(|index| self.checked.diagnostics[index].clone())
+                    .collect()
+            })
     }
 
     pub fn diagnostic_index_for_publication_cause(
