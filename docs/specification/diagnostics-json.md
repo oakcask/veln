@@ -1186,6 +1186,15 @@ clause, that clause reports `parse.schema_validation_before_format`; a
 format-neutral schema without a format clause may use the same validation
 position.
 
+An unknown or forward field-predicate reference uses
+`schema.field_predicate_reference`; an unknown schema-level predicate reference
+uses `schema.validation_reference`. Their details identify `schema`,
+`reference`, and `reason`. A decoded reference whose type is neither `Int` nor
+`Bool` uses `reason: "incompatible_field_reference"` and adds its rendered type
+as `actual`. Predicate operator mismatches use `type.mismatch` at the containing
+predicate clause. Equality requires matching `Int` or `Bool` operands; integer
+operators reject `Bool` operands.
+
 Static failures for `validate Schema from value at offset` use
 `schema.validate_expression`. The details include `phase: "body_analysis"`,
 `node_id`, `schema_path`, `operation: "runtime_validate"`, and a stable

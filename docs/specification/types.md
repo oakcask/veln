@@ -1701,11 +1701,16 @@ contract reasoning evaluates literal-only bitwise expressions. Repair
 reasoning leaves nonliteral bitwise predicates runtime-checked instead of
 inventing an arithmetic rewrite.
 
-Schema field `where` predicates and schema-level `validate` predicates use the
-same `Int` bitwise and shift operators, precedence, and literal shift-count
-range. A bitwise operator whose ordinary parse gives it a comparison or
-equality operand is rejected as an `Int` operand mismatch; parentheses can
-make the intended integer bitwise subexpression explicit. The checked
+Schema field `where` predicates and schema-level `validate` predicates accept
+decoded `Int` and `Bool` references. A `Bool` reference can form the predicate
+directly or participate in Boolean equality and Boolean operators. An `Int`
+reference uses the ordinary arithmetic, comparison, bitwise, and shift typing,
+precedence, and literal shift-count range. Equality requires matching `Int` or
+`Bool` operands. Decoded `String`, `Float`, and source-ADT references are
+rejected at analysis time. A bitwise operator whose ordinary parse gives it a
+comparison or equality operand is rejected as an `Int` operand mismatch;
+parentheses can make the intended integer bitwise subexpression explicit. The
+checked
 [`schema-predicate-precedence-diagnostics`](../../examples/specification/check/schema-predicate-precedence-diagnostics/)
 case covers that boundary. Schema predicates do not accept `%`.
 

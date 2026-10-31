@@ -447,10 +447,12 @@ access does not extend to another module or package.
 
 Anonymous binary records expose nested schema-local records when every leaf is an
 exact-width unsigned primitive. Sibling nested records at one level are allowed.
-Later repeat counts, byte-view lengths, dispatch tags or lengths, field
-predicates, and schema validation may refer to an earlier decoded visible
-`Int`, including a composed path such as `header.length`. A root binding must
-already be decoded.
+Later repeat counts, byte-view lengths, and dispatch tags or lengths may refer
+to an earlier decoded visible `Int`, including a composed path such as
+`header.length`. A field predicate may refer to the field being checked or an
+earlier decoded visible `Int` or `Bool`. Schema validation may refer to any
+decoded visible `Int` or `Bool`. A referenced root binding must already be
+decoded.
 
 ### Schema operations
 
