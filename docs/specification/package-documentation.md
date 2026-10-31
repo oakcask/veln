@@ -279,6 +279,10 @@ asking clients to construct resource identifiers or re-resolve by spelling.
 The public API is in
 `crates/veln-language-service/src/package_documentation.rs`; catalog identity,
 publication, and gate tests are in its `package_documentation/tests/` modules.
+The `module_value_publication` tests check public declaration content and
+lookup, initializer-independent declaration identity, snapshot and
+documentation digest rotation, package-atomic failure, and causal diagnostic
+selection for rejected values.
 The checked
 [`standard-library-package-documentation-resources`](../../examples/specification/mcp/standard-library-package-documentation-resources/)
 transcript covers the public `net::system()` handler resource, its canonical

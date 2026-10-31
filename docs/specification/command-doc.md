@@ -94,6 +94,11 @@ The command has no JSON output mode.
 
 Implementation: `crates/veln-cli/src/commands/doc.rs`. Documentation selection
 and metadata behavior is covered under `examples/specification/doc/`. The
+[`module-value-publication`](../../examples/specification/doc/module-value-publication/)
+case checks the public signature and documentation while excluding initializer
+and private-value text. The
+[`module-value-publication-rejected`](../../examples/specification/doc/module-value-publication-rejected/)
+case checks that a module-value type error produces no partial document. The
 `dependency-schema-import-selection`, `dependency-schema-exact-precedence`,
 `dependency-schema-exact-missing-no-fallback`,
 `dependency-schema-ambiguous-exact-no-fallback`,

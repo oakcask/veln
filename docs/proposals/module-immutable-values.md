@@ -27,6 +27,10 @@ function/module-value namespace. The current
 defines checked-core and typed-IR preservation and the remaining runtime gate.
 The compiler deliberately retains `module.value_not_executable` after those
 checks.
+The current
+[package documentation specification](../specification/package-documentation.md#published-boundary)
+defines public module-value publication, declaration lookup, and the
+package-atomic rejection boundary.
 
 This proposal now owns only:
 

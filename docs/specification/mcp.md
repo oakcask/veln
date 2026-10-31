@@ -921,9 +921,14 @@ and `crates/veln-mcp/src/references.rs`; source presentation is implemented by
 conversion is implemented by
 `crates/veln-mcp/src/rename.rs`; cursor retention is implemented by
 `crates/veln-mcp/src/reference_pagination.rs`. Protocol regression tests are in
-`crates/veln-mcp/src/server/tests/`. Checked rename transcripts cover saved
-workspace results, supported symbol classes, recovery identities, unsupported
-boundaries, and anonymous boundaries under `examples/specification/mcp/rename-*`.
+`crates/veln-mcp/src/server/tests/`. The checked embedded standard-library
+package-documentation bundle and generator contract are maintained by
+`tools/veln-repo-mcp-standard-library-docs/`; bundle validation and MCP resource
+transcripts check that generator-contract changes rotate exact documentation
+URIs without rotating the package snapshot. Checked rename transcripts cover
+saved workspace results, supported symbol classes, recovery identities,
+unsupported boundaries, and anonymous boundaries under
+`examples/specification/mcp/rename-*`.
 The checked
 [`standard-library-package-documentation-resources`](../../examples/specification/mcp/standard-library-package-documentation-resources/)
 transcript covers discovery and exact reads for the embedded package catalog,
