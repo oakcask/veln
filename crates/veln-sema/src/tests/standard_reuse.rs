@@ -13,6 +13,31 @@ pub(crate) fn standard_reuse_test_lock_for_sibling() -> std::sync::MutexGuard<'s
 }
 
 #[test]
+fn reachable_lowering_without_selected_function_returns_no_target() {
+    let _guard = standard_reuse_test_lock();
+    let standard = standard_module();
+    let reusable = prepare_reusable_standard_surface_module_environment(&standard)
+        .with_current_identity_for_test();
+    let application = app_case(
+        "reachable lowering without a selected function",
+        "src/main.veln",
+        "pub fn main() -> Int\n  1\nend\n",
+    );
+
+    let (lowered, target) =
+        lower_project_reachable_surface_modules_with_standard_environment_and_target(
+            &application.module,
+            &standard,
+            &reusable,
+            None,
+        );
+
+    assert!(target.is_none());
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    assert!(lowered.ir.is_some());
+}
+
+#[test]
 fn reusable_standard_environment_matches_uncached_analysis_for_table_cases() {
     let _guard = standard_reuse_test_lock();
     let standard = standard_module();

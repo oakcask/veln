@@ -64,7 +64,6 @@ pub use pipeline::{
     lower_analyzed_surface_module, lower_checked_surface_module,
     lower_project_reachable_surface_module,
     lower_project_reachable_surface_module_with_standard_environment,
-    lower_project_reachable_surface_modules_with_standard_environment,
     lower_project_reachable_surface_modules_with_standard_environment_and_target,
     prepare_current_reusable_standard_surface_module_environment,
     prepare_reusable_standard_surface_module_environment,
