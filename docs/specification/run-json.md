@@ -197,6 +197,14 @@ from it. A carried failed external `listen` or `connect` record instead uses
 the runtime transport projection described above. A plain value without a
 recognized diagnostic form does not acquire typed fields.
 
+A generated binary-schema decoder that encounters integer division by zero in
+a predicate returns an ordinary entry result failure. Its envelope keeps
+`error.kind: "result"` and renders `schema predicate division by zero` in
+`details.value`; it does not project a generic runtime failure or a host
+arithmetic exception. The checked
+[`binary-schema-predicate-division-by-zero-json`](../../examples/specification/run/binary-schema-predicate-division-by-zero-json/)
+case fixes this boundary.
+
 ### Compact hexadecimal details
 
 A compact hexadecimal input failure may add `fixture_hex`:
