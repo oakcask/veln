@@ -327,40 +327,44 @@ impl<'a> PackageDocBuilder<'a> {
                 .push(self.project_diagnostic("semantic_visibility", diagnostic.clone()));
         }
 
-        for source in parsed_sources.iter().filter(|source| source.exported) {
-            for value in source.tree.items.iter().filter_map(|item| match item {
+        let has_invalid_exported_value = parsed_sources
+            .iter()
+            .filter(|source| source.exported)
+            .flat_map(|source| source.tree.items.iter())
+            .filter_map(|item| match item {
                 SyntaxItem::ModuleValue(value) if value.visibility == Visibility::Public => {
                     Some(value.as_ref())
                 }
                 _ => None,
+            })
+            .any(|value| {
+                value.name.as_deref().is_some_and(|name| {
+                    analysis.module_value_is_invalid(value.span.file.as_str(), name)
+                })
+            });
+        if has_invalid_exported_value {
+            for diagnostic in diagnostics.iter().filter(|diagnostic| {
+                diagnostic.severity == Severity::Error
+                    && diagnostic.id != "module.value_not_executable"
+                    && analysis.diagnostic_is_in_invalid_module_value(diagnostic)
             }) {
-                for diagnostic in diagnostics.iter().filter(|diagnostic| {
-                    diagnostic.severity == Severity::Error
-                        && diagnostic.id != "module.value_not_executable"
-                        && diagnostic.span.as_ref().is_some_and(|span| {
-                            span.file == value.span.file
-                                && span.start.offset >= value.span.start.offset
-                                && span.end.offset <= value.span.end.offset
-                        })
-                }) {
-                    let duplicate = self.diagnostics.iter().any(|existing| {
-                        existing.code == diagnostic.id
-                            && existing.span.as_ref().is_some_and(|span| {
-                                diagnostic.span.as_ref().is_some_and(|diagnostic_span| {
-                                    span.source_uri
-                                        == source_uri(
-                                            self.identity,
-                                            self.snapshot.digest(),
-                                            diagnostic_span.file.as_str(),
-                                        )
-                                        && span.offset == diagnostic_span.start.offset
-                                })
+                let duplicate = self.diagnostics.iter().any(|existing| {
+                    existing.code == diagnostic.id
+                        && existing.span.as_ref().is_some_and(|span| {
+                            diagnostic.span.as_ref().is_some_and(|diagnostic_span| {
+                                span.source_uri
+                                    == source_uri(
+                                        self.identity,
+                                        self.snapshot.digest(),
+                                        diagnostic_span.file.as_str(),
+                                    )
+                                    && span.offset == diagnostic_span.start.offset
                             })
-                    });
-                    if !duplicate {
-                        self.diagnostics
-                            .push(self.project_diagnostic("module_value", diagnostic.clone()));
-                    }
+                        })
+                });
+                if !duplicate {
+                    self.diagnostics
+                        .push(self.project_diagnostic("module_value", diagnostic.clone()));
                 }
             }
         }

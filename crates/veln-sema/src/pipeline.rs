@@ -22,8 +22,8 @@ use crate::lowering::{
 use crate::schema;
 use crate::source_less_lookup::validate_source_less_lookup_registries;
 use crate::types::{
-    ReusableStandardEnvironment, TypeEnvironment, prepare_current_reusable_standard_environment,
-    prepare_reusable_standard_environment,
+    ModuleValueIdentity, ReusableStandardEnvironment, TypeEnvironment,
+    prepare_current_reusable_standard_environment, prepare_reusable_standard_environment,
 };
 
 mod diagnostic_ordering;
@@ -51,6 +51,37 @@ pub struct LoweredSurfaceModule {
     pub core: Option<CheckedProgram>,
     pub ir: Option<TypedProgram>,
     pub unpublished_declarations: Vec<UnpublishedDeclaration>,
+    invalid_module_values: BTreeSet<ModuleValueIdentity>,
+}
+
+impl LoweredSurfaceModule {
+    pub fn internal_failure(diagnostics: Vec<Diagnostic>) -> Self {
+        Self {
+            diagnostics,
+            core: None,
+            ir: None,
+            unpublished_declarations: Vec::new(),
+            invalid_module_values: BTreeSet::new(),
+        }
+    }
+
+    pub fn module_value_is_invalid(
+        &self,
+        package_name: Option<&str>,
+        module_name: Option<&str>,
+        name: &str,
+    ) -> bool {
+        self.invalid_module_values.contains(&(
+            package_name.map(str::to_owned),
+            module_name.map(str::to_owned),
+            name.to_owned(),
+        ))
+    }
+}
+
+struct SurfaceAnalysis {
+    diagnostics: Vec<Diagnostic>,
+    invalid_module_values: BTreeSet<ModuleValueIdentity>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -138,7 +169,7 @@ pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
             return vec![failure.diagnostic()];
         }
         let environment = TypeEnvironment::from_module(module);
-        analyze_surface_module_with_environment(module, &environment, true)
+        analyze_surface_module_with_environment(module, &environment, true).diagnostics
     })
 }
 
@@ -149,7 +180,7 @@ pub(crate) fn analyze_surface_module_with_base_for_test(
 ) -> Vec<Diagnostic> {
     crate::name_recovery::with_import_classification(module, || {
         let environment = TypeEnvironment::from_module_with_base_for_test(module, base);
-        analyze_surface_module_with_environment(module, &environment, true)
+        analyze_surface_module_with_environment(module, &environment, true).diagnostics
     })
 }
 
@@ -159,7 +190,7 @@ pub(crate) fn analyze_surface_module_with_environment_for_test(
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
     crate::name_recovery::with_import_classification(module, || {
-        analyze_surface_module_with_environment(module, environment, true)
+        analyze_surface_module_with_environment(module, environment, true).diagnostics
     })
 }
 
@@ -254,11 +285,13 @@ fn check_project_surface_module_with_environment(
         return (diagnostics.clone(), lowered_internal_failure(diagnostics));
     }
     let validate_standard_bodies = should_validate_standard_bodies(module);
-    let semantic_diagnostics =
+    let analysis =
         analyze_surface_module_with_environment(module, &environment, validate_standard_bodies);
+    let semantic_diagnostics = analysis.diagnostics;
     let checked = lower_analyzed_surface_module_with_environment(
         module,
         semantic_diagnostics.clone(),
+        analysis.invalid_module_values,
         &environment,
         SurfaceLoweringMode::ProjectCheck,
     );
@@ -269,19 +302,20 @@ fn analyze_surface_module_with_environment(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
     validate_standard_bodies: bool,
-) -> Vec<Diagnostic> {
+) -> SurfaceAnalysis {
     if let Err(failure) = validate_source_less_lookup_registries() {
-        return vec![failure.diagnostic()];
+        return SurfaceAnalysis {
+            diagnostics: vec![failure.diagnostic()],
+            invalid_module_values: BTreeSet::new(),
+        };
     }
     let mut diagnostics = Vec::new();
     let mut variant_diagnostics = VariantDiagnosticInterner::default();
     let mut environment = environment.clone();
 
-    diagnostics.extend(check_module_declarations(
-        module,
-        &mut environment,
-        &mut variant_diagnostics,
-    ));
+    let (module_diagnostics, invalid_module_values) =
+        check_module_declarations(module, &mut environment, &mut variant_diagnostics);
+    diagnostics.extend(module_diagnostics);
 
     for function in &module.functions {
         if !validate_standard_bodies
@@ -304,7 +338,10 @@ fn analyze_surface_module_with_environment(
     );
     order_delayed_parse_diagnostics(&mut diagnostics);
 
-    diagnostics
+    SurfaceAnalysis {
+        diagnostics,
+        invalid_module_values,
+    }
 }
 
 #[cfg(test)]
@@ -430,7 +467,7 @@ fn check_module_declarations(
     module: &SurfaceModule,
     environment: &mut TypeEnvironment,
     variant_diagnostics: &mut VariantDiagnosticInterner,
-) -> Vec<Diagnostic> {
+) -> (Vec<Diagnostic>, BTreeSet<ModuleValueIdentity>) {
     let mut diagnostics = Vec::new();
 
     let module_value_analysis = check_module_values(module, environment, variant_diagnostics);
@@ -461,7 +498,7 @@ fn check_module_declarations(
     diagnostics.extend(check_schema_type_references(module));
     diagnostics.extend(check_handler_declarations(module, environment));
 
-    diagnostics
+    (diagnostics, module_value_analysis.invalid)
 }
 
 fn module_value_not_executable_diagnostic(value: &veln_ast::ModuleValueDecl) -> Diagnostic {
@@ -657,7 +694,15 @@ pub fn lower_checked_surface_module(module: &SurfaceModule) -> LoweredSurfaceMod
         if let Err(failure) = validate_source_less_lookup_registries() {
             return lowered_internal_failure(vec![failure.diagnostic()]);
         }
-        lower_analyzed_surface_module(module, analyze_surface_module(module))
+        let environment = TypeEnvironment::from_module(module);
+        let analysis = analyze_surface_module_with_environment(module, &environment, true);
+        lower_analyzed_surface_module_with_environment(
+            module,
+            analysis.diagnostics,
+            analysis.invalid_module_values,
+            &environment,
+            SurfaceLoweringMode::Module,
+        )
     })
 }
 
@@ -716,14 +761,15 @@ fn lower_project_reachable_surface_module_with_environment(
     if let Err(failure) = validate_source_less_lookup_registries() {
         return lowered_internal_failure(vec![failure.diagnostic()]);
     }
-    let diagnostics = analyze_surface_module_with_environment(
+    let analysis = analyze_surface_module_with_environment(
         module,
         &environment,
         should_validate_standard_bodies(module),
     );
     lower_analyzed_surface_module_with_environment(
         module,
-        diagnostics,
+        analysis.diagnostics,
+        analysis.invalid_module_values,
         &environment,
         SurfaceLoweringMode::Execution,
     )
@@ -741,9 +787,17 @@ pub fn lower_analyzed_surface_module(
             return lowered_internal_failure(vec![failure.diagnostic()]);
         }
         let environment = TypeEnvironment::from_module(module);
+        let mut module_value_environment = environment.clone();
+        let invalid_module_values = check_module_values(
+            module,
+            &mut module_value_environment,
+            &mut VariantDiagnosticInterner::default(),
+        )
+        .invalid;
         lower_analyzed_surface_module_with_environment(
             module,
             diagnostics,
+            invalid_module_values,
             &environment,
             SurfaceLoweringMode::Module,
         )
@@ -758,17 +812,13 @@ enum SurfaceLoweringMode {
 }
 
 fn lowered_internal_failure(diagnostics: Vec<Diagnostic>) -> LoweredSurfaceModule {
-    LoweredSurfaceModule {
-        diagnostics,
-        core: None,
-        ir: None,
-        unpublished_declarations: Vec::new(),
-    }
+    LoweredSurfaceModule::internal_failure(diagnostics)
 }
 
 fn lower_analyzed_surface_module_with_environment(
     module: &SurfaceModule,
     diagnostics: Vec<Diagnostic>,
+    invalid_module_values: BTreeSet<ModuleValueIdentity>,
     environment: &TypeEnvironment,
     mode: SurfaceLoweringMode,
 ) -> LoweredSurfaceModule {
@@ -781,6 +831,7 @@ fn lower_analyzed_surface_module_with_environment(
             core: None,
             ir: None,
             unpublished_declarations,
+            invalid_module_values,
         };
     }
 
@@ -810,6 +861,7 @@ fn lower_analyzed_surface_module_with_environment(
         core: Some(lowered_core.program),
         ir,
         unpublished_declarations,
+        invalid_module_values,
     }
 }
 

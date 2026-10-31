@@ -390,6 +390,35 @@ impl ProjectAnalysis {
         &self.checked.unpublished_declarations
     }
 
+    pub fn module_value_is_invalid(&self, source_path: &str, name: &str) -> bool {
+        self.module.module_values.iter().any(|value| {
+            value.span.file.as_str() == source_path
+                && value.name.as_deref() == Some(name)
+                && self.checked.module_value_is_invalid(
+                    value.package_name.as_deref(),
+                    value.module_name.as_deref(),
+                    name,
+                )
+        })
+    }
+
+    pub fn diagnostic_is_in_invalid_module_value(&self, diagnostic: &Diagnostic) -> bool {
+        diagnostic.span.as_ref().is_some_and(|span| {
+            self.module.module_values.iter().any(|value| {
+                value.name.as_deref().is_some_and(|name| {
+                    span.file == value.span.file
+                        && span.start.offset >= value.span.start.offset
+                        && span.end.offset <= value.span.end.offset
+                        && self.checked.module_value_is_invalid(
+                            value.package_name.as_deref(),
+                            value.module_name.as_deref(),
+                            name,
+                        )
+                })
+            })
+        })
+    }
+
     pub fn lower_reachable_entry(
         &self,
         entry: &str,
@@ -540,12 +569,7 @@ fn standard_environment_with_test_cache(
 }
 
 fn lowered_internal_failure(diagnostic: Diagnostic) -> LoweredSurfaceModule {
-    LoweredSurfaceModule {
-        diagnostics: vec![diagnostic],
-        core: None,
-        ir: None,
-        unpublished_declarations: Vec::new(),
-    }
+    LoweredSurfaceModule::internal_failure(vec![diagnostic])
 }
 
 #[cfg(test)]

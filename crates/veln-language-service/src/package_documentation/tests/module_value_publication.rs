@@ -41,3 +41,32 @@ fn rejected_public_module_value_fails_the_complete_catalog() {
     let canonical = std::str::from_utf8(result.canonical_bytes()).unwrap();
     assert!(!canonical.contains("modules"));
 }
+
+#[test]
+fn dependency_rejected_public_module_value_fails_the_complete_catalog() {
+    let result = generate(
+        concat!(
+            "[package]\n",
+            "name = \"module-value-publication-dependency-rejected\"\n",
+            "[lib]\n",
+            "exports = [\"alpha.veln\"]\n",
+        ),
+        &[
+            (
+                "alpha.veln",
+                "use beta\npub let left: Int = beta::right\npub let healthy: Bool = true\n",
+            ),
+            ("beta.veln", "use alpha\npub let right: Int = alpha::left\n"),
+        ],
+    );
+
+    assert!(result.catalog().is_none());
+    assert!(
+        result
+            .declaration_uri_for("alpha", "module_value", "healthy")
+            .is_none()
+    );
+    assert!(result.status().diagnostics.iter().any(|diagnostic| {
+        diagnostic.gate == "module_value" && diagnostic.code == "value.module_initializer_cycle"
+    }));
+}
