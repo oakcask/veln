@@ -900,7 +900,13 @@ checks the `perform` and `?` outcomes. The
 [`effect-row rejection case`](../../examples/specification/check/effect-row-call-rejection/)
 checks those JSON outcomes for direct and nested payload failures,
 local-binding and constructor-payload rejection, escaping-result recovery, and
-an accepted ordinary-call argument.
+an accepted ordinary-call argument. The
+[`constructor-record case`](../../examples/specification/check/effect-row-call-constructor-record-payload/)
+requires `type.mismatch` without `effect.missing_public` from the rejected
+row-bearing sibling, while its accepted control retains the concrete row. The
+[`schema-argument case`](../../examples/specification/check/effect-row-call-schema-arguments/)
+requires accepted `decode`, `encode`, and `validate` arguments to retain the row
+diagnostics inferred through private helpers.
 
 Format-neutral generated decode helpers retain refinements in their parameter
 and successful `Result` types, but they use ordinary structural record

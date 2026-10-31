@@ -1,0 +1,31 @@
+type CallbackBox<A>
+	Wrapped(value: {callback: A, count: Int})
+end
+
+fn db_callback() -> () effects [db]
+	()
+end
+
+fn net_callback() -> () effects [net]
+	()
+end
+
+fn invoke_box<effect E>(callback: CallbackBox<fn() -> () effects [...E]>) -> () effects [...E]
+	()
+end
+
+fn rejected_helper() -> ()
+	invoke_box(CallbackBox::Wrapped({callback: db_callback, count: "wrong"}))
+end
+
+fn accepted_helper() -> ()
+	invoke_box(CallbackBox::Wrapped({callback: net_callback, count: 1}))
+end
+
+pub fn rejected_fixed_component_is_transactional() -> ()
+	rejected_helper()
+end
+
+pub fn accepted_fixed_component_keeps_row_effect() -> ()
+	accepted_helper()
+end

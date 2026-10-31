@@ -194,6 +194,30 @@ fn type_for_effect_call_argument(
     context: &ExprEffectContext<'_>,
 ) -> Option<Type> {
     match &expr.kind {
+        ExprKind::SchemaDecode {
+            schema,
+            input,
+            base,
+        } => type_for_effect_schema_call(
+            schema,
+            schema_decode_step_function_name,
+            &[input, base],
+            context,
+        ),
+        ExprKind::SchemaEncode { schema, value } => {
+            type_for_effect_schema_call(schema, schema_encode_function_name, &[value], context)
+        }
+        ExprKind::SchemaValidate {
+            schema,
+            value,
+            base,
+            ..
+        } => type_for_effect_schema_call(
+            schema,
+            schema_runtime_validation_function_name,
+            &[value, base],
+            context,
+        ),
         ExprKind::StringLiteral(_) => Some(Type::string()),
         ExprKind::IntLiteral(_) => Some(Type::int()),
         ExprKind::FloatLiteral(_) => Some(Type::float()),
@@ -312,6 +336,35 @@ fn type_for_effect_call_argument(
     }
 }
 
+fn type_for_effect_schema_call(
+    schema: &[String],
+    helper_name_for: fn(&str) -> String,
+    args: &[&Expr],
+    context: &ExprEffectContext<'_>,
+) -> Option<Type> {
+    let (schema_name, qualifier) = schema.split_last()?;
+    let mut helper_path = qualifier.to_vec();
+    helper_path.push(helper_name_for(schema_name));
+    let signature = effect_function_signature_path(
+        &helper_path,
+        context.uses,
+        context.functions,
+        context.current_module,
+        context.current_package,
+        context.companion_access_targets,
+    )?;
+    if args.len() != signature.params.len() {
+        return None;
+    }
+    for (arg, param) in args.iter().zip(&signature.params) {
+        let actual = type_for_effect_call_argument(arg, param, context)?;
+        if !crate::type_relations::is_assignable(param, &actual) {
+            return None;
+        }
+    }
+    Some(signature.return_type.clone())
+}
+
 fn type_for_effect_constructor_call(
     callee: &Expr,
     args: &[Expr],
@@ -334,6 +387,7 @@ fn type_for_effect_constructor_call(
     let expected_args = crate::adt::unification::adt_args(expected, descriptor)?;
     let call_bound_row = effect_row_in_type(expected);
     let mut actual_args = vec![Type::Unknown; expected_args.len()];
+    let mut payload_comparisons = Vec::with_capacity(args.len());
     for (index, arg) in args.iter().enumerate() {
         let payload_expected = crate::adt::type_operations::payload_type_with_resolved_args(
             constructor,
@@ -341,20 +395,27 @@ fn type_for_effect_constructor_call(
             |type_index| expected_args[type_index].clone(),
         )?;
         let actual = type_for_effect_call_argument(arg, &payload_expected, context)?;
-        let payload_contains_call_bound_row = call_bound_row
-            .as_ref()
-            .is_some_and(|row| effect_row_in_type(&payload_expected).as_deref() == Some(row));
-        if !payload_contains_call_bound_row
-            && !crate::type_relations::is_assignable(&payload_expected, &actual)
-        {
-            return None;
-        }
         crate::adt::type_operations::merge_type_args_from_payload(
             &mut actual_args,
             constructor,
             index,
             &actual,
         );
+        payload_comparisons.push((payload_expected, actual));
+    }
+    let row_substitutions = solve_call_bound_effect_row(
+        call_bound_row.as_deref(),
+        payload_comparisons
+            .iter()
+            .map(|(expected, actual)| (expected, actual)),
+    );
+    if payload_comparisons.iter().any(|(expected, actual)| {
+        !crate::type_relations::is_assignable(
+            &instantiate_effect_rows_in_type(expected, &row_substitutions),
+            actual,
+        )
+    }) {
+        return None;
     }
     for (actual, expected) in actual_args.iter_mut().zip(expected_args) {
         if *actual == Type::Unknown {

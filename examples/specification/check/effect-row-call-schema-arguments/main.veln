@@ -1,0 +1,62 @@
+schema PacketWire
+	format binary
+
+	length: UInt8
+end
+
+type State
+	Connected
+	Closed
+end
+
+schema Packet
+	state: State::Connected
+end
+
+fn decode_callback() -> () effects [db]
+	()
+end
+
+fn encode_callback() -> () effects [net]
+	()
+end
+
+fn validate_callback() -> () effects [fs]
+	()
+end
+
+fn invoke_decode<effect E>(callback: fn() -> () effects [...E], step: DecodeStep<{length: Int}>) -> () effects [...E]
+	callback()
+end
+
+fn invoke_encode<effect E>(callback: fn() -> () effects [...E], step: Result<ByteChunk, EncodeError>) -> () effects [...E]
+	callback()
+end
+
+fn invoke_validate<effect E>(callback: fn() -> () effects [...E], step: Result<{state: State::Connected}, DecodeError>) -> () effects [...E]
+	callback()
+end
+
+fn decode_helper(view: ByteView, base: ByteOffset) -> ()
+	invoke_decode(decode_callback, decode PacketWire from view at base)
+end
+
+fn encode_helper() -> ()
+	invoke_encode(encode_callback, encode PacketWire from {length: 1})
+end
+
+fn validate_helper(state: State, base: ByteOffset) -> ()
+	invoke_validate(validate_callback, validate Packet from {state: state} at base)
+end
+
+pub fn accepted_decode_keeps_row_effect(view: ByteView, base: ByteOffset) -> ()
+	decode_helper(view, base)
+end
+
+pub fn accepted_encode_keeps_row_effect() -> ()
+	encode_helper()
+end
+
+pub fn accepted_validate_keeps_row_effect(state: State, base: ByteOffset) -> ()
+	validate_helper(state, base)
+end

@@ -694,6 +694,95 @@ fn accepted_binary_argument_preserves_instantiated_private_call_effects() {
 }
 
 #[test]
+fn accepted_schema_expression_arguments_preserve_instantiated_private_call_effects() {
+    let cases = [
+        concat!(
+            "schema PacketWire\n",
+            "\tformat binary\n",
+            "\n",
+            "\tlength: UInt8\n",
+            "end\n",
+            "\n",
+            "fn db_callback() -> () effects [db]\n",
+            "\t()\n",
+            "end\n",
+            "\n",
+            "fn invoke<effect E>(callback: fn() -> () effects [...E], step: DecodeStep<{length: Int}>) -> () effects [...E]\n",
+            "\tcallback()\n",
+            "end\n",
+            "\n",
+            "fn helper(view: ByteView, base: ByteOffset) -> ()\n",
+            "\tinvoke(db_callback, decode PacketWire from view at base)\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView, base: ByteOffset) -> ()\n",
+            "\thelper(view, base)\n",
+            "end\n",
+        ),
+        concat!(
+            "schema PacketWire\n",
+            "\tformat binary\n",
+            "\n",
+            "\tlength: UInt8\n",
+            "end\n",
+            "\n",
+            "fn db_callback() -> () effects [db]\n",
+            "\t()\n",
+            "end\n",
+            "\n",
+            "fn invoke<effect E>(callback: fn() -> () effects [...E], step: Result<ByteChunk, EncodeError>) -> () effects [...E]\n",
+            "\tcallback()\n",
+            "end\n",
+            "\n",
+            "fn helper() -> ()\n",
+            "\tinvoke(db_callback, encode PacketWire from {length: 1})\n",
+            "end\n",
+            "\n",
+            "pub fn main() -> ()\n",
+            "\thelper()\n",
+            "end\n",
+        ),
+        concat!(
+            "type State\n",
+            "\tConnected\n",
+            "\tClosed\n",
+            "end\n",
+            "\n",
+            "schema Packet\n",
+            "\tstate: State::Connected\n",
+            "end\n",
+            "\n",
+            "fn db_callback() -> () effects [db]\n",
+            "\t()\n",
+            "end\n",
+            "\n",
+            "fn invoke<effect E>(callback: fn() -> () effects [...E], step: Result<{state: State::Connected}, DecodeError>) -> () effects [...E]\n",
+            "\tcallback()\n",
+            "end\n",
+            "\n",
+            "fn helper(state: State, base: ByteOffset) -> ()\n",
+            "\tinvoke(db_callback, validate Packet from {state: state} at base)\n",
+            "end\n",
+            "\n",
+            "pub fn main(state: State, base: ByteOffset) -> ()\n",
+            "\thelper(state, base)\n",
+            "end\n",
+        ),
+    ];
+
+    for source in cases {
+        let diagnostics = analyze_surface_module(&module(source));
+
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+        assert_eq!(diagnostics[0].id, "effect.missing_public");
+        assert_eq!(
+            diagnostics[0].message,
+            "public function uses undeclared effect `db`"
+        );
+    }
+}
+
+#[test]
 fn solved_effect_row_instantiates_the_call_result_type() {
     let module = module(concat!(
         "fn db_callback() -> () effects [db]\n",
@@ -926,6 +1015,76 @@ fn rejected_constructor_payload_does_not_publish_a_partial_row_solution() {
             .iter()
             .all(|diagnostic| diagnostic.id != "effect.missing_public"),
         "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn rejected_fixed_field_inside_row_bearing_constructor_payload_is_transactional() {
+    let module = module(concat!(
+        "type CallbackBox<A>\n",
+        "\tWrapped(value: {callback: A, count: Int})\n",
+        "end\n",
+        "\n",
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke_box<effect E>(callback: CallbackBox<fn() -> () effects [...E]>) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn rejected_helper() -> ()\n",
+        "\tinvoke_box(CallbackBox::Wrapped({callback: db_callback, count: \"wrong\"}))\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\trejected_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn accepted_fixed_field_inside_row_bearing_constructor_payload_retains_row_effect() {
+    let module = module(concat!(
+        "type CallbackBox<A>\n",
+        "\tWrapped(value: {callback: A, count: Int})\n",
+        "end\n",
+        "\n",
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke_box<effect E>(callback: CallbackBox<fn() -> () effects [...E]>) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn accepted_helper() -> ()\n",
+        "\tinvoke_box(CallbackBox::Wrapped({callback: db_callback, count: 1}))\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\taccepted_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
     );
 }
 
