@@ -65,9 +65,12 @@ row-polymorphic function is called, argument compatibility determines one
 substitution for `E` across all nested occurrences in the call signature. The
 [type compatibility rules](types.md#compatibility-and-limits) define the
 structural constraint directions, least-set solution, retained rigid enclosing
-row tails, and rejected bounds. The accepted substitution is unioned with the
-concrete effects written beside `...E`. Public boundary diagnostics for a fully
-concrete call use the concrete instantiated effects.
+row tails, and rejected bounds. A call with no lower bound uses an empty
+substitution, including when the row occurs only in the result type. An
+accepted call instantiates both its result and its effects, then unions the row
+with concrete effects written beside `...E`. A rejected call exposes neither
+the tentative result row nor its effects. Public boundary diagnostics for a
+fully concrete accepted call use the concrete instantiated effects.
 
 Source modules may also declare nominal operation effects with `effect Name`
 or `pub effect Name`. Each operation declares ordinary parameter types and one

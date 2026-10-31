@@ -890,9 +890,12 @@ outer rendered types are checked by the
 The same rules own call-bound effect-row constraints. A rejected constraint or
 argument reports the ordinary `type.mismatch` for the failed compatibility
 fact. The rejected call does not emit `effect.missing_public` from a tentative
-row substitution. The
+row substitution, including when its rejected result is used later. An
+accepted ordinary-call argument still contributes its instantiated row to the
+public-boundary diagnostic. The
 [`effect-row rejection case`](../../examples/specification/check/effect-row-call-rejection/)
-checks that JSON outcome for direct and nested payload failures.
+checks those JSON outcomes for direct and nested payload failures,
+escaping-result recovery, and an accepted ordinary-call argument.
 
 Format-neutral generated decode helpers retain refinements in their parameter
 and successful `Result` types, but they use ordinary structural record
