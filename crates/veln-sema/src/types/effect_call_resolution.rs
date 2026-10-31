@@ -3,7 +3,7 @@ use super::*;
 
 use crate::effect_rows::{
     call_bound_effect_row, instantiate_effect_rows, instantiate_effect_rows_in_type,
-    solve_call_bound_effect_row, type_contains_effect_row,
+    solve_call_bound_effect_row,
 };
 use crate::effects::concurrency_effects;
 
@@ -17,13 +17,19 @@ pub(super) fn instantiate_call_effect_rows(
         signature.variadic.as_ref(),
         &signature.effects,
     );
+    let arity_matches = args.len() >= signature.params.len()
+        && (signature.variadic.is_some() || args.len() == signature.params.len());
+    if !arity_matches {
+        return None;
+    }
     let mut comparisons = Vec::new();
-    for (param, arg) in signature.params.iter().zip(args) {
+    for (index, arg) in args.iter().enumerate() {
+        let param = signature
+            .params
+            .get(index)
+            .or(signature.variadic.as_ref())?;
         let Some(actual) = type_for_effect_call_argument(arg, context) else {
-            if row
-                .as_deref()
-                .is_some_and(|row| type_contains_effect_row(param, row))
-            {
+            if row.is_some() {
                 return None;
             }
             continue;

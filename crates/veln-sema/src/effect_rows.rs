@@ -16,35 +16,6 @@ pub(crate) fn call_bound_effect_row(
         .or_else(|| variadic.and_then(effect_row_in_type))
 }
 
-pub(crate) fn type_contains_effect_row(ty: &Type, row: &str) -> bool {
-    match ty {
-        Type::Unknown => false,
-        Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {
-            args.iter().any(|arg| type_contains_effect_row(arg, row))
-        }
-        Type::Record(fields) => fields
-            .iter()
-            .any(|(_, field)| type_contains_effect_row(field, row)),
-        Type::Function {
-            params,
-            variadic,
-            return_type,
-            effects,
-        } => {
-            effects
-                .iter()
-                .any(|effect| effect.strip_prefix("...") == Some(row))
-                || params
-                    .iter()
-                    .any(|param| type_contains_effect_row(param, row))
-                || variadic
-                    .as_deref()
-                    .is_some_and(|variadic| type_contains_effect_row(variadic, row))
-                || type_contains_effect_row(return_type, row)
-        }
-    }
-}
-
 pub(crate) fn solve_call_bound_effect_row<'a>(
     row: Option<&str>,
     comparisons: impl IntoIterator<Item = (&'a Type, &'a Type)>,

@@ -430,6 +430,88 @@ fn rejected_non_row_payload_does_not_leak_a_partial_row_substitution() {
 }
 
 #[test]
+fn rejected_call_shape_does_not_leak_a_partial_row_substitution() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn missing_argument() -> ()\n",
+        "\tinvoke(db_callback)\n",
+        "end\n",
+        "\n",
+        "fn unresolved_non_row_argument() -> ()\n",
+        "\tinvoke(db_callback, { value: 1 })\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tmissing_argument()\n",
+        "\tunresolved_non_row_argument()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn variadic_call_bound_effect_rows_contribute_every_argument() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn stdio_callback() -> () effects [stdio]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke_all<effect E>(callbacks: ...fn() -> () effects [...E]) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn helper() -> ()\n",
+        "\tinvoke_all(db_callback, stdio_callback)\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\thelper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+    let messages = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "effect.missing_public")
+        .map(|diagnostic| diagnostic.message.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        messages,
+        vec![
+            "public function uses undeclared effect `db`",
+            "public function uses undeclared effect `stdio`",
+        ],
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn enclosing_effect_rows_are_rigid_during_body_checking() {
     let module = module(concat!(
         "fn call_once<effect E>(callback: fn() -> () effects [...E]) -> () effects [...E]\n",
