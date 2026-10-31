@@ -193,11 +193,13 @@ Each retained diagnostic keeps the gate of its causal publication failure.
 For example, one failed result can report a module-value diagnostic with
 `gate: "module_value"` and an independent private-refinement diagnostic with
 `gate: "semantic_visibility"`. The presence or ordering of another diagnostic
-does not reclassify either failure. A retained cause from a captured dependency
-keeps that dependency's package identity and captured snapshot digest in its
-canonical `veln-pkg:` source URI. A source path or byte range that is also
-present in the package being documented does not reassign the cause to that
-package.
+does not reclassify either failure. When a retained dependency-owned cause can
+be matched to a captured dependency snapshot, its span keeps that dependency's
+package identity and snapshot digest in its canonical `veln-pkg:` source URI.
+A source path or byte range that is also present in the package being documented
+does not reassign the cause to that package. If the cause cannot be matched,
+generation replaces it with a spanless
+`package_doc.dependency_snapshot_unavailable` diagnostic under the same gate.
 
 The implemented gates are:
 
