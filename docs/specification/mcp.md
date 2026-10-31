@@ -91,7 +91,10 @@ from the embedded distribution source set are not listed.
 The embedded standard-library package-documentation resources come from a
 checked bundle generated from the embedded `std` snapshot. MCP startup rejects
 the bundle when its recorded digest is invalid or its snapshot digest does not
-match the retained `std` snapshot. A successful result lists only the
+match the retained `std` snapshot. The bundle generator contract contributes
+to the package-documentation digest. Changing that contract therefore changes
+the documentation digest and every embedded `std` `veln-doc:` URI even when
+the retained package snapshot is unchanged. A successful result lists only the
 index resource with name `std-documentation-index`, title `Veln
 package documentation: std`, and media type `text/markdown; charset=utf-8`.
 The index Markdown preserves the package-documentation catalog metadata and
