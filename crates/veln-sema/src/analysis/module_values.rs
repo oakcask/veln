@@ -223,7 +223,17 @@ pub(crate) fn check_module_values(
         variant_diagnostics,
         &stabilized.rejected,
     );
-    let mut diagnostic_indices = final_analysis
+    attach_recurrent_causes(module, &mut final_analysis, stabilized.recurrent_causes);
+    debug_assert_eq!(stabilized.unavailable, final_analysis.invalid);
+    final_analysis
+}
+
+fn attach_recurrent_causes(
+    module: &SurfaceModule,
+    analysis: &mut ModuleValueAnalysis,
+    recurrent_causes: Vec<(ModuleValueIdentity, Diagnostic)>,
+) {
+    let mut diagnostic_indices = analysis
         .diagnostics
         .iter()
         .enumerate()
@@ -244,33 +254,47 @@ pub(crate) fn check_module_values(
             ))
         })
         .collect::<HashMap<_, _>>();
-    for (identity, diagnostic) in stabilized.recurrent_causes {
-        let key = module_value_diagnostic_key(&diagnostic);
-        let diagnostic_index = if let Some(index) = diagnostic_indices.get(&key) {
-            *index
-        } else {
-            let index = final_analysis.diagnostics.len();
-            diagnostic_indices.insert(key, index);
-            final_analysis.diagnostics.push(diagnostic);
-            index
-        };
-        let Some(value_index) = value_indices.get(&identity).copied() else {
-            continue;
-        };
-        let diagnostic = &final_analysis.diagnostics[diagnostic_index];
-        let Some(span) = diagnostic.span.clone() else {
-            continue;
-        };
-        final_analysis.direct_causes[value_index].push(ModuleValuePublicationCause {
-            package_name: identity.0,
-            diagnostic_id: diagnostic.id.clone(),
-            diagnostic_message: Some(diagnostic.message.as_str().to_owned()),
-            span,
-            diagnostic_index: Some(diagnostic_index),
-        });
+    for (identity, diagnostic) in recurrent_causes {
+        attach_recurrent_cause(
+            identity,
+            diagnostic,
+            &mut diagnostic_indices,
+            &value_indices,
+            analysis,
+        );
     }
-    debug_assert_eq!(stabilized.unavailable, final_analysis.invalid);
-    final_analysis
+}
+
+fn attach_recurrent_cause(
+    identity: ModuleValueIdentity,
+    diagnostic: Diagnostic,
+    diagnostic_indices: &mut HashMap<ModuleValueDiagnosticKey, usize>,
+    value_indices: &HashMap<ModuleValueIdentity, usize>,
+    analysis: &mut ModuleValueAnalysis,
+) {
+    let key = module_value_diagnostic_key(&diagnostic);
+    let diagnostic_index = if let Some(index) = diagnostic_indices.get(&key) {
+        *index
+    } else {
+        let index = analysis.diagnostics.len();
+        diagnostic_indices.insert(key, index);
+        analysis.diagnostics.push(diagnostic);
+        index
+    };
+    let Some(value_index) = value_indices.get(&identity).copied() else {
+        return;
+    };
+    let diagnostic = &analysis.diagnostics[diagnostic_index];
+    let Some(span) = diagnostic.span.clone() else {
+        return;
+    };
+    analysis.direct_causes[value_index].push(ModuleValuePublicationCause {
+        package_name: identity.0,
+        diagnostic_id: diagnostic.id.clone(),
+        diagnostic_message: Some(diagnostic.message.as_str().to_owned()),
+        span,
+        diagnostic_index: Some(diagnostic_index),
+    });
 }
 
 fn module_value_diagnostic_key(diagnostic: &Diagnostic) -> ModuleValueDiagnosticKey {
