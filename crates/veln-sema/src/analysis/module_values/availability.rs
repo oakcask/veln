@@ -2,7 +2,10 @@ use std::collections::{BTreeSet, HashMap};
 
 use veln_ast::{Expr, ExprKind, SurfaceModule};
 
-use super::{check_module_value, colliding_module_value_identities, module_value_indices};
+use super::{
+    DependencyCollector, check_module_value, colliding_module_value_identities,
+    module_value_indices,
+};
 use crate::analysis::VariantDiagnosticInterner;
 use crate::types::{
     BareModuleValueExposureIdentity, ModuleValueDependency, ModuleValueIdentity, ModuleValueIndex,
@@ -172,7 +175,12 @@ impl AvailabilityWave<'_> {
                     return None;
                 }
                 let mut dependencies = Vec::new();
+                let mut collision_dependencies = Vec::new();
                 let mut diagnostics = Vec::new();
+                let mut collected_dependencies = DependencyCollector {
+                    dependencies: &mut dependencies,
+                    collision_dependencies: &mut collision_dependencies,
+                };
                 #[cfg(test)]
                 super::update_module_value_availability_work(|work| work.semantic_visits += 1);
                 let mut invalid = check_module_value(
@@ -181,7 +189,7 @@ impl AvailabilityWave<'_> {
                     self.value_indices,
                     self.environment,
                     self.variant_diagnostics,
-                    &mut dependencies,
+                    &mut collected_dependencies,
                     &mut diagnostics,
                 );
                 // Same-module reads reserve unavailable names without producing a

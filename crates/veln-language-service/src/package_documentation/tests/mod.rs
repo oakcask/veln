@@ -8,6 +8,14 @@ use veln_project::{
 use super::*;
 
 fn generate(manifest: &str, sources: &[(&str, &str)]) -> PackageDocResult {
+    generate_with_dependencies(manifest, sources, &[])
+}
+
+fn generate_with_dependencies(
+    manifest: &str,
+    sources: &[(&str, &str)],
+    dependencies: &[CapturedDependencyProject],
+) -> PackageDocResult {
     let snapshot = capture_embedded_package_snapshot(
         manifest.as_bytes(),
         sources
@@ -22,6 +30,8 @@ fn generate(manifest: &str, sources: &[(&str, &str)]) -> PackageDocResult {
         &identity,
         &snapshot,
         &manifest,
+        Path::new("."),
+        dependencies,
         PackageDocGeneratorContract::new("contract-a"),
     )
 }
@@ -57,6 +67,8 @@ fn generate_fixture(name: &str) -> PackageDocResult {
         &identity,
         &snapshot,
         &manifest,
+        Path::new("."),
+        &[],
         PackageDocGeneratorContract::new("contract-a"),
     )
 }
@@ -93,6 +105,8 @@ fn generate_with_forced_declaration_id(
         &identity,
         &snapshot,
         &manifest,
+        Path::new("."),
+        &[],
         PackageDocGeneratorContract::new("contract-a"),
     )
     .with_forced_declaration_id(id)
@@ -102,5 +116,6 @@ fn generate_with_forced_declaration_id(
 mod catalog_identity;
 mod doctest_gates;
 mod doctest_publication;
+mod module_value_publication;
 mod navigation_and_manifest;
 mod variant_refinement_visibility;

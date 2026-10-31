@@ -13,7 +13,7 @@ use veln_project::{
 };
 
 pub const BUNDLE_SCHEMA_VERSION: u64 = 2;
-pub const GENERATOR_CONTRACT: &str = "veln-mcp-package-documentation/v1";
+pub const GENERATOR_CONTRACT: &str = "veln-mcp-package-documentation/v2";
 pub const DIGEST_DOMAIN: &[u8] = b"veln-mcp-standard-library-package-doc-resources/v2\0";
 pub const CHECKED_ARTIFACT: &str =
     include_str!("../generated/mcp-standard-library-package-doc-resources-v2.json");
@@ -138,6 +138,8 @@ pub fn generate_checked_bundle() -> Result<GeneratedBundle, String> {
         &PackageIdentity::embedded_standard(),
         &snapshot,
         &manifest,
+        std::path::Path::new("."),
+        &[],
         PackageDocGeneratorContract::new(GENERATOR_CONTRACT),
     );
     let mut resources = render_package_documentation(&result);

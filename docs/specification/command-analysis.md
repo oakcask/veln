@@ -75,10 +75,13 @@ spans, and related context are defined by the
 [diagnostic specification](diagnostics-json.md#diagnostic-families).
 
 `doc` consumes the same project semantic diagnostics for its selected production
-sources, but retains its own source exclusion, parse recovery, schema-reference,
-and write boundaries. A refinement diagnostic remains an error when recovery
-retains an identity; recovery does not turn the invalid annotation into a
-successful static transition.
+sources, but discards `module.value_not_executable` because documentation does
+not require runtime materialization. Every other diagnostic in a selected
+module value's causal dependency closure remains a package-documentation error.
+The command also retains its own source exclusion, parse recovery,
+schema-reference, and write boundaries. A refinement diagnostic remains an
+error when recovery retains an identity; recovery does not turn the invalid
+annotation into a successful static transition.
 
 When doctest creation is requested, a documented source path that is not a
 canonical package-relative virtual-source origin produces

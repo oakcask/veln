@@ -6,8 +6,8 @@ mod surface;
 
 pub use analysis::{
     AnalysisTiming, DoctestMode, ProjectAnalysis, ReachableEntryAnalysis, analyze_project,
-    analyze_project_with_timings, checked_project_diagnostics,
-    checked_project_diagnostics_with_captured_dependencies,
+    analyze_project_with_captured_dependencies, analyze_project_with_timings,
+    checked_project_diagnostics, checked_project_diagnostics_with_captured_dependencies,
 };
 pub use diagnostics::parse_diagnostic_to_envelope;
 pub use surface::{

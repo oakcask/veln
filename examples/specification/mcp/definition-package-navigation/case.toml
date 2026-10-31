@@ -31,7 +31,7 @@ equals = {"start":{"line":9,"column":8},"end":{"line":9,"column":17}}
 [[mcp_assert]]
 id = 2
 path = "/result/structuredContent/definition/packageDocumentationUri"
-equals = "veln-doc:///package/example%2Fdep/snapshot/0466c89b3505f95c64c566d92bbe3ecc157c28285d6d90f9928e87ef53a4df82/documentation/d582d59bd9682d7a38724ba5b74b0d0f0cbf12bdc6196102f9c02e118742f011/declaration/29c5a3c2a4ea4e67209d67522630fad84d08420b32932d13b61f3383d269e18c"
+equals = "veln-doc:///package/example%2Fdep/snapshot/0466c89b3505f95c64c566d92bbe3ecc157c28285d6d90f9928e87ef53a4df82/documentation/4010717bb4571ade663d069b82379d728f15535a46d3029a9ea17104581edc03/declaration/29c5a3c2a4ea4e67209d67522630fad84d08420b32932d13b61f3383d269e18c"
 
 [[mcp_assert]]
 id = 2
@@ -71,7 +71,7 @@ equals = {"start":{"line":2,"column":7},"end":{"line":2,"column":12}}
 [[mcp_assert]]
 id = 5
 path = "/result/structuredContent/definition/packageDocumentationUri"
-equals = "veln-doc:///package/example%2Fdep/snapshot/0466c89b3505f95c64c566d92bbe3ecc157c28285d6d90f9928e87ef53a4df82/documentation/d582d59bd9682d7a38724ba5b74b0d0f0cbf12bdc6196102f9c02e118742f011/declaration/021696fb2fe91752dc966111ce2e5c9420068b7af750f77f9f0a964429c690e2"
+equals = "veln-doc:///package/example%2Fdep/snapshot/0466c89b3505f95c64c566d92bbe3ecc157c28285d6d90f9928e87ef53a4df82/documentation/4010717bb4571ade663d069b82379d728f15535a46d3029a9ea17104581edc03/declaration/021696fb2fe91752dc966111ce2e5c9420068b7af750f77f9f0a964429c690e2"
 
 [[mcp_assert]]
 id = 5
@@ -86,7 +86,7 @@ missing = true
 [[mcp_assert]]
 id = 6
 path = "/result/structuredContent/definition/packageDocumentationUri"
-equals = "veln-doc:///package/example%2Fdep/snapshot/0466c89b3505f95c64c566d92bbe3ecc157c28285d6d90f9928e87ef53a4df82/documentation/d582d59bd9682d7a38724ba5b74b0d0f0cbf12bdc6196102f9c02e118742f011/declaration/055a46d0d05b6a3c3cdb0f0b7c022d3acd428c28576692a41f5d2f96679516a0"
+equals = "veln-doc:///package/example%2Fdep/snapshot/0466c89b3505f95c64c566d92bbe3ecc157c28285d6d90f9928e87ef53a4df82/documentation/4010717bb4571ade663d069b82379d728f15535a46d3029a9ea17104581edc03/declaration/055a46d0d05b6a3c3cdb0f0b7c022d3acd428c28576692a41f5d2f96679516a0"
 
 [[mcp_assert]]
 id = 7

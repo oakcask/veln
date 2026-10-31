@@ -18,8 +18,8 @@ also states it.
 
 - With typed module `let` syntax, package-wide dependency validation, imported
   lookup, package-aware stable identity, visibility, and checked-core/typed-IR
-  preservation implemented, add runtime materialization and execution,
-  documentation publication, and language-service navigation:
+  preservation and documentation publication implemented, add runtime
+  materialization and execution and language-service navigation:
   [module-immutable-values.md](module-immutable-values.md).
 - Generic named-type variance, bounded inference, variance metadata, and
   nested incompatibility diagnostics:

@@ -53,6 +53,7 @@ pub(crate) use navigation::{
 };
 pub use pipeline::{
     CanonicalTypeAnnotationIdentity, CanonicalTypeAnnotationWork, LoweredSurfaceModule,
+    ModuleValuePublicationDiagnostic, ModuleValuePublicationIdentity, ModuleValuePublicationWork,
     PublicationDiagnosticCause, UnpublishedDeclaration, VariantRefinementClassificationWork,
     analyze_surface_module, canonical_type_annotation_identities_with_context,
     canonical_type_annotation_identities_with_context_and_work, check_project_surface_module,
@@ -73,8 +74,9 @@ pub use pipeline::{
 #[cfg(test)]
 pub(crate) use pipeline::{
     analyze_surface_module_with_base_for_test, check_project_surface_module_with_base_for_test,
-    publication_propagation_work, reset_module_value_gate_work, reset_publication_propagation_work,
-    take_module_value_gate_work,
+    publication_propagation_work, reset_module_value_gate_work,
+    reset_module_value_publication_work, reset_publication_propagation_work,
+    take_module_value_gate_work, take_module_value_publication_work,
 };
 pub use type_syntax::{type_annotation_reference_names, type_annotation_reference_paths};
 pub use types::ReusableStandardEnvironment;

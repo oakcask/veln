@@ -125,6 +125,8 @@ impl StandardLibraryResources {
             &PackageIdentity::embedded_standard(),
             &snapshot,
             &manifest,
+            std::path::Path::new("."),
+            &[],
             PackageDocGeneratorContract::new(
                 veln_repo_mcp_standard_library_docs::GENERATOR_CONTRACT,
             ),

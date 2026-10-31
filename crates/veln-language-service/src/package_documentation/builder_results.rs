@@ -71,6 +71,26 @@ impl<'a> PackageDocBuilder<'a> {
         }
     }
 
+    pub(super) fn project_diagnostic_for_package(
+        &self,
+        gate: &str,
+        package_name: Option<&str>,
+        diagnostic: Diagnostic,
+    ) -> PackageDocDiagnostic {
+        let identity = package_name.unwrap_or(self.identity);
+        PackageDocDiagnostic {
+            gate: gate.to_string(),
+            code: diagnostic.id,
+            message: diagnostic.message.to_owned_string(),
+            span: diagnostic.span.as_ref().map(|span| {
+                PackageDocDiagnosticSpan::from_span(
+                    &source_uri(identity, self.snapshot.digest(), span.file.as_str()),
+                    span,
+                )
+            }),
+        }
+    }
+
     pub(super) fn failed_result(mut self) -> PackageDocResult {
         self.sort_diagnostics();
         let diagnostics = std::mem::take(&mut self.diagnostics);

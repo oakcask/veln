@@ -516,12 +516,6 @@ fn package_catalog_rejects_alias_function_and_recursive_exposure_paths() {
                 13,
                 22,
             ),
-            (
-                "semantic_visibility",
-                "type.variant_refinement_private",
-                13,
-                22,
-            ),
         ]
     );
     assert!(

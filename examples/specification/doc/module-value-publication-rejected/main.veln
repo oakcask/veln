@@ -1,0 +1,2 @@
+pub let accepted: Int = 1
+pub let rejected: Int = "not-an-int"

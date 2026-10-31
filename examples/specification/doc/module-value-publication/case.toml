@@ -1,0 +1,11 @@
+command = ["doc", "main.veln"]
+source_errors = "expected"
+exit = 0
+
+[stdout]
+format = "text"
+contains = ["##### let service_name: String", "Published service name."]
+not_contains = ["initializer-secret", "private_name", "private-secret"]
+
+[stderr]
+format = "empty"

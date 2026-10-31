@@ -101,6 +101,15 @@ impl<'a> PackageDocBuilder<'a> {
                         schema_targets,
                     ));
                 }
+                SyntaxItem::ModuleValue(value) if value.visibility == Visibility::Public => {
+                    declarations.push(self.module_value_declaration(
+                        source,
+                        value,
+                        semantic_identities,
+                        declaration_locations,
+                        schema_targets,
+                    ));
+                }
                 SyntaxItem::Schema(schema) if schema.visibility == Visibility::Public => {
                     declarations.push(self.schema_declaration(
                         source,
@@ -153,6 +162,42 @@ impl<'a> PackageDocBuilder<'a> {
             }
         }
         declarations
+    }
+
+    pub(super) fn module_value_declaration(
+        &mut self,
+        source: &ParsedPackageSource,
+        value: &ModuleValueDecl,
+        semantic_identities: &mut BTreeMap<String, SourceSpan>,
+        declaration_locations: &mut BTreeMap<PackageDocLocationKey, String>,
+        schema_targets: &SchemaDocResolver<'_>,
+    ) -> PackageDocDeclaration {
+        let name = value.name.clone().unwrap_or_default();
+        let signature = module_value_signature(value, &source.source);
+        let identity = format!("module_value:{}::{name}:{signature}", source.module_name);
+        self.record_semantic_identity(&identity, &value.span, semantic_identities);
+        let declaration_id = self.declaration_id("module_value", &identity);
+        record_declaration_location(
+            &source.source,
+            &source.source_uri,
+            declaration_locations,
+            &declaration_id,
+            &value.span,
+            value.name.as_deref(),
+        );
+        PackageDocDeclaration {
+            id: declaration_id,
+            kind: "module_value".to_string(),
+            name,
+            signature,
+            uri: String::new(),
+            doc: doc_block_before(&source.source, value.span.start.line),
+            contracts: Vec::new(),
+            constructors: Vec::new(),
+            alias: None,
+            doctests: self.doctests_for(&source.source, value.span.start.line),
+            references: self.references_for(&source.source, value.span.start.line, schema_targets),
+        }
     }
 
     pub(super) fn handler_declaration(

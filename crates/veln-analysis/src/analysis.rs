@@ -9,7 +9,7 @@ use veln_diagnostics::Diagnostic;
 use veln_ir::TypedProgram;
 use veln_project::Project;
 use veln_sema::{
-    LoweredSurfaceModule, ReusableStandardEnvironment,
+    LoweredSurfaceModule, ModuleValuePublicationWork, ReusableStandardEnvironment,
     check_project_surface_module_with_standard_modules_environment,
     try_prepare_current_reusable_standard_surface_module_environment,
     validate_standard_symbol_registry_diagnostic,
@@ -336,7 +336,7 @@ pub fn checked_project_diagnostics_with_captured_dependencies(
         .checked_diagnostics()
 }
 
-fn analyze_project_with_captured_dependencies(
+pub fn analyze_project_with_captured_dependencies(
     project: Project,
     doctest_mode: DoctestMode,
     dependencies: &[CapturedDependencyProject],
@@ -388,6 +388,55 @@ impl ProjectAnalysis {
 
     pub fn unpublished_declarations(&self) -> &[veln_sema::UnpublishedDeclaration] {
         &self.checked.unpublished_declarations
+    }
+
+    pub fn module_value_publication_diagnostic_indices(
+        &self,
+        span: &veln_source::SourceSpan,
+    ) -> Option<Vec<usize>> {
+        self.checked
+            .module_value_publication_diagnostic_indices(span)
+    }
+
+    pub fn module_value_publication_diagnostics(
+        &self,
+        span: &veln_source::SourceSpan,
+    ) -> Option<Vec<Diagnostic>> {
+        self.checked
+            .module_value_publication_diagnostic_indices(span)
+            .map(|indices| {
+                indices
+                    .into_iter()
+                    .map(|index| self.checked.diagnostics[index].clone())
+                    .collect()
+            })
+    }
+
+    pub fn module_value_publication_diagnostics_for_spans(
+        &self,
+        spans: &[veln_source::SourceSpan],
+    ) -> (Vec<Diagnostic>, ModuleValuePublicationWork) {
+        let (_, indices, work) = self
+            .checked
+            .module_value_publication_diagnostic_indices_for_spans(spans);
+        (
+            indices
+                .into_iter()
+                .map(|index| self.checked.diagnostics[index].clone())
+                .collect(),
+            work,
+        )
+    }
+
+    pub fn module_value_publication_diagnostics_for_identities(
+        &self,
+        identities: &[veln_sema::ModuleValuePublicationIdentity],
+    ) -> (
+        Vec<veln_sema::ModuleValuePublicationDiagnostic>,
+        ModuleValuePublicationWork,
+    ) {
+        self.checked
+            .module_value_publication_diagnostics_for_identities(identities)
     }
 
     pub fn lower_reachable_entry(
@@ -540,12 +589,7 @@ fn standard_environment_with_test_cache(
 }
 
 fn lowered_internal_failure(diagnostic: Diagnostic) -> LoweredSurfaceModule {
-    LoweredSurfaceModule {
-        diagnostics: vec![diagnostic],
-        core: None,
-        ir: None,
-        unpublished_declarations: Vec::new(),
-    }
+    LoweredSurfaceModule::internal_failure(vec![diagnostic])
 }
 
 #[cfg(test)]

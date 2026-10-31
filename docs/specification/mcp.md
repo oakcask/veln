@@ -91,7 +91,10 @@ from the embedded distribution source set are not listed.
 The embedded standard-library package-documentation resources come from a
 checked bundle generated from the embedded `std` snapshot. MCP startup rejects
 the bundle when its recorded digest is invalid or its snapshot digest does not
-match the retained `std` snapshot. A successful result lists only the
+match the retained `std` snapshot. The bundle generator contract contributes
+to the package-documentation digest. Changing that contract therefore changes
+the documentation digest and every embedded `std` `veln-doc:` URI even when
+the retained package snapshot is unchanged. A successful result lists only the
 index resource with name `std-documentation-index`, title `Veln
 package documentation: std`, and media type `text/markdown; charset=utf-8`.
 The index Markdown preserves the package-documentation catalog metadata and
@@ -124,12 +127,20 @@ operation. A valid snapshot
 has a manifest package name that equals the dependency table key and a captured
 package distribution snapshot. The server generates the existing
 transport-independent package-documentation result from that retained snapshot
-and the parsed manifest used for admission. If generation succeeds, the
-dependency documentation index is listed, and its linked module and
-declaration resources are available only through exact `resources/read`
-requests. If generation fails, only the dependency documentation status
-resource is listed and readable. Source resources are retained in either
-case. Repeating the same package identity and digest adds no state. A later
+and the parsed manifest used for admission. Publication analysis receives the
+complete dependency set from the same stable capture. A saved dependency that
+imports another captured dependency therefore publishes the same accepted
+public declarations without rereading either package from the host filesystem.
+If generation succeeds, the dependency documentation index is listed, and its
+linked module and declaration resources are available only through exact
+`resources/read` requests. If generation fails, only the dependency
+documentation status resource is listed and readable. Its diagnostic source
+span keeps the canonical package identity of the captured package that owns
+the cause, including another dependency in the same stable capture. The
+[package-documentation specification](package-documentation.md#generation-gates)
+defines this diagnostic identity contract. Source resources are retained in
+either case. Repeating the same package identity and digest adds no state. A
+later
 digest for the same identity coexists with the earlier snapshot. The server
 retains at most 256 package snapshots, including the embedded standard-library
 snapshot. If one operation would exceed that limit, the tool returns
@@ -918,9 +929,14 @@ and `crates/veln-mcp/src/references.rs`; source presentation is implemented by
 conversion is implemented by
 `crates/veln-mcp/src/rename.rs`; cursor retention is implemented by
 `crates/veln-mcp/src/reference_pagination.rs`. Protocol regression tests are in
-`crates/veln-mcp/src/server/tests/`. Checked rename transcripts cover saved
-workspace results, supported symbol classes, recovery identities, unsupported
-boundaries, and anonymous boundaries under `examples/specification/mcp/rename-*`.
+`crates/veln-mcp/src/server/tests/`. The checked embedded standard-library
+package-documentation bundle and generator contract are maintained by
+`tools/veln-repo-mcp-standard-library-docs/`; bundle validation and MCP resource
+transcripts check that generator-contract changes rotate exact documentation
+URIs without rotating the package snapshot. Checked rename transcripts cover
+saved workspace results, supported symbol classes, recovery identities,
+unsupported boundaries, and anonymous boundaries under
+`examples/specification/mcp/rename-*`.
 The checked
 [`standard-library-package-documentation-resources`](../../examples/specification/mcp/standard-library-package-documentation-resources/)
 transcript covers discovery and exact reads for the embedded package catalog,

@@ -9,19 +9,23 @@ update-when: The package documentation catalog API, canonical result bytes, dige
 
 `veln-language-service` exposes a transport-independent package documentation
 catalog for one validated package identity, one captured package snapshot, and
-the validated manifest parsed from that same capture. The catalog is not the
-`veln doc` Markdown output. `veln mcp` exposes a Markdown projection for the
-embedded `std` package-documentation result and for admitted direct-dependency
-package snapshots.
+the validated manifest parsed from that same capture. Semantic publication
+uses only the captured dependency projects supplied with that package and does
+not reconstruct dependencies from the host filesystem. The package project
+root is an analysis identity input and is not published in the catalog. The
+catalog is not the `veln doc` Markdown output. `veln mcp` exposes a Markdown
+projection for the embedded `std` package-documentation result and for
+admitted direct-dependency package snapshots.
 
 ## Usage
 
 Call `PackageDocResult::generate` with a validated `PackageIdentity`, a
-`CapturedPackageSnapshot`, its `ProjectManifest`, and a
+`CapturedPackageSnapshot`, its `ProjectManifest`, the captured package project
+root, every captured dependency project from the same analysis, and a
 `PackageDocGeneratorContract`. Inspect `status()` for generation diagnostics
 and `catalog()` for the optional published catalog. `canonical_bytes()` and
-`doc_digest()` expose the stable result identity. Use `declaration_uri_for`
-or `declaration_uri_for_location` to obtain documentation links rather than
+`doc_digest()` expose the stable result identity. Use `declaration_uri_for` or
+`declaration_uri_for_location` to obtain documentation links rather than
 constructing their identifiers.
 
 ## Read First
@@ -55,8 +59,8 @@ the documentation digest because the canonical result contains that snapshot
 digest. Catalog-semantic, schema, or generator-contract changes also affect
 the documentation digest.
 
-The implemented gates are parse, manifest, export, semantic visibility,
-documentation-reference, doctest, and identity.
+The implemented gates are parse, manifest, export, semantic visibility, module
+value, documentation-reference, doctest, and identity.
 
 ## Result Identity
 
@@ -101,24 +105,32 @@ signatures include effect row binders such as `<effect E>`. Effect declaration
 signatures include the ordered operation names, parameter names and types, and
 result types. Handler declaration signatures include the handler name and
 parameters, the handled effect, and the retained effect row. Handler operation
-clauses and bodies do not contribute to the signature or identity. Declaration
-identity does not use source order or source byte offsets. A duplicate semantic
-identity fails the complete package documentation result. A detected module or
+clauses and bodies do not contribute to the signature or identity. A module
+immutable value signature contains `let`, its public name, and its written type
+annotation. Its initializer is not copied into declaration content and does not
+contribute to the signature or declaration identity. Declaration identity does
+not use source order or source byte offsets. A duplicate semantic identity
+fails the complete package documentation result. A detected module or
 declaration identifier collision also fails the complete package documentation
-result.
+result. Initializer source bytes remain part of the package snapshot, so an
+initializer-only source change rotates the snapshot identity, canonical result
+bytes, and documentation digest.
 
 ## Published Boundary
 
 The successful catalog includes only modules listed by `[lib].exports`. For
 those modules it includes public type declarations, public type constructors,
-public schemas, public effects and their operation signatures, public member
-aliases, public handlers, public functions, attached documentation comments,
-public function contracts, visible doctest fences, expected-output fences, and
-resolved schema documentation references. Each public handler is a distinct
-`handler` declaration with its canonical signature, stable declaration
-identifier, and individually readable declaration resource. Public type
-constructors carry their own attached documentation comments, visible doctest
+public schemas, public effects and their operation signatures, public module
+immutable values, public member aliases, public handlers, public functions,
+attached documentation comments, public function contracts, visible doctest
 fences, expected-output fences, and resolved schema documentation references.
+Each public module value is a `module_value` declaration that publishes its
+name and written type annotation without initializer text. Each public handler
+is a distinct `handler` declaration with its canonical signature, stable
+declaration identifier, and individually readable declaration resource. Public
+type constructors carry their own attached documentation comments, visible
+doctest fences, expected-output fences, and resolved schema documentation
+references.
 An effect is one declaration in the catalog; its operations are represented in
 that declaration's canonical signature rather than as separate declarations.
 Public function and ADT signatures preserve source-written variant-refinement
@@ -138,17 +150,19 @@ are eligible for the package-atomic failure even when their primary spans are
 in non-exported sources.
 
 The catalog excludes non-exported modules, private declarations, handler
-operation clauses and bodies, module immutable value declarations, exact test
-companions, integration-test sources, hidden doctest setup lines, ADR-lite
+operation clauses and bodies, module immutable value initializer text, exact
+test companions, integration-test sources, hidden doctest setup lines, ADR-lite
 records, raw manifests, dependency declarations, dependency selectors, local
 paths, repository and homepage URLs, tool metadata, unknown manifest fields,
-and environment-derived values. A direct successful `PackageDocResult` has no
-declaration or lookup URI for a module immutable value. The `veln doc` command
-runs project analysis before package-documentation generation. It reports any
-finite-data initializer, annotation-visibility, imported-lookup, or package-wide
-dependency diagnostics for selected module immutable values, together with
-`module.value_not_executable` for every such declaration. These diagnostics
-block generation before the command can publish the declaration.
+and environment-derived values. A direct successful `PackageDocResult` has a
+declaration and lookup URI for each accepted public module value. A public
+module value rejected by finite-data initializer, annotation, imported-lookup,
+visibility, or package-wide dependency checking fails the package-atomic
+result. No accepted sibling declaration is published in that failure result.
+The `veln doc` command applies the same initializer, annotation, lookup,
+visibility, and dependency rules. Its failure selection is broader: any
+semantic error in the selected production project blocks the complete Markdown
+document, except for the runtime-only `module.value_not_executable` diagnostic.
 
 Published expected-output fences preserve the stream as `stdout` or `stderr`
 and the complete lines for that stream.
@@ -174,6 +188,15 @@ failure instead of dropping the manifest-listed export from validation.
 Generation is package-atomic. If any gate fails, the result contains only a
 status object and no module or declaration catalog. The source snapshot and
 virtual-source catalog remain usable by their own APIs.
+
+Each retained diagnostic keeps the gate of its causal publication failure.
+For example, one failed result can report a module-value diagnostic with
+`gate: "module_value"` and an independent private-refinement diagnostic with
+`gate: "semantic_visibility"`. The presence or ordering of another diagnostic
+does not reclassify either failure. A retained cause from a captured dependency
+keeps that dependency's package identity in its canonical `veln-pkg:` source
+URI. A source path or byte range that is also present in the package being
+documented does not reassign the cause to that package.
 
 The implemented gates are:
 
@@ -201,6 +224,17 @@ The implemented gates are:
   `gate: "semantic_visibility"`, reports
   `type.variant_refinement_private`, and publishes no declaration identity or
   signature;
+- module value: every public module immutable value in an exported source must
+  pass finite-data initializer, written-annotation, imported-lookup,
+  package-aware visibility, and package-wide dependency checking. The
+  runtime-only `module.value_not_executable` diagnostic is not a documentation
+  rejection. An error owned by that declaration or by a required module-value
+  dependency rejects the complete catalog with `gate: "module_value"` and
+  publishes no module value or accepted sibling declaration. The failure keeps
+  only diagnostics in the rejected exported value's causal dependency closure.
+  A public module value whose name does not start with an ASCII lowercase
+  letter reports `name.invalid_case` through this gate. This name check applies
+  to every retained source, including a source that is not exported;
 - documentation reference: `{@schema ...}` references in documentation
   blocks that attach to exported public declarations or exported public type
   constructors must resolve to a public schema in an exported module. Bare
@@ -264,6 +298,14 @@ asking clients to construct resource identifiers or re-resolve by spelling.
 The public API is in
 `crates/veln-language-service/src/package_documentation.rs`; catalog identity,
 publication, and gate tests are in its `package_documentation/tests/` modules.
+The `module_value_publication` tests check public declaration content and
+lookup, initializer-independent declaration identity, snapshot and
+documentation digest rotation, package-atomic failure, and causal diagnostic
+selection for rejected values. They also check recovered-import causes and
+dependency-owned causes whose paths or spans collide with the documented
+package. Deterministic work counters compare adjacent input sizes for public
+dependency chains, independent invalid values, and invalid-casing values to
+guard linear semantic classification without a wall-time threshold.
 The checked
 [`standard-library-package-documentation-resources`](../../examples/specification/mcp/standard-library-package-documentation-resources/)
 transcript covers the public `net::system()` handler resource, its canonical
