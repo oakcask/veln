@@ -120,12 +120,13 @@ public schemas, public effects and their operation signatures, public module
 immutable values, public member aliases, public handlers, public functions,
 attached documentation comments, public function contracts, visible doctest
 fences, expected-output fences, and resolved schema documentation references.
-Each public module value publishes its name and written type annotation without
-initializer text. Each public handler is a distinct
-`handler` declaration with its canonical signature, stable declaration
-identifier, and individually readable declaration resource. Public type
-constructors carry their own attached documentation comments, visible doctest
-fences, expected-output fences, and resolved schema documentation references.
+Each public module value is a `module_value` declaration that publishes its
+name and written type annotation without initializer text. Each public handler
+is a distinct `handler` declaration with its canonical signature, stable
+declaration identifier, and individually readable declaration resource. Public
+type constructors carry their own attached documentation comments, visible
+doctest fences, expected-output fences, and resolved schema documentation
+references.
 An effect is one declaration in the catalog; its operations are represented in
 that declaration's canonical signature rather than as separate declarations.
 Public function and ADT signatures preserve source-written variant-refinement
@@ -154,8 +155,10 @@ declaration and lookup URI for each accepted public module value. A public
 module value rejected by finite-data initializer, annotation, imported-lookup,
 visibility, or package-wide dependency checking fails the package-atomic
 result. No accepted sibling declaration is published in that failure result.
-The `veln doc` command applies the same semantic acceptance boundary while
-ignoring the runtime-only `module.value_not_executable` diagnostic.
+The `veln doc` command applies the same initializer, annotation, lookup,
+visibility, and dependency rules. Its failure selection is broader: any
+semantic error in the selected production project blocks the complete Markdown
+document, except for the runtime-only `module.value_not_executable` diagnostic.
 
 Published expected-output fences preserve the stream as `stdout` or `stderr`
 and the complete lines for that stream.
@@ -215,7 +218,10 @@ The implemented gates are:
   rejection. An error owned by that declaration or by a required module-value
   dependency rejects the complete catalog with `gate: "module_value"` and
   publishes no module value or accepted sibling declaration. The failure keeps
-  only diagnostics in the rejected exported value's causal dependency closure;
+  only diagnostics in the rejected exported value's causal dependency closure.
+  A public module value whose name does not start with an ASCII lowercase
+  letter reports `name.invalid_case` through this gate. This name check applies
+  to every retained source, including a source that is not exported;
 - documentation reference: `{@schema ...}` references in documentation
   blocks that attach to exported public declarations or exported public type
   constructors must resolve to a public schema in an exported module. Bare
@@ -282,7 +288,10 @@ publication, and gate tests are in its `package_documentation/tests/` modules.
 The `module_value_publication` tests check public declaration content and
 lookup, initializer-independent declaration identity, snapshot and
 documentation digest rotation, package-atomic failure, and causal diagnostic
-selection for rejected values.
+selection for rejected values. Deterministic work counters compare adjacent
+input sizes for public dependency chains, independent invalid values, and
+invalid-casing values to guard linear semantic classification without a
+wall-time threshold.
 The checked
 [`standard-library-package-documentation-resources`](../../examples/specification/mcp/standard-library-package-documentation-resources/)
 transcript covers the public `net::system()` handler resource, its canonical
