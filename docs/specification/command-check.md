@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The veln check command gate, source discovery behavior, dependency loading, or output contract changes.
+update-when: The veln check command gate, source discovery behavior, dependency loading, output contract, or its module-value package-documentation boundary changes.
 specification-coverage: usage=#check-command; behavior=#discovery-and-ownership; limits=#limits-and-errors
 ---
 

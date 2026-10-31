@@ -189,6 +189,12 @@ Generation is package-atomic. If any gate fails, the result contains only a
 status object and no module or declaration catalog. The source snapshot and
 virtual-source catalog remain usable by their own APIs.
 
+Each retained diagnostic keeps the gate of its causal publication failure.
+For example, one failed result can report a module-value diagnostic with
+`gate: "module_value"` and an independent private-refinement diagnostic with
+`gate: "semantic_visibility"`. The presence or ordering of another diagnostic
+does not reclassify either failure.
+
 The implemented gates are:
 
 - parse: all retained package sources must parse;
