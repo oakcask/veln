@@ -441,6 +441,53 @@ fn schema_refinement_validation_executes_regular_recursive_source_adt_plans() {
 }
 
 #[test]
+fn schema_refinement_validation_executes_finite_nested_generic_instantiations() {
+    let ir = lower_to_ir(concat!(
+        "type State\n  Connected\n  Closed\nend\n",
+        "type Box<A>\n  Boxed(value: A)\nend\n",
+        "schema Packet\n  item: Box<Box<State::Connected>>\nend\n",
+        "fn print_result(result: Result<{item: Box<Box<State::Connected>>}, DecodeError>) -> () effects [stdio]\n",
+        "  match result\n",
+        "    Ok(_) => stdio::println(\"ok\")\n",
+        "    Err(DecodeErrorWithReason(id, _, path, _)) => begin\n",
+        "      stdio::println(id)\n",
+        "      stdio::println(path)\n",
+        "    end\n",
+        "    Err(_) => stdio::println(\"unexpected\")\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> Result<(), String> effects [stdio]\n",
+        "  let accepted: {item: Box<Box<State>>} = {item: Boxed(Boxed(Connected))}\n",
+        "  let rejected: {item: Box<Box<State>>} = {item: Boxed(Boxed(Closed))}\n",
+        "  print_result(validate Packet from accepted at byte_offset(0)?)\n",
+        "  print_result(validate Packet from rejected at byte_offset(0)?)\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "schema-refinement-finite-nested-generic-instantiations",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        concat!(
+            "ok\n",
+            "schema.variant_refinement_mismatch\n",
+            "/Packet/item/Boxed/value/Boxed/value\n",
+        )
+    );
+}
+
+#[test]
 fn schema_refinement_validation_executes_imported_recursive_source_adt_plan() {
     let app = SourceFile::new(
         "app.veln",

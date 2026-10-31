@@ -610,10 +610,16 @@ impl SchemaRefinementPlanBuilder<'_> {
             Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
             _ => return None,
         };
+        for arg in args {
+            let _ = self.build(current_module, current_package, arg);
+        }
         if matches!(ty, Type::VariantRefinement { .. }) {
             return self.refined_source_adt(current_module, current_package, ty, memo_key);
         }
         let identity = descriptor.identity();
+        if let Some(completed) = self.completed_adts.get(&memo_key) {
+            return *completed;
+        }
         if let Some((_, active_args, node)) = self
             .adt_stack
             .iter()
@@ -621,9 +627,6 @@ impl SchemaRefinementPlanBuilder<'_> {
             .find(|(active_identity, _, _)| active_identity == &identity)
         {
             return (active_args == args).then_some(*node);
-        }
-        if let Some(completed) = self.completed_adts.get(&memo_key) {
-            return *completed;
         }
         let descriptor_module = descriptor.module_name.clone();
         let descriptor_package = descriptor.package_name.clone();

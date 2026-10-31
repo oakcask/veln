@@ -862,6 +862,44 @@ fn explicit_schema_validate_expression_shares_acyclic_diamond_plan_nodes() {
 }
 
 #[test]
+fn explicit_schema_validate_expression_plans_finite_nested_generic_instantiations() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type State\n  Connected\n  Closed\nend\n",
+            "type Box<A>\n  Boxed(value: A)\nend\n",
+            "schema Packet\n  item: Box<Box<State::Connected>>\nend\n",
+            "fn check(value: {item: Box<Box<State>>}, base: ByteOffset) -> Result<{item: Box<Box<State::Connected>>}, DecodeError>\n",
+            "  validate Packet from value at base\n",
+            "end\n",
+        ),
+    );
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parse(&source).tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+
+    let plan = &lowered
+        .core
+        .as_ref()
+        .expect("checked core")
+        .schema_refinement_validators[0]
+        .plan;
+    let CoreSchemaRefinementPlanNode::Record(fields) = plan.root_node() else {
+        panic!("root plan should be a record");
+    };
+    let CoreSchemaRefinementPlanNode::Adt { variants, .. } = plan.node(fields[0].plan) else {
+        panic!("outer Box should have a validation plan");
+    };
+    let inner = variants[0].payloads[0].plan;
+    let CoreSchemaRefinementPlanNode::Adt { variants, .. } = plan.node(inner) else {
+        panic!("inner Box should have a distinct validation plan");
+    };
+    assert!(matches!(
+        plan.node(variants[0].payloads[0].plan),
+        CoreSchemaRefinementPlanNode::Variant(expected) if expected == &["Connected"]
+    ));
+}
+
+#[test]
 fn explicit_schema_validate_expression_builds_finite_regular_recursive_source_adt_graphs() {
     for (declaration, field_type, expected_nodes) in [
         (
