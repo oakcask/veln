@@ -186,6 +186,10 @@ pub fn download_prior_nextest_reports(
         "list",
         "--workflow",
         "test--rust.yaml",
+        "--branch",
+        "main",
+        "--event",
+        "push",
         "--status",
         "success",
         "--limit",
@@ -460,7 +464,7 @@ mod tests {
     }
 
     #[test]
-    fn downloads_reports_from_latest_successful_run() {
+    fn downloads_reports_from_latest_successful_main_push() {
         let root = temporary_directory("download");
         let mut calls = Vec::new();
         let report_root = download_prior_nextest_reports(
@@ -490,8 +494,25 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            calls[0][..4],
-            ["run", "list", "--workflow", "test--rust.yaml"]
+            calls[0],
+            [
+                "run",
+                "list",
+                "--workflow",
+                "test--rust.yaml",
+                "--branch",
+                "main",
+                "--event",
+                "push",
+                "--status",
+                "success",
+                "--limit",
+                "1",
+                "--json",
+                "databaseId",
+                "--jq",
+                ".[0].databaseId",
+            ]
         );
         assert_eq!(calls[1][..3], ["run", "download", "12345"]);
         assert!(report_root.join("nextest-junit-1/junit.xml").exists());
