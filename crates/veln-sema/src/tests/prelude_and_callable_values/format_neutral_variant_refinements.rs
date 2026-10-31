@@ -381,9 +381,18 @@ fn refinement_fields_remain_decode_eligible_and_validate_predicate_references() 
         .filter(|diagnostic| diagnostic.id == "schema.field_predicate_reference")
         .collect::<Vec<_>>();
 
-    assert_eq!(predicate_diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(predicate_diagnostics.len(), 2, "{diagnostics:#?}");
     assert!(
-        predicate_diagnostics[0].message.contains("missing"),
+        predicate_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("missing")),
+        "{predicate_diagnostics:#?}"
+    );
+    assert!(
+        predicate_diagnostics.iter().any(|diagnostic| {
+            diagnostic.message
+                == "schema field predicate reference `state` decodes as `State::Ready`, not `Int` or `Bool`"
+        }),
         "{predicate_diagnostics:#?}"
     );
     assert!(

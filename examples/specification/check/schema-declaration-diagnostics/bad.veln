@@ -12,6 +12,12 @@ schema BadHeader
     stream_reserved
 end
 
+schema LateBinaryFormat
+  validate value > 0
+  format binary
+  value: UInt8
+end
+
 schema
   format binary
   length: UInt24be

@@ -173,7 +173,10 @@ acquire those `listen` or `connect` commit facts.
 An invalid dynamic shift count uses
 `details.id: "runtime.invalid_shift_count"` with `operator`,
 `actual_count`, `minimum_count`, and `maximum_count`. Other host failures
-keep the generic runtime shape.
+keep the generic runtime shape. The same projection applies when a schema field
+or schema-level predicate evaluates an invalid dynamic shift; the checked
+[`schema-runtime-refinement-predicate-invalid-shift-json`](../../examples/specification/run/schema-runtime-refinement-predicate-invalid-shift-json/)
+case covers that boundary.
 
 A computed zero remainder divisor uses
 `details.id: "runtime.remainder_by_zero"`, `operator: "%"`, and numeric
@@ -193,6 +196,14 @@ An entry returning `Err(value)` has `error.kind: "result"` and details
 from it. A carried failed external `listen` or `connect` record instead uses
 the runtime transport projection described above. A plain value without a
 recognized diagnostic form does not acquire typed fields.
+
+A generated binary-schema decoder that encounters integer division by zero in
+a predicate returns an ordinary entry result failure. Its envelope keeps
+`error.kind: "result"` and renders `schema predicate division by zero` in
+`details.value`; it does not project a generic runtime failure or a host
+arithmetic exception. The checked
+[`binary-schema-predicate-division-by-zero-json`](../../examples/specification/run/binary-schema-predicate-division-by-zero-json/)
+case fixes this boundary.
 
 ### Compact hexadecimal details
 

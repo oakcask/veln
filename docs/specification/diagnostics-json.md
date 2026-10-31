@@ -292,7 +292,10 @@ Malformed integer literals use `parse.integer_literal` with the complete
 numeric candidate, parser context, accepted form, and non-cascading recovery;
 related notes may identify the accepted digit set or prefix. Invalid literal
 shift counts use `type.invalid_shift_count` with `operator`, `actual_count`,
-`minimum_count`, and `maximum_count`; the span is the count expression.
+`minimum_count`, and `maximum_count`. In ordinary expressions, contracts, and
+hole predicates, the span is the count expression. In a schema field `where`
+predicate or schema-level `validate` predicate, the span is the containing
+predicate clause.
 
 A remainder divisor written as an integer zero literal reports one
 `type.remainder_by_zero` diagnostic with kind `type`, message
@@ -1178,7 +1181,19 @@ Schema diagnostics cover parse rejection, primitive kind checks, field
 references, validation predicates, dispatch payload eligibility, explicit
 schema operation path resolution, and generated helper availability. Mapping
 clauses are rejected by the parser and therefore have no current schema
-mapping diagnostic.
+mapping diagnostic. If `format binary` appears after a schema validation
+clause, that clause reports `parse.schema_validation_before_format`; a
+format-neutral schema without a format clause may use the same validation
+position.
+
+An unknown or forward field-predicate reference uses
+`schema.field_predicate_reference`; an unknown schema-level predicate reference
+uses `schema.validation_reference`. Their details identify `schema`,
+`reference`, and `reason`. A decoded reference whose type is neither `Int` nor
+`Bool` uses `reason: "incompatible_field_reference"` and adds its rendered type
+as `actual`. Predicate operator mismatches use `type.mismatch` at the containing
+predicate clause. Equality requires matching `Int` or `Bool` operands; integer
+operators reject `Bool` operands.
 
 Static failures for `validate Schema from value at offset` use
 `schema.validate_expression`. The details include `phase: "body_analysis"`,
@@ -1187,8 +1202,8 @@ Static failures for `validate Schema from value at offset` use
 `private_schema`; a resolved wrong-kind diagnostic also supplies
 `resolved_kind`. The primary span covers the written schema path without the
 `validate` keyword or either operand. `unresolved_schema` also reports an
-ineligible reachable composition graph, including a predicate or binary schema
-on a branch without refinements or a recursive source ADT that returns to an
+ineligible reachable composition graph, including any binary schema or a
+recursive source ADT that returns to an
 active declaration with different instantiated arguments. A missing path in
 `validate from value at offset` instead uses
 `parse.schema_validate_expression` with `schema path` as its expected input.
@@ -1197,8 +1212,6 @@ The checked
 and
 [`schema-runtime-validation-targets-json`](../../examples/specification/check/schema-runtime-validation-targets-json/)
 cases fix the target spans, messages, stable reasons, and JSON fields. The
-[`schema-runtime-refinement-predicate-boundary`](../../examples/specification/check/schema-runtime-refinement-predicate-boundary/)
-case fixes the reachable-composition eligibility boundary. The
 rejected
 [`schema-runtime-validation-missing-path`](source-surface-fixtures/rejected/schema-runtime-validation-missing-path.veln)
 fixture fixes the missing-path parse boundary. Runtime constructor rejection
@@ -1225,6 +1238,14 @@ and
 cases fix their structured and human diagnostic projections. Human rendering
 identifies the failed fact at the offset and places the path and mismatch or
 offset reason in notes.
+Runtime predicate rejection uses `schema.validation_failed` at the supplied
+offset. Its decoded JSON Pointer selects the containing field for a field
+predicate and the current schema root for a schema-level predicate. A
+predicate evaluation failure uses the same identifier, offset, and path and
+adds the language-level evaluation failure to the reason instead of exposing a
+host exception. The checked
+[`schema-runtime-refinement-predicate-order`](../../examples/specification/run/schema-runtime-refinement-predicate-order/)
+case fixes predicate precedence, paths, and reasons.
 The checked
 [`schema-runtime-source-adt-validation-json`](../../examples/specification/run/schema-runtime-source-adt-validation-json/)
 and

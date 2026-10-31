@@ -1,0 +1,5 @@
+# Schema predicates use ordinary comparison, equality, shift, and bitwise precedence.
+schema InvalidPrecedence
+	value: Int where value & 1 == 1
+	validate value | 1 < 4
+end

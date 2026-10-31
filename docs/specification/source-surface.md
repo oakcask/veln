@@ -361,10 +361,11 @@ generic types remain type delimiters rather than shift expressions.
 ## Schemas
 
 A schema declaration is `schema Name ... end` or `pub schema Name ... end`.
-A single `format binary` clause, when present, precedes fields. Without that
-clause, fields use format-neutral types. A field has `name: Type` and may have a
-field-local `where` predicate; one schema-level `validate` predicate follows
-the fields.
+A single `format binary` clause, when present, precedes every field and
+validation clause. Without that clause, fields use format-neutral types. A
+field has `name: Type` and may have a field-local `where` predicate. One
+schema-level `validate` predicate may follow the fields in either a
+format-neutral or binary schema.
 
 ### Format-neutral fields
 
@@ -446,10 +447,12 @@ access does not extend to another module or package.
 
 Anonymous binary records expose nested schema-local records when every leaf is an
 exact-width unsigned primitive. Sibling nested records at one level are allowed.
-Later repeat counts, byte-view lengths, dispatch tags or lengths, field
-predicates, and schema validation may refer to an earlier decoded visible
-`Int`, including a composed path such as `header.length`. A root binding must
-already be decoded.
+Later repeat counts, byte-view lengths, and dispatch tags or lengths may refer
+to an earlier decoded visible `Int`, including a composed path such as
+`header.length`. A field predicate may refer to the field being checked or an
+earlier decoded visible `Int` or `Bool`. Schema validation may refer to any
+decoded visible `Int` or `Bool`. A referenced root binding must already be
+decoded.
 
 ### Schema operations
 
@@ -466,7 +469,8 @@ admitted by the format-neutral field rules. A written import does not create a
 bare schema operation path. Generated helper names are implementation details.
 
 `validate SchemaName from value at base_offset` accepts a format-neutral schema
-whose refinement-bearing positions are record fields of that schema, nested
+with at least one reachable refinement or predicate. Refinement-bearing
+positions are record fields of that schema, nested
 anonymous record fields, or fields of recursively composed format-neutral
 schemas. A refinement-bearing position can also occur in a payload of a source
 ADT reached from one of those fields. These positions may pass
@@ -481,9 +485,10 @@ The value is checked against the schema-local record after recursively
 replacing each supported refinement with its base ADT while preserving every
 record shape, container identity, source-ADT identity, and generic argument
 position, and `base_offset` must be `ByteOffset`. The result is
-`Result<SchemaRecord, DecodeError>` with the refinements retained. A supported
-validation schema has at least one reachable such field. It and every reachable
-composed schema have no field-local or schema-level predicate. Other supported
+`Result<SchemaRecord, DecodeError>` with the refinements retained. A
+predicate-only schema has the same input and successful result record type.
+Field-local and schema-level predicates are supported in every reachable
+composed format-neutral schema. Other supported
 fields may contain unrefined containers, which runtime validation preserves
 without traversing. Composed branches and anonymous record branches without
 refinements are also preserved, but composed branches still participate in the

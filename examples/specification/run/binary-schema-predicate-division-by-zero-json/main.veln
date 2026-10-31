@@ -1,0 +1,14 @@
+# Binary schema predicate failures stay inside the Veln result boundary.
+schema DividingPacket
+	format binary
+
+	divisor: UInt8
+	value: UInt8 where value / divisor > 0
+end
+
+pub fn main() -> Result<(), String>
+	let bytes = byte_chunk_from_hex("0001")?
+	let view = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	let _: {divisor: Int, value: Int} = byte_decode_dividing_packet(view)?
+	Ok(())
+end

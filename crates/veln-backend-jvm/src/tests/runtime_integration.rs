@@ -194,6 +194,289 @@ public final class SchemaRefinementSuccessIdentityHarness {
 }
 
 #[test]
+fn jvm_runtime_schema_predicates_follow_source_precedence_and_contain_division_failure() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        eprintln!("skipping schema predicate verification because a JDK is unavailable");
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-schema-predicate-precedence",
+        "SchemaPredicatePrecedenceHarness.java",
+        r#"
+public final class SchemaPredicatePrecedenceHarness {
+    private static Object validate(long value, String fieldPredicate, String validation) {
+        return VelnRuntime.validateSchemaRefinementAndPredicates(
+            VelnRuntime.record("value", Long.valueOf(value)),
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(19) }),
+            "Packet",
+            VelnRuntime.list("record", VelnRuntime.list()),
+            java.util.Arrays.asList(
+                "Packet",
+                VelnRuntime.list("value"),
+                VelnRuntime.list(fieldPredicate),
+                validation,
+                VelnRuntime.list("")
+            )
+        );
+    }
+
+    private static Object validateFlag(boolean flag) {
+        return VelnRuntime.validateSchemaRefinementAndPredicates(
+            VelnRuntime.record("flag", Boolean.valueOf(flag)),
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(19) }),
+            "Flagged",
+            VelnRuntime.list("record", VelnRuntime.list()),
+            java.util.Arrays.asList(
+                "Flagged",
+                VelnRuntime.list("flag"),
+                VelnRuntime.list("flag"),
+                "",
+                VelnRuntime.list("")
+            )
+        );
+    }
+
+    public static void main(String[] args) {
+        System.out.println(validate(
+            1,
+            "(value & 1) == 1",
+            "value << 1 == 2 and 1 < 2 == true"
+        ));
+        System.out.println(validate(2, "(value & 1) == 1", ""));
+        System.out.println(validate(2, "value & 1 == 1", ""));
+        System.out.println(validate(0, "10 / value > 0", ""));
+        System.out.println(validateFlag(true));
+        System.out.println(validateFlag(false));
+    }
+}
+"#,
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(
+        stdout,
+        concat!(
+            "Ok({value=1})\n",
+            "Err(DecodeErrorWithReason(schema.validation_failed, ByteOffset(19), /Packet/value, ",
+            "predicate `(value & 1) == 1` failed; supplied_values=value=2))\n",
+            "Err(DecodeErrorWithReason(schema.validation_failed, ByteOffset(19), /Packet/value, ",
+            "predicate `value & 1 == 1` evaluation failed: schema predicate operator `&` ",
+            "expects Int operands; supplied_values=value=2))\n",
+            "Err(DecodeErrorWithReason(schema.validation_failed, ByteOffset(19), /Packet/value, ",
+            "predicate `10 / value > 0` evaluation failed: schema predicate division by zero; ",
+            "supplied_values=value=0))\n",
+            "Ok({flag=true})\n",
+            "Err(DecodeErrorWithReason(schema.validation_failed, ByteOffset(19), /Flagged/flag, ",
+            "predicate `flag` failed; supplied_values=flag=false))\n",
+        )
+    );
+    assert!(!stdout.contains("ArithmeticException"));
+    assert!(!stdout.contains("/ by zero"));
+    assert!(!String::from_utf8_lossy(&output.stderr).contains("java.lang"));
+}
+
+#[test]
+fn jvm_runtime_schema_predicates_are_stack_safe_with_linear_field_work() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        eprintln!("skipping schema predicate stack verification because a JDK is unavailable");
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness_with_options(
+        "runtime-schema-predicate-stack-safety",
+        "SchemaPredicateStackSafetyHarness.java",
+        r#"
+public final class SchemaPredicateStackSafetyHarness {
+    private static final class CountingRecord extends java.util.LinkedHashMap<Object, Object> {
+        long gets;
+
+        public Object get(Object key) {
+            gets += 1L;
+            return super.get(key);
+        }
+    }
+
+    private static long validate(int fieldCount) {
+        CountingRecord record = new CountingRecord();
+        Object[] names = new Object[fieldCount];
+        Object[] predicates = new Object[fieldCount];
+        StringBuilder predicate = new StringBuilder();
+        for (int index = 0; index < fieldCount; index += 1) {
+            String name = "field_" + index;
+            names[index] = name;
+            predicates[index] = "";
+            record.put(name, Long.valueOf(index == 0 ? 1L : 0L));
+            if (index > 0) predicate.append(" + ");
+            predicate.append(name);
+        }
+        predicate.append(" > 0");
+        Object result = VelnRuntime.validateSchemaRefinementAndPredicates(
+            record,
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(0) }),
+            "LargePredicate",
+            VelnRuntime.list("record", VelnRuntime.list()),
+            java.util.Arrays.asList(
+                "LargePredicate",
+                java.util.Arrays.asList(names),
+                java.util.Arrays.asList(predicates),
+                predicate.toString(),
+                java.util.Arrays.asList(predicates)
+            )
+        );
+        if (VelnRuntime.unwrapOk(result) != record) {
+            throw new AssertionError("large predicate did not preserve the input record");
+        }
+        if (record.gets != fieldCount) {
+            throw new AssertionError(
+                "expected one field lookup per declaration, got " + record.gets
+            );
+        }
+        return record.gets;
+    }
+
+    public static void main(String[] args) {
+        validate(64);
+        long smaller = validate(2048);
+        long larger = validate(4096);
+        if (larger != smaller * 2L) {
+            throw new AssertionError("predicate field work was not linear");
+        }
+        System.out.println("large predicates remained stack safe with linear field work");
+    }
+}
+"#,
+        &program,
+        &[],
+        &["-Xss256k", "-Xms16m", "-Xmx128m"],
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "large predicates remained stack safe with linear field work\n"
+    );
+    assert!(!String::from_utf8_lossy(&output.stderr).contains("StackOverflowError"));
+}
+
+#[test]
+fn jvm_runtime_schema_predicates_do_not_traverse_unreferenced_maps() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        eprintln!(
+            "skipping schema predicate map traversal verification because a JDK is unavailable"
+        );
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-schema-predicate-unreferenced-map",
+        "SchemaPredicateUnreferencedMapHarness.java",
+        r#"
+public final class SchemaPredicateUnreferencedMapHarness {
+    private static final class NonTraversableMap
+            extends java.util.LinkedHashMap<Object, Object> {
+        public java.util.Set<java.util.Map.Entry<Object, Object>> entrySet() {
+            throw new AssertionError("unreferenced dictionary was traversed");
+        }
+    }
+
+    private static Object metadata(String predicate) {
+        return java.util.Arrays.asList(
+            "Packet",
+            VelnRuntime.list("value", "metadata"),
+            VelnRuntime.list("", ""),
+            predicate,
+            VelnRuntime.list("", "")
+        );
+    }
+
+    private static Object value(long scalar, Object dictionary) {
+        java.util.LinkedHashMap<Object, Object> record =
+            new java.util.LinkedHashMap<Object, Object>();
+        record.put("value", Long.valueOf(scalar));
+        record.put("metadata", dictionary);
+        return record;
+    }
+
+    private static void requireBoundedFailure(Object result) {
+        String rendered = result.toString();
+        if (!(rendered.contains("schema.validation_failed")
+                    || rendered.contains("schema value validation failed"))
+                || rendered.length() > 256
+                || rendered.contains("unrelated_key")) {
+            throw new AssertionError("unexpected predicate failure: " + rendered);
+        }
+    }
+
+    public static void main(String[] args) {
+        NonTraversableMap dictionary = new NonTraversableMap();
+        for (int index = 0; index < 100000; index += 1) {
+            dictionary.put("unrelated_key_" + index, Long.valueOf(index));
+        }
+        Object accepted = value(1L, dictionary);
+        Object explicitSuccess = VelnRuntime.validateSchemaRefinementAndPredicates(
+            accepted,
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(5) }),
+            "Packet",
+            VelnRuntime.list("record", VelnRuntime.list()),
+            metadata("value > 0")
+        );
+        if (VelnRuntime.unwrapOk(explicitSuccess) != accepted) {
+            throw new AssertionError("explicit validation rebuilt the input");
+        }
+        Object explicitRejected = value(0L, dictionary);
+        requireBoundedFailure(VelnRuntime.validateSchemaRefinementAndPredicates(
+            explicitRejected,
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(5) }),
+            "Packet",
+            VelnRuntime.list("record", VelnRuntime.list()),
+            metadata("value > 0")
+        ));
+        Object neutralRejected = value(0L, dictionary);
+        requireBoundedFailure(VelnRuntime.validateDeclaredSchemaCompositionValue(
+            neutralRejected,
+            metadata("value > 0")
+        ));
+        if (((java.util.Map<?, ?>) explicitRejected).get("metadata") != dictionary
+                || ((java.util.Map<?, ?>) neutralRejected).get("metadata") != dictionary
+                || dictionary.size() != 100000) {
+            throw new AssertionError("predicate rejection changed the supplied input");
+        }
+        System.out.println("unreferenced dictionaries were not traversed");
+    }
+}
+"#,
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "unreferenced dictionaries were not traversed\n"
+    );
+}
+
+#[test]
 fn jvm_runtime_schema_refinement_rejection_leaves_input_unchanged() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()

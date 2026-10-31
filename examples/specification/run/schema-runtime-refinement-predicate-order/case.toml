@@ -1,0 +1,24 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+not_contains = ["ArithmeticException", "/ by zero", "java.lang", "VelnRuntime.java"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals_file = "case-text/stdout.txt"
+
+[[json_assert]]
+path = "error"
+equals = null

@@ -1,0 +1,17 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["schema predicate operator `&` expects `Int` operands, but found `Bool`", "schema predicate operator `|` expects `Int` operands, but found `Bool`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.by_kind.type"
+equals = 2

@@ -1479,7 +1479,7 @@ refinement-bearing representation schemas is current behavior under the
 [execution](execution.md#schema-execution) and
 [diagnostic](diagnostics-json.md#diagnostic-families) specifications.
 For `validate Schema from value at offset`, a supported format-neutral schema
-with singleton or finite-set refinement fields derives an input record by
+with at least one reachable refinement or predicate derives an input record by
 replacing each such refinement with its resolved base ADT. The derivation
 recurses through anonymous records and composed format-neutral schema fields
 and through `Option<T>`, `Result<T, E>`, `List<T>`, `Vec<T>`, and
@@ -1495,6 +1495,8 @@ boundary, including one declared by an application-owned module named
 `std::prelude`. A dictionary on a refinement path with any key type other than
 the standard `String` is ineligible. The result is
 `Result<SchemaRecord, DecodeError>` and retains the written refinements.
+When predicates make a schema eligible without any refinements, the input and
+successful result use the same schema-local record type.
 Contextual typing applies the erased record to `value` and requires
 `ByteOffset` for `offset`; an unrelated ADT, generic argument, record shape, or
 scalar remains a static mismatch. Other supported field types that contain no
@@ -1515,11 +1517,10 @@ payload's instantiated generic arguments follow the same result-retention and
 input-erasure rules.
 A return with different instantiated arguments, including
 generic-expanding recursion, makes the validation operation a static failure.
-Every reachable composed schema must be format-neutral
-and predicate-free, including composed branches that contain no refinement. A
-field `where` clause,
-schema `validate` clause, or binary schema anywhere in that graph makes the
-operation a static failure, as do
+Every reachable composed schema must be format-neutral. Field `where` clauses
+and schema `validate` clauses remain in the runtime-validation boundary,
+including on composed branches without refinements. A binary schema anywhere
+in that graph makes the operation a static failure, as do
 qualified-value control-flow refinement and the provider-dependent
 unavailable-descriptor diagnostic.
 This behavior does not add variance for named generic constructors or generic
@@ -1699,6 +1700,19 @@ The multiply level contains `*`, `/`, and `%`. The formatter writes spaces aroun
 contract reasoning evaluates literal-only bitwise expressions. Repair
 reasoning leaves nonliteral bitwise predicates runtime-checked instead of
 inventing an arithmetic rewrite.
+
+Schema field `where` predicates and schema-level `validate` predicates accept
+decoded `Int` and `Bool` references. A `Bool` reference can form the predicate
+directly or participate in Boolean equality and Boolean operators. An `Int`
+reference uses the ordinary arithmetic, comparison, bitwise, and shift typing,
+precedence, and literal shift-count range. Equality requires matching `Int` or
+`Bool` operands. Decoded `String`, `Float`, and source-ADT references are
+rejected at analysis time. A bitwise operator whose ordinary parse gives it a
+comparison or equality operand is rejected as an `Int` operand mismatch;
+parentheses can make the intended integer bitwise subexpression explicit. The
+checked
+[`schema-predicate-precedence-diagnostics`](../../examples/specification/check/schema-predicate-precedence-diagnostics/)
+case covers that boundary. Schema predicates do not accept `%`.
 
 ## References
 

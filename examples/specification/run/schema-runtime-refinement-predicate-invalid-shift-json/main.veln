@@ -1,0 +1,14 @@
+# JVM runtime validation preserves the ordinary dynamic shift-count failure instead of returning an untyped schema result.
+schema Shifted
+	value: Int
+	count: Int
+	validate (value << count) > 0
+end
+
+pub fn main(count: Int) -> Result<(), String>
+	let offset = byte_offset(7)?
+	match validate Shifted from {value: 1, count: count} at offset
+		Ok(_) => Ok(())
+		Err(_) => Ok(())
+	end
+end

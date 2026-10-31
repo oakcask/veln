@@ -436,7 +436,31 @@ install that production client boundary.
   `~0` and `/` as `~1`; selecting a public alias does not replace the terminal
   declaration root. A negative supplied offset fails before field traversal
   with `schema.validation_offset_invalid` at the schema root. Validation
-  performs no byte I/O and does not invoke a schema decoder. The checked
+  performs no byte I/O and does not invoke a schema decoder. After all
+  reachable refinements succeed, predicate evaluation visits fields in
+  declaration order. A composed child's field and schema predicates run before
+  the predicate on its containing field. Each schema-level predicate runs
+  after that schema's field predicates. The first failed predicate returns
+  `schema.validation_failed` with the supplied offset and the failed field path
+  or schema root. Schema predicates evaluate integer bitwise operations with
+  signed 64-bit two's-complement behavior. A dynamic shift count outside
+  `0..63` stops execution with `runtime.invalid_shift_count`; it does not
+  return a schema validation `Err`. Integer predicate division by a dynamic
+  zero stays inside the schema-validation boundary. It returns
+  `schema.validation_failed` with the supplied offset, the field or schema
+  path, and a reason that identifies predicate evaluation failure; no host
+  arithmetic exception escapes. Predicate references retain decoded `Int` or
+  `Bool` values. A `Bool` reference can be the predicate or an operand of
+  Boolean equality and Boolean operators. Other decoded value types, including
+  `String`, `Float`, and source ADTs, are rejected during schema analysis
+  rather than being converted or failing during runtime predicate evaluation.
+  The checked
+  [`schema-runtime-refinement-predicate-order`](../../examples/specification/run/schema-runtime-refinement-predicate-order/)
+  case covers refinement precedence, predicate order, integer and Boolean
+  evaluation, division failure, paths, and successful value preservation. The
+  checked
+  [`schema-runtime-refinement-predicate-invalid-shift-json`](../../examples/specification/run/schema-runtime-refinement-predicate-invalid-shift-json/)
+  case covers the dynamic shift failure. The checked
   container traversal and ordering behavior is exercised by
   [`schema-runtime-refinement-validation-containers`](../../examples/specification/run/schema-runtime-refinement-validation-containers/).
   Source-ADT traversal and human and JSON path projection are checked by
@@ -549,6 +573,17 @@ install that production client boundary.
   field order. Later expressions resolve explicit paths into earlier composed
   records. A format-neutral composed target runs its field predicates and
   schema validation before the containing schema continues validation. Nested
+  field and schema predicates retain checked `Int` and `Bool` operands in both
+  generated decode and encode helpers. A false `Bool` predicate reports
+  `schema.validation_failed` at the nested field or schema path. The checked
+  [`schema-composition-format-neutral`](../../examples/specification/run/schema-composition-format-neutral/),
+  [`schema-composition-format-neutral-decode-bool-field-failure`](../../examples/specification/run/schema-composition-format-neutral-decode-bool-field-failure/),
+  [`schema-composition-format-neutral-encode-bool-field-failure`](../../examples/specification/run/schema-composition-format-neutral-encode-bool-field-failure/),
+  [`schema-composition-format-neutral-decode-schema-predicate-failure`](../../examples/specification/run/schema-composition-format-neutral-decode-schema-predicate-failure/),
+  and
+  [`schema-composition-format-neutral-encode-schema-predicate-failure`](../../examples/specification/run/schema-composition-format-neutral-encode-schema-predicate-failure/)
+  cases cover successful Boolean preservation and nested field and schema
+  rejection in both directions. Nested
   decode and encode failures retain the containing schema and binding before
   the target schema path, and neither direction commits a partial containing
   value or byte sequence. A failed nested attempt does not affect a later
@@ -651,6 +686,25 @@ result may instead request more input as part of its public partial-read
 contract. Successful incremental encoding can return `EncodeStep::Partial`
 with output chunks, a produced count, and continuation state; partial output
 is not itself an encode failure.
+
+An ordinary Veln decoder can narrow its successful value by matching a
+`DecodeStep` or `Result` and applying `validate Schema from value at offset`
+only to `Decoded` or `Ok`. A successful wrapper preserves the decoded value,
+consumed count, input bytes, and any trailing bytes. It returns validation
+failure as `Invalid` or `Err` without publishing a refined value. `NeedMore`
+readiness and an existing `Invalid` or `Err` are returned unchanged and do not
+run validation. Predicate failure for either an integer or Boolean field, and
+predicate evaluation failure including division by zero,
+uses the same typed `Invalid` or `Err` wrapper and preserves the input bytes.
+This composition does not add wire mapping or weaken generated
+binary-schema refinement rejection. The checked
+[`schema-runtime-refinement-decoder-composition`](../../examples/specification/run/schema-runtime-refinement-decoder-composition/)
+case covers success, excluded constructors, predicate failure, malformed and
+truncated input, predicate evaluation failure, both readiness forms, consumed
+counts, and unchanged input. The checked
+[`binary-schema-predicate-division-by-zero-json`](../../examples/specification/run/binary-schema-predicate-division-by-zero-json/)
+case confirms that the retained binary-schema predicate path also contains
+division failure inside a Veln result.
 
 The production HTTP/2 HPACK API is authoritative for prefixed integers,
 Huffman strings, static and dynamic tables, table-size updates, indexed and

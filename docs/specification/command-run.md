@@ -138,6 +138,15 @@ context. Direct and mutual recursive source-ADT values retain the constructor
 and payload segments for every visited value occurrence, including repeated
 uses of the same validation shape.
 
+A dynamic integer zero divisor inside a schema predicate stays inside the
+schema-validation result boundary. Explicit validation reports
+`schema.validation_failed` with the supplied offset and field or schema path;
+a generated binary decoder returns its schema predicate division failure as an
+ordinary entry `Err`. Neither path exposes a JVM arithmetic exception. The
+predicate and decoder boundaries are specified by the
+[execution specification](execution.md#runtime-readiness-and-host-boundaries),
+and `--json` projection is specified by [run JSON](run-json.md).
+
 If `net::system()` returns a host socket failure from `listen` or `connect` and
 the selected entry returns that `Err`, human mode prints the stable transport
 failure message instead of the rendered `NetError` value. The primary message

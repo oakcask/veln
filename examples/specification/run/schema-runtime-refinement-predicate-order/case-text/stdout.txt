@@ -1,0 +1,63 @@
+refinement-first
+schema.variant_refinement_mismatch
+19
+/Parent/child/state
+actual variant `Closed`; expected one of `Connected`
+first-field
+schema.validation_failed
+19
+/Parent/before
+predicate `before > 0` failed; supplied_values=before=0
+child-field
+schema.validation_failed
+19
+/Parent/child/value
+predicate `value > 0` failed; supplied_values=value=0
+child-schema
+schema.validation_failed
+19
+/Parent/child
+predicate `value < 10` failed; supplied_values=value=10
+containing-field
+schema.validation_failed
+19
+/Parent/child
+predicate `child.value < 8` failed; supplied_values=before=1, child.value=8
+later-field
+schema.validation_failed
+19
+/Parent/after
+predicate `after > 0` failed; supplied_values=before=1, child.value=2, after=0
+root-schema
+schema.validation_failed
+19
+/Parent
+predicate `before + child.value == after` failed; supplied_values=before=1, child.value=2, after=4
+success
+accepted
+6
+bitwise-field
+schema.validation_failed
+19
+/Bitwise/value
+predicate `(value & 1) == 1 and(~ value >> 63) == - 1 and(- 1 >>> 63) == 1 and(value << 0) == value and(value >> 0) == value and(1 << 63) < 0 and(0b11 & 0x1) == 1` failed; supplied_values=value=2
+bitwise-root
+schema.validation_failed
+19
+/Bitwise
+predicate `((value ^ 3) | 8) == 10 and value << 1 == 2 and 1 < 2 == true` failed; supplied_values=value=3
+bitwise-success
+accepted
+1
+division-by-zero
+schema.validation_failed
+19
+/Dividing/value
+predicate `10 / value > 0` evaluation failed: schema predicate division by zero; supplied_values=value=0
+bool-success
+accepted-true
+bool-failure
+schema.validation_failed
+19
+/Flagged/flag
+predicate `flag` failed; supplied_values=flag=false

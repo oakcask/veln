@@ -150,7 +150,7 @@ fn parses_the_complete_binary_precedence_ladder() {
         "main.veln",
         concat!(
             "fn main() -> Bool\n",
-            "  a |> b or c and d == e < f + g * h\n",
+            "  a |> b or c and d | e ^ f & g == h < i << j + k * l\n",
             "end\n",
         ),
     );
@@ -162,7 +162,7 @@ fn parses_the_complete_binary_precedence_ladder() {
         format_tree(&output.tree),
         concat!(
             "fn main() -> Bool\n",
-            "\ta |> b or c and d == e < f + g * h\n",
+            "\ta |> b or c and d | e ^ f & g == h < i << j + k * l\n",
             "end\n",
         )
     );
@@ -182,8 +182,12 @@ fn parses_the_complete_binary_precedence_ladder() {
             BinaryOp::PipeGreater,
             BinaryOp::Or,
             BinaryOp::And,
+            BinaryOp::BitwiseOr,
+            BinaryOp::BitwiseXor,
+            BinaryOp::BitwiseAnd,
             BinaryOp::Equal,
             BinaryOp::Less,
+            BinaryOp::ShiftLeft,
             BinaryOp::Add,
             BinaryOp::Multiply,
         ]

@@ -1,0 +1,119 @@
+# Runtime schema validation completes refinement traversal before evaluating predicates in declaration order.
+use stdio
+
+type State
+	Connected
+	Closed
+end
+
+schema Child
+	state: State::Connected
+	value: Int where value > 0
+	validate value < 10
+end
+
+schema Parent
+	before: Int where before > 0
+	child: Child where child.value < 8
+	after: Int where after > 0
+	validate before + child.value == after
+end
+
+schema Bitwise
+	value: Int where (value & 1) == 1 and (~value >> 63) == -1 and (-1 >>> 63) == 1 and (value << 0) == value and (value >> 0) == value and (1 << 63) < 0 and (0b11 & 0x1) == 1
+	validate ((value ^ 3) | 8) == 10 and value << 1 == 2 and 1 < 2 == true
+end
+
+schema Dividing
+	value: Int where 10 / value > 0
+end
+
+schema Flagged
+	flag: Bool where flag
+end
+
+fn validate_packet(value: {before: Int, child: {state: State, value: Int}, after: Int}, offset: ByteOffset) -> Result<{before: Int, child: {state: State::Connected, value: Int}, after: Int}, DecodeError>
+	validate Parent from value at offset
+end
+
+fn report(label: String, result: Result<{before: Int, child: {state: State::Connected, value: Int}, after: Int}, DecodeError>) -> () effects [stdio]
+	stdio::println(label)
+	match result
+		Ok(value) => begin
+			stdio::println("accepted")
+			stdio::println(int_to_string(value.before + value.child.value + value.after))
+		end
+		Err(DecodeErrorWithReason(id, offset, path, reason)) => begin
+			stdio::println(id)
+			stdio::println(int_to_string(byte_offset_to_int(offset)))
+			stdio::println(path)
+			stdio::println(reason)
+		end
+		Err(DecodeError(id, offset, path)) => begin
+			stdio::println(id)
+			stdio::println(int_to_string(byte_offset_to_int(offset)))
+			stdio::println(path)
+		end
+	end
+end
+
+fn report_bitwise(label: String, result: Result<{value: Int}, DecodeError>) -> () effects [stdio]
+	stdio::println(label)
+	match result
+		Ok(value) => begin
+			stdio::println("accepted")
+			stdio::println(int_to_string(value.value))
+		end
+		Err(DecodeErrorWithReason(id, offset, path, reason)) => begin
+			stdio::println(id)
+			stdio::println(int_to_string(byte_offset_to_int(offset)))
+			stdio::println(path)
+			stdio::println(reason)
+		end
+		Err(DecodeError(id, offset, path)) => begin
+			stdio::println(id)
+			stdio::println(int_to_string(byte_offset_to_int(offset)))
+			stdio::println(path)
+		end
+	end
+end
+
+fn report_flag(label: String, result: Result<{flag: Bool}, DecodeError>) -> () effects [stdio]
+	stdio::println(label)
+	match result
+		Ok(value) => match value.flag
+			true => stdio::println("accepted-true")
+			false => stdio::println("accepted-false")
+		end
+		Err(DecodeErrorWithReason(id, offset, path, reason)) => begin
+			stdio::println(id)
+			stdio::println(int_to_string(byte_offset_to_int(offset)))
+			stdio::println(path)
+			stdio::println(reason)
+		end
+		Err(DecodeError(id, offset, path)) => begin
+			stdio::println(id)
+			stdio::println(int_to_string(byte_offset_to_int(offset)))
+			stdio::println(path)
+		end
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let offset = byte_offset(19)?
+	report("refinement-first", validate_packet({before: 0, child: {state: Closed, value: 0}, after: 0}, offset))
+	report("first-field", validate_packet({before: 0, child: {state: Connected, value: 0}, after: 0}, offset))
+	report("child-field", validate_packet({before: 1, child: {state: Connected, value: 0}, after: 1}, offset))
+	report("child-schema", validate_packet({before: 1, child: {state: Connected, value: 10}, after: 11}, offset))
+	report("containing-field", validate_packet({before: 1, child: {state: Connected, value: 8}, after: 9}, offset))
+	report("later-field", validate_packet({before: 1, child: {state: Connected, value: 2}, after: 0}, offset))
+	report("root-schema", validate_packet({before: 1, child: {state: Connected, value: 2}, after: 4}, offset))
+	report("success", validate_packet({before: 1, child: {state: Connected, value: 2}, after: 3}, offset))
+	report_bitwise("bitwise-field", validate Bitwise from {value: 2} at offset)
+	report_bitwise("bitwise-root", validate Bitwise from {value: 3} at offset)
+	report_bitwise("bitwise-success", validate Bitwise from {value: 1} at offset)
+	report_bitwise("division-by-zero", validate Dividing from {value: 0} at offset)
+	report_flag("bool-success", validate Flagged from {flag: true} at offset)
+	report_flag("bool-failure", validate Flagged from {flag: false} at offset)
+	Ok(())
+end

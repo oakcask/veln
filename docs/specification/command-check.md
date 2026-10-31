@@ -143,6 +143,10 @@ An unresolved, wrong-kind, ambiguous, private, binary, or otherwise ineligible
 target in a parse-clean `validate Schema from value at offset` expression also
 fails the semantic gate. Human and JSON modes report the target-specific
 `schema.validate_expression` contract defined by the diagnostic specification.
+A format-neutral schema remains an eligible target when it has field or
+schema-level predicates. Those predicates use ordinary expression precedence
+and must pass schema-predicate typing before `check` reports success. A binary
+schema remains ineligible for this explicit validation operation.
 The checked
 [`schema-runtime-validation-targets-human`](../../examples/specification/check/schema-runtime-validation-targets-human/)
 and

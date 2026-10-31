@@ -55,14 +55,14 @@ pub(crate) fn format_neutral_schema_runtime_validation_types(
     adts: &AdtRegistry,
 ) -> Option<(Type, Type)> {
     let mut completed_adts = HashMap::new();
-    let (erased, refined, has_refinement) = format_neutral_schema_runtime_validation_types_inner(
+    let (erased, refined, has_validation) = format_neutral_schema_runtime_validation_types_inner(
         module,
         schema,
         adts,
         &mut Vec::new(),
         &mut completed_adts,
     )?;
-    has_refinement.then_some((erased, refined))
+    has_validation.then_some((erased, refined))
 }
 
 fn format_neutral_schema_runtime_validation_types_inner(
@@ -72,13 +72,7 @@ fn format_neutral_schema_runtime_validation_types_inner(
     composition_stack: &mut Vec<(Option<String>, Option<String>, String)>,
     completed_adts: &mut RuntimeValidationMemo,
 ) -> Option<(Type, Type, bool)> {
-    if schema.format.is_some()
-        || !schema.validations.is_empty()
-        || schema
-            .fields
-            .iter()
-            .any(|field| field.where_clause.is_some())
-    {
+    if schema.format.is_some() {
         return None;
     }
     let key = (
@@ -92,7 +86,11 @@ fn format_neutral_schema_runtime_validation_types_inner(
     composition_stack.push(key);
     let mut erased_fields = Vec::with_capacity(schema.fields.len());
     let mut refined_fields = Vec::with_capacity(schema.fields.len());
-    let mut has_refinement = false;
+    let mut has_validation = !schema.validations.is_empty()
+        || schema
+            .fields
+            .iter()
+            .any(|field| field.where_clause.is_some());
     for field in &schema.fields {
         let refined =
             format_neutral_schema_encode_field_type_for_schema(module, schema, adts, &field.ty)?;
@@ -104,7 +102,7 @@ fn format_neutral_schema_runtime_validation_types_inner(
         let erased = if let Some(child) =
             format_neutral_schema_composed_field_target(module, schema, adts, &field.ty, traversal)
         {
-            let (child_erased, child_refined, child_has_refinement) =
+            let (child_erased, child_refined, child_has_validation) =
                 format_neutral_schema_runtime_validation_types_inner(
                     module,
                     child,
@@ -115,7 +113,7 @@ fn format_neutral_schema_runtime_validation_types_inner(
             if child_refined != refined {
                 return None;
             }
-            has_refinement |= child_has_refinement;
+            has_validation |= child_has_validation;
             child_erased
         } else {
             let (erased, field_has_refinement) = format_neutral_runtime_validation_type(
@@ -127,7 +125,7 @@ fn format_neutral_schema_runtime_validation_types_inner(
                 &mut Vec::new(),
                 completed_adts,
             )?;
-            has_refinement |= field_has_refinement;
+            has_validation |= field_has_refinement;
             erased
         };
         erased_fields.push((field.name.clone(), erased));
@@ -137,7 +135,7 @@ fn format_neutral_schema_runtime_validation_types_inner(
     Some((
         Type::Record(erased_fields),
         Type::Record(refined_fields),
-        has_refinement,
+        has_validation,
     ))
 }
 

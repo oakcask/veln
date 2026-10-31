@@ -127,6 +127,185 @@
         return failure == null ? okPreservingValue(value) : failure;
     }
 
+    public static Object validateSchemaRefinementAndPredicates(
+        Object value,
+        Object baseOffset,
+        Object schemaNameValue,
+        Object planValue,
+        Object validationMetadata
+    ) {
+        Object refined = validateSchemaRefinementPlan(
+            value,
+            baseOffset,
+            schemaNameValue,
+            planValue
+        );
+        if (isErr(refined)) {
+            return refined;
+        }
+        String rootPath = "/" + jsonPointerToken(asString(schemaNameValue));
+        Object failure = schemaRuntimePredicateFailure(
+            value,
+            baseOffset,
+            new SchemaRefinementPath(rootPath),
+            validationMetadata
+        );
+        return failure == null ? refined : failure;
+    }
+
+    private static Object schemaRuntimePredicateFailure(
+        Object value,
+        Object baseOffset,
+        SchemaRefinementPath path,
+        Object metadata
+    ) {
+        java.util.List<Object> values = asList(metadata);
+        if (values.size() != 5) {
+            return err("invalid runtime schema predicate metadata");
+        }
+        String schemaName = asString(values.get(0));
+        java.util.List<Object> fieldNames = asList(values.get(1));
+        java.util.List<Object> predicateValues = asList(values.get(2));
+        java.util.List<Object> nestedMetadata = asList(values.get(4));
+        if (fieldNames.size() != predicateValues.size()
+            || fieldNames.size() != nestedMetadata.size()) {
+            return err("invalid runtime schema predicate metadata for schema `" + schemaName + "`");
+        }
+        java.util.Map<Object, Object> record = asMap(value);
+        java.util.LinkedHashMap<String, Object> supplied = new java.util.LinkedHashMap<String, Object>();
+        for (int index = 0; index < fieldNames.size(); index += 1) {
+            String fieldName = asString(fieldNames.get(index));
+            Object fieldValue = record.get(fieldName);
+            if (fieldValue instanceof Long || fieldValue instanceof Boolean) {
+                supplied.put(fieldName, fieldValue);
+            }
+            SchemaRefinementPath fieldPath = path.append(fieldName);
+            Object nested = nestedMetadata.get(index);
+            if (nested instanceof java.util.List<?>) {
+                Object failure = schemaRuntimePredicateFailure(
+                    fieldValue,
+                    baseOffset,
+                    fieldPath,
+                    nested
+                );
+                if (failure != null) {
+                    return failure;
+                }
+            }
+            String predicateText = asString(predicateValues.get(index));
+            if (predicateText.isEmpty()) {
+                continue;
+            }
+            SchemaPredicate predicate;
+            try {
+                predicate = new SchemaPredicateParser(predicateText).parse();
+                schemaPutPredicateReferences(supplied, record, predicate.refs());
+            } catch (IllegalStateException failure) {
+                return schemaRuntimePredicateEvaluationDecodeError(
+                    baseOffset,
+                    fieldPath,
+                    predicateText,
+                    failure.getMessage(),
+                    supplied
+                );
+            }
+            boolean passed;
+            try {
+                passed = predicate.eval(supplied);
+            } catch (IllegalStateException failure) {
+                return schemaRuntimePredicateEvaluationDecodeError(
+                    baseOffset,
+                    fieldPath,
+                    predicate.text,
+                    failure.getMessage(),
+                    supplied
+                );
+            }
+            if (!passed) {
+                return schemaRuntimePredicateDecodeError(
+                    baseOffset,
+                    fieldPath,
+                    predicate.text,
+                    supplied
+                );
+            }
+        }
+        String validationText = asString(values.get(3));
+        if (validationText.isEmpty()) {
+            return null;
+        }
+        SchemaPredicate validation;
+        try {
+            validation = new SchemaPredicateParser(validationText).parse();
+            schemaPutPredicateReferences(supplied, record, validation.refs());
+        } catch (IllegalStateException failure) {
+            return schemaRuntimePredicateEvaluationDecodeError(
+                baseOffset,
+                path,
+                validationText,
+                failure.getMessage(),
+                supplied
+            );
+        }
+        boolean passed;
+        try {
+            passed = validation.eval(supplied);
+        } catch (IllegalStateException failure) {
+            return schemaRuntimePredicateEvaluationDecodeError(
+                baseOffset,
+                path,
+                validation.text,
+                failure.getMessage(),
+                supplied
+            );
+        }
+        return passed
+            ? null
+            : schemaRuntimePredicateDecodeError(
+                baseOffset,
+                path,
+                validation.text,
+                supplied
+            );
+    }
+
+    private static Object schemaRuntimePredicateDecodeError(
+        Object baseOffset,
+        SchemaRefinementPath path,
+        String predicate,
+        java.util.Map<String, ?> supplied
+    ) {
+        return err(adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "schema.validation_failed",
+                baseOffset,
+                path.render(),
+                "predicate `" + predicate + "` failed; supplied_values="
+                    + formatDecodedSchemaValues(supplied)
+            }
+        ));
+    }
+
+    private static Object schemaRuntimePredicateEvaluationDecodeError(
+        Object baseOffset,
+        SchemaRefinementPath path,
+        String predicate,
+        String failure,
+        java.util.Map<String, ?> supplied
+    ) {
+        return err(adt(
+            "DecodeError::DecodeErrorWithReason",
+            new Object[] {
+                "schema.validation_failed",
+                baseOffset,
+                path.render(),
+                "predicate `" + predicate + "` evaluation failed: " + failure
+                    + "; supplied_values=" + formatDecodedSchemaValues(supplied)
+            }
+        ));
+    }
+
     public static Object validateSchemaRefinements(
         Object value,
         Object baseOffset,
@@ -757,17 +936,11 @@
         return asLong(asAdt(value, "Byte").payloads[0]);
     }
 
-    private interface SchemaIntExpr {
-        long eval(java.util.Map<String, Long> decoded);
+    private interface SchemaValueExpr {}
 
-        void collectRefs(java.util.Set<String> refs);
-    }
+    private interface SchemaIntExpr extends SchemaValueExpr {}
 
-    private interface SchemaBoolExpr {
-        boolean eval(java.util.Map<String, Long> decoded);
-
-        void collectRefs(java.util.Set<String> refs);
-    }
+    private interface SchemaBoolExpr extends SchemaValueExpr {}
 
     private static final class SchemaFieldSpec {
         final String name;
@@ -1479,15 +1652,266 @@
             this.expr = expr;
         }
 
-        boolean eval(java.util.Map<String, Long> decoded) {
-            return expr.eval(decoded);
+        boolean eval(java.util.Map<String, ?> decoded) {
+            return ((Boolean) schemaPredicateEval(expr, decoded, SCHEMA_PREDICATE_BOOL))
+                .booleanValue();
         }
 
         java.util.Set<String> refs() {
             java.util.LinkedHashSet<String> refs = new java.util.LinkedHashSet<String>();
-            expr.collectRefs(refs);
+            java.util.ArrayDeque<SchemaValueExpr> pending =
+                new java.util.ArrayDeque<SchemaValueExpr>();
+            pending.push(expr);
+            while (!pending.isEmpty()) {
+                SchemaValueExpr current = pending.pop();
+                if (current instanceof SchemaRef) {
+                    refs.add(((SchemaRef) current).name);
+                } else if (current instanceof SchemaArithmetic) {
+                    SchemaArithmetic binary = (SchemaArithmetic) current;
+                    pending.push(binary.right);
+                    pending.push(binary.left);
+                } else if (current instanceof SchemaNegate) {
+                    pending.push(((SchemaNegate) current).expr);
+                } else if (current instanceof SchemaBitwiseNot) {
+                    pending.push(((SchemaBitwiseNot) current).expr);
+                } else if (current instanceof SchemaBitwise) {
+                    SchemaBitwise binary = (SchemaBitwise) current;
+                    pending.push(binary.right);
+                    pending.push(binary.left);
+                } else if (current instanceof SchemaEquality) {
+                    SchemaEquality binary = (SchemaEquality) current;
+                    pending.push(binary.right);
+                    pending.push(binary.left);
+                } else if (current instanceof SchemaCompare) {
+                    SchemaCompare binary = (SchemaCompare) current;
+                    pending.push(binary.right);
+                    pending.push(binary.left);
+                } else if (current instanceof SchemaBoolNot) {
+                    pending.push(((SchemaBoolNot) current).expr);
+                } else if (current instanceof SchemaBoolOp) {
+                    SchemaBoolOp binary = (SchemaBoolOp) current;
+                    pending.push(binary.right);
+                    pending.push(binary.left);
+                }
+            }
             return refs;
         }
+    }
+
+    private static final int SCHEMA_PREDICATE_VALUE = 0;
+    private static final int SCHEMA_PREDICATE_INT = 1;
+    private static final int SCHEMA_PREDICATE_BOOL = 2;
+
+    private static final class SchemaPredicateEvalFrame {
+        final SchemaValueExpr expr;
+        final int expected;
+        int stage;
+        Object left;
+
+        SchemaPredicateEvalFrame(SchemaValueExpr expr, int expected) {
+            this.expr = expr;
+            this.expected = expected;
+            this.stage = 0;
+            this.left = null;
+        }
+    }
+
+    private static Object schemaPredicateEval(
+        SchemaValueExpr root,
+        java.util.Map<String, ?> decoded,
+        int expected
+    ) {
+        java.util.ArrayDeque<SchemaPredicateEvalFrame> frames =
+            new java.util.ArrayDeque<SchemaPredicateEvalFrame>();
+        java.util.ArrayDeque<Object> values = new java.util.ArrayDeque<Object>();
+        frames.push(new SchemaPredicateEvalFrame(root, expected));
+        while (!frames.isEmpty()) {
+            SchemaPredicateEvalFrame frame = frames.peek();
+            SchemaValueExpr expression = frame.expr;
+            if (expression instanceof SchemaLiteral) {
+                values.push(Long.valueOf(((SchemaLiteral) expression).value));
+                frames.pop();
+                continue;
+            }
+            if (expression instanceof SchemaBoolLiteral) {
+                values.push(Boolean.valueOf(((SchemaBoolLiteral) expression).value));
+                frames.pop();
+                continue;
+            }
+            if (expression instanceof SchemaRef) {
+                String name = ((SchemaRef) expression).name;
+                Object value = decoded.get(name);
+                if (frame.expected == SCHEMA_PREDICATE_INT && !(value instanceof Long)) {
+                    throw new IllegalStateException(
+                        "schema predicate reference `" + name + "` is not a decoded Int"
+                    );
+                }
+                if (frame.expected == SCHEMA_PREDICATE_BOOL && !(value instanceof Boolean)) {
+                    throw new IllegalStateException(
+                        "schema predicate reference `" + name + "` is not a decoded Bool"
+                    );
+                }
+                if (value == null) {
+                    throw new IllegalStateException(
+                        "schema predicate reference `" + name + "` is not decoded"
+                    );
+                }
+                values.push(value);
+                frames.pop();
+                continue;
+            }
+            if (expression instanceof SchemaNegate || expression instanceof SchemaBitwiseNot
+                || expression instanceof SchemaBoolNot) {
+                if (frame.stage == 0) {
+                    frame.stage = 1;
+                    SchemaValueExpr child = expression instanceof SchemaNegate
+                        ? ((SchemaNegate) expression).expr
+                        : expression instanceof SchemaBitwiseNot
+                            ? ((SchemaBitwiseNot) expression).expr
+                            : ((SchemaBoolNot) expression).expr;
+                    frames.push(new SchemaPredicateEvalFrame(
+                        child,
+                        expression instanceof SchemaBoolNot
+                            ? SCHEMA_PREDICATE_BOOL
+                            : SCHEMA_PREDICATE_INT
+                    ));
+                    continue;
+                }
+                Object value = values.pop();
+                values.push(expression instanceof SchemaNegate
+                    ? Long.valueOf(-((Long) value).longValue())
+                    : expression instanceof SchemaBitwiseNot
+                        ? Long.valueOf(~((Long) value).longValue())
+                        : Boolean.valueOf(!((Boolean) value).booleanValue()));
+                frames.pop();
+                continue;
+            }
+            if (expression instanceof SchemaBoolOp) {
+                SchemaBoolOp binary = (SchemaBoolOp) expression;
+                if (frame.stage == 0) {
+                    frame.stage = 1;
+                    frames.push(new SchemaPredicateEvalFrame(
+                        binary.left,
+                        SCHEMA_PREDICATE_BOOL
+                    ));
+                    continue;
+                }
+                if (frame.stage == 1) {
+                    boolean left = ((Boolean) values.pop()).booleanValue();
+                    if ((binary.op.equals("and") && !left)
+                        || (binary.op.equals("or") && left)) {
+                        values.push(Boolean.valueOf(left));
+                        frames.pop();
+                        continue;
+                    }
+                    frame.left = Boolean.valueOf(left);
+                    frame.stage = 2;
+                    frames.push(new SchemaPredicateEvalFrame(
+                        binary.right,
+                        SCHEMA_PREDICATE_BOOL
+                    ));
+                    continue;
+                }
+                frames.pop();
+                continue;
+            }
+            SchemaValueExpr left;
+            SchemaValueExpr right;
+            int operandExpected;
+            if (expression instanceof SchemaArithmetic) {
+                left = ((SchemaArithmetic) expression).left;
+                right = ((SchemaArithmetic) expression).right;
+                operandExpected = SCHEMA_PREDICATE_INT;
+            } else if (expression instanceof SchemaBitwise) {
+                left = ((SchemaBitwise) expression).left;
+                right = ((SchemaBitwise) expression).right;
+                operandExpected = SCHEMA_PREDICATE_INT;
+            } else if (expression instanceof SchemaCompare) {
+                left = ((SchemaCompare) expression).left;
+                right = ((SchemaCompare) expression).right;
+                operandExpected = SCHEMA_PREDICATE_INT;
+            } else if (expression instanceof SchemaEquality) {
+                left = ((SchemaEquality) expression).left;
+                right = ((SchemaEquality) expression).right;
+                operandExpected = SCHEMA_PREDICATE_VALUE;
+            } else {
+                throw new IllegalStateException("unsupported schema predicate expression");
+            }
+            if (frame.stage == 0) {
+                frame.stage = 1;
+                frames.push(new SchemaPredicateEvalFrame(left, operandExpected));
+                continue;
+            }
+            if (frame.stage == 1) {
+                frame.left = values.pop();
+                frame.stage = 2;
+                frames.push(new SchemaPredicateEvalFrame(right, operandExpected));
+                continue;
+            }
+            Object rightValue = values.pop();
+            Object leftValue = frame.left;
+            if (expression instanceof SchemaArithmetic) {
+                String op = ((SchemaArithmetic) expression).op;
+                long lhs = ((Long) leftValue).longValue();
+                long rhs = ((Long) rightValue).longValue();
+                if (op.equals("+")) values.push(Long.valueOf(lhs + rhs));
+                else if (op.equals("-")) values.push(Long.valueOf(lhs - rhs));
+                else if (op.equals("*")) values.push(Long.valueOf(lhs * rhs));
+                else if (op.equals("/")) {
+                    if (rhs == 0L) {
+                        throw new IllegalStateException("schema predicate division by zero");
+                    }
+                    values.push(Long.valueOf(lhs / rhs));
+                } else throw new IllegalStateException(
+                    "unsupported schema arithmetic operator `" + op + "`"
+                );
+            } else if (expression instanceof SchemaBitwise) {
+                String op = ((SchemaBitwise) expression).op;
+                long lhs = ((Long) leftValue).longValue();
+                long rhs = ((Long) rightValue).longValue();
+                if (op.equals("&")) values.push(Long.valueOf(lhs & rhs));
+                else if (op.equals("^")) values.push(Long.valueOf(lhs ^ rhs));
+                else if (op.equals("|")) values.push(Long.valueOf(lhs | rhs));
+                else {
+                    if (rhs < 0L || rhs > 63L) {
+                        throw new RuntimeFailure(
+                            "invalid shift count " + rhs + " for operator `" + op
+                                + "`; expected a value between 0 and 63"
+                        );
+                    }
+                    int count = (int) rhs;
+                    if (op.equals("<<")) values.push(Long.valueOf(lhs << count));
+                    else if (op.equals(">>")) values.push(Long.valueOf(lhs >> count));
+                    else if (op.equals(">>>")) values.push(Long.valueOf(lhs >>> count));
+                    else throw new IllegalStateException(
+                        "unsupported schema bitwise operator `" + op + "`"
+                    );
+                }
+            } else if (expression instanceof SchemaCompare) {
+                String op = ((SchemaCompare) expression).op;
+                long lhs = ((Long) leftValue).longValue();
+                long rhs = ((Long) rightValue).longValue();
+                if (op.equals("<")) values.push(Boolean.valueOf(lhs < rhs));
+                else if (op.equals("<=")) values.push(Boolean.valueOf(lhs <= rhs));
+                else if (op.equals(">")) values.push(Boolean.valueOf(lhs > rhs));
+                else if (op.equals(">=")) values.push(Boolean.valueOf(lhs >= rhs));
+                else if (op.equals("==")) values.push(Boolean.valueOf(lhs == rhs));
+                else if (op.equals("!=")) values.push(Boolean.valueOf(lhs != rhs));
+                else throw new IllegalStateException(
+                    "unsupported schema comparison operator `" + op + "`"
+                );
+            } else {
+                String op = ((SchemaEquality) expression).op;
+                boolean equal = leftValue.equals(rightValue);
+                if (op.equals("==")) values.push(Boolean.valueOf(equal));
+                else if (op.equals("!=")) values.push(Boolean.valueOf(!equal));
+                else throw new IllegalStateException(
+                    "unsupported schema equality operator `" + op + "`"
+                );
+            }
+            frames.pop();
+        }
+        return values.pop();
     }
 
     private static final class SchemaPredicateParser {
@@ -1500,115 +1924,205 @@
         }
 
         SchemaPredicate parse() {
-            SchemaBoolExpr expr = parseOr();
+            SchemaValueExpr expr = parseOr();
             skipWhitespace();
             if (!isAtEnd()) {
                 throw new IllegalStateException(
                     "unsupported schema predicate syntax near `" + input.substring(pos) + "`"
                 );
             }
-            return new SchemaPredicate(input, expr);
+            return new SchemaPredicate(input, requireBool("predicate result", expr));
         }
 
-        private SchemaBoolExpr parseOr() {
-            SchemaBoolExpr expr = parseAnd();
+        private SchemaValueExpr parseOr() {
+            SchemaValueExpr expr = parseAnd();
             while (eatKeyword("or")) {
-                expr = new SchemaBoolOp("or", expr, parseAnd());
+                expr = new SchemaBoolOp(
+                    "or",
+                    requireBool("or", expr),
+                    requireBool("or", parseAnd())
+                );
             }
             return expr;
         }
 
-        private SchemaBoolExpr parseAnd() {
-            SchemaBoolExpr expr = parseBoolUnary();
+        private SchemaValueExpr parseAnd() {
+            SchemaValueExpr expr = parseBitwiseOr();
             while (eatKeyword("and")) {
-                expr = new SchemaBoolOp("and", expr, parseBoolUnary());
+                expr = new SchemaBoolOp(
+                    "and",
+                    requireBool("and", expr),
+                    requireBool("and", parseBitwiseOr())
+                );
             }
             return expr;
         }
 
-        private SchemaBoolExpr parseBoolUnary() {
-            if (eatKeyword("not")) {
-                return new SchemaBoolNot(parseBoolUnary());
+        private SchemaValueExpr parseBitwiseOr() {
+            SchemaValueExpr expr = parseBitwiseXor();
+            while (eatSymbol("|")) {
+                expr = new SchemaBitwise(
+                    "|",
+                    requireInt("|", expr),
+                    requireInt("|", parseBitwiseXor())
+                );
             }
-            return parseBoolAtom();
+            return expr;
         }
 
-        private SchemaBoolExpr parseBoolAtom() {
+        private SchemaValueExpr parseBitwiseXor() {
+            SchemaValueExpr expr = parseBitwiseAnd();
+            while (eatSymbol("^")) {
+                expr = new SchemaBitwise(
+                    "^",
+                    requireInt("^", expr),
+                    requireInt("^", parseBitwiseAnd())
+                );
+            }
+            return expr;
+        }
+
+        private SchemaValueExpr parseBitwiseAnd() {
+            SchemaValueExpr expr = parseEquality();
+            while (eatSymbol("&")) {
+                expr = new SchemaBitwise(
+                    "&",
+                    requireInt("&", expr),
+                    requireInt("&", parseEquality())
+                );
+            }
+            return expr;
+        }
+
+        private SchemaValueExpr parseEquality() {
+            SchemaValueExpr expr = parseComparison();
+            while (true) {
+                if (eatSymbol("==")) {
+                    expr = new SchemaEquality("==", expr, parseComparison());
+                } else if (eatSymbol("!=")) {
+                    expr = new SchemaEquality("!=", expr, parseComparison());
+                } else {
+                    return expr;
+                }
+            }
+        }
+
+        private SchemaValueExpr parseComparison() {
+            SchemaValueExpr expr = parseShift();
+            while (true) {
+                String op = parseOrderingOperator();
+                if (op != null) {
+                    expr = new SchemaCompare(
+                        op,
+                        requireInt(op, expr),
+                        requireInt(op, parseShift())
+                    );
+                } else {
+                    return expr;
+                }
+            }
+        }
+
+        private SchemaValueExpr parseShift() {
+            SchemaValueExpr expr = parseAddSub();
+            while (true) {
+                String op = null;
+                if (eatSymbol(">>>")) {
+                    op = ">>>";
+                } else if (eatSymbol(">>")) {
+                    op = ">>";
+                } else if (eatSymbol("<<")) {
+                    op = "<<";
+                }
+                if (op != null) {
+                    expr = new SchemaBitwise(
+                        op,
+                        requireInt(op, expr),
+                        requireInt(op, parseAddSub())
+                    );
+                } else {
+                    return expr;
+                }
+            }
+        }
+
+        private SchemaValueExpr parseAddSub() {
+            SchemaValueExpr expr = parseMulDiv();
+            while (true) {
+                String op = null;
+                if (eatSymbol("+")) {
+                    op = "+";
+                } else if (eatSymbol("-")) {
+                    op = "-";
+                }
+                if (op != null) {
+                    expr = new SchemaArithmetic(
+                        op,
+                        requireInt(op, expr),
+                        requireInt(op, parseMulDiv())
+                    );
+                } else {
+                    return expr;
+                }
+            }
+        }
+
+        private SchemaValueExpr parseMulDiv() {
+            SchemaValueExpr expr = parsePrefix();
+            while (true) {
+                String op = null;
+                if (eatSymbol("*")) {
+                    op = "*";
+                } else if (eatSymbol("/")) {
+                    op = "/";
+                }
+                if (op != null) {
+                    expr = new SchemaArithmetic(
+                        op,
+                        requireInt(op, expr),
+                        requireInt(op, parsePrefix())
+                    );
+                } else {
+                    return expr;
+                }
+            }
+        }
+
+        private SchemaValueExpr parsePrefix() {
+            skipWhitespace();
+            if (eatKeyword("not")) {
+                return new SchemaBoolNot(requireBool("not", parsePrefix()));
+            }
+            if (eatSymbol("-")) {
+                SchemaIntExpr literal = parseIntegerLiteral(true);
+                if (literal != null) {
+                    return literal;
+                }
+                return new SchemaNegate(requireInt("-", parsePrefix()));
+            }
+            if (eatSymbol("~")) {
+                return new SchemaBitwiseNot(requireInt("~", parsePrefix()));
+            }
+            return parseAtom();
+        }
+
+        private SchemaValueExpr parseAtom() {
+            if (eatSymbol("(")) {
+                SchemaValueExpr expr = parseOr();
+                if (!eatSymbol(")")) {
+                    throw new IllegalStateException("unsupported schema predicate syntax: expected `)`");
+                }
+                return expr;
+            }
             if (eatKeyword("true")) {
                 return new SchemaBoolLiteral(true);
             }
             if (eatKeyword("false")) {
                 return new SchemaBoolLiteral(false);
             }
-            if (peekSymbol("(")) {
-                int start = pos;
-                try {
-                    eatSymbol("(");
-                    SchemaBoolExpr expr = parseOr();
-                    if (!eatSymbol(")")) {
-                        throw new IllegalStateException(
-                            "unsupported schema predicate syntax: expected `)`"
-                        );
-                    }
-                    return expr;
-                } catch (IllegalStateException failure) {
-                    pos = start;
-                }
-            }
-            SchemaIntExpr left = parseAddSub();
-            String op = parseComparisonOperator();
-            if (op == null) {
-                throw new IllegalStateException(
-                    "unsupported schema predicate syntax near `" + input.substring(pos) + "`"
-                );
-            }
-            return new SchemaCompare(op, left, parseAddSub());
-        }
-
-        private SchemaIntExpr parseAddSub() {
-            SchemaIntExpr expr = parseMulDiv();
-            while (true) {
-                if (eatSymbol("+")) {
-                    expr = new SchemaArithmetic("+", expr, parseMulDiv());
-                } else if (eatSymbol("-")) {
-                    expr = new SchemaArithmetic("-", expr, parseMulDiv());
-                } else {
-                    return expr;
-                }
-            }
-        }
-
-        private SchemaIntExpr parseMulDiv() {
-            SchemaIntExpr expr = parseIntAtom();
-            while (true) {
-                if (eatSymbol("*")) {
-                    expr = new SchemaArithmetic("*", expr, parseIntAtom());
-                } else if (eatSymbol("/")) {
-                    expr = new SchemaArithmetic("/", expr, parseIntAtom());
-                } else {
-                    return expr;
-                }
-            }
-        }
-
-        private SchemaIntExpr parseIntAtom() {
-            skipWhitespace();
-            if (eatSymbol("-")) {
-                return new SchemaNegate(parseIntAtom());
-            }
-            if (eatSymbol("(")) {
-                SchemaIntExpr expr = parseAddSub();
-                if (!eatSymbol(")")) {
-                    throw new IllegalStateException("unsupported schema predicate syntax: expected `)`");
-                }
-                return expr;
-            }
-            if (!isAtEnd() && Character.isDigit(input.charAt(pos))) {
-                int start = pos;
-                while (!isAtEnd() && Character.isDigit(input.charAt(pos))) {
-                    pos += 1;
-                }
-                return new SchemaLiteral(Long.parseLong(input.substring(start, pos)));
+            SchemaIntExpr literal = parseIntegerLiteral(false);
+            if (literal != null) {
+                return literal;
             }
             String name = parseIdent();
             if (name != null) {
@@ -1619,8 +2133,66 @@
             );
         }
 
-        private String parseComparisonOperator() {
-            for (String op : new String[] { "<=", ">=", "==", "!=", "<", ">" }) {
+        private SchemaIntExpr requireInt(String operator, SchemaValueExpr expr) {
+            if (expr instanceof SchemaIntExpr) {
+                return (SchemaIntExpr) expr;
+            }
+            throw new IllegalStateException(
+                "schema predicate operator `" + operator + "` expects Int operands"
+            );
+        }
+
+        private SchemaBoolExpr requireBool(String operator, SchemaValueExpr expr) {
+            if (expr instanceof SchemaBoolExpr) {
+                return (SchemaBoolExpr) expr;
+            }
+            throw new IllegalStateException(
+                "schema predicate operator `" + operator + "` expects Bool operands"
+            );
+        }
+
+        private SchemaIntExpr parseIntegerLiteral(boolean negative) {
+            skipWhitespace();
+            if (isAtEnd() || !Character.isDigit(input.charAt(pos))) {
+                return null;
+            }
+            int start = pos;
+            int radix = 10;
+            if (input.startsWith("0b", pos)) {
+                radix = 2;
+                pos += 2;
+                while (!isAtEnd() && (input.charAt(pos) == '0' || input.charAt(pos) == '1')) {
+                    pos += 1;
+                }
+            } else if (input.startsWith("0x", pos)) {
+                radix = 16;
+                pos += 2;
+                while (!isAtEnd() && Character.digit(input.charAt(pos), 16) >= 0) {
+                    pos += 1;
+                }
+            } else {
+                while (!isAtEnd() && Character.isDigit(input.charAt(pos))) {
+                    pos += 1;
+                }
+            }
+            int digitsStart = radix == 10 ? start : start + 2;
+            if (digitsStart == pos) {
+                pos = start;
+                return null;
+            }
+            java.math.BigInteger value = new java.math.BigInteger(input.substring(digitsStart, pos), radix);
+            if (negative) {
+                value = value.negate();
+            }
+            try {
+                return new SchemaLiteral(value.longValueExact());
+            } catch (ArithmeticException failure) {
+                throw new IllegalStateException("schema predicate integer literal is outside Int range");
+            }
+        }
+
+        private String parseOrderingOperator() {
+            for (String op : new String[] { "<=", ">=", "<", ">" }) {
                 if (eatSymbol(op)) {
                     return op;
                 }
@@ -1697,31 +2269,15 @@
             this.value = value;
         }
 
-        public long eval(java.util.Map<String, Long> decoded) {
-            return value;
-        }
-
-        public void collectRefs(java.util.Set<String> refs) {}
     }
 
-    private static final class SchemaRef implements SchemaIntExpr {
+    private static final class SchemaRef implements SchemaIntExpr, SchemaBoolExpr {
         final String name;
 
         SchemaRef(String name) {
             this.name = name;
         }
 
-        public long eval(java.util.Map<String, Long> decoded) {
-            Long value = decoded.get(name);
-            if (value == null) {
-                throw new IllegalStateException("schema predicate reference `" + name + "` is not decoded");
-            }
-            return value.longValue();
-        }
-
-        public void collectRefs(java.util.Set<String> refs) {
-            refs.add(name);
-        }
     }
 
     private static final class SchemaArithmetic implements SchemaIntExpr {
@@ -1735,31 +2291,6 @@
             this.right = right;
         }
 
-        public long eval(java.util.Map<String, Long> decoded) {
-            long leftValue = left.eval(decoded);
-            long rightValue = right.eval(decoded);
-            if (op.equals("+")) {
-                return leftValue + rightValue;
-            }
-            if (op.equals("-")) {
-                return leftValue - rightValue;
-            }
-            if (op.equals("*")) {
-                return leftValue * rightValue;
-            }
-            if (op.equals("/")) {
-                if (rightValue == 0L) {
-                    throw new IllegalStateException("schema predicate division by zero");
-                }
-                return leftValue / rightValue;
-            }
-            throw new IllegalStateException("unsupported schema arithmetic operator `" + op + "`");
-        }
-
-        public void collectRefs(java.util.Set<String> refs) {
-            left.collectRefs(refs);
-            right.collectRefs(refs);
-        }
     }
 
     private static final class SchemaNegate implements SchemaIntExpr {
@@ -1769,13 +2300,41 @@
             this.expr = expr;
         }
 
-        public long eval(java.util.Map<String, Long> decoded) {
-            return -expr.eval(decoded);
+    }
+
+    private static final class SchemaBitwiseNot implements SchemaIntExpr {
+        final SchemaIntExpr expr;
+
+        SchemaBitwiseNot(SchemaIntExpr expr) {
+            this.expr = expr;
         }
 
-        public void collectRefs(java.util.Set<String> refs) {
-            expr.collectRefs(refs);
+    }
+
+    private static final class SchemaBitwise implements SchemaIntExpr {
+        final String op;
+        final SchemaIntExpr left;
+        final SchemaIntExpr right;
+
+        SchemaBitwise(String op, SchemaIntExpr left, SchemaIntExpr right) {
+            this.op = op;
+            this.left = left;
+            this.right = right;
         }
+
+    }
+
+    private static final class SchemaEquality implements SchemaBoolExpr {
+        final String op;
+        final SchemaValueExpr left;
+        final SchemaValueExpr right;
+
+        SchemaEquality(String op, SchemaValueExpr left, SchemaValueExpr right) {
+            this.op = op;
+            this.left = left;
+            this.right = right;
+        }
+
     }
 
     private static final class SchemaCompare implements SchemaBoolExpr {
@@ -1789,34 +2348,6 @@
             this.right = right;
         }
 
-        public boolean eval(java.util.Map<String, Long> decoded) {
-            long leftValue = left.eval(decoded);
-            long rightValue = right.eval(decoded);
-            if (op.equals("<")) {
-                return leftValue < rightValue;
-            }
-            if (op.equals("<=")) {
-                return leftValue <= rightValue;
-            }
-            if (op.equals(">")) {
-                return leftValue > rightValue;
-            }
-            if (op.equals(">=")) {
-                return leftValue >= rightValue;
-            }
-            if (op.equals("==")) {
-                return leftValue == rightValue;
-            }
-            if (op.equals("!=")) {
-                return leftValue != rightValue;
-            }
-            throw new IllegalStateException("unsupported schema comparison operator `" + op + "`");
-        }
-
-        public void collectRefs(java.util.Set<String> refs) {
-            left.collectRefs(refs);
-            right.collectRefs(refs);
-        }
     }
 
     private static final class SchemaBoolLiteral implements SchemaBoolExpr {
@@ -1826,11 +2357,6 @@
             this.value = value;
         }
 
-        public boolean eval(java.util.Map<String, Long> decoded) {
-            return value;
-        }
-
-        public void collectRefs(java.util.Set<String> refs) {}
     }
 
     private static final class SchemaBoolNot implements SchemaBoolExpr {
@@ -1840,13 +2366,6 @@
             this.expr = expr;
         }
 
-        public boolean eval(java.util.Map<String, Long> decoded) {
-            return !expr.eval(decoded);
-        }
-
-        public void collectRefs(java.util.Set<String> refs) {
-            expr.collectRefs(refs);
-        }
     }
 
     private static final class SchemaBoolOp implements SchemaBoolExpr {
@@ -1860,20 +2379,6 @@
             this.right = right;
         }
 
-        public boolean eval(java.util.Map<String, Long> decoded) {
-            if (op.equals("and")) {
-                return left.eval(decoded) && right.eval(decoded);
-            }
-            if (op.equals("or")) {
-                return left.eval(decoded) || right.eval(decoded);
-            }
-            throw new IllegalStateException("unsupported schema boolean operator `" + op + "`");
-        }
-
-        public void collectRefs(java.util.Set<String> refs) {
-            left.collectRefs(refs);
-            right.collectRefs(refs);
-        }
     }
 
     private static SchemaFieldSpec unsignedSchemaField(String name, int width, SchemaPredicate predicate) {
@@ -2654,28 +3159,21 @@
             }
         }
         java.util.Map<Object, Object> record = asMap(value);
-        java.util.LinkedHashMap<String, Long> supplied = new java.util.LinkedHashMap<String, Long>();
+        java.util.LinkedHashMap<String, Object> supplied = new java.util.LinkedHashMap<String, Object>();
         for (int index = 0; index < fieldNameValues.size(); index += 1) {
             String fieldName = asString(fieldNameValues.get(index));
             Object fieldValue = record.get(fieldName);
-            Long intValue = fieldValue instanceof Long ? (Long) fieldValue : null;
-            if (intValue != null) {
-                supplied.put(fieldName, intValue);
-            } else {
-                schemaPutNestedIntFields(supplied, fieldName, fieldValue);
+            if (fieldValue instanceof Long || fieldValue instanceof Boolean) {
+                supplied.put(fieldName, fieldValue);
             }
             String predicateText = asString(predicateValues.get(index));
             if (predicateText.isEmpty()) {
                 continue;
             }
-            if (intValue == null) {
-                return err(
-                    "schema validation field `" + fieldName + "` in schema `" + name + "` is not an Int"
-                );
-            }
             SchemaPredicate predicate;
             try {
                 predicate = new SchemaPredicateParser(predicateText).parse();
+                schemaPutPredicateReferences(supplied, record, predicate.refs());
             } catch (IllegalStateException failure) {
                 return err(failure.getMessage());
             }
@@ -2692,12 +3190,13 @@
                     name,
                     fieldName,
                     predicate.text,
-                    intValue,
+                    fieldValue,
                     supplied
                 );
             }
         }
         if (validation != null) {
+            schemaPutPredicateReferences(supplied, record, validation.refs());
             boolean passed;
             try {
                 passed = validation.eval(supplied);
@@ -9020,6 +9519,20 @@
             Object child = entry.getValue();
             if (child instanceof Long) target.put(path, (Long) child);
             else schemaPutNestedIntFields(target, path, child);
+        }
+    }
+
+    private static void schemaPutPredicateReferences(
+        java.util.Map<String, Object> target,
+        java.util.Map<?, ?> record,
+        java.util.Set<String> references
+    ) {
+        for (String reference : references) {
+            if (target.containsKey(reference)) continue;
+            Object value = schemaPathValue(record, reference);
+            if (value instanceof Long || value instanceof Boolean) {
+                target.put(reference, value);
+            }
         }
     }
 
