@@ -573,6 +573,17 @@ install that production client boundary.
   field order. Later expressions resolve explicit paths into earlier composed
   records. A format-neutral composed target runs its field predicates and
   schema validation before the containing schema continues validation. Nested
+  field and schema predicates retain checked `Int` and `Bool` operands in both
+  generated decode and encode helpers. A false `Bool` predicate reports
+  `schema.validation_failed` at the nested field or schema path. The checked
+  [`schema-composition-format-neutral`](../../examples/specification/run/schema-composition-format-neutral/),
+  [`schema-composition-format-neutral-decode-bool-field-failure`](../../examples/specification/run/schema-composition-format-neutral-decode-bool-field-failure/),
+  [`schema-composition-format-neutral-encode-bool-field-failure`](../../examples/specification/run/schema-composition-format-neutral-encode-bool-field-failure/),
+  [`schema-composition-format-neutral-decode-schema-predicate-failure`](../../examples/specification/run/schema-composition-format-neutral-decode-schema-predicate-failure/),
+  and
+  [`schema-composition-format-neutral-encode-schema-predicate-failure`](../../examples/specification/run/schema-composition-format-neutral-encode-schema-predicate-failure/)
+  cases cover successful Boolean preservation and nested field and schema
+  rejection in both directions. Nested
   decode and encode failures retain the containing schema and binding before
   the target schema path, and neither direction commits a partial containing
   value or byte sequence. A failed nested attempt does not affect a later

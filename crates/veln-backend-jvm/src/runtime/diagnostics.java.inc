@@ -1955,18 +1955,31 @@
         String schemaName,
         String fieldName,
         String predicate,
-        Long fieldValue,
-        java.util.Map<String, Long> suppliedValues
+        Object fieldValue,
+        java.util.Map<String, ?> suppliedValues
     ) {
         java.util.ArrayList<DiagnosticDetail> details =
             new java.util.ArrayList<DiagnosticDetail>();
         details.add(DiagnosticDetail.string("predicate", predicate));
-        if (fieldValue != null) {
-            details.add(DiagnosticDetail.number("field_value", fieldValue.longValue()));
+        if (fieldValue instanceof Long) {
+            details.add(DiagnosticDetail.number(
+                "field_value",
+                ((Long) fieldValue).longValue()
+            ));
+        } else if (fieldValue instanceof Boolean) {
+            details.add(DiagnosticDetail.string("field_value", fieldValue.toString()));
         }
         details.add(DiagnosticDetail.string("supplied_values", formatDecodedSchemaValues(suppliedValues)));
-        for (java.util.Map.Entry<String, Long> entry : suppliedValues.entrySet()) {
-            details.add(DiagnosticDetail.number(entry.getKey(), entry.getValue().longValue()));
+        for (java.util.Map.Entry<String, ?> entry : suppliedValues.entrySet()) {
+            Object suppliedValue = entry.getValue();
+            if (suppliedValue instanceof Long) {
+                details.add(DiagnosticDetail.number(
+                    entry.getKey(),
+                    ((Long) suppliedValue).longValue()
+                ));
+            } else if (suppliedValue instanceof Boolean) {
+                details.add(DiagnosticDetail.string(entry.getKey(), suppliedValue.toString()));
+            }
         }
         java.util.ArrayList<ByteDiagnosticFieldPathSegment> path =
             new java.util.ArrayList<ByteDiagnosticFieldPathSegment>();

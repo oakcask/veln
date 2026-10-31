@@ -21,10 +21,19 @@ schema Envelope
 	imported: wire::ImportedMetadata
 	aliased: facade::AliasMetadata
 	payload: String
+	enabled: Bool where enabled
+	validate enabled
+end
+
+fn enabled_label(enabled: Bool) -> String
+	match enabled
+		true => "enabled"
+		false => "disabled"
+	end
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let value = {metadata: {version: 3, label: "stable"}, local_aliased: {version: 6, label: "local alias"}, imported: {version: 4, label: "public"}, aliased: {version: 5, label: "alias"}, payload: "body"}
+	let value = {metadata: {version: 3, label: "stable"}, local_aliased: {version: 6, label: "local alias"}, imported: {version: 4, label: "public"}, aliased: {version: 5, label: "alias"}, payload: "body", enabled: true}
 	let decoded = byte_decode_envelope(value)?
 	let encoded = byte_encode_envelope(decoded)?
 	stdio::println(int_to_string(encoded.metadata.version))
@@ -33,5 +42,6 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::println(int_to_string(encoded.imported.version))
 	stdio::println(encoded.aliased.label)
 	stdio::println(encoded.payload)
+	stdio::println(enabled_label(encoded.enabled))
 	Ok(())
 end

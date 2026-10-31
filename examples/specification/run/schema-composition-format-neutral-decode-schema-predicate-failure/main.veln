@@ -1,0 +1,14 @@
+# Format-neutral composition reports a nested Boolean schema predicate failure.
+schema Child
+	flag: Bool
+	validate flag
+end
+
+schema Parent
+	child: Child
+end
+
+pub fn main() -> Result<(), String>
+	let ignored: {child: {flag: Bool}} = byte_decode_parent({child: {flag: false}})?
+	Ok(())
+end
