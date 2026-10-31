@@ -70,7 +70,6 @@ fn duplicate_name(
 pub(crate) fn check_duplicate_function_names(
     module: &SurfaceModule,
 ) -> (Vec<Diagnostic>, Vec<CallableNameCollision>) {
-    let mut diagnostics = Vec::new();
     let mut collisions = Vec::new();
     let mut seen = SeenNames::new();
 
@@ -80,7 +79,6 @@ pub(crate) fn check_duplicate_function_names(
         };
         record_callable_name(
             &mut seen,
-            &mut diagnostics,
             &mut collisions,
             (
                 function.package_name.as_deref(),
@@ -102,7 +100,6 @@ pub(crate) fn check_duplicate_function_names(
         };
         record_callable_name(
             &mut seen,
-            &mut diagnostics,
             &mut collisions,
             (alias.package_name.as_deref(), alias.module_name.as_deref()),
             name,
@@ -117,7 +114,6 @@ pub(crate) fn check_duplicate_function_names(
         };
         record_callable_name(
             &mut seen,
-            &mut diagnostics,
             &mut collisions,
             (value.package_name.as_deref(), value.module_name.as_deref()),
             name,
@@ -127,12 +123,15 @@ pub(crate) fn check_duplicate_function_names(
         );
     }
 
+    let diagnostics = collisions
+        .iter()
+        .map(|collision| collision.diagnostic.clone())
+        .collect();
     (diagnostics, collisions)
 }
 
 fn record_callable_name(
     seen: &mut SeenNames,
-    diagnostics: &mut Vec<Diagnostic>,
     collisions: &mut Vec<CallableNameCollision>,
     owner: (Option<&str>, Option<&str>),
     name: &str,
@@ -147,9 +146,8 @@ fn record_callable_name(
                 owner.1.map(str::to_owned),
                 name.to_owned(),
             ),
-            diagnostic: diagnostic.clone(),
+            diagnostic,
         });
-        diagnostics.push(diagnostic);
     }
 }
 
