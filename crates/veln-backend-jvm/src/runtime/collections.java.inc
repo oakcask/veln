@@ -1692,14 +1692,53 @@
                     pos = start;
                 }
             }
-            SchemaIntExpr left = parseAddSub();
+            SchemaIntExpr left = parseBitwiseOr();
             String op = parseComparisonOperator();
             if (op == null) {
                 throw new IllegalStateException(
                     "unsupported schema predicate syntax near `" + input.substring(pos) + "`"
                 );
             }
-            return new SchemaCompare(op, left, parseAddSub());
+            return new SchemaCompare(op, left, parseBitwiseOr());
+        }
+
+        private SchemaIntExpr parseBitwiseOr() {
+            SchemaIntExpr expr = parseBitwiseXor();
+            while (eatSymbol("|")) {
+                expr = new SchemaBitwise("|", expr, parseBitwiseXor());
+            }
+            return expr;
+        }
+
+        private SchemaIntExpr parseBitwiseXor() {
+            SchemaIntExpr expr = parseBitwiseAnd();
+            while (eatSymbol("^")) {
+                expr = new SchemaBitwise("^", expr, parseBitwiseAnd());
+            }
+            return expr;
+        }
+
+        private SchemaIntExpr parseBitwiseAnd() {
+            SchemaIntExpr expr = parseShift();
+            while (eatSymbol("&")) {
+                expr = new SchemaBitwise("&", expr, parseShift());
+            }
+            return expr;
+        }
+
+        private SchemaIntExpr parseShift() {
+            SchemaIntExpr expr = parseAddSub();
+            while (true) {
+                if (eatSymbol(">>>")) {
+                    expr = new SchemaBitwise(">>>", expr, parseAddSub());
+                } else if (eatSymbol(">>")) {
+                    expr = new SchemaBitwise(">>", expr, parseAddSub());
+                } else if (eatSymbol("<<")) {
+                    expr = new SchemaBitwise("<<", expr, parseAddSub());
+                } else {
+                    return expr;
+                }
+            }
         }
 
         private SchemaIntExpr parseAddSub() {
@@ -1731,21 +1770,25 @@
         private SchemaIntExpr parseIntAtom() {
             skipWhitespace();
             if (eatSymbol("-")) {
+                SchemaIntExpr literal = parseIntegerLiteral(true);
+                if (literal != null) {
+                    return literal;
+                }
                 return new SchemaNegate(parseIntAtom());
             }
+            if (eatSymbol("~")) {
+                return new SchemaBitwiseNot(parseIntAtom());
+            }
             if (eatSymbol("(")) {
-                SchemaIntExpr expr = parseAddSub();
+                SchemaIntExpr expr = parseBitwiseOr();
                 if (!eatSymbol(")")) {
                     throw new IllegalStateException("unsupported schema predicate syntax: expected `)`");
                 }
                 return expr;
             }
-            if (!isAtEnd() && Character.isDigit(input.charAt(pos))) {
-                int start = pos;
-                while (!isAtEnd() && Character.isDigit(input.charAt(pos))) {
-                    pos += 1;
-                }
-                return new SchemaLiteral(Long.parseLong(input.substring(start, pos)));
+            SchemaIntExpr literal = parseIntegerLiteral(false);
+            if (literal != null) {
+                return literal;
             }
             String name = parseIdent();
             if (name != null) {
@@ -1754,6 +1797,46 @@
             throw new IllegalStateException(
                 "unsupported schema predicate syntax near `" + input.substring(pos) + "`"
             );
+        }
+
+        private SchemaIntExpr parseIntegerLiteral(boolean negative) {
+            skipWhitespace();
+            if (isAtEnd() || !Character.isDigit(input.charAt(pos))) {
+                return null;
+            }
+            int start = pos;
+            int radix = 10;
+            if (input.startsWith("0b", pos)) {
+                radix = 2;
+                pos += 2;
+                while (!isAtEnd() && (input.charAt(pos) == '0' || input.charAt(pos) == '1')) {
+                    pos += 1;
+                }
+            } else if (input.startsWith("0x", pos)) {
+                radix = 16;
+                pos += 2;
+                while (!isAtEnd() && Character.digit(input.charAt(pos), 16) >= 0) {
+                    pos += 1;
+                }
+            } else {
+                while (!isAtEnd() && Character.isDigit(input.charAt(pos))) {
+                    pos += 1;
+                }
+            }
+            int digitsStart = radix == 10 ? start : start + 2;
+            if (digitsStart == pos) {
+                pos = start;
+                return null;
+            }
+            java.math.BigInteger value = new java.math.BigInteger(input.substring(digitsStart, pos), radix);
+            if (negative) {
+                value = value.negate();
+            }
+            try {
+                return new SchemaLiteral(value.longValueExact());
+            } catch (ArithmeticException failure) {
+                throw new IllegalStateException("schema predicate integer literal is outside Int range");
+            }
         }
 
         private String parseComparisonOperator() {
@@ -1885,9 +1968,6 @@
                 return leftValue * rightValue;
             }
             if (op.equals("/")) {
-                if (rightValue == 0L) {
-                    throw new IllegalStateException("schema predicate division by zero");
-                }
                 return leftValue / rightValue;
             }
             throw new IllegalStateException("unsupported schema arithmetic operator `" + op + "`");
@@ -1912,6 +1992,70 @@
 
         public void collectRefs(java.util.Set<String> refs) {
             expr.collectRefs(refs);
+        }
+    }
+
+    private static final class SchemaBitwiseNot implements SchemaIntExpr {
+        final SchemaIntExpr expr;
+
+        SchemaBitwiseNot(SchemaIntExpr expr) {
+            this.expr = expr;
+        }
+
+        public long eval(java.util.Map<String, Long> decoded) {
+            return ~expr.eval(decoded);
+        }
+
+        public void collectRefs(java.util.Set<String> refs) {
+            expr.collectRefs(refs);
+        }
+    }
+
+    private static final class SchemaBitwise implements SchemaIntExpr {
+        final String op;
+        final SchemaIntExpr left;
+        final SchemaIntExpr right;
+
+        SchemaBitwise(String op, SchemaIntExpr left, SchemaIntExpr right) {
+            this.op = op;
+            this.left = left;
+            this.right = right;
+        }
+
+        public long eval(java.util.Map<String, Long> decoded) {
+            long leftValue = left.eval(decoded);
+            long rightValue = right.eval(decoded);
+            if (op.equals("&")) {
+                return leftValue & rightValue;
+            }
+            if (op.equals("^")) {
+                return leftValue ^ rightValue;
+            }
+            if (op.equals("|")) {
+                return leftValue | rightValue;
+            }
+            if (rightValue < 0L || rightValue > 63L) {
+                throw new RuntimeFailure(
+                    "invalid shift count " + rightValue + " for operator `" + op
+                        + "`; expected a value between 0 and 63"
+                );
+            }
+            int count = (int) rightValue;
+            if (op.equals("<<")) {
+                return leftValue << count;
+            }
+            if (op.equals(">>")) {
+                return leftValue >> count;
+            }
+            if (op.equals(">>>")) {
+                return leftValue >>> count;
+            }
+            throw new IllegalStateException("unsupported schema bitwise operator `" + op + "`");
+        }
+
+        public void collectRefs(java.util.Set<String> refs) {
+            left.collectRefs(refs);
+            right.collectRefs(refs);
         }
     }
 

@@ -19,6 +19,15 @@ schema Parent
 	validate before + child.value == after
 end
 
+schema Bitwise
+	value: Int where (value & 1) == 1 and (~value >> 63) == -1 and (-1 >>> 63) == 1 and (value << 0) == value and (value >> 0) == value and (1 << 63) < 0 and (0b11 & 0x1) == 1
+	validate ((value ^ 3) | 8) == 10 and (value << 1) == 2
+end
+
+schema AcceptedUnparenthesized
+	value: Int where value & 1 == 1
+end
+
 fn validate_packet(value: {before: Int, child: {state: State, value: Int}, after: Int}, offset: ByteOffset) -> Result<{before: Int, child: {state: State::Connected, value: Int}, after: Int}, DecodeError>
 	validate Parent from value at offset
 end
@@ -44,6 +53,36 @@ fn report(label: String, result: Result<{before: Int, child: {state: State::Conn
 	end
 end
 
+fn report_bitwise(label: String, result: Result<{value: Int}, DecodeError>) -> () effects [stdio]
+	stdio::println(label)
+	match result
+		Ok(value) => begin
+			stdio::println("accepted")
+			stdio::println(int_to_string(value.value))
+		end
+		Err(DecodeErrorWithReason(id, offset, path, reason)) => begin
+			stdio::println(id)
+			stdio::println(int_to_string(byte_offset_to_int(offset)))
+			stdio::println(path)
+			stdio::println(reason)
+		end
+		Err(DecodeError(id, offset, path)) => begin
+			stdio::println(id)
+			stdio::println(int_to_string(byte_offset_to_int(offset)))
+			stdio::println(path)
+		end
+	end
+end
+
+fn report_typed_result(label: String, result: Result<{value: Int}, DecodeError>) -> () effects [stdio]
+	stdio::println(label)
+	match result
+		Ok(_) => stdio::println("typed-result")
+		Err(DecodeErrorWithReason(_, _, _, _)) => stdio::println("typed-result")
+		Err(DecodeError(_, _, _)) => stdio::println("typed-result")
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let offset = byte_offset(19)?
 	report("refinement-first", validate_packet({before: 0, child: {state: Closed, value: 0}, after: 0}, offset))
@@ -54,5 +93,9 @@ pub fn main() -> Result<(), String> effects [stdio]
 	report("later-field", validate_packet({before: 1, child: {state: Connected, value: 2}, after: 0}, offset))
 	report("root-schema", validate_packet({before: 1, child: {state: Connected, value: 2}, after: 4}, offset))
 	report("success", validate_packet({before: 1, child: {state: Connected, value: 2}, after: 3}, offset))
+	report_bitwise("bitwise-field", validate Bitwise from {value: 2} at offset)
+	report_bitwise("bitwise-root", validate Bitwise from {value: 3} at offset)
+	report_bitwise("bitwise-success", validate Bitwise from {value: 1} at offset)
+	report_typed_result("accepted-unparenthesized", validate AcceptedUnparenthesized from {value: 2} at offset)
 	Ok(())
 end

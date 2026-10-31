@@ -204,6 +204,35 @@ fn schema_level_validation_rejects_non_int_decoded_fields() {
 }
 
 #[test]
+fn schema_predicates_reject_literal_shift_counts_outside_int_bounds() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema InvalidShifts\n",
+            "  value: Int where (value << 64) > 0\n",
+            "  validate (value >> -1) == 0\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let invalid_counts = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "type.invalid_shift_count")
+        .collect::<Vec<_>>();
+
+    assert_eq!(invalid_counts.len(), 2, "{diagnostics:#?}");
+    assert!(invalid_counts.iter().any(|diagnostic| {
+        diagnostic.message == "shift count 64 is outside the permitted range 0 through 63"
+    }));
+    assert!(invalid_counts.iter().any(|diagnostic| {
+        diagnostic.message == "shift count -1 is outside the permitted range 0 through 63"
+    }));
+}
+
+#[test]
 fn generated_schema_helpers_resolve_bounded_repeated_primitive_fields() {
     let source = SourceFile::new(
         "main.veln",

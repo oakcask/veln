@@ -78,6 +78,16 @@ impl<'a> Parser<'a> {
                     Some("format"),
                 );
             }
+            if body.format.is_none() && !body.validations.is_empty() {
+                self.error_current(
+                    "parse.schema_validation_before_format",
+                    "schema validation appears before a format clause",
+                    "schema_validation",
+                    vec!["field", "end"],
+                    RecoveryStrategy::InsertToken,
+                    Some("format"),
+                );
+            }
             let duplicate = body.format.is_some();
             let clause = self.parse_schema_format_clause(duplicate);
             if !duplicate {

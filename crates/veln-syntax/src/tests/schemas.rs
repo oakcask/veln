@@ -542,6 +542,57 @@ fn parses_format_neutral_schema_validation_predicate() {
 }
 
 #[test]
+fn enforces_binary_schema_clause_order_without_rejecting_format_neutral_validation() {
+    let rejected = [
+        concat!(
+            "schema Packet\n",
+            "  validate value > 0\n",
+            "  format binary\n",
+            "  value: UInt8\n",
+            "end\n",
+        ),
+        concat!(
+            "schema Packet\n",
+            "  value: UInt8\n",
+            "  validate value > 0\n",
+            "  format binary\n",
+            "end\n",
+        ),
+    ];
+    for source in rejected {
+        let output = parse(&SourceFile::new("schema.veln", source));
+        assert!(
+            output
+                .diagnostics
+                .iter()
+                .any(|diagnostic| { diagnostic.id == "parse.schema_validation_before_format" }),
+            "{:#?}",
+            output.diagnostics
+        );
+    }
+
+    let accepted = [
+        concat!(
+            "schema Packet\n",
+            "  format binary\n",
+            "  value: UInt8\n",
+            "  validate value > 0\n",
+            "end\n",
+        ),
+        concat!(
+            "schema Packet\n",
+            "  value: Int\n",
+            "  validate value > 0\n",
+            "end\n",
+        ),
+    ];
+    for source in accepted {
+        let output = parse(&SourceFile::new("schema.veln", source));
+        assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    }
+}
+
+#[test]
 fn format_tree_canonicalizes_binary_schema_compatibility_primitives() {
     let source = SourceFile::new(
         "schema.veln",
