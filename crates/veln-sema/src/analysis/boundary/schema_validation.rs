@@ -136,7 +136,7 @@ struct SchemaPredicateAnalysis {
 }
 
 enum SchemaPredicateAnalysisTask {
-    Visit(Expr),
+    Visit(Box<Expr>),
     FinishPrefix(PrefixOp),
     FinishBinary(BinaryOp),
 }
@@ -234,7 +234,7 @@ fn analyze_schema_predicate_expression(
     expression: Expr,
     decoded_fields: &BTreeMap<String, Type>,
 ) -> Result<SchemaPredicateAnalysis, SchemaPredicateOperandMismatch> {
-    let mut tasks = vec![SchemaPredicateAnalysisTask::Visit(expression)];
+    let mut tasks = vec![SchemaPredicateAnalysisTask::Visit(Box::new(expression))];
     let mut results = Vec::new();
     while let Some(task) = tasks.pop() {
         match task {
@@ -289,12 +289,12 @@ fn analyze_schema_predicate_expression(
                     }),
                     ExprKind::Prefix { op, expr } => {
                         tasks.push(SchemaPredicateAnalysisTask::FinishPrefix(op));
-                        tasks.push(SchemaPredicateAnalysisTask::Visit(*expr));
+                        tasks.push(SchemaPredicateAnalysisTask::Visit(expr));
                     }
                     ExprKind::Binary { op, left, right } => {
                         tasks.push(SchemaPredicateAnalysisTask::FinishBinary(op));
-                        tasks.push(SchemaPredicateAnalysisTask::Visit(*right));
-                        tasks.push(SchemaPredicateAnalysisTask::Visit(*left));
+                        tasks.push(SchemaPredicateAnalysisTask::Visit(right));
+                        tasks.push(SchemaPredicateAnalysisTask::Visit(left));
                     }
                     _ => results.push(SchemaPredicateExpressionInfo {
                         ty: None,
