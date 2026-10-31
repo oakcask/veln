@@ -373,6 +373,7 @@ fn ir_schema_refinement_plan(
         nodes: Vec::new(),
         completed_adts: HashMap::new(),
         adt_stack: Vec::new(),
+        deferred_refined_adts: Vec::new(),
     };
     let root = builder.build(
         schema.module_name.as_deref(),
@@ -502,6 +503,7 @@ struct SchemaRefinementPlanBuilder<'a> {
     nodes: Vec<IrSchemaRefinementPlanNode>,
     completed_adts: HashMap<SchemaRefinementMemoKey, Option<usize>>,
     adt_stack: Vec<(String, Vec<Type>, usize)>,
+    deferred_refined_adts: Vec<(usize, usize)>,
 }
 
 impl SchemaRefinementPlanBuilder<'_> {
@@ -643,6 +645,7 @@ impl SchemaRefinementPlanBuilder<'_> {
         );
         self.adt_stack.pop();
         let plan = self.fill_source_adt_plan(node, ty, variants);
+        self.complete_deferred_refined_adts(node, plan);
         self.completed_adts.insert(memo_key, plan);
         plan
     }
@@ -679,6 +682,19 @@ impl SchemaRefinementPlanBuilder<'_> {
         }
         let plan = Some(match payload_plan {
             Some(payload_plan) => {
+                if self
+                    .adt_stack
+                    .iter()
+                    .any(|(_, _, active_node)| *active_node == payload_plan)
+                {
+                    let node = self.push(IrSchemaRefinementPlanNode::Adt {
+                        expected_variants: variants.to_vec(),
+                        variants: Vec::new(),
+                    });
+                    self.deferred_refined_adts.push((node, payload_plan));
+                    self.completed_adts.insert(memo_key, Some(node));
+                    return Some(node);
+                }
                 let IrSchemaRefinementPlanNode::Adt {
                     variants: payload_variants,
                     ..
@@ -699,6 +715,36 @@ impl SchemaRefinementPlanBuilder<'_> {
         });
         self.completed_adts.insert(memo_key, plan);
         plan
+    }
+
+    fn complete_deferred_refined_adts(&mut self, base_node: usize, base_plan: Option<usize>) {
+        let variants = base_plan.and_then(|node| match &self.nodes[node] {
+            IrSchemaRefinementPlanNode::Adt { variants, .. } => Some(variants.clone()),
+            _ => None,
+        });
+        let mut remaining = Vec::with_capacity(self.deferred_refined_adts.len());
+        for (refined_node, deferred_base) in self.deferred_refined_adts.drain(..) {
+            if deferred_base != base_node {
+                remaining.push((refined_node, deferred_base));
+                continue;
+            }
+            let expected_variants = match &self.nodes[refined_node] {
+                IrSchemaRefinementPlanNode::Adt {
+                    expected_variants, ..
+                } => expected_variants.clone(),
+                _ => unreachable!("a deferred refined ADT must retain its constructor set"),
+            };
+            self.nodes[refined_node] = match &variants {
+                Some(variants) => IrSchemaRefinementPlanNode::Adt {
+                    expected_variants,
+                    variants: variants.clone(),
+                },
+                None => IrSchemaRefinementPlanNode::Variant(IrSchemaVariantRefinement {
+                    expected_variants,
+                }),
+            };
+        }
+        self.deferred_refined_adts = remaining;
     }
 
     fn fill_source_adt_plan(

@@ -474,6 +474,82 @@ public final class SchemaRefinementBoundedListHarness {
 }
 
 #[test]
+fn jvm_runtime_schema_refinement_vector_is_incremental_with_bounded_heap() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        eprintln!("skipping bounded-vector refinement verification because a JDK is unavailable");
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness_with_options(
+        "runtime-schema-refinement-bounded-vector",
+        "SchemaRefinementBoundedVectorHarness.java",
+        r#"
+public final class SchemaRefinementBoundedVectorHarness {
+    private static final Object PLAN = VelnRuntime.list(
+        "vec",
+        VelnRuntime.list("variant", VelnRuntime.list("Connected"))
+    );
+
+    private static VelnRuntime.Result validate(Object value) {
+        return (VelnRuntime.Result) VelnRuntime.validateSchemaRefinementPlan(
+            value,
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(79) }),
+            "Packet",
+            PLAN
+        );
+    }
+
+    private static void requireSuccess(Object value) {
+        VelnRuntime.Result result = validate(value);
+        if (!result.isOk() || result.value() != value) {
+            throw new AssertionError("vector success did not preserve input identity");
+        }
+    }
+
+    private static void requireFailure(Object value, String path) {
+        String rendered = validate(value).toString();
+        String expected = "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, "
+            + "ByteOffset(79), " + path + ", actual variant `Closed`; "
+            + "expected one of `Connected`))";
+        if (!rendered.equals(expected)) {
+            throw new AssertionError("unexpected vector failure: " + rendered);
+        }
+    }
+
+    public static void main(String[] args) {
+        Object connected = VelnRuntime.adt("State::Connected", new Object[] {});
+        Object closed = VelnRuntime.adt("State::Closed", new Object[] {});
+        requireSuccess(VelnRuntime.list());
+        requireSuccess(VelnRuntime.list(connected, connected));
+        requireFailure(VelnRuntime.list(connected, closed, connected), "/Packet/1");
+
+        java.util.ArrayList<Object> items = new java.util.ArrayList<Object>(1000001);
+        items.add(closed);
+        for (int index = 0; index < 1000000; index += 1) items.add(connected);
+        requireFailure(items, "/Packet/0");
+        System.out.println("bounded vector refinement remained incremental");
+    }
+}
+"#,
+        &program,
+        &[],
+        &["-Xms16m", "-Xmx64m"],
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "bounded vector refinement remained incremental\n"
+    );
+}
+
+#[test]
 fn jvm_runtime_schema_refinement_plan_visits_only_actual_source_adt_payloads() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()
@@ -640,28 +716,30 @@ public final class SchemaRefinementDeepRecursiveSourceAdtHarness {
     private static final Object PLAN = plan();
 
     private static Object plan() {
+        Object state = VelnRuntime.list("variant", VelnRuntime.list("Connected"));
+        Object optionalRecursive = VelnRuntime.list("option", Integer.valueOf(2));
         Object recursive = VelnRuntime.list(
             "adt",
-            VelnRuntime.list(),
+            VelnRuntime.list("Next"),
             VelnRuntime.list(
                 VelnRuntime.list(
                     "Next",
-                    VelnRuntime.list(VelnRuntime.list(Integer.valueOf(0), "value", Integer.valueOf(1)))
-                ),
-                VelnRuntime.list(
-                    "Value",
-                    VelnRuntime.list(VelnRuntime.list(Integer.valueOf(0), "value", Integer.valueOf(0)))
+                    VelnRuntime.list(
+                        VelnRuntime.list(Integer.valueOf(0), "state/value~", Integer.valueOf(0)),
+                        VelnRuntime.list(Integer.valueOf(1), "next/value~", Integer.valueOf(1))
+                    )
                 )
             )
         );
         Object root = VelnRuntime.list(
             "record",
-            VelnRuntime.list(VelnRuntime.list("item", Integer.valueOf(1)))
+            VelnRuntime.list(VelnRuntime.list("item", Integer.valueOf(2)))
         );
         return VelnRuntime.list(
-            Integer.valueOf(2),
+            Integer.valueOf(3),
             VelnRuntime.list(
-                VelnRuntime.list("variant", VelnRuntime.list("Connected")),
+                state,
+                optionalRecursive,
                 recursive,
                 root
             )
@@ -669,12 +747,26 @@ public final class SchemaRefinementDeepRecursiveSourceAdtHarness {
     }
 
     private static Object value(int depth, String state) {
-        Object item = VelnRuntime.adt(
-            "Node::Value",
-            new Object[] { VelnRuntime.adt("State::" + state, new Object[] {}) }
-        );
+        Object item = VelnRuntime.adt("Node::Next", new Object[] {
+            VelnRuntime.adt("State::" + state, new Object[] {}),
+            VelnRuntime.none()
+        });
         for (int index = 0; index < depth; index += 1) {
-            item = VelnRuntime.adt("Node::Next", new Object[] { item });
+            item = VelnRuntime.adt("Node::Next", new Object[] {
+                VelnRuntime.adt("State::Connected", new Object[] {}),
+                VelnRuntime.some(item)
+            });
+        }
+        return VelnRuntime.record("item", item);
+    }
+
+    private static Object constructorFailure(int depth) {
+        Object item = VelnRuntime.adt("Node::End", new Object[] {});
+        for (int index = 0; index < depth; index += 1) {
+            item = VelnRuntime.adt("Node::Next", new Object[] {
+                VelnRuntime.adt("State::Connected", new Object[] {}),
+                VelnRuntime.some(item)
+            });
         }
         return VelnRuntime.record("item", item);
     }
@@ -725,15 +817,29 @@ public final class SchemaRefinementDeepRecursiveSourceAdtHarness {
         int failureDepth = 64;
         StringBuilder path = new StringBuilder("/Packet/item");
         for (int index = 0; index < failureDepth; index += 1) {
-            path.append("/Next/value");
+            path.append("/Next/next~1value~0");
         }
-        path.append("/Value/value");
+        path.append("/Next/state~1value~0");
         String expected = "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, "
             + "ByteOffset(71), " + path + ", actual variant `Closed`; "
             + "expected one of `Connected`))";
         String actual = validate(value(failureDepth, "Closed")).toString();
         if (!actual.equals(expected)) {
             throw new AssertionError("unexpected deep failure path: " + actual);
+        }
+        String expectedConstructorPath = "/Packet/item";
+        for (int index = 0; index < failureDepth; index += 1) {
+            expectedConstructorPath += "/Next/next~1value~0";
+        }
+        String expectedConstructorFailure =
+            "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, "
+            + "ByteOffset(71), " + expectedConstructorPath + ", actual variant `End`; "
+            + "expected one of `Next`))";
+        String actualConstructorFailure = validate(constructorFailure(failureDepth)).toString();
+        if (!actualConstructorFailure.equals(expectedConstructorFailure)) {
+            throw new AssertionError(
+                "unexpected deep constructor failure path: " + actualConstructorFailure
+            );
         }
         System.out.println("deep recursive refinement traversal passed");
     }

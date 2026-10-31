@@ -964,6 +964,83 @@ fn explicit_schema_validate_expression_erases_outer_refinements_from_recursive_p
     assert_nested_refinement_uses_distinct_recursive_plan();
 }
 
+#[test]
+fn explicit_schema_validate_expression_completes_explicitly_refined_recursive_edge_dispatch() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Node\n  Next(value: Option<Node::Next>)\n  End\nend\n",
+            "schema Packet\n  item: Node::Next\nend\n",
+            "fn check(value: {item: Node}, base: ByteOffset) -> Result<{item: Node::Next}, DecodeError>\n",
+            "  validate Packet from value at base\n",
+            "end\n",
+        ),
+    );
+    let lowered = lower_checked_surface_module(&lower_surface_ast(&parse(&source).tree));
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let plan = &lowered
+        .core
+        .as_ref()
+        .expect("checked core")
+        .schema_refinement_validators[0]
+        .plan;
+    let CoreSchemaRefinementPlanNode::Record(fields) = plan.root_node() else {
+        panic!("root plan should be a record");
+    };
+    let CoreSchemaRefinementPlanNode::Adt {
+        expected_variants,
+        variants,
+    } = plan.node(fields[0].plan)
+    else {
+        panic!("outer refinement should retain ADT dispatch");
+    };
+    assert_eq!(expected_variants, &["Next"]);
+    assert_eq!(
+        variants
+            .iter()
+            .map(|variant| variant.name.as_str())
+            .collect::<Vec<_>>(),
+        ["Next", "End"]
+    );
+    let next_payload = &variants
+        .iter()
+        .find(|variant| variant.name == "Next")
+        .expect("Next dispatch")
+        .payloads[0];
+    assert_eq!(next_payload.index, 0);
+    assert_eq!(next_payload.path_segment, "value");
+    let CoreSchemaRefinementPlanNode::Option(recursive) = plan.node(next_payload.plan) else {
+        panic!("Next payload should retain its Option plan");
+    };
+    let CoreSchemaRefinementPlanNode::Adt {
+        expected_variants,
+        variants,
+    } = plan.node(*recursive)
+    else {
+        panic!("refined recursive edge should retain complete ADT dispatch");
+    };
+    assert_eq!(expected_variants, &["Next"]);
+    assert_eq!(
+        variants
+            .iter()
+            .map(|variant| variant.name.as_str())
+            .collect::<Vec<_>>(),
+        ["Next", "End"]
+    );
+    let recursive_payload = &variants
+        .iter()
+        .find(|variant| variant.name == "Next")
+        .expect("recursive Next dispatch")
+        .payloads[0];
+    assert_eq!(recursive_payload.index, 0);
+    assert_eq!(recursive_payload.path_segment, "value");
+    let CoreSchemaRefinementPlanNode::Option(back_reference) = plan.node(recursive_payload.plan)
+    else {
+        panic!("recursive Next payload should retain its Option plan");
+    };
+    assert_eq!(back_reference, recursive);
+}
+
 fn assert_outer_recursive_payloads_are_unrefined(field_type: &str) {
     let source = SourceFile::new(
         "main.veln",

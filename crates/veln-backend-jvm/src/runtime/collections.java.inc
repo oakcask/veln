@@ -67,6 +67,25 @@
         }
     }
 
+    private static final class SchemaRefinementVecWork {
+        final java.util.List<?> items;
+        final SchemaRefinementPath path;
+        final int index;
+        final int node;
+
+        SchemaRefinementVecWork(
+            java.util.List<?> items,
+            SchemaRefinementPath path,
+            int index,
+            int node
+        ) {
+            this.items = items;
+            this.path = path;
+            this.index = index;
+            this.node = node;
+        }
+    }
+
     public static Object validateSchemaRefinementPlan(
         Object value,
         Object baseOffset,
@@ -233,6 +252,23 @@
                 }
                 continue;
             }
+            if (pending instanceof SchemaRefinementVecWork) {
+                SchemaRefinementVecWork vecWork = (SchemaRefinementVecWork) pending;
+                if (vecWork.index < vecWork.items.size()) {
+                    work.addLast(new SchemaRefinementVecWork(
+                        vecWork.items,
+                        vecWork.path,
+                        vecWork.index + 1,
+                        vecWork.node
+                    ));
+                    work.addLast(new SchemaRefinementWork(
+                        vecWork.items.get(vecWork.index),
+                        vecWork.path.append(Integer.toString(vecWork.index)),
+                        vecWork.node
+                    ));
+                }
+                continue;
+            }
             SchemaRefinementWork frame = (SchemaRefinementWork) pending;
             Object currentValue = frame.value;
             SchemaRefinementPath currentPath = frame.path;
@@ -242,7 +278,7 @@
                 Object failure = schemaVariantRefinementFailure(
                     currentValue,
                     baseOffset,
-                    currentPath.render(),
+                    currentPath,
                     (java.util.List<?>) plan.get(1)
                 );
                 if (failure != null) return failure;
@@ -254,7 +290,7 @@
                     Object failure = schemaVariantRefinementFailure(
                         currentValue,
                         baseOffset,
-                        currentPath.render(),
+                        currentPath,
                         expected
                     );
                     if (failure != null) return failure;
@@ -334,13 +370,12 @@
             }
             if (kind.equals("vec")) {
                 java.util.List<?> items = (java.util.List<?>) currentValue;
-                for (int index = items.size() - 1; index >= 0; index -= 1) {
-                    work.addLast(new SchemaRefinementWork(
-                        items.get(index),
-                        currentPath.append(Integer.toString(index)),
-                        ((Number) plan.get(1)).intValue()
-                    ));
-                }
+                work.addLast(new SchemaRefinementVecWork(
+                    items,
+                    currentPath,
+                    0,
+                    ((Number) plan.get(1)).intValue()
+                ));
                 continue;
             }
             if (kind.equals("dict")) {
@@ -438,6 +473,21 @@
         int index = nodes.size();
         nodes.add(node);
         return index;
+    }
+
+    private static Object schemaVariantRefinementFailure(
+        Object value,
+        Object baseOffset,
+        SchemaRefinementPath path,
+        java.util.List<?> expected
+    ) {
+        String actual = value instanceof Adt
+            ? adtLeafName(((Adt) value).name)
+            : format(value);
+        for (Object candidate : expected) {
+            if (actual.equals(asString(candidate))) return null;
+        }
+        return schemaVariantRefinementFailure(value, baseOffset, path.render(), expected);
     }
 
     private static Object schemaVariantRefinementFailure(

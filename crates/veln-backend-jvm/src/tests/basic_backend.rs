@@ -441,6 +441,56 @@ fn schema_refinement_validation_executes_regular_recursive_source_adt_plans() {
 }
 
 #[test]
+fn schema_refinement_validation_executes_explicitly_refined_recursive_edges() {
+    let ir = lower_to_ir(concat!(
+        "type State\n  Connected\n  Closed\nend\n",
+        "type Node<A>\n  Next(state: A, next: Option<Node<A>::Next>)\n  End\nend\n",
+        "schema Packet\n  item: Node<State::Connected>::Next\nend\n",
+        "fn print_result(result: Result<{item: Node<State::Connected>::Next}, DecodeError>) -> () effects [stdio]\n",
+        "  match result\n",
+        "    Ok(_) => stdio::println(\"ok\")\n",
+        "    Err(DecodeErrorWithReason(id, carried, path, _)) => begin\n",
+        "      stdio::println(id)\n",
+        "      stdio::println(int_to_string(byte_offset_to_int(carried)))\n",
+        "      stdio::println(path)\n",
+        "    end\n",
+        "    Err(_) => stdio::println(\"unexpected\")\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> Result<(), String> effects [stdio]\n",
+        "  let offset = byte_offset(61)?\n",
+        "  let accepted: {item: Node<State>} = {item: Next(Connected, Some(Next(Connected, None)))}\n",
+        "  let rejected: {item: Node<State>} = {item: Next(Connected, Some(Next(Closed, None)))}\n",
+        "  print_result(validate Packet from accepted at offset)\n",
+        "  print_result(validate Packet from rejected at offset)\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "schema-refinement-explicit-recursive-edge",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        concat!(
+            "ok\n",
+            "schema.variant_refinement_mismatch\n",
+            "61\n",
+            "/Packet/item/Next/next/Next/state\n",
+        )
+    );
+}
+
+#[test]
 fn schema_refinement_validation_executes_finite_nested_generic_instantiations() {
     let ir = lower_to_ir(concat!(
         "type State\n  Connected\n  Closed\nend\n",
