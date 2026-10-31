@@ -287,10 +287,34 @@ fn initializer_changes_preserve_declaration_identity_but_rotate_snapshot_identit
     );
 }
 
-fn classification_work_for_invalid_values(count: usize) -> PackageDocSemanticClassificationWork {
-    let source = (0..count)
-        .map(|index| format!("pub let value_{index}: Int = \"wrong\"\n"))
-        .collect::<String>();
+#[derive(Clone, Copy)]
+enum ClassificationWorkload {
+    ExportedChain,
+    IndependentInvalid,
+    InvalidCasing,
+}
+
+fn classification_work(
+    count: usize,
+    workload: ClassificationWorkload,
+) -> PackageDocSemanticClassificationWork {
+    let source = match workload {
+        ClassificationWorkload::ExportedChain => (0..count)
+            .map(|index| {
+                if index == 0 {
+                    "pub let value_0: Int = \"wrong\"\n".to_string()
+                } else {
+                    format!("pub let value_{index}: Int = value_{}\n", index - 1)
+                }
+            })
+            .collect::<String>(),
+        ClassificationWorkload::IndependentInvalid => (0..count)
+            .map(|index| format!("pub let value_{index}: Int = \"wrong-{index}\"\n"))
+            .collect::<String>(),
+        ClassificationWorkload::InvalidCasing => (0..count)
+            .map(|index| format!("pub let BadValue{index}: Int = {index}\n"))
+            .collect::<String>(),
+    };
     reset_package_doc_semantic_classification_work();
     let result = generate(
         concat!(
@@ -302,20 +326,107 @@ fn classification_work_for_invalid_values(count: usize) -> PackageDocSemanticCla
         &[("main.veln", source.as_str())],
     );
     assert!(result.catalog().is_none());
-    assert_eq!(result.status().diagnostics.len(), count);
+    let first_name = match workload {
+        ClassificationWorkload::InvalidCasing => "BadValue0",
+        ClassificationWorkload::ExportedChain | ClassificationWorkload::IndependentInvalid => {
+            "value_0"
+        }
+    };
+    assert!(
+        result
+            .declaration_uri_for("main", "module_value", first_name)
+            .is_none()
+    );
+    let diagnostics = &result.status().diagnostics;
+    let expected_code = match workload {
+        ClassificationWorkload::ExportedChain | ClassificationWorkload::IndependentInvalid => {
+            "type.mismatch"
+        }
+        ClassificationWorkload::InvalidCasing => "name.invalid_case",
+    };
+    let expected_count = match workload {
+        ClassificationWorkload::ExportedChain => 1,
+        ClassificationWorkload::IndependentInvalid | ClassificationWorkload::InvalidCasing => count,
+    };
+    assert_eq!(diagnostics.len(), expected_count, "{diagnostics:#?}");
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.gate == "module_value" && diagnostic.code == expected_code
+    }));
+    let causal_offsets = diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.span.as_ref().expect("causal source span").offset)
+        .collect::<HashSet<_>>();
+    assert_eq!(causal_offsets.len(), expected_count, "{diagnostics:#?}");
     take_package_doc_semantic_classification_work()
 }
 
-#[test]
-fn module_value_diagnostic_classification_scales_with_declarations_and_diagnostics() {
-    let original = classification_work_for_invalid_values(32);
-    let adjacent = classification_work_for_invalid_values(64);
-    eprintln!("module-value classification work: 32={original:?}, 64={adjacent:?}");
+fn assert_linear_adjacent_work(
+    original: PackageDocSemanticClassificationWork,
+    adjacent: PackageDocSemanticClassificationWork,
+) {
+    assert!(original.exported_module_value_lookups > 0);
+    assert!(original.diagnostic_lookups > 0);
 
     assert_eq!(original.exported_module_value_lookups, 32);
     assert_eq!(adjacent.exported_module_value_lookups, 64);
-    assert!(original.cause_index_insertions > 0);
-    assert!(original.diagnostic_lookups > 0);
+    assert!(adjacent.retained_values <= original.retained_values * 2);
+    assert!(adjacent.retained_edges <= original.retained_edges * 2 + 1);
+    assert!(adjacent.retained_direct_causes <= original.retained_direct_causes * 2);
+    assert!(adjacent.visited_initializations <= original.visited_initializations * 2);
+    assert!(adjacent.traversal_values <= original.traversal_values * 2);
+    assert!(adjacent.traversal_edges <= original.traversal_edges * 2 + 1);
+    assert!(adjacent.cause_processing <= original.cause_processing * 2);
     assert!(adjacent.cause_index_insertions <= original.cause_index_insertions * 2);
     assert!(adjacent.diagnostic_lookups <= original.diagnostic_lookups * 2);
+}
+
+#[test]
+fn exported_invalid_chain_classification_is_linear_for_all_public_roots() {
+    let original = classification_work(32, ClassificationWorkload::ExportedChain);
+    let adjacent = classification_work(64, ClassificationWorkload::ExportedChain);
+    eprintln!("exported chain classification work: 32={original:?}, 64={adjacent:?}");
+
+    assert_linear_adjacent_work(original, adjacent);
+    assert!(original.retained_values > 0);
+    assert!(original.visited_initializations > 0);
+    assert!(original.traversal_values > 0);
+    assert!(original.cause_processing > 0);
+    assert!(original.cause_index_insertions > 0);
+    assert_eq!(original.retained_edges, 31);
+    assert_eq!(adjacent.retained_edges, 63);
+    assert_eq!(original.traversal_edges, 31);
+    assert_eq!(adjacent.traversal_edges, 63);
+    assert_eq!(original.casing_range_comparisons, 0);
+    assert_eq!(adjacent.casing_range_comparisons, 0);
+}
+
+#[test]
+fn independent_invalid_export_classification_is_linear() {
+    let original = classification_work(32, ClassificationWorkload::IndependentInvalid);
+    let adjacent = classification_work(64, ClassificationWorkload::IndependentInvalid);
+    eprintln!("independent invalid classification work: 32={original:?}, 64={adjacent:?}");
+
+    assert_linear_adjacent_work(original, adjacent);
+    assert!(original.retained_values > 0);
+    assert!(original.visited_initializations > 0);
+    assert!(original.traversal_values > 0);
+    assert!(original.cause_processing > 0);
+    assert!(original.cause_index_insertions > 0);
+    assert_eq!(original.retained_edges, 0);
+    assert_eq!(adjacent.retained_edges, 0);
+    assert_eq!(original.traversal_edges, 0);
+    assert_eq!(adjacent.traversal_edges, 0);
+    assert_eq!(original.casing_range_comparisons, 0);
+    assert_eq!(adjacent.casing_range_comparisons, 0);
+}
+
+#[test]
+fn invalid_casing_export_classification_uses_indexed_provenance_linearly() {
+    let original = classification_work(32, ClassificationWorkload::InvalidCasing);
+    let adjacent = classification_work(64, ClassificationWorkload::InvalidCasing);
+    eprintln!("invalid casing classification work: 32={original:?}, 64={adjacent:?}");
+
+    assert_linear_adjacent_work(original, adjacent);
+    assert_eq!(original.casing_range_comparisons, 32);
+    assert_eq!(adjacent.casing_range_comparisons, 64);
 }

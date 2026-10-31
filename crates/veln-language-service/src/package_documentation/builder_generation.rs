@@ -205,29 +205,29 @@ impl<'a> PackageDocBuilder<'a> {
             let source_file = SourceFile::new(source.path(), text);
             let source_uri = source_uri(self.identity, self.snapshot.digest(), source.path());
             let output = parse(&source_file);
-            let public_module_value_spans = output
+            let public_module_value_name_spans = output
                 .tree
                 .items
                 .iter()
                 .filter_map(|item| match item {
                     SyntaxItem::ModuleValue(value) if value.visibility == Visibility::Public => {
-                        Some(&value.span)
+                        value.name_span.as_ref()
                     }
                     _ => None,
                 })
-                .map(|span| (span.file.clone(), span.start.offset, span.end.offset))
-                .collect::<BTreeSet<_>>();
+                .map(|span| (span.start.offset, span.end.offset))
+                .collect::<HashSet<_>>();
             for mut diagnostic in output.diagnostics {
                 let is_public_module_value_casing = diagnostic.id
                     == "parse.module_value_declaration"
                     && diagnostic.message
                         == "module value name must start with an ASCII lowercase letter"
                     && diagnostic.span.as_ref().is_some_and(|span| {
-                        public_module_value_spans.iter().any(|(file, start, end)| {
-                            *file == span.file
-                                && *start <= span.start.offset
-                                && span.end.offset <= *end
-                        })
+                        record_package_doc_semantic_classification_work(|work| {
+                            work.casing_range_comparisons += 1;
+                        });
+                        public_module_value_name_spans
+                            .contains(&(span.start.offset, span.end.offset))
                     });
                 if is_public_module_value_casing {
                     diagnostic.id = "name.invalid_case";
@@ -345,6 +345,9 @@ impl<'a> PackageDocBuilder<'a> {
             .iter()
             .enumerate()
             .filter_map(|(index, diagnostic)| {
+                record_package_doc_semantic_classification_work(|work| {
+                    work.diagnostic_lookups += 1;
+                });
                 diagnostic.span.as_ref().map(|span| {
                     (
                         (
@@ -358,13 +361,13 @@ impl<'a> PackageDocBuilder<'a> {
                 })
             })
             .fold(
-                BTreeMap::<(String, String, usize, usize), Vec<usize>>::new(),
+                HashMap::<(String, String, usize, usize), Vec<usize>>::new(),
                 |mut indices, (key, index)| {
                     indices.entry(key).or_default().push(index);
                     indices
                 },
             );
-        for value in parsed_sources
+        let exported_module_value_spans = parsed_sources
             .iter()
             .filter(|source| source.exported)
             .flat_map(|source| source.tree.items.iter())
@@ -374,29 +377,39 @@ impl<'a> PackageDocBuilder<'a> {
                 }
                 _ => None,
             })
-        {
+            .map(|value| value.span.clone())
+            .collect::<Vec<_>>();
+        let (causes, publication_work) =
+            analysis.module_value_publication_diagnostics_for_spans(&exported_module_value_spans);
+        record_package_doc_semantic_classification_work(|work| {
+            work.exported_module_value_lookups += publication_work.exported_root_lookups;
+            work.retained_values += publication_work.retained_values;
+            work.retained_edges += publication_work.retained_edges;
+            work.retained_direct_causes += publication_work.retained_direct_causes;
+            work.visited_initializations += publication_work.visited_initializations;
+            work.traversal_values += publication_work.traversal_values;
+            work.traversal_edges += publication_work.traversal_edges;
+            work.cause_processing += publication_work.cause_insertions;
+        });
+        for cause in causes {
             record_package_doc_semantic_classification_work(|work| {
-                work.exported_module_value_lookups += 1;
+                work.cause_processing += 1;
             });
-            if let Some(causes) = analysis.module_value_publication_diagnostics(&value.span) {
-                for cause in causes {
-                    let Some(span) = cause.span.as_ref() else {
-                        continue;
-                    };
-                    let key = (
-                        cause.id,
-                        span.file.as_str().to_owned(),
-                        span.start.offset,
-                        span.end.offset,
-                    );
-                    if let Some(indices) = diagnostic_indices_by_key.get(&key) {
-                        for index in indices {
-                            record_package_doc_semantic_classification_work(|work| {
-                                work.cause_index_insertions += 1;
-                            });
-                            gates[*index] = Some("module_value");
-                        }
-                    }
+            let Some(span) = cause.span.as_ref() else {
+                continue;
+            };
+            let key = (
+                cause.id,
+                span.file.as_str().to_owned(),
+                span.start.offset,
+                span.end.offset,
+            );
+            if let Some(indices) = diagnostic_indices_by_key.get(&key) {
+                for index in indices {
+                    record_package_doc_semantic_classification_work(|work| {
+                        work.cause_index_insertions += 1;
+                    });
+                    gates[*index] = Some("module_value");
                 }
             }
         }
@@ -408,6 +421,7 @@ impl<'a> PackageDocBuilder<'a> {
             .filter(|cause| cause.diagnostic_id == "type.variant_refinement_private")
         {
             record_package_doc_semantic_classification_work(|work| {
+                work.cause_processing += 1;
                 work.cause_index_insertions += 1;
             });
             if let Some(index) = analysis.diagnostic_index_for_publication_cause(cause) {

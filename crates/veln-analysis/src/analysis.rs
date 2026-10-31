@@ -9,7 +9,7 @@ use veln_diagnostics::Diagnostic;
 use veln_ir::TypedProgram;
 use veln_project::Project;
 use veln_sema::{
-    LoweredSurfaceModule, ReusableStandardEnvironment,
+    LoweredSurfaceModule, ModuleValuePublicationWork, ReusableStandardEnvironment,
     check_project_surface_module_with_standard_modules_environment,
     try_prepare_current_reusable_standard_surface_module_environment,
     validate_standard_symbol_registry_diagnostic,
@@ -410,6 +410,22 @@ impl ProjectAnalysis {
                     .map(|index| self.checked.diagnostics[index].clone())
                     .collect()
             })
+    }
+
+    pub fn module_value_publication_diagnostics_for_spans(
+        &self,
+        spans: &[veln_source::SourceSpan],
+    ) -> (Vec<Diagnostic>, ModuleValuePublicationWork) {
+        let (_, indices, work) = self
+            .checked
+            .module_value_publication_diagnostic_indices_for_spans(spans);
+        (
+            indices
+                .into_iter()
+                .map(|index| self.checked.diagnostics[index].clone())
+                .collect(),
+            work,
+        )
     }
 
     pub fn diagnostic_index_for_publication_cause(

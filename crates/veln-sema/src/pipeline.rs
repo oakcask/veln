@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::hash::Hash;
 
 use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, Visibility};
@@ -57,12 +57,6 @@ pub struct LoweredSurfaceModule {
 }
 
 #[derive(Clone, Debug)]
-struct IndexedModuleValuePublicationFailure {
-    span: veln_source::SourceSpan,
-    value_index: usize,
-}
-
-#[derive(Clone, Debug)]
 struct IndexedModuleValuePublicationOwner {
     span: veln_source::SourceSpan,
     value_index: usize,
@@ -70,9 +64,11 @@ struct IndexedModuleValuePublicationOwner {
 
 #[derive(Clone, Debug, Default)]
 struct IndexedModuleValuePublicationProvenance {
-    failures: Vec<IndexedModuleValuePublicationFailure>,
+    failures_by_file_and_range: HashMap<String, HashMap<(usize, usize), usize>>,
     values: Vec<IndexedModuleValuePublicationValue>,
     collision_diagnostic_indices: HashMap<crate::types::ModuleValueIdentity, Vec<usize>>,
+    retained_edges: usize,
+    retained_direct_causes: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -99,34 +95,53 @@ impl LoweredSurfaceModule {
         &self,
         span: &veln_source::SourceSpan,
     ) -> Option<Vec<usize>> {
-        let value_index = self
-            .module_value_publication
-            .failures
-            .binary_search_by(|failure| {
-                failure
-                    .span
-                    .file
-                    .as_str()
-                    .cmp(span.file.as_str())
-                    .then(failure.span.start.offset.cmp(&span.start.offset))
-                    .then(failure.span.end.offset.cmp(&span.end.offset))
-            })
-            .ok()
-            .map(|index| self.module_value_publication.failures[index].value_index)?;
-        let mut pending = vec![value_index];
+        let (matched_roots, diagnostic_indices, work) =
+            self.module_value_publication_diagnostic_indices_for_spans(std::slice::from_ref(span));
+        record_module_value_publication_work(|recorded| *recorded = work);
+        let diagnostic_indices = diagnostic_indices
+            .into_iter()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        (matched_roots != 0).then_some(diagnostic_indices)
+    }
+
+    pub fn module_value_publication_diagnostic_indices_for_spans(
+        &self,
+        spans: &[veln_source::SourceSpan],
+    ) -> (usize, Vec<usize>, ModuleValuePublicationWork) {
+        let mut work = ModuleValuePublicationWork {
+            retained_values: self.module_value_publication.values.len(),
+            retained_edges: self.module_value_publication.retained_edges,
+            retained_direct_causes: self.module_value_publication.retained_direct_causes,
+            visited_initializations: self.module_value_publication.values.len(),
+            exported_root_lookups: spans.len(),
+            ..ModuleValuePublicationWork::default()
+        };
+        let mut pending = Vec::new();
+        for span in spans {
+            let Some(value_index) = self
+                .module_value_publication
+                .failures_by_file_and_range
+                .get(span.file.as_str())
+                .and_then(|ranges| ranges.get(&(span.start.offset, span.end.offset)))
+                .copied()
+            else {
+                continue;
+            };
+            pending.push(value_index);
+        }
+        let matched_roots = pending.len();
         let mut visited = vec![false; self.module_value_publication.values.len()];
-        let mut diagnostic_indices = BTreeSet::new();
+        let mut diagnostic_indices = HashSet::new();
         while let Some(index) = pending.pop() {
             if std::mem::replace(&mut visited[index], true) {
                 continue;
             }
             let value = &self.module_value_publication.values[index];
-            record_module_value_publication_work(|work| {
-                work.traversal_values += 1;
-                work.traversal_edges +=
-                    value.dependencies.len() + value.collision_dependencies.len();
-                work.cause_insertions += value.direct_diagnostic_indices.len();
-            });
+            work.traversal_values += 1;
+            work.traversal_edges += value.dependencies.len() + value.collision_dependencies.len();
+            work.cause_insertions += value.direct_diagnostic_indices.len();
             diagnostic_indices.extend(value.direct_diagnostic_indices.iter().copied());
             if let Some(identity) = value.identity.as_ref()
                 && let Some(indices) = self
@@ -134,9 +149,7 @@ impl LoweredSurfaceModule {
                     .collision_diagnostic_indices
                     .get(identity)
             {
-                record_module_value_publication_work(|work| {
-                    work.cause_insertions += indices.len();
-                });
+                work.cause_insertions += indices.len();
                 diagnostic_indices.extend(indices.iter().copied());
             }
             for identity in &value.collision_dependencies {
@@ -145,15 +158,17 @@ impl LoweredSurfaceModule {
                     .collision_diagnostic_indices
                     .get(identity)
                 {
-                    record_module_value_publication_work(|work| {
-                        work.cause_insertions += indices.len();
-                    });
+                    work.cause_insertions += indices.len();
                     diagnostic_indices.extend(indices.iter().copied());
                 }
             }
             pending.extend(value.dependencies.iter().copied());
         }
-        Some(diagnostic_indices.into_iter().collect())
+        (
+            matched_roots,
+            diagnostic_indices.into_iter().collect(),
+            work,
+        )
     }
 
     pub fn diagnostic_index_for_publication_cause(
@@ -220,13 +235,15 @@ pub(crate) struct PublicationPropagationWork {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) struct ModuleValuePublicationWork {
-    pub(crate) retained_values: usize,
-    pub(crate) retained_edges: usize,
-    pub(crate) retained_direct_causes: usize,
-    pub(crate) traversal_values: usize,
-    pub(crate) traversal_edges: usize,
-    pub(crate) cause_insertions: usize,
+pub struct ModuleValuePublicationWork {
+    pub retained_values: usize,
+    pub retained_edges: usize,
+    pub retained_direct_causes: usize,
+    pub visited_initializations: usize,
+    pub exported_root_lookups: usize,
+    pub traversal_values: usize,
+    pub traversal_edges: usize,
+    pub cause_insertions: usize,
 }
 
 #[cfg(test)]
@@ -236,6 +253,8 @@ thread_local! {
             retained_values: 0,
             retained_edges: 0,
             retained_direct_causes: 0,
+            visited_initializations: 0,
+            exported_root_lookups: 0,
             traversal_values: 0,
             traversal_edges: 0,
             cause_insertions: 0,
@@ -1127,19 +1146,21 @@ fn index_module_value_publication(
             .push(index);
     }
 
-    let mut failures = provenance
+    let mut failures_by_file_and_range = HashMap::<String, HashMap<(usize, usize), usize>>::new();
+    for (value_index, value) in provenance
         .values
         .iter()
         .enumerate()
         .filter(|(_, value)| value.invalid && value.identity.is_some())
-        .map(
-            |(value_index, value)| IndexedModuleValuePublicationFailure {
-                span: value.span.clone(),
+    {
+        failures_by_file_and_range
+            .entry(value.span.file.as_str().to_owned())
+            .or_default()
+            .insert(
+                (value.span.start.offset, value.span.end.offset),
                 value_index,
-            },
-        )
-        .collect::<Vec<_>>();
-    identifier_casing::radix_sort_by_span(&mut failures, |failure| &failure.span, |_| {});
+            );
+    }
     let values: Vec<IndexedModuleValuePublicationValue> = provenance
         .values
         .into_iter()
@@ -1151,23 +1172,22 @@ fn index_module_value_publication(
             direct_diagnostic_indices: std::mem::take(&mut direct_diagnostic_indices[index]),
         })
         .collect();
-    record_module_value_publication_work(|work| {
-        work.retained_values += values.len();
-        work.retained_edges += values
-            .iter()
-            .map(|value: &IndexedModuleValuePublicationValue| {
-                value.dependencies.len() + value.collision_dependencies.len()
-            })
-            .sum::<usize>();
-        work.retained_direct_causes += values
-            .iter()
-            .map(|value| value.direct_diagnostic_indices.len())
-            .sum::<usize>();
-    });
+    let retained_edges = values
+        .iter()
+        .map(|value: &IndexedModuleValuePublicationValue| {
+            value.dependencies.len() + value.collision_dependencies.len()
+        })
+        .sum::<usize>();
+    let retained_direct_causes = values
+        .iter()
+        .map(|value| value.direct_diagnostic_indices.len())
+        .sum::<usize>();
     IndexedModuleValuePublicationProvenance {
-        failures,
+        failures_by_file_and_range,
         values,
         collision_diagnostic_indices,
+        retained_edges,
+        retained_direct_causes,
     }
 }
 

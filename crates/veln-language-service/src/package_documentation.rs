@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::error::Error;
 use std::fmt;
 
@@ -40,8 +40,16 @@ const SNAPSHOT_MANIFEST_PATH: &str = "veln.toml";
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct PackageDocSemanticClassificationWork {
     exported_module_value_lookups: usize,
+    retained_values: usize,
+    retained_edges: usize,
+    retained_direct_causes: usize,
+    visited_initializations: usize,
+    traversal_values: usize,
+    traversal_edges: usize,
+    cause_processing: usize,
     cause_index_insertions: usize,
     diagnostic_lookups: usize,
+    casing_range_comparisons: usize,
 }
 
 #[cfg(test)]
@@ -50,8 +58,16 @@ thread_local! {
         std::cell::Cell<PackageDocSemanticClassificationWork> =
         const { std::cell::Cell::new(PackageDocSemanticClassificationWork {
             exported_module_value_lookups: 0,
+            retained_values: 0,
+            retained_edges: 0,
+            retained_direct_causes: 0,
+            visited_initializations: 0,
+            traversal_values: 0,
+            traversal_edges: 0,
+            cause_processing: 0,
             cause_index_insertions: 0,
             diagnostic_lookups: 0,
+            casing_range_comparisons: 0,
         }) };
 }
 
