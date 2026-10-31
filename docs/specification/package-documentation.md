@@ -200,6 +200,10 @@ A source path or byte range that is also present in the package being documented
 does not reassign the cause to that package. If the cause cannot be matched,
 generation replaces it with a spanless
 `package_doc.dependency_snapshot_unavailable` diagnostic under the same gate.
+When separate captured dependencies have identical source paths, ranges, and
+diagnostic text, the result retains only the cause owned by the dependency of
+the rejected exported value. The matching cause from an unrelated dependency
+does not enter the result.
 
 The implemented gates are:
 
@@ -306,8 +310,9 @@ lookup, initializer-independent declaration identity, snapshot and
 documentation digest rotation, package-atomic failure, and causal diagnostic
 selection for rejected values. They also check recovered-import causes and
 dependency-owned causes whose paths or spans collide with the documented
-package. Deterministic work counters compare adjacent input sizes for public
-dependency chains, independent invalid values, invalid-casing values, and
+package or another captured dependency. Deterministic work counters compare
+adjacent input sizes for public dependency chains, independent invalid values,
+invalid-casing values, and
 callable/module-value collisions to guard linear semantic classification
 without a wall-time threshold.
 The checked
