@@ -15,13 +15,16 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 5
+equals = 11
 
 [[diagnostics]]
 id = "effect.missing_public"
 severity = "error"
 kind = "effect"
 message = "public function uses undeclared effect `db`"
+
+[diagnostics.span]
+line = 74
 
 [[diagnostics]]
 id = "type.mismatch"
@@ -46,3 +49,60 @@ id = "type.mismatch"
 severity = "error"
 kind = "type"
 message = "expected `Bool`, but found `Int`"
+
+[diagnostics.span]
+line = 51
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Bool`, but found `Int`"
+
+[diagnostics.span]
+line = 67
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `db`"
+
+[diagnostics.span]
+line = 94
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `db`"
+
+[diagnostics.span]
+line = 98
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `db`"
+
+[diagnostics.span]
+line = 102
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function uses undeclared effect `db`"
+
+[diagnostics.span]
+line = 106
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Bool`, but found `Int`"
+
+[diagnostics.span]
+line = 111

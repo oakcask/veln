@@ -14,11 +14,11 @@ fn accepts_stdio_or_db(callback: fn() -> () effects [stdio, db]) -> ()
 	()
 end
 
-fn lower_then_upper<effect E>(produce: fn() -> () effects [...E], consume: fn(fn() -> () effects [...E]) -> ()) -> () effects [fs, ...E]
+fn lower_then_upper<effect E>(produce: fn() -> () effects [...E], consume: fn(fn() -> () effects [...E]) -> ()) -> () effects [...E]
 	()
 end
 
-fn upper_then_lower<effect E>(consume: fn(fn() -> () effects [...E]) -> (), produce: fn() -> () effects [...E]) -> () effects [fs, ...E]
+fn upper_then_lower<effect E>(consume: fn(fn() -> () effects [...E]) -> (), produce: fn() -> () effects [...E]) -> () effects [...E]
 	()
 end
 
@@ -74,11 +74,11 @@ fn invoke_all<effect E>(callbacks: ...fn() -> () effects [...E]) -> () effects [
 	()
 end
 
-pub fn first_order() -> () effects [fs, stdio]
+pub fn first_order() -> ()
 	lower_then_upper(stdio_callback, accepts_stdio_or_db)
 end
 
-pub fn reverse_order() -> () effects [fs, stdio]
+pub fn reverse_order() -> ()
 	upper_then_lower(accepts_stdio_or_db, stdio_callback)
 end
 

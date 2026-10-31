@@ -73,6 +73,11 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
     fn collect(&mut self, expr: &Expr) {
         match &expr.kind {
             ExprKind::Call { callee, args } => self.collect_call(callee, args),
+            ExprKind::Binary {
+                op: veln_ast::BinaryOp::PipeGreater,
+                left,
+                right,
+            } => self.collect_pipeline(left, right),
             ExprKind::Handle {
                 body,
                 handler,
@@ -98,6 +103,23 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
             self.collect(callee);
         }
         self.collect_all(args);
+    }
+
+    fn collect_pipeline(&mut self, left: &Expr, right: &Expr) {
+        let ExprKind::Call { callee, args } = &right.kind else {
+            self.collect(left);
+            self.collect(right);
+            return;
+        };
+        if !matches!(callee.kind, ExprKind::NamePath { .. }) {
+            self.collect(left);
+            self.collect(right);
+            return;
+        }
+        let mut piped_args = Vec::with_capacity(args.len() + 1);
+        piped_args.push(left.clone());
+        piped_args.extend(args.iter().cloned());
+        self.collect_call(callee, &piped_args);
     }
 
     fn collect_handle(&mut self, body: &Expr, handler: &[String], args: &[Expr]) {
@@ -163,6 +185,11 @@ impl ExprEffectCollector<'_, '_, '_> {
     fn collect(&mut self, expr: &Expr) {
         match &expr.kind {
             ExprKind::Call { callee, args } => self.collect_call(callee, args),
+            ExprKind::Binary {
+                op: veln_ast::BinaryOp::PipeGreater,
+                left,
+                right,
+            } => self.collect_pipeline(left, right),
             ExprKind::Perform { effect, args, .. } => self.collect_perform(effect, args),
             ExprKind::Handle {
                 body,
@@ -253,6 +280,23 @@ impl ExprEffectCollector<'_, '_, '_> {
             }
         }
         self.collect_all(args);
+    }
+
+    fn collect_pipeline(&mut self, left: &Expr, right: &Expr) {
+        let ExprKind::Call { callee, args } = &right.kind else {
+            self.collect(left);
+            self.collect(right);
+            return;
+        };
+        if !matches!(callee.kind, ExprKind::NamePath { .. }) {
+            self.collect(left);
+            self.collect(right);
+            return;
+        }
+        let mut piped_args = Vec::with_capacity(args.len() + 1);
+        piped_args.push(left.clone());
+        piped_args.extend(args.iter().cloned());
+        self.collect_call(callee, &piped_args);
     }
 
     fn collect_perform(&mut self, effect: &[String], args: &[Expr]) {

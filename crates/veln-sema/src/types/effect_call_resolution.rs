@@ -271,55 +271,22 @@ fn type_for_effect_call_argument(
                 .collect::<Option<Vec<_>>>()
                 .map(Type::Record)
         }
-        ExprKind::Call { callee, args } => {
-            if let Some(constructed) =
-                type_for_effect_constructor_call(callee, args, expected, context)
-            {
-                return Some(constructed);
-            }
-            let Type::Function {
-                params,
-                variadic,
-                return_type,
-                effects,
-            } = function_type_for_expr(callee, context)?
-            else {
+        ExprKind::Call { callee, args } => type_for_effect_call(callee, args, expected, context),
+        ExprKind::Binary {
+            op: veln_ast::BinaryOp::PipeGreater,
+            left,
+            right,
+        } => {
+            let ExprKind::Call { callee, args } = &right.kind else {
                 return None;
             };
-            let arity_matches =
-                args.len() >= params.len() && (variadic.is_some() || args.len() == params.len());
-            if !arity_matches {
+            if !matches!(callee.kind, ExprKind::NamePath { .. }) {
                 return None;
             }
-            let mut comparisons = Vec::new();
-            for (index, arg) in args.iter().enumerate() {
-                let expected = params.get(index).or(variadic.as_deref())?;
-                comparisons.push((
-                    expected,
-                    type_for_effect_call_argument(arg, expected, context)?,
-                ));
-            }
-            let row = call_bound_effect_row_for_expr(callee, context).or_else(|| {
-                call_bound_effect_row(&params, variadic.as_deref(), &return_type, &effects)
-            });
-            let substitutions = solve_call_bound_effect_row(
-                row.as_deref(),
-                comparisons
-                    .iter()
-                    .map(|(expected, actual)| (*expected, actual)),
-            );
-            if comparisons.iter().any(|(expected, actual)| {
-                !crate::type_relations::is_assignable(
-                    &instantiate_effect_rows_in_type(expected, &substitutions),
-                    actual,
-                )
-            }) {
-                return None;
-            }
-            Some(instantiate_effect_rows_in_type(
-                &return_type,
-                &substitutions,
-            ))
+            let mut piped_args = Vec::with_capacity(args.len() + 1);
+            piped_args.push((**left).clone());
+            piped_args.extend(args.iter().cloned());
+            type_for_effect_call(callee, &piped_args, expected, context)
         }
         _ => function_type_for_expr(expr, context).or_else(|| {
             infer_checked_effect_argument_type(
@@ -334,6 +301,59 @@ fn type_for_effect_call_argument(
             )
         }),
     }
+}
+
+fn type_for_effect_call(
+    callee: &Expr,
+    args: &[Expr],
+    expected: &Type,
+    context: &ExprEffectContext<'_>,
+) -> Option<Type> {
+    if let Some(constructed) = type_for_effect_constructor_call(callee, args, expected, context) {
+        return Some(constructed);
+    }
+    let Type::Function {
+        params,
+        variadic,
+        return_type,
+        effects,
+    } = function_type_for_expr(callee, context)?
+    else {
+        return None;
+    };
+    let arity_matches =
+        args.len() >= params.len() && (variadic.is_some() || args.len() == params.len());
+    if !arity_matches {
+        return None;
+    }
+    let mut comparisons = Vec::new();
+    for (index, arg) in args.iter().enumerate() {
+        let expected = params.get(index).or(variadic.as_deref())?;
+        comparisons.push((
+            expected,
+            type_for_effect_call_argument(arg, expected, context)?,
+        ));
+    }
+    let row = call_bound_effect_row_for_expr(callee, context)
+        .or_else(|| call_bound_effect_row(&params, variadic.as_deref(), &return_type, &effects));
+    let substitutions = solve_call_bound_effect_row(
+        row.as_deref(),
+        comparisons
+            .iter()
+            .map(|(expected, actual)| (*expected, actual)),
+    );
+    if comparisons.iter().any(|(expected, actual)| {
+        !crate::type_relations::is_assignable(
+            &instantiate_effect_rows_in_type(expected, &substitutions),
+            actual,
+        )
+    }) {
+        return None;
+    }
+    Some(instantiate_effect_rows_in_type(
+        &return_type,
+        &substitutions,
+    ))
 }
 
 fn type_for_effect_schema_call(

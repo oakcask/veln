@@ -38,6 +38,13 @@ fn effect_row_substitution_reaches_concrete_call_boundaries() {
     let diagnostics = analyze_surface_module(&module);
 
     assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter_map(|diagnostic| diagnostic.span.as_ref().map(|span| span.start.line))
+            .collect::<Vec<_>>(),
+        vec![17, 21]
+    );
     assert_eq!(diagnostics[0].id, "effect.missing_public");
     assert_eq!(
         diagnostics[0].message,
@@ -334,26 +341,30 @@ fn call_bound_effect_rows_solve_shared_lower_and_upper_bounds() {
         "\t()\n",
         "end\n",
         "\n",
-        "fn lower_then_upper<effect E>(produce: fn() -> () effects [...E], consume: fn(fn() -> () effects [...E]) -> ()) -> () effects [fs, ...E]\n",
+        "fn lower_then_upper<effect E>(produce: fn() -> () effects [...E], consume: fn(fn() -> () effects [...E]) -> ()) -> () effects [...E]\n",
         "\t()\n",
         "end\n",
         "\n",
-        "fn upper_then_lower<effect E>(consume: fn(fn() -> () effects [...E]) -> (), produce: fn() -> () effects [...E]) -> () effects [fs, ...E]\n",
+        "fn upper_then_lower<effect E>(consume: fn(fn() -> () effects [...E]) -> (), produce: fn() -> () effects [...E]) -> () effects [...E]\n",
         "\t()\n",
         "end\n",
         "\n",
-        "pub fn first_order() -> () effects [fs, stdio]\n",
+        "pub fn first_order() -> ()\n",
         "\tlower_then_upper(stdio_callback, accepts_stdio_or_db)\n",
         "end\n",
         "\n",
-        "pub fn reverse_order() -> () effects [fs, stdio]\n",
+        "pub fn reverse_order() -> ()\n",
         "\tupper_then_lower(accepts_stdio_or_db, stdio_callback)\n",
         "end\n",
     ));
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id == "effect.missing_public"
+            && diagnostic.message == "public function uses undeclared effect `stdio`"
+    }));
 }
 
 #[test]
@@ -1280,6 +1291,131 @@ fn rejected_row_bearing_result_recovers_without_publishing_type_or_effects() {
         diagnostics
             .iter()
             .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn pipeline_row_calls_and_pipeline_arguments_retain_effects_across_private_boundaries() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn identity(value: Int) -> Int\n",
+        "\tvalue\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn piped_call_helper() -> ()\n",
+        "\tdb_callback |> invoke(1)\n",
+        "end\n",
+        "\n",
+        "fn piped_argument_helper() -> ()\n",
+        "\tinvoke(db_callback, 1 |> identity())\n",
+        "end\n",
+        "\n",
+        "pub fn direct_piped_call() -> ()\n",
+        "\tdb_callback |> invoke(1)\n",
+        "end\n",
+        "\n",
+        "pub fn direct_piped_argument() -> ()\n",
+        "\tinvoke(db_callback, 1 |> identity())\n",
+        "end\n",
+        "\n",
+        "pub fn private_piped_call() -> ()\n",
+        "\tpiped_call_helper()\n",
+        "end\n",
+        "\n",
+        "pub fn private_piped_argument() -> ()\n",
+        "\tpiped_argument_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let lines = diagnostics
+        .iter()
+        .filter_map(|diagnostic| diagnostic.span.as_ref().map(|span| span.start.line))
+        .collect::<Vec<_>>();
+    assert_eq!(lines, vec![21, 25, 29, 33]);
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.id == "effect.missing_public"
+            && diagnostic.message == "public function uses undeclared effect `db`"
+    }));
+}
+
+#[test]
+fn rejected_if_conditions_and_branches_do_not_publish_partial_row_effects() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn rejected_conditions() -> ()\n",
+        "\tinvoke(db_callback, if 1\n",
+        "\t\t1\n",
+        "\telse if 2\n",
+        "\t\t1\n",
+        "\telse\n",
+        "\t\t1\n",
+        "\tend)\n",
+        "end\n",
+        "\n",
+        "fn rejected_branch() -> ()\n",
+        "\tinvoke(db_callback, if true\n",
+        "\t\t\"wrong\"\n",
+        "\telse\n",
+        "\t\t1\n",
+        "\tend)\n",
+        "end\n",
+        "\n",
+        "pub fn direct_conditions() -> ()\n",
+        "\tinvoke(db_callback, if 1\n",
+        "\t\t1\n",
+        "\telse if 2\n",
+        "\t\t1\n",
+        "\telse\n",
+        "\t\t1\n",
+        "\tend)\n",
+        "end\n",
+        "\n",
+        "pub fn direct_branch() -> ()\n",
+        "\tinvoke(db_callback, if true\n",
+        "\t\t\"wrong\"\n",
+        "\telse\n",
+        "\t\t1\n",
+        "\tend)\n",
+        "end\n",
+        "\n",
+        "pub fn private_boundaries() -> ()\n",
+        "\trejected_conditions()\n",
+        "\trejected_branch()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 6, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "type.mismatch")
+            .count(),
+        6,
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "type.mismatch"),
         "{diagnostics:#?}"
     );
 }

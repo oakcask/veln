@@ -1562,6 +1562,14 @@ only in the result type is still call-bound and receives the empty substitution
 when the call supplies no lower bound. These rules apply to both a declared
 function and a direct local binding of that function.
 
+A pipeline into a row-polymorphic call inserts its left expression as the first
+argument before the call is checked and before the row is solved. A pipeline
+used as another argument contributes its checked result type. Both forms
+preserve the same row effect through private-function inference as their
+equivalent direct calls. An `if` argument is accepted only when its primary and
+every `else if` condition satisfy `Bool` and every branch satisfies the expected
+argument type. A condition or branch failure rejects the complete call.
+
 Concrete entries beside the tail remain in the instantiated effect set. A
 call-bound row with no concrete lower bound becomes the empty set. A row bound
 by the enclosing function remains rigid while that function body is checked;
@@ -1585,7 +1593,8 @@ calls through the binding. A function-typed parameter whose row belongs to the
 enclosing declaration remains rigid instead.
 The accepted
 [`effect-row-call-constraints`](../../examples/specification/check/effect-row-call-constraints/)
-case checks successful constraint solving and result instantiation, including
+case observes the least shared lower-and-upper solution in both traversal
+orders at public effect boundaries. It also checks result instantiation and
 empty return-only rows through declared and local calls. Its
 [`rejection companion`](../../examples/specification/check/effect-row-call-rejection/)
 checks unsatisfied concrete and rigid-row bounds, accepted ordinary-call
@@ -1594,9 +1603,11 @@ calls, local bindings, and constructor payloads. It also requires the diagnostic
 for a concrete effect written beside a row, so the concrete-entry preservation
 rule is independently observable. The
 [`argument-consistency case`](../../examples/specification/check/effect-row-call-argument-consistency/)
-checks that accepted `perform` and prefix arguments preserve another argument's
-row solution. It also checks that an incompatible value propagated with `?` or
-an invalid prefix or binary operand publishes no tentative substitution. The
+checks that accepted `perform`, prefix, and pipeline arguments preserve another
+argument's row solution. It compares direct pipelines with private-helper
+boundaries. It also checks that an incompatible value propagated with `?`, an
+invalid prefix or binary operand, or an invalid `if` condition publishes no
+tentative substitution. The
 [`constructor-record case`](../../examples/specification/check/effect-row-call-constructor-record-payload/)
 checks accepted and rejected fixed fields beside a row-bearing field in one
 payload component. The

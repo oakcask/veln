@@ -51,6 +51,26 @@ fn rejected_prefix_helper() -> ()
 	invoke_bool(time_callback, not 1)
 end
 
+fn identity(value: Int) -> Int
+	value
+end
+
+fn accepted_piped_call_helper() -> ()
+	db_callback |> invoke(1)
+end
+
+fn accepted_piped_argument_helper() -> ()
+	invoke(db_callback, 1 |> identity())
+end
+
+fn rejected_if_helper() -> ()
+	invoke(fs_callback, if 1
+		1
+	else
+		1
+	end)
+end
+
 pub fn accepted_operation_result() -> () effects [Ask]
 	accepted_helper()
 end
@@ -69,4 +89,32 @@ end
 
 pub fn rejected_prefix_result() -> ()
 	rejected_prefix_helper()
+end
+
+pub fn direct_piped_call() -> ()
+	db_callback |> invoke(1)
+end
+
+pub fn private_piped_call() -> ()
+	accepted_piped_call_helper()
+end
+
+pub fn direct_piped_argument() -> ()
+	invoke(db_callback, 1 |> identity())
+end
+
+pub fn private_piped_argument() -> ()
+	accepted_piped_argument_helper()
+end
+
+pub fn direct_rejected_if() -> ()
+	invoke(fs_callback, if 1
+		1
+	else
+		1
+	end)
+end
+
+pub fn private_rejected_if() -> ()
+	rejected_if_helper()
 end

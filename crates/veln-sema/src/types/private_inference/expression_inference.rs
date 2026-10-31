@@ -142,11 +142,12 @@ fn infer_private_branch_type(
             Some(infer_private_match_type(scrutinee, arms, expected, context))
         }
         ExprKind::If {
+            condition,
             then_branch,
             else_if_branches,
             else_branch,
-            ..
         } => Some(infer_private_if_result_type(
+            condition,
             then_branch,
             else_if_branches,
             else_branch,
@@ -423,7 +424,7 @@ pub(crate) fn infer_private_binary_type(
     context: &mut PrivateSignatureInferContext<'_, '_>,
 ) -> Type {
     if op == veln_ast::BinaryOp::PipeGreater {
-        return Type::Unknown;
+        return infer_private_pipeline_type(left, right, expected, context);
     }
 
     let left = context.infer_outcome(left, None);
@@ -459,6 +460,30 @@ pub(crate) fn infer_private_binary_type(
     reject_private_operator_operand(&left, &operand_type, context);
     reject_private_operator_operand(&right, &operand_type, context);
     result_type
+}
+
+fn infer_private_pipeline_type(
+    left: &Expr,
+    right: &Expr,
+    expected: Option<&Type>,
+    context: &mut PrivateSignatureInferContext<'_, '_>,
+) -> Type {
+    let ExprKind::Call { callee, args } = &right.kind else {
+        context.infer_outcome(left, None);
+        context.infer_outcome(right, expected);
+        *context.failures += 1;
+        return Type::Unknown;
+    };
+    if !matches!(callee.kind, ExprKind::NamePath { .. }) {
+        context.infer_outcome(left, None);
+        context.infer_outcome(right, expected);
+        *context.failures += 1;
+        return Type::Unknown;
+    }
+    let mut piped_args = Vec::with_capacity(args.len() + 1);
+    piped_args.push(left.clone());
+    piped_args.extend(args.iter().cloned());
+    infer_private_signature_call_type(callee, &piped_args, expected, context)
 }
 
 fn reject_private_operator_operand(
@@ -621,7 +646,7 @@ impl PrivateSignatureInferContext<'_, '_> {
             self.adts,
             self.failures,
         );
-        outcome.may_contribute = *self.failures == failure_count;
+        outcome.may_contribute &= *self.failures == failure_count;
         outcome
     }
 
