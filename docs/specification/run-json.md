@@ -262,6 +262,11 @@ Format-neutral runtime refinement validation reports these result failures in
 Both failures retain the supplied offset. Their paths do not start at a public
 alias used to reach the terminal schema. Source-ADT constructors and payloads
 use `field` segments; positional payload names are zero-based decimal indices.
+Regular direct and mutual recursion appends those segments for every visited
+value occurrence, including repeated uses of the same validation shape. The
+checked
+[`schema-runtime-recursive-source-adt-validation`](../../examples/specification/run/schema-runtime-recursive-source-adt-validation/)
+case fixes the resulting deep recursive path.
 Container indices and dictionary keys also use `field` segments whose `name`
 is the decimal index or decoded key. The
 optional `field_path_display` retains the JSON Pointer spelling, where `~` is

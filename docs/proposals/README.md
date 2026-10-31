@@ -16,9 +16,9 @@ also states it.
 
 ## Ready
 
-- Recursive-value runtime validation, followed by predicates and ordinary
-  decoder functions, extending the implemented record, composed-schema,
-  standard-container, and acyclic source-ADT payload operation:
+- Predicate ordering and ordinary decoder composition for the implemented
+  record, composed-schema, standard-container, and regular recursive source-ADT
+  runtime-validation operation:
   [schema-runtime-refinement-validation.md](schema-runtime-refinement-validation.md).
 - With typed module `let` syntax, package-wide dependency validation, imported
   lookup, package-aware stable identity, visibility, and checked-core/typed-IR

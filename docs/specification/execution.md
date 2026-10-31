@@ -407,7 +407,21 @@ install that production client boundary.
   declaration order and skips absent payloads, including every payload of a
   nullary constructor. The mismatch path appends the constructor name and then
   either the declared payload field name or the zero-based positional payload
-  index. Lists and vectors visit elements in increasing
+  index. Direct and mutual recursive source-ADT values follow the same
+  constructor and payload order. Every finite value occurrence is checked;
+  revisiting the same recursive validation shape does not skip a later value
+  occurrence. A constructor refinement on an outer ADT occurrence is checked
+  only at that occurrence. A recursive payload declared as the unrefined ADT
+  may use any of its constructors, while refinements in instantiated generic
+  arguments are still checked at their payload positions. A constructor
+  refinement explicitly written on the recursive payload is checked at that
+  payload occurrence and again at every later occurrence reached through the
+  same refined payload declaration. On the JVM, deep
+  finite values retain this behavior without using the host call stack, and
+  temporary allocation grows linearly with the number of visited recursive
+  value occurrences. Lists and vectors can return the first mismatch without
+  allocating traversal work proportional to the unvisited tail. They visit
+  elements in increasing
   index order. Dictionaries visit values in ascending lexicographic order of
   the keys' UTF-8 bytes. Nested and repeated container positions are all
   visited. Each refinement accepts constructors in its source-ADT declaration
@@ -429,6 +443,12 @@ install that production client boundary.
   [`schema-runtime-source-adt-validation-human`](../../examples/specification/run/schema-runtime-source-adt-validation-human/)
   and
   [`schema-runtime-source-adt-validation-json`](../../examples/specification/run/schema-runtime-source-adt-validation-json/).
+  Regular recursive traversal and its complete deep payload path are checked by
+  [`schema-runtime-recursive-source-adt-validation`](../../examples/specification/run/schema-runtime-recursive-source-adt-validation/).
+  JVM integration coverage compares successful recursive chains at depths
+  2,000 and 4,000 after warm-up, rejects allocation growth above three times,
+  checks an explicitly refined recursive edge, and checks index-zero mismatches
+  with million-element list and vector tails under a 64 MiB heap.
 - Compatibility generated binary schema decode helpers read fields in
   declaration order and return the schema-local visible record shape. They are
   retained for old fixtures and runtime adapter coverage, not as the public

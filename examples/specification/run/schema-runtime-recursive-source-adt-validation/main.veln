@@ -1,0 +1,26 @@
+# Recursive source-ADT validation follows every finite value occurrence.
+
+pub type State
+	pub Connected
+	pub Closed
+end
+
+pub type Node<A>
+	pub Next(value: Node<A>)
+	pub Value(value: A)
+end
+
+schema Packet
+	item: Node<State::Connected>::Next
+end
+
+fn validate_packet(value: {item: Node<State>}, offset: ByteOffset) -> Result<{item: Node<State::Connected>::Next}, DecodeError>
+	validate Packet from value at offset
+end
+
+pub fn main() -> Result<{item: Node<State::Connected>::Next}, DecodeError>
+	match byte_offset(61)
+		Ok(offset) => validate_packet({item: Next(Next(Value(Closed)))}, offset)
+		Err(_) => main()
+	end
+end

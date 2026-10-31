@@ -376,6 +376,242 @@ fn schema_refinement_validation_executes_source_adt_payload_plan() {
 }
 
 #[test]
+fn schema_refinement_validation_executes_regular_recursive_source_adt_plans() {
+    let ir = lower_to_ir(concat!(
+        "type State\n  Connected\n  Closed\nend\n",
+        "type Direct<A>\n  DNext(value: Direct<A>)\n  DValue(value: A)\nend\n",
+        "type Left<A>\n  LNext(value: Right<A>)\n  LValue(value: A)\nend\n",
+        "type Right<A>\n  RBack(value: Left<A>)\nend\n",
+        "schema Packet\n",
+        "  direct: Direct<State::Connected>::DNext\n",
+        "  mutual: Left<State::Connected>\n",
+        "end\n",
+        "fn print_result(result: Result<{direct: Direct<State::Connected>::DNext, mutual: Left<State::Connected>}, DecodeError>) -> () effects [stdio]\n",
+        "  match result\n",
+        "    Ok(_) => stdio::println(\"ok\")\n",
+        "    Err(DecodeErrorWithReason(id, carried, path, _)) => begin\n",
+        "      stdio::println(id)\n",
+        "      stdio::println(int_to_string(byte_offset_to_int(carried)))\n",
+        "      stdio::println(path)\n",
+        "    end\n",
+        "    Err(_) => stdio::println(\"unexpected\")\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> Result<(), String> effects [stdio]\n",
+        "  let offset = byte_offset(53)?\n",
+        "  let accepted: {direct: Direct<State>, mutual: Left<State>} = {direct: DNext(DValue(Connected)), mutual: LNext(RBack(LValue(Connected)))}\n",
+        "  let root_failure: {direct: Direct<State>, mutual: Left<State>} = {direct: DValue(Connected), mutual: LValue(Connected)}\n",
+        "  let direct_failure: {direct: Direct<State>, mutual: Left<State>} = {direct: DNext(DNext(DValue(Closed))), mutual: LValue(Connected)}\n",
+        "  let mutual_failure: {direct: Direct<State>, mutual: Left<State>} = {direct: DNext(DValue(Connected)), mutual: LNext(RBack(LNext(RBack(LValue(Closed)))))}\n",
+        "  print_result(validate Packet from accepted at offset)\n",
+        "  print_result(validate Packet from root_failure at offset)\n",
+        "  print_result(validate Packet from direct_failure at offset)\n",
+        "  print_result(validate Packet from mutual_failure at offset)\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "schema-refinement-recursive-source-adt",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        concat!(
+            "ok\n",
+            "schema.variant_refinement_mismatch\n",
+            "53\n",
+            "/Packet/direct\n",
+            "schema.variant_refinement_mismatch\n",
+            "53\n",
+            "/Packet/direct/DNext/value/DNext/value/DValue/value\n",
+            "schema.variant_refinement_mismatch\n",
+            "53\n",
+            "/Packet/mutual/LNext/value/RBack/value/LNext/value/RBack/value/LValue/value\n",
+        )
+    );
+}
+
+#[test]
+fn schema_refinement_validation_executes_explicitly_refined_recursive_edges() {
+    let ir = lower_to_ir(concat!(
+        "type State\n  Connected\n  Closed\nend\n",
+        "type Node<A>\n  Next(state: A, next: Option<Node<A>::Next>)\n  End\nend\n",
+        "schema Packet\n  item: Node<State::Connected>::Next\nend\n",
+        "fn print_result(result: Result<{item: Node<State::Connected>::Next}, DecodeError>) -> () effects [stdio]\n",
+        "  match result\n",
+        "    Ok(_) => stdio::println(\"ok\")\n",
+        "    Err(DecodeErrorWithReason(id, carried, path, _)) => begin\n",
+        "      stdio::println(id)\n",
+        "      stdio::println(int_to_string(byte_offset_to_int(carried)))\n",
+        "      stdio::println(path)\n",
+        "    end\n",
+        "    Err(_) => stdio::println(\"unexpected\")\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> Result<(), String> effects [stdio]\n",
+        "  let offset = byte_offset(61)?\n",
+        "  let accepted: {item: Node<State>} = {item: Next(Connected, Some(Next(Connected, None)))}\n",
+        "  let rejected: {item: Node<State>} = {item: Next(Connected, Some(Next(Closed, None)))}\n",
+        "  print_result(validate Packet from accepted at offset)\n",
+        "  print_result(validate Packet from rejected at offset)\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "schema-refinement-explicit-recursive-edge",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        concat!(
+            "ok\n",
+            "schema.variant_refinement_mismatch\n",
+            "61\n",
+            "/Packet/item/Next/next/Next/state\n",
+        )
+    );
+}
+
+#[test]
+fn schema_refinement_validation_executes_finite_nested_generic_instantiations() {
+    let ir = lower_to_ir(concat!(
+        "type State\n  Connected\n  Closed\nend\n",
+        "type Box<A>\n  Boxed(value: A)\nend\n",
+        "schema Packet\n  item: Box<Box<State::Connected>>\nend\n",
+        "fn print_result(result: Result<{item: Box<Box<State::Connected>>}, DecodeError>) -> () effects [stdio]\n",
+        "  match result\n",
+        "    Ok(_) => stdio::println(\"ok\")\n",
+        "    Err(DecodeErrorWithReason(id, _, path, _)) => begin\n",
+        "      stdio::println(id)\n",
+        "      stdio::println(path)\n",
+        "    end\n",
+        "    Err(_) => stdio::println(\"unexpected\")\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> Result<(), String> effects [stdio]\n",
+        "  let accepted: {item: Box<Box<State>>} = {item: Boxed(Boxed(Connected))}\n",
+        "  let rejected: {item: Box<Box<State>>} = {item: Boxed(Boxed(Closed))}\n",
+        "  print_result(validate Packet from accepted at byte_offset(0)?)\n",
+        "  print_result(validate Packet from rejected at byte_offset(0)?)\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "schema-refinement-finite-nested-generic-instantiations",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        concat!(
+            "ok\n",
+            "schema.variant_refinement_mismatch\n",
+            "/Packet/item/Boxed/value/Boxed/value\n",
+        )
+    );
+}
+
+#[test]
+fn schema_refinement_validation_executes_imported_recursive_source_adt_plan() {
+    let app = SourceFile::new(
+        "app.veln",
+        concat!(
+            "use api\n",
+            "schema Packet\n  item: api::Node<api::State::Connected>\nend\n",
+            "fn print_result(result: Result<{item: api::Node<api::State::Connected>}, DecodeError>) -> () effects [stdio]\n",
+            "  match result\n",
+            "    Ok(_) => stdio::println(\"ok\")\n",
+            "    Err(DecodeErrorWithReason(id, _, path, _)) => begin\n",
+            "      stdio::println(id)\n",
+            "      stdio::println(path)\n",
+            "    end\n",
+            "    Err(_) => stdio::println(\"unexpected\")\n",
+            "  end\n",
+            "end\n",
+            "pub fn main() -> Result<(), String> effects [stdio]\n",
+            "  let offset = byte_offset(67)?\n",
+            "  let accepted: {item: api::Node<api::State>} = {item: api::Next(api::Value(api::Connected))}\n",
+            "  let rejected: {item: api::Node<api::State>} = {item: api::Next(api::Next(api::Value(api::Closed)))}\n",
+            "  print_result(validate Packet from accepted at offset)\n",
+            "  print_result(validate Packet from rejected at offset)\n",
+            "  Ok(())\n",
+            "end\n",
+        ),
+    );
+    let api = SourceFile::new(
+        "api.veln",
+        concat!(
+            "pub type State\n  pub Connected\n  pub Closed\nend\n",
+            "pub type Node<A>\n  pub Next(value: Node<A>)\n  pub Value(value: A)\nend\n",
+        ),
+    );
+    let analysis = analyze_project(
+        Project {
+            root: std::path::PathBuf::new(),
+            files: vec![app, api],
+            manifest: None,
+        },
+        DoctestMode::Exclude,
+    );
+    let diagnostics = analysis.checked_diagnostics();
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    let lowered = analysis
+        .lower_reachable_entry("main", FunctionKind::Function)
+        .lowered;
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered
+        .ir
+        .expect("imported recursive source ADT should lower");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "schema-refinement-imported-recursive-source-adt",
+        &program,
+        &[],
+    ) else {
+        return;
+    };
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        concat!(
+            "ok\n",
+            "schema.variant_refinement_mismatch\n",
+            "/Packet/item/Next/value/Next/value/Value/value\n",
+        )
+    );
+}
+
+#[test]
 fn schema_refinement_diamond_metadata_growth_is_bounded_by_shared_plan_nodes() {
     let n10 = schema_refinement_diamond_ir(10);
     let n14 = schema_refinement_diamond_ir(14);

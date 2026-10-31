@@ -1163,7 +1163,8 @@ Static failures for `validate Schema from value at offset` use
 `resolved_kind`. The primary span covers the written schema path without the
 `validate` keyword or either operand. `unresolved_schema` also reports an
 ineligible reachable composition graph, including a predicate or binary schema
-on a branch without refinements. A missing path in
+on a branch without refinements or a recursive source ADT that returns to an
+active declaration with different instantiated arguments. A missing path in
 `validate from value at offset` instead uses
 `parse.schema_validate_expression` with `schema path` as its expected input.
 The checked
@@ -1184,8 +1185,12 @@ segments have kind `field`, including each containing composed-schema or
 anonymous-record field, decimal list or vector index, and decoded dictionary
 key before the rejected position. Source-ADT traversal adds the actual
 constructor name followed by the declared payload name or zero-based
-positional payload index as `field` segments. The retained JSON Pointer display escapes
-`~` as `~0` and `/` as `~1`. The checked
+positional payload index as `field` segments. Direct and mutual recursion adds
+those segments for every visited value occurrence, including repeated uses of
+the same validation shape. The checked
+[`schema-runtime-recursive-source-adt-validation`](../../examples/specification/run/schema-runtime-recursive-source-adt-validation/)
+case fixes the resulting deep recursive path. The retained JSON Pointer display
+escapes `~` as `~0` and `/` as `~1`. The checked
 [`schema-runtime-refinement-validation-containers`](../../examples/specification/run/schema-runtime-refinement-validation-containers/)
 case fixes collection indices, deterministic dictionary ordering, and escaped
 dictionary keys. The checked

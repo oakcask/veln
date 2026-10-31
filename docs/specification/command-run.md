@@ -134,7 +134,9 @@ schema followed by every containing composed-schema or anonymous-record field,
 source-ADT constructor and named or zero-based positional payload, decimal list
 or vector index, and dictionary key before the rejected field. It renders
 decoded dictionary-key text and the mismatch or offset reason as related
-context.
+context. Direct and mutual recursive source-ADT values retain the constructor
+and payload segments for every visited value occurrence, including repeated
+uses of the same validation shape.
 
 If `net::system()` returns a host socket failure from `listen` or `connect` and
 the selected entry returns that `Err`, human mode prints the stable transport
@@ -165,6 +167,9 @@ body does not read the built-in value.
 Implementation: `crates/veln-cli/src/commands/run.rs`. JVM report projection:
 `crates/veln-cli/src/commands/run_report.rs`. Machine fields and runtime
 projections: [run-json.md](run-json.md).
+The
+[`schema-runtime-recursive-source-adt-validation`](../../examples/specification/run/schema-runtime-recursive-source-adt-validation/)
+case checks a deep recursive mismatch path through the JSON command boundary.
 The command-boundary examples cover
 reachable acceptance under
 `examples/specification/run/adt-variant-refinement-command-reachability/`

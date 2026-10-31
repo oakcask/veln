@@ -6,7 +6,7 @@ fn run_java_runtime_harness(
     source: &str,
     program: &JvmProgram,
 ) -> std::process::Output {
-    run_java_runtime_harness_with_env(name, source_name, source, program, &[])
+    run_java_runtime_harness_with_options(name, source_name, source, program, &[], &[])
 }
 
 fn run_java_runtime_harness_with_env(
@@ -15,6 +15,17 @@ fn run_java_runtime_harness_with_env(
     source: &str,
     program: &JvmProgram,
     env: &[(&str, &str)],
+) -> std::process::Output {
+    run_java_runtime_harness_with_options(name, source_name, source, program, env, &[])
+}
+
+fn run_java_runtime_harness_with_options(
+    name: &str,
+    source_name: &str,
+    source: &str,
+    program: &JvmProgram,
+    env: &[(&str, &str)],
+    jvm_args: &[&str],
 ) -> std::process::Output {
     let root = temp_dir(name);
     write_jvm_program(&root, program);
@@ -36,6 +47,7 @@ fn run_java_runtime_harness_with_env(
         .expect("Java harness source should end in .java");
     let mut command = Command::new("java");
     command
+        .args(jvm_args)
         .arg("-cp")
         .arg(&root)
         .arg(class_name)
@@ -404,6 +416,140 @@ public final class SchemaRefinementContainersHarness {
 }
 
 #[test]
+fn jvm_runtime_schema_refinement_list_fails_at_zero_with_bounded_heap() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        eprintln!("skipping bounded-list refinement verification because a JDK is unavailable");
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness_with_options(
+        "runtime-schema-refinement-bounded-list",
+        "SchemaRefinementBoundedListHarness.java",
+        r#"
+public final class SchemaRefinementBoundedListHarness {
+    public static void main(String[] args) {
+        Object connected = VelnRuntime.adt("State::Connected", new Object[] {});
+        Object closed = VelnRuntime.adt("State::Closed", new Object[] {});
+        Object items = VelnRuntime.listNil();
+        for (int index = 0; index < 1000000; index += 1) {
+            items = VelnRuntime.listCons(connected, items);
+        }
+        items = VelnRuntime.listCons(closed, items);
+        Object plan = VelnRuntime.list(
+            "list",
+            VelnRuntime.list("variant", VelnRuntime.list("Connected"))
+        );
+        Object result = VelnRuntime.validateSchemaRefinementPlan(
+            items,
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(79) }),
+            "Packet",
+            plan
+        );
+        String rendered = result.toString();
+        if (!rendered.contains("schema.variant_refinement_mismatch")
+                || !rendered.contains("ByteOffset(79)")
+                || !rendered.contains("/Packet/0")) {
+            throw new AssertionError("expected immediate list failure at index zero: " + rendered);
+        }
+        System.out.println("bounded list refinement failed at index zero");
+    }
+}
+"#,
+        &program,
+        &[],
+        &["-Xms16m", "-Xmx64m"],
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "bounded list refinement failed at index zero\n"
+    );
+}
+
+#[test]
+fn jvm_runtime_schema_refinement_vector_is_incremental_with_bounded_heap() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        eprintln!("skipping bounded-vector refinement verification because a JDK is unavailable");
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness_with_options(
+        "runtime-schema-refinement-bounded-vector",
+        "SchemaRefinementBoundedVectorHarness.java",
+        r#"
+public final class SchemaRefinementBoundedVectorHarness {
+    private static final Object PLAN = VelnRuntime.list(
+        "vec",
+        VelnRuntime.list("variant", VelnRuntime.list("Connected"))
+    );
+
+    private static VelnRuntime.Result validate(Object value) {
+        return (VelnRuntime.Result) VelnRuntime.validateSchemaRefinementPlan(
+            value,
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(79) }),
+            "Packet",
+            PLAN
+        );
+    }
+
+    private static void requireSuccess(Object value) {
+        VelnRuntime.Result result = validate(value);
+        if (!result.isOk() || result.value() != value) {
+            throw new AssertionError("vector success did not preserve input identity");
+        }
+    }
+
+    private static void requireFailure(Object value, String path) {
+        String rendered = validate(value).toString();
+        String expected = "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, "
+            + "ByteOffset(79), " + path + ", actual variant `Closed`; "
+            + "expected one of `Connected`))";
+        if (!rendered.equals(expected)) {
+            throw new AssertionError("unexpected vector failure: " + rendered);
+        }
+    }
+
+    public static void main(String[] args) {
+        Object connected = VelnRuntime.adt("State::Connected", new Object[] {});
+        Object closed = VelnRuntime.adt("State::Closed", new Object[] {});
+        requireSuccess(VelnRuntime.list());
+        requireSuccess(VelnRuntime.list(connected, connected));
+        requireFailure(VelnRuntime.list(connected, closed, connected), "/Packet/1");
+
+        java.util.ArrayList<Object> items = new java.util.ArrayList<Object>(1000001);
+        items.add(closed);
+        for (int index = 0; index < 1000000; index += 1) items.add(connected);
+        requireFailure(items, "/Packet/0");
+        System.out.println("bounded vector refinement remained incremental");
+    }
+}
+"#,
+        &program,
+        &[],
+        &["-Xms16m", "-Xmx64m"],
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "bounded vector refinement remained incremental\n"
+    );
+}
+
+#[test]
 fn jvm_runtime_schema_refinement_plan_visits_only_actual_source_adt_payloads() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()
@@ -549,6 +695,166 @@ public final class SchemaRefinementSourceAdtHarness {
             "expected one of `Connected`))\n",
             "source ADT success preserved input identity\n"
         )
+    );
+}
+
+#[test]
+fn jvm_runtime_schema_refinement_plan_traverses_deep_recursive_values_iteratively() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        eprintln!("skipping deep recursive refinement verification because a JDK is unavailable");
+        return;
+    }
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let output = run_java_runtime_harness(
+        "runtime-schema-refinement-deep-recursive-source-adt",
+        "SchemaRefinementDeepRecursiveSourceAdtHarness.java",
+        r#"
+public final class SchemaRefinementDeepRecursiveSourceAdtHarness {
+    private static final Object PLAN = plan();
+
+    private static Object plan() {
+        Object state = VelnRuntime.list("variant", VelnRuntime.list("Connected"));
+        Object optionalRecursive = VelnRuntime.list("option", Integer.valueOf(2));
+        Object recursive = VelnRuntime.list(
+            "adt",
+            VelnRuntime.list("Next"),
+            VelnRuntime.list(
+                VelnRuntime.list(
+                    "Next",
+                    VelnRuntime.list(
+                        VelnRuntime.list(Integer.valueOf(0), "state/value~", Integer.valueOf(0)),
+                        VelnRuntime.list(Integer.valueOf(1), "next/value~", Integer.valueOf(1))
+                    )
+                )
+            )
+        );
+        Object root = VelnRuntime.list(
+            "record",
+            VelnRuntime.list(VelnRuntime.list("item", Integer.valueOf(2)))
+        );
+        return VelnRuntime.list(
+            Integer.valueOf(3),
+            VelnRuntime.list(
+                state,
+                optionalRecursive,
+                recursive,
+                root
+            )
+        );
+    }
+
+    private static Object value(int depth, String state) {
+        Object item = VelnRuntime.adt("Node::Next", new Object[] {
+            VelnRuntime.adt("State::" + state, new Object[] {}),
+            VelnRuntime.none()
+        });
+        for (int index = 0; index < depth; index += 1) {
+            item = VelnRuntime.adt("Node::Next", new Object[] {
+                VelnRuntime.adt("State::Connected", new Object[] {}),
+                VelnRuntime.some(item)
+            });
+        }
+        return VelnRuntime.record("item", item);
+    }
+
+    private static Object constructorFailure(int depth) {
+        Object item = VelnRuntime.adt("Node::End", new Object[] {});
+        for (int index = 0; index < depth; index += 1) {
+            item = VelnRuntime.adt("Node::Next", new Object[] {
+                VelnRuntime.adt("State::Connected", new Object[] {}),
+                VelnRuntime.some(item)
+            });
+        }
+        return VelnRuntime.record("item", item);
+    }
+
+    private static VelnRuntime.Result validate(Object value) {
+        return (VelnRuntime.Result) VelnRuntime.validateSchemaRefinementPlan(
+            value,
+            VelnRuntime.adt("ByteOffset", new Object[] { Long.valueOf(71) }),
+            "Packet",
+            PLAN
+        );
+    }
+
+    private static long allocatedByValidation(
+        com.sun.management.ThreadMXBean allocations,
+        Object value
+    ) {
+        long thread = Thread.currentThread().getId();
+        long before = allocations.getThreadAllocatedBytes(thread);
+        VelnRuntime.Result result = validate(value);
+        long allocated = allocations.getThreadAllocatedBytes(thread) - before;
+        if (!result.isOk() || result.value() != value) {
+            throw new AssertionError("deep recursive validation did not preserve input identity");
+        }
+        return allocated;
+    }
+
+    public static void main(String[] args) {
+        validate(value(256, "Connected"));
+        com.sun.management.ThreadMXBean allocations =
+            (com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory
+                .getThreadMXBean();
+        if (!allocations.isThreadAllocatedMemorySupported()) {
+            throw new AssertionError("thread allocation accounting is required");
+        }
+        allocations.setThreadAllocatedMemoryEnabled(true);
+        Object small = value(2000, "Connected");
+        Object large = value(4000, "Connected");
+        long smallBytes = allocatedByValidation(allocations, small);
+        long largeBytes = allocatedByValidation(allocations, large);
+        if (largeBytes > smallBytes * 3L) {
+            throw new AssertionError(
+                "deep validation allocation did not scale linearly: "
+                    + smallBytes + " -> " + largeBytes
+            );
+        }
+
+        int failureDepth = 64;
+        StringBuilder path = new StringBuilder("/Packet/item");
+        for (int index = 0; index < failureDepth; index += 1) {
+            path.append("/Next/next~1value~0");
+        }
+        path.append("/Next/state~1value~0");
+        String expected = "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, "
+            + "ByteOffset(71), " + path + ", actual variant `Closed`; "
+            + "expected one of `Connected`))";
+        String actual = validate(value(failureDepth, "Closed")).toString();
+        if (!actual.equals(expected)) {
+            throw new AssertionError("unexpected deep failure path: " + actual);
+        }
+        String expectedConstructorPath = "/Packet/item";
+        for (int index = 0; index < failureDepth; index += 1) {
+            expectedConstructorPath += "/Next/next~1value~0";
+        }
+        String expectedConstructorFailure =
+            "Err(DecodeErrorWithReason(schema.variant_refinement_mismatch, "
+            + "ByteOffset(71), " + expectedConstructorPath + ", actual variant `End`; "
+            + "expected one of `Next`))";
+        String actualConstructorFailure = validate(constructorFailure(failureDepth)).toString();
+        if (!actualConstructorFailure.equals(expectedConstructorFailure)) {
+            throw new AssertionError(
+                "unexpected deep constructor failure path: " + actualConstructorFailure
+            );
+        }
+        System.out.println("deep recursive refinement traversal passed");
+    }
+}
+"#,
+        &program,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "deep recursive refinement traversal passed\n"
     );
 }
 

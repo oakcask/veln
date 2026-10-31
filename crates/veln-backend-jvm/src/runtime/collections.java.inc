@@ -1,5 +1,91 @@
     private static final int byteChunkMaximumRetainedCapacityRatio = 4;
 
+    private static final class SchemaRefinementPath {
+        final SchemaRefinementPath parent;
+        final String prefix;
+        final String segment;
+
+        SchemaRefinementPath(String prefix) {
+            this.parent = null;
+            this.prefix = prefix;
+            this.segment = null;
+        }
+
+        SchemaRefinementPath(SchemaRefinementPath parent, String segment) {
+            this.parent = parent;
+            this.prefix = null;
+            this.segment = segment;
+        }
+
+        SchemaRefinementPath append(String segment) {
+            return new SchemaRefinementPath(this, segment);
+        }
+
+        String render() {
+            java.util.ArrayDeque<String> segments = new java.util.ArrayDeque<String>();
+            SchemaRefinementPath path = this;
+            while (path.parent != null) {
+                segments.addFirst(path.segment);
+                path = path.parent;
+            }
+            StringBuilder rendered = new StringBuilder(path.prefix);
+            for (String segment : segments) {
+                rendered.append('/').append(jsonPointerToken(segment));
+            }
+            return rendered.toString();
+        }
+    }
+
+    private static final class SchemaRefinementWork {
+        final Object value;
+        final SchemaRefinementPath path;
+        final int node;
+
+        SchemaRefinementWork(Object value, SchemaRefinementPath path, int node) {
+            this.value = value;
+            this.path = path;
+            this.node = node;
+        }
+    }
+
+    private static final class SchemaRefinementListWork {
+        final ListValue remaining;
+        final SchemaRefinementPath path;
+        final int index;
+        final int node;
+
+        SchemaRefinementListWork(
+            ListValue remaining,
+            SchemaRefinementPath path,
+            int index,
+            int node
+        ) {
+            this.remaining = remaining;
+            this.path = path;
+            this.index = index;
+            this.node = node;
+        }
+    }
+
+    private static final class SchemaRefinementVecWork {
+        final java.util.List<?> items;
+        final SchemaRefinementPath path;
+        final int index;
+        final int node;
+
+        SchemaRefinementVecWork(
+            java.util.List<?> items,
+            SchemaRefinementPath path,
+            int index,
+            int node
+        ) {
+            this.items = items;
+            this.path = path;
+            this.index = index;
+            this.node = node;
+        }
+    }
+
     public static Object validateSchemaRefinementPlan(
         Object value,
         Object baseOffset,
@@ -126,6 +212,199 @@
         Object value,
         Object baseOffset,
         String path,
+        java.util.List<?> nodes,
+        int nodeIndex
+    ) {
+        return schemaRefinementPlanFailure(
+            value,
+            baseOffset,
+            new SchemaRefinementPath(path),
+            nodes,
+            nodeIndex
+        );
+    }
+
+    private static Object schemaRefinementPlanFailure(
+        Object value,
+        Object baseOffset,
+        SchemaRefinementPath path,
+        java.util.List<?> nodes,
+        int nodeIndex
+    ) {
+        java.util.ArrayDeque<Object> work = new java.util.ArrayDeque<Object>();
+        work.addLast(new SchemaRefinementWork(value, path, nodeIndex));
+        while (!work.isEmpty()) {
+            Object pending = work.removeLast();
+            if (pending instanceof SchemaRefinementListWork) {
+                SchemaRefinementListWork listWork = (SchemaRefinementListWork) pending;
+                if (listWork.remaining.cons) {
+                    work.addLast(new SchemaRefinementListWork(
+                        (ListValue) listWork.remaining.tail,
+                        listWork.path,
+                        listWork.index + 1,
+                        listWork.node
+                    ));
+                    work.addLast(new SchemaRefinementWork(
+                        listWork.remaining.head,
+                        listWork.path.append(Integer.toString(listWork.index)),
+                        listWork.node
+                    ));
+                }
+                continue;
+            }
+            if (pending instanceof SchemaRefinementVecWork) {
+                SchemaRefinementVecWork vecWork = (SchemaRefinementVecWork) pending;
+                if (vecWork.index < vecWork.items.size()) {
+                    work.addLast(new SchemaRefinementVecWork(
+                        vecWork.items,
+                        vecWork.path,
+                        vecWork.index + 1,
+                        vecWork.node
+                    ));
+                    work.addLast(new SchemaRefinementWork(
+                        vecWork.items.get(vecWork.index),
+                        vecWork.path.append(Integer.toString(vecWork.index)),
+                        vecWork.node
+                    ));
+                }
+                continue;
+            }
+            SchemaRefinementWork frame = (SchemaRefinementWork) pending;
+            Object currentValue = frame.value;
+            SchemaRefinementPath currentPath = frame.path;
+            java.util.List<?> plan = (java.util.List<?>) nodes.get(frame.node);
+            String kind = asString(plan.get(0));
+            if (kind.equals("variant")) {
+                Object failure = schemaVariantRefinementFailure(
+                    currentValue,
+                    baseOffset,
+                    currentPath,
+                    (java.util.List<?>) plan.get(1)
+                );
+                if (failure != null) return failure;
+                continue;
+            }
+            if (kind.equals("adt")) {
+                java.util.List<?> expected = (java.util.List<?>) plan.get(1);
+                if (!expected.isEmpty()) {
+                    Object failure = schemaVariantRefinementFailure(
+                        currentValue,
+                        baseOffset,
+                        currentPath,
+                        expected
+                    );
+                    if (failure != null) return failure;
+                }
+                Adt adtValue = (Adt) currentValue;
+                String actual = adtLeafName(adtValue.name);
+                boolean matched = false;
+                for (Object variantValue : (java.util.List<?>) plan.get(2)) {
+                    java.util.List<?> variant = (java.util.List<?>) variantValue;
+                    String variantName = asString(variant.get(0));
+                    if (!actual.equals(variantName)) continue;
+                    matched = true;
+                    SchemaRefinementPath constructorPath = currentPath.append(variantName);
+                    java.util.List<?> payloads = (java.util.List<?>) variant.get(1);
+                    for (int index = payloads.size() - 1; index >= 0; index -= 1) {
+                        java.util.List<?> payload = (java.util.List<?>) payloads.get(index);
+                        work.addLast(new SchemaRefinementWork(
+                            adtValue.payloads[((Number) payload.get(0)).intValue()],
+                            constructorPath.append(asString(payload.get(1))),
+                            ((Number) payload.get(2)).intValue()
+                        ));
+                    }
+                    break;
+                }
+                if (!matched) {
+                    throw new IllegalStateException(
+                        "missing schema refinement plan for ADT constructor `" + actual + "`"
+                    );
+                }
+                continue;
+            }
+            if (kind.equals("record")) {
+                java.util.List<?> fields = (java.util.List<?>) plan.get(1);
+                for (int index = fields.size() - 1; index >= 0; index -= 1) {
+                    java.util.List<?> field = (java.util.List<?>) fields.get(index);
+                    String name = asString(field.get(0));
+                    work.addLast(new SchemaRefinementWork(
+                        recordField(currentValue, name),
+                        currentPath.append(name),
+                        ((Number) field.get(1)).intValue()
+                    ));
+                }
+                continue;
+            }
+            if (kind.equals("option")) {
+                Option option = (Option) currentValue;
+                if (option.some) {
+                    work.addLast(new SchemaRefinementWork(
+                        option.value,
+                        currentPath,
+                        ((Number) plan.get(1)).intValue()
+                    ));
+                }
+                continue;
+            }
+            if (kind.equals("result")) {
+                Result result = (Result) currentValue;
+                Object branch = plan.get(result.ok ? 1 : 2);
+                if (!(branch instanceof java.util.List<?> && ((java.util.List<?>) branch).isEmpty())) {
+                    work.addLast(new SchemaRefinementWork(
+                        result.value,
+                        currentPath,
+                        ((Number) branch).intValue()
+                    ));
+                }
+                continue;
+            }
+            if (kind.equals("list")) {
+                ListValue item = (ListValue) currentValue;
+                work.addLast(new SchemaRefinementListWork(
+                    item,
+                    currentPath,
+                    0,
+                    ((Number) plan.get(1)).intValue()
+                ));
+                continue;
+            }
+            if (kind.equals("vec")) {
+                java.util.List<?> items = (java.util.List<?>) currentValue;
+                work.addLast(new SchemaRefinementVecWork(
+                    items,
+                    currentPath,
+                    0,
+                    ((Number) plan.get(1)).intValue()
+                ));
+                continue;
+            }
+            if (kind.equals("dict")) {
+                java.util.Map<Object, Object> values = asMap(currentValue);
+                java.util.ArrayList<SchemaRefinementDictionaryKey> keys =
+                    new java.util.ArrayList<SchemaRefinementDictionaryKey>();
+                for (Object key : values.keySet()) {
+                    keys.add(new SchemaRefinementDictionaryKey(asString(key)));
+                }
+                java.util.Collections.sort(keys, VelnRuntime::compareUtf8Bytes);
+                for (int index = keys.size() - 1; index >= 0; index -= 1) {
+                    SchemaRefinementDictionaryKey entry = keys.get(index);
+                    work.addLast(new SchemaRefinementWork(
+                        values.get(entry.key),
+                        currentPath.append(entry.key),
+                        ((Number) plan.get(1)).intValue()
+                    ));
+                }
+                continue;
+            }
+            throw new IllegalStateException("unknown schema refinement plan `" + kind + "`");
+        }
+        return null;
+    }
+
+    private static Object schemaRefinementPlanFailure(
+        Object value,
+        Object baseOffset,
+        String path,
         java.util.List<?> tree
     ) {
         java.util.ArrayList<Object> nodes = new java.util.ArrayList<Object>();
@@ -196,153 +475,19 @@
         return index;
     }
 
-    private static Object schemaRefinementPlanFailure(
+    private static Object schemaVariantRefinementFailure(
         Object value,
         Object baseOffset,
-        String path,
-        java.util.List<?> nodes,
-        int nodeIndex
+        SchemaRefinementPath path,
+        java.util.List<?> expected
     ) {
-        java.util.List<?> plan = (java.util.List<?>) nodes.get(nodeIndex);
-        String kind = asString(plan.get(0));
-        if (kind.equals("variant")) {
-            return schemaVariantRefinementFailure(
-                value,
-                baseOffset,
-                path,
-                (java.util.List<?>) plan.get(1)
-            );
+        String actual = value instanceof Adt
+            ? adtLeafName(((Adt) value).name)
+            : format(value);
+        for (Object candidate : expected) {
+            if (actual.equals(asString(candidate))) return null;
         }
-        if (kind.equals("adt")) {
-            java.util.List<?> expected = (java.util.List<?>) plan.get(1);
-            if (!expected.isEmpty()) {
-                Object failure = schemaVariantRefinementFailure(
-                    value,
-                    baseOffset,
-                    path,
-                    expected
-                );
-                if (failure != null) return failure;
-            }
-            Adt adtValue = (Adt) value;
-            String actual = adtLeafName(adtValue.name);
-            for (Object variantValue : (java.util.List<?>) plan.get(2)) {
-                java.util.List<?> variant = (java.util.List<?>) variantValue;
-                String variantName = asString(variant.get(0));
-                if (!actual.equals(variantName)) continue;
-                String constructorPath = path + "/" + jsonPointerToken(variantName);
-                for (Object payloadValue : (java.util.List<?>) variant.get(1)) {
-                    java.util.List<?> payload = (java.util.List<?>) payloadValue;
-                    int index = ((Number) payload.get(0)).intValue();
-                    String segment = asString(payload.get(1));
-                    Object failure = schemaRefinementPlanFailure(
-                        adtValue.payloads[index],
-                        baseOffset,
-                        constructorPath + "/" + jsonPointerToken(segment),
-                        nodes,
-                        ((Number) payload.get(2)).intValue()
-                    );
-                    if (failure != null) return failure;
-                }
-                return null;
-            }
-            throw new IllegalStateException(
-                "missing schema refinement plan for ADT constructor `" + actual + "`"
-            );
-        }
-        if (kind.equals("record")) {
-            for (Object fieldValue : (java.util.List<?>) plan.get(1)) {
-                java.util.List<?> field = (java.util.List<?>) fieldValue;
-                String name = asString(field.get(0));
-                Object failure = schemaRefinementPlanFailure(
-                    recordField(value, name),
-                    baseOffset,
-                    path + "/" + jsonPointerToken(name),
-                    nodes,
-                    ((Number) field.get(1)).intValue()
-                );
-                if (failure != null) return failure;
-            }
-            return null;
-        }
-        if (kind.equals("option")) {
-            Option option = (Option) value;
-            return option.some
-                ? schemaRefinementPlanFailure(
-                    option.value,
-                    baseOffset,
-                    path,
-                    nodes,
-                    ((Number) plan.get(1)).intValue()
-                )
-                : null;
-        }
-        if (kind.equals("result")) {
-            Result result = (Result) value;
-            Object branch = plan.get(result.ok ? 1 : 2);
-            if (branch instanceof java.util.List<?> && ((java.util.List<?>) branch).isEmpty()) {
-                return null;
-            }
-            return schemaRefinementPlanFailure(
-                result.value,
-                baseOffset,
-                path,
-                nodes,
-                ((Number) branch).intValue()
-            );
-        }
-        if (kind.equals("list")) {
-            ListValue item = (ListValue) value;
-            long index = 0L;
-            while (item.cons) {
-                Object failure = schemaRefinementPlanFailure(
-                    item.head,
-                    baseOffset,
-                    path + "/" + index,
-                    nodes,
-                    ((Number) plan.get(1)).intValue()
-                );
-                if (failure != null) return failure;
-                item = (ListValue) item.tail;
-                index += 1L;
-            }
-            return null;
-        }
-        if (kind.equals("vec")) {
-            java.util.List<?> items = (java.util.List<?>) value;
-            for (int index = 0; index < items.size(); index += 1) {
-                Object failure = schemaRefinementPlanFailure(
-                    items.get(index),
-                    baseOffset,
-                    path + "/" + index,
-                    nodes,
-                    ((Number) plan.get(1)).intValue()
-                );
-                if (failure != null) return failure;
-            }
-            return null;
-        }
-        if (kind.equals("dict")) {
-            java.util.Map<Object, Object> values = asMap(value);
-            java.util.ArrayList<SchemaRefinementDictionaryKey> keys =
-                new java.util.ArrayList<SchemaRefinementDictionaryKey>();
-            for (Object key : values.keySet()) {
-                keys.add(new SchemaRefinementDictionaryKey(asString(key)));
-            }
-            java.util.Collections.sort(keys, VelnRuntime::compareUtf8Bytes);
-            for (SchemaRefinementDictionaryKey entry : keys) {
-                Object failure = schemaRefinementPlanFailure(
-                    values.get(entry.key),
-                    baseOffset,
-                    path + "/" + jsonPointerToken(entry.key),
-                    nodes,
-                    ((Number) plan.get(1)).intValue()
-                );
-                if (failure != null) return failure;
-            }
-            return null;
-        }
-        throw new IllegalStateException("unknown schema refinement plan `" + kind + "`");
+        return schemaVariantRefinementFailure(value, baseOffset, path.render(), expected);
     }
 
     private static Object schemaVariantRefinementFailure(
