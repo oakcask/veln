@@ -413,11 +413,14 @@ install that production client boundary.
   occurrence. A constructor refinement on an outer ADT occurrence is checked
   only at that occurrence. A recursive payload declared as the unrefined ADT
   may use any of its constructors, while refinements in instantiated generic
-  arguments are still checked at their payload positions. On the JVM, deep
+  arguments are still checked at their payload positions. A constructor
+  refinement explicitly written on the recursive payload is checked at that
+  payload occurrence and again at every later occurrence reached through the
+  same refined payload declaration. On the JVM, deep
   finite values retain this behavior without using the host call stack, and
   temporary allocation grows linearly with the number of visited recursive
-  value occurrences. Lists can return the first mismatch without allocating
-  traversal work proportional to the unvisited tail. Lists and vectors visit
+  value occurrences. Lists and vectors can return the first mismatch without
+  allocating traversal work proportional to the unvisited tail. They visit
   elements in increasing
   index order. Dictionaries visit values in ascending lexicographic order of
   the keys' UTF-8 bytes. Nested and repeated container positions are all
@@ -444,8 +447,8 @@ install that production client boundary.
   [`schema-runtime-recursive-source-adt-validation`](../../examples/specification/run/schema-runtime-recursive-source-adt-validation/).
   JVM integration coverage compares successful recursive chains at depths
   2,000 and 4,000 after warm-up, rejects allocation growth above three times,
-  and checks an index-zero mismatch with a million-element list tail under a
-  64 MiB heap.
+  checks an explicitly refined recursive edge, and checks index-zero mismatches
+  with million-element list and vector tails under a 64 MiB heap.
 - Compatibility generated binary schema decode helpers read fields in
   declaration order and return the schema-local visible record shape. They are
   retained for old fixtures and runtime adapter coverage, not as the public

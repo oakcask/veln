@@ -1507,8 +1507,12 @@ uses the same nominal identity and exact instantiated generic arguments as that
 active occurrence. Refinement erasure continues through those regular recursive
 edges. A constructor refinement constrains only the ADT occurrence where it is
 written. It is not copied onto a recursive payload occurrence whose declared
-type is the unrefined ADT. Refinements in the payload's instantiated generic
-arguments remain in effect and are erased independently for the input record.
+type is the unrefined ADT. A refinement explicitly written on the recursive
+payload type constrains that payload occurrence and every later occurrence
+reached through the same refined payload declaration. It remains in the result
+record and is erased independently in the input record. Refinements in the
+payload's instantiated generic arguments follow the same result-retention and
+input-erasure rules.
 A return with different instantiated arguments, including
 generic-expanding recursion, makes the validation operation a static failure.
 Every reachable composed schema must be format-neutral

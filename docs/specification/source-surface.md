@@ -494,8 +494,10 @@ source-ADT payload graph may use direct or mutual recursive edges when every
 return to an active source ADT uses the same instantiated type arguments.
 An outer constructor refinement applies to that ADT occurrence only. A
 recursive payload whose declared type is the unrefined ADT does not inherit the
-outer constructor set; refinements in its instantiated generic arguments still
-apply at their own positions.
+outer constructor set. A constructor refinement written on the recursive
+payload type applies at that payload occurrence and at later recursive
+occurrences where the payload declaration repeats it. Refinements in
+instantiated generic arguments also apply at their own positions.
 Generic-expanding recursion is not eligible because it has no finite validation
 shape. Binary schemas are
 also not eligible. The value and offset expressions are evaluated once, in
