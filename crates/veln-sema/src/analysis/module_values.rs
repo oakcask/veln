@@ -354,23 +354,22 @@ fn module_value_publication_failures(
         .module_values
         .iter()
         .enumerate()
-        .filter_map(|(index, value)| {
-            (invalid[index] && value.name.is_some()).then(|| {
-                let mut causal_diagnostics = causes[index].iter().cloned().collect::<Vec<_>>();
-                causal_diagnostics.sort_by(|left, right| {
-                    left.span
-                        .file
-                        .as_str()
-                        .cmp(right.span.file.as_str())
-                        .then(left.span.start.offset.cmp(&right.span.start.offset))
-                        .then(left.span.end.offset.cmp(&right.span.end.offset))
-                        .then(left.diagnostic_id.cmp(&right.diagnostic_id))
-                });
-                ModuleValuePublicationFailure {
-                    span: value.span.clone(),
-                    causal_diagnostics,
-                }
-            })
+        .filter(|(index, value)| invalid[*index] && value.name.is_some())
+        .map(|(index, value)| {
+            let mut causal_diagnostics = causes[index].iter().cloned().collect::<Vec<_>>();
+            causal_diagnostics.sort_by(|left, right| {
+                left.span
+                    .file
+                    .as_str()
+                    .cmp(right.span.file.as_str())
+                    .then(left.span.start.offset.cmp(&right.span.start.offset))
+                    .then(left.span.end.offset.cmp(&right.span.end.offset))
+                    .then(left.diagnostic_id.cmp(&right.diagnostic_id))
+            });
+            ModuleValuePublicationFailure {
+                span: value.span.clone(),
+                causal_diagnostics,
+            }
         })
         .collect::<Vec<_>>();
     failures.sort_by(|left, right| {
