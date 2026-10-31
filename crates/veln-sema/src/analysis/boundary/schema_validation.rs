@@ -242,88 +242,16 @@ fn analyze_schema_predicate_expression(
                 #[cfg(test)]
                 SCHEMA_PREDICATE_VISITED_NODES
                     .set(SCHEMA_PREDICATE_VISITED_NODES.get().saturating_add(1));
-                match expression.kind {
-                    ExprKind::NamePath { segments, .. } => {
-                        let reference = (segments.len() == 1)
-                            .then(|| segments.into_iter().next())
-                            .flatten();
-                        results.push(SchemaPredicateExpressionInfo {
-                            ty: reference.and_then(|reference| {
-                                schema_field_reference_type(decoded_fields, &reference).cloned()
-                            }),
-                            literal_int: None,
-                            invalid_shift: None,
-                        });
-                    }
-                    ExprKind::FieldAccess { base, field, .. } => {
-                        let reference = schema_predicate_reference_path_from_field(*base, field);
-                        results.push(SchemaPredicateExpressionInfo {
-                            ty: reference.and_then(|reference| {
-                                schema_field_reference_type(decoded_fields, &reference).cloned()
-                            }),
-                            literal_int: None,
-                            invalid_shift: None,
-                        });
-                    }
-                    ExprKind::IntLiteral(text) => {
-                        results.push(SchemaPredicateExpressionInfo {
-                            ty: Some(Type::int()),
-                            literal_int: parse_schema_predicate_int_literal(&text),
-                            invalid_shift: None,
-                        });
-                    }
-                    ExprKind::BoolLiteral(_) => results.push(SchemaPredicateExpressionInfo {
-                        ty: Some(Type::bool()),
-                        literal_int: None,
-                        invalid_shift: None,
-                    }),
-                    ExprKind::StringLiteral(_) => results.push(SchemaPredicateExpressionInfo {
-                        ty: Some(Type::string()),
-                        literal_int: None,
-                        invalid_shift: None,
-                    }),
-                    ExprKind::FloatLiteral(_) => results.push(SchemaPredicateExpressionInfo {
-                        ty: Some(Type::float()),
-                        literal_int: None,
-                        invalid_shift: None,
-                    }),
-                    ExprKind::Prefix { op, expr } => {
-                        tasks.push(SchemaPredicateAnalysisTask::FinishPrefix(op));
-                        tasks.push(SchemaPredicateAnalysisTask::Visit(expr));
-                    }
-                    ExprKind::Binary { op, left, right } => {
-                        tasks.push(SchemaPredicateAnalysisTask::FinishBinary(op));
-                        tasks.push(SchemaPredicateAnalysisTask::Visit(right));
-                        tasks.push(SchemaPredicateAnalysisTask::Visit(left));
-                    }
-                    _ => results.push(SchemaPredicateExpressionInfo {
-                        ty: None,
-                        literal_int: None,
-                        invalid_shift: None,
-                    }),
-                }
+                schedule_schema_predicate_expression(
+                    *expression,
+                    decoded_fields,
+                    &mut tasks,
+                    &mut results,
+                );
             }
             SchemaPredicateAnalysisTask::FinishPrefix(operator) => {
                 let operand = results.pop().expect("schema predicate prefix operand");
-                let expected = match operator {
-                    PrefixOp::Not => Type::bool(),
-                    PrefixOp::Negate | PrefixOp::BitwiseNot => Type::int(),
-                };
-                require_schema_predicate_operand(
-                    prefix_operator_text(operator),
-                    &expected,
-                    operand.ty,
-                )?;
-                let literal_int = match operator {
-                    PrefixOp::Negate => operand.literal_int.map(i64::wrapping_neg),
-                    PrefixOp::BitwiseNot => operand.literal_int.map(|value| !value),
-                    PrefixOp::Not => None,
-                };
-                results.push(SchemaPredicateExpressionInfo {
-                    ty: Some(expected),
-                    literal_int,
-                    invalid_shift: operand.invalid_shift,
-                });
+                results.push(schema_predicate_prefix_expression_info(operator, operand)?);
             }
             SchemaPredicateAnalysisTask::FinishBinary(operator) => {
                 let right = results.pop().expect("schema predicate right operand");
@@ -339,6 +267,92 @@ fn analyze_schema_predicate_expression(
     Ok(SchemaPredicateAnalysis {
         actual: result.ty,
         invalid_shift: result.invalid_shift,
+    })
+}
+
+fn schedule_schema_predicate_expression(
+    expression: Expr,
+    decoded_fields: &BTreeMap<String, Type>,
+    tasks: &mut Vec<SchemaPredicateAnalysisTask>,
+    results: &mut Vec<SchemaPredicateExpressionInfo>,
+) {
+    let info = match expression.kind {
+        ExprKind::NamePath { segments, .. } => {
+            let reference = (segments.len() == 1)
+                .then(|| segments.into_iter().next())
+                .flatten();
+            schema_predicate_reference_info(decoded_fields, reference)
+        }
+        ExprKind::FieldAccess { base, field, .. } => {
+            let reference = schema_predicate_reference_path_from_field(*base, field);
+            schema_predicate_reference_info(decoded_fields, reference)
+        }
+        ExprKind::IntLiteral(text) => SchemaPredicateExpressionInfo {
+            ty: Some(Type::int()),
+            literal_int: parse_schema_predicate_int_literal(&text),
+            invalid_shift: None,
+        },
+        ExprKind::BoolLiteral(_) => schema_predicate_typed_leaf(Type::bool()),
+        ExprKind::StringLiteral(_) => schema_predicate_typed_leaf(Type::string()),
+        ExprKind::FloatLiteral(_) => schema_predicate_typed_leaf(Type::float()),
+        ExprKind::Prefix { op, expr } => {
+            tasks.push(SchemaPredicateAnalysisTask::FinishPrefix(op));
+            tasks.push(SchemaPredicateAnalysisTask::Visit(expr));
+            return;
+        }
+        ExprKind::Binary { op, left, right } => {
+            tasks.push(SchemaPredicateAnalysisTask::FinishBinary(op));
+            tasks.push(SchemaPredicateAnalysisTask::Visit(right));
+            tasks.push(SchemaPredicateAnalysisTask::Visit(left));
+            return;
+        }
+        _ => SchemaPredicateExpressionInfo {
+            ty: None,
+            literal_int: None,
+            invalid_shift: None,
+        },
+    };
+    results.push(info);
+}
+
+fn schema_predicate_reference_info(
+    decoded_fields: &BTreeMap<String, Type>,
+    reference: Option<String>,
+) -> SchemaPredicateExpressionInfo {
+    SchemaPredicateExpressionInfo {
+        ty: reference
+            .and_then(|reference| schema_field_reference_type(decoded_fields, &reference).cloned()),
+        literal_int: None,
+        invalid_shift: None,
+    }
+}
+
+fn schema_predicate_typed_leaf(ty: Type) -> SchemaPredicateExpressionInfo {
+    SchemaPredicateExpressionInfo {
+        ty: Some(ty),
+        literal_int: None,
+        invalid_shift: None,
+    }
+}
+
+fn schema_predicate_prefix_expression_info(
+    operator: PrefixOp,
+    operand: SchemaPredicateExpressionInfo,
+) -> Result<SchemaPredicateExpressionInfo, SchemaPredicateOperandMismatch> {
+    let expected = match operator {
+        PrefixOp::Not => Type::bool(),
+        PrefixOp::Negate | PrefixOp::BitwiseNot => Type::int(),
+    };
+    require_schema_predicate_operand(prefix_operator_text(operator), &expected, operand.ty)?;
+    let literal_int = match operator {
+        PrefixOp::Negate => operand.literal_int.map(i64::wrapping_neg),
+        PrefixOp::BitwiseNot => operand.literal_int.map(|value| !value),
+        PrefixOp::Not => None,
+    };
+    Ok(SchemaPredicateExpressionInfo {
+        ty: Some(expected),
+        literal_int,
+        invalid_shift: operand.invalid_shift,
     })
 }
 
