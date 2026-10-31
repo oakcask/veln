@@ -612,15 +612,12 @@ impl SchemaRefinementPlanBuilder<'_> {
             Type::Named { args, .. } | Type::VariantRefinement { args, .. } => args,
             _ => return None,
         };
-        for arg in args {
-            let _ = self.build(current_module, current_package, arg);
-        }
-        if matches!(ty, Type::VariantRefinement { .. }) {
-            return self.refined_source_adt(current_module, current_package, ty, memo_key);
-        }
         let identity = descriptor.identity();
         if let Some(completed) = self.completed_adts.get(&memo_key) {
             return *completed;
+        }
+        if matches!(ty, Type::VariantRefinement { .. }) {
+            return self.refined_source_adt(current_module, current_package, ty, memo_key);
         }
         if let Some((_, active_args, node)) = self
             .adt_stack
@@ -629,6 +626,9 @@ impl SchemaRefinementPlanBuilder<'_> {
             .find(|(active_identity, _, _)| active_identity == &identity)
         {
             return (active_args == args).then_some(*node);
+        }
+        for arg in args {
+            let _ = self.build(current_module, current_package, arg);
         }
         let descriptor_module = descriptor.module_name.clone();
         let descriptor_package = descriptor.package_name.clone();
@@ -1393,6 +1393,106 @@ fn schema_dispatch_field_type(
 #[cfg(test)]
 mod refinement_reachability_tests {
     use super::*;
+    use veln_ast::lower_surface_ast;
+    use veln_source::SourceFile;
+    use veln_syntax::parse;
+
+    fn nested_type(name: &str, depth: usize, leaf: &str) -> String {
+        (0..depth).fold(leaf.to_owned(), |nested, _| format!("{name}<{nested}>"))
+    }
+
+    fn refinement_plan_nodes(source: String) -> (Vec<IrSchemaRefinementPlanNode>, usize) {
+        let source = SourceFile::new("main.veln", source);
+        let parsed = parse(&source);
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+        let adts = AdtRegistry::from_module(&module);
+        let schema = &module.schemas[0];
+        let ty = format_neutral_schema_field_type_for_schema(
+            &module,
+            schema,
+            &adts,
+            &schema.fields[0].ty,
+        )
+        .expect("schema field type");
+        let mut builder = SchemaRefinementPlanBuilder {
+            module: &module,
+            adts: &adts,
+            nodes: Vec::new(),
+            completed_adts: HashMap::new(),
+            adt_stack: Vec::new(),
+            deferred_refined_adts: Vec::new(),
+        };
+        let root = builder
+            .build(
+                schema.module_name.as_deref(),
+                schema.package_name.as_deref(),
+                &ty,
+            )
+            .expect("refinement plan root");
+        (builder.nodes, root)
+    }
+
+    #[test]
+    fn refinement_builder_reuses_completed_nested_generic_plans() {
+        for depth in [32, 64] {
+            let field_type = nested_type("Pair", depth, "Option<State::Connected>");
+            let (nodes, root) = refinement_plan_nodes(format!(
+                "type State\n  Connected\n  Closed\nend\n\
+                 type Pair<A>\n  Pair(left: A, right: A)\nend\n\
+                 schema Packet\n  item: {field_type}\nend\n"
+            ));
+
+            assert_eq!(nodes.len(), depth + 4);
+            assert!(matches!(
+                nodes[root],
+                IrSchemaRefinementPlanNode::Adt { .. }
+            ));
+        }
+    }
+
+    #[test]
+    fn refinement_builder_reuses_active_regular_recursive_plans() {
+        for depth in [32, 64] {
+            let field_type = nested_type("RecursivePair", depth, "Option<State::Connected>");
+            let (nodes, root) = refinement_plan_nodes(format!(
+                "type State\n  Connected\n  Closed\nend\n\
+                 type RecursivePair<A>\n  Next(value: RecursivePair<A>)\n  Pair(left: A, right: A)\nend\n\
+                 schema Packet\n  item: {field_type}\nend\n"
+            ));
+
+            assert_eq!(nodes.len(), depth + 4);
+            let mut node = root;
+            for level in 0..depth {
+                let IrSchemaRefinementPlanNode::Adt { variants, .. } = &nodes[node] else {
+                    panic!("nested recursive pair should be an ADT plan");
+                };
+                let next = variants
+                    .iter()
+                    .find(|variant| variant.name == "Next")
+                    .expect("Next variant");
+                assert_eq!(next.payloads[0].plan, node);
+                let pair = variants
+                    .iter()
+                    .find(|variant| variant.name == "Pair")
+                    .expect("Pair variant");
+                if level + 1 < depth {
+                    assert_eq!(pair.payloads[0].plan, pair.payloads[1].plan);
+                } else {
+                    let IrSchemaRefinementPlanNode::Option(left) = nodes[pair.payloads[0].plan]
+                    else {
+                        panic!("leaf payload should retain its Option plan");
+                    };
+                    let IrSchemaRefinementPlanNode::Option(right) = nodes[pair.payloads[1].plan]
+                    else {
+                        panic!("leaf payload should retain its Option plan");
+                    };
+                    assert_eq!(left, right);
+                }
+                node = pair.payloads[0].plan;
+            }
+        }
+    }
 
     fn linear_adt_plan(node_count: usize) -> Vec<IrSchemaRefinementPlanNode> {
         let mut nodes = (0..node_count.saturating_sub(1))
