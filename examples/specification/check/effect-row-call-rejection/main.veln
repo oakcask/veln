@@ -26,6 +26,23 @@ fn rejected_helper() -> ()
 	invoke(db_callback, "wrong")
 end
 
+fn rejected_alias_helper() -> ()
+	let local = invoke
+	local(db_callback, "wrong")
+end
+
+type CallbackBox<A>
+	Wrapped(value: A, count: Int)
+end
+
+fn invoke_box<effect E>(callback: CallbackBox<fn() -> () effects [...E]>) -> () effects [...E]
+	()
+end
+
+fn rejected_constructor_helper() -> ()
+	invoke_box(CallbackBox::Wrapped(db_callback, "wrong"))
+end
+
 fn accepted_call_expression_helper() -> ()
 	invoke(db_callback, make_int())
 end
@@ -60,6 +77,14 @@ end
 
 pub fn rejected_payload_is_transactional() -> ()
 	rejected_helper()
+end
+
+pub fn rejected_alias_is_transactional() -> ()
+	rejected_alias_helper()
+end
+
+pub fn rejected_constructor_is_transactional() -> ()
+	rejected_constructor_helper()
 end
 
 

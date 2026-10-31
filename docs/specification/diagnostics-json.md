@@ -895,7 +895,8 @@ accepted ordinary-call argument still contributes its instantiated row to the
 public-boundary diagnostic. The
 [`effect-row rejection case`](../../examples/specification/check/effect-row-call-rejection/)
 checks those JSON outcomes for direct and nested payload failures,
-escaping-result recovery, and an accepted ordinary-call argument.
+local-binding and constructor-payload rejection, escaping-result recovery, and
+an accepted ordinary-call argument.
 
 Format-neutral generated decode helpers retain refinements in their parameter
 and successful `Result` types, but they use ordinary structural record

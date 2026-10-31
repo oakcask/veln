@@ -162,7 +162,7 @@ pub(crate) fn instantiate_effect_rows_in_type(
     }
 }
 
-fn effect_row_in_type(ty: &Type) -> Option<String> {
+pub(crate) fn effect_row_in_type(ty: &Type) -> Option<String> {
     match ty {
         Type::Unknown => None,
         Type::Named { args, .. } | Type::VariantRefinement { args, .. } => {

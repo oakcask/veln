@@ -69,7 +69,8 @@ row tails, and rejected bounds. A call with no lower bound uses an empty
 substitution, including when the row occurs only in the result type. An
 accepted call instantiates both its result and its effects, then unions the row
 with concrete effects written beside `...E`. A rejected call exposes neither
-the tentative result row nor its effects. Public boundary diagnostics for a
+the tentative result row nor its effects, including through a local function
+binding or a rejected constructor payload. Public boundary diagnostics for a
 fully concrete accepted call use the concrete instantiated effects.
 
 Source modules may also declare nominal operation effects with `effect Name`

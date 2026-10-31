@@ -666,18 +666,20 @@ impl<'a> FunctionChecker<'a> {
                     ..expected.clone()
                 },
             );
+            let diagnostics_before = self.diagnostics.len();
             let actual = self.infer_expr(arg, Some(&inference_expected));
-            inferred.push((arg, expected, actual));
+            let argument_valid = self.diagnostics.len() == diagnostics_before;
+            inferred.push((arg, expected, actual, argument_valid));
         }
         let row_substitutions = solve_call_bound_effect_row(
             call_bound_row,
             inferred
                 .iter()
-                .map(|(_, expected, actual)| (&expected.ty, actual)),
+                .map(|(_, expected, actual, _)| (&expected.ty, actual)),
         );
-        for (arg, mut expected, actual) in inferred {
+        for (arg, mut expected, actual, argument_valid) in inferred {
             expected.ty = instantiate_effect_rows_in_type(&expected.ty, &row_substitutions);
-            valid &= is_assignable(&expected.ty, &actual);
+            valid &= argument_valid && is_assignable(&expected.ty, &actual);
             if origin.schema_encode {
                 self.check_schema_encode_assignable(
                     arg,

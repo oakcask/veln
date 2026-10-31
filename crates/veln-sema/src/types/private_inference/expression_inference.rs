@@ -27,6 +27,36 @@ pub(crate) fn infer_private_signature_expr_type(
     .ty
 }
 
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn infer_checked_effect_argument_type(
+    expr: &Expr,
+    expected: &Type,
+    current_module: Option<&str>,
+    current_package: Option<&str>,
+    uses: &[UseDecl],
+    bindings: &[Binding],
+    functions: &[FunctionSignature],
+    adts: &AdtRegistry,
+) -> Option<Type> {
+    let mut bindings = PrivateBindings::without_builtin(bindings.to_vec());
+    let signatures_by_path = signatures_by_path(functions);
+    let returns_by_path = returns_by_path(functions);
+    let mut failures = 0;
+    let outcome = infer_private_signature_expr_type_with_failures(
+        expr,
+        Some(expected),
+        current_module,
+        current_package,
+        uses,
+        &mut bindings,
+        Some(&signatures_by_path),
+        &returns_by_path,
+        adts,
+        &mut failures,
+    );
+    (failures == 0 && outcome.may_contribute && outcome.ty != Type::Unknown).then_some(outcome.ty)
+}
+
 #[derive(Clone, Debug)]
 pub(super) struct PrivateExprInference {
     pub(super) ty: Type,

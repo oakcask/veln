@@ -2,8 +2,8 @@ use super::effect_inference::{EffectsByFunction, EffectsByModulePath};
 use super::*;
 
 use crate::effect_rows::{
-    call_bound_effect_row, instantiate_effect_rows, instantiate_effect_rows_in_type,
-    solve_call_bound_effect_row,
+    call_bound_effect_row, effect_row_in_type, instantiate_effect_rows,
+    instantiate_effect_rows_in_type, solve_call_bound_effect_row,
 };
 use crate::effects::concurrency_effects;
 
@@ -50,6 +50,15 @@ pub(super) fn instantiate_local_call_effect_rows(
         args,
         context,
     )
+}
+
+pub(super) fn local_call_has_bound_effect_row(name: &str, context: &ExprEffectContext<'_>) -> bool {
+    context
+        .bindings
+        .iter()
+        .rev()
+        .find(|binding| binding.name == name)
+        .is_some_and(|binding| binding.call_bound_effect_row.is_some())
 }
 
 fn instantiate_callable_effect_rows(
@@ -257,7 +266,18 @@ fn type_for_effect_call_argument(
                 &substitutions,
             ))
         }
-        _ => function_type_for_expr(expr, context),
+        _ => function_type_for_expr(expr, context).or_else(|| {
+            infer_checked_effect_argument_type(
+                expr,
+                expected,
+                context.current_module,
+                context.current_package,
+                context.uses,
+                context.bindings,
+                context.functions,
+                context.adts,
+            )
+        }),
     }
 }
 
@@ -281,6 +301,7 @@ fn type_for_effect_constructor_call(
         return None;
     }
     let expected_args = crate::adt::unification::adt_args(expected, descriptor)?;
+    let call_bound_row = effect_row_in_type(expected);
     let mut actual_args = vec![Type::Unknown; expected_args.len()];
     for (index, arg) in args.iter().enumerate() {
         let payload_expected = crate::adt::type_operations::payload_type_with_resolved_args(
@@ -289,6 +310,14 @@ fn type_for_effect_constructor_call(
             |type_index| expected_args[type_index].clone(),
         )?;
         let actual = type_for_effect_call_argument(arg, &payload_expected, context)?;
+        let payload_contains_call_bound_row = call_bound_row
+            .as_ref()
+            .is_some_and(|row| effect_row_in_type(&payload_expected).as_deref() == Some(row));
+        if !payload_contains_call_bound_row
+            && !crate::type_relations::is_assignable(&payload_expected, &actual)
+        {
+            return None;
+        }
         crate::adt::type_operations::merge_type_args_from_payload(
             &mut actual_args,
             constructor,

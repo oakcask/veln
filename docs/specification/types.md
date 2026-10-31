@@ -1569,18 +1569,23 @@ of solving the enclosing row. If argument compatibility or any row upper bound
 fails, the call is rejected and none of its tentative row substitution
 contributes to the caller's inferred effects or escaping result type. The
 rejected result recovers as `unknown`; reusing it does not reveal a tentative
-concrete row or add effects from that row. A direct local binding of a declared
-row-polymorphic function keeps that declaration's call-bound row for calls
-through the binding. A function-typed parameter whose row belongs to the
-enclosing declaration remains rigid instead. The accepted
+concrete row or add effects from that row. This transactional rule also applies
+when an argument expression reports an error, a constructor payload is
+incompatible, or the call uses a direct local binding. A successful argument
+expression contributes its checked type regardless of its expression form. A
+direct local binding of a declared row-polymorphic function keeps that
+declaration's call-bound row for calls through the binding. A function-typed
+parameter whose row belongs to the enclosing declaration remains rigid instead.
+The accepted
 [`effect-row-call-constraints`](../../examples/specification/check/effect-row-call-constraints/)
 case checks successful constraint solving and result instantiation, including
 empty return-only rows through declared and local calls. Its
 [`rejection companion`](../../examples/specification/check/effect-row-call-rejection/)
 checks unsatisfied concrete and rigid-row bounds, accepted ordinary-call
-arguments, escaping-result recovery, and transactional rejection. It also
-requires the diagnostic for a concrete effect written beside a row, so the
-concrete-entry preservation rule is independently observable.
+arguments, escaping-result recovery, and transactional rejection through direct
+calls, local bindings, and constructor payloads. It also requires the diagnostic
+for a concrete effect written beside a row, so the concrete-entry preservation
+rule is independently observable.
 
 One record literal cannot declare the same field name twice. Duplicate record
 literal fields are name errors before record assignability chooses an expected

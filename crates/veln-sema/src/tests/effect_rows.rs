@@ -593,6 +593,36 @@ fn accepted_call_expression_argument_preserves_instantiated_private_call_effects
 }
 
 #[test]
+fn accepted_binary_argument_preserves_instantiated_private_call_effects() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn through_binary() -> ()\n",
+        "\tinvoke(db_callback, 1 + 1)\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tthrough_binary()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `db`"
+    );
+}
+
+#[test]
 fn solved_effect_row_instantiates_the_call_result_type() {
     let module = module(concat!(
         "fn db_callback() -> () effects [db]\n",
@@ -784,6 +814,103 @@ fn rejected_nested_payload_does_not_publish_a_partial_row_solution() {
 
     assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
     assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn rejected_constructor_payload_does_not_publish_a_partial_row_solution() {
+    let module = module(concat!(
+        "type CallbackBox<A>\n",
+        "\tWrapped(value: A, count: Int)\n",
+        "end\n",
+        "\n",
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke_box<effect E>(callback: CallbackBox<fn() -> () effects [...E]>) -> () effects [...E]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn rejected_helper() -> ()\n",
+        "\tinvoke_box(CallbackBox::Wrapped(db_callback, \"wrong\"))\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\trejected_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn rejected_local_alias_call_does_not_publish_declared_or_inferred_effects() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [fs, ...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "fn rejected_helper() -> ()\n",
+        "\tlet local = invoke\n",
+        "\tlocal(db_callback, \"wrong\")\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\trejected_helper()\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.missing_public"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn rejected_unresolved_argument_does_not_publish_a_partial_row_solution() {
+    let module = module(concat!(
+        "fn db_callback() -> () effects [db]\n",
+        "\t()\n",
+        "end\n",
+        "\n",
+        "fn invoke<effect E>(callback: fn() -> () effects [...E], count: Int) -> () effects [...E]\n",
+        "\tcallback()\n",
+        "end\n",
+        "\n",
+        "pub fn main() -> ()\n",
+        "\tinvoke(db_callback, missing)\n",
+        "end\n",
+    ));
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "name.unresolved");
     assert!(
         diagnostics
             .iter()

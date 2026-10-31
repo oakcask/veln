@@ -15,7 +15,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 7
+equals = 9
 
 [[diagnostics]]
 id = "effect.missing_public"
