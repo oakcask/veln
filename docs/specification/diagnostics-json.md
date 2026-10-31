@@ -891,8 +891,10 @@ The same rules own call-bound effect-row constraints. A rejected constraint or
 argument reports the ordinary `type.mismatch` for the failed compatibility
 fact. The rejected call does not emit `effect.missing_public` from a tentative
 row substitution, including when its rejected result is used later. An
-accepted ordinary-call argument still contributes its instantiated row to the
-public-boundary diagnostic. The
+accepted call still contributes its instantiated row to the public-boundary
+diagnostic when another argument is an ordinary call or `perform` expression.
+An incompatible value propagated with `?` rejects the call without publishing
+that tentative row. The
 [`effect-row rejection case`](../../examples/specification/check/effect-row-call-rejection/)
 checks those JSON outcomes for direct and nested payload failures,
 local-binding and constructor-payload rejection, escaping-result recovery, and

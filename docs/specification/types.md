@@ -1554,10 +1554,12 @@ The accepted substitution instantiates every row occurrence in the call's
 result type as well as the effects attributed to the caller. A nested payload,
 such as `Option<fn() -> () effects [...E]>`, contributes through its complete
 payload type before compatibility is decided. Any accepted argument expression,
-including an ordinary function call, contributes its checked type. A row that
-occurs only in the result type is still call-bound and receives the empty
-substitution when the call supplies no lower bound. These rules apply to both a
-declared function and a direct local binding of that function.
+including an ordinary function call or `perform` expression, contributes its
+checked type. An accepted `perform` argument does not replace the row solution
+contributed by another argument. A row that occurs only in the result type is
+still call-bound and receives the empty substitution when the call supplies no
+lower bound. These rules apply to both a declared function and a direct local
+binding of that function.
 
 Concrete entries beside the tail remain in the instantiated effect set. A
 call-bound row with no concrete lower bound becomes the empty set. A row bound
@@ -1571,11 +1573,12 @@ contributes to the caller's inferred effects or escaping result type. The
 rejected result recovers as `unknown`; reusing it does not reveal a tentative
 concrete row or add effects from that row. This transactional rule also applies
 when an argument expression reports an error, a constructor payload is
-incompatible, or the call uses a direct local binding. A successful argument
-expression contributes its checked type regardless of its expression form. A
-direct local binding of a declared row-polymorphic function keeps that
-declaration's call-bound row for calls through the binding. A function-typed
-parameter whose row belongs to the enclosing declaration remains rigid instead.
+incompatible, a value propagated with `?` is incompatible, or the call uses a
+direct local binding. A successful argument expression contributes its checked
+type regardless of its expression form. A direct local binding of a declared
+row-polymorphic function keeps that declaration's call-bound row for calls
+through the binding. A function-typed parameter whose row belongs to the
+enclosing declaration remains rigid instead.
 The accepted
 [`effect-row-call-constraints`](../../examples/specification/check/effect-row-call-constraints/)
 case checks successful constraint solving and result instantiation, including
