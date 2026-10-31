@@ -69,7 +69,7 @@ contains = "- Exported modules: api"
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/example%2Fdep/snapshot/096347ca6b0712467c3488e936b5d9098afcd0e69c6e11be98c89c97fe4f2a9b/documentation/a0c2519c0b82be2f8ec66bfe7fc428fd175acfc63c0c3591a6a1c3f627600adf/module/b09c429c2c2b962da90ceed199c3dcf25e73c5444c6023162f62ae3addabd008"
+contains = "veln-doc:///package/example%2Fdep/snapshot/096347ca6b0712467c3488e936b5d9098afcd0e69c6e11be98c89c97fe4f2a9b/documentation/f18ecbf6581d0b152d37bd1e318957aeaf5c57b4a6eb2dbef52fc48b2d26b64a/module/b09c429c2c2b962da90ceed199c3dcf25e73c5444c6023162f62ae3addabd008"
 
 [[mcp_assert]]
 id = 6
@@ -79,7 +79,7 @@ contains = "- Source path: api.veln"
 [[mcp_assert]]
 id = 6
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/example%2Fdep/snapshot/096347ca6b0712467c3488e936b5d9098afcd0e69c6e11be98c89c97fe4f2a9b/documentation/a0c2519c0b82be2f8ec66bfe7fc428fd175acfc63c0c3591a6a1c3f627600adf/declaration/fb1a8a064dd32af6cfa68eeb45a34065ccdc049850e97bdc07ccaf9ae2aeccf3"
+contains = "veln-doc:///package/example%2Fdep/snapshot/096347ca6b0712467c3488e936b5d9098afcd0e69c6e11be98c89c97fe4f2a9b/documentation/f18ecbf6581d0b152d37bd1e318957aeaf5c57b4a6eb2dbef52fc48b2d26b64a/declaration/fb1a8a064dd32af6cfa68eeb45a34065ccdc049850e97bdc07ccaf9ae2aeccf3"
 
 [[mcp_assert]]
 id = 7
@@ -124,7 +124,7 @@ equals = "package"
 [[mcp_assert]]
 id = 13
 path = "/result/structuredContent/results/0/uri"
-equals = "veln-doc:///package/example%2Fdep/snapshot/096347ca6b0712467c3488e936b5d9098afcd0e69c6e11be98c89c97fe4f2a9b/documentation/a0c2519c0b82be2f8ec66bfe7fc428fd175acfc63c0c3591a6a1c3f627600adf/index"
+equals = "veln-doc:///package/example%2Fdep/snapshot/096347ca6b0712467c3488e936b5d9098afcd0e69c6e11be98c89c97fe4f2a9b/documentation/f18ecbf6581d0b152d37bd1e318957aeaf5c57b4a6eb2dbef52fc48b2d26b64a/index"
 
 [[mcp_assert]]
 id = 14
