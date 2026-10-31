@@ -389,7 +389,11 @@ fn ir_schema_refinement_plan(
 fn retain_refinement_reachable_edges(
     nodes: &mut [IrSchemaRefinementPlanNode],
     root: usize,
-) -> Option<()> {
+) -> Option<SchemaRefinementReachabilityWork> {
+    let mut work_count = SchemaRefinementReachabilityWork {
+        node_visits: nodes.len(),
+        edge_visits: 0,
+    };
     let mut reachable = nodes
         .iter()
         .map(|node| match node {
@@ -400,49 +404,82 @@ fn retain_refinement_reachable_edges(
             _ => false,
         })
         .collect::<Vec<_>>();
-    loop {
-        let previous = reachable.clone();
-        for (index, node) in nodes.iter().enumerate() {
-            reachable[index] |= schema_refinement_child_nodes(node)
-                .into_iter()
-                .any(|child| previous[child]);
-        }
-        if reachable == previous {
-            break;
+    let mut reverse_edges = vec![Vec::new(); nodes.len()];
+    for (parent, node) in nodes.iter().enumerate() {
+        for_each_schema_refinement_child(node, |child| {
+            reverse_edges[child].push(parent);
+            work_count.edge_visits += 1;
+        });
+    }
+    let mut work = reachable
+        .iter()
+        .enumerate()
+        .filter_map(|(index, reachable)| reachable.then_some(index))
+        .collect::<Vec<_>>();
+    while let Some(child) = work.pop() {
+        for &parent in &reverse_edges[child] {
+            work_count.edge_visits += 1;
+            if !reachable[parent] {
+                reachable[parent] = true;
+                work.push(parent);
+            }
         }
     }
     reachable[root].then_some(())?;
     for node in nodes {
+        work_count.node_visits += 1;
         match node {
             IrSchemaRefinementPlanNode::Adt { variants, .. } => {
                 for variant in variants {
-                    variant.payloads.retain(|payload| reachable[payload.plan]);
+                    variant.payloads.retain(|payload| {
+                        work_count.edge_visits += 1;
+                        reachable[payload.plan]
+                    });
                 }
             }
             IrSchemaRefinementPlanNode::Record(fields) => {
-                fields.retain(|field| reachable[field.plan]);
+                fields.retain(|field| {
+                    work_count.edge_visits += 1;
+                    reachable[field.plan]
+                });
             }
             _ => {}
         }
     }
-    Some(())
+    Some(work_count)
 }
 
-fn schema_refinement_child_nodes(node: &IrSchemaRefinementPlanNode) -> Vec<usize> {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct SchemaRefinementReachabilityWork {
+    node_visits: usize,
+    edge_visits: usize,
+}
+
+fn for_each_schema_refinement_child(
+    node: &IrSchemaRefinementPlanNode,
+    mut visit: impl FnMut(usize),
+) {
     match node {
-        IrSchemaRefinementPlanNode::Variant(_) => Vec::new(),
-        IrSchemaRefinementPlanNode::Adt { variants, .. } => variants
-            .iter()
-            .flat_map(|variant| variant.payloads.iter().map(|payload| payload.plan))
-            .collect(),
+        IrSchemaRefinementPlanNode::Variant(_) => {}
+        IrSchemaRefinementPlanNode::Adt { variants, .. } => {
+            for payload in variants.iter().flat_map(|variant| &variant.payloads) {
+                visit(payload.plan);
+            }
+        }
         IrSchemaRefinementPlanNode::Record(fields) => {
-            fields.iter().map(|field| field.plan).collect()
+            for field in fields {
+                visit(field.plan);
+            }
         }
         IrSchemaRefinementPlanNode::Option(payload)
         | IrSchemaRefinementPlanNode::List(payload)
         | IrSchemaRefinementPlanNode::Vec(payload)
-        | IrSchemaRefinementPlanNode::Dict(payload) => vec![*payload],
-        IrSchemaRefinementPlanNode::Result { ok, err } => ok.iter().chain(err).copied().collect(),
+        | IrSchemaRefinementPlanNode::Dict(payload) => visit(*payload),
+        IrSchemaRefinementPlanNode::Result { ok, err } => {
+            for child in ok.iter().chain(err) {
+                visit(*child);
+            }
+        }
     }
 }
 
@@ -1301,5 +1338,51 @@ fn schema_dispatch_field_type(
         Some(Type::named("SchemaDispatchPayload", vec![payload_ty]))
     } else {
         Some(payload_ty)
+    }
+}
+
+#[cfg(test)]
+mod refinement_reachability_tests {
+    use super::*;
+
+    fn linear_adt_plan(node_count: usize) -> Vec<IrSchemaRefinementPlanNode> {
+        let mut nodes = (0..node_count.saturating_sub(1))
+            .map(|index| IrSchemaRefinementPlanNode::Adt {
+                expected_variants: Vec::new(),
+                variants: vec![IrSchemaRefinementVariant {
+                    name: format!("Link{index}"),
+                    payloads: vec![IrSchemaRefinementPayload {
+                        index: 0,
+                        path_segment: "next".to_owned(),
+                        plan: index + 1,
+                    }],
+                }],
+            })
+            .collect::<Vec<_>>();
+        nodes.push(IrSchemaRefinementPlanNode::Variant(
+            IrSchemaVariantRefinement {
+                expected_variants: vec!["Accepted".to_owned()],
+            },
+        ));
+        nodes
+    }
+
+    #[test]
+    fn refinement_reachability_work_scales_with_linear_plan_nodes_and_edges() {
+        for node_count in [1_024, 2_048] {
+            let mut nodes = linear_adt_plan(node_count);
+            let work = retain_refinement_reachable_edges(&mut nodes, 0)
+                .expect("the root reaches the leaf refinement");
+
+            assert_eq!(nodes.len(), node_count);
+            assert_eq!(work.node_visits, node_count * 2);
+            assert_eq!(work.edge_visits, (node_count - 1) * 3);
+            for (index, node) in nodes.iter().take(node_count - 1).enumerate() {
+                let IrSchemaRefinementPlanNode::Adt { variants, .. } = node else {
+                    panic!("linear plan node should remain an ADT");
+                };
+                assert_eq!(variants[0].payloads[0].plan, index + 1);
+            }
+        }
     }
 }

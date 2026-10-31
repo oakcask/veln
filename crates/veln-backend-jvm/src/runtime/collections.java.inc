@@ -1,5 +1,72 @@
     private static final int byteChunkMaximumRetainedCapacityRatio = 4;
 
+    private static final class SchemaRefinementPath {
+        final SchemaRefinementPath parent;
+        final String prefix;
+        final String segment;
+
+        SchemaRefinementPath(String prefix) {
+            this.parent = null;
+            this.prefix = prefix;
+            this.segment = null;
+        }
+
+        SchemaRefinementPath(SchemaRefinementPath parent, String segment) {
+            this.parent = parent;
+            this.prefix = null;
+            this.segment = segment;
+        }
+
+        SchemaRefinementPath append(String segment) {
+            return new SchemaRefinementPath(this, segment);
+        }
+
+        String render() {
+            java.util.ArrayDeque<String> segments = new java.util.ArrayDeque<String>();
+            SchemaRefinementPath path = this;
+            while (path.parent != null) {
+                segments.addFirst(path.segment);
+                path = path.parent;
+            }
+            StringBuilder rendered = new StringBuilder(path.prefix);
+            for (String segment : segments) {
+                rendered.append('/').append(jsonPointerToken(segment));
+            }
+            return rendered.toString();
+        }
+    }
+
+    private static final class SchemaRefinementWork {
+        final Object value;
+        final SchemaRefinementPath path;
+        final int node;
+
+        SchemaRefinementWork(Object value, SchemaRefinementPath path, int node) {
+            this.value = value;
+            this.path = path;
+            this.node = node;
+        }
+    }
+
+    private static final class SchemaRefinementListWork {
+        final ListValue remaining;
+        final SchemaRefinementPath path;
+        final int index;
+        final int node;
+
+        SchemaRefinementListWork(
+            ListValue remaining,
+            SchemaRefinementPath path,
+            int index,
+            int node
+        ) {
+            this.remaining = remaining;
+            this.path = path;
+            this.index = index;
+            this.node = node;
+        }
+    }
+
     public static Object validateSchemaRefinementPlan(
         Object value,
         Object baseOffset,
@@ -129,21 +196,53 @@
         java.util.List<?> nodes,
         int nodeIndex
     ) {
-        java.util.ArrayDeque<Object[]> work = new java.util.ArrayDeque<Object[]>();
-        work.addLast(new Object[] { value, path, Integer.valueOf(nodeIndex) });
+        return schemaRefinementPlanFailure(
+            value,
+            baseOffset,
+            new SchemaRefinementPath(path),
+            nodes,
+            nodeIndex
+        );
+    }
+
+    private static Object schemaRefinementPlanFailure(
+        Object value,
+        Object baseOffset,
+        SchemaRefinementPath path,
+        java.util.List<?> nodes,
+        int nodeIndex
+    ) {
+        java.util.ArrayDeque<Object> work = new java.util.ArrayDeque<Object>();
+        work.addLast(new SchemaRefinementWork(value, path, nodeIndex));
         while (!work.isEmpty()) {
-            Object[] frame = work.removeLast();
-            Object currentValue = frame[0];
-            String currentPath = (String) frame[1];
-            java.util.List<?> plan = (java.util.List<?>) nodes.get(
-                ((Number) frame[2]).intValue()
-            );
+            Object pending = work.removeLast();
+            if (pending instanceof SchemaRefinementListWork) {
+                SchemaRefinementListWork listWork = (SchemaRefinementListWork) pending;
+                if (listWork.remaining.cons) {
+                    work.addLast(new SchemaRefinementListWork(
+                        (ListValue) listWork.remaining.tail,
+                        listWork.path,
+                        listWork.index + 1,
+                        listWork.node
+                    ));
+                    work.addLast(new SchemaRefinementWork(
+                        listWork.remaining.head,
+                        listWork.path.append(Integer.toString(listWork.index)),
+                        listWork.node
+                    ));
+                }
+                continue;
+            }
+            SchemaRefinementWork frame = (SchemaRefinementWork) pending;
+            Object currentValue = frame.value;
+            SchemaRefinementPath currentPath = frame.path;
+            java.util.List<?> plan = (java.util.List<?>) nodes.get(frame.node);
             String kind = asString(plan.get(0));
             if (kind.equals("variant")) {
                 Object failure = schemaVariantRefinementFailure(
                     currentValue,
                     baseOffset,
-                    currentPath,
+                    currentPath.render(),
                     (java.util.List<?>) plan.get(1)
                 );
                 if (failure != null) return failure;
@@ -155,7 +254,7 @@
                     Object failure = schemaVariantRefinementFailure(
                         currentValue,
                         baseOffset,
-                        currentPath,
+                        currentPath.render(),
                         expected
                     );
                     if (failure != null) return failure;
@@ -168,15 +267,15 @@
                     String variantName = asString(variant.get(0));
                     if (!actual.equals(variantName)) continue;
                     matched = true;
-                    String constructorPath = currentPath + "/" + jsonPointerToken(variantName);
+                    SchemaRefinementPath constructorPath = currentPath.append(variantName);
                     java.util.List<?> payloads = (java.util.List<?>) variant.get(1);
                     for (int index = payloads.size() - 1; index >= 0; index -= 1) {
                         java.util.List<?> payload = (java.util.List<?>) payloads.get(index);
-                        work.addLast(new Object[] {
+                        work.addLast(new SchemaRefinementWork(
                             adtValue.payloads[((Number) payload.get(0)).intValue()],
-                            constructorPath + "/" + jsonPointerToken(asString(payload.get(1))),
-                            payload.get(2)
-                        });
+                            constructorPath.append(asString(payload.get(1))),
+                            ((Number) payload.get(2)).intValue()
+                        ));
                     }
                     break;
                 }
@@ -192,18 +291,22 @@
                 for (int index = fields.size() - 1; index >= 0; index -= 1) {
                     java.util.List<?> field = (java.util.List<?>) fields.get(index);
                     String name = asString(field.get(0));
-                    work.addLast(new Object[] {
+                    work.addLast(new SchemaRefinementWork(
                         recordField(currentValue, name),
-                        currentPath + "/" + jsonPointerToken(name),
-                        field.get(1)
-                    });
+                        currentPath.append(name),
+                        ((Number) field.get(1)).intValue()
+                    ));
                 }
                 continue;
             }
             if (kind.equals("option")) {
                 Option option = (Option) currentValue;
                 if (option.some) {
-                    work.addLast(new Object[] { option.value, currentPath, plan.get(1) });
+                    work.addLast(new SchemaRefinementWork(
+                        option.value,
+                        currentPath,
+                        ((Number) plan.get(1)).intValue()
+                    ));
                 }
                 continue;
             }
@@ -211,30 +314,32 @@
                 Result result = (Result) currentValue;
                 Object branch = plan.get(result.ok ? 1 : 2);
                 if (!(branch instanceof java.util.List<?> && ((java.util.List<?>) branch).isEmpty())) {
-                    work.addLast(new Object[] { result.value, currentPath, branch });
+                    work.addLast(new SchemaRefinementWork(
+                        result.value,
+                        currentPath,
+                        ((Number) branch).intValue()
+                    ));
                 }
                 continue;
             }
             if (kind.equals("list")) {
                 ListValue item = (ListValue) currentValue;
-                java.util.ArrayList<Object> items = new java.util.ArrayList<Object>();
-                while (item.cons) {
-                    items.add(item.head);
-                    item = (ListValue) item.tail;
-                }
-                for (int index = items.size() - 1; index >= 0; index -= 1) {
-                    work.addLast(new Object[] {
-                        items.get(index), currentPath + "/" + index, plan.get(1)
-                    });
-                }
+                work.addLast(new SchemaRefinementListWork(
+                    item,
+                    currentPath,
+                    0,
+                    ((Number) plan.get(1)).intValue()
+                ));
                 continue;
             }
             if (kind.equals("vec")) {
                 java.util.List<?> items = (java.util.List<?>) currentValue;
                 for (int index = items.size() - 1; index >= 0; index -= 1) {
-                    work.addLast(new Object[] {
-                        items.get(index), currentPath + "/" + index, plan.get(1)
-                    });
+                    work.addLast(new SchemaRefinementWork(
+                        items.get(index),
+                        currentPath.append(Integer.toString(index)),
+                        ((Number) plan.get(1)).intValue()
+                    ));
                 }
                 continue;
             }
@@ -248,11 +353,11 @@
                 java.util.Collections.sort(keys, VelnRuntime::compareUtf8Bytes);
                 for (int index = keys.size() - 1; index >= 0; index -= 1) {
                     SchemaRefinementDictionaryKey entry = keys.get(index);
-                    work.addLast(new Object[] {
+                    work.addLast(new SchemaRefinementWork(
                         values.get(entry.key),
-                        currentPath + "/" + jsonPointerToken(entry.key),
-                        plan.get(1)
-                    });
+                        currentPath.append(entry.key),
+                        ((Number) plan.get(1)).intValue()
+                    ));
                 }
                 continue;
             }
