@@ -1588,7 +1588,11 @@ checks unsatisfied concrete and rigid-row bounds, accepted ordinary-call
 arguments, escaping-result recovery, and transactional rejection through direct
 calls, local bindings, and constructor payloads. It also requires the diagnostic
 for a concrete effect written beside a row, so the concrete-entry preservation
-rule is independently observable.
+rule is independently observable. The
+[`argument-consistency case`](../../examples/specification/check/effect-row-call-argument-consistency/)
+checks that an accepted `perform` argument preserves another argument's row
+solution and that an incompatible value propagated with `?` publishes no
+tentative substitution.
 
 One record literal cannot declare the same field name twice. Duplicate record
 literal fields are name errors before record assignability chooses an expected

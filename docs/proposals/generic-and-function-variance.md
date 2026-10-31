@@ -132,6 +132,17 @@ constraints. Veln adopts the least restrictive sound result and excludes
 call-site-dependent variance. Rust's trait, lifetime, and compiler-query details
 are not part of this proposal.
 
+The [Rustonomicon's subtyping and variance chapter](https://doc.rust-lang.org/nomicon/subtyping.html)
+explains the function input/output directions and distinguishes owning
+collection covariance from mutation through an alias. Veln adopts these
+polarity directions in the current structural kernel and the remaining
+source-ADT inference design, with immutable source values replacing Rust's
+ownership conditions. Rust's lifetime relation supplies comparative reasoning,
+not the ADT-refinement relation specified here. Treating every payload as
+covariant is rejected because a stored callback can consume its parameter.
+Treating every constructor as invariant is safe but needlessly rejects the
+immutable producer cases above.
+
 ## Generic Inference And Joins
 
 Assignment compatibility does not promise unrestricted subtype inference.

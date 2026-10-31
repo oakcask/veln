@@ -895,6 +895,8 @@ accepted call still contributes its instantiated row to the public-boundary
 diagnostic when another argument is an ordinary call or `perform` expression.
 An incompatible value propagated with `?` rejects the call without publishing
 that tentative row. The
+[`argument-consistency case`](../../examples/specification/check/effect-row-call-argument-consistency/)
+checks the `perform` and `?` outcomes. The
 [`effect-row rejection case`](../../examples/specification/check/effect-row-call-rejection/)
 checks those JSON outcomes for direct and nested payload failures,
 local-binding and constructor-payload rejection, escaping-result recovery, and
