@@ -87,8 +87,8 @@ expression productions in addition to schema declarations and fields. The
 runtime-validation production is `validate MemberPath from Expr at Expr`; the
 current source, type, execution, and diagnostic specifications own its
 resolution, result, failure, record, standard-container, and regular recursive
-source-ADT payload traversal boundaries, plus the generic-expanding recursion
-limit.
+source-ADT payload traversal boundaries, plus the instantiation-changing
+recursion limit.
 The expressions-and-patterns topic identifies lexical cleanup forms as a
 static, tooling, and executable surface. Its body states that checked core,
 typed IR, and the JVM backend preserve registration-time captures and run

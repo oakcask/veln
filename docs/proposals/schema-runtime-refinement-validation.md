@@ -5,14 +5,8 @@ update-when: Schema validation predicate ordering, ordinary decoder composition,
 
 # Predicate Ordering and Decoder Composition for Runtime Validation
 
-The implemented `validate MemberPath from Expr at Expr` operation traverses
-direct fields, nested anonymous record fields, recursively composed
-format-neutral schema fields, standard containers, and regular direct or
-mutual same-module and visible imported source-ADT payload graphs. It validates
-singleton and finite-set source-ADT refinements at those positions while
-preserving the input value. Every schema in the reachable composition graph is
-currently required to be predicate-free. The current source, typing, execution,
-and diagnostic contracts are specified in
+The implemented `validate MemberPath from Expr at Expr` operation and its
+current source, typing, execution, and diagnostic contracts are specified in
 [source surface](../specification/source-surface.md#schema-operations),
 [types](../specification/types.md#inference-rules),
 [execution](../specification/execution.md#schema-execution), and
