@@ -29,6 +29,7 @@ use crate::types::{
 
 mod diagnostic_ordering;
 mod identifier_casing;
+mod module_value_publication;
 mod publication;
 
 use diagnostic_ordering::{
@@ -44,6 +45,7 @@ pub use identifier_casing::{
     classified_project_qualified_path_segments_with_context,
     classified_project_qualified_path_segments_with_context_and_work,
 };
+use module_value_publication::index_module_value_publication;
 use publication::unpublished_public_declarations;
 
 #[derive(Clone, Debug)]
@@ -87,86 +89,6 @@ impl LoweredSurfaceModule {
             unpublished_declarations: Vec::new(),
             module_value_publication: IndexedModuleValuePublicationProvenance::default(),
         }
-    }
-
-    pub fn module_value_publication_diagnostic_indices(
-        &self,
-        span: &veln_source::SourceSpan,
-    ) -> Option<Vec<usize>> {
-        let (matched_roots, diagnostic_indices, work) =
-            self.module_value_publication_diagnostic_indices_for_spans(std::slice::from_ref(span));
-        record_module_value_publication_work(|recorded| *recorded = work);
-        let diagnostic_indices = diagnostic_indices
-            .into_iter()
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .collect();
-        (matched_roots != 0).then_some(diagnostic_indices)
-    }
-
-    pub fn module_value_publication_diagnostic_indices_for_spans(
-        &self,
-        spans: &[veln_source::SourceSpan],
-    ) -> (usize, Vec<usize>, ModuleValuePublicationWork) {
-        let mut work = ModuleValuePublicationWork {
-            retained_values: self.module_value_publication.values.len(),
-            retained_edges: self.module_value_publication.retained_edges,
-            retained_direct_causes: self.module_value_publication.retained_direct_causes,
-            visited_initializations: self.module_value_publication.values.len(),
-            exported_root_lookups: spans.len(),
-            ..ModuleValuePublicationWork::default()
-        };
-        let mut pending = Vec::new();
-        for span in spans {
-            let Some(value_index) = self
-                .module_value_publication
-                .failures_by_file_and_range
-                .get(span.file.as_str())
-                .and_then(|ranges| ranges.get(&(span.start.offset, span.end.offset)))
-                .copied()
-            else {
-                continue;
-            };
-            pending.push(value_index);
-        }
-        let matched_roots = pending.len();
-        let mut visited = vec![false; self.module_value_publication.values.len()];
-        let mut diagnostic_indices = HashSet::new();
-        while let Some(index) = pending.pop() {
-            if std::mem::replace(&mut visited[index], true) {
-                continue;
-            }
-            let value = &self.module_value_publication.values[index];
-            work.traversal_values += 1;
-            work.traversal_edges += value.dependencies.len() + value.collision_dependencies.len();
-            work.cause_insertions += value.direct_diagnostic_indices.len();
-            diagnostic_indices.extend(value.direct_diagnostic_indices.iter().copied());
-            if let Some(identity) = value.identity.as_ref()
-                && let Some(indices) = self
-                    .module_value_publication
-                    .collision_diagnostic_indices
-                    .get(identity)
-            {
-                work.cause_insertions += indices.len();
-                diagnostic_indices.extend(indices.iter().copied());
-            }
-            for identity in &value.collision_dependencies {
-                if let Some(indices) = self
-                    .module_value_publication
-                    .collision_diagnostic_indices
-                    .get(identity)
-                {
-                    work.cause_insertions += indices.len();
-                    diagnostic_indices.extend(indices.iter().copied());
-                }
-            }
-            pending.extend(value.dependencies.iter().copied());
-        }
-        (
-            matched_roots,
-            diagnostic_indices.into_iter().collect(),
-            work,
-        )
     }
 }
 
@@ -1005,163 +927,6 @@ fn lower_analyzed_surface_module_with_environment(
         ir,
         unpublished_declarations,
         module_value_publication,
-    }
-}
-
-type PublicationSpanKey = (String, usize, usize);
-
-fn publication_span_key(span: &veln_source::SourceSpan) -> PublicationSpanKey {
-    (
-        span.file.as_str().to_owned(),
-        span.start.offset,
-        span.end.offset,
-    )
-}
-
-fn index_module_value_publication(
-    module: &SurfaceModule,
-    diagnostics: &[Diagnostic],
-    provenance: ModuleValuePublicationProvenance,
-) -> IndexedModuleValuePublicationProvenance {
-    let mut owners_by_file = HashMap::<&str, Vec<IndexedModuleValuePublicationOwner>>::new();
-    for (index, value) in provenance.values.iter().enumerate() {
-        owners_by_file
-            .entry(value.span.file.as_str())
-            .or_default()
-            .push(IndexedModuleValuePublicationOwner {
-                span: value.span.clone(),
-                value_index: index,
-            });
-    }
-    for owners in owners_by_file.values_mut() {
-        identifier_casing::radix_sort_by_span(owners, |owner| &owner.span, |_| {});
-    }
-
-    let mut direct_diagnostic_indices = vec![Vec::new(); provenance.values.len()];
-    for (diagnostic_index, diagnostic) in diagnostics.iter().enumerate() {
-        if diagnostic.id == "module.value_not_executable" {
-            continue;
-        }
-        let Some(span) = diagnostic.span.as_ref() else {
-            continue;
-        };
-        let Some(owners) = owners_by_file.get(span.file.as_str()) else {
-            continue;
-        };
-        let insertion =
-            owners.partition_point(|owner| owner.span.start.offset <= span.start.offset);
-        let Some(owner) = insertion.checked_sub(1).map(|index| &owners[index]) else {
-            continue;
-        };
-        if span.start.offset >= owner.span.start.offset && span.end.offset <= owner.span.end.offset
-        {
-            direct_diagnostic_indices[owner.value_index].push(diagnostic_index);
-        }
-    }
-
-    let mut callable_identities =
-        HashMap::<PublicationSpanKey, crate::types::ModuleValueIdentity>::new();
-    for function in &module.functions {
-        if let Some(name) = function.name.as_ref() {
-            callable_identities.insert(
-                publication_span_key(&function.span),
-                (
-                    function.package_name.clone(),
-                    function.module_name.clone(),
-                    name.clone(),
-                ),
-            );
-        }
-    }
-    for alias in module
-        .aliases
-        .iter()
-        .filter(|alias| alias.kind == PublicAliasKind::Function)
-    {
-        if let Some(name) = alias.name.as_ref() {
-            callable_identities.insert(
-                publication_span_key(&alias.span),
-                (
-                    alias.package_name.clone(),
-                    alias.module_name.clone(),
-                    name.clone(),
-                ),
-            );
-        }
-    }
-    for value in &module.module_values {
-        if let Some(name) = value.name.as_ref() {
-            callable_identities.insert(
-                publication_span_key(&value.span),
-                (
-                    value.package_name.clone(),
-                    value.module_name.clone(),
-                    name.clone(),
-                ),
-            );
-        }
-    }
-    let mut collision_diagnostic_indices =
-        HashMap::<crate::types::ModuleValueIdentity, Vec<usize>>::new();
-    for (index, diagnostic) in diagnostics.iter().enumerate() {
-        if diagnostic.id != "name.duplicate" {
-            continue;
-        }
-        let Some(identity) = diagnostic
-            .span
-            .as_ref()
-            .and_then(|span| callable_identities.get(&publication_span_key(span)))
-        else {
-            continue;
-        };
-        collision_diagnostic_indices
-            .entry(identity.clone())
-            .or_default()
-            .push(index);
-    }
-
-    let mut failures_by_file_and_range = HashMap::<String, HashMap<(usize, usize), usize>>::new();
-    for (value_index, value) in provenance
-        .values
-        .iter()
-        .enumerate()
-        .filter(|(_, value)| value.invalid && value.identity.is_some())
-    {
-        failures_by_file_and_range
-            .entry(value.span.file.as_str().to_owned())
-            .or_default()
-            .insert(
-                (value.span.start.offset, value.span.end.offset),
-                value_index,
-            );
-    }
-    let values: Vec<IndexedModuleValuePublicationValue> = provenance
-        .values
-        .into_iter()
-        .enumerate()
-        .map(|(index, value)| IndexedModuleValuePublicationValue {
-            identity: value.identity,
-            dependencies: value.dependencies,
-            collision_dependencies: value.collision_dependencies,
-            direct_diagnostic_indices: std::mem::take(&mut direct_diagnostic_indices[index]),
-        })
-        .collect();
-    let retained_edges = values
-        .iter()
-        .map(|value: &IndexedModuleValuePublicationValue| {
-            value.dependencies.len() + value.collision_dependencies.len()
-        })
-        .sum::<usize>();
-    let retained_direct_causes = values
-        .iter()
-        .map(|value| value.direct_diagnostic_indices.len())
-        .sum::<usize>();
-    IndexedModuleValuePublicationProvenance {
-        failures_by_file_and_range,
-        values,
-        collision_diagnostic_indices,
-        retained_edges,
-        retained_direct_causes,
     }
 }
 
