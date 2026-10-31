@@ -41,6 +41,7 @@ pub(crate) struct ModuleValueAnalysis {
     intrinsic_invalid: BTreeSet<ModuleValueIdentity>,
     dependencies: Vec<Vec<Dependency>>,
     collision_dependencies: Vec<Vec<ModuleValueIdentity>>,
+    direct_causes: Vec<Vec<ModuleValuePublicationCause>>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -55,6 +56,15 @@ pub(crate) struct ModuleValuePublicationValue {
     pub(crate) invalid: bool,
     pub(crate) dependencies: Vec<usize>,
     pub(crate) collision_dependencies: Vec<ModuleValueIdentity>,
+    pub(crate) direct_causes: Vec<ModuleValuePublicationCause>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ModuleValuePublicationCause {
+    pub(crate) package_name: Option<String>,
+    pub(crate) diagnostic_id: String,
+    pub(crate) span: veln_source::SourceSpan,
+    pub(crate) diagnostic_index: Option<usize>,
 }
 
 #[cfg(test)]
@@ -244,9 +254,11 @@ fn check_module_values_once(
     let mut diagnostics = Vec::new();
     let mut dependencies = vec![Vec::new(); module.module_values.len()];
     let mut collision_dependencies = vec![Vec::new(); module.module_values.len()];
+    let mut direct_causes = vec![Vec::new(); module.module_values.len()];
     let colliding_identities = colliding_module_value_identities(module);
+    let invalid_cased_identities = invalid_cased_module_value_identities(module);
     let mut intrinsic_invalid = colliding_identities.clone();
-    intrinsic_invalid.extend(invalid_cased_module_value_identities(module));
+    intrinsic_invalid.extend(invalid_cased_identities.iter().cloned());
     intrinsic_invalid.extend(forced_invalid.iter().cloned());
     let mut invalid = initially_invalid_values(module, &intrinsic_invalid);
     let value_indices = module_value_indices(module, &colliding_identities);
@@ -258,6 +270,7 @@ fn check_module_values_once(
             dependencies: &mut dependencies[index],
             collision_dependencies: &mut collision_dependencies[index],
         };
+        let diagnostic_start = diagnostics.len();
         invalid[index] |= check_module_value(
             value,
             index,
@@ -267,10 +280,57 @@ fn check_module_values_once(
             &mut collected_dependencies,
             &mut diagnostics,
         );
+        direct_causes[index].extend(
+            diagnostics[diagnostic_start..]
+                .iter()
+                .enumerate()
+                .filter_map(|(relative_index, diagnostic)| {
+                    Some(ModuleValuePublicationCause {
+                        package_name: value.package_name.clone(),
+                        diagnostic_id: diagnostic.id.clone(),
+                        span: diagnostic.span.clone()?,
+                        diagnostic_index: Some(diagnostic_start + relative_index),
+                    })
+                }),
+        );
+        if value.name.as_ref().is_some_and(|name| {
+            invalid_cased_identities.contains(&(
+                value.package_name.clone(),
+                value.module_name.clone(),
+                name.clone(),
+            ))
+        }) && let Some(span) = value.name_span.clone()
+        {
+            direct_causes[index].push(ModuleValuePublicationCause {
+                package_name: value.package_name.clone(),
+                diagnostic_id: "name.invalid_case".to_string(),
+                span,
+                diagnostic_index: None,
+            });
+        }
+        for span in quarantined_import_causes(value, environment) {
+            invalid[index] = true;
+            direct_causes[index].push(ModuleValuePublicationCause {
+                package_name: value.package_name.clone(),
+                diagnostic_id: "name.invalid_case".to_string(),
+                span,
+                diagnostic_index: None,
+            });
+        }
     }
 
     let (cycle_diagnostics, cyclic) = cycle_diagnostics(module, &dependencies);
-    diagnostics.extend(cycle_diagnostics);
+    for (owner, diagnostic) in cycle_diagnostics {
+        if let Some(span) = diagnostic.span.clone() {
+            direct_causes[owner].push(ModuleValuePublicationCause {
+                package_name: module.module_values[owner].package_name.clone(),
+                diagnostic_id: diagnostic.id.clone(),
+                span,
+                diagnostic_index: Some(diagnostics.len()),
+            });
+        }
+        diagnostics.push(diagnostic);
+    }
     for index in cyclic {
         invalid[index] = true;
         let value = &module.module_values[index];
@@ -301,6 +361,7 @@ fn check_module_values_once(
         intrinsic_invalid,
         dependencies,
         collision_dependencies,
+        direct_causes,
         invalid: invalid_identities,
         invalid_indices: invalid,
     }
@@ -331,10 +392,46 @@ impl ModuleValueAnalysis {
                         .map(|dependency| dependency.target)
                         .collect(),
                     collision_dependencies: self.collision_dependencies[index].clone(),
+                    direct_causes: self.direct_causes[index].clone(),
                 })
                 .collect(),
         }
     }
+}
+
+fn quarantined_import_causes(
+    value: &veln_ast::ModuleValueDecl,
+    environment: &TypeEnvironment,
+) -> Vec<veln_source::SourceSpan> {
+    let mut causes = Vec::new();
+    collect_quarantined_import_causes(&value.initializer, value, environment, &mut causes);
+    causes
+}
+
+fn collect_quarantined_import_causes(
+    expr: &veln_ast::Expr,
+    value: &veln_ast::ModuleValueDecl,
+    environment: &TypeEnvironment,
+    causes: &mut Vec<veln_source::SourceSpan>,
+) {
+    let veln_ast::ExprKind::NamePath { segments, .. } = &expr.kind else {
+        expr.for_each_child(&mut |child| {
+            collect_quarantined_import_causes(child, value, environment, causes)
+        });
+        return;
+    };
+    if let Some(use_decl) = environment.quarantined_import_value_recovery_use(
+        segments,
+        value.module_name.as_deref(),
+        value.package_name.as_deref(),
+    ) && let Some(alias_span) = use_decl.alias_span.as_ref()
+        && !causes.contains(alias_span)
+    {
+        causes.push(alias_span.clone());
+    }
+    expr.for_each_child(&mut |child| {
+        collect_quarantined_import_causes(child, value, environment, causes)
+    });
 }
 
 pub(super) fn check_module_value(
@@ -568,7 +665,7 @@ fn span_identity(span: &veln_source::SourceSpan) -> SpanIdentity {
 fn cycle_diagnostics(
     module: &SurfaceModule,
     dependencies: &[Vec<Dependency>],
-) -> (Vec<Diagnostic>, BTreeSet<usize>) {
+) -> (Vec<(usize, Diagnostic)>, BTreeSet<usize>) {
     let components = strongly_connected_components(dependencies);
     let mut cyclic = components
         .into_iter()
@@ -589,7 +686,10 @@ fn cycle_diagnostics(
     let invalid = cyclic.iter().flatten().copied().collect();
     let diagnostics = cyclic
         .into_iter()
-        .filter_map(|component| cycle_diagnostic(module, dependencies, &component))
+        .filter_map(|component| {
+            let owner = component.iter().copied().min()?;
+            cycle_diagnostic(module, dependencies, &component).map(|diagnostic| (owner, diagnostic))
+        })
         .collect();
     (diagnostics, invalid)
 }

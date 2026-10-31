@@ -150,18 +150,19 @@ impl PackageDocBuilder<'_> {
     }
 
     fn mark_publication_gates(
-        &self,
+        &mut self,
         parsed_sources: &[ParsedPackageSource],
         analysis: &ProjectAnalysis,
         exported_paths: &BTreeSet<&str>,
         diagnostic_indices_by_key: &HashMap<ProjectDiagnosticKey, Vec<usize>>,
         gates: &mut [Option<&'static str>],
     ) {
-        let exported_module_value_spans = Self::exported_module_value_spans(parsed_sources);
-        let (causes, publication_work) =
-            analysis.module_value_publication_diagnostics_for_spans(&exported_module_value_spans);
+        let exported_module_value_identities =
+            Self::exported_module_value_identities(parsed_sources);
+        let (causes, publication_work) = analysis
+            .module_value_publication_diagnostics_for_identities(&exported_module_value_identities);
         Self::record_publication_work(publication_work);
-        Self::mark_module_value_gates(causes, diagnostic_indices_by_key, gates);
+        self.retain_module_value_causes(causes);
         Self::mark_semantic_visibility_gates(
             analysis,
             exported_paths,
@@ -198,16 +199,19 @@ impl PackageDocBuilder<'_> {
             })
     }
 
-    fn exported_module_value_spans(parsed_sources: &[ParsedPackageSource]) -> Vec<SourceSpan> {
+    fn exported_module_value_identities(
+        parsed_sources: &[ParsedPackageSource],
+    ) -> Vec<veln_sema::ModuleValuePublicationIdentity> {
         parsed_sources
             .iter()
             .filter(|source| source.exported)
-            .flat_map(|source| source.tree.items.iter())
-            .filter_map(|item| match item {
-                SyntaxItem::ModuleValue(value) if value.visibility == Visibility::Public => {
-                    Some(value.span.clone())
-                }
-                _ => None,
+            .flat_map(|source| {
+                source.tree.items.iter().filter_map(|item| match item {
+                    SyntaxItem::ModuleValue(value) if value.visibility == Visibility::Public => {
+                        Some((None, Some(source.module_name.clone()), value.name.clone()?))
+                    }
+                    _ => None,
+                })
             })
             .collect()
     }
@@ -225,32 +229,22 @@ impl PackageDocBuilder<'_> {
         });
     }
 
-    fn mark_module_value_gates(
-        causes: Vec<Diagnostic>,
-        diagnostic_indices_by_key: &HashMap<ProjectDiagnosticKey, Vec<usize>>,
-        gates: &mut [Option<&'static str>],
+    fn retain_module_value_causes(
+        &mut self,
+        causes: Vec<veln_sema::ModuleValuePublicationDiagnostic>,
     ) {
         for cause in causes {
             record_package_doc_semantic_classification_work(|work| {
                 work.cause_processing += 1;
             });
-            let Some(span) = cause.span.as_ref() else {
-                continue;
-            };
-            let key = (
-                cause.id,
-                span.file.as_str().to_owned(),
-                span.start.offset,
-                span.end.offset,
-            );
-            if let Some(indices) = diagnostic_indices_by_key.get(&key) {
-                for index in indices {
-                    record_package_doc_semantic_classification_work(|work| {
-                        work.cause_index_insertions += 1;
-                    });
-                    gates[*index] = Some("module_value");
-                }
-            }
+            record_package_doc_semantic_classification_work(|work| {
+                work.cause_index_insertions += 1;
+            });
+            self.diagnostics.push(self.project_diagnostic_for_package(
+                "module_value",
+                cause.package_name.as_deref(),
+                cause.diagnostic,
+            ));
         }
     }
 

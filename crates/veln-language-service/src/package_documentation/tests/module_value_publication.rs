@@ -139,6 +139,211 @@ fn dependency_failure_keeps_only_the_exported_values_causal_diagnostics() {
     }));
 }
 
+#[test]
+fn quarantined_import_used_by_public_value_rejects_with_the_import_cause() {
+    let result = generate(
+        concat!(
+            "[package]\n",
+            "name = \"module-value-import-recovery\"\n",
+            "[lib]\n",
+            "exports = [\"main.veln\"]\n",
+        ),
+        &[
+            (
+                "main.veln",
+                concat!(
+                    "use helper as HTTP\n",
+                    "pub let answer: Int = HTTP::number\n",
+                    "pub let accepted: Int = 1\n",
+                ),
+            ),
+            ("helper.veln", "pub fn number() -> Int\n  1\nend\n"),
+        ],
+    );
+
+    assert!(result.catalog().is_none(), "{:#?}", result.status());
+    assert!(
+        result
+            .declaration_uri_for("main", "module_value", "answer")
+            .is_none()
+    );
+    assert!(
+        result
+            .declaration_uri_for("main", "module_value", "accepted")
+            .is_none()
+    );
+    let diagnostics = &result.status().diagnostics;
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].gate, "module_value");
+    assert_eq!(diagnostics[0].code, "name.invalid_case");
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().line, 1);
+    assert!(
+        !std::str::from_utf8(result.canonical_bytes())
+            .unwrap()
+            .contains("\"modules\"")
+    );
+}
+
+#[test]
+fn unrelated_quarantined_import_does_not_reject_a_public_value() {
+    let result = generate(
+        concat!(
+            "[package]\n",
+            "name = \"module-value-unrelated-import-recovery\"\n",
+            "[lib]\n",
+            "exports = [\"main.veln\"]\n",
+        ),
+        &[
+            (
+                "main.veln",
+                "use helper as HTTP\npub let accepted: Int = 1\n",
+            ),
+            ("helper.veln", "pub fn number() -> Int\n  1\nend\n"),
+        ],
+    );
+
+    assert!(result.catalog().is_some(), "{:#?}", result.status());
+    assert!(
+        result
+            .declaration_uri_for("main", "module_value", "accepted")
+            .is_some()
+    );
+}
+
+fn captured_invalid_same_path_dependency(source: &str) -> CapturedDependencyProject {
+    CapturedDependencyProject {
+        package: "b".to_string(),
+        source: "vendor/b".to_string(),
+        project: Some(Project {
+            root: PathBuf::new(),
+            files: vec![SourceFile::new("main.veln", source)],
+            manifest: Some(parse_manifest_text(
+                "veln.toml",
+                concat!(
+                    "[package]\n",
+                    "name = \"b\"\n",
+                    "[lib]\n",
+                    "exports = [\"main.veln\"]\n",
+                ),
+            )),
+        }),
+    }
+}
+
+#[test]
+fn unrelated_dependency_value_with_colliding_source_span_does_not_reject_root() {
+    for dependency_source in [
+        "pub let fail: Int = \"x\"\n",
+        "\npub let fail: Int = \"x\"\n",
+    ] {
+        let dependency = captured_invalid_same_path_dependency(dependency_source);
+        let result = generate_with_dependencies(
+            concat!(
+                "[package]\n",
+                "name = \"a\"\n",
+                "[lib]\n",
+                "exports = [\"main.veln\"]\n",
+                "[dependencies.\"b\"]\n",
+                "path = \"vendor/b\"\n",
+            ),
+            &[("main.veln", "pub let safe: Int = 123\n")],
+            &[dependency],
+        );
+
+        assert!(result.catalog().is_some(), "{:#?}", result.status());
+        assert!(
+            result
+                .declaration_uri_for("main", "module_value", "safe")
+                .is_some()
+        );
+    }
+}
+
+#[test]
+fn required_same_path_dependency_failure_keeps_dependency_location() {
+    let dependency = captured_invalid_same_path_dependency("pub let fail: Int = \"x\"\n");
+    let result = generate_with_dependencies(
+        concat!(
+            "[package]\n",
+            "name = \"a\"\n",
+            "[lib]\n",
+            "exports = [\"main.veln\"]\n",
+            "[dependencies.\"b\"]\n",
+            "path = \"vendor/b\"\n",
+        ),
+        &[(
+            "main.veln",
+            concat!(
+                "use main as dep from \"b\"\n",
+                "pub let exposed: Int = dep::fail\n",
+                "pub let accepted: Int = 1\n",
+            ),
+        )],
+        &[dependency],
+    );
+
+    assert!(result.catalog().is_none(), "{:#?}", result.status());
+    assert!(
+        result
+            .declaration_uri_for("main", "module_value", "accepted")
+            .is_none()
+    );
+    assert!(
+        result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "module_value"
+                && diagnostic.code == "type.mismatch"
+                && diagnostic.span.as_ref().is_some_and(|span| {
+                    span.source_uri.contains("veln-pkg:///b/snapshot/")
+                        && span.source_uri.ends_with("/main.veln")
+                })
+        }),
+        "{:#?}",
+        result.status().diagnostics
+    );
+}
+
+#[test]
+fn required_dependency_callable_collision_keeps_dependency_identity() {
+    let dependency = captured_invalid_same_path_dependency(concat!(
+        "fn shared() -> Int\n",
+        "  1\n",
+        "end\n",
+        "pub let shared: Int = 1\n",
+    ));
+    let result = generate_with_dependencies(
+        concat!(
+            "[package]\n",
+            "name = \"a\"\n",
+            "[lib]\n",
+            "exports = [\"main.veln\"]\n",
+            "[dependencies.\"b\"]\n",
+            "path = \"vendor/b\"\n",
+        ),
+        &[(
+            "main.veln",
+            concat!(
+                "use main as dep from \"b\"\n",
+                "pub let exposed: Int = dep::shared\n",
+            ),
+        )],
+        &[dependency],
+    );
+
+    assert!(result.catalog().is_none(), "{:#?}", result.status());
+    assert!(
+        result.status().diagnostics.iter().any(|diagnostic| {
+            diagnostic.gate == "module_value"
+                && diagnostic.code == "name.duplicate"
+                && diagnostic.span.as_ref().is_some_and(|span| {
+                    span.source_uri.contains("veln-pkg:///b/snapshot/")
+                        && span.source_uri.ends_with("/main.veln")
+                })
+        }),
+        "{:#?}",
+        result.status().diagnostics
+    );
+}
+
 fn captured_shared_value_dependency() -> CapturedDependencyProject {
     CapturedDependencyProject {
         package: "b".to_string(),

@@ -57,14 +57,9 @@ pub struct LoweredSurfaceModule {
     module_value_publication: IndexedModuleValuePublicationProvenance,
 }
 
-#[derive(Clone, Debug)]
-struct IndexedModuleValuePublicationOwner {
-    span: veln_source::SourceSpan,
-    value_index: usize,
-}
-
 #[derive(Clone, Debug, Default)]
 struct IndexedModuleValuePublicationProvenance {
+    failures_by_identity: HashMap<ModuleValuePublicationIdentity, usize>,
     failures_by_file_and_range: HashMap<String, HashMap<(usize, usize), usize>>,
     values: Vec<IndexedModuleValuePublicationValue>,
     collision_diagnostic_indices: HashMap<crate::types::ModuleValueIdentity, Vec<usize>>,
@@ -77,7 +72,21 @@ struct IndexedModuleValuePublicationValue {
     identity: Option<crate::types::ModuleValueIdentity>,
     dependencies: Vec<usize>,
     collision_dependencies: Vec<crate::types::ModuleValueIdentity>,
-    direct_diagnostic_indices: Vec<usize>,
+    direct_causes: Vec<IndexedModuleValuePublicationCause>,
+}
+
+#[derive(Clone, Debug)]
+struct IndexedModuleValuePublicationCause {
+    package_name: Option<String>,
+    diagnostic_index: usize,
+}
+
+pub type ModuleValuePublicationIdentity = (Option<String>, Option<String>, String);
+
+#[derive(Clone, Debug)]
+pub struct ModuleValuePublicationDiagnostic {
+    pub package_name: Option<String>,
+    pub diagnostic: Diagnostic,
 }
 
 impl LoweredSurfaceModule {

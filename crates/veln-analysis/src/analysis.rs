@@ -428,6 +428,17 @@ impl ProjectAnalysis {
         )
     }
 
+    pub fn module_value_publication_diagnostics_for_identities(
+        &self,
+        identities: &[veln_sema::ModuleValuePublicationIdentity],
+    ) -> (
+        Vec<veln_sema::ModuleValuePublicationDiagnostic>,
+        ModuleValuePublicationWork,
+    ) {
+        self.checked
+            .module_value_publication_diagnostics_for_identities(identities)
+    }
+
     pub fn lower_reachable_entry(
         &self,
         entry: &str,
