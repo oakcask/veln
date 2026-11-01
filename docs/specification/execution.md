@@ -141,11 +141,13 @@ tests.
 Functions can read accepted module immutable values. The JVM backend
 materializes strings, integers including negation, booleans, unit, records,
 nullary and payload ADT constructors, including `Option`, `Result`, and `List`,
-and references without invoking user code. Each reference selects the complete
-package, module, and declaration identity, so same-module forward references,
-imported or aliased references, and same-spelled declarations from distinct
-packages produce their selected data independent of source, import, or
-first-use order. A valid acyclic
+and references without invoking user code. A materialized string can contain a
+null scalar or a supplementary Unicode scalar; the generated classfile uses
+JVM modified UTF-8 for that value. Each reference selects the complete package,
+module, and declaration identity, so same-module forward references, imported
+or aliased references, and same-spelled declarations from distinct packages
+produce their selected data independent of source, import, or first-use order.
+A valid acyclic
 dependency chain remains executable when its declaration depth exceeds the
 available JVM call-stack depth. A declaration set can span more materialized
 fields and initializers than one JVM class constant pool can represent. The
@@ -271,9 +273,10 @@ syntax.
 The JVM backend emits classfile artifacts and invokes the selected entry. Java
 source generation and Java source compilation are outside the command contract.
 If one generated class cannot represent its constant pool, a constant-pool
-string exceeds 65,535 bytes, or a method exceeds 65,535 bytes of code,
-classfile generation returns a bounded backend failure before it writes an
-invalid or truncated classfile.
+string requires more than 65,535 bytes in JVM modified UTF-8, a method requires
+more than 65,535 bytes of code, or a method requires more than 65,535 operand
+stack slots, classfile generation returns a bounded backend failure before it
+writes an invalid or truncated classfile.
 `ByteChunk`, `ByteView`, `StreamInput`, `DecodeStep<T>`, `DecodeReadiness`,
 `DecodeError`, `EncodeStep<TState>`, and `EncodeError` are immutable
 source-visible values. Byte and view helpers are pure; invalid values,
