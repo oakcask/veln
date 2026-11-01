@@ -314,6 +314,82 @@ fn emit_module_value_work<'a>(
     }
 }
 
+struct ModuleValuePart {
+    class_name: String,
+    class: ClassBuilder,
+    code: MethodCode,
+}
+
+impl ModuleValuePart {
+    fn new(class_name: String) -> Self {
+        let mut class = ClassBuilder::new(&class_name);
+        class.access_flags = 0x0031;
+        let code = MethodCode::new(Rc::clone(&class.constant_pool));
+        Self {
+            class_name,
+            class,
+            code,
+        }
+    }
+
+    fn reached_limit(&self) -> bool {
+        self.code.code.len() >= MODULE_VALUE_HELPER_CODE_LIMIT
+            || self.class.constant_pool.borrow().slot_count()
+                >= MODULE_VALUE_HELPER_CONSTANT_POOL_LIMIT
+    }
+
+    fn is_empty(&self) -> bool {
+        self.code.code.is_empty()
+    }
+
+    fn finish(mut self) -> Result<(String, JvmClassFile), JvmBackendError> {
+        self.code.op(0xb1);
+        self.class.add_method(MethodInfo {
+            access_flags: 0x0009,
+            name: "apply".to_string(),
+            descriptor: "(Ljava/util/ArrayList;)V".to_string(),
+            max_stack: self.code.max_stack,
+            max_locals: self.code.max_locals,
+            code: self.code.code,
+            exceptions: self.code.exceptions,
+        });
+        let class_file = JvmClassFile {
+            path: format!("{}.class", self.class_name),
+            contents: self.class.finish()?,
+        };
+        Ok((self.class_name, class_file))
+    }
+}
+
+fn emit_module_value_parts(
+    class_name: &str,
+    method_stem: &str,
+    emitter: &mut FunctionBytecodeEmitter<'_, '_>,
+    initializer: &IrExpr,
+    helper_classes: &mut Vec<JvmClassFile>,
+) -> Result<Vec<String>, JvmBackendError> {
+    let mut part_index = 0;
+    let mut part = ModuleValuePart::new(format!("{class_name}${method_stem}Part{part_index}"));
+    let mut part_class_names = Vec::new();
+    let mut work = vec![ModuleValueEmissionWork::Expr(initializer)];
+    while let Some(item) = work.pop() {
+        emit_module_value_work(emitter, &mut part.code, &mut work, item);
+        if part.reached_limit() {
+            let (part_class_name, part_class_file) = part.finish()?;
+            part_class_names.push(part_class_name);
+            helper_classes.push(part_class_file);
+            part_index += 1;
+            part = ModuleValuePart::new(format!("{class_name}${method_stem}Part{part_index}"));
+        }
+    }
+    if !part.is_empty() {
+        let (part_class_name, part_class_file) = part.finish()?;
+        part_class_names.push(part_class_name);
+        helper_classes.push(part_class_file);
+    }
+    Ok(part_class_names)
+}
+
 fn emit_module_value_initializer(
     class: &mut ClassBuilder,
     class_name: &str,
@@ -330,58 +406,13 @@ fn emit_module_value_initializer(
     );
     initializer_code.astore(0);
 
-    let mut part_index = 0;
-    let mut part_class_name = format!("{class_name}${method_stem}Part{part_index}");
-    let mut part_class = ClassBuilder::new(&part_class_name);
-    part_class.access_flags = 0x0031;
-    let mut part = MethodCode::new(Rc::clone(&part_class.constant_pool));
-    let mut part_class_names = Vec::new();
-    let mut work = vec![ModuleValueEmissionWork::Expr(initializer)];
-    while let Some(item) = work.pop() {
-        emit_module_value_work(emitter, &mut part, &mut work, item);
-        if part.code.len() >= MODULE_VALUE_HELPER_CODE_LIMIT
-            || part_class.constant_pool.borrow().slot_count()
-                >= MODULE_VALUE_HELPER_CONSTANT_POOL_LIMIT
-        {
-            part.op(0xb1);
-            part_class.add_method(MethodInfo {
-                access_flags: 0x0009,
-                name: "apply".to_string(),
-                descriptor: "(Ljava/util/ArrayList;)V".to_string(),
-                max_stack: part.max_stack,
-                max_locals: part.max_locals,
-                code: part.code,
-                exceptions: part.exceptions,
-            });
-            part_class_names.push(part_class_name.clone());
-            helper_classes.push(JvmClassFile {
-                path: format!("{part_class_name}.class"),
-                contents: part_class.finish()?,
-            });
-            part_index += 1;
-            part_class_name = format!("{class_name}${method_stem}Part{part_index}");
-            part_class = ClassBuilder::new(&part_class_name);
-            part_class.access_flags = 0x0031;
-            part = MethodCode::new(Rc::clone(&part_class.constant_pool));
-        }
-    }
-    if !part.code.is_empty() {
-        part.op(0xb1);
-        part_class.add_method(MethodInfo {
-            access_flags: 0x0009,
-            name: "apply".to_string(),
-            descriptor: "(Ljava/util/ArrayList;)V".to_string(),
-            max_stack: part.max_stack,
-            max_locals: part.max_locals,
-            code: part.code,
-            exceptions: part.exceptions,
-        });
-        part_class_names.push(part_class_name.clone());
-        helper_classes.push(JvmClassFile {
-            path: format!("{part_class_name}.class"),
-            contents: part_class.finish()?,
-        });
-    }
+    let part_class_names = emit_module_value_parts(
+        class_name,
+        method_stem,
+        emitter,
+        initializer,
+        helper_classes,
+    )?;
     let root_class_name =
         emit_module_value_dispatchers(class_name, method_stem, part_class_names, helper_classes)?;
     initializer_code.aload(0);
