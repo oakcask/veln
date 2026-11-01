@@ -119,4 +119,118 @@ mod navigation_module_value_tests {
         assert!(query_snapshot(&snapshot, "main.veln", 3, 31).is_none());
     }
 
+    #[test]
+    fn module_value_rename_rejects_shared_namespace_and_local_capture_conflicts() {
+        for (source_text, requested_name, conflict_line, conflict_column) in [
+            (
+                "pub let answer: Int = 42\npub let result: Int = 1\n",
+                "result",
+                2,
+                9,
+            ),
+            (
+                "pub let answer: Int = 42\npub fn result() -> Int\n  1\nend\n",
+                "result",
+                2,
+                8,
+            ),
+        ] {
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("values.veln", source_text)]);
+            let result = query_snapshot(&snapshot, "values.veln", 1, 10).unwrap();
+            assert_rename_conflict(
+                validate_rename_in_snapshot(&snapshot, &result, requested_name).unwrap_err(),
+                RenameNameClass::ValueBinding,
+                requested_name,
+                "values.veln",
+                conflict_line,
+                conflict_column,
+            );
+        }
+
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "values.veln",
+            concat!(
+                "pub let answer: Int = 42\n",
+                "fn read() -> Int\n",
+                "  let result = 1\n",
+                "  answer\n",
+                "end\n",
+            ),
+        )]);
+        let result = query_snapshot(&snapshot, "values.veln", 1, 10).unwrap();
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&snapshot, &result, "result").unwrap_err(),
+            RenameNameClass::ValueBinding,
+            "result",
+            "values.veln",
+            3,
+            7,
+        );
+    }
+
+    #[test]
+    fn function_rename_rejects_module_value_namespace_conflict() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "values.veln",
+            concat!(
+                "pub fn answer() -> Int\n",
+                "  42\n",
+                "end\n",
+                "pub let result: Int = 1\n",
+            ),
+        )]);
+        let result = query_snapshot(&snapshot, "values.veln", 1, 9).unwrap();
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&snapshot, &result, "result").unwrap_err(),
+            RenameNameClass::Function,
+            "result",
+            "values.veln",
+            4,
+            9,
+        );
+    }
+
+    fn measured_module_value_projection_work(
+        count: usize,
+    ) -> crate::navigation::ModuleValueProjectionWork {
+        let mut sources = (0..count)
+            .map(|index| {
+                source(
+                    &format!("module_{index}.veln"),
+                    &format!("pub let value_{index}: Int = {index}\n"),
+                )
+            })
+            .collect::<Vec<_>>();
+        let imports = (0..count)
+            .map(|index| format!("use module_{index}\n"))
+            .collect::<String>();
+        let reads = (0..count)
+            .map(|index| format!("  let local_{index} = module_{index}::value_{index}\n"))
+            .collect::<String>();
+        sources.push(source(
+            "main.veln",
+            &format!("{imports}\nfn read() -> Int\n{reads}  0\nend\n"),
+        ));
+
+        crate::navigation::reset_module_value_projection_work();
+        let snapshot = EffectiveProjectSnapshot::new(sources);
+        assert!(query_snapshot(&snapshot, "main.veln", count + 3, 28).is_some());
+        crate::navigation::module_value_projection_work()
+    }
+
+    #[test]
+    fn module_value_file_projection_work_is_adjacent_linear() {
+        let smaller = measured_module_value_projection_work(32);
+        let larger = measured_module_value_projection_work(64);
+
+        assert_eq!(smaller.file_index_entries, 33, "{smaller:#?}");
+        assert_eq!(larger.file_index_entries, 65, "{larger:#?}");
+        assert_eq!(smaller.workspace_path_entries, 33, "{smaller:#?}");
+        assert_eq!(larger.workspace_path_entries, 65, "{larger:#?}");
+        assert_eq!(smaller.declaration_lookups, 32, "{smaller:#?}");
+        assert_eq!(larger.declaration_lookups, 64, "{larger:#?}");
+        assert_eq!(smaller.reference_lookups, 32, "{smaller:#?}");
+        assert_eq!(larger.reference_lookups, 64, "{larger:#?}");
+    }
+
 }

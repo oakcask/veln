@@ -1,6 +1,6 @@
 #[cfg(test)]
 use std::cell::Cell;
-use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet};
 use std::sync::{Arc, OnceLock};
 
 use crate::{DirectDependencySnapshot, EffectiveProjectSnapshot};
@@ -22,7 +22,70 @@ thread_local! {
     static EXPLICIT_IMPORT_ALIAS_TARGET_BYTES: Cell<usize> = const { Cell::new(0) };
     static EXPLICIT_IMPORT_ALIAS_RETAINED_TARGET_BYTES: Cell<usize> = const { Cell::new(0) };
     static EXPLICIT_IMPORT_ALIAS_RETAINED_ENTRIES: Cell<usize> = const { Cell::new(0) };
+    static MODULE_VALUE_FILE_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
+    static MODULE_VALUE_WORKSPACE_PATH_ENTRIES: Cell<usize> = const { Cell::new(0) };
+    static MODULE_VALUE_DECLARATION_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static MODULE_VALUE_REFERENCE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
 }
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ModuleValueProjectionWork {
+    pub(crate) file_index_entries: usize,
+    pub(crate) workspace_path_entries: usize,
+    pub(crate) declaration_lookups: usize,
+    pub(crate) reference_lookups: usize,
+}
+
+#[cfg(test)]
+pub(crate) fn reset_module_value_projection_work() {
+    MODULE_VALUE_FILE_INDEX_ENTRIES.set(0);
+    MODULE_VALUE_WORKSPACE_PATH_ENTRIES.set(0);
+    MODULE_VALUE_DECLARATION_LOOKUPS.set(0);
+    MODULE_VALUE_REFERENCE_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn module_value_projection_work() -> ModuleValueProjectionWork {
+    ModuleValueProjectionWork {
+        file_index_entries: MODULE_VALUE_FILE_INDEX_ENTRIES.get(),
+        workspace_path_entries: MODULE_VALUE_WORKSPACE_PATH_ENTRIES.get(),
+        declaration_lookups: MODULE_VALUE_DECLARATION_LOOKUPS.get(),
+        reference_lookups: MODULE_VALUE_REFERENCE_LOOKUPS.get(),
+    }
+}
+
+#[cfg(test)]
+fn record_module_value_file_index_entry() {
+    MODULE_VALUE_FILE_INDEX_ENTRIES.set(MODULE_VALUE_FILE_INDEX_ENTRIES.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_module_value_file_index_entry() {}
+
+#[cfg(test)]
+fn record_module_value_workspace_path_entry() {
+    MODULE_VALUE_WORKSPACE_PATH_ENTRIES.set(MODULE_VALUE_WORKSPACE_PATH_ENTRIES.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_module_value_workspace_path_entry() {}
+
+#[cfg(test)]
+fn record_module_value_declaration_lookup() {
+    MODULE_VALUE_DECLARATION_LOOKUPS.set(MODULE_VALUE_DECLARATION_LOOKUPS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_module_value_declaration_lookup() {}
+
+#[cfg(test)]
+fn record_module_value_reference_lookup() {
+    MODULE_VALUE_REFERENCE_LOOKUPS.set(MODULE_VALUE_REFERENCE_LOOKUPS.get() + 1);
+}
+
+#[cfg(not(test))]
+fn record_module_value_reference_lookup() {}
 
 #[cfg(test)]
 fn record_explicit_import_alias_construction_work(amount: usize) {

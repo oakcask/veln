@@ -514,6 +514,11 @@ workspace references, while a package-backed selection returns no edits.
 Standard-library module values are outside this navigation row. The MCP
 `references` tool does not yet admit module immutable values and returns an
 empty reference result for those selections.
+The checked
+[`module-value-navigation`](../../examples/specification/mcp/module-value-navigation/)
+transcript covers workspace and package definitions, exact workspace rename
+edits, edit-free package rename, empty reference results, one-based ranges,
+and state preservation across those requests.
 
 For an eligible public workspace effect, `definition` and `references` accept
 selection at the declaration, a bare same-module occurrence, or the

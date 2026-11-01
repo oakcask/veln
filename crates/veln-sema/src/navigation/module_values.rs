@@ -1,10 +1,43 @@
-use std::collections::BTreeMap;
+#[cfg(test)]
+use std::cell::Cell;
+use std::collections::{BTreeMap, HashMap};
 
 use veln_ast::{BodyLine, BodyLineKind, Expr, ExprKind, SurfaceModule, Visibility};
 use veln_source::SourceSpan;
 
 use crate::analysis::{VariantDiagnosticInterner, check_module_values};
 use crate::types::TypeEnvironment;
+
+#[cfg(test)]
+thread_local! {
+    static MODULE_VALUE_BINDING_PUSHES: Cell<usize> = const { Cell::new(0) };
+    static MODULE_VALUE_BINDING_POPS: Cell<usize> = const { Cell::new(0) };
+    static MODULE_VALUE_BINDING_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ModuleValueNavigationWork {
+    pub(crate) binding_pushes: usize,
+    pub(crate) binding_pops: usize,
+    pub(crate) binding_lookups: usize,
+}
+
+#[cfg(test)]
+pub(crate) fn reset_module_value_navigation_work() {
+    MODULE_VALUE_BINDING_PUSHES.set(0);
+    MODULE_VALUE_BINDING_POPS.set(0);
+    MODULE_VALUE_BINDING_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn module_value_navigation_work() -> ModuleValueNavigationWork {
+    ModuleValueNavigationWork {
+        binding_pushes: MODULE_VALUE_BINDING_PUSHES.get(),
+        binding_pops: MODULE_VALUE_BINDING_POPS.get(),
+        binding_lookups: MODULE_VALUE_BINDING_LOOKUPS.get(),
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ModuleValueNavigationIdentity {
@@ -19,6 +52,47 @@ pub struct ResolvedModuleValueNavigation {
     pub declaration: SourceSpan,
     pub visibility: Visibility,
     pub references: Vec<SourceSpan>,
+}
+
+#[derive(Default)]
+struct ScopedBindings {
+    names: Vec<String>,
+    counts: HashMap<String, usize>,
+}
+
+impl ScopedBindings {
+    fn push(&mut self, name: String) {
+        #[cfg(test)]
+        MODULE_VALUE_BINDING_PUSHES.set(MODULE_VALUE_BINDING_PUSHES.get() + 1);
+        *self.counts.entry(name.clone()).or_default() += 1;
+        self.names.push(name);
+    }
+
+    fn contains(&self, name: &str) -> bool {
+        #[cfg(test)]
+        MODULE_VALUE_BINDING_LOOKUPS.set(MODULE_VALUE_BINDING_LOOKUPS.get() + 1);
+        self.counts.contains_key(name)
+    }
+
+    fn len(&self) -> usize {
+        self.names.len()
+    }
+
+    fn truncate(&mut self, len: usize) {
+        while self.names.len() > len {
+            let name = self.names.pop().expect("binding length was checked");
+            #[cfg(test)]
+            MODULE_VALUE_BINDING_POPS.set(MODULE_VALUE_BINDING_POPS.get() + 1);
+            let count = self
+                .counts
+                .get_mut(&name)
+                .expect("stacked binding must have a count");
+            *count -= 1;
+            if *count == 0 {
+                self.counts.remove(&name);
+            }
+        }
+    }
 }
 
 pub fn resolved_module_value_navigation(
@@ -80,16 +154,18 @@ pub fn resolved_module_value_navigation(
             value.module_name.as_deref(),
             value.package_name.as_deref(),
             &environment,
-            &mut Vec::new(),
+            &mut ScopedBindings::default(),
             &mut resolved,
         );
     }
     for function in &module.functions {
-        let mut bindings = function
-            .params
-            .iter()
-            .map(|parameter| parameter.name.clone())
-            .collect::<Vec<_>>();
+        let mut bindings = ScopedBindings::default();
+        if function.callsite.is_some() {
+            bindings.push("callsite".to_string());
+        }
+        for parameter in &function.params {
+            bindings.push(parameter.name.clone());
+        }
         if let Some(binding) = &function.return_binding {
             bindings.push(binding.name.clone());
         }
@@ -103,14 +179,14 @@ pub fn resolved_module_value_navigation(
         );
     }
     for handler in &module.handlers {
-        let handler_bindings = handler
-            .params
-            .iter()
-            .map(|parameter| parameter.name.clone())
-            .collect::<Vec<_>>();
         for clause in &handler.operation_clauses {
-            let mut bindings = handler_bindings.clone();
-            bindings.extend(clause.params.iter().map(|parameter| parameter.name.clone()));
+            let mut bindings = ScopedBindings::default();
+            for parameter in &handler.params {
+                bindings.push(parameter.name.clone());
+            }
+            for parameter in &clause.params {
+                bindings.push(parameter.name.clone());
+            }
             collect_expr_references(
                 &clause.body,
                 handler.module_name.as_deref(),
@@ -130,14 +206,14 @@ fn collect_expr_references(
     owner_module: Option<&str>,
     owner_package: Option<&str>,
     environment: &TypeEnvironment,
-    bindings: &mut Vec<String>,
+    bindings: &mut ScopedBindings,
     resolved: &mut BTreeMap<ModuleValueNavigationIdentity, ResolvedModuleValueNavigation>,
 ) {
     if let ExprKind::NamePath {
         segments,
         segment_spans,
     } = &expr.kind
-        && !matches!(segments.as_slice(), [name] if bindings.iter().rev().any(|binding| binding == name))
+        && !matches!(segments.as_slice(), [name] if bindings.contains(name))
         && let Some((package, module, name)) = environment
             .module_value_dependency_identity_in_owner(segments, owner_module, owner_package)
     {
@@ -206,7 +282,7 @@ fn collect_body_references(
     owner_module: Option<&str>,
     owner_package: Option<&str>,
     environment: &TypeEnvironment,
-    bindings: &mut Vec<String>,
+    bindings: &mut ScopedBindings,
     resolved: &mut BTreeMap<ModuleValueNavigationIdentity, ResolvedModuleValueNavigation>,
 ) {
     for line in body {

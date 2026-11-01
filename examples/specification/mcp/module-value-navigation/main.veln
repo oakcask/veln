@@ -1,0 +1,5 @@
+use values
+use dep from "example/dep"
+
+let qualified: Int = values::answer
+let packaged: Int = dep::answer

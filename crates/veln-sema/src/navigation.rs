@@ -30,6 +30,10 @@ pub use import_paths::{
 pub use module_values::{
     ModuleValueNavigationIdentity, ResolvedModuleValueNavigation, resolved_module_value_navigation,
 };
+#[cfg(test)]
+pub(crate) use module_values::{
+    ModuleValueNavigationWork, module_value_navigation_work, reset_module_value_navigation_work,
+};
 
 pub use schema_alias_chains::resolved_schema_alias_chains;
 

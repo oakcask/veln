@@ -622,8 +622,10 @@ struct FunctionSymbol {
 
 #[derive(Clone, Debug)]
 struct ModuleValueSymbol {
+    module: String,
     name: String,
     declaration: NavigationLocation,
+    package: Option<String>,
     package_origin: Option<PackageOrigin>,
     references: Vec<SourceSpan>,
 }

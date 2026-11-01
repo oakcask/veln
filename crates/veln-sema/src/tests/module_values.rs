@@ -97,6 +97,62 @@ fn module_with_value_chain(count: usize) -> SurfaceModule {
     lower_surface_ast(&parsed.tree)
 }
 
+fn module_value_navigation_binding_work(
+    count: usize,
+) -> crate::navigation::ModuleValueNavigationWork {
+    let locals = (0..count)
+        .map(|index| format!("  let local_{index} = answer\n"))
+        .collect::<String>();
+    let source = SourceFile::new(
+        "main.veln",
+        format!("pub let answer: Int = 42\nfn read() -> Int\n{locals}  answer\nend\n"),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    crate::navigation::reset_module_value_navigation_work();
+    let resolved = resolved_module_value_navigation(&module);
+    let work = crate::navigation::module_value_navigation_work();
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].references.len(), count + 1);
+    work
+}
+
+#[test]
+fn module_value_navigation_binding_membership_work_is_adjacent_linear() {
+    let smaller = module_value_navigation_binding_work(64);
+    let larger = module_value_navigation_binding_work(128);
+
+    assert_eq!(smaller.binding_pushes, 64, "{smaller:#?}");
+    assert_eq!(larger.binding_pushes, 128, "{larger:#?}");
+    assert_eq!(smaller.binding_lookups, 65, "{smaller:#?}");
+    assert_eq!(larger.binding_lookups, 129, "{larger:#?}");
+    assert_eq!(smaller.binding_pops, 0, "{smaller:#?}");
+    assert_eq!(larger.binding_pops, 0, "{larger:#?}");
+}
+
+#[test]
+fn module_value_navigation_excludes_the_builtin_callsite_binding() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub let answer: Int = 42\n",
+            "fn located() -> Int callsite\n",
+            "  callsite.start_line\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let mut module = lower_surface_ast(&parsed.tree);
+    module.module_values[0].name = Some("callsite".to_string());
+    let resolved = resolved_module_value_navigation(&module);
+
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].identity.name, "callsite");
+    assert!(resolved[0].references.is_empty());
+}
+
 fn module_with_value_ring(count: usize) -> SurfaceModule {
     let source = SourceFile::new(
         "ring.veln",

@@ -7,6 +7,9 @@ impl SymbolIndex {
         if result.is_recovery {
             return self.recovery_rename_conflict(result, requested_name);
         }
+        if result.selected_symbol.kind == SymbolKind::ModuleValue {
+            return self.module_value_rename_conflict(result, requested_name);
+        }
         match result.selected_symbol.kind.rename_name_class() {
             RenameNameClass::CasingNeutral => None,
             RenameNameClass::ImportAlias => {
@@ -17,6 +20,66 @@ impl SymbolIndex {
             RenameNameClass::Function => self.function_rename_conflict(result, requested_name),
             RenameNameClass::ValueBinding => self.local_rename_conflict(result, requested_name),
         }
+    }
+
+    fn module_value_rename_conflict(
+        &self,
+        result: &NavigationResult,
+        requested_name: &str,
+    ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        let selected = self.selected_module_value(result)?;
+        let rename_index = self.function_rename_index();
+        self.module_values
+            .iter()
+            .find(|candidate| {
+                candidate.package.is_none()
+                    && candidate.module == selected.module
+                    && candidate.name == requested_name
+                    && candidate.declaration != selected.declaration
+            })
+            .map(|candidate| {
+                module_rename_conflict(candidate.declaration.clone(), &selected.module)
+            })
+            .or_else(|| {
+                self.functions
+                    .iter()
+                    .find(|candidate| {
+                        candidate.package.is_none()
+                            && candidate.module == selected.module
+                            && candidate.name == requested_name
+                    })
+                    .map(|candidate| {
+                        module_rename_conflict(candidate.declaration.clone(), &selected.module)
+                    })
+            })
+            .or_else(|| {
+                self.affected_spans(result).into_iter().find_map(|span| {
+                    let (file, token_index) = self.file_token_for_span(span)?;
+                    if qualifier_for_token(&file.tokens, token_index).is_some() {
+                        return None;
+                    }
+                    self.local_conflict_in_file(file, requested_name, span)
+                        .or_else(|| {
+                            rename_index
+                                .handler_files
+                                .contains(file.source.path().as_str())
+                                .then(|| {
+                                    handler_binding_conflict_for_function_reference(
+                                        file,
+                                        &file.tokens,
+                                        rename_index
+                                            .scopes_by_file
+                                            .get(file.source.path().as_str())
+                                            .map(Vec::as_slice)
+                                            .unwrap_or(&[]),
+                                        token_index,
+                                        requested_name,
+                                    )
+                                })
+                                .flatten()
+                        })
+                })
+            })
     }
 
     fn import_alias_rename_conflict(

@@ -416,6 +416,14 @@ in that identity's reference set. The replacement must start with an ASCII
 lowercase letter. The qualifier portion of an alias-qualified reference keeps
 the separate import-alias identity described above.
 
+Module values and functions share one module rename namespace. A replacement
+that duplicates either declaration kind in the selected module returns
+`rename.conflict` with no edits. The inverse function-to-module-value collision
+has the same outcome. A module-value rename also returns that failure when an
+edited bare reference would bind to a function-local or handler-clause binding
+with the replacement name. Qualified references cannot be captured by those
+lexical bindings.
+
 Public module values from retained direct dependencies participate in
 definition and workspace references by their package and module owner. Values
 with the same module and declaration name in different packages remain
@@ -427,8 +435,10 @@ The checked
 [`module-value-navigation`](../../examples/specification/lsp/module-value-navigation/)
 case covers definition, declaration-inclusive references, prepare-rename, and
 rename across direct, qualified, and aliased workspace references. Focused
-language-service and LSP tests cover equal initializer data, same-spelled
-functions, and package-distinct dependency identities.
+semantic-navigation, language-service, and LSP tests cover equal initializer
+data, same-spelled functions, package-distinct dependency identities,
+shared-namespace rename conflicts, lexical capture rejection, and edit-free
+conflict responses.
 
 ### Shared variant-refinement navigation
 

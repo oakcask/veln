@@ -152,6 +152,16 @@ impl SymbolIndex {
             .cloned()
     }
 
+    fn selected_module_value(&self, result: &NavigationResult) -> Option<ModuleValueSymbol> {
+        self.module_values
+            .iter()
+            .find(|symbol| {
+                symbol.package.is_none()
+                    && symbol.declaration == result.selected_symbol.declaration
+            })
+            .cloned()
+    }
+
     fn module_value_for_selection(
         &self,
         name: &str,

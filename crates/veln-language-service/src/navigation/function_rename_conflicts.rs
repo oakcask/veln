@@ -31,6 +31,18 @@ impl SymbolIndex {
                     },
                 )
             })
+            .or_else(|| {
+                self.module_values
+                    .iter()
+                    .find(|candidate| {
+                        candidate.package.is_none()
+                            && candidate.module == selected.module
+                            && candidate.name == requested_name
+                    })
+                    .map(|candidate| {
+                        module_rename_conflict(candidate.declaration.clone(), &selected.module)
+                    })
+            })
     }
 
     fn function_reference_conflict(

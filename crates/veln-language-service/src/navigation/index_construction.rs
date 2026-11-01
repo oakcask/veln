@@ -176,39 +176,56 @@ fn module_value_symbols(
     files: &[IndexedFile],
     module: &veln_ast::SurfaceModule,
 ) -> Vec<ModuleValueSymbol> {
+    let files_by_identity = files
+        .iter()
+        .map(|file| {
+            record_module_value_file_index_entry();
+            let package = match &file.origin {
+                IndexedOrigin::Workspace => None,
+                IndexedOrigin::Package { identity, .. } => Some(identity.as_str()),
+            };
+            ((file.source.path().as_str(), package), file)
+        })
+        .collect::<HashMap<_, _>>();
+    let workspace_navigation_paths = files
+        .iter()
+        .filter(|file| workspace_navigation_file(file))
+        .map(|file| {
+            record_module_value_workspace_path_entry();
+            file.source.path().as_str()
+        })
+        .collect::<HashSet<_>>();
     veln_sema::resolved_module_value_navigation(module)
         .into_iter()
         .filter_map(|resolved| {
-            let file = files.iter().find(|file| {
-                file.source.path().as_str() == resolved.declaration.file.as_str()
-                    && match (&file.origin, resolved.identity.package.as_deref()) {
-                        (IndexedOrigin::Workspace, None) => true,
-                        (IndexedOrigin::Package { identity, .. }, Some(package)) => {
-                            identity == package
-                        }
-                        _ => false,
-                    }
-            })?;
+            record_module_value_declaration_lookup();
+            let file = files_by_identity.get(&(
+                resolved.declaration.file.as_str(),
+                resolved.identity.package.as_deref(),
+            ))?;
             if file.navigation_isolated
                 || is_invalid_declaration_name(file, &resolved.declaration)
             {
                 return None;
             }
             let public = resolved.visibility == veln_ast::Visibility::Public;
-            let origin = declaration_origin(file, resolved.declaration, public)?;
+            let origin = declaration_origin(file, resolved.declaration.clone(), public)?;
             let references = resolved
                 .references
                 .into_iter()
                 .filter(|reference| {
-                    files.iter().any(|file| {
-                        workspace_navigation_file(file)
-                            && file.source.path().as_str() == reference.file.as_str()
-                    })
+                    record_module_value_reference_lookup();
+                    workspace_navigation_paths.contains(reference.file.as_str())
                 })
                 .collect();
             Some(ModuleValueSymbol {
+                module: resolved
+                    .identity
+                    .module
+                    .unwrap_or_else(|| file.module.clone()),
                 name: resolved.identity.name,
                 declaration: origin.declaration,
+                package: resolved.identity.package,
                 package_origin: origin.package_origin,
                 references,
             })

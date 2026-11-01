@@ -155,3 +155,59 @@ fn package_distinct_module_value_protocol_navigation_keeps_identity() {
     let renamed = server.handle_message(&rename_request(&main_uri, 3, 25, "result"));
     assert_contains_json(&renamed[0], r#""changes":{}"#);
 }
+
+#[test]
+fn module_value_protocol_rename_rejects_namespace_and_capture_conflicts() {
+    let mut server = server_with_empty_standard_library();
+    let project = TempProject::new("module-value-rename-conflicts");
+    project.write(
+        "values.veln",
+        concat!(
+            "pub let answer: Int = 42\n",
+            "pub let existing: Int = 1\n",
+            "pub fn callable() -> Int\n",
+            "  1\n",
+            "end\n",
+            "fn read() -> Int\n",
+            "  let captured = 1\n",
+            "  answer\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let values_uri = path_to_uri(&project.root.join("values.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    for (line, character, requested, symbol_class, scope) in [
+        (0, 10, "existing", "value_binding", r#""kind":"module""#),
+        (0, 10, "callable", "value_binding", r#""kind":"module""#),
+        (2, 9, "existing", "function", r#""kind":"module""#),
+        (0, 10, "captured", "value_binding", r#""kind":"lexical""#),
+    ] {
+        let response = server.handle_message(&rename_request(
+            &values_uri,
+            line,
+            character,
+            requested,
+        ));
+        assert_eq!(response.len(), 1);
+        assert!(response[0].contains(r#""code":-32602"#), "{}", response[0]);
+        assert!(
+            response[0].contains(r#""code":"rename.conflict""#),
+            "{}",
+            response[0]
+        );
+        assert!(
+            response[0].contains(&format!(r#""symbol_class":"{symbol_class}""#)),
+            "{}",
+            response[0]
+        );
+        assert!(
+            response[0].contains(&format!(r#""requested_name":"{requested}""#)),
+            "{}",
+            response[0]
+        );
+        assert!(response[0].contains(scope), "{}", response[0]);
+        assert!(!response[0].contains(r#""changes""#), "{}", response[0]);
+    }
+}
