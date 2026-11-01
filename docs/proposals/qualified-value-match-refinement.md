@@ -53,9 +53,12 @@ defines finite-data initializer typing, and the current
 defines same-module and imported lookup, package-aware declaration identity,
 and visibility. The current
 [execution specification](../specification/execution.md#runtime-readiness-and-host-boundaries)
-defines checked-core, typed-IR, and runtime identity preservation. A qualified
-constructor remains insufficient evidence for this extension because it does
-not resolve to a module-value declaration.
+defines checked-core, typed-IR, and runtime identity preservation. Backend
+materialization can split one initializer across bounded generated classes
+without changing that declaration identity. The proposed refinement therefore
+depends on the selected module-value declaration, not on the generated storage
+or construction class. A qualified constructor remains insufficient evidence
+for this extension because it does not resolve to a module-value declaration.
 
 The existing [stable-value rules](../specification/types.md#inference-rules)
 provide the semantic model to extend. This proposal chooses declaration
