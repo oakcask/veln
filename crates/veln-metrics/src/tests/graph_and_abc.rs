@@ -43,6 +43,42 @@ fn counts_internal_edges_external_imports_and_self_cycles() {
 }
 
 #[test]
+fn malformed_modules_remain_nodes_without_contributing_dependencies() {
+    let project = Project {
+        root: ".".into(),
+        manifest: None,
+        files: vec![
+            SourceFile::new(
+                "broken.veln",
+                "use util\nuse vendor from \"example/pkg\"\nfn broken(\n",
+            ),
+            SourceFile::new("util.veln", "fn value() -> ()\n  ()\nend\n"),
+        ],
+    };
+    let selected = ["broken.veln".to_string(), "util.veln".to_string()]
+        .into_iter()
+        .collect();
+
+    let report = DependencyGraph::from_project(&project)
+        .expect("graph")
+        .report(
+            &project,
+            ProjectIdentity {
+                root: ".".to_string(),
+                selected_paths: Vec::new(),
+            },
+            &selected,
+            default_metrics_config(),
+            Vec::new(),
+            MetricsCompleteness::default(),
+        );
+
+    assert_eq!(report.summary.project_module_count, 2);
+    assert_eq!(report.summary.internal_edge_count, 0);
+    assert_eq!(report.summary.external_dependency_count, 0);
+}
+
+#[test]
 fn edge_report_projects_modules_paths_and_dependencies() {
     let report = report_from_edges(&[("zeta", "app"), ("app", "util")]);
 
