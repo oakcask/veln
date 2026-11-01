@@ -119,6 +119,13 @@ A different failure or successful execution fails with
 `reason: "expected_runtime_failure"`. Missing Java is a case error with
 `reason: "runner_error"`.
 
+JVM classfile generation can reject a suite program or an independently
+lowered test that exceeds a classfile representation limit. This failure
+occurs after typed-IR readiness and before worker launch, cache publication, or
+Java launch. The command writes a `veln: JVM backend could not generate ...`
+message to standard error and exits with status 2. It does not produce case
+records; `--json` does not emit a test JSON envelope for this command error.
+
 Workers capture output per case. The coordinator waits for all workers and
 renders human status, JSON cases, diagnostics, events, summaries, failures, and
 exit status in discovered-case order regardless of completion order.
@@ -137,6 +144,9 @@ Runtime expectations cover only contract, ensure, and result failures. They do
 not match arbitrary panics, raw stderr, or process exit status. Output matching
 does not satisfy a runtime expectation, and satisfying an expectation does not
 satisfy an output fence.
+
+Backend representation failures are command errors rather than case failures.
+They do not start workers and cannot be matched by runtime expectations.
 
 Timing stage durations are diagnostic measurements rather than stable
 performance thresholds. Their values depend on the host and selected workload.

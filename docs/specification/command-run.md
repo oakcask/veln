@@ -84,6 +84,13 @@ The reachable program is lowered to typed IR and JVM classfiles. Ordinary
 execution does not write Java source or invoke a Java source compiler. Missing
 Java before class loading is a JDK setup failure.
 
+JVM classfile generation can reject a program that exceeds a classfile
+representation limit. This failure occurs after typed-IR readiness and before
+cache configuration, artifact publication, or Java launch. The command writes
+`veln: JVM backend could not generate the program: REASON` to standard error
+and exits with status 2. This is a command error, so `--json` does not emit a
+run JSON envelope for it.
+
 ## JVM cache
 
 Generated classfiles are cached by backend content below the selected user
@@ -168,8 +175,9 @@ contract-violation diagnostic.
 The command does not execute unreachable code, acquire dependencies, or fall
 back to another cache root after a configuration failure. Static gates prevent
 artifact generation and Java launch, so no user output is produced before a
-static failure. A call-site-aware entry is such a static failure even when its
-body does not read the built-in value.
+static failure. Backend representation failures also prevent artifact
+publication and Java launch. A call-site-aware entry is a static failure even
+when its body does not read the built-in value.
 
 ## References
 

@@ -7,7 +7,8 @@ specification-coverage: usage=#test-json; behavior=#selection; limits=#usage-and
 
 # Test JSON
 
-This file specifies the implemented JSON output for `veln test --json`.
+This file specifies the implemented JSON output for `veln test --json` when
+the invocation reaches test-report construction.
 
 ## Envelope
 
@@ -113,6 +114,11 @@ JDK setup failures are reported on the affected case with
 `status: "error"`, `reason: "runner_error"`, and
 `failure.kind: "runtime"`. This includes a missing `java` before compilation
 or class loading.
+
+A JVM classfile generation failure occurs before report construction. It
+writes a `veln: JVM backend could not generate ...` command error to standard
+error and exits with status 2. The command emits no test JSON envelope or case
+record for this failure.
 
 Runtime contract failures inside a selected test case are reported as failed
 cases with `failure.kind: "contract"`. The failure details use
@@ -299,7 +305,8 @@ Read `selection` before `cases`: explicit targets may add companions or
 dependency-selected tests. Incomplete graph evidence widens selection with
 `confidence: "unknown"`. Static failures block execution. Runtime expectations
 apply only to doctests. Output matching and runtime expectations are
-independent.
+independent. A backend representation failure is outside this envelope because
+report construction has not completed.
 
 When `VELN_TEST_TIMINGS` is present, timing diagnostics are written to standard
 error after the report. They are not fields in the JSON envelope or case event

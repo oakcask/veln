@@ -48,8 +48,12 @@ stderr is also empty, the process exit status supplies the message. A transport
 failure replaces the captured stderr with its stable transport message followed
 by a newline; raw Java stderr is discarded.
 
-A tool failure has `error.kind: "runner"`, `details.phase: "tool"`, empty
-`stdout` and `stderr`, and does not claim that the program reached the backend.
+A tool failure represented after run-report preparation has
+`error.kind: "runner"`, `details.phase: "tool"`, empty `stdout` and `stderr`,
+and does not claim that the program reached the backend. A JVM classfile
+generation failure occurs before report preparation. Even with `--json`, it
+writes a `veln: JVM backend could not generate the program: REASON` command
+error to standard error, exits with status 2, and emits no run JSON envelope.
 Other non-zero Java exits have `error.kind: "runtime"` and
 `details.phase: "runtime"`.
 
