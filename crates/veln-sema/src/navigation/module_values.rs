@@ -1,6 +1,6 @@
 #[cfg(test)]
 use std::cell::Cell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use veln_ast::{BodyLine, BodyLineKind, Expr, ExprKind, SurfaceModule, Visibility};
 use veln_source::SourceSpan;
@@ -107,12 +107,27 @@ pub fn resolved_module_value_navigation(
         &mut environment,
         &mut VariantDiagnosticInterner::default(),
     );
+    let mut resolved = admitted_module_value_declarations(module, &analysis.invalid);
+    if resolved.is_empty() {
+        return Vec::new();
+    }
+    collect_initializer_references(module, &environment, &mut resolved);
+    collect_function_references(module, &environment, &mut resolved);
+    collect_handler_references(module, &environment, &mut resolved);
+
+    resolved.into_values().collect()
+}
+
+fn admitted_module_value_declarations(
+    module: &SurfaceModule,
+    invalid: &BTreeSet<(Option<String>, Option<String>, String)>,
+) -> BTreeMap<ModuleValueNavigationIdentity, ResolvedModuleValueNavigation> {
     let mut declarations = BTreeMap::<ModuleValueNavigationIdentity, Vec<_>>::new();
     for value in &module.module_values {
         let (Some(name), Some(declaration)) = (&value.name, &value.name_span) else {
             continue;
         };
-        if analysis.invalid.contains(&(
+        if invalid.contains(&(
             value.package_name.clone(),
             value.module_name.clone(),
             name.clone(),
@@ -128,7 +143,7 @@ pub fn resolved_module_value_navigation(
             .or_default()
             .push((declaration.clone(), value.visibility));
     }
-    let mut resolved = declarations
+    declarations
         .into_iter()
         .filter_map(|(identity, candidates)| {
             let [(declaration, visibility)] = candidates.as_slice() else {
@@ -144,20 +159,31 @@ pub fn resolved_module_value_navigation(
                 },
             ))
         })
-        .collect::<BTreeMap<_, _>>();
-    if resolved.is_empty() {
-        return Vec::new();
-    }
+        .collect()
+}
+
+fn collect_initializer_references(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    resolved: &mut BTreeMap<ModuleValueNavigationIdentity, ResolvedModuleValueNavigation>,
+) {
     for value in &module.module_values {
         collect_expr_references(
             &value.initializer,
             value.module_name.as_deref(),
             value.package_name.as_deref(),
-            &environment,
+            environment,
             &mut ScopedBindings::default(),
-            &mut resolved,
+            resolved,
         );
     }
+}
+
+fn collect_function_references(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    resolved: &mut BTreeMap<ModuleValueNavigationIdentity, ResolvedModuleValueNavigation>,
+) {
     for function in &module.functions {
         let mut bindings = ScopedBindings::default();
         if function.callsite.is_some() {
@@ -173,11 +199,18 @@ pub fn resolved_module_value_navigation(
             &function.body,
             function.module_name.as_deref(),
             function.package_name.as_deref(),
-            &environment,
+            environment,
             &mut bindings,
-            &mut resolved,
+            resolved,
         );
     }
+}
+
+fn collect_handler_references(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    resolved: &mut BTreeMap<ModuleValueNavigationIdentity, ResolvedModuleValueNavigation>,
+) {
     for handler in &module.handlers {
         for clause in &handler.operation_clauses {
             let mut bindings = ScopedBindings::default();
@@ -191,14 +224,12 @@ pub fn resolved_module_value_navigation(
                 &clause.body,
                 handler.module_name.as_deref(),
                 handler.package_name.as_deref(),
-                &environment,
+                environment,
                 &mut bindings,
-                &mut resolved,
+                resolved,
             );
         }
     }
-
-    resolved.into_values().collect()
 }
 
 fn collect_expr_references(
