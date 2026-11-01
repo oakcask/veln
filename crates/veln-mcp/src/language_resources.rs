@@ -271,8 +271,8 @@ impl LanguageResources {
         let keys = prepared.keys().collect::<Vec<_>>();
         let new_keys = keys
             .iter()
-            .cloned()
             .filter(|key| !self.retained_package_keys.contains(key))
+            .cloned()
             .collect::<BTreeSet<_>>();
         if self.retained_package_keys.len() + new_keys.len() > self.retained_package_capacity() {
             return Err(ResourceCapacityError);
