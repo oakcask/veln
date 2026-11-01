@@ -120,6 +120,28 @@ mod navigation_module_value_tests {
     }
 
     #[test]
+    fn result_binding_does_not_hide_a_same_named_module_value_in_the_body() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "values.veln",
+            concat!(
+                "pub let answer: Int = 42\n",
+                "fn read() -> answer: Int\n",
+                "ensure answer == 42\n",
+                "  answer\n",
+                "end\n",
+            ),
+        )]);
+
+        for (line, column) in [(1, 10), (4, 4)] {
+            let result = query_snapshot(&snapshot, "values.veln", line, column).unwrap();
+            assert_eq!(result.selected_symbol.kind, SymbolKind::ModuleValue);
+            assert_location(&result.definition, "values.veln", 1, 9);
+            assert_eq!(locations(&result.references), [("values.veln", 4, 3)]);
+            assert!(validate_rename_in_snapshot(&snapshot, &result, "renamed").is_ok());
+        }
+    }
+
+    #[test]
     fn module_value_rename_rejects_shared_namespace_and_local_capture_conflicts() {
         for (source_text, requested_name, conflict_line, conflict_column) in [
             (
@@ -166,6 +188,83 @@ mod navigation_module_value_tests {
             3,
             7,
         );
+    }
+
+    #[test]
+    fn module_value_rename_rejects_consumer_capture_and_import_ambiguity() {
+        for consumer_declaration in [
+            "let target: Int = 1\n",
+            "fn target() -> Int\n  1\nend\n",
+        ] {
+            let snapshot = EffectiveProjectSnapshot::new(vec![
+                source("values.veln", "pub let answer: Int = 42\n"),
+                source(
+                    "main.veln",
+                    &format!(
+                        "use values\n{consumer_declaration}fn read() -> Int\n  answer\nend\n"
+                    ),
+                ),
+            ]);
+            let result = query_snapshot(&snapshot, "values.veln", 1, 10).unwrap();
+            assert_rename_conflict(
+                validate_rename_in_snapshot(&snapshot, &result, "target").unwrap_err(),
+                RenameNameClass::ValueBinding,
+                "target",
+                "main.veln",
+                if consumer_declaration.starts_with("let") { 2 } else { 2 },
+                if consumer_declaration.starts_with("let") { 5 } else { 4 },
+            );
+        }
+
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub let target: Int = 1\n"),
+            source("right.veln", "pub let answer: Int = 42\n"),
+            source(
+                "main.veln",
+                "use left\nuse right\n\nfn read() -> Int\n  target\nend\n",
+            ),
+        ]);
+        let result = query_snapshot(&snapshot, "right.veln", 1, 10).unwrap();
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&snapshot, &result, "target").unwrap_err(),
+            RenameNameClass::ValueBinding,
+            "target",
+            "left.veln",
+            1,
+            9,
+        );
+
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "left.veln",
+                "pub fn target() -> Int\n  1\nend\n",
+            ),
+            source("right.veln", "pub let answer: Int = 42\n"),
+            source(
+                "main.veln",
+                "use left\nuse right\n\nfn read() -> Int\n  target()\nend\n",
+            ),
+        ]);
+        let result = query_snapshot(&snapshot, "right.veln", 1, 10).unwrap();
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&snapshot, &result, "target").unwrap_err(),
+            RenameNameClass::ValueBinding,
+            "target",
+            "left.veln",
+            1,
+            8,
+        );
+
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub let target: Int = 1\n"),
+            source("right.veln", "pub let answer: Int = 42\n"),
+            source(
+                "main.veln",
+                "use left\nuse right as config\n\nfn read() -> Int\n  target + config::answer\nend\n",
+            ),
+        ]);
+        let result = query_snapshot(&snapshot, "right.veln", 1, 10).unwrap();
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "target").is_ok());
     }
 
     #[test]
@@ -231,6 +330,48 @@ mod navigation_module_value_tests {
         assert_eq!(larger.declaration_lookups, 64, "{larger:#?}");
         assert_eq!(smaller.reference_lookups, 32, "{smaller:#?}");
         assert_eq!(larger.reference_lookups, 64, "{larger:#?}");
+    }
+
+    fn measured_module_value_rename_validation_work(
+        count: usize,
+    ) -> crate::navigation::ModuleValueRenameValidationWork {
+        let reads = (0..count)
+            .map(|index| format!("  let local_{index} = answer\n"))
+            .collect::<String>();
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "values.veln",
+            &format!(
+                "pub let answer: Int = 42\nfn read() -> Int\n{reads}  answer\nend\n"
+            ),
+        )]);
+        let result = query_snapshot(&snapshot, "values.veln", 1, 10).unwrap();
+        assert_eq!(result.references.len(), count + 1);
+
+        reset_module_value_rename_validation_work();
+        let started = std::time::Instant::now();
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "renamed").is_ok());
+        eprintln!(
+            "module value rename validation: {} edits in {:?}",
+            count + 2,
+            started.elapsed()
+        );
+        module_value_rename_validation_work()
+    }
+
+    #[test]
+    fn module_value_rename_validation_work_is_adjacent_linear() {
+        let smaller = measured_module_value_rename_validation_work(1000);
+        let larger = measured_module_value_rename_validation_work(2000);
+
+        assert_eq!(smaller.file_lookups, 2004, "{smaller:#?}");
+        assert_eq!(larger.file_lookups, 4004, "{larger:#?}");
+        assert!(larger.token_comparisons <= smaller.token_comparisons * 3, "{smaller:#?} {larger:#?}");
+        assert_eq!(smaller.scope_collections, 1, "{smaller:#?}");
+        assert_eq!(larger.scope_collections, 1, "{larger:#?}");
+        assert!(
+            larger.scope_lookup_comparisons <= smaller.scope_lookup_comparisons * 3,
+            "{smaller:#?} {larger:#?}"
+        );
     }
 
 }

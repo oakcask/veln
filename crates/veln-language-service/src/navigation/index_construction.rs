@@ -133,6 +133,12 @@ impl SymbolIndex {
         append_surface_module(&mut complete_module, standard_library.module.clone());
         let module_values = module_value_symbols(&files, &complete_module);
         let file_indices_by_identity = file_indices_by_identity(&files);
+        let workspace_file_indices_by_path = files
+            .iter()
+            .enumerate()
+            .filter(|(_, file)| matches!(file.origin, IndexedOrigin::Workspace))
+            .map(|(index, file)| (file.source.path().as_str().to_string(), index))
+            .collect();
         Self {
             import_aliases,
             import_namespace_bindings,
@@ -144,6 +150,7 @@ impl SymbolIndex {
             operations: declarations.operations,
             functions: declarations.functions,
             module_values,
+            workspace_file_indices_by_path,
             function_indices_by_identity,
             file_indices_by_identity,
             package_function_targets: declarations.package_function_targets,
@@ -227,6 +234,7 @@ fn module_value_symbols(
                 declaration: origin.declaration,
                 package: resolved.identity.package,
                 package_origin: origin.package_origin,
+                public,
                 references,
             })
         })

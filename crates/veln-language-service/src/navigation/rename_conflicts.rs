@@ -53,12 +53,19 @@ impl SymbolIndex {
                     })
             })
             .or_else(|| {
+                self.module_value_post_rename_visibility_conflict(
+                    result,
+                    &selected,
+                    requested_name,
+                )
+            })
+            .or_else(|| {
                 self.affected_spans(result).into_iter().find_map(|span| {
                     let (file, token_index) = self.file_token_for_span(span)?;
                     if qualifier_for_token(&file.tokens, token_index).is_some() {
                         return None;
                     }
-                    self.local_conflict_in_file(file, requested_name, span)
+                    self.local_conflict_in_file(file, requested_name, token_index)
                         .or_else(|| {
                             rename_index
                                 .handler_files
@@ -79,6 +86,110 @@ impl SymbolIndex {
                                 .flatten()
                         })
                 })
+            })
+    }
+
+    fn module_value_post_rename_visibility_conflict(
+        &self,
+        result: &NavigationResult,
+        selected: &ModuleValueSymbol,
+        requested_name: &str,
+    ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        let rename_index = self.function_rename_index();
+        let affected_bare_files = self
+            .affected_spans(result)
+            .into_iter()
+            .filter_map(|span| {
+                let (file, token_index) = self.file_token_for_span(span)?;
+                qualifier_for_token(&file.tokens, token_index)
+                    .is_none()
+                    .then(|| file.source.path().as_str().to_string())
+            })
+            .collect::<BTreeSet<_>>();
+        self.files
+            .iter()
+            .filter(|file| module_value_visible_after_rename(file, selected))
+            .find_map(|file| {
+                let affected_bare_reference =
+                    affected_bare_files.contains(file.source.path().as_str());
+
+                let local_value = self.module_values.iter().find(|candidate| {
+                    candidate.package.is_none()
+                        && candidate.module == file.module
+                        && candidate.name == requested_name
+                        && candidate.declaration != selected.declaration
+                });
+                let local_function = self.functions.iter().find(|candidate| {
+                    candidate.package.is_none()
+                        && candidate.module == file.module
+                        && candidate.name == requested_name
+                });
+                if affected_bare_reference
+                    && let Some(conflict) = local_value
+                        .map(|candidate| candidate.declaration.clone())
+                        .or_else(|| local_function.map(|candidate| candidate.declaration.clone()))
+                {
+                    return Some(module_rename_conflict(conflict, &file.module));
+                }
+
+                let imported_value = self.module_values.iter().find(|candidate| {
+                    candidate.name == requested_name
+                        && candidate.declaration != selected.declaration
+                        && candidate.module != file.module
+                        && workspace_module_value_visible_in_file(file, candidate)
+                        && (affected_bare_reference
+                            || candidate.references.iter().any(|span| {
+                            span.file.as_str() == file.source.path().as_str()
+                                && self.file_token_for_span(span).is_some_and(
+                                    |(_, token_index)| {
+                                        qualifier_for_token(&file.tokens, token_index).is_none()
+                                    },
+                                )
+                            }))
+                });
+                if let Some(candidate) = imported_value {
+                    return Some(module_rename_conflict(
+                        candidate.declaration.clone(),
+                        &file.module,
+                    ));
+                }
+
+                let imported_function = self.functions.iter().find(|candidate| {
+                    candidate.package.is_none()
+                        && candidate.public
+                        && candidate.module != file.module
+                        && candidate.name == requested_name
+                        && workspace_module_is_barely_imported(file, &candidate.module)
+                });
+                let Some(candidate) = imported_function else {
+                    return None;
+                };
+                if affected_bare_reference {
+                    return Some(module_rename_conflict(
+                        candidate.declaration.clone(),
+                        &file.module,
+                    ));
+                }
+                let scopes = rename_index
+                    .scopes_by_file
+                    .get(file.source.path().as_str())
+                    .map(Vec::as_slice)
+                    .unwrap_or(&[]);
+                file.tokens
+                    .iter()
+                    .enumerate()
+                    .any(|(token_index, token)| {
+                        token.text == requested_name
+                            && is_bare_function_reference_token(
+                                &file.tokens,
+                                scopes,
+                                token_index,
+                                requested_name,
+                            )
+                    })
+                    .then(|| {
+                        module_rename_conflict(candidate.declaration.clone(), &file.module)
+                    })
             })
     }
 

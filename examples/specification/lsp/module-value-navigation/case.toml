@@ -18,7 +18,7 @@ equals = {"start":{"line":0,"character":8},"end":{"line":0,"character":14}}
 [[lsp_assert]]
 id = 3
 path = "/result"
-length = 4
+length = 5
 
 [[lsp_assert]]
 id = 3
@@ -33,11 +33,16 @@ workspace_file_uri = "alias.veln"
 [[lsp_assert]]
 id = 3
 path = "/result/2/uri"
-workspace_file_uri = "main.veln"
+workspace_file_uri = "capture.veln"
 
 [[lsp_assert]]
 id = 3
 path = "/result/3/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 3
+path = "/result/4/uri"
 workspace_file_uri = "values.veln"
 
 [[lsp_assert]]
@@ -50,6 +55,43 @@ id = 5
 path = "/result/changes/$workspace_file_uri:alias.veln"
 equals = [
   {"range":{"start":{"line":2,"character":27},"end":{"line":2,"character":33}},"newText":"result"}
+]
+
+[[lsp_assert]]
+id = 6
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 6
+path = "/error/data/details/conflicting_declaration/uri"
+workspace_file_uri = "capture.veln"
+
+[[lsp_assert]]
+id = 6
+path = "/error/data/details/affected_scope"
+equals = {"kind":"module","name":"capture"}
+
+[[lsp_assert]]
+id = 7
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 7
+path = "/error/data/details/conflicting_declaration/uri"
+workspace_file_uri = "left.veln"
+
+[[lsp_assert]]
+id = 7
+path = "/error/data/details/affected_scope"
+equals = {"kind":"module","name":"ambiguity"}
+
+[[lsp_assert]]
+id = 5
+path = "/result/changes/$workspace_file_uri:capture.veln"
+equals = [
+  {"range":{"start":{"line":4,"character":2},"end":{"line":4,"character":8}},"newText":"result"}
 ]
 
 [[lsp_assert]]

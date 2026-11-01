@@ -627,6 +627,7 @@ struct ModuleValueSymbol {
     declaration: NavigationLocation,
     package: Option<String>,
     package_origin: Option<PackageOrigin>,
+    public: bool,
     references: Vec<SourceSpan>,
 }
 
@@ -1091,6 +1092,7 @@ struct WorkspaceImport {
     module: String,
     alias: String,
     syntax_valid: bool,
+    bare_exports: bool,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -1198,6 +1200,7 @@ pub(crate) struct IndexedDependencies {
 #[derive(Debug)]
 pub(crate) struct SymbolIndex {
     files: Vec<IndexedFile>,
+    workspace_file_indices_by_path: HashMap<String, usize>,
     import_aliases: Vec<ImportAliasSymbol>,
     import_namespace_bindings: Vec<ImportNamespaceBinding>,
     schemas: Vec<NeutralSymbol>,

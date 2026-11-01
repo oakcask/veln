@@ -424,6 +424,20 @@ edited bare reference would bind to a function-local or handler-clause binding
 with the replacement name. Qualified references cannot be captured by those
 lexical bindings.
 
+For a public module value, rename conflict prediction checks every workspace
+module that receives its bare exports. An edited bare reference cannot be
+captured by a top-level function or module value in the consumer module. A
+second imported public function or module value with the replacement name
+cannot make an edited reference or an existing unedited reference ambiguous.
+Either outcome returns `rename.conflict` with the consumer module as the
+affected scope and no edits. An explicit import alias grants qualified access
+only and does not make the selected value visible for this bare-name check.
+
+An explicit function result binding shadows a same-named module value only in
+the function's `ensure` clauses. A same-named occurrence in the function body
+continues to select the module value, so definition, references, and rename use
+the module-value identity for that occurrence.
+
 Public module values from retained direct dependencies participate in
 definition and workspace references by their package and module owner. Values
 with the same module and declaration name in different packages remain
@@ -438,7 +452,8 @@ rename across direct, qualified, and aliased workspace references. Focused
 semantic-navigation, language-service, and LSP tests cover equal initializer
 data, same-spelled functions, package-distinct dependency identities,
 shared-namespace rename conflicts, lexical capture rejection, and edit-free
-conflict responses.
+conflict responses. The executable LSP case also checks consumer-module
+capture and ambiguity caused by an unedited reference to the requested name.
 
 ### Shared variant-refinement navigation
 

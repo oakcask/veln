@@ -192,9 +192,6 @@ fn collect_function_references(
         for parameter in &function.params {
             bindings.push(parameter.name.clone());
         }
-        if let Some(binding) = &function.return_binding {
-            bindings.push(binding.name.clone());
-        }
         collect_body_references(
             &function.body,
             function.module_name.as_deref(),

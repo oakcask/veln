@@ -1,0 +1,6 @@
+use values
+
+let target: Int = 1
+fn read() -> Int
+  answer
+end

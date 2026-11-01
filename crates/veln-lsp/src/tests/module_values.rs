@@ -300,3 +300,63 @@ fn module_value_protocol_rename_rejects_namespace_and_capture_conflicts() {
         assert!(!response[0].contains(r#""changes""#), "{}", response[0]);
     }
 }
+
+#[test]
+fn module_value_protocol_rename_rejects_cross_module_complete_edit_conflicts() {
+    let mut server = server_with_empty_standard_library();
+    let project = TempProject::new("module-value-cross-module-rename-conflicts");
+    project.write("values.veln", "pub let answer: Int = 42\n");
+    project.write(
+        "capture.veln",
+        concat!(
+            "use values\n",
+            "let target: Int = 1\n",
+            "fn read() -> Int\n",
+            "  answer\n",
+            "end\n",
+        ),
+    );
+    project.write("left.veln", "pub let target: Int = 1\n");
+    project.write("right.veln", "pub let selected: Int = 42\n");
+    project.write(
+        "main.veln",
+        concat!(
+            "use left\n",
+            "use right\n",
+            "fn read() -> Int\n",
+            "  target\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let values_uri = path_to_uri(&project.root.join("values.veln"));
+    let right_uri = path_to_uri(&project.root.join("right.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    for uri in [&values_uri, &right_uri] {
+        let response = server.handle_message(&rename_request(uri, 0, 10, "target"));
+        assert_eq!(response.len(), 1);
+        assert!(response[0].contains(r#""code":-32602"#), "{}", response[0]);
+        assert!(
+            response[0].contains(r#""code":"rename.conflict""#),
+            "{}",
+            response[0]
+        );
+        assert!(
+            response[0].contains(r#""symbol_class":"value_binding""#),
+            "{}",
+            response[0]
+        );
+        assert!(
+            response[0].contains(r#""requested_name":"target""#),
+            "{}",
+            response[0]
+        );
+        assert!(
+            response[0].contains(r#""affected_scope":{"kind":"module","name":""#),
+            "{}",
+            response[0]
+        );
+        assert!(!response[0].contains(r#""changes""#), "{}", response[0]);
+    }
+}

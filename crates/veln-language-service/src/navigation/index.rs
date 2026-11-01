@@ -263,13 +263,18 @@ impl SymbolIndex {
     }
 
     fn file_token_for_span<'a>(&'a self, span: &SourceSpan) -> Option<(&'a IndexedFile, usize)> {
-        let file = self
-            .files
-            .iter()
-            .find(|file| file.source.path().as_str() == span.file.as_str())?;
-        let token_index = file.tokens.iter().position(|token| {
-            token.range.start == span.start.offset && token.range.end == span.end.offset
-        })?;
+        record_module_value_rename_file_lookup();
+        let file = &self.files[*self
+            .workspace_file_indices_by_path
+            .get(span.file.as_str())?];
+        let token_index = file
+            .tokens
+            .binary_search_by(|token| {
+                record_module_value_rename_token_comparison();
+                token.range.start.cmp(&span.start.offset)
+            })
+            .ok()
+            .filter(|index| file.tokens[*index].range.end == span.end.offset)?;
         Some((file, token_index))
     }
 
@@ -277,24 +282,27 @@ impl SymbolIndex {
         &self,
         file: &IndexedFile,
         requested_name: &str,
-        span: &SourceSpan,
+        token_index: usize,
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
-        function_scopes(&file.tokens)
-            .into_iter()
-            .find(|scope| {
-                span.start.offset >= scope.body_start
-                    && span.start.offset < scope.end
-                    && scope.shadows(requested_name, &file.tokens, self.token_index_for_span(file, span).unwrap_or(0))
-            })
+        let scopes = self
+            .function_rename_index()
+            .scopes_by_file
+            .get(file.source.path().as_str())
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+        token_scope(scopes, file.tokens[token_index].range.start)
+            .filter(|scope| scope.shadows(requested_name, &file.tokens, token_index))
             .map(|scope| {
                 let conflict = scope
                     .shadowing_binding(
                         requested_name,
                         &file.tokens,
-                        self.token_index_for_span(file, span).unwrap_or(0),
+                        token_index,
                     )
                     .map(|binding| scope_shadow_declaration(file, binding))
-                    .unwrap_or_else(|| span.clone());
+                    .unwrap_or_else(|| {
+                        file.source.span(file.tokens[token_index].range)
+                    });
                 (
                     workspace_location(conflict),
                     RenameAffectedScope::Lexical {
@@ -304,12 +312,6 @@ impl SymbolIndex {
                     },
                 )
             })
-    }
-
-    fn token_index_for_span(&self, file: &IndexedFile, span: &SourceSpan) -> Option<usize> {
-        file.tokens.iter().position(|token| {
-            token.range.start == span.start.offset && token.range.end == span.end.offset
-        })
     }
 
     fn function_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<FunctionSymbol> {

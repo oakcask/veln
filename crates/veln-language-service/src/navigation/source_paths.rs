@@ -354,6 +354,7 @@ fn workspace_imports(
                 module: use_decl.name.clone(),
                 alias,
                 syntax_valid,
+                bare_exports: explicit_alias.is_none(),
             }
         })
         .collect()

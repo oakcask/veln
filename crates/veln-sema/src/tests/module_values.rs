@@ -153,6 +153,34 @@ fn module_value_navigation_excludes_the_builtin_callsite_binding() {
     assert!(resolved[0].references.is_empty());
 }
 
+#[test]
+fn module_value_navigation_keeps_result_binding_out_of_the_function_body() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub let answer: Int = 42\n",
+            "fn read() -> answer: Int\n",
+            "ensure answer == 42\n",
+            "  answer\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let resolved = resolved_module_value_navigation(&lower_surface_ast(&parsed.tree));
+
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].identity.name, "answer");
+    assert_eq!(resolved[0].references.len(), 1);
+    assert_eq!(
+        (
+            resolved[0].references[0].start.line,
+            resolved[0].references[0].start.column,
+        ),
+        (4, 3),
+    );
+}
+
 fn module_with_value_ring(count: usize) -> SurfaceModule {
     let source = SourceFile::new(
         "ring.veln",
