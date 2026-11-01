@@ -143,13 +143,38 @@ fn run_jvm_program_when_java_is_available(
     program: &JvmProgram,
     args: &[&str],
 ) -> Option<std::process::Output> {
-    run_jvm_program_with_env_when_java_is_available(name, program, &[], args)
+    run_jvm_program_with_env_and_java_args_when_java_is_available(name, program, &[], &[], args)
 }
 
 fn run_jvm_program_with_env_when_java_is_available(
     name: &str,
     program: &JvmProgram,
     env: &[(&str, &str)],
+    args: &[&str],
+) -> Option<std::process::Output> {
+    run_jvm_program_with_env_and_java_args_when_java_is_available(name, program, env, &[], args)
+}
+
+fn run_jvm_program_with_java_args_when_java_is_available(
+    name: &str,
+    program: &JvmProgram,
+    java_args: &[&str],
+    args: &[&str],
+) -> Option<std::process::Output> {
+    run_jvm_program_with_env_and_java_args_when_java_is_available(
+        name,
+        program,
+        &[],
+        java_args,
+        args,
+    )
+}
+
+fn run_jvm_program_with_env_and_java_args_when_java_is_available(
+    name: &str,
+    program: &JvmProgram,
+    env: &[(&str, &str)],
+    java_args: &[&str],
     args: &[&str],
 ) -> Option<std::process::Output> {
     if Command::new("java").arg("-version").output().is_err() {
@@ -160,6 +185,7 @@ fn run_jvm_program_with_env_when_java_is_available(
     write_jvm_program(&root, program);
 
     let mut command = Command::new("java");
+    command.args(java_args);
     command
         .arg("-cp")
         .arg(&root)

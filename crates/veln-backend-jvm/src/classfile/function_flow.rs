@@ -635,10 +635,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         match &expr.kind {
             IrExprKind::Local(name) => self.emit_local(code, name),
             IrExprKind::ModuleValue(identity) => {
-                code.invokestatic(
+                code.getstatic(
                     &self.program.options.program_class,
                     self.program.module_value_name(identity),
-                    "()Ljava/lang/Object;",
+                    MODULE_VALUE_DESCRIPTOR,
                 );
             }
             IrExprKind::BoolLiteral(value) => self.emit_bool_literal(code, *value),

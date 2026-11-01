@@ -46,6 +46,37 @@ use method_code::*;
 const PROGRAM_MAJOR_VERSION: u16 = 49;
 const JAVA_LANG_OBJECT: &str = "java/lang/Object";
 const VELN_ENTRY: &str = "VelnEntry";
+const MODULE_VALUE_DESCRIPTOR: &str = "Ljava/lang/Object;";
+const MODULE_VALUE_INITIALIZERS_PER_CHUNK: usize = 1_000;
+
+fn collect_module_value_dependencies(
+    expr: &IrExpr,
+    dependencies: &mut BTreeSet<CoreModuleValueIdentity>,
+) {
+    match &expr.kind {
+        IrExprKind::ModuleValue(identity) => {
+            dependencies.insert(identity.clone());
+        }
+        IrExprKind::Record(fields) => {
+            for field in fields {
+                collect_module_value_dependencies(&field.value, dependencies);
+            }
+        }
+        IrExprKind::AdtVariant { payloads, .. } => {
+            for payload in payloads {
+                collect_module_value_dependencies(payload, dependencies);
+            }
+        }
+        IrExprKind::Prefix { expr, .. } => {
+            collect_module_value_dependencies(expr, dependencies);
+        }
+        IrExprKind::BoolLiteral(_)
+        | IrExprKind::StringLiteral(_)
+        | IrExprKind::IntLiteral(_)
+        | IrExprKind::Unit => {}
+        kind => unreachable!("unsupported module value initializer reached JVM emission: {kind:?}"),
+    }
+}
 
 #[cfg(test)]
 pub(crate) fn local_binding_retention(program: &TypedProgram, function_name: &str) -> usize {
@@ -218,6 +249,59 @@ impl<'a> ClassfileEmitter<'a> {
             .unwrap_or_else(|| panic!("missing module value declaration for {identity:?}"))
     }
 
+    fn module_values_in_dependency_order(&self) -> Vec<usize> {
+        let indexes = self
+            .program
+            .module_values
+            .iter()
+            .enumerate()
+            .map(|(index, declaration)| (declaration.identity.clone(), index))
+            .collect::<BTreeMap<_, _>>();
+        let mut dependencies = Vec::with_capacity(self.program.module_values.len());
+        let mut dependents = vec![Vec::new(); self.program.module_values.len()];
+
+        for (index, declaration) in self.program.module_values.iter().enumerate() {
+            let mut identities = BTreeSet::new();
+            collect_module_value_dependencies(&declaration.initializer, &mut identities);
+            let declaration_dependencies = identities
+                .into_iter()
+                .map(|identity| {
+                    indexes.get(&identity).copied().unwrap_or_else(|| {
+                        panic!("missing module value declaration for {identity:?}")
+                    })
+                })
+                .collect::<BTreeSet<_>>();
+            for dependency in &declaration_dependencies {
+                dependents[*dependency].push(index);
+            }
+            dependencies.push(declaration_dependencies);
+        }
+
+        let mut remaining_dependencies = dependencies.iter().map(BTreeSet::len).collect::<Vec<_>>();
+        let mut ready = remaining_dependencies
+            .iter()
+            .enumerate()
+            .filter_map(|(index, count)| (*count == 0).then_some(index))
+            .collect::<BTreeSet<_>>();
+        let mut ordered = Vec::with_capacity(self.program.module_values.len());
+        while let Some(index) = ready.iter().next().copied() {
+            ready.remove(&index);
+            ordered.push(index);
+            for dependent in &dependents[index] {
+                remaining_dependencies[*dependent] -= 1;
+                if remaining_dependencies[*dependent] == 0 {
+                    ready.insert(*dependent);
+                }
+            }
+        }
+        assert_eq!(
+            ordered.len(),
+            self.program.module_values.len(),
+            "module value initializers must be acyclic before JVM emission"
+        );
+        ordered
+    }
+
     pub(crate) fn emit(
         &self,
         entry_function: &str,
@@ -263,14 +347,74 @@ impl<'a> ClassfileEmitter<'a> {
             .first()
             .expect("JVM program requires an entry or test function");
         for declaration in &self.program.module_values {
+            class.add_field(FieldInfo {
+                access_flags: 0x000a,
+                name: self.module_value_name(&declaration.identity).to_string(),
+                descriptor: MODULE_VALUE_DESCRIPTOR.to_string(),
+            });
+        }
+        for declaration in &self.program.module_values {
             let mut method = MethodCode::new(Rc::clone(&class.constant_pool));
             let mut emitter = FunctionBytecodeEmitter::new(self, function);
             emitter.emit_expr(&mut method, &declaration.initializer);
-            method.op(0xb0);
+            method.putstatic(
+                &self.options.program_class,
+                self.module_value_name(&declaration.identity),
+                MODULE_VALUE_DESCRIPTOR,
+            );
+            method.op(0xb1);
             class.add_method(MethodInfo {
                 access_flags: 0x000a,
-                name: self.module_value_name(&declaration.identity).to_string(),
-                descriptor: "()Ljava/lang/Object;".to_string(),
+                name: format!("init_{}", self.module_value_name(&declaration.identity)),
+                descriptor: "()V".to_string(),
+                max_stack: method.max_stack,
+                max_locals: 0,
+                code: method.code,
+                exceptions: method.exceptions,
+            });
+        }
+        let ordered_values = self.module_values_in_dependency_order();
+        for (chunk_index, chunk) in ordered_values
+            .chunks(MODULE_VALUE_INITIALIZERS_PER_CHUNK)
+            .enumerate()
+        {
+            let mut method = MethodCode::new(Rc::clone(&class.constant_pool));
+            for value_index in chunk {
+                let declaration = &self.program.module_values[*value_index];
+                method.invokestatic(
+                    &self.options.program_class,
+                    &format!("init_{}", self.module_value_name(&declaration.identity)),
+                    "()V",
+                );
+            }
+            method.op(0xb1);
+            class.add_method(MethodInfo {
+                access_flags: 0x000a,
+                name: format!("init_module_values_{chunk_index}"),
+                descriptor: "()V".to_string(),
+                max_stack: method.max_stack,
+                max_locals: 0,
+                code: method.code,
+                exceptions: method.exceptions,
+            });
+        }
+        if !ordered_values.is_empty() {
+            let mut method = MethodCode::new(Rc::clone(&class.constant_pool));
+            for chunk_index in 0..ordered_values
+                .len()
+                .div_ceil(MODULE_VALUE_INITIALIZERS_PER_CHUNK)
+            {
+                method.invokestatic(
+                    &self.options.program_class,
+                    &format!("init_module_values_{chunk_index}"),
+                    "()V",
+                );
+            }
+            method.op(0xb1);
+            class.add_method(MethodInfo {
+                access_flags: 0x0008,
+                name: "<clinit>".to_string(),
+                descriptor: "()V".to_string(),
                 max_stack: method.max_stack,
                 max_locals: 0,
                 code: method.code,

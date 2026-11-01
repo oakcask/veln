@@ -4,6 +4,7 @@ pub(super) struct ClassBuilder {
     pub(super) name: String,
     pub(super) access_flags: u16,
     pub(super) constant_pool: Rc<RefCell<ConstantPool>>,
+    pub(super) fields: Vec<FieldInfo>,
     pub(super) methods: Vec<MethodInfo>,
     pub(super) interfaces: Vec<String>,
 }
@@ -14,6 +15,7 @@ impl ClassBuilder {
             name: name.to_string(),
             access_flags: 0x0021,
             constant_pool: Rc::new(RefCell::new(ConstantPool::new())),
+            fields: Vec::new(),
             methods: Vec::new(),
             interfaces: Vec::new(),
         }
@@ -39,10 +41,24 @@ impl ClassBuilder {
         self.methods.push(method);
     }
 
+    pub(super) fn add_field(&mut self, field: FieldInfo) {
+        self.fields.push(field);
+    }
+
     pub(super) fn finish(self) -> Vec<u8> {
         let this_class = self.constant_pool.borrow_mut().class(&self.name);
         let super_class = self.constant_pool.borrow_mut().class(JAVA_LANG_OBJECT);
         let code_name = self.constant_pool.borrow_mut().utf8("Code");
+        let mut fields = Vec::new();
+        for field in &self.fields {
+            let name = self.constant_pool.borrow_mut().utf8(&field.name);
+            let descriptor = self.constant_pool.borrow_mut().utf8(&field.descriptor);
+            fields.push(SerializedField {
+                access_flags: field.access_flags,
+                name,
+                descriptor,
+            });
+        }
         let mut methods = Vec::new();
         for method in &self.methods {
             let name = self.constant_pool.borrow_mut().utf8(&method.name);
@@ -84,13 +100,37 @@ impl ClassBuilder {
         for interface in interfaces {
             write_u16(&mut out, interface);
         }
-        write_u16(&mut out, 0);
+        write_u16(&mut out, fields.len() as u16);
+        for field in fields {
+            field.write(&mut out);
+        }
         write_u16(&mut out, methods.len() as u16);
         for method in methods {
             method.write(&mut out);
         }
         write_u16(&mut out, 0);
         out
+    }
+}
+
+pub(super) struct FieldInfo {
+    pub(super) access_flags: u16,
+    pub(super) name: String,
+    pub(super) descriptor: String,
+}
+
+struct SerializedField {
+    access_flags: u16,
+    name: u16,
+    descriptor: u16,
+}
+
+impl SerializedField {
+    fn write(&self, out: &mut Vec<u8>) {
+        write_u16(out, self.access_flags);
+        write_u16(out, self.name);
+        write_u16(out, self.descriptor);
+        write_u16(out, 0);
     }
 }
 

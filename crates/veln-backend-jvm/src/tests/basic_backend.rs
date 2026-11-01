@@ -119,6 +119,42 @@ fn backend_module_value_identity_is_independent_of_source_and_import_order() {
 }
 
 #[test]
+fn bytecode_backend_executes_deep_module_value_dependencies_with_a_bounded_jvm_stack() {
+    const DECLARATION_COUNT: usize = 4_000;
+
+    let mut source = String::from("let value_0: Int = 41\n");
+    for index in 1..DECLARATION_COUNT {
+        source.push_str(&format!("let value_{index}: Int = value_{}\n", index - 1));
+    }
+    source.push_str(&format!(
+        concat!(
+            "pub fn main() -> () effects [stdio]\n",
+            "  stdio::println(int_to_string(value_{}))\n",
+            "end\n",
+        ),
+        DECLARATION_COUNT - 1
+    ));
+
+    let ir = lower_to_ir(&source);
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) = run_jvm_program_with_java_args_when_java_is_available(
+        "module-value-deep-dependencies",
+        &program,
+        &["-Xss256k"],
+        &[],
+    ) else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "41\n");
+}
+
+#[test]
 fn explicit_aliases_execute_only_the_selected_package_function_and_handler() {
     // Exercise package selection and JVM linkage for same-spelled declarations.
     let root = temp_dir("explicit-alias-package-identity");

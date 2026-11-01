@@ -291,6 +291,15 @@ impl MethodCode {
         write_u16(&mut self.code, index);
     }
 
+    pub(super) fn putstatic(&mut self, class: &str, name: &str, descriptor: &str) {
+        let index = self
+            .constant_pool
+            .borrow_mut()
+            .fieldref(class, name, descriptor);
+        self.code.push(0xb3);
+        write_u16(&mut self.code, index);
+    }
+
     pub(super) fn new_class(&mut self, class: &str) {
         let index = self.constant_pool.borrow_mut().class(class);
         self.code.push(0xbb);
