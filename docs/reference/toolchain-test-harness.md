@@ -114,7 +114,7 @@ execution, fixture copying, exit-status checks, stream checks, JSON
 assertions, diagnostic selectors, file content assertions, and file absence
 assertions.
 
-Non-interactive `veln` fixture commands have a 30-second execution limit. On
+Non-interactive `veln` fixture commands have a 45-second execution limit. On
 Unix, the harness starts each command in a separate process group and
 terminates that group on timeout so descendant processes cannot retain output
 pipes. On other platforms, it terminates the direct child. The harness reaps
