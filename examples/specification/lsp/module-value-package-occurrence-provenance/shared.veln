@@ -1,0 +1,3 @@
+use foobar
+
+let selected: Int = foobar::answer

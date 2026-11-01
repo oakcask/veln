@@ -171,7 +171,8 @@ impl SymbolIndex {
             .iter()
             .find(|symbol| {
                 symbol.name == name
-                    && (same_span(&symbol.declaration.span, selection)
+                    && ((symbol.package.is_none()
+                        && same_span(&symbol.declaration.span, selection))
                         || symbol.references.iter().any(|span| same_span(span, selection)))
             })
             .cloned()

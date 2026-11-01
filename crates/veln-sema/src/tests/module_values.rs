@@ -171,11 +171,13 @@ fn module_value_navigation_keeps_result_binding_out_of_the_function_body() {
 
     assert_eq!(resolved.len(), 1);
     assert_eq!(resolved[0].identity.name, "answer");
+    assert!(resolved[0].declaration.owner_package.is_none());
     assert_eq!(resolved[0].references.len(), 1);
+    assert!(resolved[0].references[0].owner_package.is_none());
     assert_eq!(
         (
-            resolved[0].references[0].start.line,
-            resolved[0].references[0].start.column,
+            resolved[0].references[0].span.start.line,
+            resolved[0].references[0].span.start.column,
         ),
         (4, 3),
     );

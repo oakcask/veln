@@ -227,21 +227,23 @@ fn module_value_symbol(
 ) -> Option<ModuleValueSymbol> {
     record_module_value_declaration_lookup();
     let file = files_by_identity.get(&(
-        resolved.declaration.file.as_str(),
-        resolved.identity.package.as_deref(),
+        resolved.declaration.span.file.as_str(),
+        resolved.declaration.owner_package.as_deref(),
     ))?;
-    if file.navigation_isolated || is_invalid_declaration_name(file, &resolved.declaration) {
+    if file.navigation_isolated || is_invalid_declaration_name(file, &resolved.declaration.span) {
         return None;
     }
     let public = resolved.visibility == veln_ast::Visibility::Public;
-    let origin = declaration_origin(file, resolved.declaration.clone(), public)?;
+    let origin = declaration_origin(file, resolved.declaration.span.clone(), public)?;
     let references = resolved
         .references
         .into_iter()
         .filter(|reference| {
             record_module_value_reference_lookup();
-            workspace_navigation_paths.contains(reference.file.as_str())
+            reference.owner_package.is_none()
+                && workspace_navigation_paths.contains(reference.span.file.as_str())
         })
+        .map(|reference| reference.span)
         .collect();
     Some(ModuleValueSymbol {
         module: resolved

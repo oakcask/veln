@@ -172,6 +172,77 @@ fn package_distinct_module_value_protocol_navigation_keeps_identity() {
     assert_package_module_value_is_not_renamable(&mut server, &main_uri);
 }
 
+#[test]
+fn package_module_value_protocol_ignores_colliding_workspace_spans() {
+    let mut server = server_with_empty_standard_library();
+    let project = TempProject::new("package-module-value-occurrence-provenance");
+    project.write(
+        "veln.toml",
+        concat!(
+            "[package]\nname = \"app\"\n\n",
+            "[dependencies.\"example/pkg\"]\npath = \"vendor/dependency\"\n",
+        ),
+    );
+    project.write("values.veln", "let x = answer\n");
+    project.write(
+        "shared.veln",
+        "use foobar\n\nlet selected: Int = foobar::answer\n",
+    );
+    project.write(
+        "main.veln",
+        concat!(
+            "use values from \"example/pkg\"\n\n",
+            "let selected: Int = values::answer\n",
+        ),
+    );
+    project.write(
+        "vendor/dependency/veln.toml",
+        concat!(
+            "[package]\nname = \"example/pkg\"\n\n",
+            "[lib]\nexports = [\"values.veln\", \"shared.veln\"]\n",
+        ),
+    );
+    project.write(
+        "vendor/dependency/values.veln",
+        "pub let answer: Int = 42\n",
+    );
+    project.write(
+        "vendor/dependency/shared.veln",
+        "use values\n\nlet selected: Int = values::answer\n",
+    );
+
+    let root_uri = path_to_uri(&project.root);
+    let values_uri = path_to_uri(&project.root.join("values.veln"));
+    let shared_uri = path_to_uri(&project.root.join("shared.veln"));
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    for (uri, line, character) in [(&values_uri, 0, 9), (&shared_uri, 2, 29)] {
+        assert_null_result(&server.handle_message(&definition_request(uri, line, character))[0]);
+        assert_empty_result_array(
+            &server.handle_message(&references_request_with_declaration(
+                uri, line, character, true,
+            ))[0],
+        );
+        assert_null_result(
+            &server.handle_message(&prepare_rename_request(uri, line, character))[0],
+        );
+        assert_contains_json(
+            &server.handle_message(&rename_request(uri, line, character, "renamed"))[0],
+            r#""changes":{}"#,
+        );
+    }
+
+    let definition = server.handle_message(&definition_request(&main_uri, 2, 29));
+    assert!(definition[0].contains("veln-pkg:///example%2Fpkg/"));
+    let references = server.handle_message(&references_request_with_declaration(
+        &main_uri, 2, 29, true,
+    ));
+    assert_eq!(references[0].matches(r#""uri":"#).count(), 1);
+    assert!(references[0].contains(&main_uri));
+    assert!(!references[0].contains(&shared_uri));
+}
+
 fn package_module_value_navigation_server() -> (Server, TempProject, String) {
     let mut server = server_with_empty_standard_library();
     let project = TempProject::new("package-module-value-navigation");

@@ -106,6 +106,46 @@ mod navigation_module_value_tests {
     }
 
     #[test]
+    fn package_occurrences_do_not_match_colliding_workspace_spans() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[
+                ("values.veln", "pub let answer: Int = 42\n"),
+                (
+                    "shared.veln",
+                    "use values\n\nlet selected: Int = values::answer\n",
+                ),
+            ],
+            ["values.veln", "shared.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source("values.veln", "let x = answer\n"),
+                source(
+                    "shared.veln",
+                    "use foobar\n\nlet selected: Int = foobar::answer\n",
+                ),
+                source(
+                    "main.veln",
+                    concat!(
+                        "use values from \"example/pkg\"\n\n",
+                        "let selected: Int = values::answer\n",
+                    ),
+                ),
+            ],
+            vec![dependency],
+        );
+
+        assert!(query_snapshot(&snapshot, "values.veln", 1, 10).is_none());
+        assert!(query_snapshot(&snapshot, "shared.veln", 3, 30).is_none());
+
+        let valid = query_snapshot(&snapshot, "main.veln", 3, 30).unwrap();
+        assert_eq!(valid.selected_symbol.kind, SymbolKind::ModuleValue);
+        assert!(matches!(valid.definition.source, NavigationSource::Package { .. }));
+        assert_eq!(locations(&valid.references), [("main.veln", 3, 29)]);
+    }
+
+    #[test]
     fn invalid_module_values_do_not_enter_navigation() {
         let snapshot = EffectiveProjectSnapshot::new(vec![
             source("invalid.veln", "pub let answer: String = 42\n"),

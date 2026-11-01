@@ -49,9 +49,15 @@ pub struct ModuleValueNavigationIdentity {
 #[derive(Clone, Debug)]
 pub struct ResolvedModuleValueNavigation {
     pub identity: ModuleValueNavigationIdentity,
-    pub declaration: SourceSpan,
+    pub declaration: ModuleValueNavigationOccurrence,
     pub visibility: Visibility,
-    pub references: Vec<SourceSpan>,
+    pub references: Vec<ModuleValueNavigationOccurrence>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ModuleValueNavigationOccurrence {
+    pub owner_package: Option<String>,
+    pub span: SourceSpan,
 }
 
 #[derive(Default)]
@@ -152,8 +158,11 @@ fn admitted_module_value_declarations(
             Some((
                 identity.clone(),
                 ResolvedModuleValueNavigation {
+                    declaration: ModuleValueNavigationOccurrence {
+                        owner_package: identity.package.clone(),
+                        span: declaration.clone(),
+                    },
                     identity,
-                    declaration: declaration.clone(),
                     visibility: *visibility,
                     references: Vec::new(),
                 },
@@ -252,7 +261,10 @@ fn collect_expr_references(
         };
         if let (Some(target), Some(reference)) = (resolved.get_mut(&identity), segment_spans.last())
         {
-            target.references.push(reference.clone());
+            target.references.push(ModuleValueNavigationOccurrence {
+                owner_package: owner_package.map(str::to_string),
+                span: reference.clone(),
+            });
         }
     }
     match &expr.kind {
