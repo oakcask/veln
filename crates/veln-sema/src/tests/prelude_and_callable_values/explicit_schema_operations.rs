@@ -2232,6 +2232,83 @@ fn matching_companion_resolves_private_target_schema_operations_and_composition(
 }
 
 #[test]
+fn private_schema_operation_diagnostics_preserve_operation_and_companion_context() {
+    let companion_source = SourceFile::new(
+        "other.test.veln",
+        concat!(
+            "mod other__test_companion\n",
+            "use math\n",
+            "fn check(view: ByteView, offset: ByteOffset, value: {length: Int}) -> ()\n",
+            "  let decoded: DecodeStep<{length: Int}> = decode math::Packet from view at offset\n",
+            "  let encoded: Result<ByteChunk, EncodeError> = encode math::Packet from value\n",
+            "  let validated: Result<{length: Int}, DecodeError> = validate math::Record from value at offset\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let target_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod math\n",
+            "schema Packet\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+            "schema Record\n",
+            "  length: Int\n",
+            "end\n",
+        ),
+    );
+    let companion = lower_surface_ast(&parse(&companion_source).tree);
+    let target = lower_surface_ast(&parse(&target_source).tree);
+    let module = SurfaceModule {
+        module: companion.module,
+        uses: companion.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: Vec::new(),
+        schemas: target.schemas,
+        module_values: Vec::new(),
+        functions: companion.functions,
+        invalid_names: Vec::new(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    for (id, operation) in [
+        ("schema.decode_expression", "decode_step"),
+        ("schema.encode_expression", "encode"),
+        ("schema.validate_expression", "runtime_validate"),
+    ] {
+        let diagnostic = lowered
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.id == id)
+            .unwrap_or_else(|| panic!("missing {id}: {:#?}", lowered.diagnostics));
+        assert!(matches!(
+            &diagnostic.details,
+            veln_diagnostics::JsonValue::Object(entries)
+                if entries.iter().any(|(key, value)| {
+                    key == "operation"
+                        && value == &veln_diagnostics::JsonValue::string(operation)
+                }) && entries.iter().any(|(key, value)| {
+                    key == "companion_module"
+                        && value == &veln_diagnostics::JsonValue::string("other__test_companion")
+                }) && entries.iter().any(|(key, value)| {
+                    key == "companion_target_module"
+                        && value == &veln_diagnostics::JsonValue::string("other")
+                })
+        ));
+        assert!(diagnostic.related.iter().any(|related| {
+            let related = related.to_json();
+            related.contains("\"kind\":\"companion_target\"")
+                && related.contains("\"target_module\":\"other\"")
+        }));
+    }
+}
+
+#[test]
 fn companion_private_target_schema_access_preserves_boundaries() {
     for (companion_path, companion_text, expected_message) in [
         (
