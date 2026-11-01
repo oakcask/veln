@@ -10,7 +10,9 @@ use veln_language_service::{DirectDependencySnapshot, EffectiveProjectSnapshot};
 use veln_project::PackageSnapshotSource;
 use veln_repo_language_reference::{RenderedResource, render_checked_language_reference};
 
-use self::dependencies::{PreparedDependencyResources, captured_dependency_navigation};
+use self::dependencies::{
+    DependencyResources, PreparedDependencyResources, captured_dependency_navigation,
+};
 use self::package_resources::{DocumentationRevisionKey, PackageDocumentation, RetainedPackageKey};
 pub(crate) use self::package_resources::{
     PackageSearchCandidate, PackageSearchScope, PublishedResource,
@@ -197,13 +199,41 @@ impl LanguageResources {
     ) {
         let standard_library = StandardLibraryResources::from_embedded_inputs(manifest, sources)
             .expect("test standard library resources should build");
-        let mut retained_package_keys = self
-            .retained_package_keys
+        let retained_package_keys = self.retained_keys_with_standard_library(&standard_library.key);
+        let package_documentation = self.documentation_with_standard_library(&standard_library);
+        let standard_library_navigation = EffectiveProjectSnapshot::new(Vec::new())
+            .with_standard_library(standard_library.snapshot.clone());
+        let replacement = Self::from_parts(
+            self.by_uri.values().cloned().collect(),
+            self.topics.clone(),
+            standard_library.resources,
+            retained_package_keys,
+            package_documentation,
+            Some(standard_library.snapshot),
+            standard_library_navigation,
+        )
+        .expect("test standard library resources should be unique");
+        *self = replacement;
+    }
+
+    #[cfg(test)]
+    fn retained_keys_with_standard_library(
+        &self,
+        standard_library_key: &RetainedPackageKey,
+    ) -> Vec<RetainedPackageKey> {
+        self.retained_package_keys
             .iter()
             .filter(|key| key.identity != "std")
             .cloned()
-            .collect::<Vec<_>>();
-        retained_package_keys.push(standard_library.key.clone());
+            .chain([standard_library_key.clone()])
+            .collect()
+    }
+
+    #[cfg(test)]
+    fn documentation_with_standard_library(
+        &self,
+        standard_library: &StandardLibraryResources,
+    ) -> InitialPackageDocumentation {
         let mut package_docs = self
             .package_docs
             .iter()
@@ -223,18 +253,7 @@ impl LanguageResources {
             standard_library.package_documentation.clone(),
         ));
         current_package_docs.push((standard_library.key.clone(), standard_library_revision));
-        let replacement = Self::from_parts(
-            self.by_uri.values().cloned().collect(),
-            self.topics.clone(),
-            standard_library.resources,
-            retained_package_keys,
-            InitialPackageDocumentation::new(package_docs, current_package_docs),
-            Some(standard_library.snapshot.clone()),
-            EffectiveProjectSnapshot::new(Vec::new())
-                .with_standard_library(standard_library.snapshot),
-        )
-        .expect("test standard library resources should be unique");
-        *self = replacement;
+        InitialPackageDocumentation::new(package_docs, current_package_docs)
     }
 
     fn from_parts(
@@ -251,28 +270,12 @@ impl LanguageResources {
             .cloned()
             .map(|resource| (resource.uri.clone(), resource))
             .collect();
-        let mut combined_resources = resources
-            .iter()
-            .map(PublishedResource::from_rendered)
-            .chain(standard_resources)
-            .collect::<Vec<_>>();
-        combined_resources.sort_by(|left, right| left.uri.as_bytes().cmp(right.uri.as_bytes()));
-        let mut combined_by_uri = BTreeMap::new();
-        for resource in &combined_resources {
-            if combined_by_uri
-                .insert(resource.uri.clone(), resource.clone())
-                .is_some()
-            {
-                return Err(format!("duplicate MCP resource URI `{}`", resource.uri));
-            }
-        }
+        let (combined_resources, combined_by_uri) =
+            Self::index_resources(&resources, standard_resources)?;
         #[cfg(not(test))]
         let _ = standard_library_snapshot;
-        let current_listed_documentation_uris = combined_resources
-            .iter()
-            .filter(|resource| resource.listed && resource.uri.starts_with("veln-doc:///package/"))
-            .map(|resource| resource.uri.clone())
-            .collect();
+        let current_listed_documentation_uris =
+            Self::listed_documentation_uris(&combined_resources);
         Ok(Self {
             by_uri,
             topics,
@@ -294,6 +297,36 @@ impl LanguageResources {
             read_only_workspace_navigation: None,
             reference_pagination: ReferencePagination::new()?,
         })
+    }
+
+    fn index_resources(
+        resources: &[RenderedResource],
+        standard_resources: Vec<PublishedResource>,
+    ) -> Result<(Vec<PublishedResource>, BTreeMap<String, PublishedResource>), String> {
+        let mut combined = resources
+            .iter()
+            .map(PublishedResource::from_rendered)
+            .chain(standard_resources)
+            .collect::<Vec<_>>();
+        combined.sort_by(|left, right| left.uri.as_bytes().cmp(right.uri.as_bytes()));
+        let mut by_uri = BTreeMap::new();
+        for resource in &combined {
+            if by_uri
+                .insert(resource.uri.clone(), resource.clone())
+                .is_some()
+            {
+                return Err(format!("duplicate MCP resource URI `{}`", resource.uri));
+            }
+        }
+        Ok((combined, by_uri))
+    }
+
+    fn listed_documentation_uris(resources: &[PublishedResource]) -> BTreeSet<String> {
+        resources
+            .iter()
+            .filter(|resource| resource.listed && resource.uri.starts_with("veln-doc:///package/"))
+            .map(|resource| resource.uri.clone())
+            .collect()
     }
 
     pub(crate) fn reference_pagination(&mut self) -> &mut ReferencePagination {
@@ -345,10 +378,29 @@ impl LanguageResources {
         let prepared = PreparedDependencyResources::new(dependencies);
         let keys = prepared.keys().collect::<Vec<_>>();
         let revision_keys = prepared.revision_keys().collect::<Vec<_>>();
+        self.ensure_dependency_capacity(&keys, &revision_keys)?;
+        let snapshots = prepared
+            .into_resources()
+            .into_iter()
+            .map(|snapshot| self.retain_dependency(snapshot))
+            .collect();
+        self.combined_resources
+            .sort_by(|left, right| left.uri.as_bytes().cmp(right.uri.as_bytes()));
+        Ok(AdmittedDependencies {
+            keys,
+            revision_keys,
+            snapshots,
+        })
+    }
+
+    fn ensure_dependency_capacity(
+        &self,
+        keys: &[RetainedPackageKey],
+        revision_keys: &[DocumentationRevisionKey],
+    ) -> Result<(), ResourceCapacityError> {
         let new_keys = keys
             .iter()
             .filter(|key| !self.retained_package_keys.contains(key))
-            .cloned()
             .collect::<BTreeSet<_>>();
         if self.retained_package_keys.len() + new_keys.len() > self.retained_package_capacity() {
             return Err(ResourceCapacityError);
@@ -362,48 +414,48 @@ impl LanguageResources {
         {
             return Err(ResourceCapacityError);
         }
-        let new_snapshots = prepared.into_resources();
-        let mut navigation_snapshots = Vec::with_capacity(new_snapshots.len());
-        for snapshot in new_snapshots {
-            navigation_snapshots.push(snapshot.navigation);
-            let key = snapshot.key.clone();
-            let is_new_package = self.retained_package_keys.insert(key.clone());
-            for resource in snapshot.resources {
-                if !is_new_package && resource.uri.starts_with("veln-pkg:") {
-                    continue;
-                }
-                if self.combined_by_uri.contains_key(&resource.uri) {
-                    continue;
-                }
+        Ok(())
+    }
+
+    fn retain_dependency(&mut self, snapshot: DependencyResources) -> DirectDependencySnapshot {
+        let key = snapshot.key.clone();
+        let is_new_package = self.retained_package_keys.insert(key.clone());
+        for resource in snapshot.resources {
+            if (is_new_package || !resource.uri.starts_with("veln-pkg:"))
+                && !self.combined_by_uri.contains_key(&resource.uri)
+            {
                 self.combined_by_uri
                     .insert(resource.uri.clone(), resource.clone());
                 self.combined_resources.push(resource);
             }
-            if let Some(previous_revision) = self
-                .current_package_docs
-                .insert(key, snapshot.revision_key.clone())
-                && let Some(uri) = self
-                    .package_docs
-                    .get(&previous_revision)
-                    .and_then(PackageDocumentation::listed_uri)
-            {
-                self.current_listed_documentation_uris.remove(uri);
-            }
-            let documentation = PackageDocumentation::Ready(snapshot.package_doc_result);
-            if let Some(uri) = documentation.listed_uri() {
-                self.current_listed_documentation_uris
-                    .insert(uri.to_string());
-            }
-            self.package_docs
-                .insert(snapshot.revision_key, documentation);
         }
-        self.combined_resources
-            .sort_by(|left, right| left.uri.as_bytes().cmp(right.uri.as_bytes()));
-        Ok(AdmittedDependencies {
-            keys,
-            revision_keys,
-            snapshots: navigation_snapshots,
-        })
+        self.select_dependency_documentation(
+            key,
+            snapshot.revision_key,
+            PackageDocumentation::Ready(snapshot.package_doc_result),
+        );
+        snapshot.navigation
+    }
+
+    fn select_dependency_documentation(
+        &mut self,
+        key: RetainedPackageKey,
+        revision_key: DocumentationRevisionKey,
+        documentation: PackageDocumentation,
+    ) {
+        if let Some(previous_revision) = self.current_package_docs.insert(key, revision_key.clone())
+            && let Some(uri) = self
+                .package_docs
+                .get(&previous_revision)
+                .and_then(PackageDocumentation::listed_uri)
+        {
+            self.current_listed_documentation_uris.remove(uri);
+        }
+        if let Some(uri) = documentation.listed_uri() {
+            self.current_listed_documentation_uris
+                .insert(uri.to_string());
+        }
+        self.package_docs.insert(revision_key, documentation);
     }
 
     pub(crate) fn list_result(&self) -> Value {

@@ -264,27 +264,44 @@ fn dependency_context_revision_replaces_failure_with_current_success() {
     let first = server.check_project_tool(&json!({"project":"."}));
     assert_eq!(first["isError"], false, "{first:#}");
     let source_uris = listed_dependency_source_uris(&mut server, "a");
-    let status_uri = listed_dependency_documentation_uri(&mut server, "a");
-    assert!(status_uri.ends_with("/status"), "{status_uri}");
-    let status_read = read_resource(&mut server, 112, &status_uri);
+    let retained = RetainedFailedDocumentation::capture(&mut server);
     assert!(package_search(&mut server, "exposed").is_empty());
-
-    server
-        .language_resources
-        .set_test_remaining_package_capacity(1);
-    server
-        .language_resources
-        .set_test_remaining_documentation_revision_capacity(2);
-    workspace.write("vendor/b/shared.veln", "pub let answer: Int = 1\n");
-    refresh_workspace(&mut server);
-    let second = server.check_project_tool(&json!({"project":"."}));
-    assert_eq!(second["isError"], false, "{second:#}");
+    replace_dependency_context(&workspace, &mut server, "pub let answer: Int = 1\n");
 
     assert_eq!(listed_dependency_source_uris(&mut server, "a"), source_uris);
     let index_uri = listed_dependency_documentation_uri(&mut server, "a");
+    assert_current_dependency_documentation_success(&mut server, &index_uri);
+    retained.assert_exact_read_unchanged(&mut server);
+    assert_eq!(
+        dependency_documentation_uris(&mut server, "a"),
+        vec![index_uri]
+    );
+}
+
+struct RetainedFailedDocumentation {
+    uri: String,
+    read: Value,
+}
+
+impl RetainedFailedDocumentation {
+    fn capture(server: &mut Server) -> Self {
+        let uri = listed_dependency_documentation_uri(server, "a");
+        assert!(uri.ends_with("/status"), "{uri}");
+        let read = read_resource(server, 112, &uri);
+        Self { uri, read }
+    }
+
+    fn assert_exact_read_unchanged(&self, server: &mut Server) {
+        assert_eq!(
+            read_resource(server, 114, &self.uri)["result"],
+            self.read["result"]
+        );
+    }
+}
+
+fn assert_current_dependency_documentation_success(server: &mut Server, index_uri: &str) {
     assert!(index_uri.ends_with("/index"), "{index_uri}");
-    assert_ne!(index_uri, status_uri);
-    let search = package_search(&mut server, "exposed");
+    let search = package_search(server, "exposed");
     assert_eq!(search.len(), 1, "{search:#?}");
     let definition = server.definition_tool(&json!({"source":"main.veln","line":3,"column":8}));
     assert_eq!(definition["isError"], false, "{definition:#}");
@@ -293,20 +310,13 @@ fn dependency_context_revision_replaces_failure_with_current_success() {
             .as_str()
             .expect("accepted sibling definition has a documentation URI");
     assert!(documentation_uri.contains("/declaration/"));
+    let declaration = read_resource(server, 113, documentation_uri);
+    let text = declaration["result"]["contents"][0]["text"]
+        .as_str()
+        .unwrap();
     assert!(
-        read_resource(&mut server, 113, documentation_uri)["result"]["contents"][0]["text"]
-            .as_str()
-            .unwrap()
-            .starts_with("# Function anchor\n"),
+        text.starts_with("# Function anchor\n"),
         "{documentation_uri}"
-    );
-    assert_eq!(
-        read_resource(&mut server, 114, &status_uri)["result"],
-        status_read["result"]
-    );
-    assert_eq!(
-        dependency_documentation_uris(&mut server, "a"),
-        vec![index_uri]
     );
 }
 
@@ -319,32 +329,75 @@ fn dependency_context_revision_replaces_success_with_current_failure() {
     let first = server.check_project_tool(&json!({"project":"."}));
     assert_eq!(first["isError"], false, "{first:#}");
     let source_uris = listed_dependency_source_uris(&mut server, "a");
-    let index_uri = listed_dependency_documentation_uri(&mut server, "a");
-    let index_read = read_resource(&mut server, 115, &index_uri);
-    let module_uri = linked_dependency_module_uri(&mut server, &index_uri);
-    let module_read = read_resource(&mut server, 116, &module_uri);
-    let declaration_uri = package_search(&mut server, "exposed")
-        .into_iter()
-        .next()
-        .expect("accepted module value is searchable");
-    let declaration_read = read_resource(&mut server, 117, &declaration_uri);
+    let retained = RetainedSuccessfulDocumentation::capture(&mut server);
+    replace_dependency_context(&workspace, &mut server, "pub let answer: Int = \"wrong\"\n");
 
+    assert_eq!(listed_dependency_source_uris(&mut server, "a"), source_uris);
+    let status_uri = listed_dependency_documentation_uri(&mut server, "a");
+    assert_current_dependency_documentation_failure(&mut server, &status_uri);
+    retained.assert_exact_reads_unchanged(&mut server);
+    assert_eq!(
+        dependency_documentation_uris(&mut server, "a"),
+        vec![status_uri]
+    );
+}
+
+struct RetainedSuccessfulDocumentation {
+    index: (String, Value),
+    module: (String, Value),
+    declaration: (String, Value),
+}
+
+impl RetainedSuccessfulDocumentation {
+    fn capture(server: &mut Server) -> Self {
+        let index_uri = listed_dependency_documentation_uri(server, "a");
+        let index_read = read_resource(server, 115, &index_uri);
+        let module_uri = linked_dependency_module_uri(server, &index_uri);
+        let module_read = read_resource(server, 116, &module_uri);
+        let declaration_uri = package_search(server, "exposed")
+            .into_iter()
+            .next()
+            .expect("accepted module value is searchable");
+        let declaration_read = read_resource(server, 117, &declaration_uri);
+        Self {
+            index: (index_uri, index_read),
+            module: (module_uri, module_read),
+            declaration: (declaration_uri, declaration_read),
+        }
+    }
+
+    fn assert_exact_reads_unchanged(&self, server: &mut Server) {
+        for (request_id, (uri, retained)) in [
+            (119, &self.index),
+            (120, &self.module),
+            (121, &self.declaration),
+        ] {
+            assert_eq!(
+                read_resource(server, request_id, uri)["result"],
+                retained["result"],
+                "{uri}"
+            );
+        }
+    }
+}
+
+fn replace_dependency_context(workspace: &TempWorkspace, server: &mut Server, source: &str) {
     server
         .language_resources
         .set_test_remaining_package_capacity(1);
     server
         .language_resources
         .set_test_remaining_documentation_revision_capacity(2);
-    workspace.write("vendor/b/shared.veln", "pub let answer: Int = \"wrong\"\n");
-    refresh_workspace(&mut server);
-    let second = server.check_project_tool(&json!({"project":"."}));
-    assert_eq!(second["isError"], false, "{second:#}");
+    workspace.write("vendor/b/shared.veln", source);
+    refresh_workspace(server);
+    let result = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(result["isError"], false, "{result:#}");
+}
 
-    assert_eq!(listed_dependency_source_uris(&mut server, "a"), source_uris);
-    let status_uri = listed_dependency_documentation_uri(&mut server, "a");
+fn assert_current_dependency_documentation_failure(server: &mut Server, status_uri: &str) {
     assert!(status_uri.ends_with("/status"), "{status_uri}");
-    assert!(package_search(&mut server, "exposed").is_empty());
-    assert!(package_search(&mut server, "anchor").is_empty());
+    assert!(package_search(server, "exposed").is_empty());
+    assert!(package_search(server, "anchor").is_empty());
     let definition = server.definition_tool(&json!({"source":"main.veln","line":3,"column":8}));
     assert_eq!(definition["isError"], false, "{definition:#}");
     let location = &definition["structuredContent"]["definition"];
@@ -352,27 +405,9 @@ fn dependency_context_revision_replaces_success_with_current_failure() {
         location.get("packageDocumentationUri").is_none(),
         "{location:#}"
     );
-    let status_text = read_resource(&mut server, 118, &status_uri)["result"]["contents"][0]["text"]
-        .as_str()
-        .unwrap()
-        .to_string();
+    let status = read_resource(server, 118, status_uri);
+    let status_text = status["result"]["contents"][0]["text"].as_str().unwrap();
     assert!(!status_text.contains("anchor"), "{status_text}");
-    assert_eq!(
-        read_resource(&mut server, 119, &index_uri)["result"],
-        index_read["result"]
-    );
-    assert_eq!(
-        read_resource(&mut server, 120, &module_uri)["result"],
-        module_read["result"]
-    );
-    assert_eq!(
-        read_resource(&mut server, 121, &declaration_uri)["result"],
-        declaration_read["result"]
-    );
-    assert_eq!(
-        dependency_documentation_uris(&mut server, "a"),
-        vec![status_uri]
-    );
 }
 
 #[test]
@@ -382,12 +417,7 @@ fn dependency_documentation_revision_capacity_is_atomic_before_generation() {
     let mut server = initialized_server(&workspace);
     let first = server.check_project_tool(&json!({"project":"."}));
     assert_eq!(first["isError"], false, "{first:#}");
-    let index_uri = listed_dependency_documentation_uri(&mut server, "a");
-    let exact_read = read_resource(&mut server, 122, &index_uri);
-    let before_list = all_resource_state(&mut server);
-    let before_search = package_search(&mut server, "exposed");
-    let before_definition =
-        server.definition_tool(&json!({"source":"main.veln","line":3,"column":8}));
+    let retained = RetainedRevisionCapacityState::capture(&mut server);
 
     server
         .language_resources
@@ -405,20 +435,48 @@ fn dependency_documentation_revision_capacity_is_atomic_before_generation() {
     assert_eq!(rejected["structuredContent"]["code"], "resource_capacity");
     assert_eq!(work.snapshot_captures, 2);
     assert_eq!(work.package_doc_generations, 0);
-    assert_eq!(all_resource_state(&mut server), before_list);
-    assert_eq!(package_search(&mut server, "exposed"), before_search);
-    assert_eq!(
-        read_resource(&mut server, 123, &index_uri)["result"],
-        exact_read["result"]
-    );
-    let definition_uri =
-        before_definition["structuredContent"]["definition"]["packageDocumentationUri"]
-            .as_str()
-            .unwrap();
-    assert_eq!(
-        read_resource(&mut server, 124, definition_uri)["result"]["contents"][0]["uri"],
-        definition_uri
-    );
+    retained.assert_unchanged(&mut server);
+}
+
+struct RetainedRevisionCapacityState {
+    index_uri: String,
+    index_read: Value,
+    list: Value,
+    search: Vec<String>,
+    definition_uri: String,
+}
+
+impl RetainedRevisionCapacityState {
+    fn capture(server: &mut Server) -> Self {
+        let index_uri = listed_dependency_documentation_uri(server, "a");
+        let index_read = read_resource(server, 122, &index_uri);
+        let list = all_resource_state(server);
+        let search = package_search(server, "exposed");
+        let definition = server.definition_tool(&json!({"source":"main.veln","line":3,"column":8}));
+        let definition_uri =
+            definition["structuredContent"]["definition"]["packageDocumentationUri"]
+                .as_str()
+                .unwrap()
+                .to_string();
+        Self {
+            index_uri,
+            index_read,
+            list,
+            search,
+            definition_uri,
+        }
+    }
+
+    fn assert_unchanged(&self, server: &mut Server) {
+        assert_eq!(all_resource_state(server), self.list);
+        assert_eq!(package_search(server, "exposed"), self.search);
+        assert_eq!(
+            read_resource(server, 123, &self.index_uri)["result"],
+            self.index_read["result"]
+        );
+        let read = read_resource(server, 124, &self.definition_uri);
+        assert_eq!(read["result"]["contents"][0]["uri"], self.definition_uri);
+    }
 }
 
 #[test]
@@ -688,56 +746,9 @@ fn dependency_admission_prepares_snapshots_once_per_dependency() {
 #[test]
 fn over_capacity_dependency_admission_stops_after_linear_preparation() {
     let dependencies = fixed_width_dependency_projects(32);
-    let mut resources = LanguageResources::checked().unwrap();
-    resources.set_test_remaining_package_capacity(1);
-    resources
-        .admit_dependencies(&[synthetic_dependency_project(
-            "example/seed-0000",
-            "retained seed",
-        )])
-        .unwrap();
+    let mut resources = resources_with_retained_seed();
     resources.set_test_remaining_package_capacity(0);
-    let before = resources.list_result();
-    let before_search = resources.package_search_candidates();
-    let retained_uris = before["resources"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter_map(|resource| resource["uri"].as_str())
-        .filter(|uri| {
-            uri.starts_with("veln-pkg:///example%2Fseed-0000/")
-                || uri.starts_with("veln-doc:///package/example%2Fseed-0000/")
-        })
-        .map(str::to_string)
-        .collect::<Vec<_>>();
-    let mut retained_reads = retained_uris
-        .iter()
-        .map(|uri| (uri.clone(), resources.read_result(uri).unwrap()))
-        .collect::<Vec<_>>();
-    let index_text = retained_reads
-        .iter()
-        .find(|(uri, _)| uri.ends_with("/index"))
-        .unwrap()
-        .1["contents"][0]["text"]
-        .as_str()
-        .unwrap();
-    let module_uri = extract_uris_with_prefix(index_text, "veln-doc:///package/")
-        .into_iter()
-        .find(|uri| uri.contains("/module/"))
-        .unwrap();
-    let module_read = resources.read_result(&module_uri).unwrap();
-    let declaration_uri = extract_uris_with_prefix(
-        module_read["contents"][0]["text"].as_str().unwrap(),
-        "veln-doc:///package/",
-    )
-    .into_iter()
-    .find(|uri| uri.contains("/declaration/"))
-    .unwrap();
-    retained_reads.push((module_uri, module_read));
-    retained_reads.push((
-        declaration_uri.clone(),
-        resources.read_result(&declaration_uri).unwrap(),
-    ));
+    let retained = RetainedDependencyState::capture(&resources);
     crate::language_resources::reset_dependency_preparation_work();
 
     let started = Instant::now();
@@ -748,15 +759,91 @@ fn over_capacity_dependency_admission_stops_after_linear_preparation() {
     assert_eq!(error, crate::language_resources::ResourceCapacityError);
     assert_eq!(work.snapshot_captures, dependencies.len());
     assert_eq!(work.package_doc_generations, 0);
-    assert_eq!(resources.list_result(), before);
-    assert_eq!(resources.package_search_candidates(), before_search);
-    for (uri, read) in retained_reads {
-        assert_eq!(resources.read_result(&uri), Some(read), "{uri}");
-    }
+    retained.assert_unchanged(&resources);
     eprintln!(
         "over-capacity dependency preparation evidence: count={}, work={work:?}, elapsed={elapsed:?}",
         dependencies.len()
     );
+}
+
+fn resources_with_retained_seed() -> LanguageResources {
+    let mut resources = LanguageResources::checked().unwrap();
+    resources.set_test_remaining_package_capacity(1);
+    resources
+        .admit_dependencies(&[synthetic_dependency_project(
+            "example/seed-0000",
+            "retained seed",
+        )])
+        .unwrap();
+    resources
+}
+
+struct RetainedDependencyState {
+    list: Value,
+    search: Vec<crate::language_resources::PackageSearchCandidate>,
+    reads: Vec<(String, Value)>,
+}
+
+impl RetainedDependencyState {
+    fn capture(resources: &LanguageResources) -> Self {
+        let list = resources.list_result();
+        let search = resources.package_search_candidates();
+        let mut reads = retained_seed_reads(resources, &list);
+        reads.extend(linked_seed_documentation_reads(resources, &reads));
+        Self {
+            list,
+            search,
+            reads,
+        }
+    }
+
+    fn assert_unchanged(self, resources: &LanguageResources) {
+        assert_eq!(resources.list_result(), self.list);
+        assert_eq!(resources.package_search_candidates(), self.search);
+        for (uri, read) in self.reads {
+            assert_eq!(resources.read_result(&uri), Some(read), "{uri}");
+        }
+    }
+}
+
+fn retained_seed_reads(resources: &LanguageResources, list: &Value) -> Vec<(String, Value)> {
+    list["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|resource| resource["uri"].as_str())
+        .filter(|uri| uri.contains("/example%2Fseed-0000/"))
+        .map(|uri| (uri.to_string(), resources.read_result(uri).unwrap()))
+        .collect()
+}
+
+fn linked_seed_documentation_reads(
+    resources: &LanguageResources,
+    retained_reads: &[(String, Value)],
+) -> [(String, Value); 2] {
+    let index_text = retained_reads
+        .iter()
+        .find(|(uri, _)| uri.ends_with("/index"))
+        .unwrap()
+        .1["contents"][0]["text"]
+        .as_str()
+        .unwrap();
+    let module_uri = linked_package_documentation_uri(index_text, "/module/");
+    let module_read = resources.read_result(&module_uri).unwrap();
+    let module_text = module_read["contents"][0]["text"].as_str().unwrap();
+    let declaration_uri = linked_package_documentation_uri(module_text, "/declaration/");
+    let declaration_read = resources.read_result(&declaration_uri).unwrap();
+    [
+        (module_uri, module_read),
+        (declaration_uri, declaration_read),
+    ]
+}
+
+fn linked_package_documentation_uri(text: &str, kind: &str) -> String {
+    extract_uris_with_prefix(text, "veln-doc:///package/")
+        .into_iter()
+        .find(|uri| uri.contains(kind))
+        .unwrap()
 }
 
 fn fixed_width_dependency_projects(size: usize) -> Vec<CapturedDependencyProject> {
