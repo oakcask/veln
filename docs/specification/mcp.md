@@ -518,6 +518,10 @@ The checked
 [`module-value-navigation`](../../examples/specification/mcp/module-value-navigation/)
 and
 [`module-value-dependency-navigation`](../../examples/specification/mcp/module-value-dependency-navigation/)
+and
+[`module-value-dependency-reference-state`](../../examples/specification/mcp/module-value-dependency-reference-state/)
+and
+[`module-value-dependency-resource-state`](../../examples/specification/mcp/module-value-dependency-resource-state/)
 transcripts cover workspace and package definitions, exact workspace rename
 edits, edit-free package rename, empty reference results, one-based ranges,
 and state preservation across those requests.

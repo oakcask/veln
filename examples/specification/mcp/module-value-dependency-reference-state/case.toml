@@ -1,0 +1,16 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/references"
+length = 0
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent"
+equals_response = {"id":5,"path":"/result/structuredContent"}

@@ -21,21 +21,6 @@ path = "/result/structuredContent/edits"
 length = 0
 
 [[mcp_assert]]
-id = 11
-path = "/result/structuredContent/references"
-length = 0
-
-[[mcp_assert]]
-id = 12
-path = "/result/structuredContent"
-equals_response = {"id":5,"path":"/result/structuredContent"}
-
-[[mcp_assert]]
-id = 13
-path = "/result"
-equals_response = {"id":4,"path":"/result"}
-
-[[mcp_assert]]
 id = 14
 path = "/result/structuredContent"
 equals_response = {"id":3,"path":"/result/structuredContent"}
