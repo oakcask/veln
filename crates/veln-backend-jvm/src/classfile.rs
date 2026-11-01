@@ -150,13 +150,20 @@ fn emit_module_value_builder_call(
     );
 }
 
-fn schedule_module_value_expr<'a>(
+fn finish_module_value_push(emitter: &FunctionBytecodeEmitter<'_, '_>, code: &mut MethodCode) {
+    code.invokestatic(
+        &emitter.program.options.runtime_class,
+        "moduleValuePush",
+        "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
+    );
+}
+
+fn emit_module_value_leaf(
     emitter: &mut FunctionBytecodeEmitter<'_, '_>,
     code: &mut MethodCode,
-    work: &mut Vec<ModuleValueEmissionWork<'a>>,
-    expr: &'a IrExpr,
-) {
-    match &expr.kind {
+    kind: &IrExprKind,
+) -> bool {
+    match kind {
         IrExprKind::ModuleValue(identity) => {
             code.aload(0);
             code.getstatic(
@@ -164,21 +171,43 @@ fn schedule_module_value_expr<'a>(
                 emitter.program.module_value_name(identity),
                 MODULE_VALUE_DESCRIPTOR,
             );
-            code.invokestatic(
-                &emitter.program.options.runtime_class,
-                "moduleValuePush",
-                "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
-            );
         }
         IrExprKind::BoolLiteral(value) => {
             code.aload(0);
             emitter.emit_bool_literal(code, *value);
-            code.invokestatic(
-                &emitter.program.options.runtime_class,
-                "moduleValuePush",
-                "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
-            );
         }
+        IrExprKind::IntLiteral(value) => {
+            code.aload(0);
+            emitter.emit_int_literal(code, value);
+        }
+        IrExprKind::Unit => {
+            code.aload(0);
+            emitter.emit_unit(code);
+        }
+        IrExprKind::OptionNone => {
+            code.aload(0);
+            emitter.emit_option_none(code);
+        }
+        IrExprKind::ListNil => {
+            code.aload(0);
+            emitter.emit_list_nil(code);
+        }
+        _ => return false,
+    }
+    finish_module_value_push(emitter, code);
+    true
+}
+
+fn schedule_module_value_expr<'a>(
+    emitter: &mut FunctionBytecodeEmitter<'_, '_>,
+    code: &mut MethodCode,
+    work: &mut Vec<ModuleValueEmissionWork<'a>>,
+    expr: &'a IrExpr,
+) {
+    if emit_module_value_leaf(emitter, code, &expr.kind) {
+        return;
+    }
+    match &expr.kind {
         IrExprKind::StringLiteral(value) => {
             let decoded = veln_string_literal_value(value);
             let chunks = modified_utf8_chunks(&decoded);
@@ -189,42 +218,6 @@ fn schedule_module_value_expr<'a>(
                     .rev()
                     .map(str::to_string)
                     .map(ModuleValueEmissionWork::PushString),
-            );
-        }
-        IrExprKind::IntLiteral(value) => {
-            code.aload(0);
-            emitter.emit_int_literal(code, value);
-            code.invokestatic(
-                &emitter.program.options.runtime_class,
-                "moduleValuePush",
-                "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
-            );
-        }
-        IrExprKind::Unit => {
-            code.aload(0);
-            emitter.emit_unit(code);
-            code.invokestatic(
-                &emitter.program.options.runtime_class,
-                "moduleValuePush",
-                "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
-            );
-        }
-        IrExprKind::OptionNone => {
-            code.aload(0);
-            emitter.emit_option_none(code);
-            code.invokestatic(
-                &emitter.program.options.runtime_class,
-                "moduleValuePush",
-                "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
-            );
-        }
-        IrExprKind::ListNil => {
-            code.aload(0);
-            emitter.emit_list_nil(code);
-            code.invokestatic(
-                &emitter.program.options.runtime_class,
-                "moduleValuePush",
-                "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
             );
         }
         IrExprKind::Prefix {
