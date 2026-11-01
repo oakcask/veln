@@ -1,26 +1,46 @@
 use super::*;
 
 #[test]
-fn run_reports_backend_generation_failures_before_human_or_json_execution() {
-    let project = TestProject::new("run-backend-generation-failure");
+fn run_executes_oversized_module_strings_for_human_and_json_output() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("run-oversized-module-string");
     project.write(
         "main.veln",
-        &oversized_module_value_source("pub fn main() -> String\n  oversized\nend\n"),
+        &oversized_module_value_source(concat!(
+            "fn marker_at(bytes: ByteChunk, offset: Int) -> Result<String, String>\n",
+            "  byte_chunk_to_visible_ascii_string(byte_take(byte_drop(bytes, byte_count(offset)?)?, byte_count(1)?)?)\n",
+            "end\n\n",
+            "pub fn main() -> Result<(), String> effects [stdio]\n",
+            "  let bytes = byte_chunk_from_visible_ascii_string(oversized)?\n",
+            "  stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(bytes))))\n",
+            "  stdio::println(marker_at(bytes, 0)?)\n",
+            "  stdio::println(marker_at(bytes, 32768)?)\n",
+            "  stdio::println(marker_at(bytes, 65534)?)\n",
+            "  stdio::println(marker_at(bytes, 65535)?)\n",
+            "  Ok(())\n",
+            "end\n",
+        )),
     );
 
-    for args in [
-        vec!["main", "main.veln"],
-        vec!["--json", "main", "main.veln"],
-    ] {
-        let output = project.run(&args);
+    let human = project.run(&["main", "main.veln"]);
+    assert_eq!(human.status.code(), Some(0), "{}", stderr(&human));
+    assert_eq!(stdout(&human), "65536\nA\nB\nC\nZ\n");
+    assert_eq!(stderr(&human), "");
 
-        assert_eq!(output.status.code(), Some(2));
-        assert_eq!(stdout(&output), "");
-        assert_eq!(
-            stderr(&output),
-            "veln: JVM backend could not generate the program: JVM class constant-pool string exceeds 65535 bytes\n"
-        );
-    }
+    let json = project.run(&["--json", "main", "main.veln"]);
+    assert_eq!(json.status.code(), Some(0), "{}", stderr(&json));
+    assert_eq!(stderr(&json), "");
+    assert_contains_all(
+        stdout(&json),
+        &[
+            "\"status\":\"passed\"",
+            "\"exit_code\":0",
+            "\"stdout\":\"65536\\nA\\nB\\nC\\nZ\\n\"",
+        ],
+    );
 }
 
 #[cfg(unix)]

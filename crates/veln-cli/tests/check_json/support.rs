@@ -145,7 +145,8 @@ pub(super) fn assert_contains_all(haystack: &str, needles: &[&str]) {
 }
 
 pub(super) fn oversized_module_value_source(entry: &str) -> String {
-    let literal = "x".repeat(usize::from(u16::MAX) + 1);
+    let literal = format!("A{}B{}CZ", "x".repeat(32_767), "y".repeat(32_765));
+    assert_eq!(literal.len(), usize::from(u16::MAX) + 1);
     format!("let oversized: String = \"{literal}\"\n\n{entry}")
 }
 

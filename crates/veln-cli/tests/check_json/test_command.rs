@@ -1,23 +1,45 @@
 use super::support::*;
 
 #[test]
-fn test_reports_backend_generation_failures_before_human_or_json_reports() {
-    let project = TestProject::new("test-backend-generation-failure");
+fn test_executes_oversized_module_strings_for_human_and_json_reports() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("test-oversized-module-string");
     project.write(
         "main_test.veln",
-        &oversized_module_value_source("test oversized_case() -> ()\n  oversized\n  ()\nend\n"),
+        &oversized_module_value_source(concat!(
+            "fn marker_at(bytes: ByteChunk, offset: Int) -> Result<String, String>\n",
+            "  byte_chunk_to_visible_ascii_string(byte_take(byte_drop(bytes, byte_count(offset)?)?, byte_count(1)?)?)\n",
+            "end\n\n",
+            "test oversized_case() -> Result<(), String>\n",
+            "  let bytes = byte_chunk_from_visible_ascii_string(oversized)?\n",
+            "  if byte_count_to_int(byte_chunk_count(bytes)) == 65536 and marker_at(bytes, 0)? == \"A\" and marker_at(bytes, 32768)? == \"B\" and marker_at(bytes, 65534)? == \"C\" and marker_at(bytes, 65535)? == \"Z\"\n",
+            "    Ok(())\n",
+            "  else\n",
+            "    Err(\"oversized module string changed\")\n",
+            "  end\n",
+            "end\n",
+        )),
     );
 
-    for args in [vec![], vec!["--json"]] {
-        let output = project.test(&args);
+    let human = project.test(&[]);
+    assert_eq!(human.status.code(), Some(0), "{}", stderr(&human));
+    assert_eq!(stdout(&human), "ok oversized_case\n");
+    assert_eq!(stderr(&human), "");
 
-        assert_eq!(output.status.code(), Some(2));
-        assert_eq!(stdout(&output), "");
-        assert_eq!(
-            stderr(&output),
-            "veln: JVM backend could not generate test `oversized_case`: JVM class constant-pool string exceeds 65535 bytes\n"
-        );
-    }
+    let json = project.test(&["--json"]);
+    assert_eq!(json.status.code(), Some(0), "{}", stderr(&json));
+    assert_eq!(stderr(&json), "");
+    assert_contains_all(
+        stdout(&json),
+        &[
+            "\"status\":\"passed\"",
+            "\"summary\":{\"total\":1,\"passed\":1,\"failed\":0",
+            "\"name\":\"oversized_case\",\"kind\":\"test\",\"status\":\"passed\"",
+        ],
+    );
 }
 
 #[cfg(unix)]

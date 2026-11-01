@@ -152,16 +152,21 @@ dependency chain remains executable when its declaration depth exceeds the
 available JVM call-stack depth. A declaration set can span more materialized
 fields and initializers than one JVM class constant pool can represent. The
 backend partitions declarations into storage classes while retaining
-declaration identity and dependency order. Each generated class and initializer
-method must still fit the JVM classfile representation limits. Reading the
-final value does not recursively evaluate the preceding initializers. The
+declaration identity and dependency order. One admitted string does not need to
+fit one JVM constant-pool string, and one admitted initializer tree does not
+need to fit one JVM method. Materialization preserves the complete string and
+every constructor node across the bounded generated pieces. Reading the final
+value does not recursively evaluate the preceding initializers. The
 checked
 [`module-value-runtime-execution`](../../examples/specification/run/module-value-runtime-execution/)
 case exercises the supported values and identity boundaries. The focused
 [`JVM backend test`](../../crates/veln-backend-jvm/src/tests/basic_backend.rs)
-executes a 4,000-declaration chain with a constrained thread stack and checks
-the final value. The same backend suite asks Java to load 11,000 distinct
-integer declarations and read the terminal value.
+executes a 20,000-node constructor value and a 4,000-declaration chain with
+constrained compiler and JVM stacks. It checks every constructor marker, the
+terminal data, and the final declaration value. The same backend suite asks
+Java to load 11,000 distinct integer declarations and read the terminal value.
+The run and test command regressions execute a 65,536-byte module string and
+check its independent length and boundary markers.
 
 Module values do not add an effectful startup phase, user-code initializer
 execution, mutable storage, or lazy runtime failure. Physical sharing between
@@ -276,14 +281,12 @@ If one generated class cannot represent its constant pool, a constant-pool
 string requires more than 65,535 bytes in JVM modified UTF-8, a method requires
 more than 65,535 bytes of code, or a method requires more than 65,535 operand
 stack slots, classfile generation returns a bounded backend failure before it
-writes an invalid or truncated classfile. Deeply nested finite module-value
-initializers do not consume native compiler stack in proportion to their
-nesting depth. If their generated initializer method exceeds the code limit,
-generation returns the same bounded method-code failure. The caller can
-propagate that failure and release the typed program on the same bounded native
-stack. The focused JVM backend test performs generation and release for a
-20,000-level recursive ADT initializer on a 256 KiB worker stack, observes the
-method-code failure, and completes the worker.
+writes an invalid or truncated classfile. Module immutable-value materialization
+splits admitted strings and initializer trees before those per-entry and
+per-method limits apply. Deeply nested finite module-value initializers do not
+consume native compiler or JVM call stack in proportion to their nesting depth.
+The focused JVM backend test generates, executes, observes, and releases a
+20,000-level recursive ADT initializer on bounded compiler and JVM stacks.
 `ByteChunk`, `ByteView`, `StreamInput`, `DecodeStep<T>`, `DecodeReadiness`,
 `DecodeError`, `EncodeStep<TState>`, and `EncodeError` are immutable
 source-visible values. Byte and view helpers are pure; invalid values,

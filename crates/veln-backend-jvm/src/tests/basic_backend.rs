@@ -75,6 +75,39 @@ fn backend_materializes_module_strings_requiring_modified_utf8() {
 }
 
 #[test]
+fn backend_materializes_module_strings_larger_than_one_constant_pool_entry() {
+    let literal = format!("A{}B{}CZ", "x".repeat(32_767), "y".repeat(32_765));
+    assert_eq!(literal.len(), usize::from(u16::MAX) + 1);
+    let ir = lower_to_ir(&format!(
+        concat!(
+            "let oversized: String = \"{}\"\n",
+            "pub fn main() -> () effects [stdio]\n",
+            "  stdio::println(oversized)\n",
+            "end\n",
+        ),
+        literal,
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let Some(output) =
+        run_jvm_program_when_java_is_available("module-value-oversized-string", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(output.stdout.len(), 65_537);
+    assert_eq!(output.stdout[0], b'A');
+    assert_eq!(output.stdout[32_768], b'B');
+    assert_eq!(output.stdout[65_534], b'C');
+    assert_eq!(output.stdout[65_535], b'Z');
+    assert_eq!(output.stdout[65_536], b'\n');
+}
+
+#[test]
 fn backend_materializes_nested_module_records_at_and_beyond_the_former_stack_limit() {
     let mut source = String::new();
     for (name, depth, leaf) in [("boundary", 21, 2_101), ("beyond", 24, 2_401)] {
@@ -314,11 +347,11 @@ fn set_module_value_declaration_module(module: &mut veln_ast::SurfaceModule, nam
 }
 
 #[test]
-fn bytecode_backend_rejects_an_oversized_deep_initializer_on_a_bounded_stack() {
+fn bytecode_backend_executes_an_oversized_deep_initializer_on_bounded_stacks() {
     const CHILD_MARKER: &str = "VELN_TEST_DEEP_MODULE_INITIALIZER_CHILD";
     const TEST_NAME: &str = concat!(
         "tests::basic_backend::",
-        "bytecode_backend_rejects_an_oversized_deep_initializer_on_a_bounded_stack"
+        "bytecode_backend_executes_an_oversized_deep_initializer_on_bounded_stacks"
     );
     if std::env::var_os(CHILD_MARKER).is_some() {
         run_oversized_deep_initializer_on_a_bounded_stack();
@@ -352,27 +385,50 @@ fn run_oversized_deep_initializer_on_a_bounded_stack() {
         .name("deep-module-initializer".to_string())
         .stack_size(256 * 1024)
         .spawn(|| {
-            let failure = generate_oversized_recursive_adt(DEPTH);
-            assert_eq!(
-                failure
-                    .expect_err("oversized initializer must be rejected")
-                    .as_str(),
-                "JVM method code exceeds 65535 bytes"
+            let program = generate_oversized_recursive_adt(DEPTH);
+            let Some(output) = run_jvm_program_with_java_args_when_java_is_available(
+                "deep-module-initializer",
+                &program,
+                &["-Xss256k"],
+                &[],
+            ) else {
+                return;
+            };
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
             );
+            assert_eq!(output.stdout, b"20000\n");
         })
         .expect("spawn deep module initializer thread")
         .join()
         .expect("deep module initializer thread should complete");
 }
 
-fn generate_oversized_recursive_adt(depth: usize) -> Result<(), String> {
+fn generate_oversized_recursive_adt(depth: usize) -> JvmProgram {
     let mut ir = lower_to_ir(concat!(
         "type Chain\n",
-        "  End\n",
-        "  Next(value: Chain)\n",
+        "  End(marker: Int)\n",
+        "  Next(marker: Int, value: Chain)\n",
         "end\n",
-        "let oversized: Chain = Next(End)\n",
-        "pub fn main() -> ()\n",
+        "let oversized: Chain = Next(1, End(777))\n",
+        "fn inspect(value: Chain, expected: Int, observed: Int) -> Int\n",
+        "  match value\n",
+        "    End(marker) => if expected == 0 and marker == 777\n",
+        "      observed\n",
+        "    else\n",
+        "      -1\n",
+        "    end\n",
+        "    Next(marker, next) => if marker == expected\n",
+        "      inspect(next, expected - 1, observed + 1)\n",
+        "    else\n",
+        "      -1\n",
+        "    end\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(inspect(oversized, 20000, 0)))\n",
         "end\n",
     ));
     let declaration = ir
@@ -381,31 +437,31 @@ fn generate_oversized_recursive_adt(depth: usize) -> Result<(), String> {
         .expect("oversized module value declaration");
     assert_eq!(declaration.annotation, "Chain");
     assert_eq!(declaration.initializer.ty, declaration.ty);
-    let (variant_name, mut initializer) = match &declaration.initializer.kind {
-        IrExprKind::AdtVariant { name, payloads } if payloads.len() == 1 => {
-            (name.clone(), payloads[0].clone())
+    let (variant_name, marker_template, mut initializer) = match &declaration.initializer.kind {
+        IrExprKind::AdtVariant { name, payloads } if payloads.len() == 2 => {
+            (name.clone(), payloads[0].clone(), payloads[1].clone())
         }
         kind => panic!("lowered recursive ADT initializer: {kind:?}"),
     };
     assert_eq!(initializer.ty, declaration.ty);
     let node_id = declaration.initializer.node_id;
     let span = declaration.initializer.span.clone();
-    for _ in 0..depth {
+    for marker in 1..=depth {
+        let mut marker_value = marker_template.clone();
+        marker_value.kind = IrExprKind::IntLiteral(marker.to_string());
         initializer = IrExpr {
             node_id,
             ty: declaration.ty.clone(),
             kind: IrExprKind::AdtVariant {
                 name: variant_name.clone(),
-                payloads: vec![initializer],
+                payloads: vec![marker_value, initializer],
             },
             span: span.clone(),
         };
     }
     declaration.initializer = initializer;
 
-    try_generate_classfiles_with_entry(&ir, "main")
-        .map(|_| ())
-        .map_err(|error| error.to_string())
+    generate_classfiles_with_entry(&ir, "main")
 }
 
 #[test]

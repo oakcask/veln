@@ -50,6 +50,7 @@ const JAVA_LANG_OBJECT: &str = "java/lang/Object";
 const VELN_ENTRY: &str = "VelnEntry";
 const MODULE_VALUE_DESCRIPTOR: &str = "Ljava/lang/Object;";
 const MODULE_VALUES_PER_CLASS: usize = 1_000;
+const MODULE_VALUE_HELPER_CODE_LIMIT: usize = 60_000;
 
 fn collect_module_value_dependencies(
     expr: &IrExpr,
@@ -88,124 +89,28 @@ fn collect_module_value_dependencies(
     }
 }
 
-enum ModuleValueStackWork<'a> {
-    Visit(&'a IrExpr),
-    Unary,
-    ListCons,
-    Record(usize),
-    AdtVariant(usize),
-}
-
-fn schedule_module_value_stack_expr<'a>(
-    expr: &'a IrExpr,
-    work: &mut Vec<ModuleValueStackWork<'a>>,
-    values: &mut Vec<usize>,
-) {
-    match &expr.kind {
-        IrExprKind::StringLiteral(_)
-        | IrExprKind::BoolLiteral(_)
-        | IrExprKind::Unit
-        | IrExprKind::ModuleValue(_)
-        | IrExprKind::OptionNone
-        | IrExprKind::ListNil => values.push(1),
-        IrExprKind::IntLiteral(_) => values.push(2),
-        IrExprKind::Prefix {
-            op: PrefixOp::Negate,
-            expr,
-        }
-        | IrExprKind::ResultOk(expr)
-        | IrExprKind::ResultErr(expr)
-        | IrExprKind::OptionSome(expr) => {
-            work.push(ModuleValueStackWork::Unary);
-            work.push(ModuleValueStackWork::Visit(expr));
-        }
-        IrExprKind::ListCons { head, tail } => {
-            work.push(ModuleValueStackWork::ListCons);
-            work.push(ModuleValueStackWork::Visit(tail));
-            work.push(ModuleValueStackWork::Visit(head));
-        }
-        IrExprKind::Record(fields) => {
-            work.push(ModuleValueStackWork::Record(fields.len()));
-            work.extend(
-                fields
-                    .iter()
-                    .rev()
-                    .map(|field| ModuleValueStackWork::Visit(&field.value)),
-            );
-        }
-        IrExprKind::AdtVariant { payloads, .. } => {
-            work.push(ModuleValueStackWork::AdtVariant(payloads.len()));
-            work.extend(payloads.iter().rev().map(ModuleValueStackWork::Visit));
-        }
-        kind => {
-            unreachable!("unsupported module value initializer reached JVM emission: {kind:?}")
-        }
-    }
-}
-
-fn reduce_module_value_stack_values(values: &mut Vec<usize>, count: usize, base: usize) {
-    let start = values.len() - count;
-    let maximum = values.drain(start..).fold(base, |maximum, value| {
-        maximum.max(base.saturating_add(2).saturating_add(value))
-    });
-    values.push(maximum);
-}
-
-fn apply_module_value_stack_work<'a>(
-    item: ModuleValueStackWork<'a>,
-    work: &mut Vec<ModuleValueStackWork<'a>>,
-    values: &mut Vec<usize>,
-) {
-    match item {
-        ModuleValueStackWork::Visit(expr) => schedule_module_value_stack_expr(expr, work, values),
-        ModuleValueStackWork::Unary => debug_assert!(!values.is_empty()),
-        ModuleValueStackWork::ListCons => {
-            let tail = values.pop().expect("module value list tail stack");
-            let head = values.pop().expect("module value list head stack");
-            values.push(head.max(1usize.saturating_add(tail)));
-        }
-        ModuleValueStackWork::Record(count) => reduce_module_value_stack_values(values, count, 1),
-        ModuleValueStackWork::AdtVariant(count) => {
-            reduce_module_value_stack_values(values, count, 2)
-        }
-    }
-}
-
-fn module_value_initializer_max_stack(expr: &IrExpr) -> usize {
-    let mut work = vec![ModuleValueStackWork::Visit(expr)];
-    let mut values = Vec::new();
-    while let Some(item) = work.pop() {
-        apply_module_value_stack_work(item, &mut work, &mut values);
-    }
-
-    values.pop().expect("module value initializer stack")
-}
-
 enum ModuleValueEmissionWork<'a> {
     Expr(&'a IrExpr),
-    PushInt(i32),
-    String(&'a str),
-    AdtName(&'a [String]),
-    NewObjectArray(usize),
-    Dup,
-    ArrayStore,
-    InvokeStatic {
+    PushString(String),
+    FinishString(usize),
+    FinishUnary {
         method: &'static str,
-        descriptor: &'static str,
     },
-    InvokeRuntime {
-        method: &'static str,
-        descriptor: &'static str,
+    FinishListCons,
+    PushRecordName(&'a str),
+    FinishRecord(usize),
+    FinishAdt {
+        name: &'a [String],
+        payload_count: usize,
     },
 }
 
-fn schedule_module_value_runtime_call<'a>(
+fn schedule_module_value_unary<'a>(
     work: &mut Vec<ModuleValueEmissionWork<'a>>,
     value: &'a IrExpr,
     method: &'static str,
-    descriptor: &'static str,
 ) {
-    work.push(ModuleValueEmissionWork::InvokeRuntime { method, descriptor });
+    work.push(ModuleValueEmissionWork::FinishUnary { method });
     work.push(ModuleValueEmissionWork::Expr(value));
 }
 
@@ -213,21 +118,11 @@ fn schedule_module_value_record<'a>(
     work: &mut Vec<ModuleValueEmissionWork<'a>>,
     fields: &'a [IrRecordField],
 ) {
-    work.push(ModuleValueEmissionWork::InvokeStatic {
-        method: "record",
-        descriptor: "([Ljava/lang/Object;)Ljava/util/Map;",
-    });
-    for (index, field) in fields.iter().enumerate().rev() {
-        work.push(ModuleValueEmissionWork::ArrayStore);
+    work.push(ModuleValueEmissionWork::FinishRecord(fields.len()));
+    for field in fields.iter().rev() {
         work.push(ModuleValueEmissionWork::Expr(&field.value));
-        work.push(ModuleValueEmissionWork::PushInt((index * 2 + 1) as i32));
-        work.push(ModuleValueEmissionWork::Dup);
-        work.push(ModuleValueEmissionWork::ArrayStore);
-        work.push(ModuleValueEmissionWork::String(&field.name));
-        work.push(ModuleValueEmissionWork::PushInt((index * 2) as i32));
-        work.push(ModuleValueEmissionWork::Dup);
+        work.push(ModuleValueEmissionWork::PushRecordName(&field.name));
     }
-    work.push(ModuleValueEmissionWork::NewObjectArray(fields.len() * 2));
 }
 
 fn schedule_module_value_adt<'a>(
@@ -235,18 +130,24 @@ fn schedule_module_value_adt<'a>(
     name: &'a [String],
     payloads: &'a [IrExpr],
 ) {
-    work.push(ModuleValueEmissionWork::InvokeStatic {
-        method: "adt",
-        descriptor: "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;",
+    work.push(ModuleValueEmissionWork::FinishAdt {
+        name,
+        payload_count: payloads.len(),
     });
-    for (index, payload) in payloads.iter().enumerate().rev() {
-        work.push(ModuleValueEmissionWork::ArrayStore);
-        work.push(ModuleValueEmissionWork::Expr(payload));
-        work.push(ModuleValueEmissionWork::PushInt(index as i32));
-        work.push(ModuleValueEmissionWork::Dup);
-    }
-    work.push(ModuleValueEmissionWork::NewObjectArray(payloads.len()));
-    work.push(ModuleValueEmissionWork::AdtName(name));
+    work.extend(payloads.iter().rev().map(ModuleValueEmissionWork::Expr));
+}
+
+fn emit_module_value_builder_call(
+    emitter: &FunctionBytecodeEmitter<'_, '_>,
+    code: &mut MethodCode,
+    method: &str,
+) {
+    code.aload(0);
+    code.invokestatic(
+        &emitter.program.options.runtime_class,
+        method,
+        "(Ljava/util/ArrayList;)V",
+    );
 }
 
 fn schedule_module_value_expr<'a>(
@@ -256,49 +157,87 @@ fn schedule_module_value_expr<'a>(
     expr: &'a IrExpr,
 ) {
     match &expr.kind {
-        IrExprKind::ModuleValue(identity) => code.getstatic(
-            emitter.program.module_value_owner(identity),
-            emitter.program.module_value_name(identity),
-            MODULE_VALUE_DESCRIPTOR,
-        ),
-        IrExprKind::BoolLiteral(value) => emitter.emit_bool_literal(code, *value),
-        IrExprKind::StringLiteral(value) => emitter.emit_string_literal(code, value),
-        IrExprKind::IntLiteral(value) => emitter.emit_int_literal(code, value),
-        IrExprKind::Unit => emitter.emit_unit(code),
-        IrExprKind::OptionNone => emitter.emit_option_none(code),
-        IrExprKind::ListNil => emitter.emit_list_nil(code),
+        IrExprKind::ModuleValue(identity) => {
+            code.aload(0);
+            code.getstatic(
+                emitter.program.module_value_owner(identity),
+                emitter.program.module_value_name(identity),
+                MODULE_VALUE_DESCRIPTOR,
+            );
+            code.invokestatic(
+                &emitter.program.options.runtime_class,
+                "moduleValuePush",
+                "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
+            );
+        }
+        IrExprKind::BoolLiteral(value) => {
+            code.aload(0);
+            emitter.emit_bool_literal(code, *value);
+            code.invokestatic(
+                &emitter.program.options.runtime_class,
+                "moduleValuePush",
+                "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
+            );
+        }
+        IrExprKind::StringLiteral(value) => {
+            let decoded = veln_string_literal_value(value);
+            let chunks = modified_utf8_chunks(&decoded);
+            work.push(ModuleValueEmissionWork::FinishString(chunks.len()));
+            work.extend(
+                chunks
+                    .into_iter()
+                    .rev()
+                    .map(str::to_string)
+                    .map(ModuleValueEmissionWork::PushString),
+            );
+        }
+        IrExprKind::IntLiteral(value) => {
+            code.aload(0);
+            emitter.emit_int_literal(code, value);
+            code.invokestatic(
+                &emitter.program.options.runtime_class,
+                "moduleValuePush",
+                "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
+            );
+        }
+        IrExprKind::Unit => {
+            code.aload(0);
+            emitter.emit_unit(code);
+            code.invokestatic(
+                &emitter.program.options.runtime_class,
+                "moduleValuePush",
+                "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
+            );
+        }
+        IrExprKind::OptionNone => {
+            code.aload(0);
+            emitter.emit_option_none(code);
+            code.invokestatic(
+                &emitter.program.options.runtime_class,
+                "moduleValuePush",
+                "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
+            );
+        }
+        IrExprKind::ListNil => {
+            code.aload(0);
+            emitter.emit_list_nil(code);
+            code.invokestatic(
+                &emitter.program.options.runtime_class,
+                "moduleValuePush",
+                "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
+            );
+        }
         IrExprKind::Prefix {
             op: PrefixOp::Negate,
             expr,
-        } => schedule_module_value_runtime_call(
-            work,
-            expr,
-            "negate",
-            "(Ljava/lang/Object;)Ljava/lang/Object;",
-        ),
-        IrExprKind::ResultOk(value) => schedule_module_value_runtime_call(
-            work,
-            value,
-            "ok",
-            "(Ljava/lang/Object;)LVelnRuntime$Result;",
-        ),
-        IrExprKind::ResultErr(value) => schedule_module_value_runtime_call(
-            work,
-            value,
-            "err",
-            "(Ljava/lang/Object;)LVelnRuntime$Result;",
-        ),
-        IrExprKind::OptionSome(value) => schedule_module_value_runtime_call(
-            work,
-            value,
-            "some",
-            "(Ljava/lang/Object;)LVelnRuntime$Option;",
-        ),
+        } => schedule_module_value_unary(work, expr, "moduleValueNegate"),
+        IrExprKind::ResultOk(value) => schedule_module_value_unary(work, value, "moduleValueOk"),
+        IrExprKind::ResultErr(value) => schedule_module_value_unary(work, value, "moduleValueErr"),
+        IrExprKind::OptionSome(value) => {
+            schedule_module_value_unary(work, value, "moduleValueSome")
+        }
         IrExprKind::ListCons { head, tail } => {
-            work.push(ModuleValueEmissionWork::InvokeStatic {
-                method: "listCons",
-                descriptor: "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
-            });
+            work.push(ModuleValueEmissionWork::FinishListCons);
             work.push(ModuleValueEmissionWork::Expr(tail));
             work.push(ModuleValueEmissionWork::Expr(head));
         }
@@ -317,52 +256,129 @@ fn emit_module_value_work<'a>(
     code: &mut MethodCode,
     work: &mut Vec<ModuleValueEmissionWork<'a>>,
     item: ModuleValueEmissionWork<'a>,
-    runtime_class: &str,
 ) {
     match item {
         ModuleValueEmissionWork::Expr(expr) => {
             schedule_module_value_expr(emitter, code, work, expr)
         }
-        ModuleValueEmissionWork::PushInt(value) => code.push_i32(value),
-        ModuleValueEmissionWork::String(value) => code.ldc_string(value),
-        ModuleValueEmissionWork::AdtName(name) => code.ldc_string(&name.join("::")),
-        ModuleValueEmissionWork::NewObjectArray(len) => {
-            code.push_i32(len as i32);
-            code.anewarray(JAVA_LANG_OBJECT);
+        ModuleValueEmissionWork::PushString(value) => {
+            code.aload(0);
+            code.ldc_string(&value);
+            code.invokestatic(
+                &emitter.program.options.runtime_class,
+                "moduleValuePush",
+                "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
+            );
         }
-        ModuleValueEmissionWork::Dup => code.op(0x59),
-        ModuleValueEmissionWork::ArrayStore => code.op(0x53),
-        ModuleValueEmissionWork::InvokeStatic { method, descriptor }
-        | ModuleValueEmissionWork::InvokeRuntime { method, descriptor } => {
-            code.invokestatic(runtime_class, method, descriptor);
+        ModuleValueEmissionWork::PushRecordName(value) => {
+            code.aload(0);
+            code.ldc_string(value);
+            code.invokestatic(
+                &emitter.program.options.runtime_class,
+                "moduleValuePush",
+                "(Ljava/util/ArrayList;Ljava/lang/Object;)V",
+            );
+        }
+        ModuleValueEmissionWork::FinishString(count) => {
+            code.aload(0);
+            code.push_i32(count as i32);
+            code.invokestatic(
+                &emitter.program.options.runtime_class,
+                "moduleValueString",
+                "(Ljava/util/ArrayList;I)V",
+            );
+        }
+        ModuleValueEmissionWork::FinishUnary { method } => {
+            emit_module_value_builder_call(emitter, code, method);
+        }
+        ModuleValueEmissionWork::FinishListCons => {
+            emit_module_value_builder_call(emitter, code, "moduleValueListCons");
+        }
+        ModuleValueEmissionWork::FinishRecord(count) => {
+            code.aload(0);
+            code.push_i32(count as i32);
+            code.invokestatic(
+                &emitter.program.options.runtime_class,
+                "moduleValueRecord",
+                "(Ljava/util/ArrayList;I)V",
+            );
+        }
+        ModuleValueEmissionWork::FinishAdt {
+            name,
+            payload_count,
+        } => {
+            code.aload(0);
+            code.ldc_string(&name.join("::"));
+            code.push_i32(payload_count as i32);
+            code.invokestatic(
+                &emitter.program.options.runtime_class,
+                "moduleValueAdt",
+                "(Ljava/util/ArrayList;Ljava/lang/String;I)V",
+            );
         }
     }
 }
 
 fn emit_module_value_initializer(
+    class: &mut ClassBuilder,
+    class_name: &str,
+    method_stem: &str,
     emitter: &mut FunctionBytecodeEmitter<'_, '_>,
-    code: &mut MethodCode,
     initializer: &IrExpr,
-) -> Result<(), JvmBackendError> {
-    let runtime_class = emitter.program.options.runtime_class.clone();
+) -> MethodCode {
+    let mut initializer_code = MethodCode::new(Rc::clone(&class.constant_pool));
+    initializer_code.invokestatic(
+        &emitter.program.options.runtime_class,
+        "moduleValueBuilder",
+        "()Ljava/util/ArrayList;",
+    );
+    initializer_code.astore(0);
+
+    let mut part_index = 0;
+    let mut part = MethodCode::new(Rc::clone(&class.constant_pool));
     let mut work = vec![ModuleValueEmissionWork::Expr(initializer)];
     while let Some(item) = work.pop() {
-        emit_module_value_work(emitter, code, &mut work, item, &runtime_class);
-        if code.code.len() > usize::from(u16::MAX) {
-            return Err(JvmBackendError::new("JVM method code exceeds 65535 bytes"));
+        emit_module_value_work(emitter, &mut part, &mut work, item);
+        if part.code.len() >= MODULE_VALUE_HELPER_CODE_LIMIT {
+            let part_name = format!("{method_stem}_part_{part_index}");
+            part.op(0xb1);
+            class.add_method(MethodInfo {
+                access_flags: 0x000a,
+                name: part_name.clone(),
+                descriptor: "(Ljava/util/ArrayList;)V".to_string(),
+                max_stack: part.max_stack,
+                max_locals: part.max_locals,
+                code: part.code,
+                exceptions: part.exceptions,
+            });
+            initializer_code.aload(0);
+            initializer_code.invokestatic(class_name, &part_name, "(Ljava/util/ArrayList;)V");
+            part_index += 1;
+            part = MethodCode::new(Rc::clone(&class.constant_pool));
         }
     }
-    Ok(())
-}
-
-#[cfg(test)]
-pub(crate) fn named_module_value_max_stack(program: &TypedProgram, name: &str) -> usize {
-    let declaration = program
-        .module_values
-        .iter()
-        .find(|declaration| declaration.identity.name == name)
-        .expect("module value for maximum JVM stack");
-    module_value_initializer_max_stack(&declaration.initializer)
+    if !part.code.is_empty() {
+        let part_name = format!("{method_stem}_part_{part_index}");
+        part.op(0xb1);
+        class.add_method(MethodInfo {
+            access_flags: 0x000a,
+            name: part_name.clone(),
+            descriptor: "(Ljava/util/ArrayList;)V".to_string(),
+            max_stack: part.max_stack,
+            max_locals: part.max_locals,
+            code: part.code,
+            exceptions: part.exceptions,
+        });
+        initializer_code.aload(0);
+        initializer_code.invokestatic(class_name, &part_name, "(Ljava/util/ArrayList;)V");
+    }
+    initializer_code.aload(0);
+    initializer_code.invokestatic(
+        &emitter.program.options.runtime_class,
+        "moduleValueFinish",
+        "(Ljava/util/ArrayList;)Ljava/lang/Object;",
+    );
+    initializer_code
 }
 
 #[cfg(test)]
@@ -722,12 +738,15 @@ impl<'a> ClassfileEmitter<'a> {
         }
         for declaration_index in declarations {
             let declaration = &self.program.module_values[*declaration_index];
-            let mut method = MethodCode::with_max_stack(
-                Rc::clone(&class.constant_pool),
-                module_value_initializer_max_stack(&declaration.initializer),
-            );
             let mut emitter = FunctionBytecodeEmitter::new(self, function);
-            emit_module_value_initializer(&mut emitter, &mut method, &declaration.initializer)?;
+            let method_name = format!("init_{}", self.module_value_name(&declaration.identity));
+            let mut method = emit_module_value_initializer(
+                &mut class,
+                class_name,
+                &method_name,
+                &mut emitter,
+                &declaration.initializer,
+            );
             method.putstatic(
                 class_name,
                 self.module_value_name(&declaration.identity),
@@ -736,10 +755,10 @@ impl<'a> ClassfileEmitter<'a> {
             method.op(0xb1);
             class.add_method(MethodInfo {
                 access_flags: 0x000a,
-                name: format!("init_{}", self.module_value_name(&declaration.identity)),
+                name: method_name,
                 descriptor: "()V".to_string(),
                 max_stack: method.max_stack,
-                max_locals: 0,
+                max_locals: method.max_locals,
                 code: method.code,
                 exceptions: method.exceptions,
             });

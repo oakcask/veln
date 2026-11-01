@@ -158,6 +158,37 @@ fn checked_constant_pool_count(entry_slots: usize) -> Option<u16> {
         .and_then(|count| u16::try_from(count).ok())
 }
 
+pub(super) fn modified_utf8_chunks(value: &str) -> Vec<&str> {
+    if value.is_empty() {
+        return vec![value];
+    }
+
+    let mut chunks = Vec::new();
+    let mut chunk_start = 0;
+    let mut chunk_len = 0;
+    for (index, scalar) in value.char_indices() {
+        let scalar_len = modified_utf8_scalar_len(scalar);
+        if chunk_len + scalar_len > usize::from(u16::MAX) {
+            chunks.push(&value[chunk_start..index]);
+            chunk_start = index;
+            chunk_len = 0;
+        }
+        chunk_len += scalar_len;
+    }
+    chunks.push(&value[chunk_start..]);
+    chunks
+}
+
+fn modified_utf8_scalar_len(scalar: char) -> usize {
+    match u32::from(scalar) {
+        0 => 2,
+        1..=0x7f => 1,
+        0x80..=0x7ff => 2,
+        0x800..=0xffff => 3,
+        _ => 6,
+    }
+}
+
 fn encode_modified_utf8(value: &str) -> Option<Vec<u8>> {
     let mut encoded = Vec::with_capacity(value.len());
     for scalar in value.chars() {
@@ -407,6 +438,22 @@ mod tests {
 
         assert!(encode_modified_utf8(&value).is_none());
         assert_eq!(value.len(), 32_768);
+    }
+
+    #[test]
+    fn modified_utf8_chunks_preserve_scalar_boundaries_and_complete_text() {
+        let value = format!("{}😀\0tail", "x".repeat(65_534));
+
+        let chunks = modified_utf8_chunks(&value);
+
+        assert_eq!(chunks.concat(), value);
+        assert_eq!(chunks.len(), 2);
+        assert!(
+            chunks
+                .iter()
+                .all(|chunk| encode_modified_utf8(chunk).is_some())
+        );
+        assert_eq!(chunks[1], "😀\0tail");
     }
 
     #[test]
