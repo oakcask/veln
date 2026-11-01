@@ -416,11 +416,11 @@ in that identity's reference set. The replacement must start with an ASCII
 lowercase letter. The qualifier portion of an alias-qualified reference keeps
 the separate import-alias identity described above.
 
-Public module values from retained direct dependencies participate in
-definition and workspace references by their package and module owner. Values
-with the same module and declaration name in different packages remain
-distinct. Their definitions use immutable `veln-pkg:` locations, so
-prepare-rename returns no range and rename returns no edits for a dependency
+Public module values from retained direct dependencies and the standard library
+participate in definition and workspace references by their package and module
+owner. Values with the same module and declaration name in different packages
+remain distinct. Their definitions use immutable `veln-pkg:` locations, so
+prepare-rename returns no range and rename returns no edits for a package
 selection.
 
 The checked

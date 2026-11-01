@@ -16,7 +16,8 @@ The following work remains planned:
 
 - transitive-dependency navigation;
 - remaining package definition and reference symbol classes outside the
-  implemented explicit-import-alias navigation scope;
+  implemented explicit-import-alias and module immutable-value navigation
+  scopes;
 - imported handlers and other workspace symbol reference classes outside the
   implemented same-module and imported-workspace effect boundaries and the
   implemented same-module and imported-workspace effect-operation boundaries
@@ -40,7 +41,8 @@ its evidence is added to the named current specification and checked route.
 | Conformance gate | Every requirement has one stable identifier and passing evidence, every evidence route maps to a requirement, and stale or undeclared capabilities fail the gate. | Versioned conformance manifest tests for missing rows, duplicate IDs, orphaned evidence, missing matrix cells, stale artifacts, undeclared capabilities, malformed requests, and plugin mismatches. |
 
 The remainder also includes broader definition navigation, unsupported package
-symbol classes, transitive dependencies, recovery identities and symbol
+symbol classes outside the implemented module immutable-value scope, transitive
+dependencies, recovery identities and symbol
 classes outside the shared recovery set specified by Editor Support and MCP,
 casing-neutral lookup outside current specified behavior, and any
 package-reference boundary not listed as implemented above. These rows must

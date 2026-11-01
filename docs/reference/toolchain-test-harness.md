@@ -362,6 +362,7 @@ The `publish-diagnostics`, `semantic-tokens`,
 `adt-variant-refinement-navigation`,
 `adt-variant-refinement-alias-navigation`,
 `explicit-import-alias-navigation`,
+`module-value-navigation`,
 `saved-navigation-cross-adapter`,
 `identifier-casing-snapshot-boundary`,
 `identifier-casing-overlay-boundary`, and
@@ -431,6 +432,10 @@ refinements, and empty results for invalid mixed-base or generic-argument
 unions. The adjacent `-alias-navigation` case covers generic,
 transitive, and imported workspace aliases while preserving the written alias
 rename boundary and UTF-16 ranges.
+The `module-value-navigation` LSP specification case uses decoded assertions
+for definition, declaration-inclusive references, prepare-rename, and rename
+across direct, qualified, and explicit-import-alias references to one module
+immutable-value identity.
 The paired `explicit-import-alias-navigation` LSP and MCP specification cases
 use decoded assertions for definition, references, and rename on the local
 alias qualifier and on a member reached through that qualifier. They check
