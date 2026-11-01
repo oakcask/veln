@@ -4,9 +4,10 @@ use std::fmt;
 
 use sha2::{Digest, Sha256};
 use veln_analysis::{
-    CapturedDependencyProject, DoctestMode, ProjectAnalysis, analyze_project,
-    analyze_project_with_captured_dependencies, derive_export_source_module_path,
-    derive_source_module_path, is_source_path_invalid_case_diagnostic,
+    CapturedDependencyIndex, CapturedDependencyProject, DoctestMode, ProjectAnalysis,
+    analyze_project, analyze_project_with_captured_dependency_index,
+    derive_export_source_module_path, derive_source_module_path,
+    is_source_path_invalid_case_diagnostic,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, Severity, write_json_string};
 use veln_project::{
@@ -213,6 +214,27 @@ impl PackageDocResult {
         dependency_snapshots: &PackageDocDependencySnapshots,
         generator_contract: PackageDocGeneratorContract,
     ) -> Self {
+        let dependency_index = CapturedDependencyIndex::new(dependencies);
+        Self::generate_with_dependency_index_and_snapshots(
+            identity,
+            snapshot,
+            manifest,
+            project_root,
+            &dependency_index,
+            dependency_snapshots,
+            generator_contract,
+        )
+    }
+
+    pub fn generate_with_dependency_index_and_snapshots(
+        identity: &PackageIdentity,
+        snapshot: &CapturedPackageSnapshot,
+        manifest: &ProjectManifest,
+        project_root: &std::path::Path,
+        dependency_index: &CapturedDependencyIndex<'_>,
+        dependency_snapshots: &PackageDocDependencySnapshots,
+        generator_contract: PackageDocGeneratorContract,
+    ) -> Self {
         let manifest = if manifest.source_bytes == snapshot.manifest_bytes() {
             let text = std::str::from_utf8(snapshot.manifest_bytes())
                 .expect("captured package manifest text is valid UTF-8");
@@ -225,7 +247,7 @@ impl PackageDocResult {
             snapshot,
             &manifest,
             project_root,
-            dependencies,
+            dependency_index,
             dependency_snapshots,
             generator_contract,
         )
@@ -555,7 +577,7 @@ struct PackageDocBuilder<'a> {
     snapshot: &'a CapturedPackageSnapshot,
     manifest: &'a ProjectManifest,
     project_root: &'a std::path::Path,
-    dependencies: &'a [CapturedDependencyProject],
+    dependency_index: &'a CapturedDependencyIndex<'a>,
     dependency_snapshot_digests: &'a HashMap<String, String>,
     generator_contract: PackageDocGeneratorContract,
     diagnostics: Vec<PackageDocDiagnostic>,

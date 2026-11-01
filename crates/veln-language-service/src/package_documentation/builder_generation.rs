@@ -6,7 +6,7 @@ impl<'a> PackageDocBuilder<'a> {
         snapshot: &'a CapturedPackageSnapshot,
         manifest: &'a ProjectManifest,
         project_root: &'a std::path::Path,
-        dependencies: &'a [CapturedDependencyProject],
+        dependency_index: &'a CapturedDependencyIndex<'a>,
         dependency_snapshots: &'a PackageDocDependencySnapshots,
         generator_contract: PackageDocGeneratorContract,
     ) -> Self {
@@ -15,7 +15,7 @@ impl<'a> PackageDocBuilder<'a> {
             snapshot,
             manifest,
             project_root,
-            dependencies,
+            dependency_index,
             dependency_snapshot_digests: &dependency_snapshots.snapshot_digests,
             generator_contract,
             diagnostics: Vec::new(),

@@ -710,12 +710,12 @@ fn dependency_resource_capacity_is_atomic() {
 }
 
 #[test]
-fn dependency_admission_prepares_snapshots_once_per_dependency() {
+fn dependency_admission_resolves_worst_position_imports_with_linear_work() {
     let mut evidence = Vec::new();
-    for size in [8, 16, 32] {
-        let dependencies = fixed_width_dependency_projects(size);
+    for importer_count in [8, 16, 32] {
+        let dependencies = shared_dependency_projects(importer_count);
         let mut resources = LanguageResources::checked().unwrap();
-        resources.set_test_remaining_package_capacity(size);
+        resources.set_test_remaining_package_capacity(dependencies.len());
         crate::language_resources::reset_dependency_preparation_work();
 
         let started = Instant::now();
@@ -723,24 +723,29 @@ fn dependency_admission_prepares_snapshots_once_per_dependency() {
         let elapsed = started.elapsed();
         let work = crate::language_resources::dependency_preparation_work();
 
-        assert_eq!(work.snapshot_captures, size);
-        assert_eq!(work.package_doc_generations, size);
-        evidence.push((size, work, elapsed));
+        assert_eq!(work.snapshot_captures, dependencies.len());
+        assert_eq!(work.package_doc_generations, dependencies.len());
+        assert_eq!(work.semantic_indexed_projects, dependencies.len());
+        assert_eq!(work.semantic_exact_probes, importer_count);
+        assert_eq!(work.semantic_local_root_probes, importer_count);
+        evidence.push((importer_count, work, elapsed));
     }
 
     for adjacent in evidence.windows(2) {
-        let [(smaller_size, smaller, _), (larger_size, larger, _)] = adjacent else {
+        let [(smaller_count, smaller, _), (larger_count, larger, _)] = adjacent else {
             unreachable!("adjacent evidence has exactly two entries")
         };
-        assert_eq!(*larger_size, smaller_size * 2);
-        assert_eq!(larger.snapshot_captures, smaller.snapshot_captures * 2);
-        assert_eq!(larger.captured_bytes, smaller.captured_bytes * 2);
+        assert_eq!(*larger_count, smaller_count * 2);
         assert_eq!(
-            larger.package_doc_generations,
-            smaller.package_doc_generations * 2
+            semantic_resolution_work(larger),
+            semantic_resolution_work(smaller) * 2 - 1
         );
     }
-    eprintln!("dependency admission preparation evidence: {evidence:?}");
+    eprintln!("dependency admission semantic-resolution evidence: {evidence:?}");
+}
+
+fn semantic_resolution_work(work: &crate::language_resources::DependencyPreparationWork) -> usize {
+    work.semantic_indexed_projects + work.semantic_exact_probes + work.semantic_local_root_probes
 }
 
 #[test]
@@ -759,6 +764,9 @@ fn over_capacity_dependency_admission_stops_after_linear_preparation() {
     assert_eq!(error, crate::language_resources::ResourceCapacityError);
     assert_eq!(work.snapshot_captures, dependencies.len());
     assert_eq!(work.package_doc_generations, 0);
+    assert_eq!(work.semantic_indexed_projects, dependencies.len());
+    assert_eq!(work.semantic_exact_probes, 0);
+    assert_eq!(work.semantic_local_root_probes, 0);
     retained.assert_unchanged(&resources);
     eprintln!(
         "over-capacity dependency preparation evidence: count={}, work={work:?}, elapsed={elapsed:?}",
@@ -850,6 +858,44 @@ fn fixed_width_dependency_projects(size: usize) -> Vec<CapturedDependencyProject
     (0..size)
         .map(|index| synthetic_dependency_project(&format!("example/dep-{index:04}"), "fixed body"))
         .collect()
+}
+
+fn shared_dependency_projects(importer_count: usize) -> Vec<CapturedDependencyProject> {
+    let mut dependencies = (0..importer_count)
+        .map(|index| {
+            let identity = format!("example/importer-{index:04}");
+            let root = format!("vendor/importer-{index:04}");
+            let manifest = format!(
+                "[package]\nname = \"{}\"\n\n[lib]\nexports = [\"dep.veln\"]\n\n[dependencies.\"example/shared\"]\npath = \"../shared\"\n",
+                identity
+            );
+            CapturedDependencyProject {
+                package: identity,
+                source: root.clone(),
+                project: Some(Project {
+                    root: PathBuf::from(root),
+                    files: vec![SourceFile::new(
+                        "dep.veln",
+                        "use shared from \"example/shared\"\npub let exposed: Int = shared::answer\n",
+                    )],
+                    manifest: Some(parse_manifest_text("veln.toml", &manifest)),
+                }),
+            }
+        })
+        .collect::<Vec<_>>();
+    dependencies.push(CapturedDependencyProject {
+        package: "example/shared".to_string(),
+        source: "vendor/shared".to_string(),
+        project: Some(Project {
+            root: PathBuf::from("vendor/shared"),
+            files: vec![SourceFile::new("dep.veln", "pub let answer: Int = 1\n")],
+            manifest: Some(parse_manifest_text(
+                "veln.toml",
+                &dependency_manifest("example/shared"),
+            )),
+        }),
+    });
+    dependencies
 }
 
 fn single_dependency_over_capacity_is_atomic() {

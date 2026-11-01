@@ -62,8 +62,8 @@ thread_local! {
 
 #[cfg(test)]
 pub(crate) use self::dependencies::{
-    dependency_preparation_work, dependency_snapshot_captures, reset_dependency_preparation_work,
-    reset_dependency_snapshot_captures,
+    DependencyPreparationWork, dependency_preparation_work, dependency_snapshot_captures,
+    reset_dependency_preparation_work, reset_dependency_snapshot_captures,
 };
 #[cfg(test)]
 pub(crate) use self::standard_library::standard_library_resource_builds;

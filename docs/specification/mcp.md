@@ -131,7 +131,11 @@ and the parsed manifest used for admission. Publication analysis receives the
 complete dependency set from the same stable capture. To keep admission work
 linear in the dependency count, one admission captures each valid dependency
 distribution once and reuses those prepared snapshots for resource keys,
-navigation, and every dependency package-documentation result. A saved
+navigation, and every dependency package-documentation result. The admission
+also builds one semantic dependency lookup index for the stable capture and
+shares it across every package-documentation analysis. Lookup first matches
+the exact package and source selector. An eligible local dependency can then
+match the same package at its normalized captured project root. A saved
 dependency that imports another captured dependency therefore publishes the
 same accepted public declarations without rereading either package from the
 host filesystem or recapturing another dependency for each generated result.
@@ -208,7 +212,8 @@ Markdown rendered from the checked catalog artifact. Standard-library
 package-documentation resource text is Markdown rendered from the retained
 embedded `std` package-documentation result. Dependency
 package-documentation resource text is Markdown rendered from the retained
-documentation revision named by the exact URI.
+canonical package-documentation result selected by the exact URI. The URI may
+select the same result for more than one retained dependency-context revision.
 Standard-library source resource text is the exact UTF-8 source text captured
 from the embedded package snapshot at server startup. Dependency source
 resource text is the exact UTF-8 source text retained from the admitted

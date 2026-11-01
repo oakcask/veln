@@ -18,9 +18,10 @@ use veln_source::SourceSpan;
 use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_failures};
 
 use crate::surface::{
-    CapturedDependencyProject, LoadedSurfaceModules, ReachabilityCache,
+    CapturedDependencyIndex, CapturedDependencyProject, LoadedSurfaceModules, ReachabilityCache,
     load_embedded_standard_surface_module_for_names, load_surface_modules,
-    load_surface_modules_with_captured_dependencies, reachable_entry_module_with_standard_cache,
+    load_surface_modules_with_captured_dependency_index,
+    reachable_entry_module_with_standard_cache,
 };
 
 static STANDARD_ENVIRONMENTS: OnceLock<StandardEnvironmentCache> = OnceLock::new();
@@ -341,11 +342,20 @@ pub fn analyze_project_with_captured_dependencies(
     doctest_mode: DoctestMode,
     dependencies: &[CapturedDependencyProject],
 ) -> ProjectAnalysis {
+    let dependencies = CapturedDependencyIndex::new(dependencies);
+    analyze_project_with_captured_dependency_index(project, doctest_mode, &dependencies)
+}
+
+pub fn analyze_project_with_captured_dependency_index(
+    project: Project,
+    doctest_mode: DoctestMode,
+    dependencies: &CapturedDependencyIndex<'_>,
+) -> ProjectAnalysis {
     analyze_project_with_surface_and_standard_provider(
         project,
         doctest_mode,
         None,
-        |project| load_surface_modules_with_captured_dependencies(project, dependencies),
+        |project| load_surface_modules_with_captured_dependency_index(project, dependencies),
         standard_environment_for_modules,
     )
 }

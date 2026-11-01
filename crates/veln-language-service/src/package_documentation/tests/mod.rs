@@ -133,12 +133,14 @@ fn generate_with_forced_declaration_id(
     let identity =
         manifest_field(&manifest.package.fields, "name").unwrap_or_else(|| "demo".to_string());
     let dependency_snapshots = PackageDocDependencySnapshots::default();
+    let dependencies = Vec::new();
+    let dependency_index = CapturedDependencyIndex::new(&dependencies);
     PackageDocBuilder::new(
         &identity,
         &snapshot,
         &manifest,
         Path::new("."),
-        &[],
+        &dependency_index,
         &dependency_snapshots,
         PackageDocGeneratorContract::new("contract-a"),
     )

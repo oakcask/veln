@@ -2,7 +2,7 @@ use super::*;
 
 pub(super) fn load_external_dependencies(
     project: &Project,
-    captured_dependencies: Option<&[CapturedDependencyProject]>,
+    captured_dependencies: Option<&CapturedDependencyIndex<'_>>,
     diagnostics: &mut Vec<Diagnostic>,
     parts: &mut SurfaceParts,
 ) {
@@ -54,7 +54,7 @@ pub(super) fn validate_standard_package_import(
 
 pub(super) fn load_external_dependency_package(
     project: &Project,
-    captured_dependencies: Option<&[CapturedDependencyProject]>,
+    captured_dependencies: Option<&CapturedDependencyIndex<'_>>,
     package: &str,
     use_decl: &UseDecl,
     diagnostics: &mut Vec<Diagnostic>,
@@ -112,7 +112,7 @@ pub(super) fn load_external_dependency_package(
 
 fn load_external_dependency_project<'a>(
     project: &'a Project,
-    captured_dependencies: Option<&[CapturedDependencyProject]>,
+    captured_dependencies: Option<&CapturedDependencyIndex<'_>>,
     package: &str,
     use_decl: &UseDecl,
     diagnostics: &mut Vec<Diagnostic>,
@@ -151,7 +151,7 @@ enum DependencyProjectLoadError {
 
 fn resolve_external_dependency_project(
     project: &Project,
-    captured_dependencies: Option<&[CapturedDependencyProject]>,
+    captured_dependencies: Option<&CapturedDependencyIndex<'_>>,
     dependency: &veln_project::ManifestDependency,
 ) -> Result<Project, DependencyProjectLoadError> {
     let dependency_project = match captured_dependencies {
@@ -187,26 +187,18 @@ fn load_direct_dependency_project(
     Project::discover(dependency_root, &[]).map_err(|_| DependencyProjectLoadError::Unavailable)
 }
 
-fn captured_dependency_project<'a>(
+fn captured_dependency_project<'capture>(
     project: &Project,
-    dependencies: &'a [CapturedDependencyProject],
+    dependencies: &CapturedDependencyIndex<'capture>,
     dependency: &veln_project::ManifestDependency,
-) -> Option<&'a CapturedDependencyProject> {
+) -> Option<&'capture CapturedDependencyProject> {
     let source = captured_dependency_source(dependency)?;
     dependencies
-        .iter()
-        .find(|captured| captured.package == dependency.package && captured.source == source)
+        .exact(&dependency.package, &source)
         .or_else(|| {
             let local_source = dependency.direct_local_source()?;
-            let expected_root =
-                veln_project::normalize_lexical_path(&project.root.join(&local_source.value));
-            dependencies.iter().find(|captured| {
-                captured.package == dependency.package
-                    && captured.project.as_ref().is_some_and(|captured_project| {
-                        veln_project::normalize_lexical_path(&captured_project.root)
-                            == expected_root
-                    })
-            })
+            let expected_root = project.root.join(&local_source.value);
+            dependencies.local_root(&dependency.package, &expected_root)
         })
 }
 

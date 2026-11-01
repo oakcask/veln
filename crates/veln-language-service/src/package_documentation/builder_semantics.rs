@@ -124,7 +124,7 @@ impl PackageDocBuilder<'_> {
             .filter(|source| source.exported)
             .map(|source| source.source.path().as_str())
             .collect::<BTreeSet<_>>();
-        let analysis = analyze_project_with_captured_dependencies(
+        let analysis = analyze_project_with_captured_dependency_index(
             Project {
                 root: self.project_root.to_path_buf(),
                 files: parsed_sources
@@ -134,7 +134,7 @@ impl PackageDocBuilder<'_> {
                 manifest: Some(self.manifest.clone()),
             },
             DoctestMode::Exclude,
-            self.dependencies,
+            self.dependency_index,
         );
         let diagnostics = analysis.checked_diagnostics();
         let mut gates = vec![None; diagnostics.len()];

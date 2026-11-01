@@ -1,5 +1,5 @@
 use sha2::{Digest, Sha256};
-use veln_analysis::CapturedDependencyProject;
+use veln_analysis::{CapturedDependencyIndex, CapturedDependencyProject};
 use veln_language_service::{
     DirectDependencySnapshot, PackageDocDependencySnapshots, PackageDocGeneratorContract,
     PackageDocResult, VirtualSourceCatalog, render_package_documentation,
@@ -20,6 +20,9 @@ thread_local! {
             snapshot_captures: 0,
             captured_bytes: 0,
             package_doc_generations: 0,
+            semantic_indexed_projects: 0,
+            semantic_exact_probes: 0,
+            semantic_local_root_probes: 0,
         }) };
 }
 
@@ -29,6 +32,9 @@ pub(crate) struct DependencyPreparationWork {
     pub(crate) snapshot_captures: usize,
     pub(crate) captured_bytes: usize,
     pub(crate) package_doc_generations: usize,
+    pub(crate) semantic_indexed_projects: usize,
+    pub(crate) semantic_exact_probes: usize,
+    pub(crate) semantic_local_root_probes: usize,
 }
 
 #[cfg(test)]
@@ -68,9 +74,9 @@ struct PreparedDependency<'a> {
 }
 
 pub(super) struct PreparedDependencyResources<'a> {
-    dependencies: &'a [CapturedDependencyProject],
     prepared: Vec<PreparedDependency<'a>>,
     package_doc_dependencies: PackageDocDependencySnapshots,
+    dependency_index: CapturedDependencyIndex<'a>,
     context_digest: String,
 }
 
@@ -86,10 +92,17 @@ impl<'a> PreparedDependencyResources<'a> {
                 .map(|dependency| (&dependency.identity, &dependency.snapshot)),
         );
         let context_digest = dependency_context_digest(dependencies);
+        let dependency_index = CapturedDependencyIndex::new(dependencies);
+        #[cfg(test)]
+        DEPENDENCY_PREPARATION_WORK.set({
+            let mut work = DEPENDENCY_PREPARATION_WORK.get();
+            work.semantic_indexed_projects += dependency_index.work().indexed_projects;
+            work
+        });
         Self {
-            dependencies,
             prepared,
             package_doc_dependencies,
+            dependency_index,
             context_digest,
         }
     }
@@ -109,17 +122,27 @@ impl<'a> PreparedDependencyResources<'a> {
     }
 
     pub(super) fn into_resources(self) -> Vec<DependencyResources> {
-        self.prepared
+        let resources = self
+            .prepared
             .into_iter()
             .filter_map(|dependency| {
                 dependency_resource(
                     dependency,
-                    self.dependencies,
+                    &self.dependency_index,
                     &self.package_doc_dependencies,
                     &self.context_digest,
                 )
             })
-            .collect()
+            .collect();
+        #[cfg(test)]
+        DEPENDENCY_PREPARATION_WORK.set({
+            let semantic = self.dependency_index.work();
+            let mut work = DEPENDENCY_PREPARATION_WORK.get();
+            work.semantic_exact_probes += semantic.exact_probes;
+            work.semantic_local_root_probes += semantic.local_root_probes;
+            work
+        });
+        resources
     }
 }
 
@@ -145,7 +168,7 @@ fn prepare_dependency(dependency: &CapturedDependencyProject) -> Option<Prepared
 
 fn dependency_resource(
     dependency: PreparedDependency<'_>,
-    dependencies: &[CapturedDependencyProject],
+    dependency_index: &CapturedDependencyIndex<'_>,
     package_doc_dependencies: &PackageDocDependencySnapshots,
     context_digest: &str,
 ) -> Option<DependencyResources> {
@@ -162,12 +185,12 @@ fn dependency_resource(
         work.package_doc_generations += 1;
         work
     });
-    let package_doc_result = PackageDocResult::generate_with_dependency_snapshots(
+    let package_doc_result = PackageDocResult::generate_with_dependency_index_and_snapshots(
         &identity,
         &snapshot,
         manifest,
         &project.root,
-        dependencies,
+        dependency_index,
         package_doc_dependencies,
         PackageDocGeneratorContract::new(veln_repo_mcp_standard_library_docs::GENERATOR_CONTRACT),
     );
