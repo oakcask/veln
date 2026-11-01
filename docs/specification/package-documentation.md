@@ -71,6 +71,12 @@ the documentation digest because the canonical result contains that snapshot
 digest. Catalog-semantic, schema, or generator-contract changes also affect
 the documentation digest.
 
+Captured dependency context is a generation input, but it is not independently
+encoded in the documentation identity. A dependency change that changes the
+catalog or failure status changes the canonical result bytes and the
+`doc-digest`. Two dependency contexts that produce the same canonical result
+bytes produce the same `doc-digest` and `veln-doc:` URIs.
+
 The implemented gates are parse, manifest, export, semantic visibility, module
 value, documentation-reference, doctest, and identity.
 

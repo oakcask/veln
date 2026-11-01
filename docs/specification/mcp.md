@@ -156,14 +156,21 @@ snapshot.
 
 A documentation revision key combines the documented source snapshot key with
 the complete dependency-context identity available before generation. That
-context identity covers the generator contract and every captured dependency's
-package and source selector, availability, manifest bytes, and source bytes.
+context identity covers the generator contract, stable capture order, and each
+captured dependency's package and source selector, project and manifest
+availability, exact manifest bytes, and ordered source paths and bytes.
 The server retains at most 256 distinct documentation revision keys, including
 the embedded standard-library revision. Each distinct combination consumes one
 revision slot even when its rendered bytes equal another revision. Repeating
 the same combination consumes no additional slot. A changed dependency context
 therefore produces a new documentation revision for an unchanged documented
 source snapshot without consuming another source slot.
+
+The revision key is a retention and capacity identity, not a published resource
+identity. The
+[package-documentation result identity](package-documentation.md#result-identity)
+still derives from canonical result bytes. Distinct revisions therefore share
+the same `veln-doc:` URIs when they produce the same canonical result.
 
 The server checks both capacities from prepared source and revision keys before
 it generates package documentation. If one operation would exceed either
@@ -446,9 +453,10 @@ Previously retained dependency source, package-documentation, search, and
 exact-read state remains unchanged. Stable-capture failure preserves the same
 state. Other language diagnostics do not imply this visibility-specific
 admission rule.
-If dependency resource admission exceeds retained package capacity after
-analysis succeeds, `check_project` returns `resource_capacity` and publishes no
-partial diagnostics, summary, or analysis metadata.
+If dependency resource admission exceeds the retained source-snapshot or
+documentation-revision capacity after analysis succeeds, `check_project`
+returns `resource_capacity` and publishes no partial diagnostics, summary, or
+analysis metadata.
 
 ## Saved Workspace Navigation
 
@@ -955,8 +963,9 @@ navigation. Stable capture retries are bounded; exhaustion returns
 `snapshot_changed` without success-only fields. A failed initial references
 capture preserves published resources, the prior navigation selection, and
 all existing cursors; it neither creates nor consumes a cursor. If dependency
-admission would exceed the retained package capacity, definition and references
-return `resource_capacity` without partial locations, scope, or new resources.
+admission would exceed the retained source-snapshot or documentation-revision
+capacity, definition and references return `resource_capacity` without partial
+locations, scope, or new resources.
 
 ## References
 
@@ -969,10 +978,10 @@ conversion is implemented by
 `crates/veln-mcp/src/reference_pagination.rs`. Protocol regression tests are in
 `crates/veln-mcp/src/server/tests/`. Dependency-resource tests use deterministic
 work counters to check one snapshot capture and one documentation generation
-per admitted dependency. Their capacity case checks that overflow performs no
-documentation generation and preserves prior lists, search candidates, and
-exact reads. Elapsed time is reported only as supporting evidence, not as a
-threshold. The checked embedded standard-library
+per admitted dependency. Their capacity cases check that either overflow
+performs no documentation generation and preserves prior lists, search
+candidates, and exact reads. Elapsed time is reported only as supporting
+evidence, not as a threshold. The checked embedded standard-library
 package-documentation bundle and generator contract are maintained by
 `tools/veln-repo-mcp-standard-library-docs/`; bundle validation and MCP resource
 transcripts check that generator-contract changes rotate exact documentation
