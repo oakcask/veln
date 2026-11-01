@@ -40,6 +40,16 @@ map has no entry for the dependency that owns a retained cause, generation
 uses the spanless `package_doc.dependency_snapshot_unavailable` diagnostic
 described under [Generation Gates](#generation-gates).
 
+A caller that generates documentation for more than one package from the same
+stable dependency capture can construct one `CapturedDependencyIndex` over
+those captured projects and call
+`PackageDocResult::generate_with_dependency_index_and_snapshots` for each
+package. The index remains tied to that captured project slice. Semantic import
+resolution first selects an exact package and source selector. An eligible
+local dependency can then select the same package at its normalized captured
+project root. Reusing the index changes neither the snapshot map used for
+diagnostic URIs nor the canonical result identity described below.
+
 ## Read First
 
 - Use [package-snapshots.md](package-snapshots.md) when changing captured
