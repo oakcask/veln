@@ -206,7 +206,8 @@ fn non_reusable_jobs_preflight_jvm_programs_before_cache_validation() {
         "fixture should force per-case JVM generation"
     );
 
-    let has_ready_job = preflight_runnable_test_case_jobs(&analysis, None, &cases);
+    let has_ready_job = preflight_runnable_test_case_jobs(&analysis, None, &cases)
+        .expect("test jobs should preflight");
 
     assert!(has_ready_job);
     let jobs = cases

@@ -22,6 +22,64 @@ fn test_reports_backend_generation_failures_before_human_or_json_reports() {
 
 #[cfg(unix)]
 #[test]
+fn test_mixed_suite_generation_failure_precedes_cache_and_java_launch() {
+    use std::os::unix::fs::PermissionsExt;
+
+    for (name, args) in [
+        ("human", vec!["--jobs", "1"]),
+        ("json", vec!["--json", "--jobs", "1"]),
+    ] {
+        let project = TestProject::new(&format!("test-mixed-generation-failure-{name}"));
+        project.write("first_test.veln", "test first_case() -> ()\n  ()\nend\n");
+        let oversized = "x".repeat(usize::from(u16::MAX) + 1);
+        project.write(
+            "second_test.veln",
+            &format!(
+                "test second_case() -> ()\n  let oversized = \"{oversized}\"\n  oversized\n  ()\nend\n"
+            ),
+        );
+        project.write(
+            "bin/java",
+            concat!(
+                "#!/bin/sh\n",
+                "printf '%s\\n' \"$*\" >> java-launches\n",
+                "exit 0\n",
+            ),
+        );
+        let java = project.root.join("bin/java");
+        let mut permissions = std::fs::metadata(&java)
+            .expect("fake java metadata should be available")
+            .permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&java, permissions).expect("fake java should be executable");
+        let tool_path = project.root.join("bin");
+
+        let output = project.test_with_path(
+            &args,
+            tool_path
+                .to_str()
+                .expect("fake tool path should be valid UTF-8"),
+        );
+
+        assert_eq!(output.status.code(), Some(2));
+        assert_eq!(stdout(&output), "");
+        assert_eq!(
+            stderr(&output),
+            "veln: JVM backend could not generate test `second_case`: JVM class constant-pool string exceeds 65535 bytes\n"
+        );
+        assert!(
+            !project.root.join("java-launches").exists(),
+            "preflight failure must prevent Java launch"
+        );
+        assert!(
+            !project.root.join(".veln-test-cache").exists(),
+            "preflight failure must prevent cache publication"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
 fn test_json_reports_rejected_discovered_doctest_origins_without_panicking() {
     let project = TestProject::new("test-json-invalid-doctest-origins");
     project.write("guide:part.veln", "## ```veln\n## 1\n## ```\n");

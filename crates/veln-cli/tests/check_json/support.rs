@@ -69,6 +69,10 @@ impl TestProject {
         self.veln(&["test"], args)
     }
 
+    pub(super) fn test_with_path(&self, args: &[&str], path: &str) -> Output {
+        self.veln_with_path("test", args, path)
+    }
+
     pub(super) fn repair(&self, args: &[&str]) -> Output {
         self.veln(&["repair"], args)
     }

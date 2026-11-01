@@ -194,7 +194,7 @@ fn execute_runnable_test_cases(
     timings.push("jvm_generation", generation_start.elapsed());
     let execution = Arc::new(TestJvmExecution::new());
     let has_ready_job =
-        preflight_runnable_test_case_jobs(&analysis, reusable_program.as_ref(), &runnable_cases);
+        preflight_runnable_test_case_jobs(&analysis, reusable_program.as_ref(), &runnable_cases)?;
     if has_ready_job {
         execution.get()?;
     }
@@ -226,31 +226,31 @@ fn preflight_runnable_test_case_jobs(
     analysis: &ProjectAnalysis,
     reusable_program: Option<&JvmProgram>,
     runnable_cases: &[TestCase],
-) -> bool {
+) -> Result<bool, String> {
     let mut has_ready_job = false;
     for case in runnable_cases {
-        if preflight_test_case_job(analysis, reusable_program, &case.name) {
+        if preflight_test_case_job(analysis, reusable_program, &case.name)? {
             has_ready_job = true;
         }
     }
-    has_ready_job
+    Ok(has_ready_job)
 }
 
 fn preflight_test_case_job(
     analysis: &ProjectAnalysis,
     reusable_program: Option<&JvmProgram>,
     case_name: &str,
-) -> bool {
+) -> Result<bool, String> {
     let Some(reachable) = analysis
         .reusable_standard_ir()
         .is_none()
         .then(|| analysis.lower_reachable_entry(case_name, FunctionKind::Test))
     else {
-        return reusable_program.is_some();
+        return Ok(reusable_program.is_some());
     };
 
     if !reachable.lowered.diagnostics.is_empty() {
-        return false;
+        return Ok(false);
     }
     if retained_user_effect_diagnostic(
         &reachable.module,
@@ -259,12 +259,14 @@ fn preflight_test_case_job(
     )
     .is_some()
     {
-        return false;
+        return Ok(false);
     }
     let Some(ir) = &reachable.lowered.ir else {
-        return false;
+        return Ok(false);
     };
-    try_generate_classfiles_with_entry(ir, case_name).is_ok()
+    try_generate_classfiles_with_entry(ir, case_name)
+        .map(|_| true)
+        .map_err(|error| format!("JVM backend could not generate test `{case_name}`: {error}"))
 }
 
 pub(crate) fn resolve_test_jobs(
