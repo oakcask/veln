@@ -11,7 +11,7 @@ use veln_ir::{
 };
 use veln_literals::parse_integer_literal;
 
-use crate::java::{sanitize_identifier_text, unique_java_identifier, veln_string_literal_value};
+use crate::java::{JavaIdentifierAllocator, sanitize_identifier_text, veln_string_literal_value};
 use crate::model::{
     EntryArgScalar, EntryArgType, JvmBackendError, JvmClassFile, JvmProgram, SanitizedOptions,
 };
@@ -560,37 +560,47 @@ pub(crate) fn contract_remainder_scan_work(program: &TypedProgram, function_name
     code.contract_remainder_scan_work
 }
 
+#[cfg(test)]
+pub(crate) fn module_value_identifier_allocation(program: &TypedProgram) -> (Vec<String>, usize) {
+    let options = SanitizedOptions {
+        program_class: "VelnProgram".to_string(),
+        runtime_class: "VelnRuntime".to_string(),
+    };
+    let emitter = ClassfileEmitter::new(program, options);
+    (
+        emitter.module_value_names.values().cloned().collect(),
+        emitter.identifier_allocation_work,
+    )
+}
+
 pub(crate) struct ClassfileEmitter<'a> {
     program: &'a TypedProgram,
     options: SanitizedOptions,
     function_names: BTreeMap<String, String>,
     module_value_names: BTreeMap<CoreModuleValueIdentity, String>,
     module_value_owners: BTreeMap<CoreModuleValueIdentity, String>,
+    #[cfg(test)]
+    identifier_allocation_work: usize,
 }
 
 impl<'a> ClassfileEmitter<'a> {
     pub(crate) fn new(program: &'a TypedProgram, options: SanitizedOptions) -> Self {
         let mut function_names = BTreeMap::new();
-        let mut used_names = BTreeSet::new();
+        let mut identifier_allocator = JavaIdentifierAllocator::new();
         for function in &program.functions {
-            let name = unique_java_identifier(
-                &format!("fn_{}", sanitize_identifier_text(&function.name)),
-                &mut used_names,
-            );
+            let name = identifier_allocator
+                .allocate(&format!("fn_{}", sanitize_identifier_text(&function.name)));
             function_names.insert(function.name.clone(), name);
         }
         let mut module_value_names = BTreeMap::new();
         for declaration in &program.module_values {
             let identity = &declaration.identity;
-            let name = unique_java_identifier(
-                &format!(
-                    "value_{}_{}_{}",
-                    sanitize_identifier_text(identity.package.as_deref().unwrap_or("current")),
-                    sanitize_identifier_text(identity.module.as_deref().unwrap_or("module")),
-                    sanitize_identifier_text(&identity.name),
-                ),
-                &mut used_names,
-            );
+            let name = identifier_allocator.allocate(&format!(
+                "value_{}_{}_{}",
+                sanitize_identifier_text(identity.package.as_deref().unwrap_or("current")),
+                sanitize_identifier_text(identity.module.as_deref().unwrap_or("module")),
+                sanitize_identifier_text(&identity.name),
+            ));
             module_value_names.insert(identity.clone(), name);
         }
         let mut emitter = Self {
@@ -599,6 +609,8 @@ impl<'a> ClassfileEmitter<'a> {
             function_names,
             module_value_names,
             module_value_owners: BTreeMap::new(),
+            #[cfg(test)]
+            identifier_allocation_work: identifier_allocator.allocation_work(),
         };
         for (position, declaration_index) in emitter
             .module_values_in_dependency_order()

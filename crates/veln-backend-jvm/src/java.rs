@@ -1,5 +1,52 @@
 use std::collections::BTreeSet;
 
+pub(crate) struct JavaIdentifierAllocator {
+    used_names: BTreeSet<String>,
+    next_suffix: usize,
+    #[cfg(test)]
+    allocation_work: usize,
+}
+
+impl JavaIdentifierAllocator {
+    pub(crate) fn new() -> Self {
+        Self {
+            used_names: BTreeSet::new(),
+            next_suffix: 1,
+            #[cfg(test)]
+            allocation_work: 0,
+        }
+    }
+
+    pub(crate) fn allocate(&mut self, base: &str) -> String {
+        let mut candidate = normalized_java_identifier(base);
+        #[cfg(test)]
+        {
+            self.allocation_work += 1;
+        }
+        if self.used_names.insert(candidate.clone()) {
+            return candidate;
+        }
+
+        let original = candidate;
+        loop {
+            candidate = format!("{original}_{}", self.next_suffix);
+            self.next_suffix += 1;
+            #[cfg(test)]
+            {
+                self.allocation_work += 1;
+            }
+            if self.used_names.insert(candidate.clone()) {
+                return candidate;
+            }
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn allocation_work(&self) -> usize {
+        self.allocation_work
+    }
+}
+
 pub(crate) fn java_type_identifier(name: &str) -> String {
     let sanitized = sanitize_identifier_text(name);
     if sanitized.is_empty() || is_java_keyword(&sanitized) {
@@ -25,7 +72,7 @@ pub(crate) fn sanitize_identifier_text(text: &str) -> String {
     output
 }
 
-pub(crate) fn unique_java_identifier(base: &str, used_names: &mut BTreeSet<String>) -> String {
+fn normalized_java_identifier(base: &str) -> String {
     let mut candidate = if base.is_empty() || is_java_keyword(base) {
         format!("_{base}")
     } else {
@@ -34,13 +81,6 @@ pub(crate) fn unique_java_identifier(base: &str, used_names: &mut BTreeSet<Strin
     if candidate == "_" {
         candidate = "_value".to_string();
     }
-    let original = candidate.clone();
-    let mut suffix = 1;
-    while used_names.contains(&candidate) || is_java_keyword(&candidate) {
-        candidate = format!("{original}_{suffix}");
-        suffix += 1;
-    }
-    used_names.insert(candidate.clone());
     candidate
 }
 

@@ -214,6 +214,45 @@ fn backend_module_value_identity_is_independent_of_source_import_and_first_use_o
     }
 }
 
+#[test]
+fn backend_allocates_colliding_package_value_names_with_linear_work() {
+    let mut ir = lower_to_ir("let selected: Int = 0\npub fn main() -> Int\n  selected\nend\n");
+    let template = ir.module_values.pop().expect("module value template");
+    let mut previous_work = None;
+    for declaration_count in [2_048, 4_096] {
+        let mut case = ir.clone();
+        for index in 0..declaration_count {
+            let mut declaration = template.clone();
+            let package_character = char::from_u32(0x4e00 + index as u32)
+                .expect("CJK package character should be valid Unicode");
+            assert!(!package_character.is_whitespace());
+            let package = package_character.to_string();
+            veln_project::PackageIdentity::new(package.clone())
+                .expect("CJK package identity should be portable NFC");
+            assert_eq!(sanitize_identifier_text(&package), "_");
+            declaration.identity.package = Some(package);
+            case.module_values.push(declaration);
+        }
+
+        let (names, allocation_work) = module_value_identifier_allocation(&case);
+        let unique_names = names.iter().collect::<std::collections::BTreeSet<_>>();
+
+        assert_eq!(names.len(), declaration_count);
+        assert_eq!(unique_names.len(), declaration_count);
+        assert!(
+            allocation_work <= declaration_count * 2 + case.functions.len(),
+            "colliding identifier allocation used {allocation_work} candidate checks"
+        );
+        if let Some(smaller_work) = previous_work {
+            assert!(
+                allocation_work <= smaller_work * 3,
+                "doubling declarations increased work from {smaller_work} to {allocation_work}"
+            );
+        }
+        previous_work = Some(allocation_work);
+    }
+}
+
 fn assert_module_value_identity_order(
     reverse_sources: bool,
     reverse_imports: bool,
@@ -221,13 +260,13 @@ fn assert_module_value_identity_order(
 ) {
     let imports = if reverse_imports {
         concat!(
-            "use shared as second from \"namesake/pkg\"\n",
-            "use shared as first from \"selected/pkg\"\n",
+            "use shared as second from \"丁\"\n",
+            "use shared as first from \"一\"\n",
         )
     } else {
         concat!(
-            "use shared as first from \"selected/pkg\"\n",
-            "use shared as second from \"namesake/pkg\"\n",
+            "use shared as first from \"一\"\n",
+            "use shared as second from \"丁\"\n",
         )
     };
     let reads = if reverse_first_use {
@@ -253,13 +292,13 @@ fn assert_module_value_identity_order(
     let mut selected = package_module(
         "selected/shared.veln",
         "pub let selected: Int = 11\n",
-        "selected/pkg",
+        "一",
         "shared",
     );
     let mut namesake = package_module(
         "namesake/shared.veln",
         "pub let selected: Int = 22\n",
-        "namesake/pkg",
+        "丁",
         "shared",
     );
     set_module_value_declaration_module(&mut selected, "shared");

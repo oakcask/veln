@@ -45,6 +45,61 @@ fn run_executes_oversized_module_strings_for_human_and_json_output() {
 
 #[cfg(unix)]
 #[test]
+fn run_generation_failure_precedes_cache_and_java_launch() {
+    use std::os::unix::fs::PermissionsExt;
+
+    for (name, args) in [
+        ("human", vec!["main", "main.veln"]),
+        ("json", vec!["--json", "main", "main.veln"]),
+    ] {
+        let project = TestProject::new(&format!("run-generation-failure-{name}"));
+        let oversized = "x".repeat(usize::from(u16::MAX) + 1);
+        project.write(
+            "main.veln",
+            &format!("pub fn main() -> String\n  \"{oversized}\"\nend\n"),
+        );
+        project.write(
+            "bin/java",
+            concat!(
+                "#!/bin/sh\n",
+                "printf '%s\\n' \"$*\" >> java-launches\n",
+                "exit 0\n",
+            ),
+        );
+        let java = project.root.join("bin/java");
+        let mut permissions = std::fs::metadata(&java)
+            .expect("fake java metadata should be available")
+            .permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&java, permissions).expect("fake java should be executable");
+        let tool_path = project.root.join("bin");
+
+        let output = project.run_with_path(
+            &args,
+            tool_path
+                .to_str()
+                .expect("fake tool path should be valid UTF-8"),
+        );
+
+        assert_eq!(output.status.code(), Some(2));
+        assert_eq!(stdout(&output), "");
+        assert_eq!(
+            stderr(&output),
+            "veln: JVM backend could not generate the program: JVM class constant-pool string exceeds 65535 bytes\n"
+        );
+        assert!(
+            !project.root.join("java-launches").exists(),
+            "generation failure must prevent Java launch"
+        );
+        assert!(
+            !project.root.join(".veln-test-cache").exists(),
+            "generation failure must prevent cache publication"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
 fn run_json_uses_stderr_message_for_trace_free_jvm_failure() {
     use std::os::unix::fs::PermissionsExt;
 
