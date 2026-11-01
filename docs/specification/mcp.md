@@ -519,12 +519,14 @@ The checked
 and
 [`module-value-dependency-navigation`](../../examples/specification/mcp/module-value-dependency-navigation/)
 and
+[`module-value-dependency-rename`](../../examples/specification/mcp/module-value-dependency-rename/)
+and
 [`module-value-dependency-reference-state`](../../examples/specification/mcp/module-value-dependency-reference-state/)
 and
 [`module-value-dependency-resource-state`](../../examples/specification/mcp/module-value-dependency-resource-state/)
 transcripts cover workspace and package definitions, exact workspace rename
 edits, edit-free package rename, empty reference results, one-based ranges,
-and state preservation across those requests.
+and workspace and resource state preservation across those requests.
 
 For an eligible public workspace effect, `definition` and `references` accept
 selection at the declaration, a bare same-module occurrence, or the

@@ -1,4 +1,2 @@
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"spec","version":"1"}}}
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":5,"column":26}}}
-{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":5,"column":26,"new_name":"result"}}}
-{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":5,"column":26}}}
