@@ -128,6 +128,12 @@ earlier runnable test can execute. The command writes a
 `veln: JVM backend could not generate ...` message to standard error and exits
 with status 2. It does not produce case records; `--json` does not emit a test
 JSON envelope for this command error.
+An accepted module immutable string or finite initializer is not rejected only
+because its complete representation exceeds one constant-pool string or one
+method. The backend emits bounded pieces before workers start and preserves the
+complete value. The
+[execution boundary](execution.md#runtime-readiness-and-host-boundaries)
+defines the supported values and remaining classfile limits.
 
 Workers capture output per case. The coordinator waits for all workers and
 renders human status, JSON cases, diagnostics, events, summaries, failures, and

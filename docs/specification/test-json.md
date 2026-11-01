@@ -122,6 +122,12 @@ before an earlier test can execute or publish cache state. It writes a
 `veln: JVM backend could not generate ...` command error to standard error and
 exits with status 2. The command emits no test JSON envelope or case record for
 this failure.
+An accepted module immutable string that needs more than 65,535 bytes in JVM
+modified UTF-8 is not a generation failure for that reason alone. A selected
+test that reads the complete value produces the normal passed case, summary,
+and output events. The
+[execution boundary](execution.md#runtime-readiness-and-host-boundaries)
+defines the materialization and classfile-limit boundary.
 
 Runtime contract failures inside a selected test case are reported as failed
 cases with `failure.kind: "contract"`. The failure details use

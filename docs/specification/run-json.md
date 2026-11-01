@@ -7,16 +7,19 @@ specification-coverage: usage=#usage; behavior=#returned-result-values; limits=#
 
 # Run JSON
 
-`veln run --json` selects and executes one entry. It emits one JSON document
-unless analysis fails before the run report can be constructed, in which case it
-emits the shared diagnostic envelope.
+`veln run --json` selects and executes one entry. When the invocation reaches
+run-report construction, it emits one run JSON document. An analysis failure
+instead emits the shared diagnostic envelope. A command failure before either
+envelope, including a JVM classfile generation failure, emits no JSON.
 
 ## Usage
 
 Run a project entry with `veln run --json ENTRY [PATH ...] [-- ARG ...]` (or the
-command's normal entry-selection options) and parse the single JSON document
-from stdout. `ENTRY` is required; `PATH` supplies optional source inputs and
-arguments after `--` are passed to the entry.
+command's normal entry-selection options). Parse the single JSON document from
+stdout after a run report or shared diagnostic envelope is produced. A command
+failure before envelope construction writes its diagnostic to standard error
+and leaves standard output empty. `ENTRY` is required; `PATH` supplies optional
+source inputs and arguments after `--` are passed to the entry.
 For example, a successful result begins:
 
 ```json
@@ -54,6 +57,12 @@ and does not claim that the program reached the backend. A JVM classfile
 generation failure occurs before report preparation. Even with `--json`, it
 writes a `veln: JVM backend could not generate the program: REASON` command
 error to standard error, exits with status 2, and emits no run JSON envelope.
+An accepted module immutable string that needs more than 65,535 bytes in JVM
+modified UTF-8 is not a generation failure for that reason alone. A successful
+entry that reads the complete value produces the normal passed envelope and
+captured output. The
+[execution boundary](execution.md#runtime-readiness-and-host-boundaries)
+defines the materialization and classfile-limit boundary.
 Other non-zero Java exits have `error.kind: "runtime"` and
 `details.phase: "runtime"`.
 
