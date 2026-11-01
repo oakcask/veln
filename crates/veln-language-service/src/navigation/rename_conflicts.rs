@@ -29,6 +29,24 @@ impl SymbolIndex {
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
         let selected = self.selected_module_value(result)?;
         let rename_index = self.function_rename_index();
+        self.module_value_owner_conflict(&selected, requested_name)
+            .or_else(|| {
+                self.module_value_post_rename_visibility_conflict(
+                    result,
+                    &selected,
+                    requested_name,
+                )
+            })
+            .or_else(|| {
+                self.module_value_lexical_conflict(result, requested_name, rename_index)
+            })
+    }
+
+    fn module_value_owner_conflict(
+        &self,
+        selected: &ModuleValueSymbol,
+        requested_name: &str,
+    ) -> Option<(NavigationLocation, RenameAffectedScope)> {
         self.module_values
             .iter()
             .find(|candidate| {
@@ -52,39 +70,38 @@ impl SymbolIndex {
                         module_rename_conflict(candidate.declaration.clone(), &selected.module)
                     })
             })
-            .or_else(|| {
-                self.module_value_post_rename_visibility_conflict(
-                    result,
-                    &selected,
-                    requested_name,
-                )
-            })
-            .or_else(|| {
-                self.affected_spans(result).into_iter().find_map(|span| {
-                    let (file, token_index) = self.file_token_for_span(span)?;
-                    if qualifier_for_token(&file.tokens, token_index).is_some() {
-                        return None;
-                    }
-                    self.local_conflict_in_file(file, requested_name, token_index)
-                        .or_else(|| {
-                            rename_index
-                                .handler_files
-                                .contains(file.source.path().as_str())
-                                .then(|| {
-                                    handler_binding_conflict_for_function_reference(
-                                        file,
-                                        &file.tokens,
-                                        rename_index
-                                            .scopes_by_file
-                                            .get(file.source.path().as_str())
-                                            .map(Vec::as_slice)
-                                            .unwrap_or(&[]),
-                                        token_index,
-                                        requested_name,
-                                    )
-                                })
-                                .flatten()
+    }
+
+    fn module_value_lexical_conflict(
+        &self,
+        result: &NavigationResult,
+        requested_name: &str,
+        rename_index: &FunctionRenameIndex,
+    ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        self.affected_spans(result).into_iter().find_map(|span| {
+            let (file, token_index) = self.file_token_for_span(span)?;
+            if qualifier_for_token(&file.tokens, token_index).is_some() {
+                return None;
+            }
+            self.local_conflict_in_file(file, requested_name, token_index)
+                .or_else(|| {
+                    rename_index
+                        .handler_files
+                        .contains(file.source.path().as_str())
+                        .then(|| {
+                            handler_binding_conflict_for_function_reference(
+                                file,
+                                &file.tokens,
+                                rename_index
+                                    .scopes_by_file
+                                    .get(file.source.path().as_str())
+                                    .map(Vec::as_slice)
+                                    .unwrap_or(&[]),
+                                token_index,
+                                requested_name,
+                            )
                         })
+                        .flatten()
                 })
             })
     }
@@ -96,8 +113,30 @@ impl SymbolIndex {
         requested_name: &str,
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
         let rename_index = self.function_rename_index();
-        let affected_bare_files = self
-            .affected_spans(result)
+        let affected_bare_files = self.affected_bare_module_value_files(result);
+        self.files
+            .iter()
+            .filter(|file| module_value_visible_after_rename(file, selected))
+            .find_map(|file| {
+                let affected_bare_reference =
+                    affected_bare_files.contains(file.source.path().as_str());
+                let scopes = rename_index
+                    .scopes_by_file
+                    .get(file.source.path().as_str())
+                    .map(Vec::as_slice)
+                    .unwrap_or(&[]);
+                self.module_value_visibility_conflict_in_file(
+                    file,
+                    selected,
+                    requested_name,
+                    affected_bare_reference,
+                    scopes,
+                )
+            })
+    }
+
+    fn affected_bare_module_value_files(&self, result: &NavigationResult) -> BTreeSet<String> {
+        self.affected_spans(result)
             .into_iter()
             .filter_map(|span| {
                 let (file, token_index) = self.file_token_for_span(span)?;
@@ -105,90 +144,126 @@ impl SymbolIndex {
                     .is_none()
                     .then(|| file.source.path().as_str().to_string())
             })
-            .collect::<BTreeSet<_>>();
-        self.files
+            .collect()
+    }
+
+    fn module_value_visibility_conflict_in_file(
+        &self,
+        file: &IndexedFile,
+        selected: &ModuleValueSymbol,
+        requested_name: &str,
+        affected_bare_reference: bool,
+        scopes: &[FunctionScope],
+    ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        self.local_module_value_visibility_conflict(
+            file,
+            selected,
+            requested_name,
+            affected_bare_reference,
+        )
+        .or_else(|| {
+            self.imported_module_value_visibility_conflict(
+                file,
+                selected,
+                requested_name,
+                affected_bare_reference,
+            )
+        })
+        .or_else(|| {
+            self.imported_function_visibility_conflict(
+                file,
+                requested_name,
+                affected_bare_reference,
+                scopes,
+            )
+        })
+        .map(|conflict| module_rename_conflict(conflict, &file.module))
+    }
+
+    fn local_module_value_visibility_conflict(
+        &self,
+        file: &IndexedFile,
+        selected: &ModuleValueSymbol,
+        requested_name: &str,
+        affected_bare_reference: bool,
+    ) -> Option<NavigationLocation> {
+        affected_bare_reference.then_some(())?;
+        self.module_values
             .iter()
-            .filter(|file| module_value_visible_after_rename(file, selected))
-            .find_map(|file| {
-                let affected_bare_reference =
-                    affected_bare_files.contains(file.source.path().as_str());
+            .find(|candidate| {
+                candidate.package.is_none()
+                    && candidate.module == file.module
+                    && candidate.name == requested_name
+                    && candidate.declaration != selected.declaration
+            })
+            .map(|candidate| candidate.declaration.clone())
+            .or_else(|| {
+                self.functions
+                    .iter()
+                    .find(|candidate| {
+                        candidate.package.is_none()
+                            && candidate.module == file.module
+                            && candidate.name == requested_name
+                    })
+                    .map(|candidate| candidate.declaration.clone())
+            })
+    }
 
-                let local_value = self.module_values.iter().find(|candidate| {
-                    candidate.package.is_none()
-                        && candidate.module == file.module
-                        && candidate.name == requested_name
-                        && candidate.declaration != selected.declaration
-                });
-                let local_function = self.functions.iter().find(|candidate| {
-                    candidate.package.is_none()
-                        && candidate.module == file.module
-                        && candidate.name == requested_name
-                });
-                if affected_bare_reference
-                    && let Some(conflict) = local_value
-                        .map(|candidate| candidate.declaration.clone())
-                        .or_else(|| local_function.map(|candidate| candidate.declaration.clone()))
-                {
-                    return Some(module_rename_conflict(conflict, &file.module));
-                }
-
-                let imported_value = self.module_values.iter().find(|candidate| {
-                    candidate.name == requested_name
-                        && candidate.declaration != selected.declaration
-                        && candidate.module != file.module
-                        && workspace_module_value_visible_in_file(file, candidate)
-                        && (affected_bare_reference
-                            || candidate.references.iter().any(|span| {
+    fn imported_module_value_visibility_conflict(
+        &self,
+        file: &IndexedFile,
+        selected: &ModuleValueSymbol,
+        requested_name: &str,
+        affected_bare_reference: bool,
+    ) -> Option<NavigationLocation> {
+        self.module_values
+            .iter()
+            .find(|candidate| {
+                candidate.name == requested_name
+                    && candidate.declaration != selected.declaration
+                    && candidate.module != file.module
+                    && workspace_module_value_visible_in_file(file, candidate)
+                    && (affected_bare_reference
+                        || candidate.references.iter().any(|span| {
                             span.file.as_str() == file.source.path().as_str()
                                 && self.file_token_for_span(span).is_some_and(
                                     |(_, token_index)| {
                                         qualifier_for_token(&file.tokens, token_index).is_none()
                                     },
                                 )
-                            }))
-                });
-                if let Some(candidate) = imported_value {
-                    return Some(module_rename_conflict(
-                        candidate.declaration.clone(),
-                        &file.module,
-                    ));
-                }
-
-                let imported_function = self.functions.iter().find(|candidate| {
-                    candidate.package.is_none()
-                        && candidate.public
-                        && candidate.module != file.module
-                        && candidate.name == requested_name
-                        && workspace_module_is_barely_imported(file, &candidate.module)
-                });
-                let candidate = imported_function?;
-                if affected_bare_reference {
-                    return Some(module_rename_conflict(
-                        candidate.declaration.clone(),
-                        &file.module,
-                    ));
-                }
-                let scopes = rename_index
-                    .scopes_by_file
-                    .get(file.source.path().as_str())
-                    .map(Vec::as_slice)
-                    .unwrap_or(&[]);
-                file.tokens
-                    .iter()
-                    .enumerate()
-                    .any(|(token_index, token)| {
-                        token.text == requested_name
-                            && is_bare_function_reference_token(
-                                &file.tokens,
-                                scopes,
-                                token_index,
-                                requested_name,
-                            )
-                    })
-                    .then(|| {
-                        module_rename_conflict(candidate.declaration.clone(), &file.module)
-                    })
+                        }))
             })
+            .map(|candidate| candidate.declaration.clone())
+    }
+
+    fn imported_function_visibility_conflict(
+        &self,
+        file: &IndexedFile,
+        requested_name: &str,
+        affected_bare_reference: bool,
+        scopes: &[FunctionScope],
+    ) -> Option<NavigationLocation> {
+        let candidate = self.functions.iter().find(|candidate| {
+            candidate.package.is_none()
+                && candidate.public
+                && candidate.module != file.module
+                && candidate.name == requested_name
+                && workspace_module_is_barely_imported(file, &candidate.module)
+        })?;
+        if affected_bare_reference
+            || file.tokens.iter().enumerate().any(|(token_index, token)| {
+                token.text == requested_name
+                    && is_bare_function_reference_token(
+                        &file.tokens,
+                        scopes,
+                        token_index,
+                        requested_name,
+                    )
+            })
+        {
+            return Some(candidate.declaration.clone());
+        }
+        None
     }
 
     fn import_alias_rename_conflict(
